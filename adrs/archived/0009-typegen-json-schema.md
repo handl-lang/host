@@ -56,7 +56,7 @@ assume any particular schema vocabulary.
   import path. This is static analysis of the data, not expression
   evaluation.
 - Emit generated files and inject IDE hint comments (`# yaml-language-server:
-  $schema=` for JSON Schema) into source files.
+$schema=` for JSON Schema) into source files.
 - **Be schema-system-agnostic**: the core typegen crate must not depend on
   any specific schema system. JSON Schema is the first backend; TypeScript
   `.d.ts`, Rust structs, or Python `TypedDict` could follow without
@@ -83,6 +83,7 @@ parent and removed. The typegen must mirror this at the type level:
    schema (same as runtime merge).
 
 This means the generated schema for:
+
 ```yaml
 fields:
   import:
@@ -283,7 +284,8 @@ itself is excluded; the imported schemas are spread in.
 ### Emergent behavior
 
 The `import` field pattern (`arg: { type: string }` + `expr: "import(arg)"`
-+ `merge: true`) is fully resolved by the typegen:
+
+- `merge: true`) is fully resolved by the typegen:
 
 1. The field is a merge field → excluded from the output schema.
 2. The `expr` is `import(arg)` → the typegen reads the data value

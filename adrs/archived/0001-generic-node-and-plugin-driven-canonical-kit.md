@@ -29,22 +29,22 @@ We will:
 
 ### Base crates become pure abstractions
 
-| crate | new responsibility |
-|---|---|
-| `handl-ast` | defines `Node` and per-shape node capabilities |
-| `handl-lexer` | defines `Token`, `Lexer`, and `TokenKind` capability trait |
+| crate          | new responsibility                                              |
+| -------------- | --------------------------------------------------------------- |
+| `handl-ast`    | defines `Node` and per-shape node capabilities                  |
+| `handl-lexer`  | defines `Token`, `Lexer`, and `TokenKind` capability trait      |
 | `handl-parser` | defines `Parser`, `Grammar`, and `GrammarRule` capability trait |
 
 ### Canonical implementation becomes plugins
 
 Existing `*-canonical` crates will be split into the smallest composable plugins, for example:
 
-| domain | example plugins |
-|---|---|
-| AST node shapes | `plugin-ast-call`, `plugin-ast-index`, `plugin-ast-pipe`, `plugin-ast-assign`, `plugin-ast-let`, `plugin-ast-match` |
-| Token kinds | `plugin-token-number`, `plugin-token-string`, `plugin-token-identifier`, `plugin-token-comment` |
-| Grammar rules | `plugin-grammar-call`, `plugin-grammar-index`, `plugin-grammar-pipe`, `plugin-grammar-assign`, `plugin-grammar-let`, `plugin-grammar-match` |
-| Value type families | `plugin-value-integer`, `plugin-value-string`, `plugin-value-decimal` |
+| domain              | example plugins                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| AST node shapes     | `plugin-ast-call`, `plugin-ast-index`, `plugin-ast-pipe`, `plugin-ast-assign`, `plugin-ast-let`, `plugin-ast-match`                         |
+| Token kinds         | `plugin-token-number`, `plugin-token-string`, `plugin-token-identifier`, `plugin-token-comment`                                             |
+| Grammar rules       | `plugin-grammar-call`, `plugin-grammar-index`, `plugin-grammar-pipe`, `plugin-grammar-assign`, `plugin-grammar-let`, `plugin-grammar-match` |
+| Value type families | `plugin-value-integer`, `plugin-value-string`, `plugin-value-decimal`                                                                       |
 
 `kit-canonical` will become a manifest that registers the curated set of these tiny plugins.
 

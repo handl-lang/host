@@ -85,7 +85,7 @@ desugar rule on the `entry` shape in kit data — no engine code changes.
   stripping an array wrapper is a single node rewrite, amortized once.
 - **ADR-0057's Rust changes become transitional.** The per-engine
   `array`-key branches added by ADR-0057 are removed once the desugar rule
-  is in place. ADR-0057's *language design* (bracket computed keys are
-  valid) stands; its *implementation* is superseded.
+  is in place. ADR-0057's _language design_ (bracket computed keys are
+  valid) stands; its _implementation_ is superseded.
 - **The parenthesized `(expr):` form needs no desugar** — it already
   produces a `paren` node, which falls into the "evaluate" branch unchanged.

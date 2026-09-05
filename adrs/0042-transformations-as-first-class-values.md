@@ -23,11 +23,11 @@ first-class.
 
 The move is the same move, one level up again:
 
-| level | what's first-class | the operator |
-|---|---|---|
-| 1 | functions | `apply : (A -> B) -> A -> B` |
-| 2 | languages | `eval : Language -> Source -> Value` |
-| 3 | transformations | `compose : (L -> L) -> (L -> L) -> (L -> L)` |
+| level | what's first-class | the operator                                 |
+| ----- | ------------------ | -------------------------------------------- |
+| 1     | functions          | `apply : (A -> B) -> A -> B`                 |
+| 2     | languages          | `eval : Language -> Source -> Value`         |
+| 3     | transformations    | `compose : (L -> L) -> (L -> L) -> (L -> L)` |
 
 A compiler stops being a build step and becomes a value you bind, pass,
 compose, and dispatch on. `compose(optimize, strip-io)` is a compiler
@@ -145,7 +145,7 @@ value, not a bridge.
   specialize, fuse, and dead-code-eliminate passes. The meta-level is
   the same level.
 - **Semantic interop as a value.** A translator is a `Language ->
-  Language` function, composable and inspectable. Polyglot programming
+Language` function, composable and inspectable. Polyglot programming
   is one value, not two runtimes with a bridge.
 - **Runtime specialization.** A compiler can be specialized to a
   specific language at runtime via ordinary partial application — the
@@ -159,7 +159,7 @@ value, not a bridge.
 - **Correctness is not guaranteed by composition.** Composing two
   semantic-preserving transformations preserves semantics only if both
   actually preserve semantics. The type system can track that a value is
-  a transformation, but not that it is a *correct* one. That is level 4
+  a transformation, but not that it is a _correct_ one. That is level 4
   (proofs) — see [ADR-0043](./0043-proofs-as-first-class-values.md).
 - **Performance of composed transformations.** Naive composition may
   produce intermediate `Language` values that are immediately

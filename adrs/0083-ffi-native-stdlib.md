@@ -33,7 +33,7 @@ handl "fs.read" = rust_fs_read   -- Rust body wrapping std::fs::read
 
 This means every native lib keeps a Rust crate that wraps a Rust ecosystem
 crate (`std::fs`, `rustls`, `hyper`, `tokio`, `sha2`, …). The `Module`/
-`Plugin` boilerplate is eliminated, but the Rust *implementation* stays —
+`Plugin` boilerplate is eliminated, but the Rust _implementation_ stays —
 one crate per native lib, forever.
 
 ### Why this is the wrong stopping point
@@ -48,7 +48,7 @@ one crate per native lib, forever.
 2. **Rust crate dependencies churn; C ABIs don't.** POSIX hasn't changed
    meaningfully in decades. OpenSSL's C ABI is older than Rust. `tokio`/
    `hyper`/`reqwest` churn their APIs every release. A POSIX FFI binding is
-   *more* stable than a Rust crate dependency.
+   _more_ stable than a Rust crate dependency.
 
 3. **The Rust impl crate layer is debt you'd pay to remove later.** If the
    long-term goal is "stdlib is handl, Rust stops growing," building Rust
@@ -64,8 +64,8 @@ one crate per native lib, forever.
 ### What already exists
 
 - **`op`/`handl` declaration form** (ADR-0077 Phase 2) — `op "x.y" : T -> T`
-  + `handl "x.y" = impl` in `.hnl` source. The `impl` currently names a Rust
-  identifier; this ADR adds a `ffi_bind` op.
+  - `handl "x.y" = impl` in `.hnl` source. The `impl` currently names a Rust
+    identifier; this ADR adds a `ffi_bind` op.
 - **`OpRegistry` + `OpFunction`** (`plugin-lib-handl/src/op_registry.rs`) —
   op name → `Function` impl dispatch. `OpFunction` is the eval-time bridge.
   The `Function` trait is the dispatch contract; an `FfiOpFunction` impls it
@@ -112,6 +112,7 @@ handl "libc.open" = ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "
 ```
 
 The `ffi_bind` op takes:
+
 - **Library name** (`String`) — resolved by the dynamic loader
   (`dlopen`/`LoadLibrary`). May be a concrete name (`"libc.so.6"`) or an
   alias resolved by the host (`"libc"` → platform-specific path).
@@ -171,21 +172,21 @@ between host and guest.
 A fixed, small set of marshalling descriptors covers the vast majority of C
 ABIs:
 
-| Descriptor | C type | handl value | Marshalling |
-|---|---|---|---|
-| `i32` | `int32_t` | `Number` | check fit, pass by value (error on overflow) |
-| `i64` | `int64_t` | `Number` | check fit, pass by value (error on overflow) |
-| `f64` | `double` | `Number` | pass by value |
-| `cstr` | `const char*` | `String` | null-terminate UTF-8, error on embedded NUL, pass pointer |
-| `cbytes` | `const void* + size_t` | `Bytes` | raw bytes, no UTF-8 validation, (ptr, len) pair |
-| `in_buf` | `const void* + size_t` | `Bytes` | C reads from buffer, handl keeps ownership, (ptr, len) pair |
-| `out_buf(n)` | `void* + size_t` | `Bytes` (output) | allocate `n` bytes, pass `(ptr, n)` as two C args, return `{ ret, buf }` where `buf` is the first `ret` bytes (or all `n` if `ret` is not a count) |
-| `ptr` | `void*` | opaque `Handle` | pass through raw pointer |
-| `void` | `void` | `Unit` | no return value |
-| `handle` | `void*` | opaque `Handle` | wrap in resource table entry |
-| `out_struct(fields)` | `struct T*` (out-param) | handl record | allocate struct with `#[repr(C)]` layout, pass ptr, extract fields by computed offset after call |
-| `i32?` / `i64?` / … | optional C arg | `Number?` | pass only if the caller provides a value; omit from the C call otherwise (for conditional args like `open`'s `mode`) |
-| `...` | variadic tail | remaining args | C variadic call (e.g. `printf`); each trailing arg marshalled by its handl type |
+| Descriptor           | C type                  | handl value      | Marshalling                                                                                                                                        |
+| -------------------- | ----------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `i32`                | `int32_t`               | `Number`         | check fit, pass by value (error on overflow)                                                                                                       |
+| `i64`                | `int64_t`               | `Number`         | check fit, pass by value (error on overflow)                                                                                                       |
+| `f64`                | `double`                | `Number`         | pass by value                                                                                                                                      |
+| `cstr`               | `const char*`           | `String`         | null-terminate UTF-8, error on embedded NUL, pass pointer                                                                                          |
+| `cbytes`             | `const void* + size_t`  | `Bytes`          | raw bytes, no UTF-8 validation, (ptr, len) pair                                                                                                    |
+| `in_buf`             | `const void* + size_t`  | `Bytes`          | C reads from buffer, handl keeps ownership, (ptr, len) pair                                                                                        |
+| `out_buf(n)`         | `void* + size_t`        | `Bytes` (output) | allocate `n` bytes, pass `(ptr, n)` as two C args, return `{ ret, buf }` where `buf` is the first `ret` bytes (or all `n` if `ret` is not a count) |
+| `ptr`                | `void*`                 | opaque `Handle`  | pass through raw pointer                                                                                                                           |
+| `void`               | `void`                  | `Unit`           | no return value                                                                                                                                    |
+| `handle`             | `void*`                 | opaque `Handle`  | wrap in resource table entry                                                                                                                       |
+| `out_struct(fields)` | `struct T*` (out-param) | handl record     | allocate struct with `#[repr(C)]` layout, pass ptr, extract fields by computed offset after call                                                   |
+| `i32?` / `i64?` / …  | optional C arg          | `Number?`        | pass only if the caller provides a value; omit from the C call otherwise (for conditional args like `open`'s `mode`)                               |
+| `...`                | variadic tail           | remaining args   | C variadic call (e.g. `printf`); each trailing arg marshalled by its handl type                                                                    |
 
 **Integer marshalling checks for overflow, does not truncate silently.**
 A `Number` marshalled to `i32` that doesn't fit in `[-2^31, 2^31)` raises
@@ -210,9 +211,11 @@ the return is a status code, not a count — the caller discards excess).
 The caller accesses the result via `result.buf`.
 
 Example for `read(fd, void *buf, size_t count)`:
+
 ```handl
 handl "libc.read" = ffi_bind "libc" "read" ["i32", "out_buf:8192"] "i64" { on: "Lt(ret, 0)", errno: true }
 ```
+
 The descriptor list `["i32", "out_buf:8192"]` expands to three C args:
 `fd, ptr, 8192`. The return is `{ ret: i64, buf: Bytes }`.
 
@@ -299,6 +302,7 @@ ADR-0078's `value_types.yaml`:
 ```
 
 With native representation:
+
 ```yaml
 - target: native
   type: Bytes
@@ -360,7 +364,7 @@ by the dispatcher immediately after the C call returns, inside
 `errno` is thread-local and the dispatcher operates on the same thread
 as the C call. A separate `errno()` op would be racy — handl code (or
 another FFI call) between the failing call and the errno read would
-clobber `errno`. The error clause is the *only* mechanism for obtaining
+clobber `errno`. The error clause is the _only_ mechanism for obtaining
 errno. The async scheduler (§9) must not yield between a C call and its
 errno read — the dispatcher guarantees this by reading errno inside
 `Function::call` before returning to the engine.
@@ -379,6 +383,7 @@ plugin-ffi  (leaf)
 ```
 
 The dispatcher:
+
 1. **Loads libraries** (cached by name — `dlopen` once, reuse).
 2. **Looks up symbols** (cached by library + symbol — `dlsym` once).
 3. **Marshals args** per the descriptor (handl `Value` → C types).
@@ -405,7 +410,7 @@ mismatches before any C call is made.
 descriptor set (`i32`, `cstr`, `out_buf`, `out_struct`, …) is a fixed
 Rust enum — adding a new marshalling pattern is a kernel edit. This is
 consistent with the engine-genericity rule: the marshalling types are
-primitive *forms* (like `LexerPattern` variants), not language
+primitive _forms_ (like `LexerPattern` variants), not language
 constructs. The escape hatch for unsupported marshalling is a per-op
 handl wrapper that decomposes the call into supported descriptors (e.g.
 a complex struct return becomes an `out_struct` + field extraction in
@@ -471,6 +476,7 @@ EPOLLOUT   = 4
 ```
 
 **Semantics:**
+
 - **Type:** bindings of integer literals are `Number` (inferred). No
   explicit type annotation needed.
 - **FFI coercion:** when a binding is passed to an FFI op, the
@@ -574,24 +580,24 @@ new platform is a new `.hnl` file, not a kernel recompile.
 The Rust surface area is fixed and minimal. It does not grow when you add
 a stdlib lib.
 
-| Crate | Role | Grows? |
-|---|---|---|
-| `handl-language` | `Language` data model, `Ast`, `Scheme`, `Value` | No (calculus vocabulary) |
-| `handl-runtime` | Binds `Language` to engines, staged lex/parse/eval | No |
-| `handl-value` | Value type representations | No |
-| `platform` | `Plugin`/`Module`/`Function` traits, `ModuleRuntime` | No |
-| `plugin-module` | `ModuleRuntime`, `ModuleRule`, `ModuleRegistry` | No |
-| `plugin-engine-lex-pattern` | Lexer engine | No |
-| `plugin-engine-parse-pratt` | Parser engine | No |
-| `plugin-engine-eval-tree-walk` | Tree-walk interpreter | No |
-| `plugin-engine-eval-cranelift` | JIT compiler | No |
-| `plugin-engine-eval-bytecode` | Bytecode VM | No |
-| `plugin-engine-typecheck-nbe` | Typecheck engine | No |
-| `plugin-lib-handl` | Generic `.hnl` loader (`HandlModule`, `OpRegistry`) | No |
-| `plugin-ffi` | FFI dispatcher (this ADR) | No |
-| `plugin-loader-native` | Dynamic library loading | No |
-| `plugin-lib-prim` | Calculus atoms (`add`, `compare`, `alloc`, `or`) — kernel vocabulary, not stdlib | No |
-| `plugin-lib-lang-*` (6 crates) | Meta functions (eval/lex/parse/compile/typecheck/run_compiled) — the self-hosting bridge | No |
+| Crate                          | Role                                                                                     | Grows?                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------ |
+| `handl-language`               | `Language` data model, `Ast`, `Scheme`, `Value`                                          | No (calculus vocabulary) |
+| `handl-runtime`                | Binds `Language` to engines, staged lex/parse/eval                                       | No                       |
+| `handl-value`                  | Value type representations                                                               | No                       |
+| `platform`                     | `Plugin`/`Module`/`Function` traits, `ModuleRuntime`                                     | No                       |
+| `plugin-module`                | `ModuleRuntime`, `ModuleRule`, `ModuleRegistry`                                          | No                       |
+| `plugin-engine-lex-pattern`    | Lexer engine                                                                             | No                       |
+| `plugin-engine-parse-pratt`    | Parser engine                                                                            | No                       |
+| `plugin-engine-eval-tree-walk` | Tree-walk interpreter                                                                    | No                       |
+| `plugin-engine-eval-cranelift` | JIT compiler                                                                             | No                       |
+| `plugin-engine-eval-bytecode`  | Bytecode VM                                                                              | No                       |
+| `plugin-engine-typecheck-nbe`  | Typecheck engine                                                                         | No                       |
+| `plugin-lib-handl`             | Generic `.hnl` loader (`HandlModule`, `OpRegistry`)                                      | No                       |
+| `plugin-ffi`                   | FFI dispatcher (this ADR)                                                                | No                       |
+| `plugin-loader-native`         | Dynamic library loading                                                                  | No                       |
+| `plugin-lib-prim`              | Calculus atoms (`add`, `compare`, `alloc`, `or`) — kernel vocabulary, not stdlib         | No                       |
+| `plugin-lib-lang-*` (6 crates) | Meta functions (eval/lex/parse/compile/typecheck/run_compiled) — the self-hosting bridge | No                       |
 
 **Total: ~17 crates, ~6,000 lines.** This is the kernel. It does not grow.
 Adding a stdlib lib = adding a `.hnl` file. Adding a language = adding YAML
@@ -600,7 +606,7 @@ data. Adding a target = adding a per-platform `libc.hnl`.
 #### Why `plugin-lib-handl` and `plugin-lib-lang-*` cannot be handl
 
 These crates are the **bootstrap** — the circular dependency at the bottom
-of the self-hosting stack. They cannot be handl because they *are* the
+of the self-hosting stack. They cannot be handl because they _are_ the
 mechanism that runs handl.
 
 **`plugin-lib-handl`** is the generic `.hnl` loader. It reads a `.hnl`
@@ -658,13 +664,15 @@ and `plugin-lib-prim`:
   (native — replaced by handl over FFI)
 
 Also eliminated:
+
 - `kit-stdlib` Rust wiring (replaced by a data manifest listing `.hnl` files)
 - ADR-0051's `plugin-ffi-rust` (never built — superseded by `plugin-ffi`)
 
 **~48 crates, ~44,000 lines of Rust deleted** (of 56 `plugin-lib-*` crates
 total; 8 stay — `plugin-lib-handl`, `plugin-lib-prim`, 6 × `plugin-lib-lang-*`).
 What remains is the ~6,000-line kernel (~17 crates including `plugin-lib-prim`)
-+ N `.hnl` files.
+
+- N `.hnl` files.
 
 ### 9. The async runtime — handl-authored from day one
 
@@ -695,6 +703,7 @@ Why not the `libuv` short-term path:
   shines (arrow graphs, state machines, compositional contracts).
 
 The scheduler is hard but bounded. The core loop is:
+
 1. `epoll_wait` for ready events (FFI)
 2. Dispatch each event to the corresponding task's waker (handl)
 3. Run ready tasks until they block or complete (handl)
@@ -730,8 +739,9 @@ scheduler — no cooperative yield needed inside the guest's tree-walk
 engine. The host pauses/resumes entire guest runtime instances.
 
 This is cleaner than cooperative scheduling inside a single engine:
+
 - The guest engine stays simple (single-threaded, no yield points)
-- The scheduler is at a higher level than the guest (it *owns* the
+- The scheduler is at a higher level than the guest (it _owns_ the
   guest runtimes)
 - Scheduling decisions are made by handl code (the scheduler), not by
   Rust engine internals
@@ -780,7 +790,7 @@ feature — it flows through the existing dispatch path.
 
 This is a real project — likely the hardest single lib in the migration.
 But it is the right investment: it's the one place where handl-authored
-logic over FFI is *better* than a Rust implementation, not just equivalent,
+logic over FFI is _better_ than a Rust implementation, not just equivalent,
 because the scheduler's correctness properties are verifiable in handl.
 
 ### 10. Kernel freedom
@@ -869,7 +879,7 @@ The FFI ABI is the stable contract. The kernel evolves freely behind it.
   calls), not Rust closures.
 - **Already-migrated crates (prim, cmp, stats, hello, collections, …) are
   unaffected.** Their `op`/`handl` declarations stay; only the `handl "x" =
-  rust_x` bindings that point at Rust bodies change to `ffi_bind` or pure
+rust_x` bindings that point at Rust bodies change to `ffi_bind` or pure
   handl arrow graphs.
 - **The `handl "x" = rust_x` form is not removed.** It remains for the
   `plugin-lib-lang-*` meta functions (eval, lex, parse, compile, typecheck)
@@ -921,81 +931,81 @@ arrow graph, never a Rust crate. The kernel stops growing.
 
 No FFI needed. Arrow graphs over `prim.*` or other handl libs.
 
-| Lib | Status |
-|---|---|
-| `prim` | Migrated (atoms — see Tier 3 for FFI version) |
-| `fn` | Pure handl (already `.hnl`) |
-| `cmp` | Migrated (`op`/`handl`, Rust bodies → pure handl) |
-| `collections` | Migrated (partially — finish pure-handl port) |
-| `stats` | Migrated (`HandlModule`) |
-| `hello` | Migrated (`HandlModule`) |
-| `dedent` | Pure handl (string manipulation) |
-| `type` | Pure handl logic, calls kernel meta ops (`type_of`) via `plugin-lib-lang-*` |
-| `utils` | Mixed — pure-handl parts done, finish the rest |
-| `tag` | Pure handl (tagging system) |
-| `serialize` | Pure handl (over `json`/`yaml`/`toml`) |
-| `kv` / `kv-hashmap` | Pure handl (in-memory store) |
-| `parse` | Pure handl (parser combinators) |
-| `arrow-iter` | Pure handl (arrow iteration) |
-| `test` | Pure handl logic, calls kernel meta ops (`compile`, `run_compiled`) via `plugin-lib-lang-*` for compiled-code execution |
+| Lib                 | Status                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `prim`              | Migrated (atoms — see Tier 3 for FFI version)                                                                           |
+| `fn`                | Pure handl (already `.hnl`)                                                                                             |
+| `cmp`               | Migrated (`op`/`handl`, Rust bodies → pure handl)                                                                       |
+| `collections`       | Migrated (partially — finish pure-handl port)                                                                           |
+| `stats`             | Migrated (`HandlModule`)                                                                                                |
+| `hello`             | Migrated (`HandlModule`)                                                                                                |
+| `dedent`            | Pure handl (string manipulation)                                                                                        |
+| `type`              | Pure handl logic, calls kernel meta ops (`type_of`) via `plugin-lib-lang-*`                                             |
+| `utils`             | Mixed — pure-handl parts done, finish the rest                                                                          |
+| `tag`               | Pure handl (tagging system)                                                                                             |
+| `serialize`         | Pure handl (over `json`/`yaml`/`toml`)                                                                                  |
+| `kv` / `kv-hashmap` | Pure handl (in-memory store)                                                                                            |
+| `parse`             | Pure handl (parser combinators)                                                                                         |
+| `arrow-iter`        | Pure handl (arrow iteration)                                                                                            |
+| `test`              | Pure handl logic, calls kernel meta ops (`compile`, `run_compiled`) via `plugin-lib-lang-*` for compiled-code execution |
 
 ### Tier 2 — Handl over FFI (direct C/POSIX bindings)
 
 FFI data bindings + handl arrow graph abstraction layer.
 
-| Lib | FFI target | Difficulty |
-|---|---|---|
-| `fs` | POSIX (`open`/`read`/`write`/`close`/`stat`) | Easy |
-| `os` | POSIX (`getenv`/`setenv`/`exec`/`fork`/`wait`/`time`) | Easy |
-| `net` | POSIX (`socket`/`bind`/`listen`/`accept`/`connect`/`recv`/`send`) | Easy |
-| `base64` | Pure handl or FFI to `libbase64` | Trivial |
-| `hex` | Pure handl | Trivial |
-| `encoding` | Over `base64`/`hex` | Trivial |
-| `crypto` | OpenSSL / libsodium C ABI | Easy–Medium |
-| `compress` | zlib / libdeflate C ABI | Easy |
-| `compress-gzip` | zlib gzip C ABI | Easy |
-| `tls` | OpenSSL C ABI (not rustls) | Medium |
-| `ip` | Pure handl (parsing/logic) or `libc` inet ops | Easy |
-| `url` | Pure handl (RFC parsing) | Easy |
-| `archive` / `archive-tar` | libarchive C ABI or pure handl | Medium |
-| `datetime` | `libc` time FFI + handl calendar logic | Medium |
-| `rand` | `getrandom(2)` FFI + handl distributions | Easy |
-| `unicode` | ICU C ABI or pure handl tables | Medium |
-| `intl` | ICU C ABI | Medium |
-| `json` | Pure handl parser (or FFI to `libjq` for perf) | Easy |
-| `yaml` | libyaml C ABI | Medium |
-| `toml` | Pure handl parser | Easy |
-| `http` | HTTP/1.1 over `net` (handl framing); HTTP/2 harder | Medium |
-| `otlp` | Over `http` + `proto` (handl) | Medium |
-| `ws` | WebSocket framing over `net` (handl) + `tls` | Medium |
+| Lib                       | FFI target                                                        | Difficulty  |
+| ------------------------- | ----------------------------------------------------------------- | ----------- |
+| `fs`                      | POSIX (`open`/`read`/`write`/`close`/`stat`)                      | Easy        |
+| `os`                      | POSIX (`getenv`/`setenv`/`exec`/`fork`/`wait`/`time`)             | Easy        |
+| `net`                     | POSIX (`socket`/`bind`/`listen`/`accept`/`connect`/`recv`/`send`) | Easy        |
+| `base64`                  | Pure handl or FFI to `libbase64`                                  | Trivial     |
+| `hex`                     | Pure handl                                                        | Trivial     |
+| `encoding`                | Over `base64`/`hex`                                               | Trivial     |
+| `crypto`                  | OpenSSL / libsodium C ABI                                         | Easy–Medium |
+| `compress`                | zlib / libdeflate C ABI                                           | Easy        |
+| `compress-gzip`           | zlib gzip C ABI                                                   | Easy        |
+| `tls`                     | OpenSSL C ABI (not rustls)                                        | Medium      |
+| `ip`                      | Pure handl (parsing/logic) or `libc` inet ops                     | Easy        |
+| `url`                     | Pure handl (RFC parsing)                                          | Easy        |
+| `archive` / `archive-tar` | libarchive C ABI or pure handl                                    | Medium      |
+| `datetime`                | `libc` time FFI + handl calendar logic                            | Medium      |
+| `rand`                    | `getrandom(2)` FFI + handl distributions                          | Easy        |
+| `unicode`                 | ICU C ABI or pure handl tables                                    | Medium      |
+| `intl`                    | ICU C ABI                                                         | Medium      |
+| `json`                    | Pure handl parser (or FFI to `libjq` for perf)                    | Easy        |
+| `yaml`                    | libyaml C ABI                                                     | Medium      |
+| `toml`                    | Pure handl parser                                                 | Easy        |
+| `http`                    | HTTP/1.1 over `net` (handl framing); HTTP/2 harder                | Medium      |
+| `otlp`                    | Over `http` + `proto` (handl)                                     | Medium      |
+| `ws`                      | WebSocket framing over `net` (handl) + `tls`                      | Medium      |
 
 ### Tier 3 — Atoms (kernel primitives, not stdlib)
 
-| Lib | Path |
-|---|---|
+| Lib    | Path                                                                                                                                                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prim` | `prim.add` / `prim.compare` / `prim.alloc` / `prim.or` — calculus atoms (ADR-0052). Integer addition and bitwise OR are CPU instructions, not C functions — cannot be FFI. Stays Rust in `plugin-lib-prim` as kernel vocabulary. |
 
 ### Tier 4 — Async runtime (handl-authored, hardest lib)
 
-| Lib | Path |
-|---|---|
+| Lib          | Path                                                                                                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `concurrent` | Handl-authored scheduler over `epoll` FFI ops. No `libuv` bridge. Core loop: `epoll_wait` → dispatch to wakers → run ready tasks → repeat. Contracts (fairness, termination, cancellation) verifiable in handl's axiom system. |
 
 ### Tier 5 — Kernel (stays Rust, never migrates)
 
-| Crate | Role |
-|---|---|
-| `handl-language` | `Language`/`Ast`/`Scheme`/`Value` data model |
-| `handl-runtime` | Engine binding, staged execution |
-| `handl-value` | Value representations |
-| `platform` | `Plugin`/`Module`/`Function` traits |
-| `plugin-module` | `ModuleRuntime`/`ModuleRule`/`ModuleRegistry` |
-| `plugin-engine-*` (7 crates) | Lexer/parser/eval/typecheck engines |
-| `plugin-lib-handl` | Generic `.hnl` loader |
-| `plugin-ffi` | FFI dispatcher (this ADR) |
-| `plugin-loader-native` | Dynamic library loading |
-| `plugin-lib-prim` | Calculus atoms (`add`, `compare`, `alloc`, `or`) |
-| `plugin-lib-lang-*` (6 crates) | Meta functions (self-hosting bridge) |
+| Crate                          | Role                                             |
+| ------------------------------ | ------------------------------------------------ |
+| `handl-language`               | `Language`/`Ast`/`Scheme`/`Value` data model     |
+| `handl-runtime`                | Engine binding, staged execution                 |
+| `handl-value`                  | Value representations                            |
+| `platform`                     | `Plugin`/`Module`/`Function` traits              |
+| `plugin-module`                | `ModuleRuntime`/`ModuleRule`/`ModuleRegistry`    |
+| `plugin-engine-*` (7 crates)   | Lexer/parser/eval/typecheck engines              |
+| `plugin-lib-handl`             | Generic `.hnl` loader                            |
+| `plugin-ffi`                   | FFI dispatcher (this ADR)                        |
+| `plugin-loader-native`         | Dynamic library loading                          |
+| `plugin-lib-prim`              | Calculus atoms (`add`, `compare`, `alloc`, `or`) |
+| `plugin-lib-lang-*` (6 crates) | Meta functions (self-hosting bridge)             |
 
 ## Appendix: Execution plan
 
@@ -1172,15 +1182,15 @@ suite verifying the stdlib works against it without coupling to internals.
 
 ### Summary
 
-| Phase | What | Rust deleted | New Rust |
-|---|---|---|---|
-| 0 | FFI dispatcher + `ffi_bind` + `prim.or` | 0 | ~1 crate (`plugin-ffi`) + 1 atom (`prim.or`) |
-| 0.5 | `Bytes` type (ADR-0078 Phase 2) | 0 | 0 (extends `handl-value`) |
-| 1 | `stdlib/libc/linux.hnl` (POSIX FFI ops + constants) | 0 | 0 |
-| 2 | Stdlib port to `stdlib/{pkg}/` (Tier 1 + 2) | ~48 crates | 0 |
-| 3 | Kit wiring as `stdlib/stdlib.yaml` manifest | 1 crate (`kit-stdlib`) | 0 |
-| 4 | Async runtime (`stdlib/concurrent/`, host-level scheduler over epoll) | 1 crate (`concurrent`) | 0 (requires finalizable values in `handl-value`) |
-| 5 | Kernel stabilization | 0 | 0 (documentation) |
+| Phase | What                                                                  | Rust deleted           | New Rust                                         |
+| ----- | --------------------------------------------------------------------- | ---------------------- | ------------------------------------------------ |
+| 0     | FFI dispatcher + `ffi_bind` + `prim.or`                               | 0                      | ~1 crate (`plugin-ffi`) + 1 atom (`prim.or`)     |
+| 0.5   | `Bytes` type (ADR-0078 Phase 2)                                       | 0                      | 0 (extends `handl-value`)                        |
+| 1     | `stdlib/libc/linux.hnl` (POSIX FFI ops + constants)                   | 0                      | 0                                                |
+| 2     | Stdlib port to `stdlib/{pkg}/` (Tier 1 + 2)                           | ~48 crates             | 0                                                |
+| 3     | Kit wiring as `stdlib/stdlib.yaml` manifest                           | 1 crate (`kit-stdlib`) | 0                                                |
+| 4     | Async runtime (`stdlib/concurrent/`, host-level scheduler over epoll) | 1 crate (`concurrent`) | 0 (requires finalizable values in `handl-value`) |
+| 5     | Kernel stabilization                                                  | 0                      | 0 (documentation)                                |
 
 **End state:** ~17 Rust crates (the kernel, ~6,000 lines, does not grow) +
 N `.hnl` files (the entire stdlib). Adding a lib = adding a `.hnl` file.

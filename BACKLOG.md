@@ -3,7 +3,7 @@
 ## Tooling (low priority — self-hosting, see `project/rfcs/`)
 
 Bootstrap tooling (ADR-0085..0091 — improving the existing `plugin-*`
-crates; no new tooling crates) is high priority and tracked in TODO.md. Everything below is the *low priority* self-hosting
+crates; no new tooling crates) is high priority and tracked in TODO.md. Everything below is the _low priority_ self-hosting
 follow-up: porting the tooling to handl itself once the language is stable.
 The generic Rust substrate (plugin system, `plugin-ext-*`,
 `plugin-engine-*`) stays as bootstrap and fallback (ADR-0085 rule 6).

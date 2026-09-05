@@ -67,25 +67,25 @@ Minimal, constrained. For microcontrollers / embedded targets. Stripped module s
 
 ### Composition patterns (orthogonal decorators)
 
-| Decorator | Adds |
-|---|---|
-| `CacheHost` | Memoization layer |
-| `ResolverHost` | Runtime `import()` |
-| `ModuleHost` | Module composition |
-| Resource-limit wrapper | Depth / memory / time budgets |
-| Audit wrapper | Call logging / observability |
-| Permission wrapper | Capability-based access control |
+| Decorator              | Adds                            |
+| ---------------------- | ------------------------------- |
+| `CacheHost`            | Memoization layer               |
+| `ResolverHost`         | Runtime `import()`              |
+| `ModuleHost`           | Module composition              |
+| Resource-limit wrapper | Depth / memory / time budgets   |
+| Audit wrapper          | Call logging / observability    |
+| Permission wrapper     | Capability-based access control |
 
 ### Distinguishing dimensions
 
-| Dimension | Range |
-|---|---|
-| I/O access | none → filesystem → network → process → GPU |
-| Execution model | sync → async → lazy → resumable → parallel |
-| Sandboxing | full OS → limited → pure only |
-| Persistence | stateless → cached → content-addressed → checkpointable |
-| Target | native → browser/WASM → embedded → GPU → game engine → edge |
-| Module set | empty (`DefaultHost`) → utils → platform → everything |
+| Dimension       | Range                                                       |
+| --------------- | ----------------------------------------------------------- |
+| I/O access      | none → filesystem → network → process → GPU                 |
+| Execution model | sync → async → lazy → resumable → parallel                  |
+| Sandboxing      | full OS → limited → pure only                               |
+| Persistence     | stateless → cached → content-addressed → checkpointable     |
+| Target          | native → browser/WASM → embedded → GPU → game engine → edge |
+| Module set      | empty (`DefaultHost`) → utils → platform → everything       |
 
 ## Consequences
 

@@ -51,6 +51,7 @@ pub struct CapabilitySet {
 ```
 
 Compute `CapabilitySet` by walking the `Language`'s eval schemes:
+
 - `Scheme::Foreign { name, .. }` → add `name` to `host_fns`.
 - `Scheme::Vau { .. }` → set `has_vau = true`, `can_eval = true`.
 - If `host_fns` contains `"eval"` or `"run"` → `can_eval = true`.
@@ -170,7 +171,7 @@ about other `Language` values before evaluating them.
 ### Negative
 
 - **Over-approximation.** `CapabilitySet` lists all capabilities the
-  language *might* use, not what a specific program *will* use. A language
+  language _might_ use, not what a specific program _will_ use. A language
   with `fs-write` in its host fns is flagged even if the specific program
   never calls it. This is the arrow/monad tradeoff: static structure
   over-approximates.

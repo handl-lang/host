@@ -34,7 +34,7 @@ The `HostApplier` mechanism will be replaced by an applier plugin.
 
 4. **The existing `HostApplier` trait and `ConfigHostApplier` struct can be deprecated**.
    - `HostConfig` and `KitReference`/`PluginReference` remain in `handl-platform` as the in-memory model.
-   - The actual *act* of applying the config moves from `handl-platform` to a plugin.
+   - The actual _act_ of applying the config moves from `handl-platform` to a plugin.
 
 ## Consequences
 

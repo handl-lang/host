@@ -55,7 +55,7 @@ that two `type.pi` from the same source are the same, beyond string equality.
 ### What dependent-type languages do
 
 Agda, Idris, and Lean treat types as first-class values you can pass, compute
-with, and return — but the *representation* of a type value is the
+with, and return — but the _representation_ of a type value is the
 typechecker's, owned internally. User code cannot forge a type value; it can
 only produce one by evaluating a type expression through the typechecker's
 normalizer. handl adopts the same property, generalized: tagging is a host
@@ -95,16 +95,16 @@ they are the same minted registry.
 The value language gains three `Arr` ops (ADR-0052), offered by the host as
 capabilities:
 
-| Op | Meaning |
-|---|---|
-| `tag_registry()` | mint a fresh code-level registry. Host capability — not callable by arbitrary user code unless granted. |
+| Op                             | Meaning                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `tag_registry()`               | mint a fresh code-level registry. Host capability — not callable by arbitrary user code unless granted.                   |
 | `tag(registry, name, payload)` | mint a tagged value: `{"__tag__": name, "__registry__": registry, …payload}`. Host capability — only the host mints tags. |
-| `match_tag(v, cases)` | dispatch on the tag of `v`; cases bind the payload fields. Available to any code that holds `v`. |
+| `match_tag(v, cases)`          | dispatch on the tag of `v`; cases bind the payload fields. Available to any code that holds `v`.                          |
 
 `tag` and `tag_registry` are minting capabilities (host-secured);
 `match_tag` is the inspection op (anyone holding a tagged value can read its
-tag and fields). This matches capability discipline: the power to *create*
-a tagged value or registry is restricted; the power to *inspect* a held value
+tag and fields). This matches capability discipline: the power to _create_
+a tagged value or registry is restricted; the power to _inspect_ a held value
 is not.
 
 ### 3. Representation — tagged values are `serde_json::Value`
@@ -135,10 +135,10 @@ The registry determines equality semantics:
   the typechecker needs for base types, Pi/Sigma/Forall.
 - **Nominal-by-registry identity** (code-level registries): two tagged
   values are equal iff their `__registry__` identities are the same minted
-  registry *and* their `__tag__` names match. Two `meters` tags from
-  *different* code-level registries are **not equal** even if names and
+  registry _and_ their `__tag__` names match. Two `meters` tags from
+  _different_ code-level registries are **not equal** even if names and
   payloads match — they are distinct nominal types. Two `meters` tags from
-  the *same* code-level registry are equal. This is what makes user-defined
+  the _same_ code-level registry are equal. This is what makes user-defined
   types, units, and capabilities distinct by identity.
 
 The typechecker uses the host registry (structural). User code uses code-level
@@ -238,8 +238,8 @@ they call `match_tag`.
 
 ### Scope boundary — what this ADR does NOT promise
 
-- It does **not** introduce nominal-by-reference identity for *objects*.
-  Nominal equality is by *registry* identity, not by value reference; two
+- It does **not** introduce nominal-by-reference identity for _objects_.
+  Nominal equality is by _registry_ identity, not by value reference; two
   tagged values from the same registry with the same name and payload are
   equal.
 - It does **not** define the full set of type tags (`type.collection`,

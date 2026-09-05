@@ -106,20 +106,20 @@ and a `Choice`:
     fst: !Arr
       op: route_on_type
       args:
-      - !Arr { op: proj_child, args: [], source: Native, lit: 0 }
+        - !Arr { op: proj_child, args: [], source: Native, lit: 0 }
       source: Native
       lit: "string"
     snd: !Choice
-      l: !Arr            # string callee → host function
+      l: !Arr # string callee → host function
         op: call_host
         args:
-        - !Arr { op: proj_child, args: [], source: Native, lit: 0 }
-        - !Arr { op: proj_child, args: [], source: Native, lit: 1 }
+          - !Arr { op: proj_child, args: [], source: Native, lit: 0 }
+          - !Arr { op: proj_child, args: [], source: Native, lit: 1 }
         source: DynamicForeign
-      r: !App            # non-string callee → closure application
+      r: !App # non-string callee → closure application
         callee: !Arr { op: proj_child, args: [], source: Native, lit: 0 }
         args:
-        - !Arr { op: proj_child, args: [], source: Native, lit: 1 }
+          - !Arr { op: proj_child, args: [], source: Native, lit: 1 }
 ```
 
 `route_on_type` takes a value and a literal type tag, returns

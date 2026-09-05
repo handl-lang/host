@@ -18,7 +18,7 @@ ADR-0041 introduced the meta host functions — `lex`, `parse`, `eval`, `run`,
 `Language` a first-class value: a handl program can write `eval(self, ast)` and
 recursively evaluate. ADR-0044 §3 split each operation into an abstraction
 crate (`plugin-engine-*`) and engine crates, but did **not** specify where the
-*handl-callable* meta functions live. They were implemented in
+_handl-callable_ meta functions live. They were implemented in
 `handl-runtime/src/meta.rs` as a single `MetaHostFunctions` struct that
 implements `HostFunctions` and is wired in by `build_runtime` / `Kit::new`.
 
@@ -40,7 +40,7 @@ do so without forking `handl-runtime`.
 
 The obstruction to a naive `plugin-lib-lang` is that each meta function calls
 `build_runtime(lang, config, delegate)` to spin up a sub-`Runtime` and recurse
-— that recursion *is* the self-hosting property. So the meta functions appear
+— that recursion _is_ the self-hosting property. So the meta functions appear
 to need `handl-runtime`. But `plugin-lib-*` crates are leaves: none of them
 depend on `handl-runtime` today (verified: zero `handl-runtime` deps across
 all `plugin-lib-*` `Cargo.toml`). A `plugin-lib-lang` that depended on
@@ -50,7 +50,7 @@ all `plugin-lib-*` `Cargo.toml`). A `plugin-lib-lang` that depended on
 
 `lang.eval` is already taken in the **data** model: engines look up
 `lang.eval[node.kind]` → `EvalSchemeDef` → `Scheme` to interpret a node kind
-(ADR-0044 §4). Reusing `lang.eval` as a *callable* host-function name makes
+(ADR-0044 §4). Reusing `lang.eval` as a _callable_ host-function name makes
 "the eval scheme for a node kind" and "call eval on an AST" share a symbol.
 The bare names `eval`/`parse`/`lex` currently dodge this, but at the cost of
 living outside the `plugin-lib-*` namespace convention.
@@ -71,13 +71,13 @@ language-agnostic platform layer — `Plugin`, `CapabilityRequest`,
 
 Introduce five `plugin-lib-*` crates mirroring `plugin-lib-json`/`toml`:
 
-| Crate                  | Module   | Callable                          |
-| ---------------------- | -------- | --------------------------------- |
-| `plugin-lib-lex`       | `lex`    | `lex.lex(lang, text)`             |
-| `plugin-lib-parse`     | `parse`  | `parse.parse(lang, tokens)`       |
-| `plugin-lib-eval`      | `eval`   | `eval.eval(lang, ast)`            |
-| `plugin-lib-compile`   | `compile`| `compile.compile(lang, ast, target)` |
-| `plugin-lib-run-compiled` | `run_compiled` | `run_compiled.run_compiled(handle)` |
+| Crate                     | Module         | Callable                             |
+| ------------------------- | -------------- | ------------------------------------ |
+| `plugin-lib-lex`          | `lex`          | `lex.lex(lang, text)`                |
+| `plugin-lib-parse`        | `parse`        | `parse.parse(lang, tokens)`          |
+| `plugin-lib-eval`         | `eval`         | `eval.eval(lang, ast)`               |
+| `plugin-lib-compile`      | `compile`      | `compile.compile(lang, ast, target)` |
+| `plugin-lib-run-compiled` | `run_compiled` | `run_compiled.run_compiled(handle)`  |
 
 Each is a leaf: depends on `handl-runtime` (the abstraction crate, see §2) +
 `handl-language` only. Each exposes one `Module` whose `function(name)`
@@ -128,7 +128,7 @@ no `handl-runtime` edit.
 **`handl-runtime`'s `Cargo.toml` drops all 5 engine impl crates.** It depends
 only on `handl-language` + the three abstraction crates (`plugin-engine-lex`,
 `plugin-engine-parse`, `plugin-engine-eval`) for the engine trait definitions
-and `HostFunctions`/`HostFn`. The engine *impls* (tree-walk, bytecode,
+and `HostFunctions`/`HostFn`. The engine _impls_ (tree-walk, bytecode,
 cranelift, pratt, lex-pattern) are deps of the **host**, not of
 `handl-runtime`. This is the key decoupling: a `handl-runtime` consumer is
 not forced to link cranelift.

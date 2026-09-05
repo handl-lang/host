@@ -14,7 +14,7 @@ The tooling improvements (ADR-0086/0087/0088/0089) need a single entry
 point, and the stdlib needs run/eval access. `host-cli` (with
 `plugin-ext-cli`) already provides the `hnl` binary and capability wiring;
 what it needs is the canonical subcommand surface over the improved plugin
-crates. A *new* sophisticated plugin-loading protocol is premature while
+crates. A _new_ sophisticated plugin-loading protocol is premature while
 there are exactly these tools and one language surface.
 
 ## Decision
@@ -44,7 +44,7 @@ host-cli (hnl)
   hnl eval  '<expression>'
   ```
 
-- **No *new* plugin system.** No capability registry, no dynamic loading,
+- **No _new_ plugin system.** No capability registry, no dynamic loading,
   no process-protocol plugins are invented here — subcommands dispatch to
   the tool crates, which expose themselves through the existing
   `plugin-ext-*` capability contracts (ADR-0085 rule 5). This exercises

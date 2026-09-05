@@ -8,16 +8,16 @@ Accepted. Phases 1–4 are implemented and the Phase 4 cross-language acceptance
 
 ADR-0058 (Accepted) migrated four primitives (`var`/`call`/`object`/pattern-match) to data and declared "no new language-specific logic in engines." That claim holds for those four. But `eval_block`, `closure`, and typecheck shape dispatch still hardcode `kind ==` checks ADR-0058 didn't cover:
 
-| Engine | Site | Hardcoded check |
-|---|---|---|
-| `plugin-engine-eval-tree-walk` | `closure` | `kind == "paren" \|\| "array"` (1053) |
-| `plugin-engine-eval-tree-walk` | `closure` key | `kind == "var" \|\| "string"` (1249, 1259) |
-| `plugin-engine-eval-tree-walk` | `eval_block` | `kind == "assign"` (1544, 2283, 2352) |
-| `plugin-engine-eval-tree-walk` | `eval_block` | `kind == "return"` (2323) |
-| `plugin-engine-typecheck-nbe` | synth/check | `kind == "type-annot"` (884, 1109) |
-| `plugin-engine-typecheck-nbe` | block | `kind == "block"` (1247) |
-| `plugin-engine-typecheck-nbe` | params | `kind == "paren" \|\| "var"` (1378, 1403, 3593) |
-| `plugin-engine-typecheck-nbe` | block children | `kind == "assign" \|\| "return"` (2628, 2631, 2695) |
+| Engine                         | Site           | Hardcoded check                                     |
+| ------------------------------ | -------------- | --------------------------------------------------- |
+| `plugin-engine-eval-tree-walk` | `closure`      | `kind == "paren" \|\| "array"` (1053)               |
+| `plugin-engine-eval-tree-walk` | `closure` key  | `kind == "var" \|\| "string"` (1249, 1259)          |
+| `plugin-engine-eval-tree-walk` | `eval_block`   | `kind == "assign"` (1544, 2283, 2352)               |
+| `plugin-engine-eval-tree-walk` | `eval_block`   | `kind == "return"` (2323)                           |
+| `plugin-engine-typecheck-nbe`  | synth/check    | `kind == "type-annot"` (884, 1109)                  |
+| `plugin-engine-typecheck-nbe`  | block          | `kind == "block"` (1247)                            |
+| `plugin-engine-typecheck-nbe`  | params         | `kind == "paren" \|\| "var"` (1378, 1403, 3593)     |
+| `plugin-engine-typecheck-nbe`  | block children | `kind == "assign" \|\| "return"` (2628, 2631, 2695) |
 
 A primitive that needs "the binding target of an `assign`" can only get it by testing `kind == "assign"` and assuming child 0 is the target. A language with different kind names (`set` instead of `assign`, `params` instead of `paren`) can't reuse these primitives without engine edits — a breach of "language as data" ([ADR-0044](./0044-language-as-data-and-runtime-split.md)).
 
@@ -93,6 +93,7 @@ Define a language with renamed kinds (`set`/`params`/`body`) but identical roles
 **Phase 1–2** (prior session): `AstShapeDef.children` / `ChildRoleSpec` schema added; `Language::child_role_index(kind, role)` resolver added; roles declared in `data/ast.yaml` for `assign`, `block`, `function`, `return`, `type-annot`, and others.
 
 **Phase 3** (this change): Replaced the remaining `kind == "paren" || kind == "array"` shape heuristics in the eval engines with `Language::has_variadic_role(kind)`, which inspects `AstShapeDef` role metadata. Sites converted:
+
 - `plugin-engine-eval-cranelift` — two closure param-list sites (runtime + helper).
 - `plugin-engine-eval-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
 - `handl-runtime/desugar_pass.rs` — `type-annot` detection now uses `child_role_index(kind, "annot")` first (threaded `&Language` through `try_rust_desugar`/`desugar_data`/`parse_data_payload`/`collect_constructors`/`desugar_match_to_recursor`).

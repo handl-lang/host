@@ -6,58 +6,63 @@
 ## Summary of Actions
 
 ### ✅ Archived (Fully Complete)
+
 1. **ADR-0001 (Remaining) → Moved to archived/**
    - **Status:** Complete (superseded by ADR-0044 data-driven architecture)
    - **File:** `archived/0001-generic-node-and-plugin-driven-canonical-kit-remaining-archived.md`
    - **What was done:** Canonical kit cleaned up via YAML data files (tokens.yaml, grammar.yaml, etc.) in `kit-data-canonical` instead of plugin crates
    - **Why moved:** Original goal achieved, though via different approach
 
-### 🔄 Split into "Done" + "Remaining" 
+### 🔄 Split into "Done" + "Remaining"
 
 #### 2. ADR-0002 (Plugin Model)
-   - **Archived:** `archived/0002-handl-platform-composable-host-v1-complete.md`
-     - ✅ Unified `Plugin` model implemented
-     - ✅ `Behavior<Op>` trait working (30+ implementations across codebase)
-     - ✅ Legacy `Extension`/`CommandProvider`/`Library` removed
-     - ✅ Host is pure composer with `PluginRegistry`
-   - **Remaining:** `0002-handl-platform-composable-host-remaining.md` (updated)
-     - ❌ plugin-lib-* crate conversion (20+ crates using Module/Function pattern)
-     - ❌ Decision needed: Should these use `Behavior<Op>` or stay as Module/Function abstraction?
-     - ❌ Library dependency expression and options handling
+
+- **Archived:** `archived/0002-handl-platform-composable-host-v1-complete.md`
+  - ✅ Unified `Plugin` model implemented
+  - ✅ `Behavior<Op>` trait working (30+ implementations across codebase)
+  - ✅ Legacy `Extension`/`CommandProvider`/`Library` removed
+  - ✅ Host is pure composer with `PluginRegistry`
+- **Remaining:** `0002-handl-platform-composable-host-remaining.md` (updated)
+  - ❌ plugin-lib-* crate conversion (20+ crates using Module/Function pattern)
+  - ❌ Decision needed: Should these use `Behavior<Op>` or stay as Module/Function abstraction?
+  - ❌ Library dependency expression and options handling
 
 #### 3. ADR-0025 (HTTP Server)
-   - **Archived:** `archived/0025-http-server-v1-complete.md` (new)
-     - ✅ Client crates renamed (lib-http → lib-http-client)
-     - ✅ Module async/operation dispatch extended
-     - ✅ Abstract server interface (`HttpServer` trait)
-     - ✅ Concrete std implementation with tokio/hyper
-     - ✅ HTTP/2 support (via hyper features)
-     - ✅ Trie-based routing with matchit
-   - **Remaining:** `0025-http-server-remaining.md` (updated)
-     - ❌ v1.x: FunctionValue route handler dispatch (stub placeholder)
-     - ❌ v2: TLS termination
-     - ❌ v2: Middleware hooks
-     - ❌ v2: Compression (gzip/brotli)
-     - ❌ v2: CORS and rate-limiting
+
+- **Archived:** `archived/0025-http-server-v1-complete.md` (new)
+  - ✅ Client crates renamed (lib-http → lib-http-client)
+  - ✅ Module async/operation dispatch extended
+  - ✅ Abstract server interface (`HttpServer` trait)
+  - ✅ Concrete std implementation with tokio/hyper
+  - ✅ HTTP/2 support (via hyper features)
+  - ✅ Trie-based routing with matchit
+- **Remaining:** `0025-http-server-remaining.md` (updated)
+  - ❌ v1.x: FunctionValue route handler dispatch (stub placeholder)
+  - ❌ v2: TLS termination
+  - ❌ v2: Middleware hooks
+  - ❌ v2: Compression (gzip/brotli)
+  - ❌ v2: CORS and rate-limiting
 
 #### 4. ADR-0032 (Types as Values)
-   - **Archived:** `archived/0032-types-as-values-v1-complete.md` (new)
-     - ✅ Shared Value representation (runtime + typechecker)
-     - ✅ Base collections (type.number, type.string, type.bool, etc.)
-     - ✅ Propositional equality (===)
-     - ✅ Universe levels (Type_0, Type_1, etc.) with cumulativity
-     - ✅ Dependent types (Pi, Sigma) fully working
-     - ✅ NBE typechecker with proper level handling
-   - **Remaining:** `0032-types-as-values-remaining.md` (updated)
-     - ❌ `data` declarations for inductive types
-     - ❌ `rec` / termination checking
-     - ❌ Inductive families (Vec(A, n))
-     - ❌ Dependent pattern matching with motive
-     - ❌ Type inference and unification (_ holes)
-     - ❌ Proof erasure at runtime
-     - ❌ Tactics (auto, induction, rewrite, simp)
+
+- **Archived:** `archived/0032-types-as-values-v1-complete.md` (new)
+  - ✅ Shared Value representation (runtime + typechecker)
+  - ✅ Base collections (type.number, type.string, type.bool, etc.)
+  - ✅ Propositional equality (===)
+  - ✅ Universe levels (Type_0, Type_1, etc.) with cumulativity
+  - ✅ Dependent types (Pi, Sigma) fully working
+  - ✅ NBE typechecker with proper level handling
+- **Remaining:** `0032-types-as-values-remaining.md` (updated)
+  - ❌ `data` declarations for inductive types
+  - ❌ `rec` / termination checking
+  - ❌ Inductive families (Vec(A, n))
+  - ❌ Dependent pattern matching with motive
+  - ❌ Type inference and unification (_ holes)
+  - ❌ Proof erasure at runtime
+  - ❌ Tactics (auto, induction, rewrite, simp)
 
 ### ❌ Not Done (Kept as Remaining)
+
 5. **ADR-LSP (Remaining)**
    - **Status:** Not started
    - **File:** `ADR-LSP-remaining.md` (unchanged)
@@ -71,12 +76,14 @@
 ## Files Changed
 
 ### Archived (New)
+
 - `project/adrs/archived/0001-generic-node-and-plugin-driven-canonical-kit-remaining-archived.md` (moved)
 - `project/adrs/archived/0002-handl-platform-composable-host-v1-complete.md` (new)
 - `project/adrs/archived/0025-http-server-v1-complete.md` (new)
 - `project/adrs/archived/0032-types-as-values-v1-complete.md` (new)
 
 ### Updated (Refined)
+
 - `project/adrs/0002-handl-platform-composable-host-remaining.md`
   - Clarified library plugin conversion as the remaining work
   - Added architectural questions to resolve

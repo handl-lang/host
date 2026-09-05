@@ -1,6 +1,5 @@
 # Parametric Polymorphism (Generics) for handl Type System
 
-
 ## Context
 
 The type system is monomorphic. Functions like `map`, `filter`, `reduce`, `apply`,

@@ -53,6 +53,7 @@ that say "not yet checked" rather than silently passing.
 
   `Diagnostic` comes from `plugin-ext-diag` (ADR-0091) — no local variant
   types in the typecheck crates.
+
 - **Architecture:** single pass composition — collect bindings → infer
   expression types bottom-up by AST child roles (ADR-0081) → unify
   structurally with spans retained → report. Error recovery: report all

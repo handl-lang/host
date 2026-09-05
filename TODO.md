@@ -7,11 +7,13 @@ written in handl with real fmt/lint/check/test. Full plan in
 [ADR-0085](adrs/0085-bootstrap-tooling-strategy.md).
 
 ### Phase 0 — decisions land
+
 - [ ] Accept ADR-0085 (bootstrap tooling strategy) and ADR-0086..0091
 - [ ] Pin the v0.1 surface grammar/AST versions the tooling builds against
       (ADR-0074 + `ARROW_GRAMMAR_V0_1.md`); CI gate on grammar drift
 
 ### Phase 1 — improve the plugin crates (no new tooling crates)
+
 - [ ] `crates/plugin-ext-diag` (ADR-0091, do first): shared
       `Diagnostic`/`Severity`/`Span`/`Fix` types + shared renderer; migrate
       `plugin-ext-fmt`, `plugin-ext-lint`, `plugin-engine-typecheck`,
@@ -35,15 +37,18 @@ written in handl with real fmt/lint/check/test. Full plan in
       existing `plugin-ext-*` capability contracts
 
 ### Phase 2 — dogfood
+
 - [ ] Write the handl stdlib in handl (resumes ADR-0077 work) with
       `hnl fmt --check && hnl lint && hnl check && hnl test` as a required
       CI gate
 - [ ] Migrate `handl-packages/` and `examples/` to clean fmt/lint/check/test
 
 ### Phase 3 — integrate on the substrate (no deletions)
+
 The Rust substrate stays (ADR-0085 rule 1): the plugin system,
 `plugin-ext-*`, and `plugin-engine-*` are kept, tested, and improved —
 they modularize the Rust code and are what the future handl port moves.
+
 - [ ] Wire `plugin-ext-fmt`/`plugin-ext-lint`/`plugin-engine-typecheck`/
       `plugin-lib-test` through the existing `plugin-ext-*` capability
       contracts so `host-lsp`, `host-cli`, and third parties can reuse them
@@ -56,7 +61,8 @@ they modularize the Rust code and are what the future handl port moves.
 - [ ] Update the README crate map to reflect the improved tooling set
 
 ### Phase 4 — exit (low priority, see project/rfcs/ + BACKLOG.md)
-Port each tool to handl per its RFC — a *move* of already-generic, tested
+
+Port each tool to handl per its RFC — a _move_ of already-generic, tested
 Rust designs, not a rewrite; the Rust substrate remains as bootstrap and
 fallback:
 fmt → RFC-0002, lint → RFC-0003, typecheck → RFC-0004, test → RFC-0005,
@@ -77,6 +83,7 @@ cannot import stdlib modules or split across files.
 - [ ] Test: `import "arrows/fn/map.hnl"` works end-to-end
 
 ## Unblocking (still open, do before/alongside Phase 2)
+
 - [ ] Add LSP host (Rust `host-lsp` parity — editor support now; handl LSP
       is RFC-0006)
 - [ ] Add vscode extension
@@ -84,4 +91,3 @@ cannot import stdlib modules or split across files.
 - [ ] Restore integration tests (fuzz, generics, integration, mock)
 - [ ] Restore platform/e2e tests (e2e, language_host, integration, mock)
 - [ ] Restore ext-tests and compiler-tests after compiler/typecheck refactor
-

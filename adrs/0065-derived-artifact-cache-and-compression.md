@@ -136,6 +136,7 @@ pub trait LanguageCache {
 ```
 
 Implementations:
+
 - `NoCache` — always misses (default for compile-time-embedded kits).
 - `InMemoryCache` — `HashMap<CacheKey, CachedLanguage>`, process-lifetime.
 - `OnDiskCache` — files in a cache directory, persistent across runs.

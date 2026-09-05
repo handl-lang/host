@@ -21,7 +21,7 @@ today.
 implementation: the unified token kind, the unified AST, the lexer, 16 AST
 converters, a parser behavior, grammar/manifest wiring, and the parse pipeline.
 The curated plugin list (`CanonicalKit::contribute`) is ~25 lines at the end.
-The kit *is* the implementation, not a curation of it.
+The kit _is_ the implementation, not a curation of it.
 
 **`kit-hello`** is the target shape: 66 lines, `contribute` registers
 `CanonicalKit` + `HelloLibraryPlugin`. Pure curation.
@@ -70,6 +70,7 @@ everything. A plugin is the unit of composition.
 **Kits** are curated sets of plugins and other kits. A kit defines what runs
 where: which language features, which stdlib, which runtime, which target.
 Examples:
+
 - `kit-canonical` — the handl language (lexer, parser, grammar, AST, eval, …).
 - `kit-config` — handl as a configuration language (pure stdlib, no OS, no
   network, resource-limited).
@@ -114,23 +115,24 @@ non-handl languages.
 The 2,629-line `lib.rs` dissolves. The curated list stays; everything else
 moves to plugins or the framework:
 
-| Logic | New home |
-|---|---|
-| Unified token kind, factory, 19 capability impls | Per-plugin registry entries in `plugin-token-*`; the framework composes them dynamically at kit-load time. |
-| Unified AST node + converters | Per-shape plugins (`plugin-ast-stmt-import`, `plugin-ast-stmt-export`, `plugin-ast-stmt-module`, `plugin-ast-handl-value`, existing `plugin-ast-*`); the framework composes them dynamically. |
-| Lexer + config | `plugin-ext-lexer` — a generic lexer that assembles rules from registered `plugin-lexer-*` plugins. |
-| `TypeAnnotRule` | `plugin-grammar-type-annot` — one tiny grammar-rule plugin. |
-| Grammar/manifest wiring, rule registry | Self-registration in `plugin-ext-parser` / `handl-platform`; each `plugin-grammar-*` registers its rule. No central match statement. |
-| Parse pipeline (`lex`/`parse`/`parse_module`/`grammar_info`) | `plugin-ext-parser` — offers the parse capability; a kit includes it if it wants parsing. |
-| `Diagnostic` / `Diagnostics` | `plugin-diag-core` — generic. |
-| `Stmt` / `StmtKind` / `ModuleOutput` | Dissolved into per-statement `plugin-ast-stmt-*` crates. |
-| `CanonicalKit::contribute` (the curated list) | **Stays in `kit-canonical`.** |
+| Logic                                                        | New home                                                                                                                                                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unified token kind, factory, 19 capability impls             | Per-plugin registry entries in `plugin-token-*`; the framework composes them dynamically at kit-load time.                                                                                    |
+| Unified AST node + converters                                | Per-shape plugins (`plugin-ast-stmt-import`, `plugin-ast-stmt-export`, `plugin-ast-stmt-module`, `plugin-ast-handl-value`, existing `plugin-ast-*`); the framework composes them dynamically. |
+| Lexer + config                                               | `plugin-ext-lexer` — a generic lexer that assembles rules from registered `plugin-lexer-*` plugins.                                                                                           |
+| `TypeAnnotRule`                                              | `plugin-grammar-type-annot` — one tiny grammar-rule plugin.                                                                                                                                   |
+| Grammar/manifest wiring, rule registry                       | Self-registration in `plugin-ext-parser` / `handl-platform`; each `plugin-grammar-*` registers its rule. No central match statement.                                                          |
+| Parse pipeline (`lex`/`parse`/`parse_module`/`grammar_info`) | `plugin-ext-parser` — offers the parse capability; a kit includes it if it wants parsing.                                                                                                     |
+| `Diagnostic` / `Diagnostics`                                 | `plugin-diag-core` — generic.                                                                                                                                                                 |
+| `Stmt` / `StmtKind` / `ModuleOutput`                         | Dissolved into per-statement `plugin-ast-stmt-*` crates.                                                                                                                                      |
+| `CanonicalKit::contribute` (the curated list)                | **Stays in `kit-canonical`.**                                                                                                                                                                 |
 
 `kit-canonical` shrinks to ~the size of `kit-hello`.
 
 ### Phase 2 — Kits and hosts are separated
 
 **Kits become thin curated lists:**
+
 - `kit-config` — curates the pure/sandbox plugin set (no OS, no HTTP, no rand).
 - `kit-server` — curates the server plugin set (OS + HTTP + rand + test +
   otlp); extends `kit-config`.
@@ -151,6 +153,7 @@ applies resource-limit policy, and runs. No per-use-case `Host` struct needed.
 - `CliHost` — **deleted.** Its module list becomes `kit-cli`'s curated plugins.
 
 **Hosts remain generic binaries:**
+
 - `host-cli` (exists) — loads any kit, runs it.
 - `host-lsp` (exists) — loads any kit, serves LSP.
 - No `host-sandbox`, no `host-server` — those use cases are `kit-config` and

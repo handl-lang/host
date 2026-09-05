@@ -9,12 +9,12 @@ The `handl-lexer` trait and `handl-lexer-canonical` implementation need to suppo
 
 No existing Rust crate provides both:
 
-| Crate | Streaming | Runtime config | Notes |
-|---|---|---|---|
-| `logos` | Yes (iterator) | No (proc-macro, compile-time) | Fastest option, but token rules are fixed at compile time |
-| `chumsky` | Experimental | Yes (combinators) | Parser combinator, not a lexer; heavy for tokenization |
-| `nom` / `winnow` | Partial (`Incomplete`) | Yes | Parser combinators, not designed for lexing |
-| `pest` / `lalrpop` | No | No (compile-time grammar) | Batch-only, compile-time |
+| Crate              | Streaming              | Runtime config                | Notes                                                     |
+| ------------------ | ---------------------- | ----------------------------- | --------------------------------------------------------- |
+| `logos`            | Yes (iterator)         | No (proc-macro, compile-time) | Fastest option, but token rules are fixed at compile time |
+| `chumsky`          | Experimental           | Yes (combinators)             | Parser combinator, not a lexer; heavy for tokenization    |
+| `nom` / `winnow`   | Partial (`Incomplete`) | Yes                           | Parser combinators, not designed for lexing               |
+| `pest` / `lalrpop` | No                     | No (compile-time grammar)     | Batch-only, compile-time                                  |
 
 ## Decision
 

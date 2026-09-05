@@ -17,6 +17,7 @@ The handl language converged on a design where the type language and expression 
 ## Decision Implemented
 
 ### Core Features (v1 Complete)
+
 1. **Shared Value representation** — `crates/plugin-vm-type` defines unified `Value`/`Term` space with `Collection`, `Membership`, `Is`, `Eq`, `Refl`, `Empty`
 2. **Base collections** — `type.number`, `type.string`, `type.bool`, `type.null`, `type.array`, `type.object`, `type.eq` in primitives
 3. **Propositional equality** — `x === y` is a type with `refl` when equal, empty when not
@@ -26,6 +27,7 @@ The handl language converged on a design where the type language and expression 
 7. **NBE typechecker** — Normalization-by-evaluation engine in `plugin-typecheck-nbe` and `plugin-engine-typecheck-nbe` with proper universe level handling
 
 ### Implementation Evidence
+
 - ✅ `Value::Universe(Level)` with level arithmetic (max, succ)
 - ✅ Typechecker universe cumulativity: `Type_n ⊆ Type_m` for `n ≤ m`
 - ✅ Universe level inference in dependent function and sigma types

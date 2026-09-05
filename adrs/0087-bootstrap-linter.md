@@ -54,13 +54,13 @@ files. Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091).
   `(ast, token_map) -> Vec<Diagnostic>` registered through the existing
   generic rule/capability contracts (`plugin-ext-lint`), so hosts can
   contribute additional namespaced rules without touching this crate. The
-  *canonical* rule set above is hardcoded here; the *machinery* (registry,
+  _canonical_ rule set above is hardcoded here; the _machinery_ (registry,
   severity, fix application) is the generic substrate.
 - **Testing:** 100% coverage; every rule has positive/negative/fix cases;
   lint-clean gate over the repo's own `.handl` files in CI.
 
 Out of scope: user-defined severity config, cross-module analysis (both
-RFC-0003). Host-contributed rules remain possible *now* through the
+RFC-0003). Host-contributed rules remain possible _now_ through the
 existing `plugin-ext-lint` registry.
 
 ## Consequences

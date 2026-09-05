@@ -109,14 +109,14 @@ Inventory every `Foreign` tag in `eval.yaml`. Classify each as:
 
 The elimination path for each meta-operation:
 
-| Meta-operation | Elimination path |
-|---|---|
-| `eval` (recursive) | `app` (ADR-0052 §2 — dynamic arrow invocation is the calculus operation, not a host call) |
-| `parse` | Not an eval operation. Parse is a separate stage (ADR-0044 §2); a self-describing language's eval schemes never invoke parse. |
-| `compile` | `app` + handler interpretation (ADR-0052 §2 — external interpretation is the handler's job). `compile` as a host function is the Futamura specialization, not a language-internal operation. |
-| `var` lookup | Scope chain as arrow state threaded via `first`/`>>>`; environments are values, not host lookups. |
-| `call` dispatch | `app` (the callee is an arrow value; invocation is `app`). |
-| Object key resolution | Desugar rule (ADR-0058 already specifies this migration). |
+| Meta-operation        | Elimination path                                                                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eval` (recursive)    | `app` (ADR-0052 §2 — dynamic arrow invocation is the calculus operation, not a host call)                                                                                                    |
+| `parse`               | Not an eval operation. Parse is a separate stage (ADR-0044 §2); a self-describing language's eval schemes never invoke parse.                                                                |
+| `compile`             | `app` + handler interpretation (ADR-0052 §2 — external interpretation is the handler's job). `compile` as a host function is the Futamura specialization, not a language-internal operation. |
+| `var` lookup          | Scope chain as arrow state threaded via `first`/`>>>`; environments are values, not host lookups.                                                                                            |
+| `call` dispatch       | `app` (the callee is an arrow value; invocation is `app`).                                                                                                                                   |
+| Object key resolution | Desugar rule (ADR-0058 already specifies this migration).                                                                                                                                    |
 
 ### 3. Desugar coverage is the primary completeness mechanism
 

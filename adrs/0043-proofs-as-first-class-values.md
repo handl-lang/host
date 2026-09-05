@@ -23,12 +23,12 @@ Once transformations are values, the proof "this transformation preserves
 semantics" is a value too. The operator that worked on level N becomes a
 value at level N+1, again:
 
-| level | what's first-class | the operator |
-|---|---|---|
-| 1 | functions | `apply : (A -> B) -> A -> B` |
-| 2 | languages | `eval : Language -> Source -> Value` |
-| 3 | transformations | `compose : (L -> L) -> (L -> L) -> (L -> L)` |
-| 4 | proofs | `verify : Proof -> Bool` |
+| level | what's first-class | the operator                                 |
+| ----- | ------------------ | -------------------------------------------- |
+| 1     | functions          | `apply : (A -> B) -> A -> B`                 |
+| 2     | languages          | `eval : Language -> Source -> Value`         |
+| 3     | transformations    | `compose : (L -> L) -> (L -> L) -> (L -> L)` |
+| 4     | proofs             | `verify : Proof -> Bool`                     |
 
 A proof stops being a paper artifact and becomes a value you bind, pass,
 check, and compose. Compiler correctness stops being "trust the
@@ -170,7 +170,7 @@ else
   Interactive theorem provers (Coq, Lean) work but require human
   effort. SMT-based approaches scale but only for restricted property
   languages. This ADR does not solve proof construction; it makes
-  proofs *first-class* so that whatever construction method is used
+  proofs _first-class_ so that whatever construction method is used
   (manual, automated, or hybrid) produces a value the runtime can
   check.
 - **The verifier must be trusted.** The runtime checks proofs against a
@@ -195,13 +195,13 @@ else
 
 ## The full tower
 
-| Level | What's first-class | The operator | What it unlocks |
-|---|---|---|---|
-| 0 | Data | — | Values |
-| 1 | Functions | `apply` | Recursion, Turing completeness |
-| 2 | Languages | `eval` | Universal host, self-bootstrap |
-| 3 | Transformations | `compose` | Composable compilers, category of languages |
-| 4 | Proofs | `verify` | Certified compilation, verified interop |
+| Level | What's first-class | The operator | What it unlocks                             |
+| ----- | ------------------ | ------------ | ------------------------------------------- |
+| 0     | Data               | —            | Values                                      |
+| 1     | Functions          | `apply`      | Recursion, Turing completeness              |
+| 2     | Languages          | `eval`       | Universal host, self-bootstrap              |
+| 3     | Transformations    | `compose`    | Composable compilers, category of languages |
+| 4     | Proofs             | `verify`     | Certified compilation, verified interop     |
 
 Each level makes the operator of the previous level a value. Each level
 is the same move. Each level bottoms out at the one below — proofs are
@@ -222,7 +222,7 @@ Proof -> Bool` is a small, fixed, audited function.
 
 The runtime checks `verify(proof)` before applying a certified
 transformation. Unverified transformations are allowed but flagged
-(unlike ADR-0041's `eval`, `apply` of a transformation *can* be gated,
+(unlike ADR-0041's `eval`, `apply` of a transformation _can_ be gated,
 because transformations are not plumbing — they are the thing with
 authority over the result language's semantics).
 

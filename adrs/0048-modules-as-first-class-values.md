@@ -25,7 +25,7 @@ ADR-0041 made `Language` a first-class value: a `Language` is a tagged
 `serde_json::Value` (`language_value` / `as_language` in
 `handl-language/src/lib.rs`), and `eval`/`parse`/`lex`/`compile` are
 handl-callable functions over it. ADR-0047 is finishing the job for the
-*meta functions* themselves — splitting `MetaHostFunctions` into
+_meta functions_ themselves — splitting `MetaHostFunctions` into
 `plugin-lib-lex`/`parse`/`eval`/`compile`/`run-compiled` leaf crates so
 they compose and tree-shake like every other `plugin-lib-*`.
 
@@ -47,7 +47,7 @@ for `Language`. **A `Module` is not a handl value.** Today:
 ### What this blocks
 
 ADR-0013 already states the end state: the stdlib is handl, with Rust as
-the *specification and fallback* for performance
+the _specification and fallback_ for performance
 (<project/adrs/0013-standard-library.md>, "File layout"). That end state
 is unreachable today for two reasons, only one of which is this ADR's
 subject:
@@ -63,32 +63,32 @@ subject:
    this ADR. This ADR depends on it but does not do it.
 
 2. **Modules are not values.** Even once the eval engine is complete, a
-   handl program has no way to *package* a set of functions as a module
-   value, *register* it where `math.add`-style qualified calls resolve,
-   or *implement* the registry/lookup logic itself. This is what ADR-0048
+   handl program has no way to _package_ a set of functions as a module
+   value, _register_ it where `math.add`-style qualified calls resolve,
+   or _implement_ the registry/lookup logic itself. This is what ADR-0048
    fixes — the same move ADR-0041 made for `Language`, one level down.
 
 ### The insight
 
 When `Language` went first-class, the act of interpreting stopped being a
 fixed host and became a value-level operation (`eval : Language -> Source
--> Value`). The parallel move for modules: the act of *resolving a call*
+-> Value`). The parallel move for modules: the act of _resolving a call_
 stops being a fixed Rust registry and becomes a value-level operation
 (`lookup : Module -> Name -> Function`). The thing that hosts the
 functions and the thing hosted become the same kind of thing.
 
-| first-class languages (ADR-0041) | first-class modules (this ADR) |
-|---|---|
-| `eval : Language -> Source -> Value` | `call : Module -> Name -> Args -> Value` |
-| authority lives in the language's behaviors | authority lives in the module's functions |
-| gate the language, not `eval` | gate the module, not the registry |
-| `self` = the running language | the running module set = a value you can inspect |
-| self-hosting via `eval(self, ...)` | module system in handl via `lookup(self, ...)` |
-| pure language = safe to eval anywhere | pure module = safe to call anywhere |
+| first-class languages (ADR-0041)            | first-class modules (this ADR)                   |
+| ------------------------------------------- | ------------------------------------------------ |
+| `eval : Language -> Source -> Value`        | `call : Module -> Name -> Args -> Value`         |
+| authority lives in the language's behaviors | authority lives in the module's functions        |
+| gate the language, not `eval`               | gate the module, not the registry                |
+| `self` = the running language               | the running module set = a value you can inspect |
+| self-hosting via `eval(self, ...)`          | module system in handl via `lookup(self, ...)`   |
+| pure language = safe to eval anywhere       | pure module = safe to call anywhere              |
 
 ### The closure-serialization crux
 
-There is one real technical problem ADR-0041 did *not* face and this ADR
+There is one real technical problem ADR-0041 did _not_ face and this ADR
 does. `Language` is pure data — `language_value` is `serde_json::to_value`
 of a fully-serializable struct. A `Module` whose functions are handl
 closures is **not** pure data: a closure captures an environment, and
@@ -96,7 +96,7 @@ closures are not `serde`-serializable in general. So a `Module` value
 cannot simply be `serde_json` of its functions the way a `Language` value
 is `serde_json` of its grammar.
 
-This is the same shape as the *compiled-program* problem ADR-0041 §5 /
+This is the same shape as the _compiled-program_ problem ADR-0041 §5 /
 ADR-0047 §3 already solved for `compile`/`run_compiled`: the artifact
 (cranelift `CompiledResult`, bytecode `Vec<Instr>`) is not serializable,
 so `meta.rs` keeps a thread-local `COMPILED_REGISTRY: RefCell<HashMap<u64,
@@ -150,9 +150,9 @@ The `Module` value itself is a tagged JSON object:
   "__module__": {
     "name": "math",
     "functions": {
-      "add": {"__closure__": 17},
-      "mul": {"__closure__": 18},
-      "sha256": {"__foreign__": "crypto.sha256"}
+      "add": { "__closure__": 17 },
+      "mul": { "__closure__": 18 },
+      "sha256": { "__foreign__": "crypto.sha256" }
     }
   }
 }
@@ -168,8 +168,8 @@ A thread-local `RefCell<HashMap<u64, ClosureEntry>>` in the runtime,
 mirroring `COMPILED_REGISTRY` (`handl-runtime/src/meta.rs`). A
 `ClosureEntry` carries whatever the eval engine needs to re-enter
 evaluation of a closure body: the `Ast` of the body, the captured
-environment (a serializable variable map, since environments *are*
-serializable — only the *closure as a whole* is not, because it pairs a
+environment (a serializable variable map, since environments _are_
+serializable — only the _closure as a whole_ is not, because it pairs a
 body with an environment and the body is an arena reference), and the
 `Language` the closure was created under (so a closure carries its
 defining language, the way a `CompiledProgram` carries its `lang` + `ast`).
@@ -205,15 +205,15 @@ one lifetime wrinkle that needs care; see §"Trade-offs".
 Following ADR-0047, module operations are a `plugin-lib-*` leaf crate,
 not a monolithic blob. One crate, one module, namespaced callables:
 
-| Crate | Module | Callable |
-|---|---|---|
+| Crate               | Module   | Callable                                                                                                 |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
 | `plugin-lib-module` | `module` | `module.define(name, functions)`, `module.register(mod)`, `module.lookup(name)`, `module.functions(mod)` |
 
 - `module.define(name, functions)` → a `Module` value. `functions` is a
   handl object mapping function names to closure values (or foreign-name
   strings). The host function wraps each closure in a `CLOSURE_REGISTRY`
   entry and builds the `__module__` value.
-- `module.register(mod)` → registers a `Module` value into the *current*
+- `module.register(mod)` → registers a `Module` value into the _current_
   module set (the handl-defined registry, see §5). Returns `null`.
 - `module.lookup(qualified_name)` → the function value (a closure handle
   or foreign name) for `math.add`-style names, or an error if not found.
@@ -230,18 +230,18 @@ not a monolithic blob. One crate, one module, namespaced callables:
 ### 5. The module system can be written in handl
 
 With `Module` as a value and `module.define`/`register`/`lookup` as
-handl-callable functions, the *registry logic itself* — the
+handl-callable functions, the _registry logic itself_ — the
 `Vec<Arc<dyn Module>>` + `split_once('.')` lookup that today lives in
 `plugin-module/src/lib.rs` — can be rewritten in handl as a value: a map
 from module name to `Module` value, with a `lookup` function that splits
 on `.` and dispatches. The Rust `ModuleLookup` trait stays as the seam
 `EvalContext` holds, but a new `HandlModuleLookup` adapter implements it
-by *calling back into handl* — delegating `lookup(qualified_name)` to the
+by _calling back into handl_ — delegating `lookup(qualified_name)` to the
 handl-defined registry value via the `module.lookup` host function.
 
 This is the direct payoff of the user's idea: the module system becomes
 handl code, backed by a thin Rust adapter, the same way `eval(self, ...)`
-made the *language* self-hosting in `handl-defining-handl`. The module
+made the _language_ self-hosting in `handl-defining-handl`. The module
 system is to module resolution what `handl-defining-handl` is to
 language evaluation.
 
@@ -270,7 +270,7 @@ primitives — crypto, perf-critical string ops, anything that cannot be
 expressed in handl. The `__foreign__` handle in §1 is exactly this seam,
 reused, not a new primitive.
 
-A *new* `Scheme::RustFfi` variant or a "call arbitrary Rust crate by
+A _new_ `Scheme::RustFfi` variant or a "call arbitrary Rust crate by
 path" mechanism would add machinery for no gain over `Foreign` and would
 cut against ADR-0044's "language as data" discipline (a `Foreign` name is
 data; an arbitrary Rust path is not). This ADR takes no position on
@@ -311,7 +311,7 @@ it as part of this work.
   `CLOSURE_REGISTRY` for the process lifetime. This is the same
   constraint as a compiled-program handle (ADR-0047 §3) and for the same
   reason. A `Module` value does not survive across threads/processes
-  unless its functions are all `__foreign__` names (which *are*
+  unless its functions are all `__foreign__` names (which _are_
   serializable). This is inherent to first-class closures and is not
   fixable without serializing closures (a research problem).
 - **One lifetime wrinkle.** `ValueModule::function(name)` returns a
@@ -324,8 +324,8 @@ it as part of this work.
   constructing them on each `function()` call and returning a reference
   into a scratch slot, or by caching. This is solvable but is real work.
 - **Depends on eval-engine completeness.** This ADR does not make the
-  stdlib writable in handl by itself — it removes the *module* blocker.
-  The *eval-engine* blocker (field-access, match, first-class function
+  stdlib writable in handl by itself — it removes the _module_ blocker.
+  The _eval-engine_ blocker (field-access, match, first-class function
   values, the unimplemented `Prim` ops) is unfinished ADR-0044 Phase 4–5
   work and is a hard prerequisite for any non-trivial stdlib module
   written in handl. A `math` module that only uses `binary.add`-style
@@ -346,7 +346,7 @@ it as part of this work.
   Rust-implemented primitives and for the `HandlModuleLookup` adapter.
   They are not deleted; they are demoted from "the only way to be a
   module" to "the Rust-side interface to a module value." This mirrors
-  how ADR-0044 kept `Scheme` as data but kept the engine *traits* as
+  how ADR-0044 kept `Scheme` as data but kept the engine _traits_ as
   Rust.
 
 ## Implementation phases
@@ -380,7 +380,7 @@ the `&dyn Function` lifetime wrinkle here.
 
 A `ModuleLookup` impl that delegates `lookup` to a handl-defined
 module-map value via `module.lookup`. This is the seam that lets the
-module *system* (registry + lookup logic) be written in handl. Wire it
+module _system_ (registry + lookup logic) be written in handl. Wire it
 into `EvalContext` as an alternative to the Rust `ModuleRegistry`.
 
 ### Phase 5 — One stdlib module in handl, as proof

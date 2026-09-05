@@ -24,7 +24,7 @@ infrastructure, and move/consolidate existing diagnostic code into it:
   `Severity { Error, Warning, Info }`, `Span` (byte range + line/col),
   `Fix` (text edit). Owned here; every other crate depends on these.
 - **Rendering:** one shared renderer (human `file:line:col: severity
-  [rule]: message`, plus `--json`), used by `host-cli`, the test runner,
+[rule]: message`, plus `--json`), used by `host-cli`, the test runner,
   and the LSP adapter — one output format across all tools.
 - **Fix application:** span-ordered, idempotent text-edit application with
   the re-parse fixpoint policy from ADR-0087, shared by lint and fmt.

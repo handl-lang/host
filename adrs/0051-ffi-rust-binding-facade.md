@@ -35,12 +35,12 @@ the `Function` arg unpacking, and the `LibraryPlugin` contribute call are struct
 identical across libraries; only the function bodies and names differ. This is acceptable
 for a curated stdlib, but it is the wrong surface for ADR-0050's goal, where:
 
-- The handl plugin system needs *one* Rust bridge (`ast.parse`, `ast.lex`) exposed cleanly,
+- The handl plugin system needs _one_ Rust bridge (`ast.parse`, `ast.lex`) exposed cleanly,
   not a full `plugin-lib-ast` crate with hand-written `Module`/`Function`/`Plugin` impls.
 - Future bindings (regex, unicode, fs primitives, …) should be addable by writing the
   function bodies, not by scaffolding a crate per library.
 - The binding seam is inherently Rust (it is the boundary to the host language's library
-  ecosystem), so it stays Rust per ADR-0050 — but it must be *thin*, not a per-library
+  ecosystem), so it stays Rust per ADR-0050 — but it must be _thin_, not a per-library
   template.
 
 ### What already exists and is kept
@@ -52,7 +52,7 @@ for a curated stdlib, but it is the wrong surface for ADR-0050's goal, where:
   today.
 - `EvalContext::call_function` — the call path. Unchanged.
 
-The façade does not replace any of these. It removes the per-library *authoring* boilerplate
+The façade does not replace any of these. It removes the per-library _authoring_ boilerplate
 by generating the `Module` / `Function` / `Plugin` glue from a declarative spec.
 
 ### What is missing
@@ -183,7 +183,7 @@ without re-introducing per-library crates:
   closures over `&'static` data. This is the path the existing `Encoding`-backed codecs
   (`Hex`, `Base64`) use; they keep their `Module` impls and are wrapped, not regenerated.
 - **Existing `plugin-lib-*` crates are not deleted.** They continue to work unchanged.
-  The façade is the *preferred* path for new bindings and for the ADR-0050 bootstrap; it
+  The façade is the _preferred_ path for new bindings and for the ADR-0050 bootstrap; it
   does not force a migration of the curated stdlib. A library may migrate to the façade
   when its author finds the boilerplate not worth it.
 

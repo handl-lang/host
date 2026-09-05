@@ -27,7 +27,7 @@ The **desugar pass** (ADR-0053 §7) achieves this. `AstDesugarRule` is data
 on `AstShapeDef`; the pass is a fixed `Ast → Ast` interpreter. The
 `if → match` rewrite is declared in data, not code.
 
-The **eval engines do not fully achieve this.** While *dispatch* is
+The **eval engines do not fully achieve this.** While _dispatch_ is
 data-driven (the `eval.object` scheme in `eval.yaml` says "call the `object`
 native op"), the **native op implementations** contain hardcoded
 language-specific logic. Examples:
@@ -56,7 +56,7 @@ An eval engine should be a **fixed loop** that:
 3. Dispatches native ops to **data-specified behavior**, not hardcoded
    Rust `match` arms.
 
-Any logic that depends on *which language* is being evaluated (key rules,
+Any logic that depends on _which language_ is being evaluated (key rules,
 special forms, syntactic sugar) belongs in **desugar rules** (data) or
 **scheme descriptions** (data), not in engine code.
 
@@ -109,7 +109,7 @@ key/forms of existing primitives.
   established is now fully realized.
 - **No runtime cost.** Desugar runs once between parse and eval; the
   engines consume a simpler AST.
-- **ADR-0057's implementation is superseded.** ADR-0057's *language design*
+- **ADR-0057's implementation is superseded.** ADR-0057's _language design_
   (bracket computed keys are valid) stands; its per-engine Rust
   implementation is replaced by the desugar rule.
 - **Future key forms are data.** Template-literal keys, symbol keys, etc.

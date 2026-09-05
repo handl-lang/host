@@ -18,6 +18,7 @@ a param name outside a string, bounded by non-identifier characters on both
 sides, it replaces it with the wrapped replacement expression.
 
 Key mechanics:
+
 - `in_string` toggles on every unescaped `"` byte.
 - `\\` escape handling: skips the next byte (correctly handles `\"`).
 - `is_ident_char` checks word boundaries (alphanumeric + `_`).

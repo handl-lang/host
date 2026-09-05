@@ -12,7 +12,7 @@ The platform's stated vision (see `docs/explanations/design-principles.md` and `
 
 The platform already implements this vision for every front-end stage: `Lexer`, `Parser`, `Typecheck`, `Lint`, `Format`, and `Eval` are all `Operation`s served by `Basic*` `RuleAcceptor` plugins that accept `Behavior` rules. `plugin-typecheck-core` is the canonical `TypecheckBehavior` rule, contributed into `BasicTypechecker` via the kit. `plugin-eval-hello` and `plugin-eval-json` are existing `EvalBehavior` rules, contributed into `BasicEvaluator` — they decode `AstNode.payload` directly and return `serde_json::Value`, proving the eval-plugin pattern already works. The pattern is proven.
 
-**Two subsystems have not been migrated to this pattern: the VM layer and the Runtime layer.** Together they define *three* parallel trait hierarchies that duplicate the platform's `Operation`/`Behavior`/`RuleAcceptor`/`Plugin`/`Host` abstractions, and *two* parallel function-registration mechanisms that duplicate the `Module`/`ModuleRuntime` pattern.
+**Two subsystems have not been migrated to this pattern: the VM layer and the Runtime layer.** Together they define _three_ parallel trait hierarchies that duplicate the platform's `Operation`/`Behavior`/`RuleAcceptor`/`Plugin`/`Host` abstractions, and _two_ parallel function-registration mechanisms that duplicate the `Module`/`ModuleRuntime` pattern.
 
 ### The VM layer (5 crates)
 
@@ -20,17 +20,17 @@ The platform already implements this vision for every front-end stage: `Lexer`, 
 
 ### The Runtime layer (6 crates)
 
-`plugin-runtime`, `plugin-runtime-apply`, `plugin-runtime-arithmetic`, `plugin-runtime-array`, `plugin-runtime-boolean`, `plugin-runtime-object` define a *second* function-registration mechanism (`RuntimeBehavior` → `RuntimeHost` `RuleAcceptor`) that duplicates `Module`/`ModuleRuntime`. Worse, they re-implement functions that already exist in `plugin-lib-utils` and `plugin-lib-collections`:
+`plugin-runtime`, `plugin-runtime-apply`, `plugin-runtime-arithmetic`, `plugin-runtime-array`, `plugin-runtime-boolean`, `plugin-runtime-object` define a _second_ function-registration mechanism (`RuntimeBehavior` → `RuntimeHost` `RuleAcceptor`) that duplicates `Module`/`ModuleRuntime`. Worse, they re-implement functions that already exist in `plugin-lib-utils` and `plugin-lib-collections`:
 
-| `plugin-runtime-*` function | Already in |
-|---|---|
-| `add`/`sub`/`mul`/`div` | `plugin-lib-utils` (`math.*`) |
-| `and`/`or`/`not`/`eq` | `plugin-lib-utils` (`bool.*`, `cmp.*`) |
-| `lt` | `plugin-lib-utils` (`cmp.lt`) |
-| `fn.pipe` | `plugin-lib-utils` (`fn.pipe`) |
-| `array.at`/`array.length` | `plugin-lib-collections` (`array.at`, `array.len`) |
-| `obj.get`/`obj.keys` | `plugin-lib-collections` (`hash_map.get`, `hash_map.keys`) |
-| `apply` (eval primitive) | `plugin-vm-host-eval` — belongs in `plugin-eval-core` |
+| `plugin-runtime-*` function | Already in                                                 |
+| --------------------------- | ---------------------------------------------------------- |
+| `add`/`sub`/`mul`/`div`     | `plugin-lib-utils` (`math.*`)                              |
+| `and`/`or`/`not`/`eq`       | `plugin-lib-utils` (`bool.*`, `cmp.*`)                     |
+| `lt`                        | `plugin-lib-utils` (`cmp.lt`)                              |
+| `fn.pipe`                   | `plugin-lib-utils` (`fn.pipe`)                             |
+| `array.at`/`array.length`   | `plugin-lib-collections` (`array.at`, `array.len`)         |
+| `obj.get`/`obj.keys`        | `plugin-lib-collections` (`hash_map.get`, `hash_map.keys`) |
+| `apply` (eval primitive)    | `plugin-vm-host-eval` — belongs in `plugin-eval-core`      |
 
 ADR 0027 proposed entrenching the VM parallel hierarchy: keeping `handl-vm` as a generic abstraction crate, keeping `handl-plugin-vm-values-json` as one `Value` implementation, and adding `handl-plugin-vm-backend-bytecode` / `handl-plugin-vm-backend-jit` as peers. That direction doubles down on the indirection rather than removing it. This ADR reverses that decision and also removes the Runtime layer's duplication.
 
@@ -42,7 +42,7 @@ ADR 0027 proposed entrenching the VM parallel hierarchy: keeping `handl-vm` as a
 
 3. **Inconsistent with the rest of the platform.** No other operation has a parallel trait hierarchy. `Typecheck` does not have a `Typechecker<V>` trait in a separate crate; it has `BasicTypechecker` (a `RuleAcceptor` plugin) and `TypecheckBehavior` (a `Behavior` rule). The VM and Runtime layers' existence implies evaluation and function registration are special. They are not.
 
-4. **Confusing taxonomy.** The five `plugin-vm-*` crates mix contracts, plumbing, a backend, a host bridge, and a value representation under one `plugin-vm-*` prefix, none of which implement `Plugin`. The prefix implies they are plugins; they are not. `ModuleRuntime` inside `plugin-vm-common` *is* a plugin, which makes the split incoherent. The six `plugin-runtime-*` crates are plugins but duplicate `plugin-lib-*` functions under a different registration mechanism.
+4. **Confusing taxonomy.** The five `plugin-vm-*` crates mix contracts, plumbing, a backend, a host bridge, and a value representation under one `plugin-vm-*` prefix, none of which implement `Plugin`. The prefix implies they are plugins; they are not. `ModuleRuntime` inside `plugin-vm-common` _is_ a plugin, which makes the split incoherent. The six `plugin-runtime-*` crates are plugins but duplicate `plugin-lib-*` functions under a different registration mechanism.
 
 5. **Blocks the documented vision.** Design principle #14 ("Evaluation is an operation, not a subsystem") and #17 ("Targets are plugins") cannot be satisfied while the VM layer exists as a peer abstraction. GC-as-plugin (#15) and sandbox-as-kit-property (#16) also require the execution backend to be a selectable target plugin, not a directly-linked crate.
 
@@ -128,7 +128,7 @@ First-class functions are represented as JSON objects with an implicit schema, d
 
 #### Async evaluation
 
-`EvalContext` provides two eval paths: `eval` (sync) and `eval_async` (returns a `Future`). `Behavior<Eval>` rules that need async (e.g. calling IO-bound host functions) implement the async path; sync rules use the sync path. `BasicEvaluator` dispatches based on which method was called. The platform's `Plugin::run` contract stays sync — async happens *inside* evaluation, not at the capability dispatch boundary.
+`EvalContext` provides two eval paths: `eval` (sync) and `eval_async` (returns a `Future`). `Behavior<Eval>` rules that need async (e.g. calling IO-bound host functions) implement the async path; sync rules use the sync path. `BasicEvaluator` dispatches based on which method was called. The platform's `Plugin::run` contract stays sync — async happens _inside_ evaluation, not at the capability dispatch boundary.
 
 #### Exec-control as lightweight hooks
 
@@ -150,7 +150,7 @@ pub struct BasicExecControl {
 
 #### Continuation / yield / resumability
 
-The context *is* the continuation. `EvalContext` is serializable (it's JSON values + a scope stack of JSON). Yielding replaces the current `Error::Yield` + `Continuation` pair with:
+The context _is_ the continuation. `EvalContext` is serializable (it's JSON values + a scope stack of JSON). Yielding replaces the current `Error::Yield` + `Continuation` pair with:
 
 ```rust
 pub enum EvalError {
@@ -176,44 +176,44 @@ pub enum EvalError {
 
 #### VM layer
 
-| Current crate | Disposition | Target |
-|---|---|---|
-| `plugin-vm` (traits: `VirtualMachine`, `Host<V>`, `Function<V>`, `Operation<V>`, `Value`, `Context<V>`, `Expr`, `Pattern`, `HandlerClause`) | **Delete.** All trait duplicates of platform abstractions (`Host`/`Operation`/`Plugin`) are dropped — use the platform's. `Expr`/`Pattern`/`HandlerClause` are an unnecessary intermediate representation: eval rules receive `AstNode` and decode its `payload` directly, as `plugin-eval-hello`/`plugin-eval-json` already do. No replacement. | Deleted |
-| `plugin-vm-values-json` (`NonFunctionValue`, `FunctionValue`, `CanonicalContext`) | **Delete.** Values are `serde_json::Value` per the docs. `NonFunctionValue` newtype is dropped — use `serde_json::Value` directly. `CanonicalContext` moves into `plugin-ext-eval` as the eval context. No `Value` trait. | `plugin-ext-eval` (context) / `serde_json::Value` (values) |
-| `plugin-vm-backend-rust-interpreter` (`CanonicalVm`, 11 `*Handler` structs) | **Split into 11 granular plugins** (one `EvalBehavior` rule per AST kind), mirroring the `plugin-grammar-*` pattern. No `plugin-target-rust-interpreter` crate — the "target" is emergent from which eval plugins the kit loads. | 11 `plugin-eval-*` plugins (see below) |
-| `plugin-vm-host-eval` (`EvalHost`, `Var`/`Resolve`/`Apply`) | **Delete.** `EvalHost` is an artifact of the VM having its own `Host<V>` trait separate from the platform's `Host` — it dissolves entirely. The built-in `var`/`resolve`/`apply` functions are the eval kernel's minimum primitives (bind lookup, path lookup, function application); they move into `plugin-eval-core` as `EvalBehavior` rules, part of the eval contract. | `plugin-eval-core` |
-| `plugin-vm-common` | **Split** (see below). | multiple |
+| Current crate                                                                                                                               | Disposition                                                                                                                                                                                                                                                                                                                                                                 | Target                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `plugin-vm` (traits: `VirtualMachine`, `Host<V>`, `Function<V>`, `Operation<V>`, `Value`, `Context<V>`, `Expr`, `Pattern`, `HandlerClause`) | **Delete.** All trait duplicates of platform abstractions (`Host`/`Operation`/`Plugin`) are dropped — use the platform's. `Expr`/`Pattern`/`HandlerClause` are an unnecessary intermediate representation: eval rules receive `AstNode` and decode its `payload` directly, as `plugin-eval-hello`/`plugin-eval-json` already do. No replacement.                            | Deleted                                                    |
+| `plugin-vm-values-json` (`NonFunctionValue`, `FunctionValue`, `CanonicalContext`)                                                           | **Delete.** Values are `serde_json::Value` per the docs. `NonFunctionValue` newtype is dropped — use `serde_json::Value` directly. `CanonicalContext` moves into `plugin-ext-eval` as the eval context. No `Value` trait.                                                                                                                                                   | `plugin-ext-eval` (context) / `serde_json::Value` (values) |
+| `plugin-vm-backend-rust-interpreter` (`CanonicalVm`, 11 `*Handler` structs)                                                                 | **Split into 11 granular plugins** (one `EvalBehavior` rule per AST kind), mirroring the `plugin-grammar-*` pattern. No `plugin-target-rust-interpreter` crate — the "target" is emergent from which eval plugins the kit loads.                                                                                                                                            | 11 `plugin-eval-*` plugins (see below)                     |
+| `plugin-vm-host-eval` (`EvalHost`, `Var`/`Resolve`/`Apply`)                                                                                 | **Delete.** `EvalHost` is an artifact of the VM having its own `Host<V>` trait separate from the platform's `Host` — it dissolves entirely. The built-in `var`/`resolve`/`apply` functions are the eval kernel's minimum primitives (bind lookup, path lookup, function application); they move into `plugin-eval-core` as `EvalBehavior` rules, part of the eval contract. | `plugin-eval-core`                                         |
+| `plugin-vm-common`                                                                                                                          | **Split** (see below).                                                                                                                                                                                                                                                                                                                                                      | multiple                                                   |
 
 #### `plugin-vm-common` split
 
-| Component | Disposition | Target |
-|---|---|---|
-| `host/host.rs` (`ModuleRuntime`, `ModuleRule`) | Already a `Plugin` + `RuleAcceptor`. Stays as a plugin. | `plugin-module` |
-| `module/module.rs` (`Module` trait) | Contract for named function namespaces. | `plugin-module` |
-| `module/module_stub.rs` | Test stub. | `handl-test-utils` |
-| `host/dynamic_runtime.rs` (`DynamicRuntime`) | Host wiring. | `host-cli`/`host-lsp` host code |
-| `capabilities/cache/` (`CallCache`, `CacheHost`) | Execution control: skip re-execution, return cached result (resumability). | `plugin-exec-cache` |
-| `adapter.rs` (`Memoize`, `Pipe`, `Catch`, `Partial`, `Timed`, `If`, `Const`, `Identity`, `MapArgs`, `MapResult`) | Rust-side function combinators (wrap a `Function` impl). Dev plumbing, not user-facing. | `plugin-ext-eval` (fn-registration adapters) |
-| `combinator.rs` (`ChainHost`, `FilterHost`, `SpyHost`) | Host combinators. | `host-cli`/`host-lsp` host code |
-| `middleware.rs` (`MapHost`, `LoggingHost`, `AllowHost`, `DenyHost`) | Execution control rules. | `plugin-exec-map`, `plugin-exec-logging`, `plugin-exec-allow`, `plugin-exec-deny` |
-| `middleware_vm.rs` (`MiddlewareVm`, `VmMiddleware`, `Trace`, `Counter`, `NoopMiddleware`, `Chain`) | Execution control rules. `ExecControl` trait + `BasicExecControl` → `plugin-ext-eval`. | `plugin-ext-eval` (contract), `plugin-exec-trace`, `plugin-exec-counter` |
-| `machine.rs` (`ContextBuilder`, `Machine`) | Eval context builder. | `plugin-ext-eval` |
-| `lego.rs` (`ExprHandler` trait, `LegoVm`) | Was the granular-handler pattern. Now superseded by `EvalBehavior` rules that decode `AstNode` directly. `ExprHandler` and `LegoVm` are deleted — `BasicEvaluator` already serves this role. | Deleted |
-| `sandbox.rs` (`with_max_depth`, `with_max_calls`) | Execution control: resource limits. | `plugin-exec-max-depth`, `plugin-exec-max-calls` |
-| `builder.rs` (`FnFunction`, `FnOperation`, `FnLazy`, `FnGeneric`, `FnAsync`) | Closure → `Function`/`Operation` adapters. | `plugin-ext-eval` |
-| `mock.rs` (`NoopHost`, `MockHost`, `CaptureFn`) | Test mocks. | `handl-test-utils` |
-| `prelude.rs` | Re-exports. | Deleted; each plugin exports its own prelude. |
+| Component                                                                                                        | Disposition                                                                                                                                                                                  | Target                                                                            |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `host/host.rs` (`ModuleRuntime`, `ModuleRule`)                                                                   | Already a `Plugin` + `RuleAcceptor`. Stays as a plugin.                                                                                                                                      | `plugin-module`                                                                   |
+| `module/module.rs` (`Module` trait)                                                                              | Contract for named function namespaces.                                                                                                                                                      | `plugin-module`                                                                   |
+| `module/module_stub.rs`                                                                                          | Test stub.                                                                                                                                                                                   | `handl-test-utils`                                                                |
+| `host/dynamic_runtime.rs` (`DynamicRuntime`)                                                                     | Host wiring.                                                                                                                                                                                 | `host-cli`/`host-lsp` host code                                                   |
+| `capabilities/cache/` (`CallCache`, `CacheHost`)                                                                 | Execution control: skip re-execution, return cached result (resumability).                                                                                                                   | `plugin-exec-cache`                                                               |
+| `adapter.rs` (`Memoize`, `Pipe`, `Catch`, `Partial`, `Timed`, `If`, `Const`, `Identity`, `MapArgs`, `MapResult`) | Rust-side function combinators (wrap a `Function` impl). Dev plumbing, not user-facing.                                                                                                      | `plugin-ext-eval` (fn-registration adapters)                                      |
+| `combinator.rs` (`ChainHost`, `FilterHost`, `SpyHost`)                                                           | Host combinators.                                                                                                                                                                            | `host-cli`/`host-lsp` host code                                                   |
+| `middleware.rs` (`MapHost`, `LoggingHost`, `AllowHost`, `DenyHost`)                                              | Execution control rules.                                                                                                                                                                     | `plugin-exec-map`, `plugin-exec-logging`, `plugin-exec-allow`, `plugin-exec-deny` |
+| `middleware_vm.rs` (`MiddlewareVm`, `VmMiddleware`, `Trace`, `Counter`, `NoopMiddleware`, `Chain`)               | Execution control rules. `ExecControl` trait + `BasicExecControl` → `plugin-ext-eval`.                                                                                                       | `plugin-ext-eval` (contract), `plugin-exec-trace`, `plugin-exec-counter`          |
+| `machine.rs` (`ContextBuilder`, `Machine`)                                                                       | Eval context builder.                                                                                                                                                                        | `plugin-ext-eval`                                                                 |
+| `lego.rs` (`ExprHandler` trait, `LegoVm`)                                                                        | Was the granular-handler pattern. Now superseded by `EvalBehavior` rules that decode `AstNode` directly. `ExprHandler` and `LegoVm` are deleted — `BasicEvaluator` already serves this role. | Deleted                                                                           |
+| `sandbox.rs` (`with_max_depth`, `with_max_calls`)                                                                | Execution control: resource limits.                                                                                                                                                          | `plugin-exec-max-depth`, `plugin-exec-max-calls`                                  |
+| `builder.rs` (`FnFunction`, `FnOperation`, `FnLazy`, `FnGeneric`, `FnAsync`)                                     | Closure → `Function`/`Operation` adapters.                                                                                                                                                   | `plugin-ext-eval`                                                                 |
+| `mock.rs` (`NoopHost`, `MockHost`, `CaptureFn`)                                                                  | Test mocks.                                                                                                                                                                                  | `handl-test-utils`                                                                |
+| `prelude.rs`                                                                                                     | Re-exports.                                                                                                                                                                                  | Deleted; each plugin exports its own prelude.                                     |
 
 #### Runtime layer
 
-| Current crate | Disposition | Reason |
-|---|---|---|
+| Current crate                                                                    | Disposition | Reason                                                                                        |
+| -------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------- |
 | `plugin-runtime` (`Runtime` op, `RuntimeBehavior`, `RuntimeHost`, `RuntimeRule`) | **Delete.** | Duplicate of `Module`/`ModuleRuntime`. The `Runtime` operation in `platform` is also deleted. |
-| `plugin-runtime-arithmetic` (`add`/`sub`/`mul`/`div`) | **Delete.** | Already in `plugin-lib-utils` (`math.*`). |
-| `plugin-runtime-boolean` (`and`/`or`/`not`/`eq`/`lt`) | **Delete.** | Already in `plugin-lib-utils` (`bool.*`, `cmp.*`). |
-| `plugin-runtime-array` (`array.at`/`array.length`) | **Delete.** | Already in `plugin-lib-collections` (`array.at`, `array.len`). |
-| `plugin-runtime-object` (`obj.get`/`obj.keys`) | **Delete.** | Already in `plugin-lib-collections` (`hash_map.get`, `hash_map.keys`). |
-| `plugin-runtime-apply` (`apply`/`fn.pipe`) | **Delete.** | `fn.pipe` already in `plugin-lib-utils`. `apply` (eval primitive) → `plugin-eval-core`. |
+| `plugin-runtime-arithmetic` (`add`/`sub`/`mul`/`div`)                            | **Delete.** | Already in `plugin-lib-utils` (`math.*`).                                                     |
+| `plugin-runtime-boolean` (`and`/`or`/`not`/`eq`/`lt`)                            | **Delete.** | Already in `plugin-lib-utils` (`bool.*`, `cmp.*`).                                            |
+| `plugin-runtime-array` (`array.at`/`array.length`)                               | **Delete.** | Already in `plugin-lib-collections` (`array.at`, `array.len`).                                |
+| `plugin-runtime-object` (`obj.get`/`obj.keys`)                                   | **Delete.** | Already in `plugin-lib-collections` (`hash_map.get`, `hash_map.keys`).                        |
+| `plugin-runtime-apply` (`apply`/`fn.pipe`)                                       | **Delete.** | `fn.pipe` already in `plugin-lib-utils`. `apply` (eval primitive) → `plugin-eval-core`.       |
 
 ### Resulting taxonomy
 
@@ -276,7 +276,7 @@ Execution control is composable: each rule is its own plugin, mirroring the `plu
 - No `Runtime` operation, `RuntimeBehavior`, `RuntimeHost`, or `RuntimeRule`.
 - No `plugin-runtime-*` crates (the 6 that duplicate `plugin-lib-*`).
 - No `plugin-target-rust-interpreter` crate — the interpreter is 11 granular `plugin-eval-*` plugins, not a bundled target. The "target" is emergent from which eval plugins the kit loads.
-- The 11 `plugin-eval-*` plugins are the **tree-walking interpreter target**. A compiler target (wasm/JIT/bytecode) does *not* replace them with a different set of eval rules — it uses the `Compile` operation + `CompileBehavior` rules instead, since compilation processes the whole AST rather than evaluating per-node. "Targets are plugins" holds in both cases: an interpreter target is a set of `Eval` rules; a compiler target is a set of `Compile` rules. No new abstraction layer for either.
+- The 11 `plugin-eval-*` plugins are the **tree-walking interpreter target**. A compiler target (wasm/JIT/bytecode) does _not_ replace them with a different set of eval rules — it uses the `Compile` operation + `CompileBehavior` rules instead, since compilation processes the whole AST rather than evaluating per-node. "Targets are plugins" holds in both cases: an interpreter target is a set of `Eval` rules; a compiler target is a set of `Compile` rules. No new abstraction layer for either.
 
 ## Consequences
 

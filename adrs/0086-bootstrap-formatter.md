@@ -33,7 +33,7 @@ written in the v0.1 surface syntax.
      top-level declarations.
   3. Single trailing newline; no trailing whitespace; no more than one
      consecutive blank line.
-  4. `>>>` chains break *before* the operator, one segment per line, when a
+  4. `>>>` chains break _before_ the operator, one segment per line, when a
      chain does not fit in 100 columns.
   5. No spaces inside brackets; single spaces around binary operators per
      the ADR-0074 precedence table.
