@@ -807,6 +807,47 @@ impl Runtime {
         self.eval(&ast)
     }
 
+    /// `lex → parse → typecheck → eval` (ADR-0054, Phase 10.1).
+    ///
+    /// Like [`Runtime::run`], but inserts a typecheck stage between parse and
+    /// eval. If the typecheck engine reports any `Severity::Error` diagnostics
+    /// (or returns `Err`), eval is short-circuited and the error is returned
+    /// immediately — surfacing type errors as compile-time diagnostics rather
+    /// than runtime crashes or silent wrong results. Warnings and info-level
+    /// diagnostics do not block eval.
+    ///
+    /// If no typecheck engine is bound (`self.typecheck_engine` is `None`),
+    /// this falls through to plain `lex → parse → eval` (it does **not** fail)
+    /// — the engine may simply not be configured.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first stage error. A typecheck error is returned as
+    /// [`LangError::Engine`] carrying the first error diagnostic's message.
+    pub fn run_checked(&self, src: &Source) -> Result<Value, LangError> {
+        let toks = self.lex(src)?;
+        let ast = self.parse(&toks)?;
+        // If a typecheck engine is bound, run it before eval. Fatal type
+        // errors are reported via `Err` (per `TypecheckDiagnostic` docs); we
+        // also scan the diagnostics vec for any `Severity::Error` entries as a
+        // defensive measure. Warnings/info do not block eval.
+        if let Some(engine) = self.typecheck_engine.as_ref() {
+            let req = TypecheckRequest::new(ast.clone());
+            let result = engine.typecheck(&self.lang, &req)?;
+            if let Some(err) = result
+                .diagnostics
+                .iter()
+                .find(|d| d.severity.eq_ignore_ascii_case("error"))
+            {
+                return Err(LangError::engine(format!(
+                    "typecheck error: {}",
+                    err.message
+                )));
+            }
+        }
+        self.eval(&ast)
+    }
+
     /// Compile an [`Ast`] to `target`, returning a serializable
     /// [`CompiledHandle`] (ADR-0047 §3).
     ///
@@ -1116,6 +1157,47 @@ mod tests {
         }
 
         fn box_clone(&self) -> Box<dyn EvalEngine> {
+            Box::new(self.clone())
+        }
+    }
+
+    /// A stub typecheck engine that typechecks clean (no diagnostics).
+    #[derive(Clone)]
+    struct StubTypecheckClean {
+        typ: Value,
+    }
+
+    impl TypecheckEngine for StubTypecheckClean {
+        fn typecheck(
+            &self,
+            _lang: &Language,
+            _req: &TypecheckRequest,
+        ) -> Result<TypecheckResult, LangError> {
+            Ok(TypecheckResult {
+                typ: self.typ.clone(),
+                diagnostics: Vec::new(),
+            })
+        }
+
+        fn box_clone(&self) -> Box<dyn TypecheckEngine> {
+            Box::new(self.clone())
+        }
+    }
+
+    /// A stub typecheck engine that always fails with a type error.
+    #[derive(Clone)]
+    struct StubTypecheckErr;
+
+    impl TypecheckEngine for StubTypecheckErr {
+        fn typecheck(
+            &self,
+            _lang: &Language,
+            _req: &TypecheckRequest,
+        ) -> Result<TypecheckResult, LangError> {
+            Err(LangError::engine("typecheck error: unbound variable 'x'"))
+        }
+
+        fn box_clone(&self) -> Box<dyn TypecheckEngine> {
             Box::new(self.clone())
         }
     }
@@ -1741,5 +1823,109 @@ mod tests {
         let reg = default_registry();
         let s = format!("{:?}", reg);
         assert!(s.contains("EngineRegistry"));
+    }
+
+    // -----------------------------------------------------------------------
+    // run_checked: typecheck before eval (Phase 10.1)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn run_checked_typechecks_before_eval() {
+        // lex + parse + (clean typecheck) + eval → Ok(value).
+        let rt = Runtime::new(Language::new())
+            .with_lex_engine(Box::new(StubLex {
+                tokens: Tokens(vec![tok("token.number", "42")]),
+            }))
+            .with_parse_engine(StubParse)
+            .with_eval_engine(Box::new(StubEval { value: json!(3) }))
+            .with_typecheck_engine(Box::new(StubTypecheckClean { typ: json!(null) }));
+        let result = rt.run_checked(&Source::new("1 + 2")).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn run_checked_catches_type_error() {
+        // The typecheck engine returns Err → eval is short-circuited.
+        let rt = Runtime::new(Language::new())
+            .with_lex_engine(Box::new(StubLex {
+                tokens: Tokens(vec![tok("token.number", "42")]),
+            }))
+            .with_parse_engine(StubParse)
+            .with_eval_engine(Box::new(StubEval { value: json!(999) }))
+            .with_typecheck_engine(Box::new(StubTypecheckErr));
+        let err = rt.run_checked(&Source::new("x")).unwrap_err();
+        assert!(
+            matches!(err, LangError::Engine { .. }),
+            "expected LangError::Engine, got {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("typecheck error"),
+            "expected typecheck error message, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn run_still_works_without_typecheck() {
+        // Backward compat: run() is lex → parse → eval (no typecheck).
+        let rt = Runtime::new(Language::new())
+            .with_lex_engine(Box::new(StubLex {
+                tokens: Tokens(vec![tok("token.number", "42")]),
+            }))
+            .with_parse_engine(StubParse)
+            .with_eval_engine(Box::new(StubEval { value: json!(3) }));
+        let result = rt.run(&Source::new("1 + 2")).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn run_checked_falls_through_without_typecheck_engine() {
+        // No typecheck engine bound → falls through to eval (does not fail).
+        let rt = Runtime::new(Language::new())
+            .with_lex_engine(Box::new(StubLex {
+                tokens: Tokens(vec![tok("token.number", "42")]),
+            }))
+            .with_parse_engine(StubParse)
+            .with_eval_engine(Box::new(StubEval { value: json!(3) }));
+        let result = rt.run_checked(&Source::new("1 + 2")).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn run_checked_error_in_diagnostics_vec_short_circuits() {
+        // A typecheck engine that returns Ok with an error-severity diagnostic
+        // in the diagnostics vec (defensive path).
+        #[derive(Clone)]
+        struct StubTypecheckDiagErr;
+        impl TypecheckEngine for StubTypecheckDiagErr {
+            fn typecheck(
+                &self,
+                _lang: &Language,
+                _req: &TypecheckRequest,
+            ) -> Result<TypecheckResult, LangError> {
+                use handl_plugin_engine_typecheck::TypecheckDiagnostic;
+                Ok(TypecheckResult {
+                    typ: json!(null),
+                    diagnostics: vec![TypecheckDiagnostic {
+                        severity: "error".to_string(),
+                        message: "predicate failure".to_string(),
+                        span: None,
+                    }],
+                })
+            }
+            fn box_clone(&self) -> Box<dyn TypecheckEngine> {
+                Box::new(self.clone())
+            }
+        }
+        let rt = Runtime::new(Language::new())
+            .with_lex_engine(Box::new(StubLex {
+                tokens: Tokens(vec![tok("token.number", "42")]),
+            }))
+            .with_parse_engine(StubParse)
+            .with_eval_engine(Box::new(StubEval { value: json!(999) }))
+            .with_typecheck_engine(Box::new(StubTypecheckDiagErr));
+        let err = rt.run_checked(&Source::new("1")).unwrap_err();
+        assert!(matches!(err, LangError::Engine { .. }));
+        assert!(err.to_string().contains("predicate failure"));
     }
 }

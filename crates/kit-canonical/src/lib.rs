@@ -619,13 +619,20 @@ impl Kit {
         Ok(result.typ)
     }
 
-    /// Convenience: `eval(parse(lex(input)?)?)`.
+    /// Convenience: `eval(parse(lex(input)?)?)` with a typecheck stage
+    /// (Phase 10.1).
+    ///
+    /// Delegates to [`Runtime::run_checked`], which is
+    /// `lex → parse → typecheck → eval`. Typecheck errors
+    /// (`Severity::Error`) short-circuit eval with a diagnostic. If no
+    /// typecheck engine is bound, falls through to plain eval. Use
+    /// [`Kit::eval`] for raw `parse → eval` without typechecking.
     ///
     /// # Errors
     ///
-    /// Propagates the first stage error.
+    /// Propagates the first stage error (including typecheck errors).
     pub fn run(&self, input: &str) -> Result<Value, LangError> {
-        self.runtime.run(&Source::new(input))
+        self.runtime.run_checked(&Source::new(input))
     }
 
     /// Returns the scope name for this kit's grammar.
@@ -1665,5 +1672,37 @@ mod tests {
         // The root should be a `block` (desugared output).
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 10.1: Kit::run typechecks by default
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn kit_run_typechecks_by_default() {
+        let kit = Kit::new().unwrap();
+        // Clean program typechecks and evals.
+        let val = kit.run("1 + 2").unwrap();
+        assert_eq!(val, serde_json::json!(3));
+    }
+
+    #[test]
+    fn kit_run_catches_type_error() {
+        // `x` is an unbound variable: the typechecker rejects it before eval,
+        // so Kit::run returns Err instead of a runtime crash.
+        let kit = Kit::new().unwrap();
+        let err = kit.run("x").unwrap_err();
+        assert!(
+            err.to_string().contains("typecheck"),
+            "expected a typecheck error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn kit_eval_still_works_without_typecheck() {
+        // Kit::eval is parse + eval (no typecheck) — backward compat.
+        let kit = Kit::new().unwrap();
+        let val = kit.eval("1 + 2").unwrap();
+        assert_eq!(val, serde_json::json!(3));
     }
 }
