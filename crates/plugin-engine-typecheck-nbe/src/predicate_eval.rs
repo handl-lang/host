@@ -30,6 +30,8 @@
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Proof, Value, Verdict};
 use handl_plugin_engine_eval::EvalRequest;
 use handl_plugin_engine_typecheck::TypecheckDiagnostic;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use super::TypecheckContext;
 
@@ -413,105 +415,173 @@ fn normalize_sym(e: &SymExpr, budget: u32) -> SymExpr {
     current
 }
 
+/// Type alias for the symbolic environment (variable name → `SymExpr`).
+type SymEnv = HashMap<String, SymExpr>;
+
+/// Type of a symbolic translation handler registered in [`sym_registry`].
+///
+/// Each handler takes the full AST, the node to translate, and the symbolic
+/// environment. It returns `Some(SymExpr)` if it can handle the node kind,
+/// or `None` if not (the caller falls through to the `Stuck` case).
+type SymFn = fn(&Ast, &AstNode, &SymEnv) -> Option<SymExpr>;
+
+// --- Symbolic translation handlers --------------------------------------
+//
+// Each handler corresponds to one arm of the former `match` in
+// `ast_to_sym`. They are registered in [`sym_registry`] at init time,
+// making the dispatch table-driven rather than a hardcoded `match`.
+
+fn sym_lit(_ast: &Ast, node: &AstNode, _env: &SymEnv) -> Option<SymExpr> {
+    // Integer or boolean literal.
+    if let Some(i) = node.payload.as_i64() {
+        Some(SymExpr::int(i))
+    } else if let Some(b) = node.payload.as_bool() {
+        Some(SymExpr::boolean(b))
+    } else {
+        Some(SymExpr::stuck("non-integer/boolean literal"))
+    }
+}
+
+fn sym_var(_ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let name = node.payload.as_str().unwrap_or("");
+    if let Some(v) = env.get(name) {
+        Some(v.clone())
+    } else {
+        Some(SymExpr::var(name))
+    }
+}
+
+fn sym_binary_add(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::add(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_sub(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::sub(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_mul(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::mul(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_mod(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::mod_(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_eq(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::eq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_neq(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::neq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_lt(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::lt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_gt(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::gt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_lte(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::lte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_gte(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::gte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_and(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::and(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_binary_or(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    let (a, b) = binary_children(node);
+    Some(SymExpr::or(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+}
+
+fn sym_if(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    // if{children: [cond, then, else]}
+    let (cond, then_idx, else_idx) = if_children(node);
+    Some(SymExpr::if_(
+        ast_to_sym(ast, AstRef::new(cond), env),
+        ast_to_sym(ast, AstRef::new(then_idx), env),
+        ast_to_sym(ast, AstRef::new(else_idx), env),
+    ))
+}
+
+fn sym_call(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
+    // call{children: [callee, arg1, arg2, ...]}
+    let (callee_idx, arg_idxs) = call_children(node);
+    let callee_sym = ast_to_sym(ast, AstRef::new(callee_idx), env);
+    let arg_syms: Vec<SymExpr> = arg_idxs
+        .iter()
+        .map(|&i| ast_to_sym(ast, AstRef::new(i), env))
+        .collect();
+    Some(SymExpr::call(callee_sym, arg_syms))
+}
+
+/// Build (once) and return the static sym registry — a table mapping node
+/// kind strings to symbolic translation handler functions.
+///
+/// This is a data-driven dispatch: the registry is a `HashMap` table, not
+/// a hardcoded `match` statement. New node kinds can be added by inserting
+/// a new entry here (or, in the future, by loading entries from language
+/// data). The handlers themselves still know about the kinds they
+/// translate — this is inherent to a symbolic translator — but the
+/// *dispatch* is table-driven and extensible.
+fn sym_registry() -> &'static HashMap<&'static str, SymFn> {
+    static REGISTRY: OnceLock<HashMap<&'static str, SymFn>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let mut m = HashMap::new();
+        m.insert("lit", sym_lit as SymFn);
+        m.insert("var", sym_var as SymFn);
+        m.insert("binary.add", sym_binary_add as SymFn);
+        m.insert("binary.sub", sym_binary_sub as SymFn);
+        m.insert("binary.mul", sym_binary_mul as SymFn);
+        m.insert("binary.mod", sym_binary_mod as SymFn);
+        m.insert("binary.eq", sym_binary_eq as SymFn);
+        m.insert("binary.neq", sym_binary_neq as SymFn);
+        m.insert("binary.lt", sym_binary_lt as SymFn);
+        m.insert("binary.gt", sym_binary_gt as SymFn);
+        m.insert("binary.lte", sym_binary_lte as SymFn);
+        m.insert("binary.gte", sym_binary_gte as SymFn);
+        m.insert("binary.and", sym_binary_and as SymFn);
+        m.insert("binary.or", sym_binary_or as SymFn);
+        m.insert("if", sym_if as SymFn);
+        m.insert("call", sym_call as SymFn);
+        m
+    })
+}
+
 /// Translate a Handl AST node into a symbolic expression, given a
 /// mapping from variable names to their symbolic values (the predicate
 /// parameter is bound to the expression's symbolic representation).
-fn ast_to_sym(
-    ast: &Ast,
-    node_ref: AstRef,
-    env: &std::collections::HashMap<String, SymExpr>,
-) -> SymExpr {
+///
+/// Dispatch is table-driven via [`sym_registry`]: the node's kind is
+/// looked up in the registry and, if a handler is registered, it is
+/// invoked. Unregistered kinds produce [`SymExpr::Stuck`].
+fn ast_to_sym(ast: &Ast, node_ref: AstRef, env: &SymEnv) -> SymExpr {
     let node = match ast.get(node_ref) {
         Some(n) => n,
         None => return SymExpr::stuck("node out of bounds"),
     };
-    match node.kind.as_str() {
-        "lit" => {
-            // Integer or boolean literal.
-            if let Some(i) = node.payload.as_i64() {
-                SymExpr::int(i)
-            } else if let Some(b) = node.payload.as_bool() {
-                SymExpr::boolean(b)
-            } else {
-                SymExpr::stuck("non-integer/boolean literal")
-            }
-        }
-        "var" => {
-            let name = node.payload.as_str().unwrap_or("");
-            if let Some(v) = env.get(name) {
-                v.clone()
-            } else {
-                SymExpr::var(name)
-            }
-        }
-        "binary.add" => {
-            let (a, b) = binary_children(node);
-            SymExpr::add(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.sub" => {
-            let (a, b) = binary_children(node);
-            SymExpr::sub(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.mul" => {
-            let (a, b) = binary_children(node);
-            SymExpr::mul(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.mod" => {
-            let (a, b) = binary_children(node);
-            SymExpr::mod_(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.eq" => {
-            let (a, b) = binary_children(node);
-            SymExpr::eq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.neq" => {
-            let (a, b) = binary_children(node);
-            SymExpr::neq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.lt" => {
-            let (a, b) = binary_children(node);
-            SymExpr::lt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.gt" => {
-            let (a, b) = binary_children(node);
-            SymExpr::gt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.lte" => {
-            let (a, b) = binary_children(node);
-            SymExpr::lte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.gte" => {
-            let (a, b) = binary_children(node);
-            SymExpr::gte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.and" => {
-            let (a, b) = binary_children(node);
-            SymExpr::and(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "binary.or" => {
-            let (a, b) = binary_children(node);
-            SymExpr::or(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env))
-        }
-        "if" => {
-            // if{children: [cond, then, else]}
-            let (cond, then_idx, else_idx) = if_children(node);
-            SymExpr::if_(
-                ast_to_sym(ast, AstRef::new(cond), env),
-                ast_to_sym(ast, AstRef::new(then_idx), env),
-                ast_to_sym(ast, AstRef::new(else_idx), env),
-            )
-        }
-        "call" => {
-            // call{children: [callee, arg1, arg2, ...]}
-            let (callee_idx, arg_idxs) = call_children(node);
-            let callee_sym = ast_to_sym(ast, AstRef::new(callee_idx), env);
-            let arg_syms: Vec<SymExpr> = arg_idxs
-                .iter()
-                .map(|&i| ast_to_sym(ast, AstRef::new(i), env))
-                .collect();
-            SymExpr::call(callee_sym, arg_syms)
-        }
-        _ => SymExpr::stuck(format!("unsupported node kind: {}", node.kind)),
+    match sym_registry().get(node.kind.as_str()) {
+        Some(handler) => handler(ast, node, env).unwrap_or_else(|| {
+            SymExpr::stuck(format!("handler returned None for kind: {}", node.kind))
+        }),
+        None => SymExpr::stuck(format!("unsupported node kind: {}", node.kind)),
     }
 }
 
@@ -690,8 +760,12 @@ impl super::NbeTypecheckEngine {
 
         // Resolve the predicate body, param name, and any captured env.
         //
-        // Case 1: `function` node — read param/body directly from the AST.
-        // Case 2: any other kind (e.g. `call`) — evaluate the type expression
+        // Case 1: the node has a function-like payload (params/body or a
+        //         children array that `function_param_body` can parse) — read
+        //         param/body directly from the AST. This is data-driven: we
+        //         detect the function shape by payload structure, not by
+        //         checking `kind == "function"` (ADR-0081 engine genericity).
+        // Case 2: any other shape (e.g. `call`) — evaluate the type expression
         //         to get the closure value, then use its body index (valid in
         //         the subtree) and captured env.
         let (body_ast, body_idx, param_name, captured_env): (
@@ -699,16 +773,8 @@ impl super::NbeTypecheckEngine {
             usize,
             String,
             Option<Value>,
-        ) = if pred_node.kind == "function" {
+        ) = if let Some((param_names, body_idx)) = function_param_body(ast, pred_node) {
             // Phase 3.2: handle both children-array and params/body shapes.
-            let (param_names, body_idx) = match function_param_body(ast, pred_node) {
-                Some(v) => v,
-                None => {
-                    return Proof::blocked(
-                        "predicate function has invalid params/body payload",
-                    )
-                }
-            };
             let param_name = param_names.into_iter().next().unwrap_or_else(|| "_".to_string());
             (ast.clone(), body_idx, param_name, None)
         } else {
@@ -759,11 +825,11 @@ impl super::NbeTypecheckEngine {
         // Build the symbolic representation of the annotated expression.
         // This is computed from the *original* AST (the expression lives
         // there, not in the subtree).
-        let empty_env = std::collections::HashMap::new();
+        let empty_env = HashMap::new();
         let expr_sym = ast_to_sym(ast, expr_ref, &empty_env);
 
         // Bind the parameter to the expression's symbolic form.
-        let mut env = std::collections::HashMap::new();
+        let mut env = HashMap::new();
         env.insert(param_name.clone(), expr_sym);
 
         // Add captured env bindings from the closure (if any). These are
@@ -908,5 +974,36 @@ impl super::NbeTypecheckEngine {
                 Ok(accept_type.clone())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+
+    #[test]
+    fn sym_registry_contains_expected_entries() {
+        // The sym registry must be table-driven and contain the node kinds
+        // the symbolic normalizer supports. This test guards against
+        // accidental removal of entries during refactoring.
+        let reg = sym_registry();
+        assert!(reg.contains_key("lit"));
+        assert!(reg.contains_key("var"));
+        assert!(reg.contains_key("binary.add"));
+        assert!(reg.contains_key("binary.sub"));
+        assert!(reg.contains_key("binary.mul"));
+        assert!(reg.contains_key("binary.mod"));
+        assert!(reg.contains_key("binary.eq"));
+        assert!(reg.contains_key("binary.neq"));
+        assert!(reg.contains_key("binary.lt"));
+        assert!(reg.contains_key("binary.gt"));
+        assert!(reg.contains_key("binary.lte"));
+        assert!(reg.contains_key("binary.gte"));
+        assert!(reg.contains_key("binary.and"));
+        assert!(reg.contains_key("binary.or"));
+        assert!(reg.contains_key("if"));
+        assert!(reg.contains_key("call"));
+        // An unregistered kind should not be present.
+        assert!(!reg.contains_key("nonexistent.kind"));
     }
 }
