@@ -880,7 +880,7 @@ impl NbeTypecheckEngine {
                             child_idx
                         ))
                     })?;
-                    if child_node.kind != "assign" {
+                    if !is_assign_node(lang, &child_node) {
                         // Non-assign child: synth for effect (type errors still
                         // surface). The result is discarded.
                         let _ = self.synth_node(lang, ast, AstRef::new(child_idx), ctx)?;
@@ -1122,7 +1122,7 @@ impl NbeTypecheckEngine {
                             child_idx
                         ))
                     })?;
-                    if child_node.kind != "assign" {
+                    if !is_assign_node(lang, &child_node) {
                         let _ = self.synth_node(lang, ast, AstRef::new(child_idx), ctx)?;
                         continue;
                     }
@@ -1520,18 +1520,15 @@ impl NbeTypecheckEngine {
                             node,
                         )
                     })?
-                } else if params_node.kind == "var" {
+                } else {
+                    // Any other single leaf param (e.g. bare var, or a
+                    // renamed kind): read the name from the payload string.
                     params_node.payload.as_str().ok_or_else(|| {
                         LangError::engine_node(
-                            "synth_function: var node payload is not a string",
+                            "synth_function: param node payload is not a string",
                             node,
                         )
                     })?
-                } else {
-                    return Err(LangError::engine(format!(
-                        "synth_function: expected paren or var for params, got '{}'",
-                        params_node.kind
-                    )));
                 };
                 let param_meta = ctx.fresh_meta();
                 let param_type = meta_value(param_meta);
