@@ -1705,4 +1705,48 @@ mod tests {
         let val = kit.eval("1 + 2").unwrap();
         assert_eq!(val, serde_json::json!(3));
     }
+
+    // -----------------------------------------------------------------------
+    // Phase 5: runtime_assert diagnostics → eval pipeline (ADR-0068)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn runtime_assert_passes_for_valid_value() {
+        // A concrete value with a proven predicate: the typechecker can
+        // evaluate the predicate statically → Proven → no runtime_assert
+        // diagnostic. We verify via the typecheck result that zero
+        // diagnostics are emitted (no runtime assert needed).
+        let kit = Kit::new().unwrap();
+        let ast = kit.parse("5 : (n ~> n > 0)").unwrap();
+        let result = kit.runtime().typecheck(&ast).unwrap();
+        assert!(
+            result.diagnostics.is_empty(),
+            "proven predicate should have no diagnostics, got: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn runtime_assert_passes_at_runtime() {
+        // A variable annotated with a predicate: the typechecker can't
+        // normalize the predicate on a symbolic variable → Blocked →
+        // runtime_assert diagnostic → lowering pass wraps the type-annot in
+        // a runtime-assert node. At runtime with a valid value (5), the
+        // assert passes and returns 5.
+        let kit = Kit::new().unwrap();
+        let val = kit.run("do { y = 5; (y : (n ~> n > 0)) }").unwrap();
+        assert_eq!(val, serde_json::json!(5));
+    }
+
+    #[test]
+    fn runtime_assert_fails_for_invalid_value() {
+        // Same as above but with an invalid value (-1): the runtime assert
+        // fails and raises a LangError.
+        let kit = Kit::new().unwrap();
+        let err = kit.run("do { y = -1; (y : (n ~> n > 0)) }").unwrap_err();
+        assert!(
+            err.to_string().contains("assertion failed"),
+            "expected assertion failure, got: {err}"
+        );
+    }
 }

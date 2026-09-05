@@ -549,6 +549,12 @@
         args: []
         source: Native
         lit: 2
+- id: eval.runtime-assert
+  node_kind: runtime-assert
+  scheme: !Arr
+    op: runtime_assert
+    args: []
+    source: Native
 - id: eval.type-annot
   node_kind: type-annot
   scheme: !Seq

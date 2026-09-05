@@ -541,6 +541,22 @@
     required:
     - segments
     type: object
+- id: ast.runtime-assert
+  node_kind: runtime-assert
+  children:
+  - role: predicate
+  - role: expr
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.type-annot
   node_kind: type-annot
   children:

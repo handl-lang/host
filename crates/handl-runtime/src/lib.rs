@@ -59,6 +59,7 @@
 
 pub mod desugar_pass;
 pub mod fp;
+pub mod runtime_assert_pass;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -826,7 +827,7 @@ impl Runtime {
     /// [`LangError::Engine`] carrying the first error diagnostic's message.
     pub fn run_checked(&self, src: &Source) -> Result<Value, LangError> {
         let toks = self.lex(src)?;
-        let ast = self.parse(&toks)?;
+        let mut ast = self.parse(&toks)?;
         // If a typecheck engine is bound, run it before eval. Fatal type
         // errors are reported via `Err` (per `TypecheckDiagnostic` docs); we
         // also scan the diagnostics vec for any `Severity::Error` entries as a
@@ -843,6 +844,16 @@ impl Runtime {
                     "typecheck error: {}",
                     err.message
                 )));
+            // ADR-0068 graduated guarantees: when the typechecker emits
+            // `runtime_assert` diagnostics (Blocked predicates), rewrite
+            // `type-annot` nodes into `runtime-assert` nodes so the eval
+            // engine emits an actual `assert T(e)` at runtime.
+            } else if result
+                .diagnostics
+                .iter()
+                .any(|d| d.severity == "runtime_assert")
+            {
+                runtime_assert_pass::apply_runtime_asserts(&self.lang, &mut ast);
             }
         }
         self.eval(&ast)
