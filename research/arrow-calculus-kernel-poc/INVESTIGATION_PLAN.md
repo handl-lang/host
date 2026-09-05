@@ -7,11 +7,13 @@
 **Objective:** Define our specific arrow calculus with precise syntax and typing.
 
 **Scope:**
+
 - Core syntax: `arr`, `>>>`, `first`, `choice`, `loop`, `app`
 - Type rules based on Lindley–Wadler–Yallop and Sanada
 - Operational semantics (big-step or small-step)
 
 **Deliverables:**
+
 - Formal grammar (EBNF or similar)
 - Inference rules (typing)
 - Reduction rules (semantics)
@@ -26,16 +28,19 @@
 **Objective:** Show that lambda patterns can be systematically encoded as arrows.
 
 **Approach:**
+
 - Start with a minimal lambda-calculus core (variables, abstraction, application, let-binding)
 - Define a translation function: `λ-term → arrow-term`
 - Test on increasingly complex lambdas (identity, const, composition, higher-order)
 
 **Key translation decisions to investigate:**
+
 - How does `λx. e` become an arrow construct?
 - How does function application `f e` become arrow application?
 - How do we handle currying and partial application?
 
 **Test cases:**
+
 ```
 λx. x                  -- identity
 λx. λy. x              -- const
@@ -55,12 +60,14 @@
 **Objective:** Invent an arrow-based primitive that plays the role of `λ` without using lambda.
 
 **Candidates to explore:**
+
 - **Partial application via `arr`:** Can we use `arr f` to "bake in" a function, then compose it?
 - **Implicit parameters via type class/handler:** Use the type system to supply implicit arguments?
 - **Multi-shot arrows:** Define arrows that can be instantiated multiple times with different parameters?
 - **Generic combinators:** Define `map`, `fold`, `traverse` as primitive arrow combinators?
 
 **Experiments:**
+
 - Encode `map :: (a -> b) -> [a] -> [b]` as an arrow
 - Encode `fold :: (b -> a -> b) -> b -> [a] -> b` as an arrow
 - Test that these can be composed with other arrows
@@ -74,11 +81,13 @@
 **Objective:** Extend the arrow type system with type variables.
 
 **Scope:**
+
 - Type variables: `forall a. a ~> a`
 - Arrow polymorphism: `forall a b. (a ~> b) -> (a ~> b)`
 - Generic combinators: `map :: forall a b. (a ~> b) -> [a] ~> [b]`
 
 **Test:**
+
 - Can we infer principal types for polymorphic arrows?
 - Do type variable instantiations work as expected?
 
@@ -107,6 +116,7 @@ fact = loop step
 ```
 
 **Test cases:**
+
 - Factorial (linear recursion)
 - Fibonacci (tree recursion)
 - List fold (tail recursion)
@@ -114,6 +124,7 @@ fact = loop step
 - Mutual recursion (A calls B calls A)
 
 **Encoding approach:**
+
 1. Identify the recursion structure (tail, tree, mutual)
 2. Encode as a state machine with feedback
 3. Prove equivalence to the original recursive definition
@@ -127,6 +138,7 @@ fact = loop step
 **Objective:** Show that `fix` / Y-combinator can be defined, not primitively.
 
 **Goal:**
+
 ```
 fix : (a ~> b) -> (a ~> b)
 ```
@@ -134,6 +146,7 @@ fix : (a ~> b) -> (a ~> b)
 Such that `fix f` repeatedly applies `f` according to some termination condition.
 
 **Investigation:**
+
 - Can we express Y-combinator as an arrow program?
 - What is the relationship between `loop` and `fix`?
 - Can we use `loop` to define `fix`?
@@ -149,21 +162,24 @@ Such that `fix f` repeatedly applies `f` according to some termination condition
 **Objective:** Show that monadic effects (IO, State, Exceptions) can be encoded as arrow operations + handlers.
 
 **Approach:**
+
 1. Define a small set of **operations** (e.g., `read : () -> Env`, `write : Env -> ()`)
 2. Define **handlers** that interpret these operations (Sanada's model)
 3. Show that monadic effect patterns (state threading, error handling) emerge from this
 
 **Test effects:**
+
 - **IO:** Read/write operations, sequencing
 - **State:** Get/put operations, state threading
 - **Exceptions:** Throw/catch operations, error propagation
 
 **Encoding example (State):**
+
 ```
 operation Get : Unit ~> State
 operation Put : State ~> Unit
 
-handler stateHandler = 
+handler stateHandler =
   { Get -> λ s. (s, s)
   , Put -> λ s. ((), s)
   }
@@ -178,10 +194,12 @@ handler stateHandler =
 **Objective:** Assess whether handler-based composition is cleaner than monad transformers.
 
 **Comparison:**
+
 - Monad transformer: `newtype StateT s m a = StateT (s -> m (a, s))`
 - Handler approach: Operations define interface, handlers implement it
 
 **Questions:**
+
 - Do multiple effects compose as easily?
 - Is the order of effects (i.e., which effect runs "on top"?) as explicit?
 - Can we recover monad transformer patterns from handlers?
@@ -197,8 +215,9 @@ handler stateHandler =
 **Objective:** Define what it means for a language to be "first-class" and manipulable.
 
 **Core operations:**
+
 ```
-type Language = 
+type Language =
   { parse : Text ~> AST
   , eval : AST ~> Value
   , format : AST ~> Text
@@ -210,6 +229,7 @@ type Language =
 **Invariant:** All operations are arrows, so they can be composed, modified, and chained generically.
 
 **Test:**
+
 - Can we define a language instance (even minimal)?
 - Can we apply a single generic handler/transformer to multiple language instances?
 
@@ -222,11 +242,13 @@ type Language =
 **Objective:** Build one language-agnostic tool to demonstrate the concept.
 
 **Candidates:**
+
 - **Pretty-printer:** Format any language's AST
 - **Evaluator:** Evaluate any language with a standard semantics
 - **Tracer/debugger:** Trace evaluation of any language
 
 **Example: Generic pretty-printer**
+
 ```
 prettyPrint : forall lang. Language lang -> AST lang ~> Text
 ```
@@ -240,6 +262,7 @@ prettyPrint : forall lang. Language lang -> AST lang ~> Text
 ### 6.1 Search for Gaps
 
 **For each challenge, document:**
+
 - What works smoothly?
 - Where is the friction?
 - What had to be added (beyond core arrows) to make it work?
@@ -248,6 +271,7 @@ prettyPrint : forall lang. Language lang -> AST lang ~> Text
 ### 6.2 Propose Resolutions
 
 **For each friction point:**
+
 - Is it a fundamental limitation, or a gap in the design?
 - Can it be resolved by tweaking the arrow calculus, the handler model, or the metaprogramming layer?
 - Would resolving it require primitives outside the arrow universe?
@@ -255,6 +279,7 @@ prettyPrint : forall lang. Language lang -> AST lang ~> Text
 ### 6.3 Document the Verdict
 
 **Outcome:** For each challenge, write a brief verdict:
+
 - ✓ **Smooth:** Challenge is well-addressed by arrow primitives
 - ⚠ **Manageable:** Challenge requires some care, but can be solved within the framework
 - ✗ **Problematic:** Challenge reveals a gap that arrow calculus cannot easily bridge
@@ -263,14 +288,14 @@ prettyPrint : forall lang. Language lang -> AST lang ~> Text
 
 ## Deliverables by Phase
 
-| Phase | Deliverable | Form |
-|-------|------------|------|
-| 1 | Arrow calculus formalization + translator | Formal grammar, inference rules, implementation |
-| 2 | Parametric arrow constructs | Definition + examples |
-| 3 | Recursion encoding (factorial, fold, tree walk) | Arrow programs + proof of equivalence |
-| 4 | State/IO/Exception handlers | Handler implementations + example programs |
-| 5 | Language protocol + generic tool | Protocol definition + working tool |
-| 6 | Friction analysis | Friction report + resolutions |
+| Phase | Deliverable                                     | Form                                            |
+| ----- | ----------------------------------------------- | ----------------------------------------------- |
+| 1     | Arrow calculus formalization + translator       | Formal grammar, inference rules, implementation |
+| 2     | Parametric arrow constructs                     | Definition + examples                           |
+| 3     | Recursion encoding (factorial, fold, tree walk) | Arrow programs + proof of equivalence           |
+| 4     | State/IO/Exception handlers                     | Handler implementations + example programs      |
+| 5     | Language protocol + generic tool                | Protocol definition + working tool              |
+| 6     | Friction analysis                               | Friction report + resolutions                   |
 
 ---
 
@@ -285,7 +310,7 @@ The PoC succeeds if:
 
 If the answer to all 8 challenges is "yes with minor caveats," the hypothesis is supported and worthy of a full formal development.
 
-If a fundamental gap emerges (e.g., "you need lambda for X"), the hypothesis is *refined*, not abandoned—we identify precisely what lambda gives us and assess whether it's loadbearing.
+If a fundamental gap emerges (e.g., "you need lambda for X"), the hypothesis is _refined_, not abandoned—we identify precisely what lambda gives us and assess whether it's loadbearing.
 
 ---
 

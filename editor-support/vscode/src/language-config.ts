@@ -34,7 +34,5 @@ export function registerLanguageConfiguration(ctx: vscode.ExtensionContext): voi
     ],
   };
 
-  ctx.subscriptions.push(
-    vscode.languages.setLanguageConfiguration("handl", config),
-  );
+  ctx.subscriptions.push(vscode.languages.setLanguageConfiguration("handl", config));
 }

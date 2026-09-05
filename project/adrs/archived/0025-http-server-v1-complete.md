@@ -13,22 +13,26 @@ The handl runtime needed HTTP capabilities for both clients and servers. The ini
 Completed v1 of HTTP client/server support:
 
 ### 1. Renamed HTTP client crates
+
 - `lib-http` → `lib-http-client`
 - `lib-http-std` → `lib-http-client-std`
 - Preserved all public API names and `ureq` implementation
 
 ### 2. Extended module async/operation dispatch
+
 - Added `Module::async_function` and `Module::operation` default methods
 - Updated `ModuleHost` to forward async and operation calls
 - Tested with unit tests in `runtime-core`
 
 ### 3. Introduced `handl-lib-http-server` (abstract)
+
 - Defined `HttpServer` trait with `start`, `stop`, `join`, `route`, `serve_static`, `is_running`
 - Defined `HttpServerRequest`, `HttpServerResponse`, `HttpServerError` types
 - Created `HttpServerModule` exposing `http_server.*` functions
 - Added `StubHttpServer` for testing
 
 ### 4. Introduced `handl-lib-http-server-std` (concrete)
+
 - Implemented `StdHttpServer` using `tokio` + `hyper` 1.x
 - HTTP/1.1 and HTTP/2 keep-alive support (via hyper features)
 - Multi-threaded Tokio runtime
@@ -38,6 +42,7 @@ Completed v1 of HTTP client/server support:
 - Static file serving with path-sanitization and MIME guessing
 
 ### 5. Updated workspace
+
 - Added four new crate members to `Cargo.toml`
 - Added workspace dependency entries and feature flags
 

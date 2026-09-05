@@ -18,8 +18,8 @@ The classic translation produces an **opaque** monadic computation.
 
 If yes, the corrected slogan is:
 
-> *This explicit ArrowApply presentation gives you monadic power WITHOUT
-> the opacity penalty.*
+> _This explicit ArrowApply presentation gives you monadic power WITHOUT
+> the opacity penalty._
 
 ---
 
@@ -31,6 +31,7 @@ full monadic power while preserving all structural inspection properties.
 ### The representation
 
 `ExplicitComp` is a computation tree with explicit nodes:
+
 - `Pure`, `Ident` — values / identity
 - `Seq` — composition
 - `Fanout` — products (independent parallel)
@@ -44,27 +45,29 @@ detected, counted, traversed, and reasoned about like any other node.
 
 ### What's preserved WITH ArrowApply
 
-| Property | Explicit ArrowApply | Opaque monad |
-|---|---|---|
-| Monadic power (bind) | ✅ (via Apply) | ✅ (via bind) |
-| Choice recovery | ✅ | ❌ LOST |
-| Effect inference | ✅ | ❌ LOST |
-| Per-branch effects | ✅ | ❌ LOST |
-| Dependency graph | ✅ | ❌ LOST |
-| Fanout independence | ✅ | ❌ LOST |
-| Apply detection | ✅ (structural) | N/A (bind is a closure) |
+| Property             | Explicit ArrowApply | Opaque monad            |
+| -------------------- | ------------------- | ----------------------- |
+| Monadic power (bind) | ✅ (via Apply)      | ✅ (via bind)           |
+| Choice recovery      | ✅                  | ❌ LOST                 |
+| Effect inference     | ✅                  | ❌ LOST                 |
+| Per-branch effects   | ✅                  | ❌ LOST                 |
+| Dependency graph     | ✅                  | ❌ LOST                 |
+| Fanout independence  | ✅                  | ❌ LOST                 |
+| Apply detection      | ✅ (structural)     | N/A (bind is a closure) |
 
 ---
 
 ## Key Tests
 
 ### Monadic power (4 tests)
+
 - `test_arrow_apply_can_express_bind` — Apply IS the bind operator
 - `test_arrow_apply_runs_correctly` — Apply runs embedded arrows
 - `test_arrow_apply_with_state` — embedded arrows can have effects
 - `test_arrow_apply_composes` — multiple Applys compose
 
 ### Inspection preserved WITH Apply (5 tests)
+
 - `test_explicit_with_apply_recovers_choice` — choice still recoverable
 - `test_explicit_with_apply_infers_effects` — effects still inferred
 - `test_explicit_with_apply_per_branch_effects` — per-branch still works
@@ -72,17 +75,20 @@ detected, counted, traversed, and reasoned about like any other node.
 - `test_explicit_with_apply_recovers_fanout` — fanout still recoverable
 
 ### Explicit vs opaque comparison (4 tests)
+
 - `test_explicit_arrow_apply_vs_opaque_monad_choice` — explicit recovers, opaque doesn't
 - `test_explicit_arrow_apply_vs_opaque_monad_effects` — explicit infers, opaque doesn't
 - `test_explicit_arrow_apply_vs_opaque_monad_per_branch` — explicit per-branch, opaque doesn't
 - `test_explicit_arrow_apply_vs_opaque_monad_dependency_graph` — explicit builds, opaque doesn't
 
 ### The key claim (3 tests)
+
 - `test_monadic_power_without_opacity` — Apply present AND all inspection works
 - `test_apply_is_structural_not_closure` — Apply is a tree node, not a closure
 - `test_apply_preserves_fanout_independence` — fanout independence preserved with Apply
 
 ### Semantic correctness (3 tests)
+
 - `test_apply_runs_embedded_arrow` — Apply correctly runs embedded arrows
 - `test_apply_composed_with_get` — Apply composes with operations
 - `test_arrow_apply_runs_correctly` — basic Apply semantics
@@ -110,7 +116,7 @@ of the same power that stays **transparent**. That is the non-trivial
 part, and it is what makes the claim interesting.
 
 It no longer says "arrows are better than monads"; it says "this explicit
-ArrowApply presentation gives you monadic power *without* the opacity
+ArrowApply presentation gives you monadic power _without_ the opacity
 penalty."
 
 ---
@@ -126,16 +132,16 @@ penalty."
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44 | ✅ |
-| 2 | #6 (effects & handlers) | 20 | ✅ |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | ✅ |
-| Deep dive | Effect typing | 31 | ✅ |
-| 4 | #9 (structural preservation) | 33 | ✅ |
-| 5 | #10 (minimality — Lean4) | 7 theorems | ✅ |
-| 6 | #11 (ArrowApply without opacity) | 19 | ✅ |
-| | **Total** | **173 + 7** | **All passing** |
+| Phase     | Challenge                                                            | Tests       | Status          |
+| --------- | -------------------------------------------------------------------- | ----------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44          | ✅              |
+| 2         | #6 (effects & handlers)                                              | 20          | ✅              |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26          | ✅              |
+| Deep dive | Effect typing                                                        | 31          | ✅              |
+| 4         | #9 (structural preservation)                                         | 33          | ✅              |
+| 5         | #10 (minimality — Lean4)                                             | 7 theorems  | ✅              |
+| 6         | #11 (ArrowApply without opacity)                                     | 19          | ✅              |
+|           | **Total**                                                            | **173 + 7** | **All passing** |
 
 ---
 
@@ -195,11 +201,11 @@ node:
 
 ### Two execution profiles
 
-| Approach | Pre-compiled Chunks (Finite) | Live JIT Re-staging (Unbounded) |
-|---|---|---|
-| **When** | Branch choices known statically / small predictable set | Dynamic structure depends on unbound runtime data |
-| **Runtime overhead** | ≈ 0 ns (pointer read / indirect dispatch) | Sub-ms (graph build + compile) |
-| **Memory** | Pre-allocated slab with proactive chunk recycling | Temporary workspace with immediate discard |
+| Approach             | Pre-compiled Chunks (Finite)                            | Live JIT Re-staging (Unbounded)                   |
+| -------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| **When**             | Branch choices known statically / small predictable set | Dynamic structure depends on unbound runtime data |
+| **Runtime overhead** | ≈ 0 ns (pointer read / indirect dispatch)               | Sub-ms (graph build + compile)                    |
+| **Memory**           | Pre-allocated slab with proactive chunk recycling       | Temporary workspace with immediate discard        |
 
 ### The bottom line
 

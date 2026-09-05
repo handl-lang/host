@@ -66,14 +66,14 @@ Hover, go-to-definition, references, rename, formatting, code actions, code lens
 
 The constraints create a clear split:
 
-| Concern | Owner | Why |
-|---------|-------|-----|
-| Language ID, file extension | Extension (`package.json`) | VS Code requires static declaration |
-| Config settings schema | Extension (`package.json`) | VS Code requires static declaration |
-| Syntax highlighting | Server (semantic tokens) | Runtime API, data-driven from YAML |
-| Snippets | Server (completion provider) | Runtime API, data-driven |
-| Bracket matching, autoclosing | Extension (runtime `setLanguageConfiguration`) | Runtime API, universal brackets |
-| All LSP features | Server | Runtime, data-driven |
+| Concern                       | Owner                                          | Why                                 |
+| ----------------------------- | ---------------------------------------------- | ----------------------------------- |
+| Language ID, file extension   | Extension (`package.json`)                     | VS Code requires static declaration |
+| Config settings schema        | Extension (`package.json`)                     | VS Code requires static declaration |
+| Syntax highlighting           | Server (semantic tokens)                       | Runtime API, data-driven from YAML  |
+| Snippets                      | Server (completion provider)                   | Runtime API, data-driven            |
+| Bracket matching, autoclosing | Extension (runtime `setLanguageConfiguration`) | Runtime API, universal brackets     |
+| All LSP features              | Server                                         | Runtime, data-driven                |
 
 The extension is a packaging layer: it declares the language ID and file extension, starts the server, and registers a handful of runtime providers. The server is the single source of truth for everything about the language.
 

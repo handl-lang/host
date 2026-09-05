@@ -15,9 +15,11 @@ The following work remains for v1.x stability and v2 enhancements.
 Implement the remaining HTTP server enhancements:
 
 ### v1.x Completion
+
 - **handl `FunctionValue` route handler dispatch.** The abstract `route` and `route_function` methods are stubbed with placeholders. Implement full dispatch of handl `FunctionValue`s as route handlers via the VM, with proper error handling and response serialization.
 
 ### v2 Features
+
 - **TLS termination.** Add TLS/HTTPS support via `rustls` or native TLS, with certificate loading and SNI support.
 - **Middleware hooks.** Provide a composable middleware/layer API for request/response interception (similar to `tower` or `actix-web` middleware).
 - **Compression.** Add transparent `gzip`/`brotli` response compression with `Accept-Encoding` negotiation.

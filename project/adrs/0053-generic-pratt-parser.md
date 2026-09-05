@@ -288,7 +288,7 @@ only sub-routines. No `kind == "..."`, no `token.kind == "..."`.
 
 - **Adding a Pratt-expressible construct = data only.** A new ternary `? :`
   is a new token kind, an infix grammar row with `child_separators:
-  [Required("token.colon")]`, an AST shape, and an eval scheme. Zero parser
+[Required("token.colon")]`, an AST shape, and an eval scheme. Zero parser
   edits.
 - **The parser is a fixed interpreter of grammar data**, symmetric with the
   eval engines being fixed interpreters of scheme data. ADR-0044's

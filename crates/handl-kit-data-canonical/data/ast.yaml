@@ -14,14 +14,14 @@
       callee:
         type: object
     required:
-    - callee
-    - args
+      - callee
+      - args
     type: object
 - id: ast.array
   node_kind: array
   children:
-  - role: elements
-    variadic: true
+    - role: elements
+      variadic: true
   payload_schema:
     properties:
       elements:
@@ -29,7 +29,7 @@
           type: object
         type: array
     required:
-    - elements
+      - elements
     type: object
 - id: ast.arm
   node_kind: arm
@@ -42,13 +42,13 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.block
   node_kind: block
   children:
-  - role: statements
-    variadic: true
+    - role: statements
+      variadic: true
   payload_schema:
     properties:
       children:
@@ -56,13 +56,13 @@
           type: integer
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.assign
   node_kind: assign
   children:
-  - role: target
-  - role: value
+    - role: target
+    - role: value
   payload_schema:
     properties:
       target:
@@ -70,8 +70,8 @@
       value:
         type: object
     required:
-    - target
-    - value
+      - target
+      - value
     type: object
 - id: ast.binary.add
   node_kind: binary.add
@@ -84,7 +84,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.and
   node_kind: binary.and
@@ -97,7 +97,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.bind
   node_kind: bind
@@ -112,8 +112,8 @@
         minItems: 2
         type: array
     required:
-    - name
-    - children
+      - name
+      - children
     type: object
 - id: ast.binary.compare
   node_kind: binary.compare
@@ -126,7 +126,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.div
   node_kind: binary.div
@@ -139,7 +139,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.eq
   node_kind: binary.eq
@@ -152,7 +152,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.gt
   node_kind: binary.gt
@@ -165,7 +165,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.gte
   node_kind: binary.gte
@@ -178,7 +178,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.lt
   node_kind: binary.lt
@@ -191,7 +191,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.lte
   node_kind: binary.lte
@@ -204,7 +204,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.mod
   node_kind: binary.mod
@@ -217,7 +217,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.mul
   node_kind: binary.mul
@@ -230,7 +230,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.neq
   node_kind: binary.neq
@@ -243,7 +243,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.or
   node_kind: binary.or
@@ -256,7 +256,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.pow
   node_kind: binary.pow
@@ -269,7 +269,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.binary.sub
   node_kind: binary.sub
@@ -282,7 +282,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.call
   node_kind: call
@@ -295,8 +295,8 @@
       callee:
         type: object
     required:
-    - callee
-    - args
+      - callee
+      - args
     type: object
   # ADR-0060 Layer 1: json{...}(args) is syntactic sugar. When the callee
   # (child 0) is a `json` node, desugar the `call` into a `json` node that
@@ -309,8 +309,8 @@
       child_index: 0
       child_kind: json
     children:
-    - !Keep 0
-    - !KeepRest 1
+      - !Keep 0
+      - !KeepRest 1
 - id: ast.export
   node_kind: export
   payload_schema:
@@ -320,8 +320,8 @@
       value:
         type: object
     required:
-    - name
-    - value
+      - name
+      - value
     type: object
 - id: ast.field-access
   node_kind: field-access
@@ -332,8 +332,8 @@
       target:
         type: object
     required:
-    - target
-    - field
+      - target
+      - field
     type: object
 - id: ast.forall
   node_kind: forall
@@ -346,13 +346,13 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.function
   node_kind: function
   children:
-  - role: params
-  - role: body
+    - role: params
+    - role: body
   payload_schema:
     properties:
       body:
@@ -362,8 +362,8 @@
           type: string
         type: array
     required:
-    - params
-    - body
+      - params
+      - body
     type: object
 - id: ast.hello.greet
   node_kind: hello.greet
@@ -383,7 +383,7 @@
         minItems: 3
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.import
   node_kind: import
@@ -396,7 +396,7 @@
       path:
         type: string
     required:
-    - path
+      - path
     type: object
 - id: ast.index
   node_kind: index
@@ -407,8 +407,8 @@
       target:
         type: object
     required:
-    - target
-    - index
+      - target
+      - index
     type: object
 - id: ast.json
   node_kind: json
@@ -428,8 +428,8 @@
       value:
         type: object
     required:
-    - name
-    - value
+      - name
+      - value
     type: object
 - id: ast.match
   node_kind: match
@@ -443,8 +443,8 @@
             pattern:
               type: object
           required:
-          - pattern
-          - body
+            - pattern
+            - body
           type: object
         type: array
       children:
@@ -460,8 +460,8 @@
       scrutinee:
         type: object
     required:
-    - scrutinee
-    - arms
+      - scrutinee
+      - arms
     type: object
 - id: ast.object
   node_kind: object
@@ -475,12 +475,12 @@
             value:
               type: object
           required:
-          - key
-          - value
+            - key
+            - value
           type: object
         type: array
     required:
-    - entries
+      - entries
     type: object
 - id: ast.entry
   node_kind: entry
@@ -493,7 +493,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
   desugar:
     target_kind: entry
@@ -501,18 +501,18 @@
       child_index: 0
       child_kind: array
     children:
-    - !Create
-      kind: paren
-      children:
-      - !KeepPath
-        - 0
-        - 0
-    - !Keep 1
+      - !Create
+        kind: paren
+        children:
+          - !KeepPath
+            - 0
+            - 0
+      - !Keep 1
 - id: ast.paren
   node_kind: paren
   children:
-  - role: body
-    variadic: true
+    - role: body
+      variadic: true
   payload_schema:
     properties:
       children:
@@ -522,7 +522,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.rest
   node_kind: rest
@@ -535,7 +535,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.resolve
   node_kind: resolve
@@ -553,13 +553,13 @@
           type: object
         type: array
     required:
-    - segments
+      - segments
     type: object
 - id: ast.runtime-assert
   node_kind: runtime-assert
   children:
-  - role: predicate
-  - role: expr
+    - role: predicate
+    - role: expr
   payload_schema:
     properties:
       children:
@@ -569,19 +569,19 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.type-annot
   node_kind: type-annot
   children:
-  - role: subject
-  - role: annot
+    - role: subject
+    - role: annot
   payload_schema:
     properties:
       type:
         type: string
     required:
-    - type
+      - type
     type: object
 - id: ast.unary.neg
   node_kind: unary.neg
@@ -594,7 +594,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.unary.not
   node_kind: unary.not
@@ -607,7 +607,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 - id: ast.value
   node_kind: value
@@ -615,7 +615,7 @@
     properties:
       value: {}
     required:
-    - value
+      - value
     type: object
 - id: ast.var
   node_kind: var
@@ -624,7 +624,7 @@
       name:
         type: string
     required:
-    - name
+      - name
     type: object
 # ---------------------------------------------------------------------------
 # v0.1 new node kinds (ADR-0074)
@@ -641,7 +641,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `while` — pre-test loop (2 children: condition + body).
 - id: ast.while
@@ -655,7 +655,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `for` — iteration (3 children: iterator + collection + body).
 - id: ast.for
@@ -669,13 +669,13 @@
         minItems: 3
         type: array
     required:
-    - children
+      - children
     type: object
 # `return` — early exit (1 child: the value).
 - id: ast.return
   node_kind: return
   children:
-  - role: value
+    - role: value
   payload_schema:
     properties:
       children:
@@ -685,7 +685,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `law` — compile-time law declaration (2 children: name + body).
 - id: ast.law
@@ -699,7 +699,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `trait` — compile-time trait declaration (1 child).
 - id: ast.trait
@@ -713,7 +713,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `impl` — compile-time impl declaration (1 child).
 - id: ast.impl
@@ -727,7 +727,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `infer` — name an inferred type (1 child).
 - id: ast.infer
@@ -741,7 +741,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `type` — compile-time type declaration (1 child).
 - id: ast.type
@@ -755,7 +755,7 @@
         minItems: 1
         type: array
     required:
-    - children
+      - children
     type: object
 # `product` — categorical product `***` (2 children, like fanout).
 - id: ast.product
@@ -769,7 +769,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `nullish` — nullish coalescing `??` (2 children, like choice).
 - id: ast.nullish
@@ -783,7 +783,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `opt-chain` — optional chaining `?.` (2 children, like field-access).
 - id: ast.opt-chain
@@ -797,7 +797,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `data` — inductive type declaration (ADR-0082). Has two named children:
 #   0. `type`   — the family name/parameter expression (`var(Name)` or
@@ -809,8 +809,8 @@
 - id: ast.data
   node_kind: data
   children:
-  - role: type
-  - role: constructors
+    - role: type
+    - role: constructors
   payload_schema:
     properties:
       children:
@@ -828,8 +828,8 @@
           type: string
         type: array
     required:
-    - children
-    - name
+      - children
+      - name
     type: object
 # `alt` — constructor alternative node created by `|` pipe infix
 # (ADR-0082). Two children: `left` and `right`. The desugar pass walks
@@ -837,8 +837,8 @@
 - id: ast.alt
   node_kind: alt
   children:
-  - role: left
-  - role: right
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -848,7 +848,7 @@
         minItems: 2
         type: array
     required:
-    - children
+      - children
     type: object
 # `desugar-error` — error node emitted by the desugar pass when a
 # declaration fails a compile-time check (e.g. strict positivity violation
@@ -864,6 +864,6 @@
       reason:
         type: string
     required:
-    - kind
-    - reason
+      - kind
+      - reason
     type: object

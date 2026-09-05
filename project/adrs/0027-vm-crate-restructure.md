@@ -11,6 +11,7 @@ The workspace currently mixes `handl-runtime-*` and `handl-plugin-vm-*` package 
 In addition, the current higher-level runtime crates (`runtime-sandbox`, `runtime-type`, `runtime-server`) are hard-coded to the canonical value representation and the canonical tree-walking evaluator. This makes it impossible to swap the VM backend or the value representation, which blocks future work on bytecode and JIT execution targets.
 
 We need a crate layout that:
+
 - is internally consistent,
 - keeps the VM abstraction generic over both value type and execution strategy,
 - supports multiple VM backends,
@@ -23,26 +24,26 @@ We will move the entire VM surface into an `handl-plugin-vm-*` namespace with a 
 
 ### Crate layout
 
-| Current crate / dir | New crate / dir | Responsibility |
-|---|---|---|
-| `crates/vm` (`handl-runtime`) | `crates/vm` (`handl-vm`) | Core VM traits: `Value`, `Host`, `Context`, `VirtualMachine`, `Eval`, `Operation`, `Error` |
-| `crates/plugin-vm-common` (`handl-runtime-common`) | `crates/plugin-vm-common` (`handl-plugin-vm-common`) | Generic host building blocks: `Module<V>`, `ModuleHost<V>`, adapters, combinators, mocks, middleware, sandbox helpers |
-| `crates/plugin-vm-canonical` (`handl-runtime-canonical`) | `crates/plugin-vm-backend-rust-interpreter` (`handl-plugin-vm-backend-rust-interpreter`) | Canonical tree-walking interpreter implemented in Rust |
-| `crates/runtime` (`handl-runtime-values`) | `crates/plugin-vm-values-json` (`handl-plugin-vm-values-json`) | JSON-backed value representation: `NonFunctionValue`, `FunctionValue`, `HostValue`, `Frontend` |
-| `crates/runtime-config` (`handl-runtime-config`) | — delete — | `CanonicalContext` and the concrete `Context` implementation move to `handl-plugin-vm-backend-rust-interpreter`; value types move to `handl-plugin-vm-values-json` |
-| `crates/runtime-core` (`handl-runtime-modules`) | — delete — | `Module` and `ModuleHost` move to `handl-plugin-vm-common` |
-| `crates/runtime-sandbox` (`handl-runtime-sandbox`) | `crates/plugin-vm-config` (`handl-plugin-vm-config`) | Generic, value-agnostic, pure configuration VM (defaults to `handl-plugin-vm-values-json` + `handl-plugin-vm-backend-rust-interpreter` behind a `canonical` feature) |
-| `crates/runtime-type` (`handl-runtime-type`) | `crates/plugin-vm-type` (`handl-plugin-vm-type`) | Generic, value-agnostic type-as-values VM |
-| `crates/runtime-server` (`handl-runtime-server`) | `crates/plugin-vm-server` (`handl-plugin-vm-server`) | Generic, value-agnostic server VM |
-| _new_ | `crates/plugin-vm-transform` (`handl-plugin-vm-transform`) | Generic AST / expression transformation utilities |
+| Current crate / dir                                      | New crate / dir                                                                          | Responsibility                                                                                                                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/vm` (`handl-runtime`)                            | `crates/vm` (`handl-vm`)                                                                 | Core VM traits: `Value`, `Host`, `Context`, `VirtualMachine`, `Eval`, `Operation`, `Error`                                                                           |
+| `crates/plugin-vm-common` (`handl-runtime-common`)       | `crates/plugin-vm-common` (`handl-plugin-vm-common`)                                     | Generic host building blocks: `Module<V>`, `ModuleHost<V>`, adapters, combinators, mocks, middleware, sandbox helpers                                                |
+| `crates/plugin-vm-canonical` (`handl-runtime-canonical`) | `crates/plugin-vm-backend-rust-interpreter` (`handl-plugin-vm-backend-rust-interpreter`) | Canonical tree-walking interpreter implemented in Rust                                                                                                               |
+| `crates/runtime` (`handl-runtime-values`)                | `crates/plugin-vm-values-json` (`handl-plugin-vm-values-json`)                           | JSON-backed value representation: `NonFunctionValue`, `FunctionValue`, `HostValue`, `Frontend`                                                                       |
+| `crates/runtime-config` (`handl-runtime-config`)         | — delete —                                                                               | `CanonicalContext` and the concrete `Context` implementation move to `handl-plugin-vm-backend-rust-interpreter`; value types move to `handl-plugin-vm-values-json`   |
+| `crates/runtime-core` (`handl-runtime-modules`)          | — delete —                                                                               | `Module` and `ModuleHost` move to `handl-plugin-vm-common`                                                                                                           |
+| `crates/runtime-sandbox` (`handl-runtime-sandbox`)       | `crates/plugin-vm-config` (`handl-plugin-vm-config`)                                     | Generic, value-agnostic, pure configuration VM (defaults to `handl-plugin-vm-values-json` + `handl-plugin-vm-backend-rust-interpreter` behind a `canonical` feature) |
+| `crates/runtime-type` (`handl-runtime-type`)             | `crates/plugin-vm-type` (`handl-plugin-vm-type`)                                         | Generic, value-agnostic type-as-values VM                                                                                                                            |
+| `crates/runtime-server` (`handl-runtime-server`)         | `crates/plugin-vm-server` (`handl-plugin-vm-server`)                                     | Generic, value-agnostic server VM                                                                                                                                    |
+| _new_                                                    | `crates/plugin-vm-transform` (`handl-plugin-vm-transform`)                               | Generic AST / expression transformation utilities                                                                                                                    |
 
 ### Planned future crates
 
-| New crate | Responsibility |
-|---|---|
-| `handl-plugin-vm-backend-bytecode` | Bytecode compiler + interpreter VM |
-| `handl-plugin-vm-backend-jit` | JIT compiled VM |
-| `handl-plugin-vm-values-*` | Additional value representations as needed (e.g. compact, no-heap) |
+| New crate                          | Responsibility                                                     |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `handl-plugin-vm-backend-bytecode` | Bytecode compiler + interpreter VM                                 |
+| `handl-plugin-vm-backend-jit`      | JIT compiled VM                                                    |
+| `handl-plugin-vm-values-*`         | Additional value representations as needed (e.g. compact, no-heap) |
 
 ### Design rules
 

@@ -173,7 +173,7 @@ makes this natural:
   variable. `Seq(f, g)` composes two arrows; their environments are
   threaded by `first`, not by lexical scope.
 - **Bindings are wires, not names.** In graph blocks (`{ x = f(a); y =
-  g(x); y }`), `x` is a wire name local to the block. The compiler
+g(x); y }`), `x` is a wire name local to the block. The compiler
   resolves wire names to positional indices at assembly time
   (ADR-0079). A macro that introduces a wire `tmp` generates a fresh
   index, not a name that could collide.

@@ -4,17 +4,17 @@ Working with text looks like one problem. It is three. They have different natur
 
 ## The three layers
 
-| Layer | What it is | Nature | Where it lives |
-| ----- | ---------- | ------ | -------------- |
-| **1. Algorithms** | trim, replace, split, levenshtein, word_wrap, pad, strip, slice, reverse | Pure control flow over a sequence of characters. No data required. | `str-handl/` — pure handl. |
-| **2. Unicode tables** | "is `é` a letter?", "uppercase of `ß`?", "is `\u200b` whitespace?" | Not algorithms. Lookups into the Unicode Character Database (UCD): ~60&nbsp;KB of property tables the Unicode Consortium publishes and revises per version. | `char-unicode-std/` — Rust FFI over `std::char`. This is the irreducible floor. |
-| **3. ICU (full i18n)** | Locale-sensitive collation (German `ä` sorts as `ae` in phonebooks), Turkish `i` → `İ`, NFC/NFD normalisation, grapheme cluster segmentation (`👨‍👩‍👧` is 5 codepoints but 1 user-perceived character), UAX #14 line breaking, number/date/plural formatting | Lookups into CLDR locale data plus UCD, often tens of MB. Rust's `std` does none of this. | `char-icu-std/` — Rust FFI over ICU4X. A future, swappable backend. |
+| Layer                  | What it is                                                                                                                                                                                                                                               | Nature                                                                                                                                                      | Where it lives                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **1. Algorithms**      | trim, replace, split, levenshtein, word_wrap, pad, strip, slice, reverse                                                                                                                                                                                 | Pure control flow over a sequence of characters. No data required.                                                                                          | `str-handl/` — pure handl.                                                      |
+| **2. Unicode tables**  | "is `é` a letter?", "uppercase of `ß`?", "is `\u200b` whitespace?"                                                                                                                                                                                       | Not algorithms. Lookups into the Unicode Character Database (UCD): ~60&nbsp;KB of property tables the Unicode Consortium publishes and revises per version. | `char-unicode-std/` — Rust FFI over `std::char`. This is the irreducible floor. |
+| **3. ICU (full i18n)** | Locale-sensitive collation (German `ä` sorts as `ae` in phonebooks), Turkish `i` → `İ`, NFC/NFD normalisation, grapheme cluster segmentation (`👨‍👩‍👧` is 5 codepoints but 1 user-perceived character), UAX #14 line breaking, number/date/plural formatting | Lookups into CLDR locale data plus UCD, often tens of MB. Rust's `std` does none of this.                                                                   | `char-icu-std/` — Rust FFI over ICU4X. A future, swappable backend.             |
 
-The split is not stylistic. Each layer has a different *kind of thing* in it: an algorithm, a database lookup, a larger database lookup. Writing an algorithm in Rust when it could be handl hides it from the refinement engine and forces an engine edit for every behaviour change. Writing a database lookup in handl embeds tens of kilobytes of data as code, with no way to version it against Unicode releases.
+The split is not stylistic. Each layer has a different _kind of thing_ in it: an algorithm, a database lookup, a larger database lookup. Writing an algorithm in Rust when it could be handl hides it from the refinement engine and forces an engine edit for every behaviour change. Writing a database lookup in handl embeds tens of kilobytes of data as code, with no way to version it against Unicode releases.
 
 ## Why algorithms belong in handl
 
-`trim`, `replace`, `split`, `levenshtein`, `word_wrap` and the rest are *just control flow* over a character sequence. Given two primitives — "give me character N" and "how many characters are there?" — the algorithm is expressible in any Turing-complete language. There is nothing in `replace` that depends on Rust's `String`, and nothing in `levenshtein` that depends on the UCD.
+`trim`, `replace`, `split`, `levenshtein`, `word_wrap` and the rest are _just control flow_ over a character sequence. Given two primitives — "give me character N" and "how many characters are there?" — the algorithm is expressible in any Turing-complete language. There is nothing in `replace` that depends on Rust's `String`, and nothing in `levenshtein` that depends on the UCD.
 
 Keeping them in handl has three concrete payoffs:
 
@@ -28,11 +28,11 @@ Consider `str.upper("straße")`. The correct result is `"STRASSE"` — `ß` uppe
 
 These facts live in the UCD, which the Unicode Consortium revises for each version of the standard. Rust's `std::char` embeds a generated subset of the UCD at Rust build time. A handl implementation would have to carry those tables as handl literals — a ~60&nbsp;KB data file masquerading as source, with no mechanism to track Unicode versions, no test against the conformance data, and a runtime cost dominated by interpretation overhead on every lookup.
 
-This is why `char/` is the floor: it is the layer where the only honest implementation is a native call into a curated database. The axioms in `char/` declare the *contract* (e.g. `char.to_upper` guarantees `IsUpper(output) ∧ LengthGe(output, input)`); the Rust in `char-unicode-std/` satisfies it by calling `char::to_uppercase`.
+This is why `char/` is the floor: it is the layer where the only honest implementation is a native call into a curated database. The axioms in `char/` declare the _contract_ (e.g. `char.to_upper` guarantees `IsUpper(output) ∧ LengthGe(output, input)`); the Rust in `char-unicode-std/` satisfies it by calling `char::to_uppercase`.
 
 ## Why ICU is a separate layer above the std floor
 
-Rust's `std::char` does *root-locale* Unicode: basic case mapping, basic whitespace, basic category. It does not do:
+Rust's `std::char` does _root-locale_ Unicode: basic case mapping, basic whitespace, basic category. It does not do:
 
 - **Locale-sensitive case folding.** Turkish `i` uppercases to `İ` (dotted capital), not `I`. Azeri likewise. Root locale gives `I`, which is wrong for those locales.
 - **Normalisation.** `é` can be one codepoint (`U+00E9`) or two (`e` + `U+0301` combining acute). `equals` and `find` over un-normalised text silently fail. NFC/NFD/NFKC/NFKD fix this; `std` does not provide them.
@@ -57,9 +57,9 @@ This is the payoff of the layering. The Rust surface area is minimised to one sw
 
 ## What this means for "pure handl"
 
-"Pure handl" is a claim about a *package*, not the whole stack. `str-handl/` is pure handl — every line is handl. `unicode-handl/` is pure handl. The stack as a whole is not, and cannot be, pure handl, because Unicode property data is irreducible. The honest statement is:
+"Pure handl" is a claim about a _package_, not the whole stack. `str-handl/` is pure handl — every line is handl. `unicode-handl/` is pure handl. The stack as a whole is not, and cannot be, pure handl, because Unicode property data is irreducible. The honest statement is:
 
-> Every string *algorithm* in handl is handl. The only Rust in the string stack is per-character Unicode data lookup, isolated in one swappable package.
+> Every string _algorithm_ in handl is handl. The only Rust in the string stack is per-character Unicode data lookup, isolated in one swappable package.
 
 That is the strongest defensible position, and it is what the `char/` floor enforces.
 

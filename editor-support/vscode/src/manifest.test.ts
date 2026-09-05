@@ -40,15 +40,15 @@ describe("parseToml", () => {
 
   it("parseToml_multiple_sections", () => {
     const content = [
-      '[language]',
+      "[language]",
       'kit = "handl-kit-data-canonical"',
       'version = "0.1"',
       'extensions = [".hnl", ".hn2"]',
-      '[editor]',
-      'enableInlayHints = true',
-      'enableCodeLens = false',
-      'enableRefinementDiagnostics = true',
-      'enableSemanticHighlighting = false',
+      "[editor]",
+      "enableInlayHints = true",
+      "enableCodeLens = false",
+      "enableRefinementDiagnostics = true",
+      "enableSemanticHighlighting = false",
     ].join("\n");
     const manifest = parseToml(content);
     expect(manifest.language?.kit).toBe("handl-kit-data-canonical");
@@ -92,13 +92,13 @@ describe("readManifest", () => {
   it("readManifest_valid_file_returns_manifest", () => {
     withTempDir((dir) => {
       const content = [
-        '[language]',
+        "[language]",
         'kit = "handl-kit-data-canonical"',
         'version = "0.1"',
         'extensions = [".hnl", ".hn2"]',
-        '[editor]',
-        'enableInlayHints = true',
-        'enableCodeLens = false',
+        "[editor]",
+        "enableInlayHints = true",
+        "enableCodeLens = false",
       ].join("\n");
       fs.writeFileSync(path.join(dir, ".handl.toml"), content);
       const manifest = readManifest(dir);
@@ -124,7 +124,7 @@ describe("readManifest", () => {
 
   it("readManifest_partial_manifest_only_language", () => {
     withTempDir((dir) => {
-      const content = ['[language]', 'kit = "my-kit"', 'extensions = [".hnl"]'].join("\n");
+      const content = ["[language]", 'kit = "my-kit"', 'extensions = [".hnl"]'].join("\n");
       fs.writeFileSync(path.join(dir, ".handl.toml"), content);
       const manifest = readManifest(dir);
       expect(manifest?.editor).toBeUndefined();

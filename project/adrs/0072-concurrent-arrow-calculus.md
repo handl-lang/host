@@ -14,6 +14,7 @@ the graph structure, which requires that the structure fully determines
 the behavior.
 
 Concurrency appears to break this assumption:
+
 - **Non-deterministic scheduling**: the order of operations is not
   determined by the graph
 - **Race conditions**: multiple operations on shared state, order-dependent
@@ -72,6 +73,7 @@ then no interleaving can violate it.
 
 Channel state is the feedback channel `C`. `receive` and `send` are
 atoms with contracts:
+
 - `receive` requires: channel non-empty (precondition)
 - `send` guarantees: channel non-empty after (postcondition)
 

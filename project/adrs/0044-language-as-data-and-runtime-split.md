@@ -40,7 +40,7 @@ signature choices is wrong:
    transformation/analysis between parse and eval. The evaluator should consume
    the previous stage's output, not the original text.
 
-2. **`Language` is described as a value but not as *data*.** ADR-0041's
+2. **`Language` is described as a value but not as _data_.** ADR-0041's
    `language { lexer: ..., grammar: ..., eval: ... }` is illustrated with
    handl-level builder functions (`grammar.from-rules`, `eval.from-behaviors`).
    If those builders are Rust, the language definition is still Rust — just
@@ -53,22 +53,22 @@ signature choices is wrong:
 
 3. **The rule crates are Rust, not data.** Today `plugin-grammar-arith` is
    `impl ParserBehavior` — a Rust struct with a `prefix`/`infix` method.
-   `plugin-eval-call` is `impl EvalBehavior`. These Rust impls *are* the
+   `plugin-eval-call` is `impl EvalBehavior`. These Rust impls _are_ the
    language definition. If `Language` is data, these crates either stop being
-   the definition (they become engines that *consume* data) or are deleted in
+   the definition (they become engines that _consume_ data) or are deleted in
    favor of data rows. ADR-0041 did not resolve this.
 
 4. **No crate structure was specified** for separating the operation
    abstractions (`Lexer`/`Parser`/Evaluator traits) from the engines that
    implement them (Pratt, tree-walking, bytecode, cranelift). Today
-   `plugin-ext-parser` bundles the `Parser` operation *and* the Pratt engine in
+   `plugin-ext-parser` bundles the `Parser` operation _and_ the Pratt engine in
    one crate. Swapping Pratt for chumsky means forking the crate.
 
 ### The composability constraint
 
 The platform's most valued property is that tiny lex/grammar/eval pieces
 compose naturally: include/exclude, kits, optional/requires, topological
-ordering. Today this is *runtime* composition — plugins register into a
+ordering. Today this is _runtime_ composition — plugins register into a
 `PluginRegistry`, kits manifest them, include/exclude filters them.
 
 If `Language` becomes pure data, composition must become **data composition**
@@ -110,13 +110,13 @@ selects fragments, merges them in order, and hands the resulting `Language` to
 a `Runtime`. **Selection and merge are the composition; the registry is
 replaced by a `Language` built from merged fragments.**
 
-| Today (runtime)            | After (data)                                    |
-| --------------------------- | ----------------------------------------------- |
-| `PluginRegistry`            | `Language` (merged fragments)                   |
-| `Kit` manifest              | ordered fragment sources + include/exclude      |
-| `Plugin::contribute`        | fragment emission at load → merge               |
-| include/exclude plugin ids  | include/exclude fragment ids                    |
-| `RuleAcceptor::accept`      | `Language::merge(fragment)`                     |
+| Today (runtime)            | After (data)                               |
+| -------------------------- | ------------------------------------------ |
+| `PluginRegistry`           | `Language` (merged fragments)              |
+| `Kit` manifest             | ordered fragment sources + include/exclude |
+| `Plugin::contribute`       | fragment emission at load → merge          |
+| include/exclude plugin ids | include/exclude fragment ids               |
+| `RuleAcceptor::accept`     | `Language::merge(fragment)`                |
 
 #### Supersession of the trait-based AST
 
@@ -130,7 +130,7 @@ metadata — do not survive once emitters stop being Rust code:
 - **Static kind safety is recovered at the language's compile-time.**
   `AstShapeDef` carries a `payload_schema` (JSON Schema) keyed by
   `node_kind`, so unknown kinds and malformed payloads are caught when a
-  `Language` is built/loaded. That *is* the language's compile-time — it
+  `Language` is built/loaded. That _is_ the language's compile-time — it
   just runs in the host process. Since emitters are `Scheme` combinators
   and `DesugarRule`s declared as data in the `Language` value (not Rust
   code), there are no Rust emitter authors for the host typechecker to
@@ -147,7 +147,7 @@ metadata — do not survive once emitters stop being Rust code:
   dispatch does not lower cleanly to bytecode or cranelift IR.
 
 The only thing genuinely unrecoverable would have been compile-time
-enforcement *in Rust emitter code* — but ADR-0044 §6 deleted all Rust
+enforcement _in Rust emitter code_ — but ADR-0044 §6 deleted all Rust
 emitters in favor of authored data files, so that residual cost does not
 exist. The trait-based AST is obsolete because the requirements changed
 (serializable, host-agnostic, data-driven, JIT-able), and the new design
@@ -215,8 +215,8 @@ untouched.
 
 Eval semantics are data, not Rust — and crucially, **not closed machine
 instructions either**. The `Language`'s `eval` fragment set maps each `Ast`
-node kind to an **evaluation scheme**: an engine-agnostic description of *what*
-to evaluate, not *how*. This mirrors lex and parse, where the `Language` carries
+node kind to an **evaluation scheme**: an engine-agnostic description of _what_
+to evaluate, not _how_. This mirrors lex and parse, where the `Language` carries
 data and any engine interprets it:
 
 ```
@@ -307,14 +307,14 @@ fragment metadata. Every fragment has an `id` and an optional
 
 Per-type identity keys on top:
 
-| Fragment        | Identity key                  | Collision without `replaces` |
-| ---------------- | ----------------------------- | ---------------------------- |
-| `TokenKindDef`  | `id`                          | **Error**                    |
-| `GrammarRow`    | `(token, position)`           | **Error**                    |
-| `EvalSchemeDef` | `node.kind`                   | **Error**                    |
-| `AstShapeDef`   | `node.kind`                   | **Error**                    |
-| `CapabilityDecl`| `id`                          | Union (idempotent)           |
-| `OptionSchema`  | option key                    | **Error**                    |
+| Fragment         | Identity key        | Collision without `replaces` |
+| ---------------- | ------------------- | ---------------------------- |
+| `TokenKindDef`   | `id`                | **Error**                    |
+| `GrammarRow`     | `(token, position)` | **Error**                    |
+| `EvalSchemeDef`  | `node.kind`         | **Error**                    |
+| `AstShapeDef`    | `node.kind`         | **Error**                    |
+| `CapabilityDecl` | `id`                | Union (idempotent)           |
+| `OptionSchema`   | option key          | **Error**                    |
 
 This turns composition into an **auditable override graph**: a kit's merged
 `Language` carries the full history of what replaced what. "Why does this
@@ -397,7 +397,7 @@ eval = "tree-walk"     # or "bytecode", "cranelift"
 
 Swapping an engine is a config change, not a recompile. The `Runtime` resolves
 engine names to crates at build time (feature flags or direct dependency), but
-the *selection* is data. A host loads a kit, reads the runtime config, and
+the _selection_ is data. A host loads a kit, reads the runtime config, and
 binds the named engines.
 
 #### Compilers erase data dispatch (performance)
@@ -725,8 +725,8 @@ Design the fragment types (`TokenKindDef`, `GrammarRow`, `EvalSchemeDef`,
 declared-override policy (§5), the `Ast` arena + `AstRef` shape, the `Scheme`
 combinator set, and the desugar rule format. Create `handl-language` with the
 schema and the `lex`/`parse`/`eval` dispatch signatures (initially dispatching
-to the existing Rust engines, so nothing breaks). *The scheme combinator set
-and desugar format are the crux; everything depends on them.*
+to the existing Rust engines, so nothing breaks). _The scheme combinator set
+and desugar format are the crux; everything depends on them._
 
 **Testing:** see [Phase 1 coverage requirements](#phase-1--language-data-schema)
 above.

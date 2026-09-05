@@ -92,16 +92,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: tcond
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: tcond
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
         snd: !Seq
           fst: !Arr
@@ -119,16 +119,16 @@
               fst: !Arr
                 op: unify
                 args:
-                - !Arr
-                  op: result
-                  args: []
-                  source: Judgment
-                  lit: tthen
-                - !Arr
-                  op: synth_child
-                  args: []
-                  source: Judgment
-                  lit: 2
+                  - !Arr
+                    op: result
+                    args: []
+                    source: Judgment
+                    lit: tthen
+                  - !Arr
+                    op: synth_child
+                    args: []
+                    source: Judgment
+                    lit: 2
                 source: Judgment
               snd: !Arr
                 op: result
@@ -152,32 +152,32 @@
       fst: !Arr
         op: check_child
         args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
         lit: 0
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: expected
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: expected
           source: Judgment
           lit: 1
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: expected
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: expected
           source: Judgment
           lit: 2
 
@@ -200,16 +200,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: tcond
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: tcond
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
         snd: !Seq
           fst: !Arr
@@ -227,16 +227,16 @@
               fst: !Arr
                 op: unify
                 args:
-                - !Arr
-                  op: result
-                  args: []
-                  source: Judgment
-                  lit: tthen
-                - !Arr
-                  op: synth_child
-                  args: []
-                  source: Judgment
-                  lit: 2
+                  - !Arr
+                    op: result
+                    args: []
+                    source: Judgment
+                    lit: tthen
+                  - !Arr
+                    op: synth_child
+                    args: []
+                    source: Judgment
+                    lit: 2
                 source: Judgment
               snd: !Arr
                 op: result
@@ -258,32 +258,32 @@
       fst: !Arr
         op: check_child
         args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
         lit: 0
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: expected
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: expected
           source: Judgment
           lit: 1
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: expected
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: expected
           source: Judgment
           lit: 2
 
@@ -309,31 +309,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -352,36 +352,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -403,31 +403,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -446,36 +446,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -497,31 +497,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -540,36 +540,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -591,31 +591,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -634,36 +634,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -685,31 +685,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -728,36 +728,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -779,31 +779,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.number
             source: Judgment
           snd: !Arr
             op: construct
@@ -822,36 +822,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
           lit: 1
 
@@ -877,16 +877,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -905,16 +905,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -931,11 +931,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -957,16 +957,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -985,16 +985,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1011,11 +1011,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1037,16 +1037,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -1065,16 +1065,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1091,11 +1091,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1117,16 +1117,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -1145,16 +1145,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1171,11 +1171,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1197,16 +1197,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -1225,16 +1225,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1251,11 +1251,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1277,16 +1277,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -1305,16 +1305,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1331,11 +1331,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1357,16 +1357,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
           source: Judgment
         snd: !Arr
           op: construct
@@ -1385,16 +1385,16 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
@@ -1411,11 +1411,11 @@
           snd: !Arr
             op: check_child
             args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: operand_type
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: operand_type
             source: Judgment
             lit: 1
 
@@ -1441,31 +1441,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.bool
             source: Judgment
           snd: !Arr
             op: construct
@@ -1484,36 +1484,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
           lit: 1
 
@@ -1535,31 +1535,31 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
-          source: Judgment
-        snd: !Seq
-          fst: !Arr
-            op: unify
-            args:
             - !Arr
-              op: synth_child
+              op: result
               args: []
               source: Judgment
-              lit: 1
+              lit: a
             - !Arr
               op: construct
               args: []
               source: Judgment
               lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+              - !Arr
+                op: synth_child
+                args: []
+                source: Judgment
+                lit: 1
+              - !Arr
+                op: construct
+                args: []
+                source: Judgment
+                lit: type.bool
             source: Judgment
           snd: !Arr
             op: construct
@@ -1578,36 +1578,36 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Seq
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
           lit: 0
         snd: !Arr
           op: check_child
           args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
           lit: 1
 
@@ -1633,16 +1633,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
           source: Judgment
         snd: !Arr
           op: construct
@@ -1661,25 +1661,25 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
       snd: !Arr
         op: check_child
         args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
         source: Judgment
         lit: 0
 
@@ -1701,16 +1701,16 @@
         fst: !Arr
           op: unify
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: a
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.bool
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: a
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
           source: Judgment
         snd: !Arr
           op: construct
@@ -1729,25 +1729,25 @@
       fst: !Arr
         op: unify
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
       snd: !Arr
         op: check_child
         args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.bool
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
         source: Judgment
         lit: 0
 
@@ -1806,16 +1806,16 @@
       snd: !Arr
         op: construct
         args:
-        - !Arr
-          op: field
-          args:
           - !Arr
-            op: result
-            args: []
+            op: field
+            args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: element_type
             source: Judgment
-            lit: element_type
-          source: Judgment
-          lit: element
+            lit: element
         source: Judgment
         lit: type.array
   check: !Seq
@@ -1827,15 +1827,15 @@
     snd: !Arr
       op: check_all_children
       args:
-      - !Arr
-        op: array_element_type
-        args:
         - !Arr
-          op: result
-          args: []
+          op: array_element_type
+          args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: expected
           source: Judgment
-          lit: expected
-        source: Judgment
       source: Judgment
 
 # `object` — synth a `type.record{fields: {...}}` from the node's `entries`
@@ -1877,31 +1877,31 @@
       fst: !Arr
         op: check_child
         args:
-        - !Arr
-          op: type_field
-          args:
           - !Arr
-            op: result
-            args: []
+            op: type_field
+            args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: expected
             source: Judgment
-            lit: expected
-          source: Judgment
-          lit: param
+            lit: param
         source: Judgment
         lit: 0
       snd: !Arr
         op: check_child
         args:
-        - !Arr
-          op: type_field
-          args:
           - !Arr
-            op: result
-            args: []
+            op: type_field
+            args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: expected
             source: Judgment
-            lit: expected
-          source: Judgment
-          lit: body
+            lit: body
         source: Judgment
         lit: 1
 
@@ -1926,11 +1926,11 @@
   synth: !Arr
     op: construct_pi
     args:
-    - !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
+      - !Arr
+        op: synth_child
+        args: []
+        source: Judgment
+        lit: 0
     source: Judgment
     lit: x
   check: !Seq
@@ -1943,26 +1943,26 @@
       fst: !Arr
         op: check_child
         args:
-        - !Arr
-          op: type_field
-          args:
           - !Arr
-            op: result
-            args: []
+            op: type_field
+            args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: expected
             source: Judgment
-            lit: expected
-          source: Judgment
-          lit: param
+            lit: param
         source: Judgment
         lit: 0
       snd: !Arr
         op: check_pi_body
         args:
-        - !Arr
-          op: result
-          args: []
-          source: Judgment
-          lit: expected
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
         source: Judgment
 
 # `sigma` — a dependent pair type `Σ (x: A) × B(x)`. Same structure as `pi`
@@ -1973,11 +1973,11 @@
   synth: !Arr
     op: construct_sigma
     args:
-    - !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
+      - !Arr
+        op: synth_child
+        args: []
+        source: Judgment
+        lit: 0
     source: Judgment
     lit: x
 
@@ -1994,11 +1994,11 @@
   synth: !Arr
     op: construct_forall
     args:
-    - !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
+      - !Arr
+        op: synth_child
+        args: []
+        source: Judgment
+        lit: 0
     source: Judgment
     lit: x
 
@@ -2024,26 +2024,26 @@
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: type_field
-            args:
             - !Arr
-              op: result
-              args: []
+              op: type_field
+              args:
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: funtype
               source: Judgment
-              lit: funtype
-            source: Judgment
-            lit: param
+              lit: param
           source: Judgment
           lit: 1
         snd: !Arr
           op: type_field
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: funtype
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
           source: Judgment
           lit: body
 
@@ -2054,10 +2054,11 @@
 # ---------------------------------------------------------------------------
 
 # `field-access` — synth child 0 (the target object) → type.record, bind
-# it, extract the field name from `payload.field`, then look up the
-# field's type in the record type via `record_field_type`. The field name
-# is threaded as `incoming` from `payload_field`; the record type is
-# recalled from the bound result (ADR-0054).
+# it, evaluate child 1 (the field name expression, typically a `var`) to a
+# string, then look up the field's type in the record type via
+# `record_field_type`. The field name is threaded as `incoming` from
+# `proj_child`; the record type is recalled from the bound result
+# (ADR-0054).
 - id: type.field-access
   node_kind: field-access
   synth: !Seq
@@ -2074,18 +2075,18 @@
         lit: record_type
       snd: !Seq
         fst: !Arr
-          op: payload_field
+          op: proj_child
           args: []
           source: Judgment
-          lit: field
+          lit: 1
         snd: !Arr
           op: record_field_type
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: record_type
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: record_type
           source: Judgment
 
 # `index` — synth child 0 (the target array) → type.array{element: T},
@@ -2149,26 +2150,26 @@
         fst: !Arr
           op: check_child
           args:
-          - !Arr
-            op: type_field
-            args:
             - !Arr
-              op: result
-              args: []
+              op: type_field
+              args:
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: funtype
               source: Judgment
-              lit: funtype
-            source: Judgment
-            lit: param
+              lit: param
           source: Judgment
           lit: 0
         snd: !Arr
           op: type_field
           args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: funtype
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
           source: Judgment
           lit: body
 
@@ -2209,11 +2210,11 @@
             fst: !Arr
               op: type_field
               args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: ftype
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: ftype
               source: Judgment
               lit: param
             snd: !Seq
@@ -2226,11 +2227,11 @@
                 fst: !Arr
                   op: type_field
                   args:
-                  - !Arr
-                    op: result
-                    args: []
-                    source: Judgment
-                    lit: ftype
+                    - !Arr
+                      op: result
+                      args: []
+                      source: Judgment
+                      lit: ftype
                   source: Judgment
                   lit: body
                 snd: !Seq
@@ -2243,11 +2244,11 @@
                     fst: !Arr
                       op: type_field
                       args:
-                      - !Arr
-                        op: result
-                        args: []
-                        source: Judgment
-                        lit: gtype
+                        - !Arr
+                          op: result
+                          args: []
+                          source: Judgment
+                          lit: gtype
                       source: Judgment
                       lit: param
                     snd: !Seq
@@ -2260,11 +2261,11 @@
                         fst: !Arr
                           op: type_field
                           args:
-                          - !Arr
-                            op: result
-                            args: []
-                            source: Judgment
-                            lit: gtype
+                            - !Arr
+                              op: result
+                              args: []
+                              source: Judgment
+                              lit: gtype
                           source: Judgment
                           lit: body
                         snd: !Seq
@@ -2277,59 +2278,59 @@
                             fst: !Arr
                               op: unify
                               args:
-                              - !Arr
-                                op: result
-                                args: []
-                                source: Judgment
-                                lit: A1
-                              - !Arr
-                                op: result
-                                args: []
-                                source: Judgment
-                                lit: A2
-                              source: Judgment
-                            snd: !Arr
-                              op: construct
-                              args:
-                              - !Arr
-                                op: field
-                                args:
                                 - !Arr
                                   op: result
                                   args: []
                                   source: Judgment
                                   lit: A1
-                                source: Judgment
-                                lit: param
-                              - !Arr
-                                op: field
-                                args:
                                 - !Arr
-                                  op: construct
-                                  args:
-                                  - !Arr
-                                    op: field
-                                    args:
-                                    - !Arr
-                                      op: make_array
-                                      args:
-                                      - !Arr
-                                        op: result
-                                        args: []
-                                        source: Judgment
-                                        lit: B
-                                      - !Arr
-                                        op: result
-                                        args: []
-                                        source: Judgment
-                                        lit: C
-                                      source: Judgment
-                                    source: Judgment
-                                    lit: elements
+                                  op: result
+                                  args: []
                                   source: Judgment
-                                  lit: type.array
-                                source: Judgment
-                                lit: body
+                                  lit: A2
+                              source: Judgment
+                            snd: !Arr
+                              op: construct
+                              args:
+                                - !Arr
+                                  op: field
+                                  args:
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: A1
+                                  source: Judgment
+                                  lit: param
+                                - !Arr
+                                  op: field
+                                  args:
+                                    - !Arr
+                                      op: construct
+                                      args:
+                                        - !Arr
+                                          op: field
+                                          args:
+                                            - !Arr
+                                              op: make_array
+                                              args:
+                                                - !Arr
+                                                  op: result
+                                                  args: []
+                                                  source: Judgment
+                                                  lit: B
+                                                - !Arr
+                                                  op: result
+                                                  args: []
+                                                  source: Judgment
+                                                  lit: C
+                                              source: Judgment
+                                          source: Judgment
+                                          lit: elements
+                                      source: Judgment
+                                      lit: type.array
+                                  source: Judgment
+                                  lit: body
                               source: Judgment
                               lit: type.function
 
@@ -2536,11 +2537,11 @@
             fst: !Arr
               op: type_field
               args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: ftype
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: ftype
               source: Judgment
               lit: param
             snd: !Seq
@@ -2553,11 +2554,11 @@
                 fst: !Arr
                   op: type_field
                   args:
-                  - !Arr
-                    op: result
-                    args: []
-                    source: Judgment
-                    lit: ftype
+                    - !Arr
+                      op: result
+                      args: []
+                      source: Judgment
+                      lit: ftype
                   source: Judgment
                   lit: body
                 snd: !Seq
@@ -2570,11 +2571,11 @@
                     fst: !Arr
                       op: type_field
                       args:
-                      - !Arr
-                        op: result
-                        args: []
-                        source: Judgment
-                        lit: gtype
+                        - !Arr
+                          op: result
+                          args: []
+                          source: Judgment
+                          lit: gtype
                       source: Judgment
                       lit: param
                     snd: !Seq
@@ -2587,11 +2588,11 @@
                         fst: !Arr
                           op: type_field
                           args:
-                          - !Arr
-                            op: result
-                            args: []
-                            source: Judgment
-                            lit: gtype
+                            - !Arr
+                              op: result
+                              args: []
+                              source: Judgment
+                              lit: gtype
                           source: Judgment
                           lit: body
                         snd: !Seq
@@ -2603,64 +2604,64 @@
                           snd: !Arr
                             op: construct
                             args:
-                            - !Arr
-                              op: field
-                              args:
                               - !Arr
-                                op: construct
+                                op: field
                                 args:
-                                - !Arr
-                                  op: field
-                                  args:
                                   - !Arr
-                                    op: make_array
+                                    op: construct
                                     args:
-                                    - !Arr
-                                      op: result
-                                      args: []
-                                      source: Judgment
-                                      lit: A
-                                    - !Arr
-                                      op: result
-                                      args: []
-                                      source: Judgment
-                                      lit: C
+                                      - !Arr
+                                        op: field
+                                        args:
+                                          - !Arr
+                                            op: make_array
+                                            args:
+                                              - !Arr
+                                                op: result
+                                                args: []
+                                                source: Judgment
+                                                lit: A
+                                              - !Arr
+                                                op: result
+                                                args: []
+                                                source: Judgment
+                                                lit: C
+                                            source: Judgment
+                                        source: Judgment
+                                        lit: elements
                                     source: Judgment
-                                  source: Judgment
-                                  lit: elements
+                                    lit: type.array
                                 source: Judgment
-                                lit: type.array
-                              source: Judgment
-                              lit: param
-                            - !Arr
-                              op: field
-                              args:
+                                lit: param
                               - !Arr
-                                op: construct
+                                op: field
                                 args:
-                                - !Arr
-                                  op: field
-                                  args:
                                   - !Arr
-                                    op: make_array
+                                    op: construct
                                     args:
-                                    - !Arr
-                                      op: result
-                                      args: []
-                                      source: Judgment
-                                      lit: B
-                                    - !Arr
-                                      op: result
-                                      args: []
-                                      source: Judgment
-                                      lit: D
+                                      - !Arr
+                                        op: field
+                                        args:
+                                          - !Arr
+                                            op: make_array
+                                            args:
+                                              - !Arr
+                                                op: result
+                                                args: []
+                                                source: Judgment
+                                                lit: B
+                                              - !Arr
+                                                op: result
+                                                args: []
+                                                source: Judgment
+                                                lit: D
+                                            source: Judgment
+                                        source: Judgment
+                                        lit: elements
                                     source: Judgment
-                                  source: Judgment
-                                  lit: elements
+                                    lit: type.array
                                 source: Judgment
-                                lit: type.array
-                              source: Judgment
-                              lit: body
+                                lit: body
                             source: Judgment
                             lit: type.function
 
@@ -2704,11 +2705,11 @@
             fst: !Arr
               op: type_field
               args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: ftype
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: ftype
               source: Judgment
               lit: param
             snd: !Seq
@@ -2721,11 +2722,11 @@
                 fst: !Arr
                   op: type_field
                   args:
-                  - !Arr
-                    op: result
-                    args: []
-                    source: Judgment
-                    lit: ftype
+                    - !Arr
+                      op: result
+                      args: []
+                      source: Judgment
+                      lit: ftype
                   source: Judgment
                   lit: body
                 snd: !Seq
@@ -2738,11 +2739,11 @@
                     fst: !Arr
                       op: type_field
                       args:
-                      - !Arr
-                        op: result
-                        args: []
-                        source: Judgment
-                        lit: gtype
+                        - !Arr
+                          op: result
+                          args: []
+                          source: Judgment
+                          lit: gtype
                       source: Judgment
                       lit: param
                     snd: !Seq
@@ -2755,11 +2756,11 @@
                         fst: !Arr
                           op: type_field
                           args:
-                          - !Arr
-                            op: result
-                            args: []
-                            source: Judgment
-                            lit: gtype
+                            - !Arr
+                              op: result
+                              args: []
+                              source: Judgment
+                              lit: gtype
                           source: Judgment
                           lit: body
                         snd: !Seq
@@ -2772,59 +2773,59 @@
                             fst: !Arr
                               op: unify
                               args:
-                              - !Arr
-                                op: result
-                                args: []
-                                source: Judgment
-                                lit: C1
-                              - !Arr
-                                op: result
-                                args: []
-                                source: Judgment
-                                lit: C2
-                              source: Judgment
-                            snd: !Arr
-                              op: construct
-                              args:
-                              - !Arr
-                                op: field
-                                args:
-                                - !Arr
-                                  op: construct
-                                  args:
-                                  - !Arr
-                                    op: field
-                                    args:
-                                    - !Arr
-                                      op: make_array
-                                      args:
-                                      - !Arr
-                                        op: result
-                                        args: []
-                                        source: Judgment
-                                        lit: A
-                                      - !Arr
-                                        op: result
-                                        args: []
-                                        source: Judgment
-                                        lit: B
-                                      source: Judgment
-                                    source: Judgment
-                                    lit: variants
-                                  source: Judgment
-                                  lit: type.sum
-                                source: Judgment
-                                lit: param
-                              - !Arr
-                                op: field
-                                args:
                                 - !Arr
                                   op: result
                                   args: []
                                   source: Judgment
                                   lit: C1
-                                source: Judgment
-                                lit: body
+                                - !Arr
+                                  op: result
+                                  args: []
+                                  source: Judgment
+                                  lit: C2
+                              source: Judgment
+                            snd: !Arr
+                              op: construct
+                              args:
+                                - !Arr
+                                  op: field
+                                  args:
+                                    - !Arr
+                                      op: construct
+                                      args:
+                                        - !Arr
+                                          op: field
+                                          args:
+                                            - !Arr
+                                              op: make_array
+                                              args:
+                                                - !Arr
+                                                  op: result
+                                                  args: []
+                                                  source: Judgment
+                                                  lit: A
+                                                - !Arr
+                                                  op: result
+                                                  args: []
+                                                  source: Judgment
+                                                  lit: B
+                                              source: Judgment
+                                          source: Judgment
+                                          lit: variants
+                                      source: Judgment
+                                      lit: type.sum
+                                  source: Judgment
+                                  lit: param
+                                - !Arr
+                                  op: field
+                                  args:
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: C1
+                                  source: Judgment
+                                  lit: body
                               source: Judgment
                               lit: type.function
 

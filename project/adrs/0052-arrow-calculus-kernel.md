@@ -15,8 +15,8 @@ Typed Escape](./0045-vau-as-a-typed-escape.md)**: `vau` is removed from the
 kernel — it addresses control over evaluation of unevaluated expressions and is
 not required by the Arrow model. The kernel becomes purely arrow calculus
 (`arr`/`>>>`/`first`/`choice`/`loop`/`app`); the semantic foundation for
-interpreting effectful arrows is Sanada's *Algebraic Effects and Handlers for
-Arrows* — execution is one possible handler interpretation, rather than a
+interpreting effectful arrows is Sanada's _Algebraic Effects and Handlers for
+Arrows_ — execution is one possible handler interpretation, rather than a
 primitive property of arrows. Supersedes the lambda-flavored `Scheme`
 combinator set defined in ADR-0044 §4.
 
@@ -27,13 +27,13 @@ shipped (`crates/handl-language/src/scheme.rs`) is **lambda-calculus-flavored**,
 not arrow-calculus-flavored, despite the surrounding architecture being
 described in arrow terms:
 
-| `Scheme` variant today | Calculus lineage |
-|---|---|
-| `Lit`, `Var`, `Child` | lambda term / projection |
-| `Bind { name, value, body }` | `let` / λ-abstraction |
-| `App { callee, args }` | lambda application (becomes `>>>` for static callee, `app` for dynamic) |
-| `Branch`, `Prim`, `Foreign` | structured extras (become `choice`, `arr`) |
-| `Vau { params, body }` | fexpr/operative — **removed** (not a calculus combinator; handler concern) |
+| `Scheme` variant today       | Calculus lineage                                                           |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `Lit`, `Var`, `Child`        | lambda term / projection                                                   |
+| `Bind { name, value, body }` | `let` / λ-abstraction                                                      |
+| `App { callee, args }`       | lambda application (becomes `>>>` for static callee, `app` for dynamic)    |
+| `Branch`, `Prim`, `Foreign`  | structured extras (become `choice`, `arr`)                                 |
+| `Vau { params, body }`       | fexpr/operative — **removed** (not a calculus combinator; handler concern) |
 
 ADR-0041 §6 and ADR-0045 describe the design as "structured by default, vau as
 an explicitly-typed opt-in escape, tracked by the type system. Pure/structured
@@ -41,7 +41,7 @@ code compiles; vau code interprets. You opt in, the way you opt into
 `ArrowApply`." This ADR accepts part of that framing and corrects the rest:
 
 1. **`vau` is not arrow calculus — it is removed from the kernel.** `vau` is
-   a fexpr/operative — it controls *how* (and whether) child expressions are
+   a fexpr/operative — it controls _how_ (and whether) child expressions are
    evaluated. That is a concern of the evaluator/handler, not of the
    calculus. Mixing `vau` into the kernel conflates "what the computation
    is" (the arrow) with "how the evaluator runs it" (the vau). The kernel
@@ -51,7 +51,7 @@ code compiles; vau code interprets. You opt in, the way you opt into
 2. **`app`/`ArrowApply` is kept — but distinguished from external
    interpretation.** `app` is a real calculus operation: it lets an arrow
    dynamically invoke another arrow it received as runtime data. This is
-   required for higher-order arrows. What `app` is *not* is external
+   required for higher-order arrows. What `app` is _not_ is external
    interpretation — running, compiling, or analyzing an entire arrow is the
    handler's job (Sanada's model), not a calculus operation. The clean
    three-way separation: `>>>` constructs, `app` invokes dynamically
@@ -60,8 +60,8 @@ code compiles; vau code interprets. You opt in, the way you opt into
 ### The `loop` correction
 
 A prior reading of `ArrowLoop` treated `loop` as iteration ("`loop` executes
-repeatedly"). The standard formulation (Paterson, *A New Notation for
-Arrows*; Haskell `Control.Arrow`) corrects this:
+repeatedly"). The standard formulation (Paterson, _A New Notation for
+Arrows_; Haskell `Control.Arrow`) corrects this:
 
 ```
 loop : Arrow (A, S) (B, S) → Arrow A B
@@ -78,7 +78,7 @@ step  : (Event, State) ~> (Result, State)
 machine = loop step        -- Event ~> Result, State hidden in feedback
 ```
 
-`while`/`for`/`untilA` are *patterns* over `loop` + `ArrowChoice` (feedback +
+`while`/`for`/`untilA` are _patterns_ over `loop` + `ArrowChoice` (feedback +
 routing), not primitives. GHC's arrow notation documents exactly this
 derivation (`untilA` defined recursively via arrows + `ArrowChoice`).
 
@@ -103,7 +103,7 @@ Three pressures converge:
    it cites. A lambda-flavored kernel with an arrow veneer is a drift risk.
 
 2. **The kernel should describe computation, not execute it.** Today `App`
-   (execution) and `Vau` (evaluation control) are *in* the kernel, mixing
+   (execution) and `Vau` (evaluation control) are _in_ the kernel, mixing
    "what the computation is" with "how it runs." The arrow-calculus kernel
    separates these: `arr`/`>>>`/`first`/`choice`/`loop` describe
    computation; `app` allows an arrow to dynamically invoke another arrow
@@ -123,16 +123,16 @@ Three pressures converge:
 This ADR does not invent a calculus; it adopts a mature lineage and takes it
 one step further. The intellectual heritage:
 
-| Work | Contribution | Relevance to our design |
-|---|---|---|
-| **Moggi** — *Notions of Computation and Monads* (1991) | Computational effects via monads; the monadic metalanguage. The precursor that Hughes generalizes. | Computational effects foundation |
-| **Hughes (2000)** — *Generalising Monads to Arrows* | Introduced **arrows** as a generalization of monads; the minimal `arr`, `>>>`, `first`. | **Computational abstraction** |
-| **Paterson (2001)** — *A New Notation for Arrows* | Added practical **arrow notation** (`proc`), making point-free arrow programs readable and compositional; introduced **`loop`** (feedback) and `returnA`. | **Surface syntax + feedback** |
-| **Lindley, Wadler, Yallop (2008/2010)** — *The Arrow Calculus* | Made arrows into a genuine **Arrow Calculus**: a typed metalanguage for manipulating Hughes's arrows, closely related to Moggi's metalanguage and Paterson's notation. Four constructs, five laws, proved complete. | **Calculus / language foundation** |
-| **Lindley, Wadler, Yallop (2011)** — *Idioms are Oblivious, Arrows are Meticulous, Monads are Promiscuous* | Placed arrows in the landscape of monads/idioms/arrows; showed classic arrows and the Arrow Calculus are equationally corresponding. | **Algebraic grounding** |
-| **Lindley (2014)** — *Algebraic Effects and Effect Handlers for Idioms and Arrows* | Generalized algebraic effects and handlers to idioms and arrows; established that handlers aren't inherently tied to monadic computation. | **Effects + handlers for arrows** |
-| **Sanada (2024)** — *Algebraic Effects and Handlers for Arrows* | Formalized **Arrow Calculus with operations and handlers**, with operational + denotational semantics; handlers correspond to homomorphisms of arrow algebras; proves soundness and adequacy. | **Semantic foundation for our handlers** |
-| **Cimini (2018/2022)** — *A Calculus for Multi-language Operational Semantics* | Presents `λ^𝓛`, a typed λ-calculus where **languages are first-class citizens**: bound to variables, passed to functions, returned from functions, used to execute programs. Languages as runtime values; dynamic creation and modification. | **Languages as first-class values** |
+| Work                                                                                                       | Contribution                                                                                                                                                                                                                                 | Relevance to our design                  |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Moggi** — _Notions of Computation and Monads_ (1991)                                                     | Computational effects via monads; the monadic metalanguage. The precursor that Hughes generalizes.                                                                                                                                           | Computational effects foundation         |
+| **Hughes (2000)** — _Generalising Monads to Arrows_                                                        | Introduced **arrows** as a generalization of monads; the minimal `arr`, `>>>`, `first`.                                                                                                                                                      | **Computational abstraction**            |
+| **Paterson (2001)** — _A New Notation for Arrows_                                                          | Added practical **arrow notation** (`proc`), making point-free arrow programs readable and compositional; introduced **`loop`** (feedback) and `returnA`.                                                                                    | **Surface syntax + feedback**            |
+| **Lindley, Wadler, Yallop (2008/2010)** — _The Arrow Calculus_                                             | Made arrows into a genuine **Arrow Calculus**: a typed metalanguage for manipulating Hughes's arrows, closely related to Moggi's metalanguage and Paterson's notation. Four constructs, five laws, proved complete.                          | **Calculus / language foundation**       |
+| **Lindley, Wadler, Yallop (2011)** — _Idioms are Oblivious, Arrows are Meticulous, Monads are Promiscuous_ | Placed arrows in the landscape of monads/idioms/arrows; showed classic arrows and the Arrow Calculus are equationally corresponding.                                                                                                         | **Algebraic grounding**                  |
+| **Lindley (2014)** — _Algebraic Effects and Effect Handlers for Idioms and Arrows_                         | Generalized algebraic effects and handlers to idioms and arrows; established that handlers aren't inherently tied to monadic computation.                                                                                                    | **Effects + handlers for arrows**        |
+| **Sanada (2024)** — _Algebraic Effects and Handlers for Arrows_                                            | Formalized **Arrow Calculus with operations and handlers**, with operational + denotational semantics; handlers correspond to homomorphisms of arrow algebras; proves soundness and adequacy.                                                | **Semantic foundation for our handlers** |
+| **Cimini (2018/2022)** — _A Calculus for Multi-language Operational Semantics_                             | Presents `λ^𝓛`, a typed λ-calculus where **languages are first-class citizens**: bound to variables, passed to functions, returned from functions, used to execute programs. Languages as runtime values; dynamic creation and modification. | **Languages as first-class values**      |
 
 The conceptual genealogy:
 
@@ -178,16 +178,16 @@ Our language
 
 What we take from each:
 
-| Source | We take |
-|---|---|
-| **Moggi** | Computational effects as a structured concept |
-| **Hughes** | Arrow as a general computational abstraction |
-| **Paterson** | Arrow-oriented programming syntax + `loop` |
-| **LWY 2008/2010** | A formal Arrow Calculus |
-| **LWY 2011** | Algebraic relationship between arrows, idioms, monads |
-| **Lindley 2014** | Effects and handlers generalized to arrows |
-| **Sanada** | Formal semantics for Arrow operations + handlers |
-| **Cimini** | Languages as first-class, manipulable values |
+| Source            | We take                                               |
+| ----------------- | ----------------------------------------------------- |
+| **Moggi**         | Computational effects as a structured concept         |
+| **Hughes**        | Arrow as a general computational abstraction          |
+| **Paterson**      | Arrow-oriented programming syntax + `loop`            |
+| **LWY 2008/2010** | A formal Arrow Calculus                               |
+| **LWY 2011**      | Algebraic relationship between arrows, idioms, monads |
+| **Lindley 2014**  | Effects and handlers generalized to arrows            |
+| **Sanada**        | Formal semantics for Arrow operations + handlers      |
+| **Cimini**        | Languages as first-class, manipulable values          |
 
 Our key step combines two lineages:
 
@@ -262,16 +262,16 @@ The important difference is that **we aren't embedding arrows inside a
 conventional functional language**. We're making the Arrow Calculus itself the
 computational substrate, with Sanada's handler semantics providing the
 foundation for interpretation. This is the core architectural thesis of this
-ADR: the kernel *is* the Arrow Calculus (six primitives), not a lambda
-calculus with arrows bolted on; interpretation *is* Sanada's handler model,
-not an ad-hoc evaluator; the language *is* a first-class value (Cimini's
+ADR: the kernel _is_ the Arrow Calculus (six primitives), not a lambda
+calculus with arrows bolted on; interpretation _is_ Sanada's handler model,
+not an ad-hoc evaluator; the language _is_ a first-class value (Cimini's
 insight), not host infrastructure. Every other decision in this ADR follows
 from that thesis.
 
 ## Arrow Handlers
 
-We adopt the handler model of Sanada's *Algebraic Effects and Handlers for
-Arrows* as the semantic foundation for interpreting effectful arrows.
+We adopt the handler model of Sanada's _Algebraic Effects and Handlers for
+Arrows_ as the semantic foundation for interpreting effectful arrows.
 
 An arrow is a first-class computational description:
 
@@ -402,10 +402,10 @@ A ~> B
 Functions are not a separate foundational computational category in this
 language. This is a **language-design choice inspired by the Arrow theory**,
 not a claim established by the literature: Hughes shows that ordinary
-functions *can* form an Arrow instance (`arr f = f`, with composition and
+functions _can_ form an Arrow instance (`arr f = f`, with composition and
 `first` defined naturally), and the Arrow Calculus (Lindley–Wadler–Yallop)
 is itself formulated by extending simply typed lambda calculus with arrow
-constructs. The literature supports that functions *can* be an Arrow
+constructs. The literature supports that functions _can_ be an Arrow
 instance; this language chooses to make arrows primary and treat functions
 as the degenerate pure case.
 
@@ -490,26 +490,26 @@ on the `arr` combinator.
 
 ### Lowering table (current → arrow)
 
-| Current `Scheme` | Arrow-calculus form |
-|---|---|
-| `Lit(v)` | `Arr { op: "const", args: [v], source: Native }` |
-| `Var(n)` | `Arr { op: "proj_env", args: [n], source: Native }` |
-| `Child(i)` | `Arr { op: "proj_child", args: [i], source: Native }` |
-| `Prim { op, args }` | `Arr { op, args, source: Native }` (sub-schemes feed the pure op) |
-| `Foreign { name, args }` | `Arr { op, args, source: Foreign(name) }` (capability-tracked via `source`, not a string prefix) |
-| `Bind { name, value, body }` | `value >>> arr (extend env with name) >>> body` (the `x = y` desugar; `first` carries env) |
-| `App { callee, args }` — **static callee** | `args >>> callee` (composition with the known arrow — compiles by construction) |
-| `App { callee, args }` — **dynamic callee** | `App { callee, args }` (the `app` primitive — dynamic invocation within the calculus) |
-| `Branch { c, t, e }` | `c >>> arr tag >>> Choice(t, e)` |
-| `Vau` | **removed from the kernel** — `vau` addresses control over evaluation of unevaluated expressions, not required by the Arrow model |
-| `eval.assign` (reassignment) | **deleted** — no mutation primitive; state via `Loop` |
-| `eval.stmt.let` / `eval.stmt.const` | **folded into `x = y`** — one binding form, immutable |
+| Current `Scheme`                            | Arrow-calculus form                                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Lit(v)`                                    | `Arr { op: "const", args: [v], source: Native }`                                                                                  |
+| `Var(n)`                                    | `Arr { op: "proj_env", args: [n], source: Native }`                                                                               |
+| `Child(i)`                                  | `Arr { op: "proj_child", args: [i], source: Native }`                                                                             |
+| `Prim { op, args }`                         | `Arr { op, args, source: Native }` (sub-schemes feed the pure op)                                                                 |
+| `Foreign { name, args }`                    | `Arr { op, args, source: Foreign(name) }` (capability-tracked via `source`, not a string prefix)                                  |
+| `Bind { name, value, body }`                | `value >>> arr (extend env with name) >>> body` (the `x = y` desugar; `first` carries env)                                        |
+| `App { callee, args }` — **static callee**  | `args >>> callee` (composition with the known arrow — compiles by construction)                                                   |
+| `App { callee, args }` — **dynamic callee** | `App { callee, args }` (the `app` primitive — dynamic invocation within the calculus)                                             |
+| `Branch { c, t, e }`                        | `c >>> arr tag >>> Choice(t, e)`                                                                                                  |
+| `Vau`                                       | **removed from the kernel** — `vau` addresses control over evaluation of unevaluated expressions, not required by the Arrow model |
+| `eval.assign` (reassignment)                | **deleted** — no mutation primitive; state via `Loop`                                                                             |
+| `eval.stmt.let` / `eval.stmt.const`         | **folded into `x = y`** — one binding form, immutable                                                                             |
 
 The `App` row: a static callee (a known arrow in scope at desugar time) is
 composition — `args >>> callee` — which is wiring, not `app`. A dynamic
 callee (a received/computed arrow) is `App` — the `app` primitive, a calculus
 operation that dynamically invokes a received arrow. This is distinct from
-external interpretation: `app` is *within* the calculus; `handle H program`
+external interpretation: `app` is _within_ the calculus; `handle H program`
 interprets an entire arrow from outside.
 
 ### Derived forms (not primitive)
@@ -549,11 +549,11 @@ state channel — the arrow-calculus-honest way — or not at all.
 
 This collapses three current node kinds into one:
 
-| Today | Arrow surface | Kernel |
-|---|---|---|
-| `let x = y` / `stmt.let` | `x = y` | `Seq { y, arr(extend_env "x") } >>> body` |
-| `const x = y` / `stmt.const` | `x = y` | (same — all bindings are immutable, `const` is redundant) |
-| `x = y` / `eval.assign` (reassignment) | **deleted** | no mutation primitive; state via `Loop` |
+| Today                                  | Arrow surface | Kernel                                                    |
+| -------------------------------------- | ------------- | --------------------------------------------------------- |
+| `let x = y` / `stmt.let`               | `x = y`       | `Seq { y, arr(extend_env "x") } >>> body`                 |
+| `const x = y` / `stmt.const`           | `x = y`       | (same — all bindings are immutable, `const` is redundant) |
+| `x = y` / `eval.assign` (reassignment) | **deleted**   | no mutation primitive; state via `Loop`                   |
 
 `eval.assign`, `eval.stmt.let`, and `eval.stmt.const` are removed from
 `eval.yaml`. One binding form, one scheme, no mutation. The kernel surface
@@ -583,8 +583,9 @@ versioning; v1 `Language` values run on a v2 engine backward-compatibly, v2
 on v1 is a compile-time error).
 
 **Phase B — Engines (one coordinated pass, all three).**
+
 - `plugin-engine-eval-tree-walk`: interpret `Arr`/`Seq`/`First`/`Choice`/
-  `Loop`/`App`. The engine is a *handler* (Sanada's model) — it interprets
+  `Loop`/`App`. The engine is a _handler_ (Sanada's model) — it interprets
   arrow descriptions, dispatching operations to their handler clauses. `App`
   is interpreted as dynamic invocation of a received arrow. `Loop` is
   feedback; the interpretation strategy (causal/strict vs lazy/fixpoint) is
@@ -594,7 +595,7 @@ on v1 is a compile-time error).
 - `plugin-engine-eval-cranelift`: lower to native; `Loop` → a loop with a
   state slot per §Feedback semantics.
 - The closure representation (`{"__closure__": ...}`) is reconsidered:
-  closures are now *arrows as values* (descriptions, invokable via `app`).
+  closures are now _arrows as values_ (descriptions, invokable via `app`).
   The `closure` prim becomes "package an arrow as a value"; `app` invokes a
   received arrow-value.
 
@@ -619,7 +620,7 @@ in a `lib-*` crate. Not kernel, not grammar. The concrete demonstration that
 ### Handlers are outside the calculus; execution is one interpretation
 
 The kernel describes computations (arrows) and includes `app` for dynamic
-invocation *within* the calculus. Interpreting an entire arrow — running it,
+invocation _within_ the calculus. Interpreting an entire arrow — running it,
 compiling it, analyzing it — is external, performed by a handler (Sanada's
 model):
 
@@ -637,10 +638,10 @@ constructs, `arr` lifts, `first`/`choice`/`loop` shape, `app` invokes
 dynamically); the handler interprets. `>>>` does not execute — it builds a
 larger arrow from two smaller ones. A runtime handler walks that arrow to
 produce values; a compiler handler lowers it to native code; an analyzer
-handler inspects it without running it. All three consume the *same*
+handler inspects it without running it. All three consume the _same_
 description.
 
-`app` is *not* a handler — it is a calculus operation that an arrow uses to
+`app` is _not_ a handler — it is a calculus operation that an arrow uses to
 invoke another arrow it received as runtime data. The handler interprets
 `app` (along with every other combinator) when it interprets the whole
 arrow. The distinction:
@@ -654,7 +655,7 @@ handler   interprets computation externally
 **`Vau` is not part of the language kernel.** It addresses control over
 evaluation of unevaluated expressions and is not required by the Arrow model.
 If/when fexpr-style behaviors (short-circuiting `and`, pattern matching,
-macros) are needed, they are an *evaluator/handler* concern, not a calculus
+macros) are needed, they are an _evaluator/handler_ concern, not a calculus
 combinator — they live in the handler layer, not in the `Scheme` enum. The
 kernel stays pure arrow calculus; the handler can be extended with operative
 behaviors without touching the calculus. This is the correct factoring: the
@@ -667,8 +668,8 @@ strategy is the handler's concern. Two feedback semantics are standard, and
 they disagree on read-before-write:
 
 - **Causal/strict semantics.** The `State` output of one step is the `State`
-  input of the *next* step. A read of `State` in step *n* sees the value
-  written in step *n−1*. A read-before-write in the *same* step reads the
+  input of the _next_ step. A read of `State` in step _n_ sees the value
+  written in step _n−1_. A read-before-write in the _same_ step reads the
   prior step's output (or an initial seed) — well-defined, not bottom. This
   is the state-machine reading: `step : (Event, State) ~> (Result, State)`,
   `loop step` hides `State` in a feedback channel that carries the previous
@@ -680,10 +681,10 @@ they disagree on read-before-write:
   this reading, a read-before-write in the same "iteration" is a demand for
   `s` before it is defined — ill-founded (bottom) unless the fixpoint is
   productive (coinductive/final-coalgebra semantics, where a read can be
-  satisfied by a *partial* result that the write produces lazily). This is
+  satisfied by a _partial_ result that the write produces lazily). This is
   the Haskell `ArrowLoop` / `fix` reading.
 
-These are *different interpretations of the same `Loop` description*. The
+These are _different interpretations of the same `Loop` description_. The
 kernel does not choose; the handler does. A runtime handler that wants state
 machines implements causal/strict semantics (read-before-write is normal, no
 fixpoint machinery). A runtime handler that wants fixpoint recursion
@@ -703,7 +704,7 @@ This is declared in the `Language` or runtime config, not encoded in the
 rejecting it at scheme-load time. That was a conflation of one interpretation
 strategy (lazy/fixpoint) with the kernel. Under causal/strict semantics,
 read-before-write is the normal pattern and must not be rejected. The
-well-foundedness question is real *under lazy/fixpoint semantics*, but it is
+well-foundedness question is real _under lazy/fixpoint semantics_, but it is
 the handler's concern (detected as a demand cycle at runtime, or analyzed by
 a handler-specific static pass), not a kernel-level scheme-load gate.
 
@@ -764,11 +765,11 @@ authorable in it.
 ### Negative
 
 - **Big-bang is high-risk.** All three engines + ~50 eval schemes + bootstrap
-  + corpus change in one coordinated step. Mitigation: keep v1 `Scheme`
-  behind a feature flag until the 2900-test suite passes on v2, then delete.
-  The flag is a safety net, not a permanent state — ADR-0044 §6's "emitters
-  as scaffold, data files as end state" discipline applies: the scaffold is
-  removed once parity is proven.
+  - corpus change in one coordinated step. Mitigation: keep v1 `Scheme`
+    behind a feature flag until the 2900-test suite passes on v2, then delete.
+    The flag is a safety net, not a permanent state — ADR-0044 §6's "emitters
+    as scaffold, data files as end state" discipline applies: the scaffold is
+    removed once parity is proven.
 - **`app` in the kernel requires handler-level interpretation.** `app` is a
   calculus operation, but interpreting it (actually invoking the received
   arrow) is the handler's job. A handler that cannot interpret `app` (e.g. a
@@ -803,17 +804,17 @@ authorable in it.
 ### Neutral
 
 - **Arrow calculus + language-as-value lineage.** This is Hughes's arrows
-  + Paterson's `loop` and arrow notation + Lindley/Wadler/Yallop's calculus
-  + `ArrowChoice` + `ArrowApply`, lifted into a typed, data-driven language,
-  with Sanada's arrow handlers as the semantic foundation for interpretation,
-  and Cimini's languages-as-first-class-values as the foundation for the
-  `Language` value. The key departures from the literature:
-  `loop` is exposed as the primitive (feedback), with recursion derived;
-  `vau` is removed (it controls evaluation, which is a handler concern, not
-  a calculus combinator); the kernel is serializable data (ADR-0044), not a
-  Rust trait graph; interpretation is delegated to handlers (Sanada's model),
-  not built into the calculus; the language itself is a first-class value
-  (Cimini's insight) whose tooling operations are themselves arrows.
+  - Paterson's `loop` and arrow notation + Lindley/Wadler/Yallop's calculus
+  - `ArrowChoice` + `ArrowApply`, lifted into a typed, data-driven language,
+    with Sanada's arrow handlers as the semantic foundation for interpretation,
+    and Cimini's languages-as-first-class-values as the foundation for the
+    `Language` value. The key departures from the literature:
+    `loop` is exposed as the primitive (feedback), with recursion derived;
+    `vau` is removed (it controls evaluation, which is a handler concern, not
+    a calculus combinator); the kernel is serializable data (ADR-0044), not a
+    Rust trait graph; interpretation is delegated to handlers (Sanada's model),
+    not built into the calculus; the language itself is a first-class value
+    (Cimini's insight) whose tooling operations are themselves arrows.
 
 ## Open questions
 
@@ -852,31 +853,31 @@ authorable in it.
   `crates/plugin-engine-eval-cranelift/src/` — the three engines migrated in
   Phase B (become handlers under Sanada's model).
 - `crates/handl-defining-handl/` — the bootstrap rewritten in Phase D.
-- Sanada — *Algebraic Effects and Handlers for Arrows* (2024) — the
+- Sanada — _Algebraic Effects and Handlers for Arrows_ (2024) — the
   semantic reference model: arrow handlers, operations, continuations;
   operational semantics (sound, adequate) and denotational semantics
   (handlers as homomorphisms between algebras of arrows).
-- Cimini — *A Calculus for Multi-language Operational Semantics* (2022,
+- Cimini — _A Calculus for Multi-language Operational Semantics_ (2022,
   Springer; vision paper 2018) — `λ^𝓛`, a typed λ-calculus where
   languages are first-class citizens: bound to variables, passed to
   functions, returned from functions, used to execute programs. The
   theoretical foundation for languages as first-class values.
-- Lindley — *Algebraic Effects and Effect Handlers for Idioms and Arrows*
+- Lindley — _Algebraic Effects and Effect Handlers for Idioms and Arrows_
   (2014) — generalized algebraic effects/handlers to idioms and arrows;
   the bridge from effects/handlers to arrow-style computation.
-- Lindley, Wadler, Yallop — *Idioms are Oblivious, Arrows are Meticulous,
-  Monads are Promiscuous* (2011) — arrows in the monad/applicative/arrow
+- Lindley, Wadler, Yallop — _Idioms are Oblivious, Arrows are Meticulous,
+  Monads are Promiscuous_ (2011) — arrows in the monad/applicative/arrow
   landscape; classic arrows and the Arrow Calculus are equationally
   corresponding.
-- Lindley, Wadler, Yallop — *The Arrow Calculus* (2008/2010, JFP) — arrows
+- Lindley, Wadler, Yallop — _The Arrow Calculus_ (2008/2010, JFP) — arrows
   as a genuine typed metalanguage; the calculus foundation.
-- Paterson — *A New Notation for Arrows* (2001) — `proc` notation;
+- Paterson — _A New Notation for Arrows_ (2001) — `proc` notation;
   introduced `loop` (feedback) and `returnA`.
-- Hughes — *Generalising Monads to Arrows* (2000) — arrows as a
+- Hughes — _Generalising Monads to Arrows_ (2000) — arrows as a
   generalization of monads; the computational abstraction.
-- Moggi — *Notions of Computation and Monads* (1991) — computational
+- Moggi — _Notions of Computation and Monads_ (1991) — computational
   effects via monads; the monadic metalanguage. The precursor.
 - Haskell `Control.Arrow` — `ArrowLoop` as feedback (`loop : Arrow (A,S)
-  (B,S) → Arrow A B`); `ArrowApply` / `app`; `untilA` as a derived
+(B,S) → Arrow A B`); `ArrowApply` / `app`; `untilA` as a derived
   `while`-pattern over `loop` + `ArrowChoice`.
 - GHC User's Guide — arrow notation, `rec` construct, recursive arrows.

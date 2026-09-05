@@ -41,14 +41,14 @@ Public types:
 
 `HttpServer` v1 surface:
 
-| Method | Purpose |
-|--------|---------|
-| `route(method, path, handler)` | Register a handler for a method/path pattern. |
-| `serve_static(path, dir)` | Register a directory of static files. |
-| `start(addr)` | Start accepting connections on `addr`. Returns immediately; server runs on its own threads. |
-| `stop()` | Signal graceful shutdown. |
-| `join()` | Block until the server has shut down. |
-| `is_running()` | Whether the server is currently listening. |
+| Method                         | Purpose                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `route(method, path, handler)` | Register a handler for a method/path pattern.                                               |
+| `serve_static(path, dir)`      | Register a directory of static files.                                                       |
+| `start(addr)`                  | Start accepting connections on `addr`. Returns immediately; server runs on its own threads. |
+| `stop()`                       | Signal graceful shutdown.                                                                   |
+| `join()`                       | Block until the server has shut down.                                                       |
+| `is_running()`                 | Whether the server is currently listening.                                                  |
 
 `HttpServerModule` v1 function surface (all sync `Function`s; the server trait hides its internal async I/O):
 

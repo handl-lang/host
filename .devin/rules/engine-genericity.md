@@ -14,7 +14,7 @@ recompile.
 - AST layout knowledge comes from `lang.ast[node.kind]` (`AstShapeDef`), not from `node.kind == "assign"` shape checks inside primitives.
 - Behavior is built by composing arrow-calculus combinators from `Scheme` data, not by adding `if node.kind == X` branches.
 
-**Allowed to be fixed in Rust:** only the calculus vocabulary itself — the combinator set, primitive *forms* (e.g. `LexerPattern` variants), value shapes. Adding a calculus combinator = engine edit; adding a language construct = YAML fragment.
+**Allowed to be fixed in Rust:** only the calculus vocabulary itself — the combinator set, primitive _forms_ (e.g. `LexerPattern` variants), value shapes. Adding a calculus combinator = engine edit; adding a language construct = YAML fragment.
 
 **If you find a hardcoded kind check:** move that knowledge into `Language` data (`AstShapeDef`/`EvalSchemeDef`/`TypeRuleDef`/primitive registry). Flag residual hardcoding in `plugin-engine-eval-*` and `plugin-engine-typecheck-*` as tech debt to close, not patterns to extend.
 

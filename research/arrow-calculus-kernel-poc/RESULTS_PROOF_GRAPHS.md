@@ -33,12 +33,12 @@ by graph wiring, not by λ-binders.
 
 ## Deliverables
 
-| Artifact | Location | Status |
-|---|---|---|
-| Formalism document | `FORMALISM_PROOF_GRAPHS.md` | ✅ Complete |
-| Lean4 mechanization | `lean/ArrowMinimalityLib/ProofGraphs.lean` | ✅ Builds clean |
-| Rust prototype | `src/proof_graph_tests.rs` | ✅ 12/12 tests pass |
-| Cargo.toml binary | `proof_graph` | ✅ Wired up |
+| Artifact            | Location                                   | Status              |
+| ------------------- | ------------------------------------------ | ------------------- |
+| Formalism document  | `FORMALISM_PROOF_GRAPHS.md`                | ✅ Complete         |
+| Lean4 mechanization | `lean/ArrowMinimalityLib/ProofGraphs.lean` | ✅ Builds clean     |
+| Rust prototype      | `src/proof_graph_tests.rs`                 | ✅ 12/12 tests pass |
+| Cargo.toml binary   | `proof_graph`                              | ✅ Wired up         |
 
 ---
 
@@ -112,20 +112,20 @@ by graph wiring, not by λ-binders.
 
 ### 12 Tests, All Passing
 
-| Test | Description | Key Result |
-|---|---|---|
-| 1 | Identity graph | `id[Int] : Int ⇝ Int` inferred |
-| 2 | Composition (succ;succ) | `Int ⇝ Int`, 0 obligations |
-| 3 | First (×-functoriality) | `(Int×Int) ⇝ (Int×Int)` inferred |
-| 4 | Left (+-functoriality) | `(Int+Bool) ⇝ (Int+Bool)` inferred |
-| 5 | Loop (trace/fixpoint) | `Int ⇝ Int` from `Int×Int ⇝ Int×Int` body |
-| 6 | Sort graph | `([Int]×(Int×Int)) ⇝ [Int]` — sort preserves element type |
-| 7 | Filter-like predicate | `(Int×Int) ⇝ Bool` — predicate type inferred without annotations |
-| 8 | Complex graph (head;succ) | `[Int] ⇝ Int` — all properties inferred without annotations |
-| 9 | Ill-typed composition | Correctly rejected: `Int ≠ [Int]` |
-| 10 | Ill-typed loop | Correctly rejected: feedback channel `Bool ≠ Int` |
-| 11 | Round-trip correspondence | All 7 well-typed graphs: typing→proof→typing ✓ |
-| 12 | Obligation scaling | Well-typed graphs: 0 obligations; complexity scales |
+| Test | Description               | Key Result                                                       |
+| ---- | ------------------------- | ---------------------------------------------------------------- |
+| 1    | Identity graph            | `id[Int] : Int ⇝ Int` inferred                                   |
+| 2    | Composition (succ;succ)   | `Int ⇝ Int`, 0 obligations                                       |
+| 3    | First (×-functoriality)   | `(Int×Int) ⇝ (Int×Int)` inferred                                 |
+| 4    | Left (+-functoriality)    | `(Int+Bool) ⇝ (Int+Bool)` inferred                               |
+| 5    | Loop (trace/fixpoint)     | `Int ⇝ Int` from `Int×Int ⇝ Int×Int` body                        |
+| 6    | Sort graph                | `([Int]×(Int×Int)) ⇝ [Int]` — sort preserves element type        |
+| 7    | Filter-like predicate     | `(Int×Int) ⇝ Bool` — predicate type inferred without annotations |
+| 8    | Complex graph (head;succ) | `[Int] ⇝ Int` — all properties inferred without annotations      |
+| 9    | Ill-typed composition     | Correctly rejected: `Int ≠ [Int]`                                |
+| 10   | Ill-typed loop            | Correctly rejected: feedback channel `Bool ≠ Int`                |
+| 11   | Round-trip correspondence | All 7 well-typed graphs: typing→proof→typing ✓                   |
+| 12   | Obligation scaling        | Well-typed graphs: 0 obligations; complexity scales              |
 
 ### Annotation-Free Inference
 
@@ -192,12 +192,12 @@ the arrow-graph Curry-Howard correspondence.
 
 ## Relation to Prior Phases
 
-| Phase | Focus | This Phase's Contribution |
-|---|---|---|
-| 1 | Freer arrows, handlers, effects | The 5 primitives are the substrate |
-| 2 | Effect typing, recursion | Typing judgments extend to effects |
-| 3 | Language protocol, tooling | Graphs are language-agnostic |
-| **4** | **Proof objects** | **Graph = program = type = proof** |
+| Phase | Focus                           | This Phase's Contribution          |
+| ----- | ------------------------------- | ---------------------------------- |
+| 1     | Freer arrows, handlers, effects | The 5 primitives are the substrate |
+| 2     | Effect typing, recursion        | Typing judgments extend to effects |
+| 3     | Language protocol, tooling      | Graphs are language-agnostic       |
+| **4** | **Proof objects**               | **Graph = program = type = proof** |
 
 The key insight connecting all phases: the **structural transparency**
 of arrows (Phase 1-3) is what makes the Curry-Howard correspondence

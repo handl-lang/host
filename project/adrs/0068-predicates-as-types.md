@@ -7,7 +7,7 @@ Proposed.
 Depends on the existing "types as predicates" model documented in the
 [Language overview](../../docs/explanation/language-overview.md) (refinement
 types, type families, `x is T` as `T(x)`). Extends it with a unified
-compile-time/runtime checking strategy and a library of predicates *about*
+compile-time/runtime checking strategy and a library of predicates _about_
 functions, without introducing a separate total/proof sublanguage.
 
 ## Context
@@ -27,7 +27,7 @@ m: DivisibleBy(3) = 9;
 Because types are values, dependent-looking annotations are already
 expressible: a return annotation can close over a parameter (a Pi type in
 shape), and a record predicate can read earlier fields (a Sigma type in
-shape). No new surface syntax is required to *write* them.
+shape). No new surface syntax is required to _write_ them.
 
 ### The open question: when do predicates run, and what can be proven?
 
@@ -37,7 +37,7 @@ spectrum:
 
 1. **Runtime validator.** Predicates run per-value at runtime. No static
    guarantees; just deferred checks. Cheap, honest, weak.
-2. **Full dependent type system.** Predicates are proven for *all* inputs
+2. **Full dependent type system.** Predicates are proven for _all_ inputs
    ahead of time. Requires a theorem prover: symbolic reasoning about
    functions, induction principles, termination checking, universe
    discipline. This is Idris/Agda/Lean territory — years of work.
@@ -61,8 +61,8 @@ users to declare which regime they are in. The insight that avoids it:
 
 The checker normalizes type-position expressions to compare them. To check
 `Vec(n + m)` against `Vec(5)` it must evaluate `n + m`. Normalization
-requires termination. So the checker runs termination analysis *only on the
-expressions being normalized*, not on the whole program. Effects block
+requires termination. So the checker runs termination analysis _only on the
+expressions being normalized_, not on the whole program. Effects block
 normalization and trigger a runtime fallback. No `total` keyword, no
 fragment, no bridge rules. "Proven" vs "runtime-checked" becomes a
 per-annotation outcome, not a per-region declaration.
@@ -70,7 +70,7 @@ per-annotation outcome, not a per-region declaration.
 ### The function-typing gap
 
 A second open question: if types are values (functions), what is the type
-*of* a function? The regress is real but resolves cleanly:
+_of_ a function? The regress is real but resolves cleanly:
 
 - A type is a predicate — a `bool`-returning function.
 - The type of a predicate is `Predicate` — "is this a `bool`-returning
@@ -79,7 +79,7 @@ A second open question: if types are values (functions), what is the type
 - No universe levels are required because types are not a foundational
   hierarchy here; they are a subset of values that return `bool`.
 
-What is missing is a library of predicates *about* functions: signatures,
+What is missing is a library of predicates _about_ functions: signatures,
 dependent signatures, purity, totality. `typeof`-style keywords were
 considered and rejected — they reintroduce a type-level operation as a
 special form, breaking the unification, and they cannot infer signatures
@@ -181,7 +181,7 @@ can be stored, passed, and applied. No keyword needed.
 intensional/structural by default (same body, same code) or reference
 equality, depending on what the runtime exposes. Extensional equality
 ("same outputs for all inputs") is undecidable in general and is not
-provided as a primitive. `FnEq(A, B, f)` provides a *sampled* extensional
+provided as a primitive. `FnEq(A, B, f)` provides a _sampled_ extensional
 check for use as a runtime contract; full extensional equality is a
 theorem and lives in the proof layer if needed.
 

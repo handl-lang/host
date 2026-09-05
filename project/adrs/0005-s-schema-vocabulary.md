@@ -126,18 +126,18 @@ More actions can be added without changing the overall design.
 
 The `SchemaInterpreter` handles the most common forms directly:
 
-| `s` form | `Type` |
-|---|---|
-| `s.string()` | `Type::String` |
-| `s.number()` | `Type::Number` |
-| `s.integer()` | `Type::Number` or a future `Type::Integer` |
-| `s.boolean()` | `Type::Boolean` |
-| `s.null()` | `Type::Null` |
-| `s.array(inner)` | `Type::Array(Box::new(inner_type))` |
-| `s.object({ k: v, ... })` | `Type::Object(BTreeMap { k: v_type, ... })` |
-| `s.pipe(base, ...)` | `type_of(base)` |
-| `s.optional(a)` / `s.nullable(a)` | `Type::Unknown` until unions exist |
-| `s.union(...)` | `Type::Unknown` until unions exist |
+| `s` form                          | `Type`                                      |
+| --------------------------------- | ------------------------------------------- |
+| `s.string()`                      | `Type::String`                              |
+| `s.number()`                      | `Type::Number`                              |
+| `s.integer()`                     | `Type::Number` or a future `Type::Integer`  |
+| `s.boolean()`                     | `Type::Boolean`                             |
+| `s.null()`                        | `Type::Null`                                |
+| `s.array(inner)`                  | `Type::Array(Box::new(inner_type))`         |
+| `s.object({ k: v, ... })`         | `Type::Object(BTreeMap { k: v_type, ... })` |
+| `s.pipe(base, ...)`               | `type_of(base)`                             |
+| `s.optional(a)` / `s.nullable(a)` | `Type::Unknown` until unions exist          |
+| `s.union(...)`                    | `Type::Unknown` until unions exist          |
 
 This is intentionally conservative. The `Type` enum is not being expanded in this ADR. Losing precision for `optional` and `union` is an acceptable cost for replacing JSON Schema as the canonical vocabulary.
 

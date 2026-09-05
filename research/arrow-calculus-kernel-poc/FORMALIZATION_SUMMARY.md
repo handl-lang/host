@@ -29,6 +29,7 @@ placeholders — and type-checks under `lake build` (Lean 4.33.1).
 There are two layers:
 
 **Concrete (the specific `arrowToMonad` encoding fails):**
+
 ```lean
 theorem fanoutUnencodable (input state : V) (h : input ≠ state) :
     (runArrow counterexample input state).2
@@ -36,6 +37,7 @@ theorem fanoutUnencodable (input state : V) (h : input ≠ state) :
 ```
 
 **Universal (NO bind-based encoding preserves fanout):**
+
 ```lean
 theorem no_bind_encoding_preserves_fanout
     (m : Monad) (k : V → Monad) (input state : V)
@@ -77,7 +79,7 @@ computation lemmas:
 
 1. **`runArrow_counterexample_state`**: under arrow semantics,
    `Fanout(Get, Put)` sets the final state to `input` — because `fanout`
-   forwards the *original* input to `Put`.
+   forwards the _original_ input to `Put`.
 
 2. **`any_bind_encoding_of_fanout_get_put_yields_state`**: by the law
    above, for ANY `m` encoding `Get` (output = state) and ANY `k`
@@ -89,23 +91,23 @@ The universal theorem `no_bind_encoding_preserves_fanout` combines them:
 
 ### The Fifteen Theorems
 
-| Theorem | Statement |
-|---|---|
-| `runArrow_counterexample_state` | arrow `Fanout(Get,Put)` final state = `input` |
-| `runMonad_counterexample_state` | `arrowToMonad` `bind`-encoding final state = `state` |
-| `fanoutUnencodable` | concrete: `input ≠ state` ⟹ `arrowToMonad` diverges |
-| `fanoutUnencodable_concrete` | concrete witness: `input=42, state=7` ⟹ 42 ≠ 7 |
-| `arrowToMonad_not_state_preserving` | `¬ ∀ input state, states agree` |
-| `bind_continuation_input_is_predecessor_output` | **law**: `bind` continuation input = predecessor's output (any `m, k`) |
-| `continuation_cannot_see_original_input` | if `m`'s output ≠ input, `k` cannot recover input |
-| `bind_continuation_input_is_previous_output` | concrete instance for `Get` |
-| `arrow_fanout_branch_sees_original_input` | arrow `fanout` branch sees original *input* |
-| `impossibilityIsStructural` | arrow exposes input ∧ monad exposes state ∧ they differ |
-| `any_bind_encoding_of_fanout_get_put_yields_state` | **universal**: any `m`(Get) `k`(Put) ⟹ final state = state |
-| `no_bind_encoding_preserves_fanout` | **universal main**: any `m`(Get) `k`(Put) ⟹ diverges when input ≠ state |
-| `arrowToMonad_get_component_satisfies_Get_semantics` | `arrowToMonad`'s Get satisfies the universal hypothesis |
-| `arrowToMonad_put_component_satisfies_Put_semantics` | `arrowToMonad`'s Put satisfies the universal hypothesis |
-| `choiceUnencodable` | choice is unencodable for the same structural reason |
+| Theorem                                              | Statement                                                               |
+| ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| `runArrow_counterexample_state`                      | arrow `Fanout(Get,Put)` final state = `input`                           |
+| `runMonad_counterexample_state`                      | `arrowToMonad` `bind`-encoding final state = `state`                    |
+| `fanoutUnencodable`                                  | concrete: `input ≠ state` ⟹ `arrowToMonad` diverges                     |
+| `fanoutUnencodable_concrete`                         | concrete witness: `input=42, state=7` ⟹ 42 ≠ 7                          |
+| `arrowToMonad_not_state_preserving`                  | `¬ ∀ input state, states agree`                                         |
+| `bind_continuation_input_is_predecessor_output`      | **law**: `bind` continuation input = predecessor's output (any `m, k`)  |
+| `continuation_cannot_see_original_input`             | if `m`'s output ≠ input, `k` cannot recover input                       |
+| `bind_continuation_input_is_previous_output`         | concrete instance for `Get`                                             |
+| `arrow_fanout_branch_sees_original_input`            | arrow `fanout` branch sees original _input_                             |
+| `impossibilityIsStructural`                          | arrow exposes input ∧ monad exposes state ∧ they differ                 |
+| `any_bind_encoding_of_fanout_get_put_yields_state`   | **universal**: any `m`(Get) `k`(Put) ⟹ final state = state              |
+| `no_bind_encoding_preserves_fanout`                  | **universal main**: any `m`(Get) `k`(Put) ⟹ diverges when input ≠ state |
+| `arrowToMonad_get_component_satisfies_Get_semantics` | `arrowToMonad`'s Get satisfies the universal hypothesis                 |
+| `arrowToMonad_put_component_satisfies_Put_semantics` | `arrowToMonad`'s Put satisfies the universal hypothesis                 |
+| `choiceUnencodable`                                  | choice is unencodable for the same structural reason                    |
 
 ### Why This Is Rigorous
 
@@ -118,7 +120,7 @@ The universal theorem `no_bind_encoding_preserves_fanout` combines them:
 - **Universal, not just concrete**: `no_bind_encoding_preserves_fanout`
   quantifies over all `(m, k)` satisfying Get/Put semantics — the entire
   class of `bind`-based encodings fails, not just one instance.
-- **General over inputs**: holds for *all* `input ≠ state`, not just
+- **General over inputs**: holds for _all_ `input ≠ state`, not just
   `42 ≠ 7`. The concrete case is a corollary.
 - **Structural corollary**: `impossibilityIsStructural` isolates the root
   cause — arrows expose the input parameter to every branch; monadic
@@ -126,13 +128,13 @@ The universal theorem `no_bind_encoding_preserves_fanout` combines them:
 
 ## The Full Picture
 
-| Aspect | Status | Evidence |
-|--------|--------|----------|
-| **Expressiveness gap** | ✅ MECHANIZED (universal) | Lean4 (`no_bind_encoding_preserves_fanout`, no `sorry`) |
-| **Semantic counterexample** | ✅ EMPIRICAL (242 Rust tests) | `test_freer_monad_CANNOT_encode_fanout` |
-| **Structural cause** | ✅ MECHANIZED | `impossibilityIsStructural`, `bind_continuation_input_is_predecessor_output` |
-| **Static analysis gap** | ✅ EMPIRICAL | Opaque continuations prevent traversal |
-| **Choice unencodability** | ✅ MECHANIZED (structural) | `choiceUnencodable` |
+| Aspect                      | Status                        | Evidence                                                                     |
+| --------------------------- | ----------------------------- | ---------------------------------------------------------------------------- |
+| **Expressiveness gap**      | ✅ MECHANIZED (universal)     | Lean4 (`no_bind_encoding_preserves_fanout`, no `sorry`)                      |
+| **Semantic counterexample** | ✅ EMPIRICAL (242 Rust tests) | `test_freer_monad_CANNOT_encode_fanout`                                      |
+| **Structural cause**        | ✅ MECHANIZED                 | `impossibilityIsStructural`, `bind_continuation_input_is_predecessor_output` |
+| **Static analysis gap**     | ✅ EMPIRICAL                  | Opaque continuations prevent traversal                                       |
+| **Choice unencodability**   | ✅ MECHANIZED (structural)    | `choiceUnencodable`                                                          |
 
 ## Cumulative Formalization Stats
 

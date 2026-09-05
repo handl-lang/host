@@ -14,12 +14,12 @@ Split](./0044-language-as-data-and-runtime-split.md) Phase 8 and
 ## Context
 
 ADR-0044 made `Language` pure data: 7 YAML files, serde-serializable, embedded
-at compile time. This is declarative — but YAML is *literally* declarative.
+at compile time. This is declarative — but YAML is _literally_ declarative.
 Transcribing the same literals into handl syntax gains nothing; the data is
 identical, the expressiveness is identical.
 
 The actual win over YAML is **computational authoring**: handl functions that
-*generate*, *derive*, *parameterize*, and *abstract over* `Language` fragments.
+_generate_, _derive_, _parameterize_, and _abstract over_ `Language` fragments.
 YAML cannot express "a grammar row whose binding power is computed from the
 operator's arity" or "an eval scheme shared across all binary operators,
 parameterized by the operator name." handl can. This is the feature that makes
@@ -36,7 +36,7 @@ Today, language authoring is:
 
 What is missing:
 
-3. A handl program that *computes* a `Language` value — functions that take
+3. A handl program that _computes_ a `Language` value — functions that take
    parameters and produce fragments, combinators that build fragment sets from
    smaller pieces, abstractions over repetitive structure.
 
@@ -127,7 +127,7 @@ parameterized definition.
 The output of a handl authoring program is a `Language` value — the same
 serde-serializable data structure ADR-0044 defines. It can be serialized,
 cached (ADR-0065), chunked (ADR-0066), and certified (ADR-0067). The
-authoring path is a *build step* that produces data; the runtime consumes
+authoring path is a _build step_ that produces data; the runtime consumes
 the data, not the authoring program.
 
 This preserves ADR-0044's core property: `Language` is data, no Rust, no
@@ -138,7 +138,7 @@ eval time.
 ### 5. YAML remains a valid authoring path
 
 YAML is not deprecated. It remains the simplest path for static, hand-written
-language definitions. Computational authoring is an *additional* path for
+language definitions. Computational authoring is an _additional_ path for
 languages that benefit from abstraction and parameterization. The two paths
 produce the same `Language` data structure and can be mixed: a YAML base with
 computationally generated extensions.

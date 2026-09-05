@@ -4,7 +4,7 @@
 
 Low priority. Replaces the temporary bootstrap formatter of
 [ADR-0086](../adrs/0086-bootstrap-formatter.md) with a handl implementation.
-Subsumes the *self-hosting* half of ADR-0014 (the canonical-style rules of
+Subsumes the _self-hosting_ half of ADR-0014 (the canonical-style rules of
 ADR-0014 §Canonical style that are still correct carry over unchanged).
 
 ## Summary
@@ -24,10 +24,10 @@ golden corpus.
   chain-breaking, blank-line policy…) is a separate handl module
   `rule-name : TokenStream ~> TokenStream`. Rules compose with `>>>`;
   disabled rules are simply omitted from the composition. No rule registry,
-  no plugin machinery — composition *is* the extension mechanism.
+  no plugin machinery — composition _is_ the extension mechanism.
 - **Language-generic core, syntax-specific rules** (the property ADR-0014
   wanted but implemented the hard way): the core pipeline is parameterized
-  by a *language value* (per ADR-0041), so other handl languages get a
+  by a _language value_ (per ADR-0041), so other handl languages get a
   formatter by supplying their token kinds and rule set.
 - **Idempotence as a law:** `format >>> format ≍ format`, stated with
   ADR-0075 `law` syntax in the formatter module and property-tested.

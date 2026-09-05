@@ -35,17 +35,17 @@ every dimension the question asked about.
 
 ### What IS proved (fully mechanized in Lean 4)
 
-| Theorem | Statement | Status |
-|---------|-----------|--------|
-| `shift_preserves_size` | Shifting free variables does not change term size | ✅ Fully proved |
-| `T_linear` | `lamSize (T p) ≤ 8 * arrowSize p` | ✅ Fully proved |
-| `T_comp_is_composition` | `T(f >>> g) = λx. T(g) (T(f) x)` (definitional) | ✅ Fully proved (rfl) |
-| `BetaEta.refl'` | βη-equivalence is reflexive | ✅ Fully proved (constructor) |
-| `T_closed` | T produces closed terms (for well-formed programs) | ✅ Fully proved |
-| `T_first_compositional` | `T(first (f >>> g)) ≡βη T(first f >>> first g)` | ✅ Fully proved |
-| `T_left_compositional` | `T(left (f >>> g)) ≡βη T(left f >>> left g)` | ✅ Fully proved |
-| `loopExt_eq_under_BetaEtaFix` | Loop extension law holds under βη+fix+fusion | ✅ Fully proved |
-| `loopExt_not_BetaEta` | Loop extension law does NOT hold under βη alone (existential) | ✅ Fully proved |
+| Theorem                       | Statement                                                     | Status                        |
+| ----------------------------- | ------------------------------------------------------------- | ----------------------------- |
+| `shift_preserves_size`        | Shifting free variables does not change term size             | ✅ Fully proved               |
+| `T_linear`                    | `lamSize (T p) ≤ 8 * arrowSize p`                             | ✅ Fully proved               |
+| `T_comp_is_composition`       | `T(f >>> g) = λx. T(g) (T(f) x)` (definitional)               | ✅ Fully proved (rfl)         |
+| `BetaEta.refl'`               | βη-equivalence is reflexive                                   | ✅ Fully proved (constructor) |
+| `T_closed`                    | T produces closed terms (for well-formed programs)            | ✅ Fully proved               |
+| `T_first_compositional`       | `T(first (f >>> g)) ≡βη T(first f >>> first g)`               | ✅ Fully proved               |
+| `T_left_compositional`        | `T(left (f >>> g)) ≡βη T(left f >>> left g)`                  | ✅ Fully proved               |
+| `loopExt_eq_under_BetaEtaFix` | Loop extension law holds under βη+fix+fusion                  | ✅ Fully proved               |
+| `loopExt_not_BetaEta`         | Loop extension law does NOT hold under βη alone (existential) | ✅ Fully proved               |
 
 All 8 theorems are fully mechanized — the build succeeds with zero `sorry`
 warnings. The key results (linearity, compositionality of `>>>`, `first`,
@@ -96,13 +96,13 @@ Lindley–Wadler–Yallop (2008) forward translation.
 **Proof:** Structural induction on `p`. Each case adds a bounded number
 of wrapper nodes:
 
-| Case | Overhead | Bound check |
-|------|----------|-------------|
-| `arr f` | 0 | `lamSize f ≤ 8 * (lamSize f + 1)` ✓ |
-| `comp f g` | 4 | `8*|Tf| + 8*|Tg| + 4 ≤ 8*(|f|+|g|+1)` ✓ (4 ≤ 8) |
-| `first f` | 6 | `8*|Tf| + 6 ≤ 8*(|f|+1)` ✓ (6 ≤ 8) |
-| `left f` | 8 | `8*|Tf| + 8 ≤ 8*(|f|+1)` ✓ (8 ≤ 8, tight) |
-| `loop f` | 8 | `8*|Tf| + 8 ≤ 8*(|f|+1)` ✓ (8 ≤ 8, tight) |
+| Case       | Overhead | Bound check                         |
+| ---------- | -------- | ----------------------------------- |
+| `arr f`    | 0        | `lamSize f ≤ 8 * (lamSize f + 1)` ✓ |
+| `comp f g` | 4        | `8*                                 | Tf  | + 8*      | Tg  | + 4 ≤ 8*(             | f   | +   | g   | +1)` ✓ (4 ≤ 8) |
+| `first f`  | 6        | `8*                                 | Tf  | + 6 ≤ 8*( | f   | +1)` ✓ (6 ≤ 8)        |
+| `left f`   | 8        | `8*                                 | Tf  | + 8 ≤ 8*( | f   | +1)` ✓ (8 ≤ 8, tight) |
+| `loop f`   | 8        | `8*                                 | Tf  | + 8 ≤ 8*( | f   | +1)` ✓ (8 ≤ 8, tight) |
 
 The constant 8 comes from `left` and `loop`, which add the most wrapper
 nodes (case/inl/inr for `left`; lam/fst/fix/lam/app/pair for `loop`).
@@ -155,9 +155,11 @@ loop (f >>> first g) = loop f >>> g
 Its lambda translation reveals a genuine subtlety:
 
 **LHS:** `T(loop (f >>> first g))` = `λx. fst (fix (λr. (T(g) (T(f) x), r)))`
+
 - `T(g)` appears INSIDE the `fix` body.
 
 **RHS:** `T(loop f >>> g)` = `λx. T(g) (fst (fix (λr. T(f) (x, r))))`
+
 - `T(g)` appears OUTSIDE the `fix`.
 
 ### Why they are equal under βη+fix (but not βη alone)
@@ -203,12 +205,12 @@ arrows.
      `cong_lam ∘ cong_app_a`)
   3. The `fix_fusion` rule (an instance of Bekić's lemma) to connect the
      two simplified forms
-  The `fix_fusion` rule is added as a constructor of `BetaEtaFix`,
-  capturing the decomposition of simultaneous fixed points. It is
-  strictly stronger than `fix_unroll` alone — `fix_unroll` gives
-  `fix F = F (fix F)`, but the loop extension law requires
-  `fst(fix (λr. (H(fst(G(r))), snd(G(r))))) = H(fst(fix (λr. G(r))))`,
-  which is Bekić's lemma for simultaneous fixed points.
+     The `fix_fusion` rule is added as a constructor of `BetaEtaFix`,
+     capturing the decomposition of simultaneous fixed points. It is
+     strictly stronger than `fix_unroll` alone — `fix_unroll` gives
+     `fix F = F (fix F)`, but the loop extension law requires
+     `fst(fix (λr. (H(fst(G(r))), snd(G(r))))) = H(fst(fix (λr. G(r))))`,
+     which is Bekić's lemma for simultaneous fixed points.
 - `loopExt_not_BetaEta` is stated existentially (the universal form is
   false for trivial programs) and **fully proved**. The proof uses an
   interpretation function `interp` that replaces every `fix` with
@@ -251,14 +253,14 @@ direction requires full monadic power.
 
 ## Step 5: Comparison with Prior Work
 
-| Result | What it shows | Relation to our result |
-|--------|---------------|------------------------|
-| Hughes 2000 | Arrows generalize monads; arrow laws | Our T is the standard translation implicit in Hughes |
-| LWY 2008 | Arrow calculus ≅ lambda with ×, + (bidirectional) | Our T is an instance of LWY's forward translation; we prove it is linear & compositional, which LWY did not explicitly state |
-| Kiselyov 2013 | Freer monads: explicit structure preserves info | Same insight as Challenge #9 (opacity); not about translation |
-| Lindley 2010 | ArrowApply ≅ Monad (expressive power) | Confirms inverse translation needs ArrowApply; forward doesn't |
-| Challenge #9 | Opaque monad is structurally lossy | Confirms asymmetry is **representation** (opacity), not **translation** |
-| Challenge #11 | ArrowApply gives monadic power without opacity | Confirms the power asymmetry is about representation, not translation |
+| Result        | What it shows                                     | Relation to our result                                                                                                       |
+| ------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Hughes 2000   | Arrows generalize monads; arrow laws              | Our T is the standard translation implicit in Hughes                                                                         |
+| LWY 2008      | Arrow calculus ≅ lambda with ×, + (bidirectional) | Our T is an instance of LWY's forward translation; we prove it is linear & compositional, which LWY did not explicitly state |
+| Kiselyov 2013 | Freer monads: explicit structure preserves info   | Same insight as Challenge #9 (opacity); not about translation                                                                |
+| Lindley 2010  | ArrowApply ≅ Monad (expressive power)             | Confirms inverse translation needs ArrowApply; forward doesn't                                                               |
+| Challenge #9  | Opaque monad is structurally lossy                | Confirms asymmetry is **representation** (opacity), not **translation**                                                      |
+| Challenge #11 | ArrowApply gives monadic power without opacity    | Confirms the power asymmetry is about representation, not translation                                                        |
 
 ### What is genuinely new here
 
@@ -281,13 +283,13 @@ direction requires full monadic power.
 
 ## The Three Known Asymmetries (Precisely Characterized)
 
-| Asymmetry | Type | Arrow-specific? | Status |
-|-----------|------|-----------------|--------|
-| Size blowup | Translation | No | ❌ Does not exist (T is linear) |
-| Non-compositionality | Translation | No | ❌ Does not exist (T is compositional) |
-| Proof-theoretic gap for `loop` | Translation | No (general recursion) | ⚠️ Exists but not arrow-specific |
-| Structural opacity | Representation | Yes (but shared with freer monads) | ✅ Challenge #9 |
-| Inverse needs ArrowApply | Expressive power | Yes (but known) | ✅ Challenge #11 |
+| Asymmetry                      | Type             | Arrow-specific?                    | Status                                 |
+| ------------------------------ | ---------------- | ---------------------------------- | -------------------------------------- |
+| Size blowup                    | Translation      | No                                 | ❌ Does not exist (T is linear)        |
+| Non-compositionality           | Translation      | No                                 | ❌ Does not exist (T is compositional) |
+| Proof-theoretic gap for `loop` | Translation      | No (general recursion)             | ⚠️ Exists but not arrow-specific       |
+| Structural opacity             | Representation   | Yes (but shared with freer monads) | ✅ Challenge #9                        |
+| Inverse needs ArrowApply       | Expressive power | Yes (but known)                    | ✅ Challenge #11                       |
 
 The only arrow-specific asymmetries are **representation** (opacity,
 Challenge #9) and **expressive power** (ArrowApply, Challenge #11) —
@@ -330,6 +332,7 @@ sorry-free (zero `sorry` in any proof or definition).
 **8 theorems total** (8 fully proven, 0 stated with `sorry`):
 
 ### Fully mechanized (no sorry):
+
 - `LamTerm.shift_preserves_size` — shifting doesn't change size
 - `ArrowProg.T_linear` — `|T(p)| ≤ 8 * |p|`
 - `ArrowProg.T_comp_is_composition` — compositionality is definitional
@@ -341,12 +344,14 @@ sorry-free (zero `sorry` in any proof or definition).
 - `LoopGap.loopExt_not_BetaEta` — loop law fails under βη alone (existential)
 
 ### Defined but not proved (not theorems):
+
 - `BetaEta` — βη-equivalence relation (fix inert)
 - `BetaEtaFix` — βη + fix-unrolling relation
 - `InverseTranslation.S` — inverse translation (ArrowApply fragment)
 - `InverseTranslation.ArrowProgApply` — extended arrow programs with `app`
 
 ### Documented in prose (not stated as theorems):
+
 - Round-trip laws (`S(T(p)) ≡ p`, `T(S(t)) ≡βη+fix t`) — require
   operational semantics equivalence on `ArrowProgApply`, beyond scope
 - Expressive-power asymmetry (T needs no ArrowApply, S does) —
@@ -364,17 +369,17 @@ to the recursive call `shift d (c+1) b`.
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests/Theorems | Status |
-|-------|-----------|----------------|--------|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48 | ✅ |
-| 2 | #6 (effects & handlers) | 20 | ✅ |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | ✅ |
-| Deep dive | Effect typing | 31 | ✅ |
-| 4 | #9 (structural preservation) | 33 | ✅ |
-| 5 | #10 (minimality — Lean4) | 11 theorems (all proved) | ✅ |
-| 6 | #11 (ArrowApply without opacity) | 19 | ✅ |
-| 7 | Translation asymmetry — Lean4 | 8 theorems (8/8 fully proved) | ✅ (negative result) |
-| | **Total** | **177 Rust + 19 Lean (19 proven, 0 specified)** | **All passing** |
+| Phase     | Challenge                                                            | Tests/Theorems                                  | Status               |
+| --------- | -------------------------------------------------------------------- | ----------------------------------------------- | -------------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48                                              | ✅                   |
+| 2         | #6 (effects & handlers)                                              | 20                                              | ✅                   |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26                                              | ✅                   |
+| Deep dive | Effect typing                                                        | 31                                              | ✅                   |
+| 4         | #9 (structural preservation)                                         | 33                                              | ✅                   |
+| 5         | #10 (minimality — Lean4)                                             | 11 theorems (all proved)                        | ✅                   |
+| 6         | #11 (ArrowApply without opacity)                                     | 19                                              | ✅                   |
+| 7         | Translation asymmetry — Lean4                                        | 8 theorems (8/8 fully proved)                   | ✅ (negative result) |
+|           | **Total**                                                            | **177 Rust + 19 Lean (19 proven, 0 specified)** | **All passing**      |
 
 ---
 
@@ -388,6 +393,7 @@ extension law requires fix-unrolling, not just βη — is a general
 property of recursion, not arrow-specific.
 
 The real asymmetries are:
+
 1. **Representation** (opacity): arrow trees are inspectable, opaque
    monadic closures are not (Challenge #9)
 2. **Expressive power** (ArrowApply): the inverse translation needs

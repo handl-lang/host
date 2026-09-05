@@ -32,32 +32,32 @@
   scheme: !Arr
     op: add
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.and
   node_kind: binary.and
   scheme: !Arr
     op: and
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.bind
   node_kind: bind
@@ -70,208 +70,208 @@
   scheme: !Arr
     op: compare
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.div
   node_kind: binary.div
   scheme: !Arr
     op: div
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.eq
   node_kind: binary.eq
   scheme: !Arr
     op: eq
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.gt
   node_kind: binary.gt
   scheme: !Arr
     op: gt
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.gte
   node_kind: binary.gte
   scheme: !Arr
     op: gte
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.lt
   node_kind: binary.lt
   scheme: !Arr
     op: lt
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.lte
   node_kind: binary.lte
   scheme: !Arr
     op: lte
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.mod
   node_kind: binary.mod
   scheme: !Arr
     op: mod
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.mul
   node_kind: binary.mul
   scheme: !Arr
     op: mul
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.neq
   node_kind: binary.neq
   scheme: !Arr
     op: neq
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.or
   node_kind: binary.or
   scheme: !Arr
     op: or
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.pow
   node_kind: binary.pow
   scheme: !Arr
     op: pow
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.binary.sub
   node_kind: binary.sub
   scheme: !Arr
     op: sub
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 # `call` is variable-arity: a Pratt-parsed `call` node has children
 # `[callee, arg1, arg2, ...]` (the parser appends one child per comma-
@@ -303,10 +303,10 @@
       l: !Arr
         op: call_host
         args:
-        - !Arr
-          op: proj_rest
-          args: []
-          source: Native
+          - !Arr
+            op: proj_rest
+            args: []
+            source: Native
         source: DynamicForeign
       r: !App
         callee: !Arr
@@ -314,10 +314,10 @@
           args: []
           source: Native
         args:
-        - !Arr
-          op: proj_rest
-          args: []
-          source: Native
+          - !Arr
+            op: proj_rest
+            args: []
+            source: Native
 - id: eval.choice
   node_kind: choice
   scheme: !Choice
@@ -336,32 +336,32 @@
   scheme: !Arr
     op: fn.fanout_fn
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: !Foreign fn.fanout_fn
 - id: eval.field-access
   node_kind: field-access
   scheme: !Arr
     op: field_access
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.flow
   node_kind: flow
@@ -372,11 +372,11 @@
       source: Native
       lit: 1
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
 - id: eval.pipe
   node_kind: pipe
   scheme: !App
@@ -386,11 +386,11 @@
       source: Native
       lit: 1
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
 - id: eval.function
   node_kind: function
   scheme: !Arr
@@ -432,16 +432,16 @@
   scheme: !Arr
     op: index
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 - id: eval.json
   node_kind: json
@@ -493,22 +493,22 @@
   scheme: !Arr
     op: export
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
     source: Native
 - id: eval.stmt-import
   node_kind: stmt.import
   scheme: !Arr
     op: import
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
     source: Native
 - id: eval.stmt-let
   node_kind: stmt.let
@@ -589,33 +589,33 @@
   scheme: !Arr
     op: typeof
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
     source: Native
 - id: eval.unary.neg
   node_kind: unary.neg
   scheme: !Arr
     op: neg
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
     source: Native
 - id: eval.unary.not
   node_kind: unary.not
   scheme: !Arr
     op: not
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
     source: Native
 - id: eval.var
   node_kind: var
@@ -674,11 +674,11 @@
       body: !Arr
         op: loop_step
         args:
-        - !Arr
-          op: proj_child
-          args: []
-          source: Native
-          lit: 1
+          - !Arr
+            op: proj_child
+            args: []
+            source: Native
+            lit: 1
         source: Native
 # `for` — iteration, desugars to `rec` + destructuring (ADR-0074 A.2).
 # Children: [iterator(0), collection(1), body(2)].
@@ -743,16 +743,16 @@
   scheme: !Arr
     op: product
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 # `nullish` — nullish coalescing `??` (ADR-0074 A.3).
 # Desugars to match over option: if left is some, return its value;
@@ -788,16 +788,16 @@
   scheme: !Arr
     op: opt_chain
     args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
     source: Native
 # `desugar-error` — raises a LangError when evaluated. Emitted by the
 # desugar pass when a declaration fails a compile-time check (e.g. strict

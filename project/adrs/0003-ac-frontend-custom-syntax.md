@@ -32,7 +32,7 @@ functions:
         type: number
     return:
       type: number
-    body: 'a + b'
+    body: "a + b"
 auth_headers:
   Authorization: "Bearer ${env.TOKEN}"
   Accept: "application/json"
@@ -65,7 +65,6 @@ type checking, typegen, VM, or any downstream crate.
 
 ### Syntax
 
-
 #### Comments
 
 ```handl
@@ -78,13 +77,14 @@ is_ok: boolean => http.get("https://api.example.com/health").ok
 
 tags: string[]  // inline comment
 ```
+
 #### Operators
 
-| Operator | Meaning | Maps to |
-|---|---|---|
-| `=>` | Computed field (expression) | `expr: "..."` |
-| `=` | Literal data assignment | raw value at top level |
-| `:` | Type annotation | `type: "..."` |
+| Operator | Meaning                     | Maps to                |
+| -------- | --------------------------- | ---------------------- |
+| `=>`     | Computed field (expression) | `expr: "..."`          |
+| `=`      | Literal data assignment     | raw value at top level |
+| `:`      | Type annotation             | `type: "..."`          |
 
 #### Field declarations
 
@@ -122,7 +122,7 @@ users: {
 
 #### Parameterized fields and functions
 
-```
+````
 // Parameterized computed field (untyped arg)
 greet(name) => concat("hello, ", name)
 
@@ -150,13 +150,13 @@ items<T>: T[]
 
 // Multiple type parameters
 pair<T, U>(first: T, second: U): { first: T, second: U } => ...
-```
+````
 
-| `.handl` syntax | Output in `NonFunctionValue` |
-|---|---|
+| `.handl` syntax                          | Output in `NonFunctionValue`                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
 | `map<T, U>(items: T[], ...): U[] => ...` | `functions: {map: {generic: ["T", "U"], params: {...}, return: {...}, body: "..."}}` |
-| `first<T>(arg: T): T => arg` | `fields: {first: {generic: ["T"], arg: {type: "T"}, type: "T", expr: "arg"}}` |
-| `items<T>: T[]` | `fields: {items: {generic: ["T"], type: "array", items: {type: "T"}}}` |
+| `first<T>(arg: T): T => arg`             | `fields: {first: {generic: ["T"], arg: {type: "T"}, type: "T", expr: "arg"}}`        |
+| `items<T>: T[]`                          | `fields: {items: {generic: ["T"], type: "array", items: {type: "T"}}}`               |
 
 The `generic:` key is a new special key in the canonical dialect. The
 typechecker treats type parameter names as `Type::Unknown` (accepts
@@ -185,10 +185,10 @@ inherit role: "admin" | "user" | "guest"
 lock priority: 1 | 2 | 3
 ```
 
-| `.handl` syntax | Output in `NonFunctionValue` |
-|---|---|
-| `role: "admin" \| "user" \| "guest"` | `fields: {role: {type: "string", enum: ["admin", "user", "guest"]}}` |
-| `priority: 1 \| 2 \| 3` | `fields: {priority: {type: "number", enum: [1, 2, 3]}}` |
+| `.handl` syntax                         | Output in `NonFunctionValue`                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| `role: "admin" \| "user" \| "guest"`    | `fields: {role: {type: "string", enum: ["admin", "user", "guest"]}}`          |
+| `priority: 1 \| 2 \| 3`                 | `fields: {priority: {type: "number", enum: [1, 2, 3]}}`                       |
 | `status: "a" \| "b" => http.get("...")` | `fields: {status: {type: "string", enum: ["a", "b"], expr: "http.get(...)"}}` |
 
 The frontend infers `type` from the first enum value. The `|` appears
@@ -199,11 +199,11 @@ expression syntax.
 
 Three operators for expression-level flow control:
 
-| Operator | Name | Direction | Returns | Desugars to |
-|---|---|---|---|---|
-| `\|>` | Pipe | Left-to-right | Value (immediate) | Nested calls: `x \|> f(a)` → `f(a, x)` |
-| `>>` | Flow | Left-to-right | Function (deferred) | `fp.flow(f, g)` |
-| `<<` | Compose | Right-to-left | Function (deferred) | `fp.compose(f, g)` |
+| Operator | Name    | Direction     | Returns             | Desugars to                            |
+| -------- | ------- | ------------- | ------------------- | -------------------------------------- |
+| `\|>`    | Pipe    | Left-to-right | Value (immediate)   | Nested calls: `x \|> f(a)` → `f(a, x)` |
+| `>>`     | Flow    | Left-to-right | Function (deferred) | `fp.flow(f, g)`                        |
+| `<<`     | Compose | Right-to-left | Function (deferred) | `fp.compose(f, g)`                     |
 
 ```handl
 // |> pipe — immediate, left-to-right
@@ -251,10 +251,10 @@ the `expr:` string.
 
 Two operators for safe null handling, both pure frontend desugaring:
 
-| Operator | Name | Example | Desugars to | Runtime change? |
-|---|---|---|---|---|
-| `??` | Null coalesce | `a ?? b` | `fp.default(a, b)` / `fp.coalesce(...)` | No |
-| `?.` | Optional chain | `user?.address?.city` | `fp.default(fp.default(user, {}).address, {}).city` | No |
+| Operator | Name           | Example               | Desugars to                                         | Runtime change? |
+| -------- | -------------- | --------------------- | --------------------------------------------------- | --------------- |
+| `??`     | Null coalesce  | `a ?? b`              | `fp.default(a, b)` / `fp.coalesce(...)`             | No              |
+| `?.`     | Optional chain | `user?.address?.city` | `fp.default(fp.default(user, {}).address, {}).city` | No              |
 
 ```handl
 // ?? null coalescing
@@ -339,15 +339,15 @@ spread base: { host: string }
 
 No `fields:` section is needed. The syntax form is the discriminator:
 
-| Syntax form | Classification | Goes into |
-|---|---|---|
-| `key => expr` | Computed field | `fields` |
-| `key: type => expr` | Typed computed field | `fields` |
-| `key: type` | Type-only field | `fields` |
-| `key: { ... }` | Field with schema | `fields` |
-| `key(params) => expr` | Parameterized field | `fields` |
-| `key = value` | Literal data | top-level data |
-| `key: value` (inside `{}`) | Object property | part of parent |
+| Syntax form                | Classification       | Goes into      |
+| -------------------------- | -------------------- | -------------- |
+| `key => expr`              | Computed field       | `fields`       |
+| `key: type => expr`        | Typed computed field | `fields`       |
+| `key: type`                | Type-only field      | `fields`       |
+| `key: { ... }`             | Field with schema    | `fields`       |
+| `key(params) => expr`      | Parameterized field  | `fields`       |
+| `key = value`              | Literal data         | top-level data |
+| `key: value` (inside `{}`) | Object property      | part of parent |
 
 The frontend groups all field declarations under the `fields` key and
 all `fn` declarations under the `functions` key in the output
@@ -355,33 +355,33 @@ all `fn` declarations under the `functions` key in the output
 
 ### Output mapping
 
-| `.handl` syntax | Output in `NonFunctionValue` |
-|---|---|
-| `user => http.get(...)` | `fields: {user: {expr: "http.get(...)"}}` |
-| `is_ok: boolean => ...` | `fields: {is_ok: {type: "boolean", expr: "..."}}` |
-| `api_key: string` | `fields: {api_key: {type: "string"}}` |
-| `tags: string[]` | `fields: {tags: {type: "array", items: {type: "string"}}}` |
-| `greet(name) => ...` | `fields: {greet: {arg: true, expr: "..."}}` |
-| `greet_typed(name: string): string => ...` | `fields: {greet_typed: {arg: {type: "string"}, type: "string", expr: "..."}}` |
+| `.handl` syntax                              | Output in `NonFunctionValue`                                                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `user => http.get(...)`                      | `fields: {user: {expr: "http.get(...)"}}`                                                                         |
+| `is_ok: boolean => ...`                      | `fields: {is_ok: {type: "boolean", expr: "..."}}`                                                                 |
+| `api_key: string`                            | `fields: {api_key: {type: "string"}}`                                                                             |
+| `tags: string[]`                             | `fields: {tags: {type: "array", items: {type: "string"}}}`                                                        |
+| `greet(name) => ...`                         | `fields: {greet: {arg: true, expr: "..."}}`                                                                       |
+| `greet_typed(name: string): string => ...`   | `fields: {greet_typed: {arg: {type: "string"}, type: "string", expr: "..."}}`                                     |
 | `add(a: number, b: number): number => a + b` | `functions: {add: {params: {a: {type: "number"}, b: {type: "number"}}, return: {type: "number"}, body: "a + b"}}` |
-| `user_full: { id: string } => ...` | `fields: {user_full: {properties: {id: {type: "string"}}, expr: "..."}}` |
-| `users: { id: string }[]` | `fields: {users: {type: "array", items: {properties: {id: {type: "string"}}}}}` |
-| `auth_headers = { ... }` | `auth_headers: { ... }` (top-level data) |
-| `map<T, U>(items: T[], ...): U[] => ...` | `functions: {map: {generic: ["T", "U"], params: {...}, return: {...}, body: "..."}}` |
-| `first<T>(arg: T): T => arg` | `fields: {first: {generic: ["T"], arg: {type: "T"}, type: "T", expr: "arg"}}` |
-| `items<T>: T[]` | `fields: {items: {generic: ["T"], type: "array", items: {type: "T"}}}` |
-| `payload_json = "..."` | `payload_json: "..."` (top-level data) |
+| `user_full: { id: string } => ...`           | `fields: {user_full: {properties: {id: {type: "string"}}, expr: "..."}}`                                          |
+| `users: { id: string }[]`                    | `fields: {users: {type: "array", items: {properties: {id: {type: "string"}}}}}`                                   |
+| `auth_headers = { ... }`                     | `auth_headers: { ... }` (top-level data)                                                                          |
+| `map<T, U>(items: T[], ...): U[] => ...`     | `functions: {map: {generic: ["T", "U"], params: {...}, return: {...}, body: "..."}}`                              |
+| `first<T>(arg: T): T => arg`                 | `fields: {first: {generic: ["T"], arg: {type: "T"}, type: "T", expr: "arg"}}`                                     |
+| `items<T>: T[]`                              | `fields: {items: {generic: ["T"], type: "array", items: {type: "T"}}}`                                            |
+| `payload_json = "..."`                       | `payload_json: "..."` (top-level data)                                                                            |
 
 ### Type inference rules
 
 The frontend omits `type:` when the type is obvious:
 
-| Context | Inferred type |
-|---|---|
-| `{ ... }` body | `object` (with `properties` from body) |
-| `[]` suffix | `array` (with `items` from prefix type) |
-| `=> expr` only (no type, no braces) | omitted — typechecker infers from expr |
-| Empty `{}` | `unknown` (no type emitted) |
+| Context                             | Inferred type                           |
+| ----------------------------------- | --------------------------------------- |
+| `{ ... }` body                      | `object` (with `properties` from body)  |
+| `[]` suffix                         | `array` (with `items` from prefix type) |
+| `=> expr` only (no type, no braces) | omitted — typechecker infers from expr  |
+| Empty `{}`                          | `unknown` (no type emitted)             |
 
 When `type:` is omitted, the typechecker's existing `Type::Unknown`
 handling applies — it passes silently if the type cannot be inferred
@@ -400,18 +400,18 @@ handling applies — it passes silently if the type cannot be inferred
 
 ### Verbosity comparison
 
-| Construct | `.handl` | YAML | Reduction |
-|---|---|---|---|
-| Computed field (no type) | 1 line | 3 lines | 67% |
-| Typed computed field | 1 line | 3 lines | 67% |
-| Type-only field | 1 line | 2 lines | 50% |
-| Array shorthand (`string[]`) | 1 line | 4 lines | 75% |
-| Parameterized (untyped arg) | 1 line | 4 lines | 75% |
-| Parameterized (typed arg) | 1 line | 5 lines | 80% |
-| Function | 1 line | 7 lines | 86% |
-| Complex field (schema + expr) | 5 lines | 9 lines | 44% |
-| Data (object) | 4 lines | 3 lines | -33% |
-| **Full 15-field example** | **~25 lines** | **~80 lines** | **69%** |
+| Construct                     | `.handl`      | YAML          | Reduction |
+| ----------------------------- | ------------- | ------------- | --------- |
+| Computed field (no type)      | 1 line        | 3 lines       | 67%       |
+| Typed computed field          | 1 line        | 3 lines       | 67%       |
+| Type-only field               | 1 line        | 2 lines       | 50%       |
+| Array shorthand (`string[]`)  | 1 line        | 4 lines       | 75%       |
+| Parameterized (untyped arg)   | 1 line        | 4 lines       | 75%       |
+| Parameterized (typed arg)     | 1 line        | 5 lines       | 80%       |
+| Function                      | 1 line        | 7 lines       | 86%       |
+| Complex field (schema + expr) | 5 lines       | 9 lines       | 44%       |
+| Data (object)                 | 4 lines       | 3 lines       | -33%      |
+| **Full 15-field example**     | **~25 lines** | **~80 lines** | **69%**   |
 
 YAML remains slightly more compact for pure data objects. `.handl` wins
 everywhere else, especially for functions and parameterized fields.

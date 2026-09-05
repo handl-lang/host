@@ -71,12 +71,12 @@ handl fmt libraries/**/*.yaml --write  # format many files
 
 The formatter dispatches based on file extension:
 
-| Extension | Formatter |
-|---|---|
-| `.yaml` / `.yml` | YAML formatter (parse, reorder keys, stringify) |
-| `.json` | JSON formatter (parse, reorder keys, pretty-print) |
-| `.toml` | TOML formatter (parse, reorder keys, stringify) |
-| `.handl` | `.handl` formatter (parse AST, emit canonical syntax) |
+| Extension        | Formatter                                             |
+| ---------------- | ----------------------------------------------------- |
+| `.yaml` / `.yml` | YAML formatter (parse, reorder keys, stringify)       |
+| `.json`          | JSON formatter (parse, reorder keys, pretty-print)    |
+| `.toml`          | TOML formatter (parse, reorder keys, stringify)       |
+| `.handl`         | `.handl` formatter (parse AST, emit canonical syntax) |
 
 Each frontend's formatter shares the same canonical key order and style
 rules, but implements them through its own parse/stringify pipeline, exposed

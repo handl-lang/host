@@ -78,7 +78,7 @@ dependency model; it partitions the existing one.
 
 ADR-0044 §7 "Compilers erase data dispatch" notes that bytecode and cranelift
 engines compile away per-node scheme lookup. Chunking is orthogonal: it
-partitions the *data* (the `Language` value); the engines still compile
+partitions the _data_ (the `Language` value); the engines still compile
 whatever subset is loaded.
 
 ## Decision

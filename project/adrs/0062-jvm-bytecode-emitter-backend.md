@@ -25,21 +25,21 @@ without a special runtime.
 
 ADR-0061 explicitly left this path open ("a future
 `plugin-engine-eval-jvm` crate that emits `.class` files directly is
-explicitly *not* rejected by this ADR"). This ADR picks it up.
+explicitly _not_ rejected by this ADR"). This ADR picks it up.
 
 ### Why both backends
 
 The two JVM backends serve different deployment profiles:
 
-| | Truffle (ADR-0061) | Bytecode emitter (this ADR) |
-|---|---|---|
-| Runtime | GraalVM JDK | Stock JVM |
-| What you write | Interpreter (port of `V2Interpreter`) | Code generator (`SchemeV2` → `.class`) |
-| JIT | GraalVM partial evaluation | Stock JVM JIT on emitted bytecode |
-| Polyglot interop | Free via Truffle `Polyglot` API | Manual via JNI/reflection |
-| Fit with thesis | Handler interpretation on a second host | Compilation, like cranelift |
-| AOT to native | `native-image` (natural) | `native-image` on emitted classes (awkward) |
-| Maintenance cost | Interpreter + JNI bridge | Bytecode generator + constant pool + stack maps |
+|                  | Truffle (ADR-0061)                      | Bytecode emitter (this ADR)                     |
+| ---------------- | --------------------------------------- | ----------------------------------------------- |
+| Runtime          | GraalVM JDK                             | Stock JVM                                       |
+| What you write   | Interpreter (port of `V2Interpreter`)   | Code generator (`SchemeV2` → `.class`)          |
+| JIT              | GraalVM partial evaluation              | Stock JVM JIT on emitted bytecode               |
+| Polyglot interop | Free via Truffle `Polyglot` API         | Manual via JNI/reflection                       |
+| Fit with thesis  | Handler interpretation on a second host | Compilation, like cranelift                     |
+| AOT to native    | `native-image` (natural)                | `native-image` on emitted classes (awkward)     |
+| Maintenance cost | Interpreter + JNI bridge                | Bytecode generator + constant pool + stack maps |
 
 Neither subsumes the other. The Truffle engine is the better fit for
 interactive/polyglot workloads on GraalVM; the bytecode emitter is the
@@ -53,12 +53,12 @@ engines.
 The bytecode emitter is structurally a peer of
 `plugin-engine-eval-cranelift`:
 
-| cranelift | JVM bytecode emitter |
-|---|---|
-| `compile_v2.rs` — `SchemeV2` → cranelift IR | `compile_v2.rs` — `SchemeV2` → JVM bytecode |
+| cranelift                                           | JVM bytecode emitter                                        |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `compile_v2.rs` — `SchemeV2` → cranelift IR         | `compile_v2.rs` — `SchemeV2` → JVM bytecode                 |
 | `standalone.rs` — emit `.o` + C driver + static lib | `standalone.rs` — emit `.class`/`.jar` + embedded constants |
-| `helper_v2_*` runtime stubs | JVM runtime helpers (static methods) |
-| `cranelift-object` for on-disk binaries | `bytecode`/`classfile` crate for `.class` emission |
+| `helper_v2_*` runtime stubs                         | JVM runtime helpers (static methods)                        |
+| `cranelift-object` for on-disk binaries             | `bytecode`/`classfile` crate for `.class` emission          |
 
 The lowering table is the same six-primitive mapping; only the target IR
 differs.

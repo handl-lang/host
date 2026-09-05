@@ -7,11 +7,13 @@ Track experiments, design decisions, and friction points here as the investigati
 ## Challenge Completion Status
 
 ### ✅ Challenge #1: Expressiveness
+
 - Identity, increment, composition all work correctly
 - Arrow wrapping of pure functions is straightforward
 - No friction observed
 
 ### ✅ Challenge #2: Abstraction & Higher-Order Patterns
+
 - **Decision Made:** Use first-class arrow functions as higher-order abstractions
 - **Approach:** Pass arrow functions (`fn(T) -> U`) directly as parameters
 - **Results:** Map, filter, fold, pipe all work naturally
@@ -19,6 +21,7 @@ Track experiments, design decisions, and friction points here as the investigati
 - **Key Pattern:** `pipe_arrows([f, g, h], x)` chains composition naturally
 
 ### ✅ Challenge #3: Parametricity & Polymorphic Types
+
 - **Decision Made:** Implement type variables and forall quantification
 - **Approach:** PolyType enum with Var, Forall, Arrow, List constructors
 - **Results:** Type substitution works; identity, map, fold, compose all have polymorphic types
@@ -26,12 +29,14 @@ Track experiments, design decisions, and friction points here as the investigati
 - **Key Pattern:** `forall a. a ~> a`, `forall a b. (a ~> b) ~> ([a] ~> [b])`
 
 ### ✅ Challenge #5: Recursion via Feedback Loops
+
 - State machine encoding works with explicit termination flags
 - Factorial(0) through factorial(7) all compute correctly
 - Loop convergence detection via state equality works well
 - **Key Pattern:** Nested Product tuples for state structure
 
 ### ✅ Challenge #6: Effects & Handlers
+
 - **Decision Made:** Freer-arrow model — `Comp = Pure v | Op op arg k`
 - **Approach:** Operations suspended with continuations; handlers interpret
   their own ops and **pass through** foreign ops by rebuilding the
@@ -45,6 +50,7 @@ Track experiments, design decisions, and friction points here as the investigati
   order observable; mid-program catch = handler applied to a sub-computation
 
 ### ✅ Challenge #7: First-class Language Protocol
+
 - **Decision Made:** Model a language as a record of arrows (`Language` struct
   of `Rc<dyn Fn(Value) -> Comp>` fields: parse, eval, format, typecheck, lit)
 - **Approach:** Every language operation is an arrow `Value ~> Comp` in the
@@ -60,6 +66,7 @@ Track experiments, design decisions, and friction points here as the investigati
   a fully generic optimizer that re-embeds folded values
 
 ### ✅ Challenge #8: Generic Language-Agnostic Tooling
+
 - **Decision Made:** Generic tools are functions `&Language -> ...` that build
   arrow pipelines from a language's own arrows
 - **Approach:** `pretty_print` uses `format`; `report_error` runs `typecheck`
@@ -68,16 +75,17 @@ Track experiments, design decisions, and friction points here as the investigati
   embedding via `lit`
 - **Results:** The SAME tool code runs unchanged over both language instances
   — only the `Language` parameter differs; round-trip `parse >>> format >>>
-  parse` is an arrow identity; `parse >>> typecheck` and `parse >>> (pair
-  env) >>> eval` compose as single pipelines
+parse` is an arrow identity; `parse >>> typecheck` and `parse >>> (pair
+env) >>> eval` compose as single pipelines
 - **Finding:** A compiler/tooling plugin interface is not a separate language
   feature — it is arrow composition over a record of arrows
 - **Key Pattern:** Tools are arrow pipelines (`>>>`), not special constructs;
   errors flow through the Phase 2 exception handler uniformly
 
 ### ✅ Deep Dive: Effect Typing for Arrows
-- **Decision Made:** Infer effect rows statically from a *static computation
-  tree* `IComp` that mirrors the freer-arrow `Comp` but stores continuations
+
+- **Decision Made:** Infer effect rows statically from a _static computation
+  tree_ `IComp` that mirrors the freer-arrow `Comp` but stores continuations
   as explicit sub-trees (`Box<IComp>`) instead of `Rc<dyn Fn>` closures
 - **Approach:** `Effect = HashSet<IOp>` (an effect row); `infer_effect`
   traverses the tree — `Pure` contributes `∅`, each `Op` contributes
@@ -105,26 +113,31 @@ Track experiments, design decisions, and friction points here as the investigati
 ### Arrow Calculus Core (Phase 1) ✅
 
 **Decision: Arrow Representation**
+
 - ✅ Use explicit `ArrowValue` enum with constructors for each primitive
 - ✅ Rationale: Allows structural inspection and manipulation
 - ✅ Working Well: Composition and feedback patterns natural to express
 
 **Decision: Higher-Order Arrow Handling**
+
 - ✅ Use Rust function pointers (`fn(T) -> U`) as arrow abstractions
 - ✅ Rationale: Simple, first-class values that can be passed around
 - ✅ Working Well: Map, filter, fold all express naturally
 
 **Decision: Polymorphic Type System**
+
 - ✅ Use explicit PolyType enum with type variables and quantification
 - ✅ Rationale: Type substitution implements instantiation cleanly
 - ✅ Working Well: All 5 polymorphic patterns have well-formed types
 
 **Decision: Recursion via State Machines**
+
 - ✅ Encode recursive algorithms as step functions + feedback loop
 - ✅ Rationale: Makes recursion a derived pattern, not primitive
 - ✅ Working Well: Factorial, fibonacci, general tail recursion
 
 **Decision: Type System Details**
+
 - ✅ Simplified for PoC (no Hindley–Milner inference yet)
 - ✅ Focus on runtime semantics and expressiveness, not type checking
 - ✅ Note: Type inference deferred to Phase 2 (Challenge #4)
@@ -132,11 +145,13 @@ Track experiments, design decisions, and friction points here as the investigati
 ### Lambda-to-Arrow Translation (Phase 1–2) ⏳
 
 **Decision: Higher-Order Pattern Translation**
+
 ```rust
 // Lambda pattern: λf. λx. f (f x)  (apply_twice)
 // Arrow translation: fn apply_twice(f: fn(T)->T, x: T) -> T { f(f(x)) }
 // Arrow composition: f >>> f  (compose f with itself)
 ```
+
 - ✅ Decided: Direct parameter passing without explicit wrapping
 - ✅ Working: All 10 higher-order tests pass
 - ✅ Polymorphic types: `forall a. (a ~> a) ~> (a ~> a)`
@@ -146,18 +161,21 @@ Track experiments, design decisions, and friction points here as the investigati
 ## Friction Points & Resolutions
 
 ### Issue 1: State Structure Mismatch in Loops (RESOLVED)
+
 - **Symptom:** State became malformed after first iteration in factorial loop
 - **Root Cause:** Inconsistent state structure between iterations
 - **Resolution:** Use nested Product tuples with all fields in single value
 - **Lesson Learned:** State equality checks work best on immutable, fully-structured values
 
 ### Issue 2: Termination Detection (RESOLVED)
+
 - **Symptom:** Loops didn't know when to stop
 - **Root Cause:** No explicit termination flag in state
 - **Resolution:** Add boolean flag to state; check via state equality (convergence)
 - **Lesson Learned:** Explicit termination flags clearer than convergence heuristics
 
 ### Issue 3: Type Checking vs. Runtime Semantics (ACCEPTED)
+
 - **Symptom:** No static type guarantees for arrow composition
 - **Rationale:** Simplified PoC focuses on expressiveness, not types
 - **Status:** Deferred to Phase 2 (Challenge #4 — Typing)
@@ -167,6 +185,7 @@ Track experiments, design decisions, and friction points here as the investigati
 ## Experiment Log
 
 ### Experiment 1 (Challenge #1): Identity Arrow ✅
+
 ```
 Test: id = arr (λx. x)
 Result: id(5) = 5 ✅
@@ -174,6 +193,7 @@ Conclusion: Arrow wrapping of lambdas works
 ```
 
 ### Experiment 2 (Challenge #1): Increment Arrow ✅
+
 ```
 Test: add1 = arr (λx. x + 1)
 Result: add1(5) = 6 ✅
@@ -181,6 +201,7 @@ Conclusion: Binary ops work in arrow closures
 ```
 
 ### Experiment 3 (Challenge #1): Arrow Composition ✅
+
 ```
 Test: add1 >>> mul2 where add1(x) = x+1, mul2(x) = x*2
 Result: (add1 >>> mul2)(5) = (5+1)*2 = 12 ✅
@@ -188,6 +209,7 @@ Conclusion: Composition law verified
 ```
 
 ### Experiment 4 (Challenge #2): ApplyTwice ✅
+
 ```
 Test: apply_twice(+1)(5)
 Result: 7 ✅
@@ -196,6 +218,7 @@ Conclusion: Higher-order functions work without lambda
 ```
 
 ### Experiment 5 (Challenge #2): Map ✅
+
 ```
 Test: map(+1)([1,2,3])
 Result: [2,3,4] ✅
@@ -203,6 +226,7 @@ Conclusion: List operations natural with arrows
 ```
 
 ### Experiment 6 (Challenge #2): Filter ✅
+
 ```
 Test: filter(even)([1,2,3,4])
 Result: [2,4] ✅
@@ -210,6 +234,7 @@ Conclusion: Predicates work as arrow functions
 ```
 
 ### Experiment 7 (Challenge #2): Fold ✅
+
 ```
 Test: fold(+)([1,2,3]) with init=0
 Result: 6 ✅
@@ -219,6 +244,7 @@ Conclusion: Accumulators work with binary step functions
 ```
 
 ### Experiment 8 (Challenge #2): Pipe ✅
+
 ```
 Test: pipe([+1, *2, ^2])(2)
 Result: 36 ✅
@@ -227,6 +253,7 @@ Conclusion: Sequential composition works cleanly
 ```
 
 ### Experiment 9 (Challenge #5): Factorial via Feedback ✅
+
 ```
 Test: factorial(5) via state machine + loop
 Result: 120 ✅
@@ -235,6 +262,7 @@ Conclusion: Recursion expressible without lambda primitives
 ```
 
 ### Experiment 10 (Challenge #3): Polymorphic Arrow Types ✅
+
 ```
 Test: forall a. a ~> a (identity)
 Result: Instantiates to Int ~> Int, [Int] ~> [Int] ✅
@@ -260,17 +288,20 @@ Conclusion: Type generics work without lambda; polymorphism orthogonal to arrows
 **Decision: Parametricity mechanism**
 
 Option A: Generic combinators (primitives)
+
 ```
 map   : forall a b. (a ~> b) -> ([a] ~> [b])
 fold  : forall a b. (b ~> (a ~> b)) -> (b ~> ([a] ~> b))
 ```
 
 Option B: Higher-order arrows (arrow application)
+
 ```
 map f = ... uses app to invoke f dynamically
 ```
 
 Option C: Type class / implicit handler approach
+
 ```
 forall a. Show a => (a ~> String)
 ```
@@ -301,12 +332,14 @@ fact = loop step
 ```
 
 **Questions to resolve:**
+
 - [ ] Does every recursive pattern cleanly lower to a state machine?
 - [ ] What about mutual recursion (e.g., `even`/`odd`)?
 - [ ] What about tree recursion (e.g., Fibonacci)?
 - [ ] Is the state-machine shape natural or forced?
 
 **Decision: Handling termination**
+
 - [ ] Does the arrow calculus have a natural way to express termination?
 - [ ] How do we prevent infinite loops?
 - [ ] Should termination be a handler concern (lazy evaluation) or a calculus concern (type system)?
@@ -331,22 +364,24 @@ that intercept their own ops and pass through foreign ops by rebuilding the
 continuation (`Op op arg (λr. H (k r))`).
 
 **Questions — answered:**
+
 - [x] How do multiple operations compose? (e.g., State + IO)
       → By stacking handlers via ordinary function composition; pass-through
-        threads each handler's state through foreign ops.
+      threads each handler's state through foreign ops.
 - [x] Can we define a hierarchy or priority?
       → Handler order is the priority; outer handlers see rebuilt ops from
-        inner handlers.
+      inner handlers.
 - [x] Is handler composition commutative? (Does order matter?)
       → NOT commutative in general — order is observable and corresponds to
-        monad transformer order (StateT(Except) vs ExceptT(State)). This is a
-        feature, not a bug: it matches transformer semantics.
+      monad transformer order (StateT(Except) vs ExceptT(State)). This is a
+      feature, not a bug: it matches transformer semantics.
 - [x] Can we derive monad laws from handler laws?
       → Each handler recovers a monad's behaviour (State, IO, Except); monad
-        laws follow from handler laws (identity, composition, pass-through
-        association).
+      laws follow from handler laws (identity, composition, pass-through
+      association).
 
 **Decision: Effect ordering** — RESOLVED
+
 - [x] Explicit (like monad transformers) — handler stack order is the
       ordering, observable via `handle_state_pair`. Row/effect types were
       subsequently added in the effect-typing deep dive
@@ -361,7 +396,7 @@ continuation (`Op op arg (λr. H (k r))`).
 **Decision: Protocol shape** — RESOLVED
 
 ```
-type Language = 
+type Language =
   { name      : String
   , parse     : Text         ~> AST
   , eval      : (AST, Env)   ~> Value
@@ -376,79 +411,88 @@ reusing the freer-arrow + handler machinery from Phase 2. ASTs are tagged
 `Value`s (`Product(Str tag, List args)`).
 
 **Questions — answered:**
+
 - [x] What is the minimal set of operations?
       → Five arrows: `parse`, `eval`, `format`, `typecheck`, `lit`. The first
-        four are the required protocol surface; `lit` (embed a value as a
-        literal AST) was added so the generic optimizer can re-embed folded
-        values without any language-specific code.
+      four are the required protocol surface; `lit` (embed a value as a
+      literal AST) was added so the generic optimizer can re-embed folded
+      values without any language-specific code.
 - [x] Should parse/eval/typecheck be mandatory or optional?
       → Mandatory: every language instance supplies all five. This keeps
-        generic tools total (no `Option`-shuffling). A language that lacks a
-        real typechecker can supply a trivial one (e.g. always `pure "Any"`).
+      generic tools total (no `Option`-shuffling). A language that lacks a
+      real typechecker can supply a trivial one (e.g. always `pure "Any"`).
 - [x] How do we version/extend the protocol?
       → Add a new arrow field to the `Language` struct. Existing tools that
-        do not mention the new field keep working unchanged; new tools opt in.
-        No version flag needed for the PoC.
+      do not mention the new field keep working unchanged; new tools opt in.
+      No version flag needed for the PoC.
 - [x] Can we define multiple language families (expression languages,
       imperative, declarative)?
       → Yes — demonstrated with two expression languages (Arithmetic, Boolean)
-        of different value domains. Imperative/declarative families would
-        extend the AST vocabulary; the protocol and tools are family-agnostic
-        because they operate on the generic tagged-AST shape.
+      of different value domains. Imperative/declarative families would
+      extend the AST vocabulary; the protocol and tools are family-agnostic
+      because they operate on the generic tagged-AST shape.
 
 **Decision: Generic tooling approach** — RESOLVED
+
 - [x] What generic operations should work over any language?
       → Three implemented: `pretty_print` (uses `format`), `report_error`
-        (runs `typecheck` then `eval` under `handle_exception`), and
-        `optimize` (constant folding via `eval` + `lit`). All are functions
-        `&Language -> ...` building arrow pipelines from the language's own
-        arrows.
+      (runs `typecheck` then `eval` under `handle_exception`), and
+      `optimize` (constant folding via `eval` + `lit`). All are functions
+      `&Language -> ...` building arrow pipelines from the language's own
+      arrows.
 - [x] How do we handle language-specific extensions?
       → Language-specific behaviour lives inside the language's own arrows;
-        generic tools never branch on language identity. Extensions are new
-        arrows on the `Language` record, consumed by new (or extended) tools.
+      generic tools never branch on language identity. Extensions are new
+      arrows on the `Language` record, consumed by new (or extended) tools.
 - [x] Can we build a plugin system?
-      → The `Language` record *is* the plugin interface. A "plugin" is a value
-        of type `Language`; registering it makes every generic tool work on
-        it. No dynamic loading / reflection is required — composition is the
-        only glue.
+      → The `Language` record _is_ the plugin interface. A "plugin" is a value
+      of type `Language`; registering it makes every generic tool work on
+      it. No dynamic loading / reflection is required — composition is the
+      only glue.
 
 ---
 
 ## Experiments Log
 
 ### Experiment 1: Simple Arrow Program
+
 **Goal:** Verify that we can type-check and evaluate arrow programs.
 
 **Attempt:**
+
 ```
 add :: Int -> Int ~> Int
 add x = arr (+x)
 ```
 
 **Result:**
-- [ ] Typechecks? 
+
+- [ ] Typechecks?
 - [ ] Evaluates correctly?
 - [ ] Notes:
 
 ---
 
 ### Experiment 2: Lambda-to-Arrow Translation (Identity)
+
 **Goal:** Translate the simplest lambda function.
 
 **Source:**
+
 ```
 id :: a -> a
 id = λx. x
 ```
 
 **Target arrow:**
+
 ```
 id :: a ~> a
 id = arr (λx. x)   -- or pure arrow version?
 ```
 
 **Result:**
+
 - [ ] Translation clear?
 - [ ] Typechecks?
 - [ ] Semantically equivalent?
@@ -457,9 +501,11 @@ id = arr (λx. x)   -- or pure arrow version?
 ---
 
 ### Experiment 3: Composition
+
 **Goal:** Verify that arrow composition (`>>>`) works as expected.
 
 **Test:**
+
 ```
 add1 = arr (+1)
 mul2 = arr (*2)
@@ -467,6 +513,7 @@ composed = add1 >>> mul2
 ```
 
 **Result:**
+
 - [ ] Typechecks?
 - [ ] `composed 5` returns 12?
 - [ ] Notes:
@@ -474,9 +521,11 @@ composed = add1 >>> mul2
 ---
 
 ### Experiment 4: Feedback Loop (Simple State Machine)
+
 **Goal:** Encode a counter as feedback.
 
 **Design:**
+
 ```
 counter :: () ~> Int
 counter = loop step
@@ -485,6 +534,7 @@ counter = loop step
 ```
 
 **Result:**
+
 - [ ] Typechecks?
 - [ ] Returns successive integers?
 - [ ] Terminates correctly?
@@ -493,14 +543,16 @@ counter = loop step
 ---
 
 ### Experiment 5: Recursion (Factorial via Feedback)
+
 **Goal:** Encode factorial as a feedback loop.
 
 **Design:**
+
 ```
 -- State: (n, accumulator)
 step :: (Int, Int) ~> (Int, (Int, Int))
 step = arr (\(n, acc) ->
-  if n <= 1 
+  if n <= 1
     then (acc, (n, acc))
     else (n*acc, (n-1, n*acc))
 )
@@ -510,6 +562,7 @@ fact = loop step
 ```
 
 **Result:**
+
 - [ ] Correct for small values?
 - [ ] Terminates?
 - [ ] Proof of equivalence to `fix` version?
@@ -518,15 +571,18 @@ fact = loop step
 ---
 
 ### Experiment 6: Higher-Order Arrow
+
 **Goal:** Can an arrow take another arrow as input?
 
 **Design:**
+
 ```
 applyTwice :: (a ~> b) ~> (a ~> b)
 applyTwice f = f >>> f
 ```
 
 **Result:**
+
 - [ ] Typechecks?
 - [ ] Can we apply `applyTwice` to concrete arrows?
 - [ ] Notes:
@@ -534,9 +590,11 @@ applyTwice f = f >>> f
 ---
 
 ### Experiment 7: Generic Map
+
 **Goal:** Define `map` as an arrow combinator.
 
 **Design:**
+
 ```
 map :: forall a b. (a ~> b) -> ([a] ~> [b])
 map f = arr (\xs -> Data.List.map ??? xs)  -- How to apply f?
@@ -545,6 +603,7 @@ map f = arr (\xs -> Data.List.map ??? xs)  -- How to apply f?
 **Challenge:** How do we apply the arrow `f` to each element without reducing to lambda?
 
 **Result:**
+
 - [ ] Viable approach found?
 - [ ] Alternative strategy?
 - [ ] Notes:
@@ -552,20 +611,23 @@ map f = arr (\xs -> Data.List.map ??? xs)  -- How to apply f?
 ---
 
 ### Experiment 8: State Effect
+
 **Goal:** Encode State as an operation + handler.
 
 **Design:**
+
 ```
 operation Get :: () ~> State
 operation Put :: State ~> ()
 
-handler stateHandler s0 = 
+handler stateHandler s0 =
   { Get -> λ(). (s0, s0)
   , Put -> λs. ((), s)
   }
 ```
 
 **Result:**
+
 - [ ] Typechecks?
 - [ ] State threading works?
 - [ ] Can we compose multiple state operations?
@@ -580,11 +642,13 @@ handler stateHandler s0 =
 **Problem:** In lambda calculus, we can write `f x` where `f` is a value. In arrow calculus, can we apply an arrow that's a runtime value?
 
 **Solution candidates:**
+
 1. **Use `app`:** Sanada's `app` is exactly for this.
 2. **Restrict to static:** Only allow known arrows at compile time.
 3. **Handler-based:** Defer application to the handler layer.
 
 **Status:**
+
 - [ ] Chosen approach?
 - [ ] Justified?
 
@@ -595,11 +659,13 @@ handler stateHandler s0 =
 **Problem:** Hindley–Milner type inference works well for lambda calculus. Does it work for arrow polymorphism?
 
 **Candidates to investigate:**
+
 1. **Adapt HM:** Extend HM to arrow types directly.
 2. **Use constraints:** Treat arrow types as constraints à la GHC.
 3. **Restrict polymorphism:** Move to rank-1 types only.
 
 **Status:**
+
 - [ ] Chosen approach?
 - [ ] Prototype implemented?
 
@@ -610,11 +676,13 @@ handler stateHandler s0 =
 **Problem:** Arrow notation (`proc`) is verbose compared to lambda notation.
 
 **Solution candidates:**
+
 1. **Arrow notation:** Use `proc` for readability.
 2. **Lambda-like sugar:** `arrow x -> ... ` as syntactic sugar for arrow terms.
 3. **Direct lambda:** Allow lambdas in arrow context (undermines the foundation?).
 
 **Status:**
+
 - [ ] Decision made?
 - [ ] Sugar rules defined?
 
@@ -622,17 +690,17 @@ handler stateHandler s0 =
 
 ## Verdict Tracker
 
-| Challenge | Status | Verdict | Evidence |
-|-----------|--------|---------|----------|
-| 1. Expressiveness | ✅ COMPLETE | YES | Identity, increment, composition all work correctly. Arrow patterns express lambda patterns cleanly. |
-| 2. Abstraction | ✅ COMPLETE | YES | Map, filter, fold, pipe all work. Higher-order patterns don't need lambda abstraction. |
-| 3. Parametricity | ✅ COMPLETE | YES | Polymorphic types work. Identity, map, fold, compose all have forall types. Type substitution works. |
-| 4. Typing | ✅ COMPLETE | YES | Hindley-Milner type inference works for arrows. Unification, constraint solving, principal types all verified. |
-| 5. Recursion | ✅ COMPLETE | YES | Factorial via state machine + loop works. Recursion is derivable, not primitive. |
-| 6. Effects | ✅ COMPLETE | YES | State/IO/Exception via operations + handlers. Handler stacking reproduces monad transformer order exactly. No monad primitive needed. |
-| 7. Metaprogramming | ✅ COMPLETE | YES | First-class `Language` protocol: a record of arrows (parse/eval/format/typecheck/lit). Two language instances (Arithmetic, Boolean) implement it. Languages are values. |
-| 8. Tooling | ✅ COMPLETE | YES | Generic pretty-printer, error reporter, and constant-folding optimizer run unchanged over any language — only the `Language` parameter differs. Tools are arrow pipelines (`>>>`). |
-| Deep Dive: Effect Typing | ✅ COMPLETE | YES | Effect rows inferred statically from a static computation tree (`IComp`); handlers are effect eliminators (`ε \ ops(H)`); unhandled-effect detection is the compile-time dual of Phase 2's runtime `UnhandledOp`; row-polymorphic `ρ` tails match Koka/Frank. 31/31 tests. |
+| Challenge                  | Status      | Verdict                  | Evidence                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Expressiveness          | ✅ COMPLETE | YES                      | Identity, increment, composition all work correctly. Arrow patterns express lambda patterns cleanly.                                                                                                                                                                                                          |
+| 2. Abstraction             | ✅ COMPLETE | YES                      | Map, filter, fold, pipe all work. Higher-order patterns don't need lambda abstraction.                                                                                                                                                                                                                        |
+| 3. Parametricity           | ✅ COMPLETE | YES                      | Polymorphic types work. Identity, map, fold, compose all have forall types. Type substitution works.                                                                                                                                                                                                          |
+| 4. Typing                  | ✅ COMPLETE | YES                      | Hindley-Milner type inference works for arrows. Unification, constraint solving, principal types all verified.                                                                                                                                                                                                |
+| 5. Recursion               | ✅ COMPLETE | YES                      | Factorial via state machine + loop works. Recursion is derivable, not primitive.                                                                                                                                                                                                                              |
+| 6. Effects                 | ✅ COMPLETE | YES                      | State/IO/Exception via operations + handlers. Handler stacking reproduces monad transformer order exactly. No monad primitive needed.                                                                                                                                                                         |
+| 7. Metaprogramming         | ✅ COMPLETE | YES                      | First-class `Language` protocol: a record of arrows (parse/eval/format/typecheck/lit). Two language instances (Arithmetic, Boolean) implement it. Languages are values.                                                                                                                                       |
+| 8. Tooling                 | ✅ COMPLETE | YES                      | Generic pretty-printer, error reporter, and constant-folding optimizer run unchanged over any language — only the `Language` parameter differs. Tools are arrow pipelines (`>>>`).                                                                                                                            |
+| Deep Dive: Effect Typing   | ✅ COMPLETE | YES                      | Effect rows inferred statically from a static computation tree (`IComp`); handlers are effect eliminators (`ε \ ops(H)`); unhandled-effect detection is the compile-time dual of Phase 2's runtime `UnhandledOp`; row-polymorphic `ρ` tails match Koka/Frank. 31/31 tests.                                    |
 | 9. Structural preservation | ✅ COMPLETE | YES — structurally lossy | The opaque monad is semantically adequate (same results) but structurally lossy: fanout, choice, per-branch effects, dependency graph, and feedback all lost. The freer monad recovers all structure, proving the loss is about opacity (closures hide structure), not monadic structure per se. 33/33 tests. |
 
 ---
@@ -642,19 +710,22 @@ handler stateHandler s0 =
 ### ✅ PHASE 1 COMPLETE — All 5 Challenges Proven
 
 ### Thesis Validated (sufficiency for construction)
+
 ✅ **"Can we build a language where arrows are the primitive computational objects?"**
 
 > **Note:** This establishes sufficiency, not minimality or necessity.
 > See `THESIS.md` for the refined thesis statement.
 
 **All Phase 1 evidence:**
+
 1. ✅ Expressiveness (Challenge #1): All basic lambda patterns translate to arrows cleanly.
 2. ✅ Abstraction (Challenge #2): Higher-order programming works without lambda abstraction.
 3. ✅ Parametricity (Challenge #3): Polymorphic types work with arrows; type generics don't need lambda.
 4. ✅ Typing (Challenge #4): Hindley-Milner type inference applies directly to arrows.
 5. ✅ Recursion (Challenge #5): State machines can encode any recursive computation.
 
-**Key Insight:** Lambda calculus is not necessary as a *primitive* for these features. Arrows are sufficient for:
+**Key Insight:** Lambda calculus is not necessary as a _primitive_ for these features. Arrows are sufficient for:
+
 - Pure function definition and composition
 - Higher-order programming (map, filter, fold, etc.)
 - Generic programming (polymorphic types, type instantiation)
@@ -681,10 +752,12 @@ strictly less boilerplate.
 ### Remaining Work (Phase 3)
 
 **Phase 3: Real-World Features**
+
 - Challenge #7: First-class language protocol
 - Challenge #8: Generic tooling (pretty-printer, error reporter, optimizer)
 
 **Optional deep dive: Effect typing** ✅ DONE
+
 - Row types / effect inference for arrows — implemented in
   `src/effect_typing_tests.rs` (31 tests). See `RESULTS_EFFECT_TYPING.md`.
 - Refinement or dependent types on arrow operations — future work
@@ -711,7 +784,7 @@ zero compiler warnings, no external dependencies.
 
 **Key Insight:** A compiler/tooling plugin interface is not a separate
 language feature. It emerges directly from arrow composition over a record
-of arrows. Generic tools are *literally* functions `&Language -> ...` that
+of arrows. Generic tools are _literally_ functions `&Language -> ...` that
 compose the language's arrows with `>>>`; no type class, no reflection, no
 language-specific branch is needed. The same `pretty_print` /
 `report_error` / `optimize` source runs on every language, and adding a
@@ -722,15 +795,16 @@ language means supplying five arrows — nothing more.
 > **Refined thesis (see `THESIS.md` for the authoritative statement):**
 >
 > A small arrow calculus based on composition, choice, and feedback is
-> *sufficient* to construct a substantial programming-language architecture
+> _sufficient_ to construct a substantial programming-language architecture
 > without taking lambda abstraction or monadic structure as primitive.
 >
 > This establishes **sufficiency for construction**, not minimality or
-> necessity. The 121 tests prove you *can* build it; they do not prove
-> these are the *smallest* or *only* primitives that work.
+> necessity. The 121 tests prove you _can_ build it; they do not prove
+> these are the _smallest_ or _only_ primitives that work.
 
 Across all phases, arrows (composition, choice, feedback, operations +
 handlers) have proven sufficient for:
+
 - Expressiveness, abstraction, parametricity, Hindley–Milner typing,
   recursion (Phase 1)
 - Effects & handlers composing like monad transformers (Phase 2)
@@ -776,7 +850,7 @@ matters for minimality proofs.
 
 ### The Structural Question (Challenge #9 — RESOLVED ✅)
 
-The 121 tests established that arrows *work*. Challenge #9 tested whether
+The 121 tests established that arrows _work_. Challenge #9 tested whether
 their **structural advantages survive monadic translation**:
 
 > Does deriving `bind` destroy information that the original arrow
@@ -796,6 +870,7 @@ effect inference: it exploits structure that opaque functions don't
 expose. 33/33 tests. See `RESULTS_CHALLENGE9.md`.
 
 ### Optional Future Directions
+
 - Effect typing: row types / effect inference for arrow operations ✅ DONE
   (see `RESULTS_EFFECT_TYPING.md`)
 - **Challenge #9: Structural preservation under monadic translation** ✅ DONE
@@ -812,15 +887,15 @@ expose. 33/33 tests. See `RESULTS_CHALLENGE9.md`.
 
 ## Key References (Always Nearby)
 
-- **Hughes (2000).** *Generalising Monads to Arrows.* Original arrow theory.
-- **Paterson (2001).** *A New Notation for Arrows.* Arrow notation syntax (`proc`/`rec`).
-- **Paterson (2003).** *Arrows and Computation.* Programming perspective; combinator API we use.
-- **Hughes (2004).** *Programming with Arrows.* Practical arrow programming guide.
-- **Lindley, Wadler, Yallop (2008).** *The Arrow Calculus.* Formal definition of Arrow Calculus.
-- **Jacobs, Heunen, Hasuo (2009).** *Categorical Semantics for Arrows.* Arrows as monoids in bifunctor categories; Freyd categories connection.
-- **Sanada (2024).** *Algebraic Effects and Handlers for Arrows.* Handler semantics.
-- **Bauer & Pretnar (2015).** *An effect system for algebraic effects and handlers.* Effect typing basis.
-- **VanDomelen et al. (2025).** *Freer Arrows and Why You Need Them in Haskell.* Freer arrows vs freer monads.
+- **Hughes (2000).** _Generalising Monads to Arrows._ Original arrow theory.
+- **Paterson (2001).** _A New Notation for Arrows._ Arrow notation syntax (`proc`/`rec`).
+- **Paterson (2003).** _Arrows and Computation._ Programming perspective; combinator API we use.
+- **Hughes (2004).** _Programming with Arrows._ Practical arrow programming guide.
+- **Lindley, Wadler, Yallop (2008).** _The Arrow Calculus._ Formal definition of Arrow Calculus.
+- **Jacobs, Heunen, Hasuo (2009).** _Categorical Semantics for Arrows._ Arrows as monoids in bifunctor categories; Freyd categories connection.
+- **Sanada (2024).** _Algebraic Effects and Handlers for Arrows._ Handler semantics.
+- **Bauer & Pretnar (2015).** _An effect system for algebraic effects and handlers._ Effect typing basis.
+- **VanDomelen et al. (2025).** _Freer Arrows and Why You Need Them in Haskell._ Freer arrows vs freer monads.
 
 ## Challenge #10: ArrowChoice Independence (Lean4 Formalization)
 
@@ -850,7 +925,7 @@ generators `G` is the inductive type `FreeArrow G` with constructors:
 that introduces `Sum` structure. It cannot be derived from `arr`, `>>>`,
 `first`, `loop` alone. `ArrowChoice` is an independent primitive.
 
-**Why the model-theoretic approach is harder:** `StateArrow S` *does*
+**Why the model-theoretic approach is harder:** `StateArrow S` _does_
 admit `ArrowChoice` (the obvious `left` threads state through the chosen
 branch). The genuine counterexamples are arrows with non-commutative
 effects. The free-arrow argument sidesteps this by showing non-derivability
@@ -881,16 +956,16 @@ independent primitives:
 define the free arrow WITHOUT that constructor and show no other
 constructor can introduce the relevant type structure:
 
-  - `left`:  no constructor introduces `Sum` on output (3 theorems)
-  - `first`: no constructor introduces `×` on output (2 theorems)
-  - `loop`:  no constructor introduces feedback (2 theorems)
-  - `comp`:  trivially — no other combinator chains two arrows
-  - `arr`:   trivially — no other combinator lifts a pure function
+- `left`: no constructor introduces `Sum` on output (3 theorems)
+- `first`: no constructor introduces `×` on output (2 theorems)
+- `loop`: no constructor introduces feedback (2 theorems)
+- `comp`: trivially — no other combinator chains two arrows
+- `arr`: trivially — no other combinator lifts a pure function
 
 **7 Lean4 theorems total**, all proved by `rfl` (the type signatures
 are the proof). See `lean/ArrowMinimalityLib/Basic.lean`.
 
-**Caveat on `loop`:** Independent only in a *total* setting. In a
+**Caveat on `loop`:** Independent only in a _total_ setting. In a
 language with `fix`, `loop` is derivable — but then `fix` is the
 primitive. For a total arrow calculus (type-level guarantees), `loop`
 is independent.
@@ -929,6 +1004,7 @@ computation. Our result shows there exists a presentation of the same
 power that stays transparent. That is the non-trivial part.
 
 **Key evidence:**
+
 - `Apply` is a structural tree node, not a closure — detectable, countable
 - Effect inference works on trees with Apply nodes
 - Choice, fanout, per-branch effects, dependency graph — all recoverable

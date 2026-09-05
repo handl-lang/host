@@ -1079,7 +1079,8 @@ impl Runtime {
             }
         }
 
-        // Resolve typecheck engine (clone + wire modules via trait method).
+        // Resolve typecheck engine (clone + wire modules and globals via
+        // trait method).
         let typecheck_engine: Option<Box<dyn TypecheckEngine>> = if config.typecheck.is_empty() {
             None
         } else {
@@ -1088,10 +1089,15 @@ impl Runtime {
                 .ok_or_else(|| {
                     LangError::engine(format!("unknown typecheck engine: {}", config.typecheck))
                 })?;
-            let engine = match modules.clone() {
+            let mut engine: Box<dyn TypecheckEngine> = match modules.clone() {
                 Some(m) => reg_engine.with_modules(m),
                 None => reg_engine.box_clone(),
             };
+            if let Some(globals) = globals {
+                for (name, val) in globals {
+                    engine = engine.with_global(name, val.clone());
+                }
+            }
             Some(engine)
         };
 

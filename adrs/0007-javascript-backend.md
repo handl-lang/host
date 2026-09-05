@@ -3,12 +3,14 @@
 ## Context
 
 Handl programs currently run only via the Rust tree-walking evaluator (`handl-plugin-engine-eval-tree-walk`). This limits handl to environments where a Rust binary can run. There is no way to:
+
 - Run handl in the browser
 - Run handl in Node.js
 - Run handl in edge workers (Cloudflare Workers, Vercel Edge)
 - Share handl programs as standalone JS bundles
 
 A JavaScript backend would compile handl arrows to JavaScript, enabling:
+
 - **Web playground** — run handl in the browser without a server
 - **Node.js CLIs** — distribute handl programs as npm packages
 - **Edge deployment** — compile handl to JS for serverless platforms
@@ -47,24 +49,24 @@ The backend is a `Plugin` that contributes a `Target` operation. It implements t
 
 **Direct AST-to-JS translation.** No intermediate representation. Each AST node kind maps to a JavaScript expression or statement:
 
-| Handl AST Node | JavaScript Output |
-|----------------|-------------------|
-| `function` (arrow lambda `x ~> body`) | `(x) => body` |
-| `binary.and` | `a && b` |
-| `binary.or` | `a \|\| b` |
-| `binary.add` | `a + b` |
-| `binary.eq` | `a === b` |
-| `function_call` (arrow application `f -< x`) | `f(x)` |
-| `object` | `{ key: value }` |
-| `array` | `[a, b, c]` |
-| `match` | `switch` or pattern-matching helper |
-| `loop` | `while` with state object |
-| `do` block (monadic bind `x <- f; rest`) | `f(x).then(x => rest)` or generator |
-| `returnA` | identity / return |
-| `arr("name")` | lookup in stdlib JS module |
-| `first` | `[f(a), b]` |
-| `choice` | conditional dispatch |
-| `comp` (sequential composition `f >>> g`) | `(x) => g(f(x))` |
+| Handl AST Node                               | JavaScript Output                   |
+| -------------------------------------------- | ----------------------------------- |
+| `function` (arrow lambda `x ~> body`)        | `(x) => body`                       |
+| `binary.and`                                 | `a && b`                            |
+| `binary.or`                                  | `a \|\| b`                          |
+| `binary.add`                                 | `a + b`                             |
+| `binary.eq`                                  | `a === b`                           |
+| `function_call` (arrow application `f -< x`) | `f(x)`                              |
+| `object`                                     | `{ key: value }`                    |
+| `array`                                      | `[a, b, c]`                         |
+| `match`                                      | `switch` or pattern-matching helper |
+| `loop`                                       | `while` with state object           |
+| `do` block (monadic bind `x <- f; rest`)     | `f(x).then(x => rest)` or generator |
+| `returnA`                                    | identity / return                   |
+| `arr("name")`                                | lookup in stdlib JS module          |
+| `first`                                      | `[f(a), b]`                         |
+| `choice`                                     | conditional dispatch                |
+| `comp` (sequential composition `f >>> g`)    | `(x) => g(f(x))`                    |
 
 ### Arrow combinators as JS functions
 
@@ -78,7 +80,9 @@ const arr = (name) => stdlib[name];
 const comp = (f, g) => (x) => g(f(x));
 
 // first(f) → apply f to first element of pair
-const first = (f) => ([a, b]) => [f(a), b];
+const first =
+  (f) =>
+  ([a, b]) => [f(a), b];
 
 // loop(state, arms) → iterative loop with state
 const loop = (initState, arms) => (input) => {
@@ -91,13 +95,15 @@ const loop = (initState, arms) => (input) => {
 };
 
 // do block → monadic bind chain
-const doBlock = (...steps) => (input) => {
-  let value = input;
-  for (const step of steps) {
-    value = step(value);
-  }
-  return value;
-};
+const doBlock =
+  (...steps) =>
+  (input) => {
+    let value = input;
+    for (const step of steps) {
+      value = step(value);
+    }
+    return value;
+  };
 ```
 
 ### Loop compilation
@@ -151,6 +157,7 @@ Pattern matching helpers (`matchPattern`, array destructuring, object destructur
 ### Runtime prelude
 
 The compiled JS includes a small prelude (~100 lines) containing:
+
 - `comp`, `first`, `choice`, `loop`, `doBlock`, `returnA` — combinator implementations
 - `match`, `matchPattern` — pattern matching helpers
 - `arr` — stdlib lookup
@@ -177,6 +184,7 @@ handl compile --target js --no-prelude arrows/fn/map.hnl -o map.js
 ### Source maps
 
 The backend emits source map comments linking JS output back to `.hnl` source. This enables:
+
 - Stack traces pointing to `.hnl` lines
 - Debugger breakpoints in `.hnl` source (with source map support)
 
@@ -185,6 +193,7 @@ Source maps are generated using the `sourcemap` crate (pure Rust, no system deps
 ### Integration with existing infrastructure
 
 The JS backend is a new `handl-target-js` crate that:
+
 1. Implements `Plugin` from `handl-platform`
 2. Contributes a `Behavior<Target>` for the `Target` operation
 3. Walks `AstNode` trees and emits JS strings
@@ -216,18 +225,20 @@ const sort = (input) => { ... };
 Compile handl to WebAssembly instead of JavaScript.
 
 **Rejected because:**
+
 - WASM is harder to debug (no source maps, no readable output).
 - WASM can't directly manipulate the DOM or call JS APIs.
 - JS is more portable (runs in more environments than WASM).
 - A WASM backend can be added later by compiling the Rust evaluator to WASM (different approach, same result).
 
-**However:** for the LSP-in-browser use case, compiling the existing Rust server to WASM is more practical than re-implementing the server in JS. The JS backend is for running handl *programs*, not the language tooling.
+**However:** for the LSP-in-browser use case, compiling the existing Rust server to WASM is more practical than re-implementing the server in JS. The JS backend is for running handl _programs_, not the language tooling.
 
 ### Alternative B: TypeScript backend
 
 Emit TypeScript instead of JavaScript.
 
 **Rejected because:**
+
 - TypeScript adds type system complexity that doesn't map cleanly to handl's refinement types.
 - TypeScript can't be run directly in browsers or edge workers (requires compilation).
 - JSDoc annotations give TypeScript checking without emitting TypeScript.
@@ -238,6 +249,7 @@ Emit TypeScript instead of JavaScript.
 Compile the Rust evaluator to JS via emscripten.
 
 **Rejected because:**
+
 - Produces a large JS bundle (includes the entire Rust runtime).
 - No readable output — defeats the purpose of a JS backend (debugging, interop, inspection).
 - Slow startup (WASM initialization).

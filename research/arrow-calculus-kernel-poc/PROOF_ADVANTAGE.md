@@ -2,7 +2,7 @@
 
 This document accompanies `lean/ArrowMinimalityLib/ProofAdvantage.lean`, which
 mechanizes a result that is **genuinely non-definitional**: cut elimination for
-arrow graphs is a system of *local graph rewrites*, and those rewrites preserve
+arrow graphs is a system of _local graph rewrites_, and those rewrites preserve
 both proofs and typings — without ever invoking a substitution lemma, an
 α-equivalence algorithm, or a binder.
 
@@ -16,18 +16,18 @@ both proofs and typings — without ever invoking a substitution lemma, an
     TyOf G  ⟺  PrOf G
 ```
 
-The two inductive predicates `TyOf` and `PrOf` are *notation-for-notation
-identical*: same indices, same constructors, same side conditions. The
+The two inductive predicates `TyOf` and `PrOf` are _notation-for-notation
+identical_: same indices, same constructors, same side conditions. The
 bijection between them is proved by a rule-for-rule induction that is, frankly,
 a restatement of the definitions. A skeptic can reasonably object:
 
-> "The correspondence holds because you *defined* two copies of the same
-> thing. It is a theorem about your definitions, not a theorem *about* arrow
+> "The correspondence holds because you _defined_ two copies of the same
+> thing. It is a theorem about your definitions, not a theorem _about_ arrow
 > graphs."
 
 That objection is correct as far as it goes. The `TyOf ↔ PrOf` bijection is
 essentially **definitional** in flavor. To demonstrate a real proof-theoretic
-advantage of arrow graphs over λ-calculus, we need a result that does *not*
+advantage of arrow graphs over λ-calculus, we need a result that does _not_
 follow from "we defined two identical things."
 
 ---
@@ -86,7 +86,7 @@ Each rewrite is a **single structural step**. There is:
 - **no duplication** — the rewrites rearrange constructors; they never copy a
   sub-graph.
 
-The graph *is* the proof, and simplifying the graph *is* simplifying the proof.
+The graph _is_ the proof, and simplifying the graph _is_ simplifying the proof.
 
 ### 2.3 The mechanized theorems
 
@@ -94,14 +94,14 @@ The graph *is* the proof, and simplifying the graph *is* simplifying the proof.
 and its reflexive-transitive closure `CutElimStar G G'` (zero or more steps),
 then proves:
 
-| Theorem | Statement |
-|---|---|
-| `cut_elim_preserves_proof` | `CutElim G G' → PrOf G → PrOf G'` |
-| `cut_elim_preserves_type` | `CutElim G G' → TyOf G → TyOf G'` |
+| Theorem                         | Statement                             |
+| ------------------------------- | ------------------------------------- |
+| `cut_elim_preserves_proof`      | `CutElim G G' → PrOf G → PrOf G'`     |
+| `cut_elim_preserves_type`       | `CutElim G G' → TyOf G → TyOf G'`     |
 | `cut_elim_star_preserves_proof` | `CutElimStar G G' → PrOf G → PrOf G'` |
-| `cut_elim_star_preserves_type` | `CutElimStar G G' → TyOf G → TyOf G'` |
+| `cut_elim_star_preserves_type`  | `CutElimStar G G' → TyOf G → TyOf G'` |
 
-**The proof of `cut_elim_preserves_proof` is by case analysis on the *rewrite*
+**The proof of `cut_elim_preserves_proof` is by case analysis on the _rewrite_
 `h : CutElim G G'`, not on the derivation.** For each rewrite, one inverts the
 `compP` (cut) derivation at the redex, recovers the sub-proofs, and recombines
 them under the constructor the rewrite produces. Concretely:
@@ -135,7 +135,7 @@ restatement of it.
 ## 3. Why this is non-definitional
 
 The result does **not** follow from `TyOf G ↔ PrOf G`. That bijection says the
-two judgments agree *on a fixed graph* `G`; it says nothing about what happens
+two judgments agree _on a fixed graph_ `G`; it says nothing about what happens
 when the graph **changes**. Cut-elimination preservation is a statement
 relating **two different graphs** (`G` and `G'`), and its proof inspects the
 actual rewrite `h : CutElim G G'` that connects them:
@@ -148,12 +148,12 @@ actual rewrite `h : CutElim G G'` that connects them:
 ```
 
 No re-statement of the `TyOf ↔ PrOf` bijection discharges this. One must do
-the case analysis on `CutElim`. The bijection is used only as a *transport*
+the case analysis on `CutElim`. The bijection is used only as a _transport_
 (typing ↔ proof), not as the substance of the theorem.
 
 Contrast with λ-calculus: the analogous theorem — subject reduction under
 β-reduction, `Γ ⊢ M : A → Γ ⊢ M[x:=N] : A` — **requires** the substitution
-lemma as a prerequisite, because a β-step *is* a substitution. You cannot
+lemma as a prerequisite, because a β-step _is_ a substitution. You cannot
 prove "β-reduction preserves typing" without first proving "substitution
 preserves typing." Arrow graphs have no such prerequisite, because a
 `CutElim` step is not a substitution — it is a local graph rewrite.
@@ -163,7 +163,7 @@ preserves typing." Arrow graphs have no such prerequisite, because a
 ## 4. A second non-definitional advantage: decidable equality without α
 
 There is a second, equally non-definitional advantage that is worth stating
-explicitly, because it is baked into the *syntax* rather than the *theorems*.
+explicitly, because it is baked into the _syntax_ rather than the _theorems_.
 
 ### 4.1 λ-terms: equality is a quotient
 
@@ -186,7 +186,7 @@ Consequences:
 are equal **iff** they are built from the same constructors in the same order.
 There is no quotient, no α-equivalence, and no variable to rename:
 
-- **Structural equality *is* the equality.** `deriving DecidableEq` on `Graph`
+- **Structural equality _is_ the equality.** `deriving DecidableEq` on `Graph`
   gives a decision procedure for `G = H` by recursively comparing constructors.
   No separate algorithm is needed.
 - **There is no substitution**, so there is no capture to avoid.
@@ -200,13 +200,13 @@ data type, so they are ordinary structural rewrites.
 
 ## 5. Summary
 
-| | λ-calculus / natural deduction | arrow graphs |
-|---|---|---|
-| **Binder** | λ (binds variables) | none |
-| **Cut elimination step** | a substitution | a local graph rewrite |
-| **Substitution lemma** | required (prerequisite) | not needed (nothing to substitute) |
-| **α-equivalence** | required (equality is a quotient) | not needed (equality is structural) |
-| **Decidable equality** | needs a separate α-algorithm | `deriving DecidableEq` (structural) |
+|                                  | λ-calculus / natural deduction         | arrow graphs                             |
+| -------------------------------- | -------------------------------------- | ---------------------------------------- |
+| **Binder**                       | λ (binds variables)                    | none                                     |
+| **Cut elimination step**         | a substitution                         | a local graph rewrite                    |
+| **Substitution lemma**           | required (prerequisite)                | not needed (nothing to substitute)       |
+| **α-equivalence**                | required (equality is a quotient)      | not needed (equality is structural)      |
+| **Decidable equality**           | needs a separate α-algorithm           | `deriving DecidableEq` (structural)      |
 | **Cut-elimination preservation** | subject reduction + substitution lemma | case analysis on the rewrite (this file) |
 
 The mechanized theorems in `ProofAdvantage.lean` establish that cut

@@ -42,14 +42,15 @@ does not help with structural inspection.
 
 Four representations of the same computations were compared:
 
-| Representation | Structure | Inspectable? |
-|---|---|---|
-| **Freer arrow** (`ArrowComp`) | Explicit connectives (Seq, Fanout, Choice, Loop, OpNode) | Yes — full traversal |
-| **Opaque profunctor** (`OpaqueP`) | Hidden inside closures; dimap/lmap/rmap/seq available | No — can only run |
-| **Bare freer profunctor** (`FreeP`) | Explicit tree, but ONLY dimap/seq/ops (no first/left/loop) | Partial — seq and effects visible; fanout/choice/loop **unrepresentable** |
-| **Freer profunctor + strength + choice + trace** (`FreePA`) | Explicit tree with first/left/loop added back | Yes — isomorphic to arrow |
+| Representation                                              | Structure                                                  | Inspectable?                                                              |
+| ----------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Freer arrow** (`ArrowComp`)                               | Explicit connectives (Seq, Fanout, Choice, Loop, OpNode)   | Yes — full traversal                                                      |
+| **Opaque profunctor** (`OpaqueP`)                           | Hidden inside closures; dimap/lmap/rmap/seq available      | No — can only run                                                         |
+| **Bare freer profunctor** (`FreeP`)                         | Explicit tree, but ONLY dimap/seq/ops (no first/left/loop) | Partial — seq and effects visible; fanout/choice/loop **unrepresentable** |
+| **Freer profunctor + strength + choice + trace** (`FreePA`) | Explicit tree with first/left/loop added back              | Yes — isomorphic to arrow                                                 |
 
 The key comparisons:
+
 1. **Bare profunctor vs arrow**: what can the bare profunctor express?
 2. **Opaque profunctor vs opaque monad**: does the profunctor interface
    help with structural inspection?
@@ -60,16 +61,16 @@ The key comparisons:
 
 ## Structural Properties Tested
 
-| Property | Freer Arrow | Opaque Profunctor | Bare Freer Profunctor | FreePA (+ strength + choice + trace) |
-|---|---|---|---|---|
-| **Sequential composition** | explicit | explicit (seq) | explicit (Seq) | explicit (Seq) |
-| **Fanout / independence** | explicit | **LOST** (closure) | **CANNOT REPRESENT** (no `first`) | explicit (via `First`) |
-| **Choice / branching** | explicit | **LOST** (closure) | **CANNOT REPRESENT** (no `left`) | explicit (via `Left`) |
-| **Effect set** | traversal | **LOST** | traversal (for representable programs) | traversal |
-| **Per-branch effects** | per branch | **LOST** | **CANNOT REPRESENT** branching | recoverable |
-| **Dependency graph** | buildable | **LOST** | partial (seq only) | buildable |
-| **Feedback / loop** | explicit | **LOST** | **CANNOT REPRESENT** (no `loop`) | explicit (via `Loop`) |
-| **Semantic results** | correct | correct | correct (for representable) | correct |
+| Property                   | Freer Arrow | Opaque Profunctor  | Bare Freer Profunctor                  | FreePA (+ strength + choice + trace) |
+| -------------------------- | ----------- | ------------------ | -------------------------------------- | ------------------------------------ |
+| **Sequential composition** | explicit    | explicit (seq)     | explicit (Seq)                         | explicit (Seq)                       |
+| **Fanout / independence**  | explicit    | **LOST** (closure) | **CANNOT REPRESENT** (no `first`)      | explicit (via `First`)               |
+| **Choice / branching**     | explicit    | **LOST** (closure) | **CANNOT REPRESENT** (no `left`)       | explicit (via `Left`)                |
+| **Effect set**             | traversal   | **LOST**           | traversal (for representable programs) | traversal                            |
+| **Per-branch effects**     | per branch  | **LOST**           | **CANNOT REPRESENT** branching         | recoverable                          |
+| **Dependency graph**       | buildable   | **LOST**           | partial (seq only)                     | buildable                            |
+| **Feedback / loop**        | explicit    | **LOST**           | **CANNOT REPRESENT** (no `loop`)       | explicit (via `Loop`)                |
+| **Semantic results**       | correct     | correct            | correct (for representable)            | correct                              |
 
 ---
 
@@ -88,7 +89,7 @@ and category composition has no combinators for:
 
 - **Choice** (`f ||| g` — branching): requires **cocartesian
   structure** (`left`), which lifts `p a b` to `p (Either a c)
-  (Either b c)`. Choice is NOT derivable from dimap. (Test:
+(Either b c)`. Choice is NOT derivable from dimap. (Test:
   `test_bare_profunctor_cannot_represent_choice`)
 
 - **Feedback** (`loop`): requires **trace** (`loop`), which is NOT
@@ -124,6 +125,7 @@ opaque as an opaque monad. (Test:
 ### 3. "Strong cocartesian traced profunctor" = Arrow
 
 To recover the structural features, you add:
+
 - **Strength** (`first`) → enables fanout
 - **Choice** (`left`) → enables branching
 - **Trace** (`loop`) → enables feedback
@@ -131,13 +133,13 @@ To recover the structural features, you add:
 A profunctor with all three IS an arrow. The profunctor framing adds
 nothing — it just renames the combinators:
 
-| Arrow combinator | Profunctor name | Categorical structure |
-|---|---|---|
-| `arr` | identity profunctor + `dimap` | — |
-| `>>>` (composition) | category composition | category |
-| `first` | strength | strong profunctor |
-| `left` | choice | cocartesian profunctor |
-| `loop` | trace | traced profunctor |
+| Arrow combinator    | Profunctor name               | Categorical structure  |
+| ------------------- | ----------------------------- | ---------------------- |
+| `arr`               | identity profunctor + `dimap` | —                      |
+| `>>>` (composition) | category composition          | category               |
+| `first`             | strength                      | strong profunctor      |
+| `left`              | choice                        | cocartesian profunctor |
+| `loop`              | trace                         | traced profunctor      |
 
 Wikipedia's own admission: "An arrow is essentially a strong profunctor
 that is also a category." Adding choice and trace gives the full arrow
@@ -149,6 +151,7 @@ calculus. (Test: `test_profunctor_subsumption_is_hollow`,
 A common argument: "profunctors have dimap, which subsumes arr." This
 is misleading. `dimap` gives pre/post composition with pure functions
 on an EXISTING profunctor. It does NOT give:
+
 - `arr` (lifting a pure function INTO the profunctor) — you need an
   identity profunctor + dimap, which IS arr
 - `first` (strength) — needed for fanout, NOT derivable from dimap
@@ -164,15 +167,15 @@ powers. No amount of `dimap` chaining produces fanout without `first`.
 
 28 tests across 7 categories:
 
-| Category | Tests | Status |
-|---|---|---|
-| Semantic equivalence (all four representations) | 4 | COMPLETE |
-| Bare profunctor cannot represent fanout/choice/loop | 4 | COMPLETE |
-| Bare profunctor CAN represent sequential/effects | 2 | COMPLETE |
-| Opaque profunctor loses all structure | 5 | COMPLETE |
-| FreePA recovers structure (= arrow) | 7 | COMPLETE |
-| dimap vs arr+first | 1 | COMPLETE |
-| Summary / key claims | 5 | COMPLETE |
+| Category                                            | Tests | Status   |
+| --------------------------------------------------- | ----- | -------- |
+| Semantic equivalence (all four representations)     | 4     | COMPLETE |
+| Bare profunctor cannot represent fanout/choice/loop | 4     | COMPLETE |
+| Bare profunctor CAN represent sequential/effects    | 2     | COMPLETE |
+| Opaque profunctor loses all structure               | 5     | COMPLETE |
+| FreePA recovers structure (= arrow)                 | 7     | COMPLETE |
+| dimap vs arr+first                                  | 1     | COMPLETE |
+| Summary / key claims                                | 5     | COMPLETE |
 
 ---
 
@@ -188,11 +191,11 @@ powers. No amount of `dimap` chaining produces fanout without `first`.
 
 ### The three results together
 
-| Challenge | Claim | Status |
-|---|---|---|
-| #9 | Opaque monad loses structure; explicit representations preserve it | Established |
-| #11 | ArrowApply gives monadic power without opacity (explicit presentation) | Established |
-| #12 | Profunctor "subsumption" of arrows is hollow — bare profunctor can't express fanout/choice/feedback; opaque profunctor is as opaque as opaque monad | Established |
+| Challenge | Claim                                                                                                                                               | Status      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| #9        | Opaque monad loses structure; explicit representations preserve it                                                                                  | Established |
+| #11       | ArrowApply gives monadic power without opacity (explicit presentation)                                                                              | Established |
+| #12       | Profunctor "subsumption" of arrows is hollow — bare profunctor can't express fanout/choice/feedback; opaque profunctor is as opaque as opaque monad | Established |
 
 The combined thesis: **the structural advantages of the freer-arrow
 representation are not subsumed by either monads (Challenge #9) or
@@ -215,15 +218,15 @@ arrows structurally useful.**
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests/Theorems | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48 | COMPLETE |
-| 2 | #6 (effects & handlers) | 20 | COMPLETE |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | COMPLETE |
-| Deep dive | Effect typing | 31 | COMPLETE |
-| 4 | #9 (structural preservation under monadic translation) | 33 | COMPLETE |
-| 5 | #10 (minimality — Lean4) | 11 theorems | COMPLETE |
-| 6 | #11 (ArrowApply without opacity) | 19 | COMPLETE |
-| 7 | Translation asymmetry — Lean4 | 8 theorems | COMPLETE |
-| 8 | #12 (structural preservation under profunctor translation) | 28 | COMPLETE |
-| | **Total** | **201 Rust + 19 Lean (19 proven)** | **All passing** |
+| Phase     | Challenge                                                            | Tests/Theorems                     | Status          |
+| --------- | -------------------------------------------------------------------- | ---------------------------------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48                                 | COMPLETE        |
+| 2         | #6 (effects & handlers)                                              | 20                                 | COMPLETE        |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26                                 | COMPLETE        |
+| Deep dive | Effect typing                                                        | 31                                 | COMPLETE        |
+| 4         | #9 (structural preservation under monadic translation)               | 33                                 | COMPLETE        |
+| 5         | #10 (minimality — Lean4)                                             | 11 theorems                        | COMPLETE        |
+| 6         | #11 (ArrowApply without opacity)                                     | 19                                 | COMPLETE        |
+| 7         | Translation asymmetry — Lean4                                        | 8 theorems                         | COMPLETE        |
+| 8         | #12 (structural preservation under profunctor translation)           | 28                                 | COMPLETE        |
+|           | **Total**                                                            | **201 Rust + 19 Lean (19 proven)** | **All passing** |

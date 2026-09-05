@@ -5,10 +5,10 @@ import * as path from "path";
  */
 export interface ServerConfig {
   "server.path": string;
-  "enableInlayHints": boolean;
-  "enableCodeLens": boolean;
-  "enableRefinementDiagnostics": boolean;
-  "enableSemanticHighlighting": boolean;
+  enableInlayHints: boolean;
+  enableCodeLens: boolean;
+  enableRefinementDiagnostics: boolean;
+  enableSemanticHighlighting: boolean;
 }
 
 /**

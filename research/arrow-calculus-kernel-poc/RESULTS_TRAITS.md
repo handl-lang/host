@@ -31,7 +31,7 @@ Date: 2026-09-02
   (`cutelim_proven = false`); higher-kinded type shapes (`F<A>`) are
   PARTIALLY implemented -- the `Ty::App` constructor exists and the type
   filter unifies `F<A> ~> F<B>` with `[a] ~> [b]` (F := List) and
-  `Tree<a> ~> Tree<b>` (F := Tree), but higher-kinded trait *parameters*
+  `Tree<a> ~> Tree<b>` (F := Tree), but higher-kinded trait _parameters_
   in the surface syntax (`trait Functor<F>`) are still open; trait
   resolution coherence and CutElim strong normalization are not proven;
   the surface syntax (§5-§10: trait/impl/law declarations, supertraits,
@@ -41,20 +41,20 @@ Date: 2026-09-02
 
 ## Mapping to ADR-0075 sections
 
-| ADR section | Status | Notes |
-|---|---|---|
-| §1 Primary mode: trait inference | Partial | The 3-step pipeline recognizes `Functor` for the `map` graph from wiring alone (no `trait`/`impl`/`law` declaration). Proven only for the functor/coproduct-functor structural pattern; non-functor law inference is aspirational. |
-| §2 Secondary mode: explicit declarations | Stubbed | No surface `trait`/`impl`/`law` parser. The built-in catalog entries play the role of declared law patterns, but there is no user-facing declaration syntax. |
-| §3 Open trait catalog + 3-step pipeline | Implemented | `trait_catalog.rs`: `CatalogEntry`/`LawEquation`, `TraitCatalogStore`, `InMemoryStore`, `infer_traits` (type filter via HM unify -> canonical fingerprint hash -> CutElim `law_equal`), multi-match, verification cache, 5 built-in entries. The fingerprint is now canonical under alpha-renaming (de Bruijn Arr names), associativity of `comp` (chain flattening), and identity absorption (`id` pruning in `comp` chains), while preserving sharing structure and law-relevant combinator differences (ADR OQ#6). |
-| §4 Catalog storage (SQLite) | Implemented | `trait_catalog_sqlite.rs`: `SqliteStore` over the same `TraitCatalogStore` trait; schema (`trait_entries` + `verification_cache` + indexes); persistence across reopen; equivalence with `InMemoryStore`; lossless law round-trip. `lookup_by_type_shape` does a linear scan with `Unifier::unify` (a canonical-string index cannot match a type-constructor variable against a concrete constructor, the higher-kinded case from §5; a unification-aware index is future work). |
-| §5 Type parameter syntax (`F<A>`) | Partial | `Ty::App(Box<Ty>, Box<Ty>)` models `F<A>` (angle brackets per ADR §5); `Display`/`free_vars`/`apply_map`/`Substitution::apply`/`Unifier::unify`/`occurs_in` all handle it. `Functor`'s `type_shape` is the generic `F<A> ~> F<B>`; the type filter unifies it with `[a] ~> [b]` (F := List, via a `List`<->`App` bridge) and `Tree<a> ~> Tree<b>` (F := Tree), and rejects `Int ~> Bool`. Higher-kinded trait *parameters* in the surface syntax (`trait Functor<F>`) remain open (ADR OQ#5). |
-| §6 Impl declaration (graph layer) | Stubbed | No `impl` surface syntax; the demo supplies the `map` graph directly as a `PolyGraph`. |
-| §7 Generic code with trait bounds | Out-of-scope | No trait-bound desugaring; no generic-code resolution wired to the catalog. |
-| §8 Supertraits as signature inclusion | Out-of-scope | Not modelled. |
-| §9 Associated types via dependent types | Out-of-scope | Not modelled in this prototype (substrate exists in `DependentProofGraphs.lean`). |
-| §10 Blanket impls via ArrowApply | Stubbed | `PolyGraph::App` is present as an opaque placeholder (fresh input/output vars); it is NOT wired into CutElim or inference semantics. |
-| §11 Law verification: CutElim connection | Partial | `TraitInference.lean` proves the functor/coproduct-functor identity + composition laws via `CutElimStar` normalization (zero `sorry`). `trait_catalog.rs` mirrors the 6 rewrites in `normalize`/`law_equal`. Congruence (rewriting inside subgraphs), termination, and completeness are open. |
-| §12 Trait resolution: catalog search | Partial | The 3-step pipeline IS the catalog search (type filter -> fingerprint -> CutElim). No coherence/ambiguity algorithm; multi-match returns all matches. Step 3 checks the catalog entry's law pattern is CutElim-self-consistent (see honest note below); full graph-into-schema instantiation is future work. |
+| ADR section                              | Status       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §1 Primary mode: trait inference         | Partial      | The 3-step pipeline recognizes `Functor` for the `map` graph from wiring alone (no `trait`/`impl`/`law` declaration). Proven only for the functor/coproduct-functor structural pattern; non-functor law inference is aspirational.                                                                                                                                                                                                                                                                                    |
+| §2 Secondary mode: explicit declarations | Stubbed      | No surface `trait`/`impl`/`law` parser. The built-in catalog entries play the role of declared law patterns, but there is no user-facing declaration syntax.                                                                                                                                                                                                                                                                                                                                                          |
+| §3 Open trait catalog + 3-step pipeline  | Implemented  | `trait_catalog.rs`: `CatalogEntry`/`LawEquation`, `TraitCatalogStore`, `InMemoryStore`, `infer_traits` (type filter via HM unify -> canonical fingerprint hash -> CutElim `law_equal`), multi-match, verification cache, 5 built-in entries. The fingerprint is now canonical under alpha-renaming (de Bruijn Arr names), associativity of `comp` (chain flattening), and identity absorption (`id` pruning in `comp` chains), while preserving sharing structure and law-relevant combinator differences (ADR OQ#6). |
+| §4 Catalog storage (SQLite)              | Implemented  | `trait_catalog_sqlite.rs`: `SqliteStore` over the same `TraitCatalogStore` trait; schema (`trait_entries` + `verification_cache` + indexes); persistence across reopen; equivalence with `InMemoryStore`; lossless law round-trip. `lookup_by_type_shape` does a linear scan with `Unifier::unify` (a canonical-string index cannot match a type-constructor variable against a concrete constructor, the higher-kinded case from §5; a unification-aware index is future work).                                      |
+| §5 Type parameter syntax (`F<A>`)        | Partial      | `Ty::App(Box<Ty>, Box<Ty>)` models `F<A>` (angle brackets per ADR §5); `Display`/`free_vars`/`apply_map`/`Substitution::apply`/`Unifier::unify`/`occurs_in` all handle it. `Functor`'s `type_shape` is the generic `F<A> ~> F<B>`; the type filter unifies it with `[a] ~> [b]` (F := List, via a `List`<->`App` bridge) and `Tree<a> ~> Tree<b>` (F := Tree), and rejects `Int ~> Bool`. Higher-kinded trait _parameters_ in the surface syntax (`trait Functor<F>`) remain open (ADR OQ#5).                         |
+| §6 Impl declaration (graph layer)        | Stubbed      | No `impl` surface syntax; the demo supplies the `map` graph directly as a `PolyGraph`.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| §7 Generic code with trait bounds        | Out-of-scope | No trait-bound desugaring; no generic-code resolution wired to the catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| §8 Supertraits as signature inclusion    | Out-of-scope | Not modelled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| §9 Associated types via dependent types  | Out-of-scope | Not modelled in this prototype (substrate exists in `DependentProofGraphs.lean`).                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| §10 Blanket impls via ArrowApply         | Stubbed      | `PolyGraph::App` is present as an opaque placeholder (fresh input/output vars); it is NOT wired into CutElim or inference semantics.                                                                                                                                                                                                                                                                                                                                                                                  |
+| §11 Law verification: CutElim connection | Partial      | `TraitInference.lean` proves the functor/coproduct-functor identity + composition laws via `CutElimStar` normalization (zero `sorry`). `trait_catalog.rs` mirrors the 6 rewrites in `normalize`/`law_equal`. Congruence (rewriting inside subgraphs), termination, and completeness are open.                                                                                                                                                                                                                         |
+| §12 Trait resolution: catalog search     | Partial      | The 3-step pipeline IS the catalog search (type filter -> fingerprint -> CutElim). No coherence/ambiguity algorithm; multi-match returns all matches. Step 3 checks the catalog entry's law pattern is CutElim-self-consistent (see honest note below); full graph-into-schema instantiation is future work.                                                                                                                                                                                                          |
 
 ---
 
@@ -79,7 +79,7 @@ ceLeftId      : left(idG A)            ==> idG(A + D)     (coproduct functor ide
 
 `ceFirstId` and `ceLeftId` are valid cut-elimination steps: `first` is
 conjunction-functoriality, and functoriality applied to the identity
-proof *is* the identity proof on the conjunction. No substitution, no
+proof _is_ the identity proof on the conjunction. No substitution, no
 binder.
 
 **The law types and predicates:**
@@ -95,7 +95,7 @@ binder.
   matches the law's pattern AND the law is verified. The pattern is
   recognized structurally.
 - `UsesFirst` / `UsesLeft` — inductive structural recognizers: a graph
-  *uses `first`* (resp. `left`) if the combinator appears anywhere in its
+  _uses `first`_ (resp. `left`) if the combinator appears anywhere in its
   wiring (here, or in either side of a composition).
 
 **The inference theorems** (annotation-free — the law is not declared):
@@ -153,8 +153,8 @@ lines 628-653):
   only. Extending to `loop` trace laws, `arr` laws, interchange laws
   requires adding the corresponding CutElim rewrites and proving
   preservation.
-- **Completeness is open:** the theorems prove *soundness* (if the
-  pattern is detected, the law holds), not *completeness* (if the law
+- **Completeness is open:** the theorems prove _soundness_ (if the
+  pattern is detected, the law holds), not _completeness_ (if the law
   holds, the pattern is detected). Completeness is false in general —
   some laws require semantic reasoning beyond CutElim.
 
@@ -188,7 +188,7 @@ Unit | Void | List | App`. `App(F, A)` is type application `F<A>`; it lets
 `List` instance. Unification bridges `List(t)` to `App(Atom("List"), t)`
 so `F<A>` unifies with `[A]` (binding `F := List`); a bare `Atom` (e.g.
 `Int`) is not bridged, so `Int` does not unify with `F<A>`. Full
-higher-kinded trait *parameters* in the surface syntax remain open (ADR
+higher-kinded trait _parameters_ in the surface syntax remain open (ADR
 OQ#5).
 
 ### The CutElim normalizer (mirrors `ProofAdvantage.lean`)
@@ -234,6 +234,7 @@ The old fingerprint (combinator tree with all `Arr` names erased to
 `raw_fingerprint(graph)` for comparison/testing.
 
 **What the cheap canonicalization catches:**
+
 - Associativity of `comp`: `comp(comp(f,g),h)` == `comp(f,comp(g,h))`
 - Identity absorption in `comp` chains: `comp(id,f)` == `f`,
   `comp(f,id)` == `f`, `comp(id,comp(id,f))` == `f`
@@ -243,6 +244,7 @@ The old fingerprint (combinator tree with all `Arr` names erased to
 
 **What the cheap canonicalization does NOT catch (left to Step 3
 CutElim):**
+
 - `first(id) equiv id` (CutElim `ceFirstId` step)
 - `left(id) equiv id` (CutElim `ceLeftId` step)
 - `first(f;g) equiv first f; first g` (CutElim `ceFirstFusion` step)
@@ -260,7 +262,7 @@ of candidates that pass the fingerprint filter.
 - `LawEquation { name, lhs: PolyGraph, rhs: PolyGraph }` — an
   equational law: two graphs that must normalize to the same form.
 - `CatalogEntry { name, type_shape: Ty, fingerprint: String, laws:
-  Vec<LawEquation>, cutelim_proven: bool }` — a named law pattern. The
+Vec<LawEquation>, cutelim_proven: bool }` — a named law pattern. The
   `cutelim_proven` flag is the ADR's marker for whether CutElim
   normalization is proven for this pattern.
 - `TraitCatalogStore` — the abstract storage trait
@@ -390,7 +392,7 @@ cache: hits=3 misses=3
 ### Honest note on step 3 semantics
 
 The prototype's step 3 checks `law_equal(law.lhs, law.rhs)` — i.e. it
-confirms the catalog entry's law *pattern* is CutElim-self-consistent
+confirms the catalog entry's law _pattern_ is CutElim-self-consistent
 (both sides of the stored law equation normalize to the same form) —
 and relies on the step-2 fingerprint match to establish that the graph
 exhibits that structural pattern. This is a faithful approximation of
@@ -597,7 +599,7 @@ inserted 9 entries total
   multi-match returns all matches; no global uniqueness check (ADR
   Negative; OQ#3).
 - **CutElim strong normalization:** not proven; fuel (`NORMALIZE_FUEL =
-  1024`) is a safety net. The rewrites are size-non-increasing and
+1024`) is a safety net. The rewrites are size-non-increasing and
   terminate in practice, but a non-terminating law check is possible
   (ADR Negative; OQ#2).
 - **CutElim congruence:** the Lean `CutElim` rewrites only at the top
@@ -633,37 +635,37 @@ The ADR lists 8 Open Questions. Status after this prototype:
   for non-functor patterns is NOT mechanized. The prototype proves the
   functor/coproduct-functor structural pattern; extending to monad,
   roundtrip, and other equational laws remains the key open question.
-  *The prototype informs this: it confirms the structural-pattern +
+  _The prototype informs this: it confirms the structural-pattern +
   CutElim approach works for the functor case, but does not extend
-  beyond it.*
+  beyond it._
 - **OQ#2 — CutElim-based law checking (part of this ADR).** The 6
   rewrites are mechanized (Lean + Rust) and prove the functor laws.
   Termination is not proven (fuel is the safety net); congruence
-  (rewriting inside subgraphs) is open; completeness is open. *The
+  (rewriting inside subgraphs) is open; completeness is open. _The
   prototype informs this: it provides the rewrite relation and the
   normalizer, but not the termination proof or the congruence
-  extension.*
+  extension._
 - **OQ#3 — Trait resolution / catalog search.** The 3-step pipeline IS
   the catalog search. No coherence/ambiguity algorithm; multi-match
-  returns all matches. *Implemented as far as the pipeline; coherence
-  deferred.*
+  returns all matches. _Implemented as far as the pipeline; coherence
+  deferred._
 - **OQ#4 — Law expressiveness.** Which laws are decidable under CutElim?
   The prototype shows the linear functor fragment is decidable (the 6
   rewrites terminate for it). The non-linear extension is open.
 - **OQ#5 — Higher-kinded traits.** PARTIALLY modelled. `Ty::App(Box<Ty>,
-  Box<Ty>)` represents `F<A>` (ADR §5 angle-bracket syntax);
+Box<Ty>)` represents `F<A>` (ADR §5 angle-bracket syntax);
   `Display`/`free_vars`/`apply_map`/`Substitution::apply`/`Unifier::unify`/
   `occurs_in` all handle it, and `Functor`'s `type_shape` is the generic
   `F<A> ~> F<B>`. The type filter discriminates: `[a] ~> [b]` and
   `Tree<a> ~> Tree<b>` match (F := List / Tree), `Int ~> Bool` does not.
-  What remains open: (1) higher-kinded trait *parameters* in the surface
+  What remains open: (1) higher-kinded trait _parameters_ in the surface
   syntax (`trait Functor<F>` declaration form) -- `F` is authored
   directly in the catalog entry, not parsed; (2) a kind system -- the
   `List`<->`App` bridge treats `List(t)` as `App(Atom("List"), t)`
   structurally without kind-checking; (3) multi-argument type
-  constructors (`F<A,B>`) and higher-order constructors. *The prototype
+  constructors (`F<A,B>`) and higher-order constructors. _The prototype
   now exercises the type-filter layer of HKT concretely; the
-  declaration/kind layers remain open.*
+  declaration/kind layers remain open._
 - **OQ#6 — Catalog fingerprinting.** IMPLEMENTED. The fingerprint is now
   canonical under three structural equivalences: (1) associativity of
   `comp` (chain flattening, order preserved -- `comp` is not commutative),
@@ -683,16 +685,16 @@ The ADR lists 8 Open Questions. Status after this prototype:
   analogues; these are left to Step 3 CutElim. Commutativity of `choice`
   branches is not canonicalized (not a CutElim rule; open). Deeper
   semantic equivalences are not caught by any structural hash.
-  *The prototype now makes a principled concrete choice; the remaining
+  _The prototype now makes a principled concrete choice; the remaining
   design question is whether deeper equivalences should be folded into
-  the fingerprint or left to CutElim.*
+  the fingerprint or left to CutElim._
 - **OQ#7 — Catalog distribution.** Not addressed (storage is local
   SQLite; source files are the source of truth). Out of scope for this
   prototype.
 - **OQ#8 — Built-in catalog contents.** The prototype ships 5 entries
   (Functor, CoproductFunctor, Sorting, Mapping, Filtering). The minimal
-  set is not finalized. *The prototype provides a concrete starting
-  set; the question of what else belongs remains open.*
+  set is not finalized. _The prototype provides a concrete starting
+  set; the question of what else belongs remains open._
 
 ---
 
@@ -704,11 +706,13 @@ From the poc directory
 ```
 cd lean && lake build
 ```
+
 Builds the Lean4 mechanization (19 jobs, zero `sorry`, builds green).
 
 ```
 cargo run --bin trait_inference
 ```
+
 Runs the in-memory catalog demo + tests (CutElim law_equal, fingerprint
 same/different-shape, canonical fingerprint associativity/identity/
 alpha/sharing/law-relevant/combined, type/fingerprint pruning, pipeline
@@ -717,6 +721,7 @@ multi-match, cache, built-in catalog, HKT type-filter discrimination).
 ```
 cargo run --bin trait_inference_sqlite
 ```
+
 Runs the SQLite backend tests (equivalence with InMemoryStore,
 persistence across reopen, CRUD, index selectivity, lossless law
 round-trip).

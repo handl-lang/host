@@ -41,15 +41,15 @@ This paper starts from a different representation of programs. An **arrow
 graph** is a directed, port-typed graph built from combinators over a
 signature of base arrows. The calculus is **lambda-free**: the grammar has
 no binder, no variable, and no application. The key observation is that an
-arrow graph is *structurally transparent*: its wiring is explicit, every
+arrow graph is _structurally transparent_: its wiring is explicit, every
 wire is inspectable, and the combinator structure determines how
 information flows. This raises the question:
 
-> *Can we achieve Agda-level semantic guarantees — sortedness,
+> _Can we achieve Agda-level semantic guarantees — sortedness,
 > permutation, loop invariants — at TypeScript-level programming
 > ergonomics, by deriving proofs from the structure of a lambda-free
 > arrow graph rather than from user-supplied annotations or explicit
-> proof terms?*
+> proof terms?_
 
 We argue that it can, for a useful and characterizable class of programs,
 demonstrated with a Rust prototype performing annotation-free inference and
@@ -91,18 +91,18 @@ the structure instead of asking the user to write it down.
 The key question is whether this can be achieved without quietly moving
 the proof-writing burden into annotations or library specifications.
 
-| | JavaScript | TypeScript | Agda | Arrow graphs (this paper) |
-|---|---|---|---|---|
-| What you write | Algorithm | Algorithm + types | Algorithm + types + proofs | **Algorithm only** |
-| Basic types | None | Declared (with generics) | Declared (with universe params) | **Inferred from wiring** |
-| Prove sortedness | No | No | Explicit proof | **Inferred from graph** |
-| Prove permutation | No | No | Explicit proof | **Inferred** |
-| Polymorphism | Dynamic | Declared `<T>` | Declared `{A B : Set}` | **Inferred (α, β from wiring)** |
-| Proof attached to program | No | No | Separate dependent term | **Same graph** |
-| Composition | Excellent | Excellent | Proofs compose explicitly | **Composition + inferred proofs** |
-| Loop invariants | External/manual | External/manual | Explicit dependent reasoning | **Potentially inferred by `loop`** |
-| Programmer burden | Lowest | Low | High | **Low (target)** |
-| Guarantees | None | Basic types | Very strong | **Potentially very strong + automatic** |
+|                           | JavaScript      | TypeScript               | Agda                            | Arrow graphs (this paper)               |
+| ------------------------- | --------------- | ------------------------ | ------------------------------- | --------------------------------------- |
+| What you write            | Algorithm       | Algorithm + types        | Algorithm + types + proofs      | **Algorithm only**                      |
+| Basic types               | None            | Declared (with generics) | Declared (with universe params) | **Inferred from wiring**                |
+| Prove sortedness          | No              | No                       | Explicit proof                  | **Inferred from graph**                 |
+| Prove permutation         | No              | No                       | Explicit proof                  | **Inferred**                            |
+| Polymorphism              | Dynamic         | Declared `<T>`           | Declared `{A B : Set}`          | **Inferred (α, β from wiring)**         |
+| Proof attached to program | No              | No                       | Separate dependent term         | **Same graph**                          |
+| Composition               | Excellent       | Excellent                | Proofs compose explicitly       | **Composition + inferred proofs**       |
+| Loop invariants           | External/manual | External/manual          | Explicit dependent reasoning    | **Potentially inferred by `loop`**      |
+| Programmer burden         | Lowest          | Low                      | High                            | **Low (target)**                        |
+| Guarantees                | None            | Basic types              | Very strong                     | **Potentially very strong + automatic** |
 
 The "potentially" qualifiers are deliberate: the loop invariant
 discovery's body-guarantee seeding, iterated loop soundness, and WP
@@ -113,7 +113,7 @@ accumulator, filter heuristics) is now fully formalized in Lean4 —
 each pattern has a complete D-derivation (constructing the invariant in
 $D$) and a preservation proof (showing the invariant is preserved by the
 loop body), summarized by `pattern_invariant_derivations_complete`
-(Section 5.5). The table expresses the *target* of this work, and the
+(Section 5.5). The table expresses the _target_ of this work, and the
 paper honestly characterizes how far the current implementation and
 formalization reach toward it.
 
@@ -284,7 +284,7 @@ This is used in the soundness proof of the inference algorithm (Section
 well-typed. Full details are in Appendix A.
 
 The Curry-Howard correspondence is not just a theoretical curiosity — it
-is the *enabling condition* for the inference mechanism. Because the
+is the _enabling condition_ for the inference mechanism. Because the
 graph IS a proof object (its typing derivation is a proof derivation), the
 inference procedure can extract proof-relevant information from the graph
 structure directly. When we infer `Sorted` from
@@ -292,7 +292,7 @@ structure directly. When we infer `Sorted` from
 the graph: the cut rule (composition) combines the axiom (arr) for
 `filter` with the axiom for `sort`, and the conjunction of their
 guarantees is the inferred postcondition. This is what makes the inference
-*proof inference* rather than *type inference*: we are not just assigning
+_proof inference_ rather than _type inference_: we are not just assigning
 types, we are reconstructing a proof from the proof object's structure.
 
 # 4. Refinement Propagation
@@ -331,7 +331,7 @@ The mechanism is not heuristic, statistical, or search-based. It is a
 
 There is no machine learning, no search, no trial-and-error. The proof is
 **structurally determined by the wiring**. Change the wiring and you get a
-different proof. The graph *is* the proof.
+different proof. The graph _is_ the proof.
 
 This is the inversion that distinguishes proof inference from proof
 construction. In Agda, you write the proof. In Coq, you write the tactic
@@ -339,8 +339,8 @@ script. In test-based verification, you write the assertions. Here, you
 write **the program**, and the proof falls out for free. The program is
 the proof, and the checker reads the proof off the structure.
 
-This is what makes the approach *proof inference* rather than *type
-inference*: we are not just assigning types, we are reconstructing a proof
+This is what makes the approach _proof inference_ rather than _type
+inference_: we are not just assigning types, we are reconstructing a proof
 from the proof object's structure. The Curry-Howard correspondence
 (Section 3.2) is the enabling condition — because the graph IS a proof
 object, its typing derivation is a proof derivation, and the inference
@@ -382,22 +382,22 @@ output.
 ## 4.4 Soundness
 
 **Theorem (Structural Inference Soundness, Lean4 — `inferred_postcondition_sound_full`).**
-*Let $\Sigma$ be a signature with sound denotation and sound guarantees:
+_Let $\Sigma$ be a signature with sound denotation and sound guarantees:
 for every $\varphi : A \to B$ and $a : A$, `sig_guarantee`$(\varphi)$
 holds of $\textsf{den}(\varphi, a)$. For every well-typed graph $G$ with
 $\textsf{TyOf}(G)$, every $a : A$, and every $v$ with
-$G \cdot a \Longrightarrow v$, the inferred postcondition holds of $v$:*
+$G \cdot a \Longrightarrow v$, the inferred postcondition holds of $v$:_
 
 $$
 \textsf{inferred\_postcondition}(G)(v).
 $$
 
-*Proof is by induction on the evaluation relation `Eval`. The `eComp`
+_Proof is by induction on the evaluation relation `Eval`. The `eComp`
 case uses subject reduction on $G$ to obtain the intermediate value's
 type, feeding the inductive hypothesis for $H$. The `eArr` case uses the
 signature soundness hypothesis. The conservative cases (`eFirst`,
 `eLeft`, `eLoop`) hold trivially since the postcondition is `True`. Zero
-`sorry`* (`StructuralInference.lean`).
+`sorry`_ (`StructuralInference.lean`).
 
 ## 4.5 The Invariant Domain $D$
 
@@ -411,25 +411,25 @@ the signature language. It is formalized in Lean4 as the inductive type
 `InvariantDomain` (`InvariantDomain.lean`).
 
 **Theorem (Domain Membership, Lean4 — `inferred_postcondition_in_domain`).**
-*For every graph $G$, the inferred postcondition is a member of the
-invariant domain $D$. Zero `sorry`.*
+_For every graph $G$, the inferred postcondition is a member of the
+invariant domain $D$. Zero `sorry`._
 
 **Theorem (Strictly Stronger than the Floor, Lean4 — `floor_does_not_imply_inferred`).**
-*For any base arrow $\varphi$ whose guarantee is non-trivial (there
+_For any base arrow $\varphi$ whose guarantee is non-trivial (there
 exists $v$ with $\neg\,\textsf{sig\_guarantee}(\varphi)(v)$), the sound
 floor `True` does not imply the inferred postcondition. That is, the
 structural inference is strictly stronger than the trivial sound floor.
-Zero `sorry`.*
+Zero `sorry`._
 
 **Theorem (Incompleteness — Invariants Outside $D$, Lean4 — `analyze_incompleteness`).**
-*There exists a graph $G$ and a predicate $I$ such that (1) $G$
+_There exists a graph $G$ and a predicate $I$ such that (1) $G$
 preserves $I$ (if $I(c)$ holds before a step, $I(c')$ holds after), but
 (2) $I \notin D$ — no derivation in the invariant domain produces $I$.
 Concretely: with an empty signature, the identity loop body preserves
 the invariant $I = \textsf{False}$ (vacuously), but $\textsf{False}$
 cannot be derived in $D$ from an empty signature. This proves the
 structural approach is inherently incomplete: true invariants exist
-outside $D$. Zero `sorry`.*
+outside $D$. Zero `sorry`._
 
 ## 4.6 Concrete Examples
 
@@ -437,12 +437,12 @@ Consider a signature with `sort` guaranteeing `Sorted` $\wedge$
 `IsPerm`, `map`$(f)$ guaranteeing `IsList` $\wedge$ `LengthPreserved`,
 and `filter`$(p)$ guaranteeing `IsList` $\wedge$ `AllSatisfy`$(p)$:
 
-| Graph | Inferred output refinement |
-|-------|-----------------------------|
-| `arr(sort)` | `Sorted` $\wedge$ `IsPerm` |
-| `arr(map(f))` | `IsList` $\wedge$ `LengthPreserved` |
+| Graph                             | Inferred output refinement          |
+| --------------------------------- | ----------------------------------- |
+| `arr(sort)`                       | `Sorted` $\wedge$ `IsPerm`          |
+| `arr(map(f))`                     | `IsList` $\wedge$ `LengthPreserved` |
 | `comp(arr(filter(p)), arr(sort))` | `AllSatisfy`$(p)$ $\wedge$ `Sorted` |
-| `first(arr(sort))` | (`Sorted` $\wedge$ `IsPerm`, $Q$) |
+| `first(arr(sort))`                | (`Sorted` $\wedge$ `IsPerm`, $Q$)   |
 
 The third row illustrates compositional inference: `filter` produces
 `AllSatisfy`$(p)$, which flows into `sort`'s precondition; the
@@ -459,6 +459,7 @@ loop(comp(comp(first(head_and_tail), first(insert)), consume_one))
 ```
 
 **Step 1: Structural analysis.** The inference traverses the graph:
+
 - `head_and_tail` splits the input list into head + tail.
 - `insert` inserts the head into the accumulator $C$, maintaining
   sorted order. Its signature guarantees `Sorted`$(C')$.
@@ -473,6 +474,7 @@ threaded through the loop body. The candidate invariant is
 $I(C) = \textsf{Sorted}(C)$.
 
 **Step 3: Fixpoint iteration.**
+
 - $I_0 = \textsf{True}$ (initial floor).
 - $I_1 = \textsf{Sorted}(C)$ (from `insert`'s guarantee).
 - $I_2 = \textsf{Sorted}(C) \wedge \textsf{Sorted}(C)$ (fixpoint
@@ -508,7 +510,7 @@ preserves.
 
 ## 5.2 Structural Pattern Recognition
 
-The `analyze` phase inspects the *structure* of $G$ to determine its
+The `analyze` phase inspects the _structure_ of $G$ to determine its
 effect on the feedback channel $C$. The graph wiring makes this a
 structural case analysis, not semantic reasoning over an opaque
 expression:
@@ -613,7 +615,7 @@ that underpin these derivations.
 The Rust prototype includes a termination analysis binary (8 tests) that
 discovers decreasing measures for loops — a well-founded ranking
 function on the feedback channel. This is separate from the invariant:
-the inference proves *conditional* invariants (if the loop reaches a
+the inference proves _conditional_ invariants (if the loop reaches a
 fixpoint, the invariant holds), while termination analysis proves the
 loop does reach a fixpoint. Termination is now formalized in Lean4
 (`Termination.lean`, zero `sorry`): a `LoopIter` inductive threads
@@ -663,8 +665,7 @@ all inferred annotation-free:
   covered by 17 tests.
 - **State machines** (3 arrows): `counter`, `buffer`, `protocol`,
   implemented as `loop(comp(choice(inc, dec), first(id)))`. The
-  fixpoint discovers data invariants such as `Le(0, output)` (Count ≥
-  0) from conditional transition contracts (`state.dec` requires
+  fixpoint discovers data invariants such as `Le(0, output)` (Count ≥ 0) from conditional transition contracts (`state.dec` requires
   `Le(0, input)`, guarantees `Le(0, output)`).
 
 All 20 arrows across three domains infer with zero user annotations,
@@ -749,33 +750,33 @@ described in parallel work [self-cite] and summarized in Appendix A.
 
 ## 6.3 Lean4 vs. Rust: What Is Formal vs. What Is Empirical
 
-| Component | Lean4 (formal) | Rust (empirical) |
-|---|---|---|
-| Subject reduction (foundation) | Proven [self-cite] | N/A |
-| Refinement typing (`RTy`, `RHasType`) | Defined + sound | N/A |
-| `preserves_comp` / `preserves_first` | Proven | N/A |
-| Invariant domain $D$ | Defined | N/A |
-| Structural inference soundness | Proven (`inferred_postcondition_sound_full`) | N/A |
-| Strictly stronger than floor | Proven (`floor_does_not_imply_inferred`) | N/A |
-| Incompleteness (invariants outside $D$) | Proven (`analyze_incompleteness`) | N/A |
-| Lattice + transfer function | Defined | N/A |
-| Actual inference algorithm | Defined (floor) | Implemented (structural + Z3) |
-| Z3 verification | N/A | Implemented |
-| Loop invariant discovery (body guarantee) | Proven (`loop_invariant_from_body_sound`) | Implemented (structural patterns) |
-| Loop invariant discovery (iterated loop soundness) | Proven (`iterated_loop_invariant_sound`) | N/A |
-| Loop invariant discovery (WP branching through Choice) | Proven (`fixpoint_converges_with_choice`) | Implemented (structural patterns) |
-| Loop invariant discovery (structural patterns) | Proven (full invariant derivations: `filter_loop_preserves_any_D_invariant`, `side_channel_preserves_any_D_invariant`, `accumulator_body_guarantee_preserved`, `pattern_invariant_derivations_complete`) | Implemented (structural patterns) |
-| Domain membership ($D$ closed under existential projection) | Proven (`body_guarantee_in_domain`, `exProj`) | N/A |
-| Algorithmic completeness (conditional) | Proven (`AlgorithmicCompleteness.lean`) | N/A |
-| Termination analysis | Proven (`Termination.lean`) | Implemented |
-| Trait/law inference (annotation-free) | Proven (`TraitInference.lean`) | N/A |
-| Real programs | N/A | 5 programs |
-| Coverage / scaling / failures | N/A | 90-cell grid |
+| Component                                                   | Lean4 (formal)                                                                                                                                                                                           | Rust (empirical)                  |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Subject reduction (foundation)                              | Proven [self-cite]                                                                                                                                                                                       | N/A                               |
+| Refinement typing (`RTy`, `RHasType`)                       | Defined + sound                                                                                                                                                                                          | N/A                               |
+| `preserves_comp` / `preserves_first`                        | Proven                                                                                                                                                                                                   | N/A                               |
+| Invariant domain $D$                                        | Defined                                                                                                                                                                                                  | N/A                               |
+| Structural inference soundness                              | Proven (`inferred_postcondition_sound_full`)                                                                                                                                                             | N/A                               |
+| Strictly stronger than floor                                | Proven (`floor_does_not_imply_inferred`)                                                                                                                                                                 | N/A                               |
+| Incompleteness (invariants outside $D$)                     | Proven (`analyze_incompleteness`)                                                                                                                                                                        | N/A                               |
+| Lattice + transfer function                                 | Defined                                                                                                                                                                                                  | N/A                               |
+| Actual inference algorithm                                  | Defined (floor)                                                                                                                                                                                          | Implemented (structural + Z3)     |
+| Z3 verification                                             | N/A                                                                                                                                                                                                      | Implemented                       |
+| Loop invariant discovery (body guarantee)                   | Proven (`loop_invariant_from_body_sound`)                                                                                                                                                                | Implemented (structural patterns) |
+| Loop invariant discovery (iterated loop soundness)          | Proven (`iterated_loop_invariant_sound`)                                                                                                                                                                 | N/A                               |
+| Loop invariant discovery (WP branching through Choice)      | Proven (`fixpoint_converges_with_choice`)                                                                                                                                                                | Implemented (structural patterns) |
+| Loop invariant discovery (structural patterns)              | Proven (full invariant derivations: `filter_loop_preserves_any_D_invariant`, `side_channel_preserves_any_D_invariant`, `accumulator_body_guarantee_preserved`, `pattern_invariant_derivations_complete`) | Implemented (structural patterns) |
+| Domain membership ($D$ closed under existential projection) | Proven (`body_guarantee_in_domain`, `exProj`)                                                                                                                                                            | N/A                               |
+| Algorithmic completeness (conditional)                      | Proven (`AlgorithmicCompleteness.lean`)                                                                                                                                                                  | N/A                               |
+| Termination analysis                                        | Proven (`Termination.lean`)                                                                                                                                                                              | Implemented                       |
+| Trait/law inference (annotation-free)                       | Proven (`TraitInference.lean`)                                                                                                                                                                           | N/A                               |
+| Real programs                                               | N/A                                                                                                                                                                                                      | 5 programs                        |
+| Coverage / scaling / failures                               | N/A                                                                                                                                                                                                      | 90-cell grid                      |
 
 The Lean4 formalization proves the soundness of the inference framework;
 the Rust implementation demonstrates the algorithm in practice. Formal
-theorems establish what *can* be proven; the implementation shows what
-*is* proven.
+theorems establish what _can_ be proven; the implementation shows what
+_is_ proven.
 
 ## 6.4 Empirical Results
 
@@ -788,16 +789,16 @@ per-program annotations.
 **Coverage accuracy.** The evaluation grid comprises 18 graph
 structures tested against 5 properties each (90 cells total, 72
 non-trivial). For each non-trivial cell, we classify whether the graph
-*should* prove the property (based on its structure and base arrow
-signatures) or *should not*:
+_should_ prove the property (based on its structure and base arrow
+signatures) or _should not_:
 
-| Category | Count | Result |
-|---|---|---|
-| Should prove (true positives) | 26 | 26 proven (100%) |
-| Should not prove (true negatives) | 46 | 46 unknown (100%) |
-| False positives | 0 | — |
-| False negatives (misses) | 0 | — |
-| **Overall accuracy** | **72** | **100%** |
+| Category                          | Count  | Result            |
+| --------------------------------- | ------ | ----------------- |
+| Should prove (true positives)     | 26     | 26 proven (100%)  |
+| Should not prove (true negatives) | 46     | 46 unknown (100%) |
+| False positives                   | 0      | —                 |
+| False negatives (misses)          | 0      | —                 |
+| **Overall accuracy**              | **72** | **100%**          |
 
 The inference proves every property it should and correctly reports
 "unknown" for every property it should not. Zero false positives
@@ -819,12 +820,12 @@ with the `Sorted` invariant inferred from `insert`'s signature (Section
 (`handl-plugin-ext-refinement`, 270 tests) extends the evaluation
 beyond list operations to three domains, all annotation-free:
 
-| Domain | Arrows | Key inferred properties |
-|---|---|---|
-| List operations | 16 | `Sorted`, `IsPerm`, `LengthEq`, `LengthPlusOne` |
-| Parsers (Pratt) | 1 | `LengthSubOne` (tokens consumed), `Nested(ListLength)` (terminates) |
-| Parsers (backtracking) | 6 atoms | `IsSuccess ∨ IsError` (valid `Result` on every branch) |
-| State machines | 3 | `Le(0, output)` (Count ≥ 0), length bounds (buffer) |
+| Domain                 | Arrows  | Key inferred properties                                             |
+| ---------------------- | ------- | ------------------------------------------------------------------- |
+| List operations        | 16      | `Sorted`, `IsPerm`, `LengthEq`, `LengthPlusOne`                     |
+| Parsers (Pratt)        | 1       | `LengthSubOne` (tokens consumed), `Nested(ListLength)` (terminates) |
+| Parsers (backtracking) | 6 atoms | `IsSuccess ∨ IsError` (valid `Result` on every branch)              |
+| State machines         | 3       | `Le(0, output)` (Count ≥ 0), length bounds (buffer)                 |
 
 The state machine results are notable: the fixpoint discovers data
 invariants (e.g., `Count ≥ 0`) from conditional transition contracts
@@ -861,9 +862,9 @@ incompleteness theorem (`analyze_incompleteness`):
 4. **Cross-channel invariants.** Properties relating multiple feedback
    channels (e.g., "channels $C_1$ and $C_2$ have equal length")
    require relational reasoning across channels.
-5. **Iteration-count reasoning.** Invariants depending on *how many
-   times* the loop has executed are beyond structural analysis — the
-   graph shows *how* $C$ is updated, not *how many times*.
+5. **Iteration-count reasoning.** Invariants depending on _how many
+   times_ the loop has executed are beyond structural analysis — the
+   graph shows _how_ $C$ is updated, not _how many times_.
 
 This is **incompleteness, not unsoundness.** The inference never reports
 a false property; it fails to report some true ones. The
@@ -884,9 +885,9 @@ this difference.
 
 **Abstract interpretation.** Cousot and Cousot [10, 11] developed the
 dominant framework for loop invariant inference, analyzing the
-*semantics* of the loop body. Graf and Saidi [21] introduced predicate
-abstraction. Our approach infers invariant *schemas* by analyzing the
-*structure* of the loop body (a graph): the wiring of $G$ in `loop G`
+_semantics_ of the loop body. Graf and Saidi [21] introduced predicate
+abstraction. Our approach infers invariant _schemas_ by analyzing the
+_structure_ of the loop body (a graph): the wiring of $G$ in `loop G`
 explicitly shows how the feedback channel is used, determining the
 invariant schema class. This is complementary to abstract
 interpretation, not a replacement.
@@ -907,8 +908,8 @@ developing the inference mechanism.
 
 **Hoare logic for arrows.** Alves, Fernandez, and Mackie [1] build a
 graphical calculus of proofs for intuitionistic logic / lambda-calculus.
-Their graphs are a *notation* for lambda-terms; ours are a *primitive
-syntax* with no lambda underneath. They do not mechanize the
+Their graphs are a _notation_ for lambda-terms; ours are a _primitive
+syntax_ with no lambda underneath. They do not mechanize the
 correspondence, prove subject reduction, or address type inference.
 
 **Graph-based proof systems.** Acclavio, Horne, and Straßburger [43]
@@ -916,7 +917,7 @@ develop an analytic proof system on graphs, and Kurashige et al. [42]
 use e-graphs for lemma discovery in equational proofs. Both use graph
 structure for proof manipulation, but neither targets program
 verification or invariant inference. Our work uses graph structure as
-the substrate for *inferring* program properties, not for proof search
+the substrate for _inferring_ program properties, not for proof search
 or lemma discovery.
 
 **SMT-based verification.** Flanagan and Qadeer [16] and Graf and Saidi
@@ -1166,26 +1167,26 @@ B$, $A + B \mapsto A \vee B$, $\top \mapsto \top$, $\bot \mapsto \bot$.
 The typing rules and the proof rules are notation-for-notation
 identical:
 
-| Graph combinator | Type reading | Proof reading |
-|------------------|--------------|---------------|
-| `id`$_A$ | $A \rightsquigarrow A$ | $A \vdash A$ (identity) |
-| `comp`$(G, H)$ | $A \rightsquigarrow C$ | cut: $A \vdash B, B \vdash C \Rightarrow A \vdash C$ |
-| `first`$(G)$ | $A \times C \rightsquigarrow B \times C$ | $\wedge$-functoriality |
-| `left`$(G)$ | $A + C \rightsquigarrow B + C$ | $\vee$-functoriality |
-| `loop`$(G)$ | $A \rightsquigarrow B$ | trace / fixpoint invariant |
-| `arr`$(\varphi)$ | $A \rightsquigarrow B$ | axiom (primitive inference step) |
+| Graph combinator | Type reading                             | Proof reading                                        |
+| ---------------- | ---------------------------------------- | ---------------------------------------------------- |
+| `id`$_A$         | $A \rightsquigarrow A$                   | $A \vdash A$ (identity)                              |
+| `comp`$(G, H)$   | $A \rightsquigarrow C$                   | cut: $A \vdash B, B \vdash C \Rightarrow A \vdash C$ |
+| `first`$(G)$     | $A \times C \rightsquigarrow B \times C$ | $\wedge$-functoriality                               |
+| `left`$(G)$      | $A + C \rightsquigarrow B + C$           | $\vee$-functoriality                                 |
+| `loop`$(G)$      | $A \rightsquigarrow B$                   | trace / fixpoint invariant                           |
+| `arr`$(\varphi)$ | $A \rightsquigarrow B$                   | axiom (primitive inference step)                     |
 
-**Theorem (Typing $\Leftrightarrow$ Proof, Lean4).** *For every arrow
+**Theorem (Typing $\Leftrightarrow$ Proof, Lean4).** _For every arrow
 graph $G$ and types $A, B$: $\Gamma \vdash G : A \rightsquigarrow B$ iff
 $\Gamma \vdash G \Vdash A \vdash B$. The derivations are structurally
 identical. The maps `TyOf.toPrOf` and `PrOf.toTyOf` are mutually
-inverse bijections (`ProofGraphs.lean`).*
+inverse bijections (`ProofGraphs.lean`)._
 
 ## A.2 Subject Reduction
 
-**Theorem (Subject Reduction, Lean4).** *If $\vdash G : A \rightsquigarrow
+**Theorem (Subject Reduction, Lean4).** _If $\vdash G : A \rightsquigarrow
 B$ and $G \cdot a \Longrightarrow v$ with $a : A$, then $v : B$
-(`ProofGraphs.lean`).*
+(`ProofGraphs.lean`)._
 
 This is the key property used by the inference soundness proof: it
 ensures that intermediate values in compositions are well-typed, which
@@ -1206,57 +1207,57 @@ structure (no binders), not from linearity.
 Proofs." arXiv:1102.2655, 2011.
 
 [10] P. Cousot and R. Cousot. "Abstract Interpretation: A Unified
-Lattice Model for Static Analysis of Programs." *POPL '77*, pp.
+Lattice Model for Static Analysis of Programs." _POPL '77_, pp.
 238-252, 1977.
 
 [11] P. Cousot and R. Cousot. "Systematic Design of Program Analysis
-Frameworks." *POPL '79*, pp. 269-282, 1979.
+Frameworks." _POPL '79_, pp. 269-282, 1979.
 
 [16] C. Flanagan and S. Qadeer. "Predicate Abstraction for Software
-Verification." *POPL '02*, pp. 191-202, 2002.
+Verification." _POPL '02_, pp. 191-202, 2002.
 
-[17] T. Freeman and F. Pfenning. "Refinement Types for ML." *PLDI '91*,
+[17] T. Freeman and F. Pfenning. "Refinement Types for ML." _PLDI '91_,
 pp. 268-277, 1991.
 
-[18] J.-Y. Girard. "Linear Logic." *Theor. Comput. Sci.* 50:1-102, 1987.
+[18] J.-Y. Girard. "Linear Logic." _Theor. Comput. Sci._ 50:1-102, 1987.
 
 [21] S. Graf and H. Saidi. "Construction of Abstract State Graphs with
-PVS." *CAV '97*, LNCS 1254, pp. 72-83, 1997.
+PVS." _CAV '97_, LNCS 1254, pp. 72-83, 1997.
 
 [24] C. Heunen and B. Jacobs. "Arrows, Like Monads, Are Monoids."
-*MFPS-XXII*, ENTCS 158, pp. 219-236, 2006.
+_MFPS-XXII_, ENTCS 158, pp. 219-236, 2006.
 
 [25] B. Jacobs, C. Heunen, I. Hasuo. "Categorical Semantics for
-Arrows." *J. Funct. Program.* 19(3-4):403-438, 2009.
+Arrows." _J. Funct. Program._ 19(3-4):403-438, 2009.
 
-[26] J. Hughes. "Generalising Monads to Arrows." *Sci. Comput.
-Program.* 37(1-3):67-111, 2000.
+[26] J. Hughes. "Generalising Monads to Arrows." _Sci. Comput.
+Program._ 37(1-3):67-111, 2000.
 
 [27] A. Joyal, R. Street, D. Verity. "Traced Monoidal Categories."
-*Math. Proc. Camb. Phil. Soc.* 119(3):447-468, 1996.
+_Math. Proc. Camb. Phil. Soc._ 119(3):447-468, 1996.
 
-[28] J. R. Hindley and J. P. Seldin. *Lambda-Calculus and Combinators:
-An Introduction.* 2nd ed., Cambridge University Press, 2008.
+[28] J. R. Hindley and J. P. Seldin. _Lambda-Calculus and Combinators:
+An Introduction._ 2nd ed., Cambridge University Press, 2008.
 
-[31] S. Lindley, P. Wadler, J. Yallop. "The Arrow Calculus." *J.
-Funct. Program.* 20(1):51-69, 2010.
+[31] S. Lindley, P. Wadler, J. Yallop. "The Arrow Calculus." _J.
+Funct. Program._ 20(1):51-69, 2010.
 
-[38] P. M. Rondon, M. Kawaguchi, R. Jhala. "Liquid Types." *PLDI '08*,
+[38] P. M. Rondon, M. Kawaguchi, R. Jhala. "Liquid Types." _PLDI '08_,
 pp. 159-169, 2008.
 
 [39] J. Liell-Cock, Z. Shirazi, S. Staton. "The Relative Monadic
-Metalanguage." *Proc. ACM Program. Lang.* 10, POPL, Article 60, 2026.
+Metalanguage." _Proc. ACM Program. Lang._ 10, POPL, Article 60, 2026.
 
 [40] S. Padhi, R. Sharma, T. Millstein. "LoopInvGen: A Loop Invariant
 Generator based on Precondition Inference." arXiv:1707.02029, 2017.
 
 [41] N. Vazou, E. L. Seidel, R. Jhala, D. Vytiniotis, S. Peyton-Jones.
-"Refinement Types for Haskell." *ICFP '14*, pp. 269-282, 2014.
+"Refinement Types for Haskell." _ICFP '14_, pp. 269-282, 2014.
 
 [42] C. Kurashige, R. Ji, A. Giridharan, M. Barbone, D. Noor, S. Itzhaky,
 R. Jhala, N. Polikarpova. "CCLemma: E-Graph Guided Lemma Discovery for
-Inductive Equational Proofs." *Proc. ACM Program. Lang.* 8, ICFP,
+Inductive Equational Proofs." _Proc. ACM Program. Lang._ 8, ICFP,
 Article 264, 2024.
 
 [43] M. Acclavio, R. Horne, L. Straßburger. "An Analytic Propositional
-Proof System on Graphs." *Log. Methods Comput. Sci.* 18(4), 2022.
+Proof System on Graphs." _Log. Methods Comput. Sci._ 18(4), 2022.

@@ -1,6 +1,5 @@
 # Generic Type Aliases for handl Type System
 
-
 ## Context
 
 Users cannot define named, reusable types in handl documents. A schema like
@@ -246,7 +245,7 @@ alias table entry needed. The `$ref` resolves to `{ type: number }` →
 
 - `{ "$ref": "#/$defs/Pair", "args": [{ "type": "string" }] }` with root
   containing `$defs/Pair` → `App(Object({ first: Var("T"), second: Var("T") }),
-  [String])`.
+[String])`.
 - `{ "$ref": "#/$defs/Port" }` (no `args`) → `Number` (plain `$ref`, no
   `App` wrapper).
 - `{ "$ref": "#/$defs/Pair" }` (no `args`, but target has `typeParams`) →
@@ -294,7 +293,7 @@ Implementation:
   args.
 - Expand non-generic (no `App` wrapper, just a resolved type) → passthrough.
 - Expand nested: `Array(App(Pair_body, [String]))` → `Array(Object({ first:
-  String, second: String }))`.
+String, second: String }))`.
 - Depth limit: self-referential alias → `Unknown` after 32 levels.
 - No alias table → `App` left as-is.
 

@@ -8,8 +8,7 @@ import { readManifest } from "./manifest";
 
 function depsFromContext(): ResolveDeps {
   return {
-    getConfig: () =>
-      vscode.workspace.getConfiguration("handl") as unknown as ServerConfig,
+    getConfig: () => vscode.workspace.getConfiguration("handl") as unknown as ServerConfig,
     getWorkspaceFolders: () =>
       vscode.workspace.workspaceFolders ? [...vscode.workspace.workspaceFolders] : undefined,
     exists: (p: string) =>

@@ -23,12 +23,12 @@ ADR-0044 established that every stage of the pipeline is driven by `Language`
 **data**, interpreted by a generic **engine** that names no concrete construct.
 The shipped architecture realizes this for four stages:
 
-| Stage | Abstraction crate | Engine crate(s) | `Language` fragment |
-|---|---|---|---|
-| lex | `plugin-engine-lex` (`LexerEngine`) | `plugin-engine-lex-pattern` | `lang.tokens`, `lang.lexer_rules` |
-| parse | `plugin-engine-parse` (`ParserEngine`) | `plugin-engine-parse-pratt` | `lang.grammar` |
-| eval | `plugin-engine-eval` (`EvalEngine`) | `plugin-engine-eval-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`) |
-| compile | (in `handl-runtime`) | `plugin-engine-eval-{bytecode,cranelift}` | — |
+| Stage   | Abstraction crate                      | Engine crate(s)                                     | `Language` fragment               |
+| ------- | -------------------------------------- | --------------------------------------------------- | --------------------------------- |
+| lex     | `plugin-engine-lex` (`LexerEngine`)    | `plugin-engine-lex-pattern`                         | `lang.tokens`, `lang.lexer_rules` |
+| parse   | `plugin-engine-parse` (`ParserEngine`) | `plugin-engine-parse-pratt`                         | `lang.grammar`                    |
+| eval    | `plugin-engine-eval` (`EvalEngine`)    | `plugin-engine-eval-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`)            |
+| compile | (in `handl-runtime`)                   | `plugin-engine-eval-{bytecode,cranelift}`           | —                                 |
 
 The **typecheck** stage is the one exception. It is not data-driven and has no
 engine abstraction:
@@ -45,7 +45,7 @@ engine abstraction:
   eval engine via `lang.eval` schemes, not `Term` variants. The typechecker is
   disconnected from the data-driven AST. (`spread` and param destructuring do
   not yet exist as AST node kinds at all — those are language gaps, not
-  typecheck gaps; this ADR makes the typechecker *ready* for them.)
+  typecheck gaps; this ADR makes the typechecker _ready_ for them.)
 - `plugin-typecheck-core` is a thin wrapper contributing `CanonicalTypecheck`
   to the platform's `BasicTypechecker` `RuleAcceptor`; `plugin-ext-typecheck`
   re-exports it. Neither is a real engine abstraction.
@@ -62,12 +62,12 @@ engine abstraction:
 This is precisely the property ADR-0044 §3 gives lex/parse/eval. Typecheck must
 get it too.
 
-### Types are values — and types are *expressions*
+### Types are values — and types are _expressions_
 
 ADR-0032 establishes that types are values: the typechecker shares the
 runtime's value space; a type is a collection of values; `is` is membership
-evidence. handl commits to **full dependent types**: a type is an *arbitrary
-expression evaluated at typecheck time* to a value. For example:
+evidence. handl commits to **full dependent types**: a type is an _arbitrary
+expression evaluated at typecheck time_ to a value. For example:
 
 ```
 MyType = str.upper("Hello")
@@ -78,24 +78,24 @@ a: MyType = 2   // rejects: 2 ∉ "HELLO"
 `str.upper("Hello")` to `"HELLO"` and check `2 ∈ "HELLO"`. This has two
 consequences that drive the design:
 
-1. **The type-level language *is* the value language.** There is no separate
+1. **The type-level language _is_ the value language.** There is no separate
    "type IR." A type is a value computed by evaluating an expression in the
    same language the runtime uses. Inventing a second kernel for type-level
    computation would duplicate the value language.
 2. **Typecheck requires a normalizer.** To reduce type-level expressions
    (`str.upper("Hello")`, `Vec(A, n+1)`, …) to values, the typechecker must
-   *run the eval engine* (or its normalization core). NBE — full
+   _run the eval engine_ (or its normalization core). NBE — full
    normalization, universe levels, Pi/Sigma/Forall, equality, membership —
    is therefore justified, not optional: it is the mechanism that evaluates
    type expressions to values.
 
 ### What typecheck adds on top of eval
 
-Typechecking is not *just* evaluation. It is a **judgment process** layered on
+Typechecking is not _just_ evaluation. It is a **judgment process** layered on
 top of value evaluation. It requires operations the arrow kernel has no notion
 of:
 
-1. **Check mode** — `Γ ⊢ e ⇐ T`: verify `e` has type `T` *directed*. This is
+1. **Check mode** — `Γ ⊢ e ⇐ T`: verify `e` has type `T` _directed_. This is
    how a `Lambda` is checked against a `Pi` (bind the param, check the body
    against the codomain) and a `Pair` against a `Sigma`. Pure synthesis
    (`Γ ⊢ e ⇒ T`) cannot type a bare lambda; check mode is essential.
@@ -106,8 +106,8 @@ of:
 
 These are **judgments**, not arrow combinators. The decision below expresses
 them as `Arr` ops the eval engine dispatches to the typecheck engine, rather
-than a separate kernel — because the *computation* in a type rule is value
-computation (reuse the eval engine), and only the *judgment glue* is new.
+than a separate kernel — because the _computation_ in a type rule is value
+computation (reuse the eval engine), and only the _judgment glue_ is new.
 
 ### The typecheck host is pure
 
@@ -123,14 +123,14 @@ effectful ops, no IO. The capability boundary (`ArrSource::Judgment` vs
 `ArrSource::Foreign`) is what makes this enforceable: the typecheck host
 rejects effectful `Foreign` ops at typecheck time, matching on `source`
 rather than a string prefix. The typecheck engine's bound eval engine is
-constructed with effectful `Foreign` dispatch *disabled* (or routed to a
+constructed with effectful `Foreign` dispatch _disabled_ (or routed to a
 pure-error handler), so a type expression that attempts an effect fails
 typecheck instead of executing.
 
 ### Why the existing NBE `Term` enum is not the data IR
 
-The current `Term`/`Value` enum is a *term language* (lambda calculus + types),
-not a *typechecking-algorithm description*. Mapping a node kind to a `Term`
+The current `Term`/`Value` enum is a _term language_ (lambda calculus + types),
+not a _typechecking-algorithm description_. Mapping a node kind to a `Term`
 and "evaluating" it yields a type value but does not express check/unify —
 the same bidirectionality gap, with a heavier IR. It is also a big
 handl-specific Rust enum (`Membership`, `Is`, `Vau`, `Collection`,
@@ -154,7 +154,7 @@ A type rule for a node kind is a `Scheme` (the same arrow-calculus kernel
 `lang.eval` uses) that, when interpreted, computes the node's type (synth) or
 verifies it against an expected type (check). The `Scheme` may call ordinary
 value-level ops (`add`, `str.upper`, `proj_child`, `proj_env`, `const`, …)
-*and* judgment ops (`unify`, `check_child`, `synth_child`, `fresh_meta`,
+_and_ judgment ops (`unify`, `check_child`, `synth_child`, `fresh_meta`,
 `solve_meta`, `lookup`, `extend`, `quote`, `normalize`). Judgment ops are
 `Arr` ops whose `source` is a new `ArrSource::Judgment` variant (or, if the
 eval engine's `Foreign` dispatch suffices, registered as a dedicated module)
@@ -182,7 +182,7 @@ pub struct TypeRuleDef {
 
 `TypeRuleDef` is a `Fragment` (identity_key = `node_kind`; collision without
 `replaces` is an error), so a node kind has exactly one type rule. `check` is
-optional: a kind without a check rule falls back to *synthesize-then-unify*
+optional: a kind without a check rule falls back to _synthesize-then-unify_
 against the expected type. This keeps simple kinds authorable as `synth`-only
 while preserving directed checking where it matters (`lambda`⇐`Pi`,
 `pair`⇐`Sigma`, `refl`⇐`Eq`).
@@ -193,20 +193,20 @@ The judgment operations are exposed to type-rule `Scheme`s as `Arr` ops. The
 target op set (refined during implementation; motivated directly by the
 current `synth`/`check`):
 
-| Op | Judgment it expresses |
-|---|---|
-| `synth_child(i)` | `Γ ⊢ child_i ⇒ T` — synthesize the type of AST child `i` |
-| `check_child(i, T)` | `Γ ⊢ child_i ⇐ T` — check child `i` against type value `T` |
-| `synth_type_child(i)` | synthesize a *type-level* child (Pi/Sigma/Forall domains) |
-| `eval_child(i)` | evaluate child `i` to a value (for the environment / closures) |
-| `unify(a, b)` | solve `a ≃ b`, updating metavariables |
-| `extend(name, ty, val)` | extend `Γ` with a binding (scoped via the arrow's environment) |
-| `lookup(name)` / `lookup_var(i)` | look up a variable's type in `Γ` |
-| `fresh_meta` | allocate a fresh metavariable |
-| `solve_meta(id, val)` | solve a metavariable |
-| `quote(v)` / `normalize(v)` | read back / normalize a semantic value to a value |
-| `construct(ctor, args)` | build a type value (`pi`, `sigma`, `forall`, `universe`, `pair`, `eq`, `collection`, `refl`, `empty`, …) |
-| `match_type(v, cases)` | dispatch on the constructor tag of a type value (e.g. `Pi` vs `Sigma`); cases bind fields |
+| Op                               | Judgment it expresses                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `synth_child(i)`                 | `Γ ⊢ child_i ⇒ T` — synthesize the type of AST child `i`                                                 |
+| `check_child(i, T)`              | `Γ ⊢ child_i ⇐ T` — check child `i` against type value `T`                                               |
+| `synth_type_child(i)`            | synthesize a _type-level_ child (Pi/Sigma/Forall domains)                                                |
+| `eval_child(i)`                  | evaluate child `i` to a value (for the environment / closures)                                           |
+| `unify(a, b)`                    | solve `a ≃ b`, updating metavariables                                                                    |
+| `extend(name, ty, val)`          | extend `Γ` with a binding (scoped via the arrow's environment)                                           |
+| `lookup(name)` / `lookup_var(i)` | look up a variable's type in `Γ`                                                                         |
+| `fresh_meta`                     | allocate a fresh metavariable                                                                            |
+| `solve_meta(id, val)`            | solve a metavariable                                                                                     |
+| `quote(v)` / `normalize(v)`      | read back / normalize a semantic value to a value                                                        |
+| `construct(ctor, args)`          | build a type value (`pi`, `sigma`, `forall`, `universe`, `pair`, `eq`, `collection`, `refl`, `empty`, …) |
+| `match_type(v, cases)`           | dispatch on the constructor tag of a type value (e.g. `Pi` vs `Sigma`); cases bind fields                |
 
 Directed dispatch (e.g. the `App` rule matching the function's synthesized
 type: `Pi => check_child(arg, param) >> closure.apply(eval_child(arg))`, else
@@ -257,14 +257,14 @@ implementation of the judgment ops** (`unify`, `quote`, `normalize`,
 `fresh_meta`, `solve_meta`, `match_type`, `construct`). The hardcoded
 `Term`-enum `match` in `synth`/`check` is **deleted**; dispatch is data-driven
 via `lang.types`. The dependent-type `Value`/`Neutral`/`Closure` machinery is
-retained as the engine's *internal* semantic representation (closures,
+retained as the engine's _internal_ semantic representation (closures,
 neutrals, metas are engine-internal, as `ScopeStack` is internal to the eval
 engine); the types it produces and consumes through the `Scheme` contract are
 values.
 
 The typecheck engine delegates value-level computation (ordinary `Arr` ops
 like `add`, `str.upper`, `proj_child`) to a bound `EvalEngine`, so type
-expressions are evaluated by the *same* engine the runtime uses — honoring
+expressions are evaluated by the _same_ engine the runtime uses — honoring
 "types are values" literally. NBE's normalization core is what lets the
 typecheck engine reduce a type expression to a value (e.g.
 `str.upper("Hello")` → `"HELLO"`).
@@ -276,7 +276,7 @@ split.
 
 ### 5. Runtime wiring — on `RuntimeHandle` (pure path)
 
-Typecheck is *static analysis*, but because types are values it **runs the
+Typecheck is _static analysis_, but because types are values it **runs the
 eval engine** to normalize type expressions. It therefore depends on a bound
 `EvalEngine` and belongs on the runtime, symmetric with the other stages. The
 typecheck path is the **pure-eval** path (see "The typecheck host is pure"
@@ -319,9 +319,9 @@ then-branch's type — written with the same `!Arr`/`!Seq`/`!Choice` tags as
 - id: type.if
   node_kind: if
   synth: !Seq
-    fst: !Arr { op: synth_child, args: [], source: Judgment, lit: 0 }   # cond : T_cond
+    fst: !Arr { op: synth_child, args: [], source: Judgment, lit: 0 } # cond : T_cond
     snd: !Seq
-      fst: !Arr { op: unify, args: [], source: Judgment, lit: null }    # unify(T_cond, type.bool)
+      fst: !Arr { op: unify, args: [], source: Judgment, lit: null } # unify(T_cond, type.bool)
       snd: !Seq
         fst: !Arr { op: synth_child, args: [], source: Judgment, lit: 1 } # then : T_then
         snd: !Seq
@@ -333,7 +333,7 @@ then-branch's type — written with the same `!Arr`/`!Seq`/`!Choice` tags as
 
 (The exact sequencing/threading of intermediate results — whether via `first`
 over pairs or a `bind` op — is finalized in implementation; the point is that
-type rules use the *same* `Scheme` representation as eval rules, with judgment
+type rules use the _same_ `Scheme` representation as eval rules, with judgment
 ops available.)
 
 ## Consequences
@@ -344,11 +344,11 @@ ops available.)
   destructuring type rules is authoring `types.yaml` rows — no engine edit.
   This closes the last gap in ADR-0044's promise.
 - **One kernel, one value space.** Types are values; the type-level language
-  *is* the value language; type rules are `Scheme`s. No second kernel is
+  _is_ the value language; type rules are `Scheme`s. No second kernel is
   invented — the most literal reading of "types are values" (ADR-0032) and
   the arrow-calculus kernel (ADR-0052).
 - **Type expressions reuse the eval engine.** `str.upper("Hello")` in a type
-  position is evaluated by the *same* engine the runtime uses. NBE is the
+  position is evaluated by the _same_ engine the runtime uses. NBE is the
   normalizer that reduces type expressions to values — justified by full
   dependent types.
 - **The typecheck host is pure.** `RuntimeHandle::typecheck` is the pure-eval
@@ -367,11 +367,11 @@ ops available.)
   current nbe is retained.
 - **Architectural symmetry.** Typecheck gets the same shape as lex/parse/
   eval: abstraction crate + data fragment + engine crate(s) + runtime slot
-  + meta leaf. The runtime gains a `typecheck` stage alongside `lex`/`parse`/
-  `eval`/`compile`.
+  - meta leaf. The runtime gains a `typecheck` stage alongside `lex`/`parse`/
+    `eval`/`compile`.
 - **`plugin-lib-lang-typecheck`** makes `typecheck` a meta function callable
   from handl, completing the self-hosting surface (`typecheck.typecheck(lang,
-  ast)`).
+ast)`).
 
 ### Negative
 
@@ -379,7 +379,7 @@ ops available.)
   Threading intermediate results (synthesized types, expected types) through
   `Seq`/`first`/tuples, and expressing directed dispatch via `match_type` +
   `Choice`, is more verbose than a dedicated judgment DSL would be. This is
-  the cost paid for *not* inventing a second kernel. Mitigation: a small set
+  the cost paid for _not_ inventing a second kernel. Mitigation: a small set
   of sequencing combinators (`bind`, `let_val`) can be added as judgment ops
   if the verbosity proves severe; the `Scheme` representation is unchanged.
 - **Coupling to the eval engine's op set.** Type rules share the eval engine's
@@ -407,12 +407,12 @@ ops available.)
 
 ### Scope boundary — what this ADR does NOT promise
 
-- It does **not** change the dependent-type *theory* (universe levels, Pi/
+- It does **not** change the dependent-type _theory_ (universe levels, Pi/
   Sigma/Forall, equality, membership). The theory is unchanged; only its
-  *dispatch* moves from Rust `match` arms to data rules. Full dependent types
-  are a *commitment* this ADR relies on, not a change it introduces.
+  _dispatch_ moves from Rust `match` arms to data rules. Full dependent types
+  are a _commitment_ this ADR relies on, not a change it introduces.
 - It does **not** promise a second engine ships; it only makes a second
-  engine *possible*.
+  engine _possible_.
 - It does **not** define the full `types.yaml` rule set; that is the
   implementation work. The op set above is the target; exact tags and the
   value-encoding of constructors are finalized in a spike before authoring.

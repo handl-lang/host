@@ -8,8 +8,6 @@
   ],
   "publisher": "handl-lang",
   "main": "./dist/extension.js",
-  "icon": "logo.png",
-  "readme": "README.md",
   "scripts": {
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "build": "vite build",
@@ -52,7 +50,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "icon": "logo.png",
   "engines": {
     "vscode": "^1.80.0"
-  }
+  },
+  "readme": "README.md"
 }

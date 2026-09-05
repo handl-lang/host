@@ -68,15 +68,15 @@ meaningful.
 computation `c`? This is a property of the COMPUTATION, not any
 particular representation. It is the ground truth that σ measures.
 
-| Fact | `holds f c` |
-|---|---|
-| `fanout_independence` | `containsFanout c` |
-| `branching` | `containsChoice c` |
-| `per_branch_effects` | `containsChoice c` |
-| `dependency_graph` | `true` (always) |
-| `feedback` | `containsLoop c` |
-| `effect_set` | `containsOp c` |
-| `op_provenance` | `false` (not a computation-structure fact) |
+| Fact                  | `holds f c`                                |
+| --------------------- | ------------------------------------------ |
+| `fanout_independence` | `containsFanout c`                         |
+| `branching`           | `containsChoice c`                         |
+| `per_branch_effects`  | `containsChoice c`                         |
+| `dependency_graph`    | `true` (always)                            |
+| `feedback`            | `containsLoop c`                           |
+| `effect_set`          | `containsOp c`                             |
+| `op_provenance`       | `false` (not a computation-structure fact) |
 
 #### Semantic σ definitions
 
@@ -104,35 +104,35 @@ distinguish fanout from seq.
 
 ### Step 6: The Ordering Theorem
 
-| Theorem | Statement | Proof |
-|---|---|---|
-| `sigmaOM_subseteq_sigmaFM` | σ(OM) ⊆ σ(FM) | vacuous (OM = ∅) |
-| `sigmaFM_subseteq_sigmaFA` | σ(FM) ⊆ σ(FA) | case analysis on facts |
-| `sigma_ordering` | σ(OM) ⊆ σ(FM) ∧ σ(FM) ⊆ σ(FA) | combines above |
+| Theorem                    | Statement                     | Proof                  |
+| -------------------------- | ----------------------------- | ---------------------- |
+| `sigmaOM_subseteq_sigmaFM` | σ(OM) ⊆ σ(FM)                 | vacuous (OM = ∅)       |
+| `sigmaFM_subseteq_sigmaFA` | σ(FM) ⊆ σ(FA)                 | case analysis on facts |
+| `sigma_ordering`           | σ(OM) ⊆ σ(FM) ∧ σ(FM) ⊆ σ(FA) | combines above         |
 
 ### Step 7: Strict Inequality
 
-| Theorem | Statement | Proof |
-|---|---|---|
-| `strict_fanout` | fanout_independence ∈ σ(FA, fanout f g) ∧ ∉ σ(FM, fanout f g) | `False.elim` on FM's False |
-| `fanout_seq_indistinguishable` | encodeMonad(fanout f g) = encodeMonad(seq f g) | `rfl` |
-| `sigmaFA_pure_minimal` | σ(FA, pure v) = {dependency_graph} | case analysis |
+| Theorem                        | Statement                                                     | Proof                      |
+| ------------------------------ | ------------------------------------------------------------- | -------------------------- |
+| `strict_fanout`                | fanout_independence ∈ σ(FA, fanout f g) ∧ ∉ σ(FM, fanout f g) | `False.elim` on FM's False |
+| `fanout_seq_indistinguishable` | encodeMonad(fanout f g) = encodeMonad(seq f g)                | `rfl`                      |
+| `sigmaFA_pure_minimal`         | σ(FA, pure v) = {dependency_graph}                            | case analysis              |
 
 ### Step 8: ArrowApply Preserves σ
 
-| Theorem | Statement | Proof |
-|---|---|---|
-| `arrowapply_preserves_sigma` | σ(FAA, C) = σ(FA, C) | `rfl` |
+| Theorem                       | Statement                                | Proof                      |
+| ----------------------------- | ---------------------------------------- | -------------------------- |
+| `arrowapply_preserves_sigma`  | σ(FAA, C) = σ(FA, C)                     | `rfl`                      |
 | `arrowapply_preserves_fanout` | fanout_independence ∈ σ(FAA, fanout f g) | follows from strict_fanout |
 
 ### Step 9: Falsifying Maximality
 
-| Theorem | Statement | Proof |
-|---|---|---|
-| `sigmaFA_is_ground_truth` | σ(FA, C) = {f | holds f C} | `rfl` |
-| `tagged_recovers_more` | op_provenance ∈ σ(Tagged, op o k) ∧ ∉ σ(FA, op o k) | `Bool.false_ne_true` |
-| `sigmaTagged_superset_sigmaFA` | σ(FA) ⊆ σ(Tagged) | case analysis |
-| **`maximality_is_false`** | **¬(σ(Tagged, op o k) ⊆ σ(FAA, op o k))** | **formal counterexample** |
+| Theorem                        | Statement                                           | Proof                     |
+| ------------------------------ | --------------------------------------------------- | ------------------------- |
+| `sigmaFA_is_ground_truth`      | σ(FA, C) = {f                                       | holds f C}                | `rfl` |
+| `tagged_recovers_more`         | op_provenance ∈ σ(Tagged, op o k) ∧ ∉ σ(FA, op o k) | `Bool.false_ne_true`      |
+| `sigmaTagged_superset_sigmaFA` | σ(FA) ⊆ σ(Tagged)                                   | case analysis             |
+| **`maximality_is_false`**      | **¬(σ(Tagged, op o k) ⊆ σ(FAA, op o k))**           | **formal counterexample** |
 
 ---
 
@@ -143,9 +143,10 @@ we attempted to state it meaningfully and instead **proved it false**:
 
 **Theorem `maximality_is_false`:** For any `Op`, `o : Op`, `k : FreerArrow Op V`:
 
-  ¬(sigmaTagged (op o k) ⊆f sigmaFAA (op o k))
+¬(sigmaTagged (op o k) ⊆f sigmaFAA (op o k))
 
 The TaggedFreerArrow representation:
+
 - Has full monadic power (includes `apply`)
 - Recovers all computation-structure facts (same as FreerArrow)
 - ADDITIONALLY recovers `op_provenance` (labels are visible)
@@ -167,13 +168,13 @@ more information.
 
 Combining all results:
 
-  (1) σ(FA(C)) ⊇ σ(FM(C)) ⊇ σ(OM(C))         [Theorem sigma_ordering]
-  (2) fanout_independence ∈ σ(FA(C)) \ σ(FM(C))
-      if C has fanout                        [Theorem strict_fanout]
-  (3) σ(FAA(C)) = σ(FA(C))                    [Theorem arrowapply_preserves_sigma]
-  (4) σ(FA(C)) = {f | holds f C}              [Theorem sigmaFA_is_ground_truth]
-  (5) σ(Tagged(C)) ⊋ σ(FA(C)) if C has ops    [Theorem tagged_recovers_more]
-  (6) ¬(σ(Tagged(C)) ⊆ σ(FAA(C))) if C has ops [Theorem maximality_is_false]
+(1) σ(FA(C)) ⊇ σ(FM(C)) ⊇ σ(OM(C)) [Theorem sigma_ordering]
+(2) fanout_independence ∈ σ(FA(C)) \ σ(FM(C))
+if C has fanout [Theorem strict_fanout]
+(3) σ(FAA(C)) = σ(FA(C)) [Theorem arrowapply_preserves_sigma]
+(4) σ(FA(C)) = {f | holds f C} [Theorem sigmaFA_is_ground_truth]
+(5) σ(Tagged(C)) ⊋ σ(FA(C)) if C has ops [Theorem tagged_recovers_more]
+(6) ¬(σ(Tagged(C)) ⊆ σ(FAA(C))) if C has ops [Theorem maximality_is_false]
 
 ### What the boundary IS
 
@@ -194,8 +195,8 @@ computation-structure fact, recovering strictly more information.
 
 The freer arrow with Apply is the **minimal representation that
 achieves both**:
-  (a) full monadic power (can express dynamic application), AND
-  (b) full observability of computation-structure facts (σ = ground truth).
+(a) full monadic power (can express dynamic application), AND
+(b) full observability of computation-structure facts (σ = ground truth).
 
 It is not the maximal representation — richer representations can do
 better. It is the **boundary crossing point**: the simplest
@@ -232,6 +233,7 @@ Need Them in Haskell") independently establish the empirical direction:
 freer arrows are more statically analyzable than freer monads.
 
 Our contribution is the **formal characterization**:
+
 - We define a semantic measure σ (not representation-defined)
 - We prove the ordering theorem (σ(FA) ⊇ σ(FM) ⊇ σ(OM))
 - We prove ArrowApply sits at the boundary (σ(FAA) = σ(FA))
@@ -290,11 +292,11 @@ Basic.lean, StructuralInfo.lean, and Translation.lean are now fully proved
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests/Theorems | Status |
-|---|---|---|---|
-| 1-6 | #1-#11 | 177 Rust tests | ✅ |
-| 7 | Translation asymmetry | 8 Lean theorems | ✅ |
-| 8 | AI-code structural analysis | 28 Rust tests (205 total) | ✅ |
-| 9 | Speculative compilation | 16 Rust tests (221 total) | ✅ |
-| 10 | Structural info boundary (v2) | 11 Lean theorems, 0 sorry | ✅ |
-| | **Total** | **221 Rust + 19 Lean** | |
+| Phase | Challenge                     | Tests/Theorems            | Status |
+| ----- | ----------------------------- | ------------------------- | ------ |
+| 1-6   | #1-#11                        | 177 Rust tests            | ✅     |
+| 7     | Translation asymmetry         | 8 Lean theorems           | ✅     |
+| 8     | AI-code structural analysis   | 28 Rust tests (205 total) | ✅     |
+| 9     | Speculative compilation       | 16 Rust tests (221 total) | ✅     |
+| 10    | Structural info boundary (v2) | 11 Lean theorems, 0 sorry | ✅     |
+|       | **Total**                     | **221 Rust + 19 Lean**    |        |

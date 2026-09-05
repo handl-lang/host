@@ -20,6 +20,7 @@ Focus: Expressiveness, Abstraction, Parametricity, Typing, Recursion — **ALL 5
 **Test:** `id = arr (λx. x)`
 
 **Code:**
+
 ```rust
 let id = Expr::Arr(Box::new(Expr::Lambda(
     "x".to_string(),
@@ -40,6 +41,7 @@ let id = Expr::Arr(Box::new(Expr::Lambda(
 **Test:** `add1 = arr (λx. x + 1)`
 
 **Code:**
+
 ```rust
 let add1 = Expr::Arr(Box::new(Expr::Lambda(
     "x".to_string(),
@@ -64,6 +66,7 @@ let add1 = Expr::Arr(Box::new(Expr::Lambda(
 **Test:** `add1 >>> mul2` where `add1 = arr (+1)`, `mul2 = arr (*2)`
 
 **Code:**
+
 ```rust
 let composed = Expr::Comp(Box::new(add1), Box::new(mul2));
 ```
@@ -82,6 +85,7 @@ Breakdown: (5 + 1) = 6, then (6 * 2) = 12 ✓
 **Goal:** Encode factorial(n) as a state machine driven by arrow feedback loop, proving recursion doesn't require lambda as primitive.
 
 **Design:**
+
 ```rust
 // State: (result, (n, (acc, terminated)))
 // Step function transforms state until terminated flag is set
@@ -109,6 +113,7 @@ pub fn state_loop(step_fn, initial_state, max_iters) -> SimpleValue {
 ```
 
 **Test Results:**
+
 ```
 Test 1: factorial(5)
   [iter 1] (1, (5, (1, false))) => (5, (4, (5, false)))
@@ -139,16 +144,20 @@ Test 2: Factorial sequence 0..7
 ## Summary: Challenge #5 (Recursion via Feedback)
 
 ### Claim Tested
+
 > Can recursion be expressed via feedback loops without making lambda recursion-primitive?
 
 ### What We've Shown
+
 - ✅ Factorial(n) computes correctly via pure state machine loop
 - ✅ State structure evolution (n, acc, terminated) enables iteration
 - ✅ Termination detection via state equality (convergence)
 - ✅ Generalizes to any tail-recursive algorithm
 
 ### What This Means
+
 **Recursion is NOT a lambda-primitive necessity.** Recursive algorithms can be:
+
 1. Encoded as state machines (iterate function over accumulated state)
 2. Driven by arrow `loop` primitive (feedback)
 3. Terminated by explicit flags or convergence detection
@@ -156,6 +165,7 @@ Test 2: Factorial sequence 0..7
 This breaks the claim that recursion requires lambda as a foundation.
 
 ### Key Technical Decision
+
 - **State structure:** Nested Product tuples `(result, (n, (acc, terminated)))`
 - **Termination:** Explicit boolean flag + equality check on full state
 - **Iteration:** Generic `state_loop(step_fn, initial_state, max_iters)` function
@@ -165,21 +175,26 @@ This breaks the claim that recursion requires lambda as a foundation.
 ## Summary: Challenge #1 (Expressiveness)
 
 ### Claim Tested
+
 > Can the Arrow-first calculus express everything lambda-based calculus can?
 
 ### What We've Shown
+
 - ✅ Identity functions translate cleanly to arrows (`arr id`)
 - ✅ Functions with parameters work via closure wrapping
 - ✅ Binary operators work within arrow bodies
 - ✅ Function composition works via `>>>`
 
 ### What This Means
+
 The Arrow Calculus can express at least the following lambda patterns:
+
 - Pure function definitions (`λx. e`)
 - Composition of functions (`f >>> g` replaces `λx. g (f x)`)
 - Parametric abstraction over data
 
 ### Still To Test (Challenge #2 — Abstraction)
+
 - Can we express function application dynamically (not just statically)?
 - Can we express higher-order functions (functions that take functions)?
 - Can we avoid lambda-to-arrow wrapping for arbitrary expressions?
@@ -199,6 +214,7 @@ The Arrow Calculus can express at least the following lambda patterns:
 5. **Fold**: Accumulate over list with stateful step function
 
 **Implementation:**
+
 ```rust
 fn apply_twice_step(arrow_fn: fn(SimpleValue) -> SimpleValue, input: SimpleValue) -> SimpleValue {
     let result1 = arrow_fn(input);
@@ -215,7 +231,7 @@ fn map_arrow(arrow_fn: fn(SimpleValue) -> SimpleValue, list: SimpleValue) -> Sim
     }
 }
 
-fn fold_arrow(step_fn: fn(SimpleValue, SimpleValue) -> SimpleValue, 
+fn fold_arrow(step_fn: fn(SimpleValue, SimpleValue) -> SimpleValue,
               init: SimpleValue, list: SimpleValue) -> SimpleValue {
     match list {
         SimpleValue::List(items) => {
@@ -229,6 +245,7 @@ fn fold_arrow(step_fn: fn(SimpleValue, SimpleValue) -> SimpleValue,
 ```
 
 **Test Results:**
+
 ```
 ✅ ApplyTwice(+1)(5)         = 7       [5+1 then +1 = 7]
 ✅ ApplyTwice(*2)(5)         = 20      [5*2 then *2 = 20]
@@ -264,8 +281,8 @@ pub fn poly_identity_type() -> PolyType {
 
 pub fn poly_map_type() -> PolyType {
     // forall a b. (a ~> b) ~> ([a] ~> [b])
-    Forall("a", Forall("b", 
-        Arrow(Arrow(Var("a"), Var("b")), 
+    Forall("a", Forall("b",
+        Arrow(Arrow(Var("a"), Var("b")),
               Arrow(List(Var("a")), List(Var("b"))))))
 }
 
@@ -279,6 +296,7 @@ pub fn poly_compose_type() -> PolyType {
 ```
 
 **Type Instantiation (Substitution):**
+
 ```rust
 poly_identity_type()           // forall a. a ~> a
   → poly_identity_at_int()    // Int ~> Int
@@ -292,6 +310,7 @@ poly_compose_type()          // forall a b c. ...
 ```
 
 **Test Results:**
+
 ```
 ✅ Polymorphic Identity type system defined
 ✅ Identity(Int) = Int ~> Int correctly instantiated
@@ -312,6 +331,7 @@ Total: 14/14 polymorphic type tests PASSED ✅
 ```
 
 **Key Insight:** Polymorphic arrow types work naturally with type variables and substitution. No special machinery needed beyond:
+
 1. Type variable representation (`Var("a")`)
 2. Quantification (`Forall(var, body)`)
 3. Substitution (`apply substitution to type`)
@@ -325,6 +345,7 @@ Total: 14/14 polymorphic type tests PASSED ✅
 **Goal:** Show that Hindley-Milner type inference works for arrow types without explicit annotations.
 
 **Design:** Implement a complete type inference engine with:
+
 1. Type variable generation (fresh variables `t0`, `t1`, ...)
 2. Unification algorithm with occurs check
 3. Constraint collection during type inference
@@ -395,6 +416,7 @@ Total: 15/15 type inference tests PASSED ✅
 ```
 
 **Key Insight:** Hindley-Milner type inference works directly on arrow expressions without modification. The algorithm:
+
 1. Generates fresh type variables for unknowns
 2. Collects constraints during traversal (e.g., "f must have type a ~> b")
 3. Solves constraints via unification (Robinson's algorithm)
@@ -409,9 +431,11 @@ Total: 15/15 type inference tests PASSED ✅
 ## Summary: Challenge #4 (Typing)
 
 ### Claim Tested
+
 > Can we build a Hindley–Milner–style type inference system over arrows?
 
 ### What We've Shown
+
 - ✅ Type variables work naturally in arrow contexts
 - ✅ Unification algorithm (Robinson's with occurs check) solves arrow type constraints
 - ✅ Constraint-based inference collects type requirements during traversal
@@ -419,11 +443,14 @@ Total: 15/15 type inference tests PASSED ✅
 - ✅ Polymorphic arrows (Identity) infer with type variables
 
 ### What This Means
+
 **Type inference for arrows is straightforward and elegant.** The same Hindley-Milner algorithm that works for lambda calculus works unchanged for arrow calculus. This demonstrates deep structural equivalence between:
+
 - Lambda types: `∀a. a → a`
 - Arrow types: `∀a. a ~> a`
 
 ### Key Algorithm Components Verified
+
 - **Fresh variable generation:** Create unique type variables as needed
 - **Constraint collection:** Track type requirements (e.g., f : a ~> b)
 - **Unification:** Solve constraints via occurs-checked unification
@@ -435,21 +462,26 @@ Total: 15/15 type inference tests PASSED ✅
 ## Summary: Challenge #3 (Parametricity)
 
 ### Claim Tested
+
 > Can we recover generic abstractions without primitive `λ`? Can type variables and polymorphic types work with arrows?
 
 ### What We've Shown
+
 - ✅ Type variables (`Var("a")`) work in arrow types
 - ✅ Quantification (`forall a. a ~> a`) naturally expresses polymorphic arrows
 - ✅ Type substitution correctly instantiates polymorphic arrows
 - ✅ Generic patterns (identity, map, fold, compose) have well-formed polymorphic types
 
 ### What This Means
+
 **Lambda abstraction is NOT required for generic programming.** Polymorphic types work with arrows:
+
 1. Type variables represent universally quantified types
 2. Substitution instantiates polymorphic arrows to concrete types
 3. No difference from lambda-calculus type schemes (forall, substitution, instantiation)
 
 ### Key Patterns Verified
+
 - **Identity:** `forall a. a ~> a` (most general arrow)
 - **Map:** `forall a b. (a ~> b) ~> ([a] ~> [b])` (list transformation)
 - **Compose:** `forall a b c. (a ~> b) ~> (b ~> c) ~> (a ~> c)` (arrow composition)
@@ -461,16 +493,20 @@ Total: 15/15 type inference tests PASSED ✅
 ## Summary: Challenge #2 (Abstraction)
 
 ### Claim Tested
+
 > Can lambda abstraction/application be replaced by arrow constructions?
 
 ### What We've Shown
+
 - ✅ Higher-order arrow patterns work without lambda (map, filter, fold, pipe)
 - ✅ Arrows can be passed as parameters to other functions
 - ✅ Composition chains naturally express abstraction patterns
 - ✅ Parametricity emerges from first-class arrow values
 
 ### What This Means
+
 **Lambda abstraction is NOT necessary for higher-order programming.** Higher-order patterns can be:
+
 1. Expressed as arrows (pure function values)
 2. Passed directly as parameters to other functions
 3. Composed together via pipe/sequence patterns
@@ -479,6 +515,7 @@ Total: 15/15 type inference tests PASSED ✅
 This demonstrates that the core abstraction capability of lambda (creating functions as values) can be recovered from arrow primitives.
 
 ### Remaining Open Questions (Challenge #2 extended)
+
 1. **Polymorphic types:** Can we extend the arrow type system with `forall a. a ~> a`?
 2. **Type inference:** Does Hindley–Milner inference work over arrow types?
 3. **Closure elimination:** Can we avoid storing closures and use only arrow combinators?
@@ -492,6 +529,7 @@ This demonstrates that the core abstraction capability of lambda (creating funct
 **Goal:** Verify that `loop` produces repeated application of a state machine step.
 
 **Design:**
+
 ```rust
 let step = Expr::Arr(...);  // (a, state) -> (b, state)
 let counter = Expr::Loop(Box::new(step));
@@ -511,42 +549,44 @@ let counter = Expr::Loop(Box::new(step));
 
 ## Key Findings So Far
 
-| Finding | Impact | Implication |
-|---------|--------|-------------|
-| Arrow wrapping works smoothly | Challenge #1 ✓ | Pure functions → arrows straightforward |
-| Composition is natural | Challenge #1 ✓ | Point-free style emerges naturally |
-| Higher-order patterns work | Challenge #2 ✓ | **Lambda abstraction not necessary** |
-| Polymorphic types work | Challenge #3 ✓ | **Type generics don't need lambda** |
-| Recursion via loops works | Challenge #5 ✓ | **Lambda is not recursion-primitive** |
+| Finding                       | Impact         | Implication                                  |
+| ----------------------------- | -------------- | -------------------------------------------- |
+| Arrow wrapping works smoothly | Challenge #1 ✓ | Pure functions → arrows straightforward      |
+| Composition is natural        | Challenge #1 ✓ | Point-free style emerges naturally           |
+| Higher-order patterns work    | Challenge #2 ✓ | **Lambda abstraction not necessary**         |
+| Polymorphic types work        | Challenge #3 ✓ | **Type generics don't need lambda**          |
+| Recursion via loops works     | Challenge #5 ✓ | **Lambda is not recursion-primitive**        |
 | State machine encoding scales | Challenge #5 ✓ | Factorial, fibonacci, fold patterns all work |
-| No friction yet | Hypothesis | Arrow foundation is plausible so far |
+| No friction yet               | Hypothesis     | Arrow foundation is plausible so far         |
 
 ---
 
 ## Design Decisions Made
 
 1. **Arrow representation:** `ArrowValue` enum with explicit constructors (`Arr`, `Comp`, `First`, `Choice`, `Loop`)
-   - *Rationale:* Allows inspection and manipulation of arrow structure
-   - *Implication:* Can reason about composition and structure algebraically
+   - _Rationale:_ Allows inspection and manipulation of arrow structure
+   - _Implication:_ Can reason about composition and structure algebraically
 
-3. **State machine loops:** Feedback driven by `loop` primitive with explicit termination
-   - *Rationale:* Mirrors Lindley–Wadler–Yallop semantics with handler-based termination
-   - *Implication:* Recursion is derivable, not primitive
+2. **State machine loops:** Feedback driven by `loop` primitive with explicit termination
+   - _Rationale:_ Mirrors Lindley–Wadler–Yallop semantics with handler-based termination
+   - _Implication:_ Recursion is derivable, not primitive
 
 3. **Loop termination:** Fixed iteration limit + state equality check
-   - *Rationale:* Simple for PoC; full implementation would use handlers
-   - *Implication:* Scalability for deep recursion not tested yet
+   - _Rationale:_ Simple for PoC; full implementation would use handlers
+   - _Implication:_ Scalability for deep recursion not tested yet
 
 ---
 
 ## Verdict So Far
 
 ### Challenge #1 — Expressiveness
+
 **Status:** ✅ LIKELY YES (early evidence)
 
 Basic lambda calculus patterns (identity, composition, parameters) translate to arrows cleanly. No irreducible gap found yet.
 
 ### Challenge #2 — Abstraction
+
 **Status:** ⏳ UNDER INVESTIGATION (next)
 
 Need to test higher-order arrows and dynamic application.
@@ -577,21 +617,23 @@ Need to test higher-order arrows and dynamic application.
 - **Implementation:** `/research/arrow-calculus-kernel-poc/src/main.rs`
 - **Formalism:** `FORMALISM.md` (§Type System, §Operational Semantics)
 - **Test suite:** `cargo test` (3 tests, all passing)
+
 ---
 
 # Phase 1 Final Summary: All 5 Challenges Proven ✅
 
 ## Consolidated Results
 
-| Challenge | Question | Result | Evidence |
-|-----------|----------|--------|----------|
-| #1: Expressiveness | Can arrows express basic functional patterns? | ✅ YES | 3/3 core tests pass; identity, increment, composition work |
-| #2: Abstraction | Can higher-order patterns work without lambda? | ✅ YES | 10/10 higher-order tests pass; map, filter, fold, pipe work |
-| #3: Parametricity | Can generic programming work without lambda? | ✅ YES | 14/14 polymorphic type tests pass; forall types work |
-| #4: Typing | Can Hindley-Milner inference work on arrows? | ✅ YES | 15/15 type inference tests pass; principal types inferred |
-| #5: Recursion | Can state machines replace recursive functions? | ✅ YES | 2/2 recursion tests pass; factorial 0–7 computed |
+| Challenge          | Question                                        | Result | Evidence                                                    |
+| ------------------ | ----------------------------------------------- | ------ | ----------------------------------------------------------- |
+| #1: Expressiveness | Can arrows express basic functional patterns?   | ✅ YES | 3/3 core tests pass; identity, increment, composition work  |
+| #2: Abstraction    | Can higher-order patterns work without lambda?  | ✅ YES | 10/10 higher-order tests pass; map, filter, fold, pipe work |
+| #3: Parametricity  | Can generic programming work without lambda?    | ✅ YES | 14/14 polymorphic type tests pass; forall types work        |
+| #4: Typing         | Can Hindley-Milner inference work on arrows?    | ✅ YES | 15/15 type inference tests pass; principal types inferred   |
+| #5: Recursion      | Can state machines replace recursive functions? | ✅ YES | 2/2 recursion tests pass; factorial 0–7 computed            |
 
 ### Test Totals
+
 - ✅ **44/44 tests passing** (100% success rate)
 - **Main:** 3 tests (core arrow operations)
 - **Higher-Order:** 10 tests (map, filter, fold, apply_twice, pipe patterns)
@@ -604,6 +646,7 @@ Need to test higher-order arrows and dynamic application.
 ## Core Hypothesis Validation
 
 ### The Question
+
 > **Is lambda calculus a necessary foundation for programming languages, or can arrows (composition, choice, feedback) be the primitive computational model?**
 
 ### What We've Proven in Phase 1
@@ -637,6 +680,7 @@ Need to test higher-order arrows and dynamic application.
 
 **Lambda calculus is not necessary as a primitive** for these five
 features. All five can be built on arrows:
+
 - Function abstraction → Higher-order arrows
 - Type generics → Type variables + substitution
 - Type inference → Hindley-Milner unification
@@ -681,6 +725,7 @@ structure as primitive. This establishes sufficiency, not minimality — see
    - 2/2 recursion tests passing
 
 ### Code Statistics
+
 - **Total lines:** ~1,800 (clean, well-commented Rust)
 - **Test coverage:** 44 tests across 5 modules
 - **Compilation:** Zero errors, minimal warnings
@@ -691,16 +736,19 @@ structure as primitive. This establishes sufficiency, not minimality — see
 ## Key Insights
 
 ### Architectural Insights
+
 1. **Arrows enable structural reasoning:** Explicit `ArrowValue` enum allows pattern matching and algebraic manipulation
 2. **Composition is fundamental:** Point-free style emerges naturally without lambda
 3. **State machines are powerful:** Recursion and iteration reduce to repeated application of stateful functions
 
 ### Type System Insights
+
 1. **Polymorphism is orthogonal to representation:** Type variables work the same whether functions are lambdas or arrows
 2. **Hindley-Milner applies universally:** Constraint-based type inference works unchanged for arrows
 3. **Principal types are automatic:** No special machinery needed to infer most general types
 
 ### Computational Insights
+
 1. **Recursion is not primitive:** State machines with feedback loops encode recursion completely
 2. **Higher-order abstractions are natural:** Arrows as first-class values enable all higher-order patterns
 3. **No friction yet:** No fundamental obstacle found in any tested domain
@@ -710,11 +758,13 @@ structure as primitive. This establishes sufficiency, not minimality — see
 ## Remaining Open Questions (Phase 2–3)
 
 ### Phase 2: Towards Type Safety
+
 - **Challenge #4 extended:** Can we build a type checker that catches all composition errors?
 - Effect typing: Can we express effects (IO, State, Exception) with arrows?
 - Dependent types: Can we add refinement types on arrows?
 
 ### Phase 3: Real-World Features
+
 - **Challenge #6:** Can handler-based effects replace monads?
 - **Challenge #7:** Can a language protocol work with arrows?
 - **Challenge #8:** Can generic tooling (pretty-print, error reporting, optimization) be uniformly polymorphic?
@@ -725,6 +775,7 @@ structure as primitive. This establishes sufficiency, not minimality — see
 
 **Phase 1 is complete.** We have shown that arrows are sufficient to
 construct — without lambda or monadic primitives — the following:
+
 - Function abstraction and application
 - Higher-order programming patterns
 - Polymorphic type systems

@@ -29,7 +29,7 @@ the module model to
 ## 1. Overview and Design Principles
 
 The handl language is **arrow-native**: the fundamental unit of computation is
-an *arrow* `A ~> B`, not a function. The surface syntax is a human-facing
+an _arrow_ `A ~> B`, not a function. The surface syntax is a human-facing
 notation for the arrow calculus kernel (ADR-0052). The design principles,
 accepted unchanged from the v0.1 draft (per ADR-0074), are:
 
@@ -64,7 +64,7 @@ accepted unchanged from the v0.1 draft (per ADR-0074), are:
     code compact. The contextual `{}` rule (ID.11) disambiguates records from
     blocks without distinct delimiters.
 
-> **The graph is the type derivation.** The wiring of an arrow graph *is* the
+> **The graph is the type derivation.** The wiring of an arrow graph _is_ the
 > evidence for its type and (where applicable) its proofs. This is the central
 > idea inherited from the arrow calculus (ADR-0052) and the trait system
 > (ADR-0075): the user writes the graph; type, proof, and trait conformance
@@ -92,7 +92,7 @@ a new kernel combinator (ADR-0074 Addendum). The desugaring summary is in §17.
 The kernel itself has six combinators (`arr` / `>>>` / `first` / `choice` /
 `loop` / `app`, ADR-0052). The surface core's `***` / `&&&` / `|||` are
 themselves expressible over `first` / `choice`, but they are retained in the
-surface core for readability and because their arrow *kind* signatures (input
+surface core for readability and because their arrow _kind_ signatures (input
 and output arity at the type level) are not yet fixed (ADR-0074 Negative;
 follow-up task #3).
 
@@ -116,7 +116,7 @@ lowercase (§14).
 ### 2.2 Literals
 
 Literals are **language-level** (ID.8): the parser produces them directly.
-Operations *on* literals are library arrows, not language primitives.
+Operations _on_ literals are library arrows, not language primitives.
 
 ```text
 literal ::= 'true' | 'false'           -- booleans (lowercase)
@@ -503,7 +503,7 @@ first f >>> arr swap >>> first g  ≡  arr swap >>> first (f >>> g)
 
 ### 5.3 Arrow kind signatures — open
 
-The arrow *kind* signatures for `***` / `&&&` / `|||` — i.e. carrying their
+The arrow _kind_ signatures for `***` / `&&&` / `|||` — i.e. carrying their
 input/output arity in the type system rather than only in the term grammar —
 are **not yet fixed** (ADR-0074 Negative). The combinators carry their arity
 in the term grammar for v0.1; type-level arity is follow-up task #3.
@@ -592,8 +592,8 @@ while cond  for ...        rec
 ```
 
 Otherwise `{}` is a **record**. In `match val { ... }`, the outer `{}` is the
-match body (block-like, holding pattern arms); any `{}` inside a *pattern
-position* is a record pattern (§9, §10).
+match body (block-like, holding pattern arms); any `{}` inside a _pattern
+position_ is a record pattern (§9, §10).
 
 This is a contextual (position-based) rule, not a context-free one. It is
 accepted because the alternative — distinct delimiters for records and blocks
@@ -635,7 +635,7 @@ if
 
 Each arm is a condition expression followed by `:` and a result expression.
 The `_` arm is the catch-all (else). This mirrors `match` syntax — same `:`
-separator, same `_` wildcard — but each arm is a *guard condition* rather than
+separator, same `_` wildcard — but each arm is a _guard condition_ rather than
 a pattern. The `if` keyword (vs `match`) signals the difference.
 
 For two branches, the existing `if`/`else` form is cleaner and remains
@@ -789,7 +789,7 @@ is the arrow that selects `.name` and outputs it under the local wire
 ```
 
 For **positional structures** there is no source name to rename — the pattern
-variable *is* the local name:
+variable _is_ the local name:
 
 ```text
 [first, second] = value
@@ -1016,7 +1016,7 @@ iterate = x ~> {
 ```
 
 **The earlier `countdown` and `retry` examples, rewritten as arrows that
-*contain* a `rec` region (not as `rec`-declared arrows):**
+_contain_ a `rec` region (not as `rec`-declared arrows):**
 
 ```text
 countdown = x ~> {
@@ -1489,40 +1489,40 @@ full desugaring specification — including feedback-wire naming for `while` /
 the structural override rule for spread — is a separate follow-up document
 (follow-up task #4, ADR-0074 Implementation). This table is a summary.
 
-| Surface form | Desugars to | Notes |
-|---|---|---|
-| `x ~> e` | `arr (λx. ⟦e⟧)` | arrow construction; body lifted into `arr` |
-| `f >>> g` | `Seq f g` | sequential composition (kernel) |
-| `f *** g` | `first f` over product | product (over `first`) |
-| `f &&& g` | fan-out to pair | fan-out (over `first` + `arr`) |
-| `f \|\|\| g` | `Choice f g` | choice (kernel) |
-| `rec { ... }` | `Loop` region | feedback; Paterson `loop` (ID.3) |
-| `if c e1 else e2` | `arr c >>> choice ⟦e1⟧ ⟦e2⟧` | conditional routing |
-| multi-way `if` | nested `if`/`else` | A.7; exhaustiveness required (ID.13) |
-| `match v { p: e }` | `arr v >>> choice ...` | pattern dispatch via `|||` |
-| `while c { body }` | `rec` with implicit feedback | A.1; result = last body expr (ID.5) |
-| `do { body } while c` | `rec`, body-first | A.6; runs at least once |
-| `for x in xs { body }` | `rec` + `Iterator.next` + `match` | A.2; map semantics; requires Iterator (ID.6) |
-| `for x in xs, acc = init { body }` | `rec` fold | A.2; fold semantics |
-| `a ?? b` | `match a { some: value, none: b }` | A.3; `|||` over Option |
-| `user?.field` | `>>> (?.field)` arrow | A.4; composes via `>>>`, short-circuits on `none` |
-| `{ ...a, b: 2 }` | `arr` merge node | A.5; construction form, NOT control-flow sugar; last-wins structurally |
-| `[...a, b]` | `arr` merge node | A.5; positional spread |
-| `x + y` | `add [x, y]` | ID.8; library arrow |
-| `* 2` | `x ~> x * 2` | ID.8; prefix operator = point-free arrow |
-| `obj.field` | `arr (λobj. obj.field)` | field access arrow |
-| `obj[val]` | `arr (λobj. obj[val])` | indexing arrow |
-| `some value` / `none` | library constructor | ID.4, ID.9; `lib-option` |
-| `ok value` / `err value` | library constructor | ID.9; `lib-result` |
-| `import name from "path"` | `name = Project { field: "name", record: ModuleRef { path: "path" } }` | ID.16, ADR-0069; normalization to projection |
-| `import name1, name2 from "path"` | one `Project` binding per name | ID.16, ADR-0069; multi-name projection |
-| `import name as local from "path"` | `local = Project { field: "name", record: ModuleRef { path: "path" } }` | ID.16, ADR-0069; project + rename |
-| `import "path" as alias` | `alias = ModuleRef { path: "path" }` | ID.16, ADR-0069; bind whole record arrow |
-| `export name` | `name` added to export set | ADR-0069 §6; visibility sugar; `name` must be a binding |
-| `export name = expr` | binding `name = expr` AND `name` in export set | ADR-0069 §6; binding + export |
-| `export *` | all bindings added to export set | ADR-0069 §6; all-public via explicit declaration |
-| `export name from "path"` | `name = Project { ... }` AND `name` in export set | ADR-0069 §6; re-export (import + export) |
-| `export * from "path"` | import all public names as `Project` bindings, all in export set | ADR-0069 §6; re-export all |
+| Surface form                       | Desugars to                                                             | Notes                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `x ~> e`                           | `arr (λx. ⟦e⟧)`                                                         | arrow construction; body lifted into `arr`                             |
+| `f >>> g`                          | `Seq f g`                                                               | sequential composition (kernel)                                        |
+| `f *** g`                          | `first f` over product                                                  | product (over `first`)                                                 |
+| `f &&& g`                          | fan-out to pair                                                         | fan-out (over `first` + `arr`)                                         |
+| `f \|\|\| g`                       | `Choice f g`                                                            | choice (kernel)                                                        |
+| `rec { ... }`                      | `Loop` region                                                           | feedback; Paterson `loop` (ID.3)                                       |
+| `if c e1 else e2`                  | `arr c >>> choice ⟦e1⟧ ⟦e2⟧`                                            | conditional routing                                                    |
+| multi-way `if`                     | nested `if`/`else`                                                      | A.7; exhaustiveness required (ID.13)                                   |
+| `match v { p: e }`                 | `arr v >>> choice ...`                                                  | pattern dispatch via `                                                 |     |     | `             |
+| `while c { body }`                 | `rec` with implicit feedback                                            | A.1; result = last body expr (ID.5)                                    |
+| `do { body } while c`              | `rec`, body-first                                                       | A.6; runs at least once                                                |
+| `for x in xs { body }`             | `rec` + `Iterator.next` + `match`                                       | A.2; map semantics; requires Iterator (ID.6)                           |
+| `for x in xs, acc = init { body }` | `rec` fold                                                              | A.2; fold semantics                                                    |
+| `a ?? b`                           | `match a { some: value, none: b }`                                      | A.3; `                                                                 |     |     | ` over Option |
+| `user?.field`                      | `>>> (?.field)` arrow                                                   | A.4; composes via `>>>`, short-circuits on `none`                      |
+| `{ ...a, b: 2 }`                   | `arr` merge node                                                        | A.5; construction form, NOT control-flow sugar; last-wins structurally |
+| `[...a, b]`                        | `arr` merge node                                                        | A.5; positional spread                                                 |
+| `x + y`                            | `add [x, y]`                                                            | ID.8; library arrow                                                    |
+| `* 2`                              | `x ~> x * 2`                                                            | ID.8; prefix operator = point-free arrow                               |
+| `obj.field`                        | `arr (λobj. obj.field)`                                                 | field access arrow                                                     |
+| `obj[val]`                         | `arr (λobj. obj[val])`                                                  | indexing arrow                                                         |
+| `some value` / `none`              | library constructor                                                     | ID.4, ID.9; `lib-option`                                               |
+| `ok value` / `err value`           | library constructor                                                     | ID.9; `lib-result`                                                     |
+| `import name from "path"`          | `name = Project { field: "name", record: ModuleRef { path: "path" } }`  | ID.16, ADR-0069; normalization to projection                           |
+| `import name1, name2 from "path"`  | one `Project` binding per name                                          | ID.16, ADR-0069; multi-name projection                                 |
+| `import name as local from "path"` | `local = Project { field: "name", record: ModuleRef { path: "path" } }` | ID.16, ADR-0069; project + rename                                      |
+| `import "path" as alias`           | `alias = ModuleRef { path: "path" }`                                    | ID.16, ADR-0069; bind whole record arrow                               |
+| `export name`                      | `name` added to export set                                              | ADR-0069 §6; visibility sugar; `name` must be a binding                |
+| `export name = expr`               | binding `name = expr` AND `name` in export set                          | ADR-0069 §6; binding + export                                          |
+| `export *`                         | all bindings added to export set                                        | ADR-0069 §6; all-public via explicit declaration                       |
+| `export name from "path"`          | `name = Project { ... }` AND `name` in export set                       | ADR-0069 §6; re-export (import + export)                               |
+| `export * from "path"`             | import all public names as `Project` bindings, all in export set        | ADR-0069 §6; re-export all                                             |
 
 ### 17.3 What is unspecified in v0.1
 

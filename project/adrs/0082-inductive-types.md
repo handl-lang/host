@@ -30,7 +30,7 @@ data Vec(A, n: Nat) = VNil | VCons(A, Vec(A, n))
 Four properties distinguish inductive types from plain enums in a
 dependently-typed setting:
 
-1. **Inductive families** — types indexed by *values*, not just types.
+1. **Inductive families** — types indexed by _values_, not just types.
    `Vec(A, 3)` and `Vec(A, 0)` are distinct types; the length lives in the
    type.
 2. **Termination checking** — recursion over an inductive type must be
@@ -48,7 +48,7 @@ ADR-0032 established that types are values: a type is a collection of values,
 typechecker and runtime share the same `Value` representation. Universe levels
 and cumulativity are implemented and archived.
 
-ADR-0068 established that types are *predicates* — ordinary `bool`-returning
+ADR-0068 established that types are _predicates_ — ordinary `bool`-returning
 functions — and that the typechecker is a partial evaluator with a termination
 guard. Proofs are ordinary functions. Induction principles (`array.rec`) are
 library functions the checker recognizes, not syntax. There is no `total`

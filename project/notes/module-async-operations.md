@@ -68,6 +68,7 @@ impl Host for ModuleHost {
 Current: `fn request(&self, req: &HttpRequest) -> Result<HttpResponse, PlatformError>` (blocking).
 
 Add:
+
 - `async fn request_async(&self, req: &HttpRequest) -> Result<HttpResponse, PlatformError>` to `HttpClient` trait (or a separate `AsyncHttpClient` trait).
 - `HttpClientModule` implements `AsyncFunction` for async variants of `get`/`post`/`put`/`patch`/`delete`/`head`/`request`.
 - Optionally expose `http.request` as an `Operation` — handler can intercept for logging, rate-limiting, permission checks, or mocking.
@@ -83,6 +84,7 @@ Same pattern. `read_file`/`write_file` get async variants. `fs.read` as an `Oper
 ### Design decision: trait extension vs separate trait
 
 Two options:
+
 - **(A) Extend existing traits** — add `async_*` methods to `Fs`, `HttpClient`, `Cmd`. Simple, but forces implementors to provide both sync and async.
 - **(B) Separate async traits** — `AsyncFs`, `AsyncHttpClient`, `AsyncCmd`. Implementors choose. More flexible, more boilerplate.
 

@@ -38,11 +38,11 @@ Results are printed as tables to stdout and written as CSV to
 
 ## Tasks
 
-| Task         | What it tests                        | e2e params  | heavy params |
-| ------------ | ------------------------------------ | ----------- | ------------ |
-| `fibonacci`  | tight iterative arithmetic loop      | fib(35)     | fib(38)      |
-| `ackermann`  | deep recursion, function dispatch    | ack(2,5)    | ack(3,3)     |
-| `cold-start` | process startup + runtime init       | hello world | —            |
+| Task         | What it tests                     | e2e params  | heavy params |
+| ------------ | --------------------------------- | ----------- | ------------ |
+| `fibonacci`  | tight iterative arithmetic loop   | fib(35)     | fib(38)      |
+| `ackermann`  | deep recursion, function dispatch | ack(2,5)    | ack(3,3)     |
+| `cold-start` | process startup + runtime init    | hello world | —            |
 
 Each task directory (`tasks/<name>/`) contains identical algorithms in every
 language. See each task's `README.md` for details.

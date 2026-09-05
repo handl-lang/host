@@ -55,7 +55,7 @@ An effect row is a set of operations:
 pub struct Effect { ops: HashSet<IOp> }   // ∅ | {Get, Put} | {Read, Write} | ...
 ```
 
-A handler *removes* its owned operations from the effect row (handler as
+A handler _removes_ its owned operations from the effect row (handler as
 effect eliminator), and pass-through leaves foreign operations in place:
 
 ```rust
@@ -76,6 +76,7 @@ pure v : τ        ~> τ      / ∅
 ```
 
 **Components implemented:**
+
 - `Effect` — effect row (set of operations) with `empty`, `singleton`,
   `insert`, `contains`, `union`, `difference`, `is_subset`, `is_empty`
 - `EffectType` — a value type paired with an effect row (`τ / ε`)
@@ -147,12 +148,14 @@ Total: 31/31 effect typing tests PASSED ✅
 ## Summary: Effect Typing for Arrows
 
 ### Claim Tested
+
 > Can we statically infer the effect row of an arrow computation without
 > running it? Are handlers effect eliminators? Can a handler stack be checked
 > for completeness — is any effect left unhandled — purely from inferred
 > effect rows?
 
 ### What We've Shown
+
 - ✅ The effect row of a freer-arrow computation is inferred statically by
   traversing a static computation tree (`IComp`): `Pure` contributes `∅`,
   each `Op` contributes `{op} ∪ effect(k)`. Effects accumulate by union.
@@ -173,6 +176,7 @@ Total: 31/31 effect typing tests PASSED ✅
   and leaves `ρ` intact; rows unify by absorbing extra ops into `ρ`.
 
 ### What This Means
+
 **Effect inference is not a monad-specific feature.** The same freer-arrow
 tree that Phase 2 interprets at runtime can be traversed statically to infer
 its effect row, and the handler-as-eliminator rule falls out directly from
@@ -189,6 +193,7 @@ handler stack. Same concept, two time scales — and the static check is
 derivable purely from the structure of the freer arrow.
 
 ### Key Technical Achievements
+
 - **Static computation tree (`IComp`):** the traversable analogue of the
   freer-arrow `Comp`, with continuations as explicit sub-trees and
   `Received(Type)` values for operation results handed to continuations
@@ -208,16 +213,16 @@ derivable purely from the structure of the freer arrow.
 
 ## Comparison: Arrow Effect Typing vs Algebraic-Effect Systems
 
-| Aspect | Frank / Koka / Eff | Arrow effect typing |
-|--------|--------------------|---------------------|
-| Effect primitive | Algebraic operation + handler | Arrow operation + handler (freer arrow) |
-| Effect row | Set/row of operation labels | `Effect` = `HashSet<IOp>` (same structure) |
-| Inference | Traverse computation, collect ops | `infer_effect` traverses `IComp`, unions ops |
-| Handler semantics | Eliminates handled ops from row | `effect_after_handler = ε \ ops(H)` (identical) |
-| Pass-through | Foreign ops remain in row | Foreign ops remain in row (identical) |
-| Polymorphism | Row variable `ρ` | `RowEffect` with `ρ` tail + unification (identical) |
-| Unhandled effect | Runtime / static error | `check_safety` (static) ↔ `run` `UnhandledOp` (runtime) |
-| Foundation | Monad / free monad | Freer arrow (no monad primitive) |
+| Aspect            | Frank / Koka / Eff                | Arrow effect typing                                     |
+| ----------------- | --------------------------------- | ------------------------------------------------------- |
+| Effect primitive  | Algebraic operation + handler     | Arrow operation + handler (freer arrow)                 |
+| Effect row        | Set/row of operation labels       | `Effect` = `HashSet<IOp>` (same structure)              |
+| Inference         | Traverse computation, collect ops | `infer_effect` traverses `IComp`, unions ops            |
+| Handler semantics | Eliminates handled ops from row   | `effect_after_handler = ε \ ops(H)` (identical)         |
+| Pass-through      | Foreign ops remain in row         | Foreign ops remain in row (identical)                   |
+| Polymorphism      | Row variable `ρ`                  | `RowEffect` with `ρ` tail + unification (identical)     |
+| Unhandled effect  | Runtime / static error            | `check_safety` (static) ↔ `run` `UnhandledOp` (runtime) |
+| Foundation        | Monad / free monad                | Freer arrow (no monad primitive)                        |
 
 **Verdict:** Arrow operations + handlers support the same effect-row
 inference and handler-as-eliminator discipline as algebraic-effect systems,
@@ -230,17 +235,17 @@ runtime semantics.
 
 ## Cumulative Results (Phases 1–3 + Effect Typing Deep Dive)
 
-| Challenge | Question | Result | Tests |
-|-----------|----------|--------|-------|
-| #1 Expressiveness | Can arrows express basic functional patterns? | ✅ YES | 3/3 |
-| #2 Abstraction | Higher-order patterns without lambda? | ✅ YES | 10/10 |
-| #3 Parametricity | Generic programming without lambda? | ✅ YES | 14/14 |
-| #4 Typing | Hindley-Milner inference on arrows? | ✅ YES | 15/15 |
-| #5 Recursion | State machines replace recursive functions? | ✅ YES | 2/2 |
-| #6 Effects | Handler-based effects replace monads? | ✅ YES | 20/20 |
-| #7 Metaprogramming | First-class Language protocol? | ✅ YES | 26/26 |
-| #8 Tooling | Generic language-agnostic tooling? | ✅ (with #7) | (shared) |
-| Deep Dive | Effect typing / row inference for arrows? | ✅ YES | 31/31 |
+| Challenge          | Question                                      | Result       | Tests    |
+| ------------------ | --------------------------------------------- | ------------ | -------- |
+| #1 Expressiveness  | Can arrows express basic functional patterns? | ✅ YES       | 3/3      |
+| #2 Abstraction     | Higher-order patterns without lambda?         | ✅ YES       | 10/10    |
+| #3 Parametricity   | Generic programming without lambda?           | ✅ YES       | 14/14    |
+| #4 Typing          | Hindley-Milner inference on arrows?           | ✅ YES       | 15/15    |
+| #5 Recursion       | State machines replace recursive functions?   | ✅ YES       | 2/2      |
+| #6 Effects         | Handler-based effects replace monads?         | ✅ YES       | 20/20    |
+| #7 Metaprogramming | First-class Language protocol?                | ✅ YES       | 26/26    |
+| #8 Tooling         | Generic language-agnostic tooling?            | ✅ (with #7) | (shared) |
+| Deep Dive          | Effect typing / row inference for arrows?     | ✅ YES       | 31/31    |
 
 **Total: 121/121 tests passing** (90 prior + 31 new), zero compiler warnings,
 no external dependencies.

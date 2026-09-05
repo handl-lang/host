@@ -44,7 +44,7 @@ environment, and an environment is what evaluation already produces.
 
 ### Why this dissolves ADR-0048
 
-ADR-0048's machinery existed to make `Module` a *separate* first-class
+ADR-0048's machinery existed to make `Module` a _separate_ first-class
 value alongside `Language`. But the substance of a module — a set of
 named bindings — is already the substance of an environment, which
 evaluation already produces. Building a parallel value system for it was
@@ -63,7 +63,7 @@ value type or a `modules` fragment set. The work is:
 
 An environment (the result of evaluating a scope) must be reifiable as a
 handl value — an object/record mapping binding names to values — so that
-`import "math"` can bind the *whole* environment to `math` and
+`import "math"` can bind the _whole_ environment to `math` and
 `math.add` can field-access into it. This is the one genuine language
 addition, and it is an environment-as-value concern, not a module
 concern. It likely subsumes or overlaps with first-class closures
@@ -91,7 +91,7 @@ exposing environments as values and the four constructs above.
 
 The import resolver maps a module name to a source, evaluates it under
 the current `Language` (via the existing `eval` pipeline), caches the
-resulting environment by name, and returns it. This is the *loader*, not
+resulting environment by name, and returns it. This is the _loader_, not
 a new language concept. It can be a Rust host function (`Foreign`
 dispatch) or, once environments are values, a handl function — the same
 bootstrap question as `handl-defining-handl`, with the same answer: a
@@ -107,7 +107,7 @@ virtual), then the eval pipeline turns bytes into a cached environment.
 Which resolvers are loaded is the import capability boundary
 ([ADR-0046](./0046-capability-discipline-at-the-language-level.md)) —
 fs-only with an allowlist is a sandbox; http+git is not. No new
-mechanism; the loaded resolver set *is* the import capability.
+mechanism; the loaded resolver set _is_ the import capability.
 
 ### 4. Stdlib as `.hnl` files
 
@@ -212,7 +212,7 @@ hardcoded.
   seam for `Foreign`-dispatched primitives and the import resolver
   bootloader. They are not deleted; they are demoted from "the only way
   to be a module" to "the Rust-side interface for true primitives and
-  bootstrapping." Mirrors how ADR-0044 kept engine *traits* as Rust while
+  bootstrapping." Mirrors how ADR-0044 kept engine _traits_ as Rust while
   making `Scheme` data.
 
 ## Implementation phases

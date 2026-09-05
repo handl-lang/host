@@ -27,6 +27,7 @@ the language it checks.
   The fixpoint stages map onto `loop` (ADR-0052), giving the solver's
   iteration structure directly in the calculus; termination is guaranteed
   by a monotonicity `law` checked by ADR-0075 traits.
+
 - **Structural unification with row variables** (ADR-0074 ID.7) is the core
   arrow library; branded values (ADR-0055) supply nominal tags where
   identity matters.

@@ -16,7 +16,7 @@ Focus: Handler-based State, IO, Exception operations; multi-effect composition; 
 arrow operations + handlers, that multiple effects compose as cleanly as
 monad transformers, and that no monad primitive is required.
 
-**Model:** A *freer arrow*. A computation is a tree of suspended operations,
+**Model:** A _freer arrow_. A computation is a tree of suspended operations,
 each carrying a continuation:
 
 ```rust
@@ -54,9 +54,10 @@ operation Throw : String ~> _          -- raise an exception (aborting)
 ```
 
 **Handlers implemented:**
+
 - `handle_state` — threads state through Get/Put
 - `handle_state_pair` — like `handle_state` but returns `(result, final_state)`,
-  making handler *order* observable
+  making handler _order_ observable
 - `handle_io` — threads inputs/outputs through Read/Write
 - `handle_exception` — catches Throw, yields `Right v` / `Left msg`
 
@@ -104,15 +105,17 @@ Total: 20/20 effects & handler tests PASSED ✅
 ## Summary: Challenge #6 (Effects & Handlers)
 
 ### Claim Tested
+
 > Can handler-based effects (State, IO, Exception) replace monads? Do they
 > compose as cleanly as monad transformers?
 
 ### What We've Shown
+
 - ✅ State, IO, and Exception each arise from operations + a handler — no monad
   primitive, no `bind`, no transformer type
 - ✅ Multiple effects compose by stacking handlers via ordinary function
   composition (pass-through does the threading)
-- ✅ Handler order is observable and corresponds *exactly* to monad
+- ✅ Handler order is observable and corresponds _exactly_ to monad
   transformer order (StateT(Except) vs ExceptT(State))
 - ✅ Mid-program `try/catch` is just a handler applied to a sub-computation,
   branching on the resulting `Either` — no special syntax
@@ -120,6 +123,7 @@ Total: 20/20 effects & handler tests PASSED ✅
   effects in algebraic-effect systems
 
 ### What This Means
+
 **Monads are not a necessary primitive for effects.** All three effect
 behaviours (state threading, IO, exceptions) and their composition emerge
 from a single mechanism: operations suspended in a freer arrow, interpreted
@@ -128,6 +132,7 @@ stack, with the same observable semantics, but expressed as ordinary
 function composition rather than a tower of newtypes.
 
 ### Key Technical Achievements
+
 - **Freer-arrow representation:** `Comp = Pure v | Op op arg k` — the arrow
   analogue of a free monad, with continuations in arrow position
 - **Pass-through semantics:** the single rule that makes handlers composable
@@ -141,15 +146,15 @@ function composition rather than a tower of newtypes.
 
 ## Comparison: Handlers vs Monad Transformers
 
-| Aspect | Monad transformers | Arrow handlers |
-|--------|--------------------|----------------|
-| Effect primitive | `Monad`/`MonadTrans` type classes | Operations + handler functions |
-| Stacking | Newtype tower (`StateT s (ExceptT e m)`) | Function composition |
-| Order semantics | Determined by transformer order | Determined by handler order (identical) |
-| Reordering | Rewrite the type | Reorder the composition |
-| Adding an effect | New transformer + lift boilerplate | Add a handler to the stack |
-| Per-effect code | `lift`, `MonadState`, `MonadError` | One handler per effect, no lifting |
-| Catch / recovery | `catchError`, `ExceptT` plumbing | `handle_exception` on a sub-comp |
+| Aspect           | Monad transformers                       | Arrow handlers                          |
+| ---------------- | ---------------------------------------- | --------------------------------------- |
+| Effect primitive | `Monad`/`MonadTrans` type classes        | Operations + handler functions          |
+| Stacking         | Newtype tower (`StateT s (ExceptT e m)`) | Function composition                    |
+| Order semantics  | Determined by transformer order          | Determined by handler order (identical) |
+| Reordering       | Rewrite the type                         | Reorder the composition                 |
+| Adding an effect | New transformer + lift boilerplate       | Add a handler to the stack              |
+| Per-effect code  | `lift`, `MonadState`, `MonadError`       | One handler per effect, no lifting      |
+| Catch / recovery | `catchError`, `ExceptT` plumbing         | `handle_exception` on a sub-comp        |
 
 **Verdict:** Handler composition is at least as clean as monad transformers,
 with no loss of expressiveness, and strictly less boilerplate (no `lift`
@@ -160,14 +165,14 @@ stack; only the stack determines semantics.
 
 ## Cumulative Results (Phase 1 + Phase 2)
 
-| Challenge | Question | Result | Tests |
-|-----------|----------|--------|-------|
-| #1 Expressiveness | Can arrows express basic functional patterns? | ✅ YES | 3/3 |
-| #2 Abstraction | Higher-order patterns without lambda? | ✅ YES | 10/10 |
-| #3 Parametricity | Generic programming without lambda? | ✅ YES | 14/14 |
-| #4 Typing | Hindley-Milner inference on arrows? | ✅ YES | 15/15 |
-| #5 Recursion | State machines replace recursive functions? | ✅ YES | 2/2 |
-| #6 Effects | Handler-based effects replace monads? | ✅ YES | 20/20 |
+| Challenge         | Question                                      | Result | Tests |
+| ----------------- | --------------------------------------------- | ------ | ----- |
+| #1 Expressiveness | Can arrows express basic functional patterns? | ✅ YES | 3/3   |
+| #2 Abstraction    | Higher-order patterns without lambda?         | ✅ YES | 10/10 |
+| #3 Parametricity  | Generic programming without lambda?           | ✅ YES | 14/14 |
+| #4 Typing         | Hindley-Milner inference on arrows?           | ✅ YES | 15/15 |
+| #5 Recursion      | State machines replace recursive functions?   | ✅ YES | 2/2   |
+| #6 Effects        | Handler-based effects replace monads?         | ✅ YES | 20/20 |
 
 **Total: 64/64 tests passing** (100% success rate)
 

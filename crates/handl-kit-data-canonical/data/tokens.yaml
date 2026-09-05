@@ -5,7 +5,7 @@
 #   product (***), nullish (??), opt_chain (?.).
 # Retained: axiom (compatible alias for law).
 - id: token.and
-  label: '&&'
+  label: "&&"
 - id: token.arrow
   label: ~>
 - id: token.bang
@@ -14,11 +14,11 @@
   label: bool
   literal: Bool
 - id: token.choice
-  label: '|||'
+  label: "|||"
 - id: token.colon
-  label: ':'
+  label: ":"
 - id: token.comma
-  label: ','
+  label: ","
 - id: token.comment
   label: comment
   trivia: true
@@ -28,7 +28,7 @@
 - id: token.dot
   label: .
 - id: token.ellipsis
-  label: '...'
+  label: "..."
 - id: token.eof
   label: eof
 - id: token.eqeq
@@ -36,13 +36,13 @@
 - id: token.equal
   label: =
 - id: token.fanout
-  label: '&&&'
+  label: "&&&"
 - id: token.flow
-  label: '>>>'
+  label: ">>>"
 - id: token.gt
-  label: '>'
+  label: ">"
 - id: token.gte
-  label: '>='
+  label: ">="
 - id: token.identifier
   label: identifier
 - id: token.if
@@ -50,11 +50,11 @@
 - id: token.json
   label: json
   literal: !StripAffix
-    prefix: 'json{'
-    suffix: '}'
+    prefix: "json{"
+    suffix: "}"
     wrap:
-    - '{'
-    - '}'
+      - "{"
+      - "}"
 - id: token.keyword.as
   label: as
 - id: token.keyword.axiom
@@ -102,9 +102,9 @@
 - id: token.keyword.with
   label: with
 - id: token.lbrace
-  label: '{'
+  label: "{"
 - id: token.lbracket
-  label: '['
+  label: "["
 - id: token.let
   label: null
 - id: token.lparen
@@ -114,37 +114,37 @@
 - id: token.lte
   label: <=
 - id: token.minus
-  label: '-'
+  label: "-"
 - id: token.neq
-  label: '!='
+  label: "!="
 - id: token.null
-  label: 'null'
-  literal: 'Null'
+  label: "null"
+  literal: "Null"
 - id: token.nullish
-  label: '??'
+  label: "??"
 - id: token.number
   label: number
   literal: Number
 - id: token.opt_chain
-  label: '?.'
+  label: "?."
 - id: token.or
-  label: '||'
+  label: "||"
 - id: token.pipe
-  label: '|'
+  label: "|"
 - id: token.percent
-  label: '%'
+  label: "%"
 - id: token.plus
   label: +
 - id: token.pow
-  label: '**'
+  label: "**"
 - id: token.product
-  label: '***'
+  label: "***"
 - id: token.question
   label: null
 - id: token.rbrace
-  label: '}'
+  label: "}"
 - id: token.rbracket
-  label: ']'
+  label: "]"
 - id: token.rparen
   label: )
 - id: token.semicolon
@@ -154,21 +154,21 @@
 - id: token.spaceship
   label: <=>
 - id: token.star
-  label: '*'
+  label: "*"
 - id: token.string
   label: string
   literal: !String
     delim_chars: 1
     escapes:
-    - - '\n'
-      - "\n"
-    - - '\r'
-      - "\r"
-    - - '\t'
-      - "\t"
-    - - '\"'
-      - '"'
-    - - '\\'
-      - '\'
+      - - '\n'
+        - "\n"
+      - - '\r'
+        - "\r"
+      - - '\t'
+        - "\t"
+      - - '\"'
+        - '"'
+      - - '\\'
+        - '\'
 - id: token.template
   label: null

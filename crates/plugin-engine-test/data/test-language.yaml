@@ -1,0 +1,191 @@
+# Test-language fragment for ADR-0089.
+#
+# Merged onto the canonical kit at test-discovery time. This fragment adds
+# the `test`, `property`, `integration_test`, and `bench` declaration forms
+# without amending the core grammar (ADR-0044 language-as-data model).
+#
+# Surface syntax (shared by all four forms):
+#
+#   test name = body
+#   property name = body
+#   integration_test name = body
+#   bench name = body
+#
+# Each declaration parses to a node with two named children: `name` and `body`.
+# The eval scheme returns the `body` child so the node behaves like an
+# expression when evaluated directly.
+
+---
+tokens:
+  - id: token.keyword.test
+    label: test
+  - id: token.keyword.property
+    label: property
+  - id: token.keyword.integration_test
+    label: integration_test
+  - id: token.keyword.bench
+    label: bench
+
+lexer_rules:
+  - id: lex.keyword.test
+    token_kind: token.keyword.test
+    pattern: !Literal
+      text: test
+    priority: 15
+  - id: lex.keyword.property
+    token_kind: token.keyword.property
+    pattern: !Literal
+      text: property
+    priority: 15
+  - id: lex.keyword.integration_test
+    token_kind: token.keyword.integration_test
+    pattern: !Literal
+      text: integration_test
+    priority: 15
+  - id: lex.keyword.bench
+    token_kind: token.keyword.bench
+    pattern: !Literal
+      text: bench
+    priority: 15
+
+grammar:
+  - id: grammar.test.prefix
+    token: token.keyword.test
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: test
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.property.prefix
+    token: token.keyword.property
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: property
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.integration_test.prefix
+    token: token.keyword.integration_test
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: integration_test
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.bench.prefix
+    token: token.keyword.bench
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: bench
+      arity: 2
+      child_separators:
+        - !Required token.equal
+
+ast:
+  - id: ast.test
+    node_kind: test
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.property
+    node_kind: property
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.integration_test
+    node_kind: integration_test
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.bench
+    node_kind: bench
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+
+eval:
+  - id: eval.test
+    node_kind: test
+    scheme: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+  - id: eval.property
+    node_kind: property
+    scheme: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+  - id: eval.integration_test
+    node_kind: integration_test
+    scheme: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+  - id: eval.bench
+    node_kind: bench
+    scheme: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1

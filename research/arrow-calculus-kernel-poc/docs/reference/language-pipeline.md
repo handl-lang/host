@@ -8,18 +8,18 @@ it). This is the "language as data, engines as interpreters" split
 
 ## Pipeline at a glance
 
-| Stage | Abstraction (data) | Engine (algorithm) | ADR |
-|---|---|---|---|
-| lex | tokens, lexer rules | pattern-driven lexer | ADR-0044 |
-| parse | grammar rows | data-driven Pratt parser | ADR-0053 |
-| desugar | `DesugarRule` per grammar row | post-parse rewrite | ADR-0074 |
-| kernel IR | arrow calculus | — (the IR itself) | ADR-0052 |
-| typecheck | type rules | NbE typecheck engine | ADR-0054 |
-| refinement | predicates | Z3 SMT inference | ADR-0068/0070 |
-| traits | arrow signatures + catalog | graph matching + CutElim | ADR-0075 |
-| modules | files as arrows | projection normalisation | ADR-0069 |
-| eval | eval scheme | tree-walk / bytecode / Cranelift | ADR-0044 |
-| concurrency | dependency graph | deterministic dataflow scheduling | ADR-0072 |
+| Stage       | Abstraction (data)            | Engine (algorithm)                | ADR           |
+| ----------- | ----------------------------- | --------------------------------- | ------------- |
+| lex         | tokens, lexer rules           | pattern-driven lexer              | ADR-0044      |
+| parse       | grammar rows                  | data-driven Pratt parser          | ADR-0053      |
+| desugar     | `DesugarRule` per grammar row | post-parse rewrite                | ADR-0074      |
+| kernel IR   | arrow calculus                | — (the IR itself)                 | ADR-0052      |
+| typecheck   | type rules                    | NbE typecheck engine              | ADR-0054      |
+| refinement  | predicates                    | Z3 SMT inference                  | ADR-0068/0070 |
+| traits      | arrow signatures + catalog    | graph matching + CutElim          | ADR-0075      |
+| modules     | files as arrows               | projection normalisation          | ADR-0069      |
+| eval        | eval scheme                   | tree-walk / bytecode / Cranelift  | ADR-0044      |
+| concurrency | dependency graph              | deterministic dataflow scheduling | ADR-0072      |
 
 ## Lex — pattern-driven lexer
 
@@ -90,20 +90,20 @@ Six combinators:
 arr     first   >>>     choice   loop   app
 ```
 
-| Combinator | Type | Role |
-|---|---|---|
-| `arr` | `(A → B) → (A ~> B)` | lift a pure function to an arrow |
-| `>>>` | `(A ~> B) → (B ~> C) → (A ~> C)` | sequential composition |
-| `first` | `(A ~> B) → ((A × C) ~> (B × C))` | act on first component |
-| `choice` | `(A ~> C) → (B ~> C) → ((A + B) ~> C)` | branch |
-| `loop` | `((A × C) ~> (B × C)) → (A ~> B)` | feedback / recursion |
-| `app` | `((A ~> B) × A) ~> B` | dynamic application |
+| Combinator | Type                                   | Role                             |
+| ---------- | -------------------------------------- | -------------------------------- |
+| `arr`      | `(A → B) → (A ~> B)`                   | lift a pure function to an arrow |
+| `>>>`      | `(A ~> B) → (B ~> C) → (A ~> C)`       | sequential composition           |
+| `first`    | `(A ~> B) → ((A × C) ~> (B × C))`      | act on first component           |
+| `choice`   | `(A ~> C) → (B ~> C) → ((A + B) ~> C)` | branch                           |
+| `loop`     | `((A × C) ~> (B × C)) → (A ~> B)`      | feedback / recursion             |
+| `app`      | `((A ~> B) × A) ~> B`                  | dynamic application              |
 
 Functions are the degenerate pure case of arrows. There is no separate
 `Function` category at the kernel.
 
-The semantic foundation for effectful arrows is Sanada's *Algebraic
-Effects and Handlers for Arrows* — execution is one possible handler
+The semantic foundation for effectful arrows is Sanada's _Algebraic
+Effects and Handlers for Arrows_ — execution is one possible handler
 interpretation, not a primitive property of arrows.
 
 - ADR: ADR-0052
@@ -161,7 +161,7 @@ arrow graphs and inferred contracts are the two caches.
 
 The calculus is deterministic dataflow: given an input, the graph
 produces a unique output. Parallelism is inferred from independent
-branches — the dependency graph *is* the schedule. No new primitives
+branches — the dependency graph _is_ the schedule. No new primitives
 (`Parallel`, `Race`, `Channel`, `Lock`); concurrency is expressed
 within the existing five combinators.
 
@@ -172,25 +172,25 @@ within the existing five combinators.
 The graph is the program; evaluation is dataflow-driven by the wiring,
 not lambda-style reduction. Three backends:
 
-| Backend | What it does |
-|---|---|
-| tree-walk | interprets the arrow graph directly |
-| bytecode | compiles schemes to bytecode, executes |
+| Backend   | What it does                              |
+| --------- | ----------------------------------------- |
+| tree-walk | interprets the arrow graph directly       |
+| bytecode  | compiles schemes to bytecode, executes    |
 | Cranelift | compiles schemes to native code, executes |
 
 - PoC: `src/main.rs` (`Value`, reduction), `src/evaluation_tests.rs`
 
 ## The graph is the derivation
 
-The central idea: the wiring of an arrow graph *is* the evidence for
+The central idea: the wiring of an arrow graph _is_ the evidence for
 its type, its proof, its trait conformance, and its schedule. One
 object carries all four readings.
 
-| Reading | Carried by |
-|---|---|
-| type | wiring (HM + rows) |
-| proof | wiring (`>>>` = cut, `first` = ∧-functoriality, `choice` = ∨-functoriality, `loop` = trace) |
-| trait conformance | wiring (graph assignment to an arrow signature) |
-| schedule | wiring (dependency graph) |
+| Reading           | Carried by                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| type              | wiring (HM + rows)                                                                          |
+| proof             | wiring (`>>>` = cut, `first` = ∧-functoriality, `choice` = ∨-functoriality, `loop` = trace) |
+| trait conformance | wiring (graph assignment to an arrow signature)                                             |
+| schedule          | wiring (dependency graph)                                                                   |
 
 See `docs/ARROWS_AND_LOGIC.md` for the Curry–Howard correspondence.

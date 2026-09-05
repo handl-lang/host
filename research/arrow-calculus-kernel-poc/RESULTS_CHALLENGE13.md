@@ -6,7 +6,7 @@ Date: 2026-09-01 (revised + fully mechanized, universal trio complete)
 Challenge: #13 — Do freer arrows have a structural advantage over freer monads?
 Cumulative: 242/242 Rust tests + 212 Lean4 theorems (17 modules, all fully proven, zero `sorry`), zero warnings.
 
-**NEW:** Fully mechanized *universal* impossibility theorem in Lean4 (no `sorry`): [FanoutUnencodable.lean](lean/ArrowMinimalityLib/FanoutUnencodable.lean) — 24 theorems, all proven. Three universal theorems: `no_bind_encoding_preserves_fanout` (Get/Put), `no_bind_encoding_preserves_choice` (Sum values), `no_bind_encoding_preserves_loop` (pair/feedback values). All quantify over ALL `bind`-based encodings and prove divergence when `input ≠ state`. The trio theorem `trioUnencodable` unifies all three.
+**NEW:** Fully mechanized _universal_ impossibility theorem in Lean4 (no `sorry`): [FanoutUnencodable.lean](lean/ArrowMinimalityLib/FanoutUnencodable.lean) — 24 theorems, all proven. Three universal theorems: `no_bind_encoding_preserves_fanout` (Get/Put), `no_bind_encoding_preserves_choice` (Sum values), `no_bind_encoding_preserves_loop` (pair/feedback values). All quantify over ALL `bind`-based encodings and prove divergence when `input ≠ state`. The trio theorem `trioUnencodable` unifies all three.
 
 ---
 
@@ -53,6 +53,7 @@ in Lean4.
 #### Fanout Unencodability
 
 **Arrow fanout** requires both branches to receive the SAME input:
+
 ```
        ┌→ f(input) ─┐
 input─┤              ├→ (v1,v2)
@@ -60,6 +61,7 @@ input─┤              ├→ (v1,v2)
 ```
 
 **Monadic bind** threads f's OUTPUT as g's input:
+
 ```
 input → f → v1 → g(v1) → v2
 ```
@@ -95,24 +97,24 @@ trees. This is a separate limitation from the expressiveness gap.
 Where expressiveness is about **what can be computed**, static analysis
 is about **what can be observed**:
 
-| Static analysis | Freer arrow | Freer monad |
-|---|---|---|
-| Effect inference | YES (traverse OpNode) | NO (opaque continuations) |
-| Per-branch effects | YES (traverse Choice) | NO (branches in opaque fn) |
-| Branch counting | YES (traverse Choice) | NO (branches in opaque fn) |
-| Structure recovery | YES (Fanout/Choice/Loop) | NO (all in opaque fns) |
-| Fusion | YES (pattern-match tree) | NO (can't pattern-match fns) |
+| Static analysis    | Freer arrow              | Freer monad                  |
+| ------------------ | ------------------------ | ---------------------------- |
+| Effect inference   | YES (traverse OpNode)    | NO (opaque continuations)    |
+| Per-branch effects | YES (traverse Choice)    | NO (branches in opaque fn)   |
+| Branch counting    | YES (traverse Choice)    | NO (branches in opaque fn)   |
+| Structure recovery | YES (Fanout/Choice/Loop) | NO (all in opaque fns)       |
+| Fusion             | YES (pattern-match tree) | NO (can't pattern-match fns) |
 
 ---
 
 ## The Corrected Grand Summary
 
-| Angle | Freer arrow | Freer monad | Asymmetry? |
-|---|---|---|---|
-| 13a Expressiveness | Full (fanout, choice, loop) | Sequential only | **YES — semantic mismatch** |
-| 13b Effect typing | Static inference | Runtime only | **YES — opaque continuations** |
-| 13c Speculative compilation | Pre-compile branches | Can't enumerate branches | **YES — branches hidden** |
-| 13d Fusion | Pattern-match + rewrite | Can't pattern-match | **YES — structure opaque** |
+| Angle                       | Freer arrow                 | Freer monad              | Asymmetry?                     |
+| --------------------------- | --------------------------- | ------------------------ | ------------------------------ |
+| 13a Expressiveness          | Full (fanout, choice, loop) | Sequential only          | **YES — semantic mismatch**    |
+| 13b Effect typing           | Static inference            | Runtime only             | **YES — opaque continuations** |
+| 13c Speculative compilation | Pre-compile branches        | Can't enumerate branches | **YES — branches hidden**      |
+| 13d Fusion                  | Pattern-match + rewrite     | Can't pattern-match      | **YES — structure opaque**     |
 
 ---
 
@@ -194,16 +196,16 @@ freer monad with opaque continuations) reveals the asymmetry clearly.
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests/Theorems | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48 | COMPLETE |
-| 2 | #6 (effects & handlers) | 20 | COMPLETE |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | COMPLETE |
-| Deep dive | Effect typing | 31 | COMPLETE |
-| 4 | #9 (structural preservation under monadic translation) | 33 | COMPLETE |
-| 5 | #10 (minimality — Lean4) | 11 theorems | COMPLETE |
-| 6 | #11 (ArrowApply without opacity) | 19 | COMPLETE |
-| 7 | Translation asymmetry — Lean4 | 8 theorems | COMPLETE |
-| 8 | #12 (structural preservation under profunctor translation) | 28 | COMPLETE |
-| 9 | #13 (arrow vs freer monad asymmetry — REVISED) | 23 | COMPLETE |
-| | **Total** | **224 Rust + 19 Lean (19 proven)** | **All passing** |
+| Phase     | Challenge                                                            | Tests/Theorems                     | Status          |
+| --------- | -------------------------------------------------------------------- | ---------------------------------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48                                 | COMPLETE        |
+| 2         | #6 (effects & handlers)                                              | 20                                 | COMPLETE        |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26                                 | COMPLETE        |
+| Deep dive | Effect typing                                                        | 31                                 | COMPLETE        |
+| 4         | #9 (structural preservation under monadic translation)               | 33                                 | COMPLETE        |
+| 5         | #10 (minimality — Lean4)                                             | 11 theorems                        | COMPLETE        |
+| 6         | #11 (ArrowApply without opacity)                                     | 19                                 | COMPLETE        |
+| 7         | Translation asymmetry — Lean4                                        | 8 theorems                         | COMPLETE        |
+| 8         | #12 (structural preservation under profunctor translation)           | 28                                 | COMPLETE        |
+| 9         | #13 (arrow vs freer monad asymmetry — REVISED)                       | 23                                 | COMPLETE        |
+|           | **Total**                                                            | **224 Rust + 19 Lean (19 proven)** | **All passing** |

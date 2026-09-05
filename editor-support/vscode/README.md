@@ -58,15 +58,15 @@ enableRefinementDiagnostics = true
 enableSemanticHighlighting = true
 ```
 
-| Section | Key | Default | Description |
-|---------|-----|---------|-------------|
-| `[language]` | `kit` | (server default) | Crate name or path to the language data directory |
-| `[language]` | `version` | (none) | Pin a specific kit version |
-| `[language]` | `extensions` | `[".hnl"]` | Extra file extensions mapped to `handl` at runtime via `files.associations` |
-| `[editor]` | `enableInlayHints` | `true` | Show inferred refinement types as inlay hints |
-| `[editor]` | `enableCodeLens` | `true` | Show inferred contract summaries as code lenses |
-| `[editor]` | `enableRefinementDiagnostics` | `true` | Show refinement inference errors as diagnostics |
-| `[editor]` | `enableSemanticHighlighting` | `true` | Enable semantic token-based syntax highlighting |
+| Section      | Key                           | Default          | Description                                                                 |
+| ------------ | ----------------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `[language]` | `kit`                         | (server default) | Crate name or path to the language data directory                           |
+| `[language]` | `version`                     | (none)           | Pin a specific kit version                                                  |
+| `[language]` | `extensions`                  | `[".hnl"]`       | Extra file extensions mapped to `handl` at runtime via `files.associations` |
+| `[editor]`   | `enableInlayHints`            | `true`           | Show inferred refinement types as inlay hints                               |
+| `[editor]`   | `enableCodeLens`              | `true`           | Show inferred contract summaries as code lenses                             |
+| `[editor]`   | `enableRefinementDiagnostics` | `true`           | Show refinement inference errors as diagnostics                             |
+| `[editor]`   | `enableSemanticHighlighting`  | `true`           | Enable semantic token-based syntax highlighting                             |
 
 When `.handl.toml` is absent or omits a value, the defaults above apply. The `.hnl` extension is always declared statically in `package.json`; any additional extensions from the manifest are registered per-workspace via `files.associations`.
 

@@ -15,12 +15,14 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 ### 1. VM evaluation stubbed (11 tests)
 
 **Files:**
+
 - `crates/plugin-vm-common/src/middleware_vm.rs` (9 tests)
 - `crates/plugin-vm-common/src/host/host_tests.rs` (2 tests)
 
 **Reason:** `CanonicalVm::eval` and `CanonicalVm::eval_async` in `plugin-vm-backend-rust-interpreter` return `Error::PrimitiveError("not implemented")`. The tests exercise middleware tracing, async evaluation, and host-bound eval callbacks — all of which require a working tree-walking interpreter.
 
 **Tests:**
+
 - `middleware_records_sync_trace`
 - `middleware_records_async_trace`
 - `middleware_trace_summarizes_nested_calls`
@@ -40,6 +42,7 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 **Reason:** `ToolingHost` wires `BasicCompletion`, `BasicGotoDef`, and `BasicDocumentSymbols` as plugins, but the tooling layer does not yet route parsed AST or token spans into the LSP capability handlers. The LSP plugins exist but their `run` methods return `NotImplemented`.
 
 **Tests:**
+
 - `complete_includes_let_binding`
 - `complete_offers_keyword`
 - `goto_def_finds_let_binding`
@@ -54,6 +57,7 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 **Reason:** `ToolingHost::format` and `ToolingHost::diagnose` are stubbed. The formatter pipeline (`BasicFormatter` + `FormatBehavior` rules) exists in `plugin-ext-fmt` and `kit-canonical` registers it, but `ToolingHost` does not yet invoke the `format` capability. Similarly, the diagnostics/lint pipeline (`BasicLinter` + `LintBehavior`) is registered but not called by the tooling layer.
 
 **Tests:**
+
 - `format_long_pipe_100`
 - `format_long_pipe_1000`
 - `format_long_pipe_10000` (also notes a debug-build stack overflow for 10k nested pipes)
@@ -62,24 +66,28 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 ### 4. Network/TLS integration (5 tests)
 
 **Files:**
+
 - `crates/plugin-lib-ws-rfc-native/src/module.rs` (3 tests)
 - `crates/plugin-lib-tls-native/src/tests.rs` (2 tests)
 
 **Reason:** These tests require either a live TLS handshake against a remote server or a configured `rustls` crypto provider. The workspace does not bundle a default crypto provider, and CI does not provision TLS certificates. These are integration tests that belong behind a feature flag or a CI-only runner, not in the default test suite.
 
 **Tests:**
+
 - WebSocket TLS connect, send, and close (3 tests in `module.rs`)
 - TLS connector tests (2 tests in `tests.rs`)
 
 ### 5. Concurrent stress tests (5 tests)
 
 **Files:**
+
 - `crates/plugin-lib-concurrent/tests/stress.rs` (4 tests)
 - `crates/plugin-lib-concurrent/src/scheduler.rs` (1 test)
 
 **Reason:** High-contention stress tests that spawn many threads and assert scheduling fairness. They are flaky under load and one has a known race condition in the thread pool scheduler. These are not unit tests — they are performance/fairness regressions that require controlled environments.
 
 **Tests:**
+
 - 4 stress tests in `stress.rs` (no explicit reason string)
 - 1 scheduler test (`flaky race; see thread pool scheduler`)
 
@@ -90,6 +98,7 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 **Reason:** `StdHttpServer::route_function` accepts a `FunctionValue` (with params, body, and patterns) but the server does not yet evaluate the function body through the VM. The handler stores the function but returns `NotImplemented` on request. Wiring requires the VM eval pipeline (workstream 1) to be functional.
 
 **Tests:**
+
 - `function_value_handler_returns_string`
 - `function_value_handler_uses_path_param`
 
@@ -100,6 +109,7 @@ This ADR inventories every ignored test, classifies why it is ignored, and recor
 **Reason:** The test loads a native cdylib plugin through `NativeLoader` and dispatches an `echo` capability. The `NativeLoader` plugin exists and the test logic is correct, but `ToolingHost` does not yet expose a `load` capability entry point that the CLI can call. The test is a full integration test that requires a compiled cdylib in `target/debug`.
 
 **Test:**
+
 - `tooling_host_loads_native_plugin_and_dispatches_command`
 
 ## Decision
@@ -112,15 +122,15 @@ None of the ignored tests are removed. Each test is an executable specification 
 
 Each workstream has a clear unblock condition:
 
-| # | Workstream | Tests | Unblock condition | Depends on |
-|---|-----------|-------|-------------------|------------|
-| 1 | VM eval | 11 | Implement `CanonicalVm::eval` tree-walking interpreter | — |
-| 2 | LSP plugins | 6 | Wire `ToolingHost` to invoke LSP capabilities with parsed AST | Parser (done) |
-| 3 | Format/diagnostics | 4 | Wire `ToolingHost::format` and `diagnose` to invoke platform capabilities | Formatter (done), Linter (done) |
-| 4 | Network/TLS | 5 | Add `tls` feature flag or move to CI-only suite | — |
-| 5 | Concurrent stress | 5 | Fix scheduler race; gate behind `stress` feature flag | — |
-| 6 | HTTP server function values | 2 | Wire `route_function` to VM eval pipeline | Workstream 1 |
-| 7 | Loader/CLI | 1 | Expose `load` capability through `ToolingHost` | — |
+| #   | Workstream                  | Tests | Unblock condition                                                         | Depends on                      |
+| --- | --------------------------- | ----- | ------------------------------------------------------------------------- | ------------------------------- |
+| 1   | VM eval                     | 11    | Implement `CanonicalVm::eval` tree-walking interpreter                    | —                               |
+| 2   | LSP plugins                 | 6     | Wire `ToolingHost` to invoke LSP capabilities with parsed AST             | Parser (done)                   |
+| 3   | Format/diagnostics          | 4     | Wire `ToolingHost::format` and `diagnose` to invoke platform capabilities | Formatter (done), Linter (done) |
+| 4   | Network/TLS                 | 5     | Add `tls` feature flag or move to CI-only suite                           | —                               |
+| 5   | Concurrent stress           | 5     | Fix scheduler race; gate behind `stress` feature flag                     | —                               |
+| 6   | HTTP server function values | 2     | Wire `route_function` to VM eval pipeline                                 | Workstream 1                    |
+| 7   | Loader/CLI                  | 1     | Expose `load` capability through `ToolingHost`                            | —                               |
 
 ### Priority order for un-ignoring
 

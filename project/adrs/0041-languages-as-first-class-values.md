@@ -32,7 +32,7 @@ are still not values:
 2. **`eval` is a host primitive, not a handl function.** The `kit` capability
    only mutates a `KitRegistry` (`add`/`remove`/`info`,
    `plugin-ext-kit/src/lib.rs`). There is no `eval : Language -> Source ->
-   Value` a handl program can call. The interpreter is a fixed wall above
+Value` a handl program can call. The interpreter is a fixed wall above
    the program, invisible and untouchable.
 
 3. **Rule instantiation is hardcoded Rust, not data.** `kit-canonical` turns
@@ -53,15 +53,15 @@ fixed host and becomes a value-level operation: `eval : Language -> Source
 -> Value`. The language you write in and the language you describe become
 the same kind of thing.
 
-| first-class functions | first-class languages |
-|---|---|
-| `apply : (A -> B) -> A -> B` | `eval : Language -> Source -> Value` |
-| authority lives in the function's closure | authority lives in the language's behaviors |
-| gate the function, not `apply` | gate the language, not `eval` |
-| `this`/`self` = the receiver | `self` = the running language |
-| recursion via self-reference | self-hosting bootstrap via `eval(self, ...)` |
-| Y combinator unlocks Turing completeness | Y-for-languages unlocks a universal host |
-| pure function = safe to apply anywhere | pure language = safe to eval anywhere |
+| first-class functions                     | first-class languages                        |
+| ----------------------------------------- | -------------------------------------------- |
+| `apply : (A -> B) -> A -> B`              | `eval : Language -> Source -> Value`         |
+| authority lives in the function's closure | authority lives in the language's behaviors  |
+| gate the function, not `apply`            | gate the language, not `eval`                |
+| `this`/`self` = the receiver              | `self` = the running language                |
+| recursion via self-reference              | self-hosting bootstrap via `eval(self, ...)` |
+| Y combinator unlocks Turing completeness  | Y-for-languages unlocks a universal host     |
+| pure function = safe to apply anywhere    | pure language = safe to eval anywhere        |
 
 ### Why `eval` is not a security problem
 
@@ -130,8 +130,8 @@ handl: type.any = language {
 ```
 
 This replaces the flat `KitManifest { plugins: Vec<String> }` with a
-structured description. The manifest names *what* the language is; the
-`Language` value *is* what the language is.
+structured description. The manifest names _what_ the language is; the
+`Language` value _is_ what the language is.
 
 ### 2. `eval` is a handl function
 
@@ -246,7 +246,7 @@ if not safe then reject else load(mod-lang);
 ### Negative
 
 - **Types for `eval` are hard.** If `Language` is a value, the result
-  type of `eval(lang, src)` depends on the *value* of `lang`, not its
+  type of `eval(lang, src)` depends on the _value_ of `lang`, not its
   type. Typing this requires the type system to reason about which
   language is being evaluated — dependent-type territory, or accept
   `type.any` escape hatches (a cop-out). This is the deepest open

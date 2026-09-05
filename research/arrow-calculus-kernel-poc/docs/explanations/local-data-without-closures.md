@@ -25,7 +25,7 @@ captured. The arrow calculus has neither half:
   variables, so there is nothing to close over.
 
 What you might call a "function" here is an arrow `τ ~> σ`: a value that
-takes a `τ` and produces a `σ`. It does not *remember* anything beyond
+takes a `τ` and produces a `σ`. It does not _remember_ anything beyond
 what is wired into it. The wiring is the program.
 
 This is the deliberate opposite of the monadic tradition, where `bind`
@@ -33,7 +33,7 @@ threads a continuation `k : Value -> Comp` and that `k` is an opaque
 host-language closure. The direct-bind impossibility result
 ([`direct-bind-impossibility.md`](../../direct-bind-impossibility.md))
 shows that this opacity is not cosmetic: a continuation that only sees
-the predecessor's output (never the original input) *cannot* faithfully
+the predecessor's output (never the original input) _cannot_ faithfully
 encode `fanout` or `loop`. Closures don't just hide structure — they
 destroy the ability to represent certain arrow programs at all.
 
@@ -60,7 +60,7 @@ loop f : τ ~> σ
 ```
 
 The `ρ` is your mutable cell, threaded across iterations. This is how
-factorial, counters, and recursion work: the accumulator *is* the `ρ`.
+factorial, counters, and recursion work: the accumulator _is_ the `ρ`.
 
 ```text
 factorial : Int ~> Int
@@ -87,7 +87,7 @@ operation Put : State    ~> ()
 `handle_state` threads `s` through pass-through; foreign operations
 rebuild with the handler re-applied to the continuation. This is the
 effectful version of (2), lifted out of the program text and into the
-handler stack. The program just *mentions* `Get`/`Put`; the cell lives
+handler stack. The program just _mentions_ `Get`/`Put`; the cell lives
 in the handler.
 
 See [`FORMALISM.md` §Effects & Handlers](../../FORMALISM.md) for the
@@ -97,7 +97,7 @@ full pass-through semantics and handler-stacking rules.
 
 ## Why this matters
 
-A closure hides data *and* hides structure in one move. The arrow
+A closure hides data _and_ hides structure in one move. The arrow
 calculus refuses to do either: the data is in a tuple, the structure is
 in the wiring, and both are explicit.
 
@@ -105,10 +105,10 @@ That is why three otherwise-unrelated properties all hold at once:
 
 - **Effect inference** — the effect row is just the set of operations
   suspended in the freer-arrow tree. You can walk it because there are
-  no closures to walk *into*.
+  no closures to walk _into_.
 - **Dependency graphs** — `fanout` shows two independent branches; no
   closure obscures the edge structure.
-- **λ-free Curry–Howard** — the graph *is* the proof object. The proof
+- **λ-free Curry–Howard** — the graph _is_ the proof object. The proof
   structure is carried by wiring (`comp` = cut, `first` = ∧-functoriality,
   `left` = ∨-functoriality, `loop` = trace). An opaque monad cannot be a
   proof object because its structure is hidden in closures; an arrow
@@ -118,7 +118,7 @@ The one place closures appear in the project — the Rust `Rc<dyn Fn>`
 continuation in the runtime `Comp` — is called out as an "architectural
 blemish" in [`THESIS.md` §The IComp Question](../../THESIS.md). The fix
 is not a third representation; it is to defunctionalise that
-continuation into the explicit sub-tree form `IComp`, and treat *that*
+continuation into the explicit sub-tree form `IComp`, and treat _that_
 as canonical. The closure was always the thing to be eliminated, never
 a primitive.
 
@@ -126,10 +126,10 @@ a primitive.
 
 ## In practice
 
-| You want… | Use… | Where the data lives |
-|---|---|---|
-| A local for one sub-computation | `first f` | the `ρ` slot of a product |
-| A mutable cell across iterations | `loop f` | the `ρ` channel of the feedback |
-| A mutable cell across the program | `Get`/`Put` + `handle_state` | the handler's state parameter |
+| You want…                         | Use…                         | Where the data lives            |
+| --------------------------------- | ---------------------------- | ------------------------------- |
+| A local for one sub-computation   | `first f`                    | the `ρ` slot of a product       |
+| A mutable cell across iterations  | `loop f`                     | the `ρ` channel of the feedback |
+| A mutable cell across the program | `Get`/`Put` + `handle_state` | the handler's state parameter   |
 
 No closure. No hidden environment. No opacity. That is the whole point.

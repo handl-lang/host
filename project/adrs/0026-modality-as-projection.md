@@ -25,14 +25,14 @@ extracts the part of `x` that inhabits `K`. The six moods are different ways of 
 
 ### Moods
 
-| mood | module | sugar | semantics | result |
-|---|---|---|---|---|
-| indicative | `mood.ind` | `x.K` | strict projection onto `S ∩ K` | the projected value, or error if `x ∉ K` |
-| potential | `mood.pot` | `x may K` | soft projection onto `S ∩ K` | the projected value, or `null` if `x ∉ K` |
-| negative | `mood.neg` | `x not K` | soft projection onto `S − K` | the complement-projected value, or `null` if `x ∈ K` |
-| interrogative | `mood.int` | `x is K` | membership test | `bool` |
-| normative | `mood.norm` | `x must K` | strict projection wrapped in `Result` | `result.ok(value)` or `result.err(error)` |
-| conditional | `mood.cnd` | `x when K else y` | soft projection with default | the value, or `y` |
+| mood          | module      | sugar             | semantics                             | result                                               |
+| ------------- | ----------- | ----------------- | ------------------------------------- | ---------------------------------------------------- |
+| indicative    | `mood.ind`  | `x.K`             | strict projection onto `S ∩ K`        | the projected value, or error if `x ∉ K`             |
+| potential     | `mood.pot`  | `x may K`         | soft projection onto `S ∩ K`          | the projected value, or `null` if `x ∉ K`            |
+| negative      | `mood.neg`  | `x not K`         | soft projection onto `S − K`          | the complement-projected value, or `null` if `x ∈ K` |
+| interrogative | `mood.int`  | `x is K`          | membership test                       | `bool`                                               |
+| normative     | `mood.norm` | `x must K`        | strict projection wrapped in `Result` | `result.ok(value)` or `result.err(error)`            |
+| conditional   | `mood.cnd`  | `x when K else y` | soft projection with default          | the value, or `y`                                    |
 
 ### Projection semantics
 
@@ -142,14 +142,14 @@ kind-path := identifier ("." identifier)*
 
 `handl-lib-utils` will provide a `mood` module with the following functions:
 
-| function | meaning |
-|---|---|
-| `mood.ind(value, kind)` | strict projection; error if `value ∉ kind` |
-| `mood.int(value, kind)` | membership test; `bool` |
-| `mood.norm(value, kind)` | strict projection wrapped in `Result` |
-| `mood.pot(value, kind)` | soft projection; `null` if `value ∉ kind` |
-| `mood.neg(value, kind)` | complement projection; `null` if `value ∈ kind` |
-| `mood.cnd(value, kind, default)` | soft projection with fallback |
+| function                         | meaning                                         |
+| -------------------------------- | ----------------------------------------------- |
+| `mood.ind(value, kind)`          | strict projection; error if `value ∉ kind`      |
+| `mood.int(value, kind)`          | membership test; `bool`                         |
+| `mood.norm(value, kind)`         | strict projection wrapped in `Result`           |
+| `mood.pot(value, kind)`          | soft projection; `null` if `value ∉ kind`       |
+| `mood.neg(value, kind)`          | complement projection; `null` if `value ∈ kind` |
+| `mood.cnd(value, kind, default)` | soft projection with fallback                   |
 
 The `kind` argument is a runtime kind descriptor. In Phase 1 it can be:
 

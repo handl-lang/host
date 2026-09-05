@@ -13,10 +13,10 @@ ack(m, n):
 
 ## Parameters
 
-| Mode         | m   | n   | Expected output | handl ~time |
-| ------------ | --- | --- | --------------- | ----------- |
-| end-to-end   | 2   | 5   | 13              | ~0.9 s      |
-| heavy-work   | 3   | 3   | 61              | ~20 s       |
+| Mode       | m   | n   | Expected output | handl ~time |
+| ---------- | --- | --- | --------------- | ----------- |
+| end-to-end | 2   | 5   | 13              | ~0.9 s      |
+| heavy-work | 3   | 3   | 61              | ~20 s       |
 
 ## Why this task
 

@@ -32,10 +32,10 @@ Two problems with that shape:
 
 1. **Building a toy runner and bolting production features on later** is the
    anti-pattern ADR-0085 rule 2 ("best practices in Rust, now") exists to
-   prevent. The handl port (RFC-0005) is only a low-risk *port* if the Rust
+   prevent. The handl port (RFC-0005) is only a low-risk _port_ if the Rust
    original is already structured the way the handl version will be.
 2. **The runner and the framework library are tangled in one crate.** Today
-   `plugin-lib-test` hosts *both* the runner (`runner.rs`) and the framework
+   `plugin-lib-test` hosts _both_ the runner (`runner.rs`) and the framework
    library (`assert`/`property`/`benchmark`/`fuzz`/`snapshot` modules + the
    `test.hnl` op wiring). ADR-0092 migrates the framework to handl and
    deletes `plugin-lib-test`; the runner needs a home of its own.
@@ -58,10 +58,10 @@ features become new implementations/compositions, not architectural surgery.
 
 ### Crate boundary
 
-| Crate | Role | Fate |
-|---|---|---|
-| `plugin-engine-test` (**new**) | Test runner: discovery, index, filter, planner, scheduler, engine, result store, summarizer, reporter | Created by this ADR; stays Rust per ADR-0085 rule 6 |
-| `plugin-lib-test` | Framework library: `assert`/`property`/`benchmark`/`fuzz`/`snapshot` + `test.hnl` op wiring | Migrated to handl by [ADR-0092](./0092-test-framework-in-handl.md), then **deleted** |
+| Crate                          | Role                                                                                                  | Fate                                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `plugin-engine-test` (**new**) | Test runner: discovery, index, filter, planner, scheduler, engine, result store, summarizer, reporter | Created by this ADR; stays Rust per ADR-0085 rule 6                                  |
+| `plugin-lib-test`              | Framework library: `assert`/`property`/`benchmark`/`fuzz`/`snapshot` + `test.hnl` op wiring           | Migrated to handl by [ADR-0092](./0092-test-framework-in-handl.md), then **deleted** |
 
 The runner depends on the framework library (tests call `assert.*` etc.),
 not the reverse. During migration the runner consumes the framework via the
@@ -132,7 +132,8 @@ canonical_kit.runtime().lang()  ⊕  test_language_fragment  →  test_lang
 
 > **Prerequisite:** author the test-language fragment YAML and wire
 > `Language::merge` in the runner's discovery path. This is a data artifact
-> + runner wiring change, **not** a grammar amendment to ADR-0074.
+>
+> - runner wiring change, **not** a grammar amendment to ADR-0074.
 
 ### Providers (extensible from day one)
 
@@ -142,14 +143,14 @@ TestProvider  →  discover  →  Test[]
 
 Built-in providers:
 
-| Provider | Input |
-|---|---|
-| `UnitProvider` | `test "name" { body }` blocks |
-| `PropertyProvider` | `property "name" { ... }` blocks |
-| `DoctestProvider` | doc examples in module comments |
-| `BenchmarkProvider` | `bench "name"` blocks (collected, not run under `hnl test`) |
+| Provider              | Input                                                        |
+| --------------------- | ------------------------------------------------------------ |
+| `UnitProvider`        | `test "name" { body }` blocks                                |
+| `PropertyProvider`    | `property "name" { ... }` blocks                             |
+| `DoctestProvider`     | doc examples in module comments                              |
+| `BenchmarkProvider`   | `bench "name"` blocks (collected, not run under `hnl test`)  |
 | `IntegrationProvider` | `integration_test "name" { ... }` blocks (effect capability) |
-| `CompileProvider` | compile-only checks |
+| `CompileProvider`     | compile-only checks                                          |
 
 New providers do not require modifying the runner.
 
@@ -168,7 +169,7 @@ path("str/**") && tag("unit") && !tag("slow")
 
 The **predicate combinators** (`&&`, `!`, `||`, glob/path matching) are a
 **generic concern** — there is no generic predicate/filter crate in the
-platform today. The runner defines the test-specific *fields* (`tag`,
+platform today. The runner defines the test-specific _fields_ (`tag`,
 `path`, `kind`, `status`) on top of generic combinator infrastructure.
 See **Generic infrastructure dependencies** below: a small generic
 predicate crate is extracted, with the runner as first consumer (IDE
@@ -184,7 +185,7 @@ The **planner** is test-specific: it expresses test dependencies, sharding,
 retry policy, ordering, and isolation in an `ExecutionPlan`. The
 **scheduler** is a **generic platform system**, not a runner invention:
 a bounded worker pool that executes a plan of independent jobs under a
-policy. The runner is a *consumer* of the scheduler, contributing only the
+policy. The runner is a _consumer_ of the scheduler, contributing only the
 `SchedulePolicy` (parallelism, timeouts) derived from the plan.
 
 > The platform already has `plugin-lib-concurrent::Scheduler`, but that is
@@ -309,18 +310,18 @@ shapes declare roles in the test-language fragment's `AstShapeDef`s.
 ### Generic infrastructure dependencies
 
 Several pipeline stages are **generic platform systems**, not test-runner
-inventions. The runner is a *consumer* of these; the concepts in the
+inventions. The runner is a _consumer_ of these; the concepts in the
 sections above are the runner's consumer-side glue (policies, test-specific
 fields, composition). The principle: **if another tool would want it, it
 does not belong in `plugin-engine-test`.**
 
-| Generic system | Home | State | Runner contributes |
-|---|---|---|---|
-| **Capability reasoning** (what can a `Language` touch?) | `handl-language::capabilities` (`capabilities(&lang)`, `foreign_names`, `subset_of`) | **Exists**, language-level (ADR-0044 §7) | nothing — queries it; maps result → scheduling decision |
-| **Eval-result memoisation** (ExecutionCache) | `plugin-exec-cache::CacheControl` (AST-fingerprint keyed `ExecControl` rule) | **Exists**, generic; may need key extension to include runtime/deps fingerprint | composes it onto the eval engine; test-specific DiscoveryCache/CompilationCache stay in the runner |
-| **Bounded-job scheduler** (run N independent jobs under a policy) | `plugin-lib-scheduler` (`BoundedScheduler`, `SchedulePolicy`) | **Exists**, generic; first consumer is the test runner; future build systems, batch linters, etc. follow | `SchedulePolicy` derived from the test-specific `ExecutionPlan` |
-| **Predicate combinators** (`&&`, `!`, `||`, glob/path matching) | `plugin-lib-predicate` (`Predicate<T>`, `StringMatcher`, glob/path matching) | **Exists**, generic; first consumer is the test runner; IDE symbol filtering, lint rule selection, etc. share the shape | test-specific fields (`tag`, `path`, `kind`, `status`) on top |
-| **Event bus** (structured events, multiple subscribers) | none today as a generic crate | **Candidate for extracting** if a second consumer appears (LSP, build progress) | the test event vocabulary (`RunStarted`, `TestFinished`, …) |
+| Generic system                                                    | Home                                                                                 | State                                                                                                    | Runner contributes                                                                                 |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Capability reasoning** (what can a `Language` touch?)           | `handl-language::capabilities` (`capabilities(&lang)`, `foreign_names`, `subset_of`) | **Exists**, language-level (ADR-0044 §7)                                                                 | nothing — queries it; maps result → scheduling decision                                            |
+| **Eval-result memoisation** (ExecutionCache)                      | `plugin-exec-cache::CacheControl` (AST-fingerprint keyed `ExecControl` rule)         | **Exists**, generic; may need key extension to include runtime/deps fingerprint                          | composes it onto the eval engine; test-specific DiscoveryCache/CompilationCache stay in the runner |
+| **Bounded-job scheduler** (run N independent jobs under a policy) | `plugin-lib-scheduler` (`BoundedScheduler`, `SchedulePolicy`)                        | **Exists**, generic; first consumer is the test runner; future build systems, batch linters, etc. follow | `SchedulePolicy` derived from the test-specific `ExecutionPlan`                                    |
+| **Predicate combinators** (`&&`, `!`, `                           |                                                                                      | `, glob/path matching)                                                                                   | `plugin-lib-predicate` (`Predicate<T>`, `StringMatcher`, glob/path matching)                       | **Exists**, generic; first consumer is the test runner; IDE symbol filtering, lint rule selection, etc. share the shape | test-specific fields (`tag`, `path`, `kind`, `status`) on top |
+| **Event bus** (structured events, multiple subscribers)           | none today as a generic crate                                                        | **Candidate for extracting** if a second consumer appears (LSP, build progress)                          | the test event vocabulary (`RunStarted`, `TestFinished`, …)                                        |
 
 The runner consumes the existing generic crates listed above. For future
 "candidate" generic concerns (such as the event bus), the runner does **not**
@@ -408,8 +409,8 @@ fragment; the stdlib's test suites are integration fixtures.
    plus their `GrammarRow`s, `LexerPattern`s, and `EvalSchemeDef`s.
 3. **Wire `Language::merge`** in the runner's discovery path to merge the
    fragment onto the canonical kit.
-4. **Consume the generic-system crates** (see *Generic infrastructure
-   dependencies*): reuse `handl-language::capabilities` and
+4. **Consume the generic-system crates** (see _Generic infrastructure
+   dependencies_): reuse `handl-language::capabilities` and
    `plugin-exec-cache` as-is; consume `plugin-lib-scheduler` for the
    bounded-job scheduler and `plugin-lib-predicate` for predicate
    combinators.

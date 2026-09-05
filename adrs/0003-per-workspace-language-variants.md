@@ -70,6 +70,7 @@ The server maintains a cache of loaded kits, keyed by `(kit_name, version)`. Onc
 ### What the extension does
 
 Nothing. The extension:
+
 - Declares language `handl`, extension `.hnl` (static, once)
 - Starts the server (once)
 - Forwards all requests to the server with the file URI
@@ -123,6 +124,7 @@ The server loads the custom kit's data files. `stream`, `sink`, and `source` are
 Use `handl.kit` setting in `.vscode/settings.json` per folder.
 
 **Rejected because:**
+
 - VS Code settings are per-folder but the server receives file URIs, not settings. The server would need to query VS Code for per-folder settings via a custom protocol, adding complexity.
 - `.handl.toml` is a language-level concept, not an editor concept. It should work the same in VS Code, Neovim, Emacs, or any other editor. Tying it to VS Code settings breaks editor portability.
 - The server can resolve `.handl.toml` from the file path alone, with no editor cooperation.
@@ -132,6 +134,7 @@ Use `handl.kit` setting in `.vscode/settings.json` per folder.
 Use a comment or directive at the top of each `.hnl` file to declare the kit.
 
 **Rejected because:**
+
 - Requires modifying every file. Adding a new file means remembering to add the directive.
 - The directive itself must be parsed before the kit is loaded — a chicken-and-egg problem. If the directive uses v0.2 syntax but the server is using v0.1 data, it may not parse.
 - Does not scale to large projects with hundreds of files.
@@ -141,6 +144,7 @@ Use a comment or directive at the top of each `.hnl` file to declare the kit.
 Pass `--kit handl-kit-data-canonical` as a server launch argument.
 
 **Rejected because:**
+
 - One server instance serves the entire VS Code workspace. A multi-root workspace with different projects cannot use different kits.
 - Requires restarting the server to change kits.
 - Does not support per-folder variants.
@@ -150,6 +154,7 @@ Pass `--kit handl-kit-data-canonical` as a server launch argument.
 Register `handl-v1` and `handl-v2` as separate language IDs in `package.json`.
 
 **Rejected because:**
+
 - Requires repackaging the extension for every new variant.
 - VS Code language IDs are static — cannot be added at runtime.
 - Users must manually associate file extensions with the right language ID.

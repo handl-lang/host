@@ -155,6 +155,7 @@ Single commit. The refactor is small enough to do in one pass:
 Full plugin framework with dependency injection container, event bus, error boundaries, cache layer, health check, and middleware pipeline (~30 files).
 
 **Rejected because:**
+
 - The extension does 3 things; 30 files is not justified.
 - Reinvents `vscode` and `vscode-languageclient` primitives (`context.subscriptions` is already a disposable pool; `vscode-languageclient` already has middleware and crash detection).
 - DI containers with typed tokens are not idiomatic TypeScript.
@@ -166,6 +167,7 @@ Full plugin framework with dependency injection container, event bus, error boun
 Leave `extension.ts` as-is.
 
 **Rejected because:**
+
 - Zero test coverage on the entry point.
 - Formatting provider registration is timing-sensitive (inside `.then()`).
 - Config defaults duplicated between code and `package.json`.
@@ -176,6 +178,7 @@ Leave `extension.ts` as-is.
 Extract just the config, leave the rest in `extension.ts`.
 
 **Rejected because:**
+
 - Does not solve the testability problem for client creation and formatting.
 - `extension.ts` would still be ~90 lines doing 3 unrelated things.
 

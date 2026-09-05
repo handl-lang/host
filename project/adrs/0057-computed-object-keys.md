@@ -13,7 +13,7 @@ prim from [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md).
 
 Object literals in handl support three key forms:
 
-- **bare identifier** — `{ n: 5 }` uses the identifier *name* `"n"` as the
+- **bare identifier** — `{ n: 5 }` uses the identifier _name_ `"n"` as the
   key (the variable is not evaluated).
 - **string literal** — `{ "mykey": 5 }` uses the literal string.
 - **any other expression** — `{ (k): 5 }` evaluates the expression and uses
@@ -27,7 +27,7 @@ key.
 
 The handl parser already reserves `[...]` for array literals and `xs[i]` for
 index access, so `[k]` in a general expression position is a one-element
-array. The question is whether `[expr]:` *inside an object literal* should be
+array. The question is whether `[expr]:` _inside an object literal_ should be
 reinterpreted as a computed key.
 
 ## Decision

@@ -428,8 +428,9 @@ pub trait ModuleLookup: 'static {
     /// Returns `None` if the op is not found or does not expose a type
     /// signature (i.e. its [`Function`] impl does not also implement
     /// [`TypeSignature`]).
-    fn lookup_type_signature(&self, _qualified_name: &str) -> Option<Value> {
-        None
+    fn lookup_type_signature(&self, qualified_name: &str) -> Option<Value> {
+        let func = self.lookup(qualified_name)?;
+        func.as_type_signature().map(|ts| ts.type_signature())
     }
 }
 

@@ -55,6 +55,7 @@ Vau {
 When the tree-walk engine encounters `Scheme::Vau`, it does **not** evaluate
 the children. Instead, it binds the child `AstRef`s to the param names in a
 new scope and evaluates the body. The body can:
+
 - Call `eval(self, ast)` to evaluate a bound expression (recovering
   structured behavior).
 - Inspect the AST node (kind, payload, children) to make compile-time
@@ -72,7 +73,7 @@ Add a `vau` keyword token and grammar rule:
   binding_power: [0, 0]
   child_shape:
     node_kind: vau
-    arity: 2  # params list + body
+    arity: 2 # params list + body
 ```
 
 The eval scheme for `vau` nodes is `Scheme::Vau` itself — the node

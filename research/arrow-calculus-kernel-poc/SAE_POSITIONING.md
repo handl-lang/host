@@ -6,7 +6,7 @@ Date: 2026-08-31
 
 This document captures the **Staged Arrow Engine (SAE)** framing — the
 spatial-computing narrative that motivates lowering the arrow IR to
-modern spatial hardware. It is a *positioning* document, not a tested
+modern spatial hardware. It is a _positioning_ document, not a tested
 result: the empirical evidence in this repo (Challenges #1–#11)
 establishes the calculus and its structural properties; the SAE
 framing describes the intended downstream target.
@@ -39,7 +39,7 @@ SAE unifies three core ideas:
    application with explicit process composition and data routing.
 2. **Multi-Stage Programming (staging).** Use a Stage 0 meta-evaluation
    phase to resolve dynamic control flow into statically route-optimized
-   Arrow graphs *before* execution.
+   Arrow graphs _before_ execution.
 3. **Explicit `ArrowApply` representation.** Express dynamic monadic
    power via an explicit `Apply` node rather than burying control flow
    inside opaque closures (`Rc<dyn Fn>`).
@@ -64,16 +64,16 @@ SAE unifies three core ideas:
 
 ## What is and is not established
 
-| Claim | Status |
-|---|---|
-| Arrow calculus is sufficient for PL construction | ✅ Challenges #1–#8, #11 |
-| Five primitives are independent (minimal) | ✅ Challenge #10 (Lean4) |
-| Explicit `ArrowApply` preserves inspectability | ✅ Challenge #11 (19 tests) |
-| Opaque monadic encoding is structurally lossy | ✅ Challenge #9 (33 tests) |
-| Stage 0 staging eliminates dynamic allocation | ⚠️ Proposed — not implemented in this repo |
-| Lowering to Wasm memory slabs / WGSL dispatch | ⚠️ Proposed — not implemented in this repo |
-| Direct FPGA netlist synthesis | ⚠️ Speculative future direction |
-| Inets/dup-node overhead is avoided by SAE | ⚠️ Argument only — no benchmark |
+| Claim                                            | Status                                     |
+| ------------------------------------------------ | ------------------------------------------ |
+| Arrow calculus is sufficient for PL construction | ✅ Challenges #1–#8, #11                   |
+| Five primitives are independent (minimal)        | ✅ Challenge #10 (Lean4)                   |
+| Explicit `ArrowApply` preserves inspectability   | ✅ Challenge #11 (19 tests)                |
+| Opaque monadic encoding is structurally lossy    | ✅ Challenge #9 (33 tests)                 |
+| Stage 0 staging eliminates dynamic allocation    | ⚠️ Proposed — not implemented in this repo |
+| Lowering to Wasm memory slabs / WGSL dispatch    | ⚠️ Proposed — not implemented in this repo |
+| Direct FPGA netlist synthesis                    | ⚠️ Speculative future direction            |
+| Inets/dup-node overhead is avoided by SAE        | ⚠️ Argument only — no benchmark            |
 
 The SAE framing is the **research direction**, not a completed result.
 The completed results are the calculus and its structural properties;
@@ -96,12 +96,12 @@ the spatial lowering is the proposed next phase.
 
 ## Relationship to the rest of the repo
 
-The SAE narrative is the *application* of the calculus results in this
+The SAE narrative is the _application_ of the calculus results in this
 repo. Challenges #9 and #11 are the load-bearing empirical results for
 the SAE claim that explicit `ArrowApply` preserves the structure
 required for ahead-of-time chunk pre-compilation. The minimality
 result (Challenge #10) is what makes the calculus a credible
-*foundation* rather than an ad-hoc IR.
+_foundation_ rather than an ad-hoc IR.
 
 For the novelty status of the SAE framing relative to prior art, see
 `PRIOR_ART.md`.

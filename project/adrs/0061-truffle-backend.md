@@ -26,8 +26,8 @@ realized by ADR-0062.
 ADR-0044 §4 established that eval engines are fixed interpreters of
 `Language.eval` data. ADR-0052 reduced the kernel to six arrow-calculus
 primitives (`arr`/`>>>`/`first`/`choice`/`loop`/`app`) and stated the
-semantic thesis explicitly: *execution is one possible handler
-interpretation, rather than a primitive property of arrows* (Sanada's
+semantic thesis explicitly: _execution is one possible handler
+interpretation, rather than a primitive property of arrows_ (Sanada's
 model). Three engines already implement the `EvalEngine` trait
 (`crates/plugin-engine-eval/src/lib.rs`):
 
@@ -53,9 +53,9 @@ This ADR picks strategy 2.
 
 ### Why Truffle, and why also a bytecode emitter
 
-The project's stated philosophy is *execution is one handler
-interpretation*. The tree-walk `V2Interpreter` is the canonical handler;
-the bytecode and cranelift engines are *optimizations* of that handler,
+The project's stated philosophy is _execution is one handler
+interpretation_. The tree-walk `V2Interpreter` is the canonical handler;
+the bytecode and cranelift engines are _optimizations_ of that handler,
 each requiring a bespoke code generator. A Truffle port preserves the
 handler shape directly: the Java interpreter is structurally the same
 walk over `SchemeV2` as `V2Interpreter`, and the GraalVM JIT specializes
@@ -176,7 +176,7 @@ lossy conversion.
 the Truffle engine, a `Foreign(name)` op resolves through:
 
 1. A JVM-side registry of polyglot host functions (Java/Kotlin/Scala
-   functions registered as Truffle guest bindings), *or*
+   functions registered as Truffle guest bindings), _or_
 2. A callback into the Rust host via JNI, for capabilities the Rust
    host owns (e.g. `fs.read` when the Rust host is the process owner).
 
@@ -242,7 +242,7 @@ engines do.
 - **The handler-interpretation thesis gets a second host.** ADR-0052
   states that execution is one handler interpretation. Today there is
   one canonical handler (`V2Interpreter`) and two optimizations of it
-  (bytecode, cranelift). The Truffle engine is a *second host* for the
+  (bytecode, cranelift). The Truffle engine is a _second host_ for the
   same handler — the same `SchemeV2` walk, running on a different
   runtime, JIT'd by a different mechanism. This is the first real
   exercise of the thesis across a runtime boundary.
@@ -254,7 +254,7 @@ engines do.
 - **The cranelift standalone-binary pattern gets a JVM analogue.** The
   `standalone.rs` pattern (embed AST + literal pool as constants, link
   a driver) maps to a Truffle AOT image via GraalVM's `native-image`.
-  This is *not* part of the initial implementation but is now
+  This is _not_ part of the initial implementation but is now
   architectically available: a `handl` program could be AOT-compiled
   to a native binary via Truffle's `native-image`, the JVM analogue of
   cranelift's `cranelift-object` on-disk binary.

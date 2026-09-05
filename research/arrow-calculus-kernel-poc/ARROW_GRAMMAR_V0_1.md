@@ -34,7 +34,7 @@ This document uses BNF-style productions in ```text fences. The conventions are:
 - **Nonterminals** are written in lowercase angle-free form, e.g. `expr`,
   `pattern`, `record_literal`. A nonterminal appears on the left of `::=`.
 - **Terminals** are written in single quotes for literal tokens (`'~>'`,
-  `'{'`, `'true'`) or named in `token.*` form when referring to a token *kind*
+  `'{'`, `'true'`) or named in `token.*` form when referring to a token _kind_
   (per ADR-0053's `token.kind` naming), e.g. `token.lbrace`, `token.keyword.if`.
 - **Repetition** is denoted by `( ... )*` (zero or more) and `( ... )+` (one or
   more). **Optionality** is denoted by `( ... )?`.
@@ -108,7 +108,7 @@ for records and blocks — was rejected as syntactic noise in an
 expression-oriented language (ADR-0074 Negative, spec §7.5).
 
 **Decision procedure.** A `{` token begins a **block** when the parser is in
-one of the following *block-expecting contexts* (i.e. the `{` immediately
+one of the following _block-expecting contexts_ (i.e. the `{` immediately
 follows one of these constructs, with at most the construct's own trailing
 operands already consumed):
 
@@ -124,10 +124,10 @@ operands already consumed):
 8. immediately after `do`: `do { ... } while cond`.
 
 In **all other positions** a `{` begins a **record** — specifically, in
-*value position* (an expression operand) and in *pattern position* (the LHS of
+_value position_ (an expression operand) and in _pattern position_ (the LHS of
 `~>`, a `match` arm pattern, a destructuring binding LHS). The one subtlety:
 inside `match val { ... }`, the outer `{}` is the match body (block-like,
-holding arms); any `{}` that appears *inside a pattern position* within an arm
+holding arms); any `{}` that appears _inside a pattern position_ within an arm
 is a **record pattern** (§9, §10), not a block. That is, the arm grammar is
 `pattern : expr`, and the `pattern` nonterminal may itself contain
 `record_pattern` / `positional_pattern` delimited by `{}` / `[]`, which are
@@ -159,7 +159,7 @@ parse error (spec §2.6).
 ### 2.2 Literals
 
 Literals are **language-level** (ID.8): the parser produces them directly via
-`LiteralKind` dispatch (ADR-0053 §1). Operations *on* literals are library
+`LiteralKind` dispatch (ADR-0053 §1). Operations _on_ literals are library
 arrows, not language primitives.
 
 ```text
@@ -311,10 +311,10 @@ continuation threshold). For an infix operator `op` with operands parsed at
 `rbp_right`:
 
 - **left-associative** operators satisfy `lbp > rbp_right` (so a following
-  same-precedence operator does *not* continue into the right operand — it
+  same-precedence operator does _not_ continue into the right operand — it
   binds to the left result instead). Concretely, `lbp = rbp_right + 1`.
 - **right-associative** operators satisfy `lbp < rbp_right` (so a following
-  same-precedence operator *does* continue into the right operand). Concretely,
+  same-precedence operator _does_ continue into the right operand). Concretely,
   `lbp = rbp_right - 1`.
 
 The table below assigns monotonically decreasing binding powers to the eight
@@ -349,7 +349,7 @@ Notes:
   triggered when an operand-position token (identifier, literal, `(`, `[`, `{`
   in record position, a keyword prefix form, etc.) appears where an infix
   operator could continue. ADR-0053 models this as an infix row keyed by the
-  *following* operand's leading token, with `lbp=80, rbp_right=79` and
+  _following_ operand's leading token, with `lbp=80, rbp_right=79` and
   `node_kind: call` (see §5). This is the standard Pratt "juxtaposition as
   high-precedence infix" technique.
 - **Field access `.name`** and **indexing `[expr]`** are postfix infix rows:
@@ -411,7 +411,7 @@ are private helpers.
 
 > The spec §3.3 shows `import sort, head from "collection"` (multi-name from
 > one module). The grammar above includes it, plus `import name as local from
-> "path"` (rename) and `import "path" as alias` (bind the whole module record).
+"path"` (rename) and `import "path" as alias` (bind the whole module record).
 > A single-name import `import name from "path"` is the common case; the
 > multi-name form is the general form. The `export` production (spec §3.4)
 > adds opt-in visibility: `export name`, `export name = expr`, `export *`, and
@@ -438,7 +438,7 @@ a positional pattern and whose RHS is a positional literal (spec §10.1).
 
 > **Surface binding vs kernel `bind`.** The v0.1 surface `name = expr` is a
 > **graph-block wire**, not the kernel `bind` combinator of ADR-0052. Per
-> ADR-0053 §2, the surface `=` in a *block* context desugars to `Seq` plus an
+> ADR-0053 §2, the surface `=` in a _block_ context desugars to `Seq` plus an
 > environment extension (the kernel `bind` shape, arity 3: left, value, body)
 > only when used in the `x = y in body` kernel form. The block-level surface
 > binding is a named wire in a graph block; the block as a whole desugars to
@@ -680,7 +680,7 @@ match_arm      ::= pattern ':' expr
 The outer `{}` of `match val { ... }` is the **match body** (block-like, per
 ID.11); arms are `pattern : expr` with `:` separator (ADR-0074). Commas between
 arms are optional (newline-separated). The `_` arm is the catch-all.
-Exhaustiveness is required (ID.13). Any `{}` inside a *pattern position* of an
+Exhaustiveness is required (ID.13). Any `{}` inside a _pattern position_ of an
 arm is a record pattern, not a block (§1.3).
 
 ### 4.14 Conditionals — `if` / `else` and multi-way `if` (spec §8)
@@ -720,7 +720,7 @@ immediately after `if`:
   parser parses the condition `expr`, then the then-branch (a block if `{`
   follows, else an expression), then requires `else` and the else-branch.
 
-The `:` after the condition is *not* a disambiguator in the two-branch form
+The `:` after the condition is _not_ a disambiguator in the two-branch form
 because the condition is a full `expr` and `:` is not an infix operator at the
 expression level (it only appears in record fields, patterns, match arms, and
 guard arms). The presence of `{` immediately after `if` is the sole
@@ -860,7 +860,7 @@ The row tables use ADR-0053's terminology. Recall (ADR-0053 §2–§6):
 
 - `ChildSeparator ::= Required(String) | Optional(String) | OneOf(Vec<String>)`.
 - `DelimitedShape` fields: `open`, `close`, `separator`, `pair` (`{ separator,
-  node_kind }`), `rest_token`, `open_is_operator_token`, `flatten`,
+node_kind }`), `rest_token`, `open_is_operator_token`, `flatten`,
   `container_kind`.
 - `LiteralKind ::= Number | Bool | Null | String{..} | StripAffix{..} | Raw`.
 - `AstShapeDef.desugar: Option<DesugarRule { target_kind, rewrite }>` — a
@@ -901,7 +901,7 @@ see §5.3), right operand (the body, parsed at `rbp_right=21`). No
 > **Pattern-position LHS.** The left operand of `~>` is a `pattern`, not a
 > full `expr`. ADR-0053's generic infix loop parses the left operand as the
 > already-parsed `left` (the accumulator), so the LHS is whatever was parsed
-> *before* the `~>` token at the caller's `rbp`. To enforce pattern position,
+> _before_ the `~>` token at the caller's `rbp`. To enforce pattern position,
 > the parser enters a `pattern`-parsing sub-mode for the operand immediately
 > preceding `~>`. This is a minor context flag, analogous to the contextual
 > `{}` flag (§1.3); it is not a new grammar-row kind. Equivalently, `~>` may
@@ -1083,14 +1083,14 @@ separator: token.colon, node_kind: guard_arm }`. Each `guard_arm` is
 `expr : expr` (or `_ : expr`). `desugar` rewrites the multi-way `if` to nested
 two-branch `if`/`else` (A.7), which then each desugar to `match`.
 
-> **Note on `open_is_operator_token`.** In the multi-way form the `{` is *not*
+> **Note on `open_is_operator_token`.** In the multi-way form the `{` is _not_
 > the `if` operator token itself (it follows `if`), so
 > `open_is_operator_token: false` and `parse_delimited_block` consumes the
-> `{`. This differs from the record-literal case (§5.8) where `{` *is* the
+> `{`. This differs from the record-literal case (§5.8) where `{` _is_ the
 > prefix token. The two `if` forms share the `token.keyword.if` prefix token
 > but differ in whether the next token is `{` (multi-way, delimited block
 > child) or an expression (two-branch, separated operands). This is a
-> **prefix-row dispatch on the *following* token**, which ADR-0053's
+> **prefix-row dispatch on the _following_ token**, which ADR-0053's
 > `lookup(token, Prefix)` does not natively express — see §5.14 for the
 > special-case analysis.
 
@@ -1182,37 +1182,37 @@ Risks).
 
 ### 5.14 Constructs outside ADR-0053's Pratt expressiveness
 
-ADR-0053 §"Scope boundary" states the honest claim: *for any construct whose
+ADR-0053 §"Scope boundary" states the honest claim: _for any construct whose
 parse structure is a Pratt prefix/infix with separated operands and at most
-one trailing delimited block, no parser code change is needed.* The following
+one trailing delimited block, no parser code change is needed._ The following
 v0.1 constructs sit at or beyond that boundary and require analysis:
 
 **a) Multi-way `if` (prefix dispatch on the following token).** The two `if`
 forms (two-branch vs multi-way) share the `token.keyword.if` prefix token but
 differ in whether the next token is `{` (multi-way, trailing delimited
 guard-arm block) or an expression (two-branch, separated operands). ADR-0053's
-`lookup(token, Prefix)` keys only on the prefix token, not on the *following*
+`lookup(token, Prefix)` keys only on the prefix token, not on the _following_
 token. This is a **dispatch on the token after the prefix token**, which is
 not natively expressed by a single grammar row.
 
-  - *Resolution.* This fits ADR-0053 with a **minor schema extension or a
-    one-token lookahead in the prefix path**: the prefix row for
-    `token.keyword.if` carries *both* shapes (separated-operand and
-    trailing-delimited), and the parser chooses based on whether the next
-    token is `{`. This is analogous to the contextual `{}` flag (§1.3) — a
-    one-bit context decision, not a new grammar-row kind. Alternatively, two
-    prefix rows keyed by `(token.keyword.if, Prefix)` with a guard on the
-    next token. This is within the spirit of ADR-0053 (the delimited-block
-    machinery already exists, ADR-0053 §"What is already generic") but
-    requires the prefix path to peek one token. It is **not** a full
-    special-case branch like the five ADR-0053 removes; it is a data-driven
-    dispatch on a lookahead token. An implementer should add a
-    `prefix_lookahead: Option<String>` field to `GrammarRow` (or a
-    `DelimitedShape` on the prefix row that is only consulted when the next
-    token matches `open`), keeping the change data-driven.
+- _Resolution._ This fits ADR-0053 with a **minor schema extension or a
+  one-token lookahead in the prefix path**: the prefix row for
+  `token.keyword.if` carries _both_ shapes (separated-operand and
+  trailing-delimited), and the parser chooses based on whether the next
+  token is `{`. This is analogous to the contextual `{}` flag (§1.3) — a
+  one-bit context decision, not a new grammar-row kind. Alternatively, two
+  prefix rows keyed by `(token.keyword.if, Prefix)` with a guard on the
+  next token. This is within the spirit of ADR-0053 (the delimited-block
+  machinery already exists, ADR-0053 §"What is already generic") but
+  requires the prefix path to peek one token. It is **not** a full
+  special-case branch like the five ADR-0053 removes; it is a data-driven
+  dispatch on a lookahead token. An implementer should add a
+  `prefix_lookahead: Option<String>` field to `GrammarRow` (or a
+  `DelimitedShape` on the prefix row that is only consulted when the next
+  token matches `open`), keeping the change data-driven.
 
 **b) `for ... in ... , acc = init` (two clauses before the trailing block).**
-The fold form has *five* children with three `child_separators` *before* the
+The fold form has _five_ children with three `child_separators` _before_ the
 trailing delimited block: `for x in xs , acc = init { body }`. ADR-0053's
 prefix loop (§"Resulting `expression_inner`") parses `normal = arity -
 (delimited ? 1 : 0)` separated operands, consuming `child_separators[i]`
@@ -1228,36 +1228,36 @@ lookahead on the tokens after `in` (is there a `,`?). This is the same
 one-token-lookahead dispatch as (a). No schema extension beyond the
 `prefix_lookahead`/guarded-row mechanism is needed.
 
-**c) `do { body } while cond` (delimited block *followed by* a separator and
-an operand).** Here the delimited block is child 0, *then* a `Required("while")`
-separator, *then* the condition operand. ADR-0053's prefix loop parses
-separated operands *first*, then the trailing delimited block. `do` reverses
+**c) `do { body } while cond` (delimited block _followed by_ a separator and
+an operand).** Here the delimited block is child 0, _then_ a `Required("while")`
+separator, _then_ the condition operand. ADR-0053's prefix loop parses
+separated operands _first_, then the trailing delimited block. `do` reverses
 this: the delimited block comes first. This is **outside** the
 "at-most-one-trailing-delimited-block" shape: the delimited block is not
 trailing.
 
-  - *Resolution.* `do while` requires either (i) a schema extension allowing
-    a `delimited` child in a non-trailing position (a `delimited_child_index`
-    field), or (ii) a **special-case prefix handler** for `do` that parses
-    the block, consumes `while`, and parses the condition — a single
-    construct-specific branch. Given `do while` is the only such construct
-    in v0.1, a special-case handler is the honest, contained choice; it does
-    not undermine ADR-0053's generic property for the rest of the grammar.
-    Alternatively, model `do` as a prefix row of arity 1 (the block) whose
-    `desugar`/post-parse expects a trailing `while cond` — but this pushes
-    the condition into a sibling parse, which is awkward. The cleanest
-    data-driven option is a `delimited_child_index: Option<usize>` field on
-    `AstShapeRef` (defaulting to "last"), generalizing the trailing-block
-    assumption to "the delimited child is at this index." That is a small,
-    honest schema extension; it is **not** required for any other v0.1
-    construct.
+- _Resolution._ `do while` requires either (i) a schema extension allowing
+  a `delimited` child in a non-trailing position (a `delimited_child_index`
+  field), or (ii) a **special-case prefix handler** for `do` that parses
+  the block, consumes `while`, and parses the condition — a single
+  construct-specific branch. Given `do while` is the only such construct
+  in v0.1, a special-case handler is the honest, contained choice; it does
+  not undermine ADR-0053's generic property for the rest of the grammar.
+  Alternatively, model `do` as a prefix row of arity 1 (the block) whose
+  `desugar`/post-parse expects a trailing `while cond` — but this pushes
+  the condition into a sibling parse, which is awkward. The cleanest
+  data-driven option is a `delimited_child_index: Option<usize>` field on
+  `AstShapeRef` (defaulting to "last"), generalizing the trailing-block
+  assumption to "the delimited child is at this index." That is a small,
+  honest schema extension; it is **not** required for any other v0.1
+  construct.
 
 **d) `match` arms and multi-way `if` guard arms with `:` pair separator.**
 These use `pair: { separator: token.colon, node_kind: arm }` in the
 `DelimitedShape`, which ADR-0053 §3 already supports (the `object` case uses
 `pair: { separator: token.colon, node_kind: entry }`). So `match` and
 multi-way `if` arms **fit** the model without extension. (Listed here only to
-confirm they are *not* problematic.)
+confirm they are _not_ problematic.)
 
 **e) List comprehensions, multi-block constructs, guard patterns.** Per
 ADR-0053 §"Scope boundary", these are **out of scope** for v0.1 (§8). They are
@@ -1265,7 +1265,7 @@ not in the grammar.
 
 **Summary.** The v0.1 surface is almost entirely within ADR-0053's
 Pratt-expressible range. The two honest exceptions are: (a) prefix-row
-dispatch on the *following* token (multi-way `if`, `for` map-vs-fold), which
+dispatch on the _following_ token (multi-way `if`, `for` map-vs-fold), which
 needs a one-token lookahead / guarded-row mechanism; and (c) `do while`,
 whose delimited block is non-trailing, which needs either a
 `delimited_child_index` schema field or a single construct-specific handler.
@@ -1432,7 +1432,7 @@ The following are explicitly out of scope for the v0.1 surface (per ADR-0053
 - **A `type` declaration keyword** — there is none in v0.1 (ID.15). Sum types
   are library-provided or inferred.
 - **`trait` / `impl` / `law` declaration syntax** — the keywords are reserved
-  (§2.5) but the *declaration grammar* for explicit trait declarations is
+  (§2.5) but the _declaration grammar_ for explicit trait declarations is
   delegated to ADR-0075 (spec §15). Trait inference is the primary mode
   (annotation-free); explicit declarations are optional sugar whose surface
   form is the authority of ADR-0075, not this grammar. Only the keyword

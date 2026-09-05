@@ -44,14 +44,14 @@ Values:
 
 ### Informal Semantics
 
-| Construct | Meaning |
-|-----------|---------|
-| `arr f` | Lift pure function `f : τ → σ` to arrow `τ ~> σ` |
-| `f >>> g` | Compose arrows: output of `f` feeds to input of `g` |
-| `first f` | Apply `f` to first component of product, pass through second |
-| `choice f g` | On `Left x`, apply `f`; on `Right y`, apply `g` |
-| `loop f` | Feedback: given `f : (τ × ρ) ~> (σ × ρ)`, produce `τ ~> σ` with state `ρ` hidden |
-| `app` | Dynamic application: arrow takes another arrow as input and applies it |
+| Construct    | Meaning                                                                          |
+| ------------ | -------------------------------------------------------------------------------- |
+| `arr f`      | Lift pure function `f : τ → σ` to arrow `τ ~> σ`                                 |
+| `f >>> g`    | Compose arrows: output of `f` feeds to input of `g`                              |
+| `first f`    | Apply `f` to first component of product, pass through second                     |
+| `choice f g` | On `Left x`, apply `f`; on `Right y`, apply `g`                                  |
+| `loop f`     | Feedback: given `f : (τ × ρ) ~> (σ × ρ)`, produce `τ ~> σ` with state `ρ` hidden |
+| `app`        | Dynamic application: arrow takes another arrow as input and applies it           |
 
 ---
 
@@ -257,27 +257,32 @@ Note: `loop` requires a **termination condition** or a handler to decide when to
 The Arrow Calculus satisfies these algebraic laws:
 
 ### Identity
+
 ```
 arr id >>> f  ≡  f
 f >>> arr id  ≡  f
 ```
 
 ### Composition Associativity
+
 ```
 (f >>> g) >>> h  ≡  f >>> (g >>> h)
 ```
 
 ### First Homomorphism
+
 ```
 first (arr f)  ≡  arr (λ(x,y). (f x, y))
 ```
 
 ### Composition through First
+
 ```
 first (f >>> g)  ≡  (first f) >>> (first g)
 ```
 
 ### Exchange Law
+
 ```
 first f >>> arr (λ((x,y),z). ((x,z),y)) >>> first g
   ≡  arr (λ((x,y),z). ((x,z),y)) >>> first (f >>> g)
@@ -307,7 +312,7 @@ Translation judgment:  ⟦ e ⟧_arr = e'
 
 ⟦ e1 >>> e2 ⟧_arr  =  ⟦ e1 ⟧_arr >>> ⟦ e2 ⟧_arr    -- already an arrow
 
-⟦ if cond then e1 else e2 ⟧_arr  
+⟦ if cond then e1 else e2 ⟧_arr
   =  arr cond >>> choice ⟦ e1 ⟧_arr ⟦ e2 ⟧_arr
 ```
 
@@ -320,16 +325,19 @@ Translation judgment:  ⟦ e ⟧_arr = e'
 ### Example 1: Identity
 
 **Lambda version:**
+
 ```
 id = λx. x : a → a
 ```
 
 **Arrow version:**
+
 ```
 id = arr (λx. x) : a ~> a
 ```
 
 **Evaluation:**
+
 ```
 id · 5 ⟹ 5
 ```
@@ -339,6 +347,7 @@ id · 5 ⟹ 5
 ### Example 2: Composition of Functions
 
 **Lambda version:**
+
 ```
 add1 = λx. x + 1 : Int → Int
 mul2 = λx. x * 2 : Int → Int
@@ -347,6 +356,7 @@ result = compose add1 mul2  5  ≡  (5 + 1) * 2 = 12
 ```
 
 **Arrow version:**
+
 ```
 add1 = arr (λx. x + 1) : Int ~> Int
 mul2 = arr (λx. x * 2) : Int ~> Int
@@ -359,12 +369,14 @@ result = composed · 5 ⟹ 12
 ### Example 3: Higher-Order (Apply Twice)
 
 **Lambda version:**
+
 ```
 applyTwice f x = f (f x) : (a → a) → (a → a)
 applyTwice (λx. x + 1) 5  ≡  ((5 + 1) + 1) = 7
 ```
 
 **Arrow version:**
+
 ```
 applyTwice f = f >>> f : (a ~> a) → (a ~> a)
 applyTwice (arr (λx. x + 1)) · 5 ⟹ 7
@@ -375,6 +387,7 @@ applyTwice (arr (λx. x + 1)) · 5 ⟹ 7
 ### Example 4: Feedback (Counter)
 
 **Arrow version (canonical):**
+
 ```
 counter : () ~> Int
 counter = loop step
@@ -391,24 +404,27 @@ counter = loop step
 ### Example 5: Factorial via Feedback
 
 **Recursive function (for reference):**
+
 ```
 fact : Int → Int
 fact n = if n <= 1 then 1 else n * fact (n - 1)
 ```
 
 **Arrow version (state machine):**
+
 ```
 factorial : Int ~> Int
 factorial = loop step
-  where 
+  where
     step : (Int, (Int, Int)) ~> (Int, (Int, Int))
-    step = arr (λ(n, (acc, _)). 
-      if n <= 1 
+    step = arr (λ(n, (acc, _)).
+      if n <= 1
         then (acc, (n, acc))
         else ((n-1) * acc, (n-1, (n-1)*acc)))
 ```
 
 **Evaluation:**
+
 ```
 factorial · 5
   ⟹ step executes multiple times
@@ -443,6 +459,7 @@ These will be addressed in the prototype implementation phase.
 ## Summary
 
 We've formalized:
+
 - **Syntax:** Arrow primitives, lifted functions, products, sums
 - **Types:** Arrow types, function types, polymorphism (placeholder)
 - **Semantics:** Big-step evaluation, arrow execution
@@ -457,8 +474,8 @@ Next: Build a prototype interpreter to test these examples.
 ## Effects & Handlers (Phase 2)
 
 We extend the calculus with **operations** and **handlers** following
-Sanada (2024). The central idea: a program mentions *operations* without
-committing to an interpretation; a *handler* supplies the interpretation.
+Sanada (2024). The central idea: a program mentions _operations_ without
+committing to an interpretation; a _handler_ supplies the interpretation.
 Handlers compose by **pass through** — a handler intercepts its own
 operations and rebuilds foreign ones with itself re-applied to the
 continuation, so an outer handler eventually sees them.
@@ -477,7 +494,7 @@ Computations (freer arrow):
   v ∈ Value, k : Value -> Comp                      -- continuation
 ```
 
-An operation node `Op op arg k` is *suspended*: it carries its argument and
+An operation node `Op op arg k` is _suspended_: it carries its argument and
 a continuation waiting for the operation's result. This is the arrow analogue
 of a free-monad `Pure`/`Free` pair, with continuations in arrow position.
 
@@ -531,9 +548,9 @@ run = handle_exception ∘ handle_io ∘ handle_state      (outermost last)
 The **order** of handlers is observable and corresponds exactly to monad
 transformer order:
 
-| Handler order | Transformer analogue | On throw |
-|---------------|----------------------|-----------|
-| exception outside state | `StateT s (Except e)` | state **lost** |
+| Handler order           | Transformer analogue  | On throw            |
+| ----------------------- | --------------------- | ------------------- |
+| exception outside state | `StateT s (Except e)` | state **lost**      |
 | state outside exception | `ExceptT e (State s)` | state **preserved** |
 
 The program text is identical in both cases; only the handler stack differs.
@@ -559,11 +576,11 @@ functions over computations.
 
 Each handler recovers a monad's behaviour:
 
-| Effect | Monad | Arrow handler |
-|--------|-------|---------------|
-| State | `State s` | `handle_state` threads `s` through Get/Put |
-| IO | `IO` | `handle_io` threads inputs/outputs through Read/Write |
-| Exception | `Except e` | `handle_exception` catches Throw → `Either` |
+| Effect    | Monad      | Arrow handler                                         |
+| --------- | ---------- | ----------------------------------------------------- |
+| State     | `State s`  | `handle_state` threads `s` through Get/Put            |
+| IO        | `IO`       | `handle_io` threads inputs/outputs through Read/Write |
+| Exception | `Except e` | `handle_exception` catches Throw → `Either`           |
 
 The monad **laws** are recovered from handler laws (identity, composition,
 association of pass-through). No monad, transformer, or `bind` primitive is
@@ -775,7 +792,7 @@ accumulation in `bind`/`>>>`.
 
 ### Handler as effect eliminator
 
-A handler *removes* its owned operations from the effect row; foreign
+A handler _removes_ its owned operations from the effect row; foreign
 operations remain (pass-through). This is the typing counterpart of the
 Phase 2 pass-through semantics:
 
@@ -833,7 +850,7 @@ foreign operations:
 ε ::= {op₁, ..., opₙ, ρ}
 ```
 
-A handler eliminates its own operations from the *known* part and **leaves
+A handler eliminates its own operations from the _known_ part and **leaves
 the row variable intact** (the unknown tail may still contain foreign ops
 that pass through). Two rows unify when their known operations are
 compatible and at least one side has a row variable that can absorb the
@@ -896,16 +913,16 @@ Op Throw      →  \_ _ -> error
 
 ### Preservation / loss rules
 
-| Property | Arrow | Opaque monad | Freer monad |
-|---|---|---|---|
-| Sequential composition | explicit | explicit (bind) | explicit (Bind) |
-| Fanout / independence | explicit | **LOST** (hidden in closure) | explicit |
-| Choice / branching | explicit | **LOST** (hidden in closure) | explicit |
-| Effect set | traversal | **LOST** (cannot inspect) | traversal |
-| Per-branch effects | per branch | **LOST** (union only) | per branch |
-| Dependency graph | buildable | **LOST** (no structure) | buildable |
-| Feedback | explicit | **LOST** | detectable |
-| Semantic results | correct | correct | correct |
+| Property               | Arrow      | Opaque monad                 | Freer monad     |
+| ---------------------- | ---------- | ---------------------------- | --------------- |
+| Sequential composition | explicit   | explicit (bind)              | explicit (Bind) |
+| Fanout / independence  | explicit   | **LOST** (hidden in closure) | explicit        |
+| Choice / branching     | explicit   | **LOST** (hidden in closure) | explicit        |
+| Effect set             | traversal  | **LOST** (cannot inspect)    | traversal       |
+| Per-branch effects     | per branch | **LOST** (union only)        | per branch      |
+| Dependency graph       | buildable  | **LOST** (no structure)      | buildable       |
+| Feedback               | explicit   | **LOST**                     | detectable      |
+| Semantic results       | correct    | correct                      | correct         |
 
 ### The central finding
 
@@ -948,6 +965,7 @@ show no remaining constructor introduces the relevant type structure.
 
 **`left` not derivable from `arr + comp + first + loop`:**
 No structural constructor produces `Sum` on the output.
+
 - `firstF` produces `(B × C)` — a product, never a sum
 - `loopF` produces `B` — no `Sum`
 - `compF` produces `C` — no `Sum` from `compF` itself
@@ -955,6 +973,7 @@ No structural constructor produces `Sum` on the output.
 
 **`first` not derivable from `arr + comp + loop`:**
 No constructor produces `×` on the output.
+
 - `compNF` produces `C` — no `×`
 - `loopNF` produces `B` — no `×`
 - Only `arrNF` can produce `×`, requiring user-supplied product-handling
@@ -977,7 +996,7 @@ by `rfl` — the type signatures ARE the proof.
 
 ### Caveat on `loop`
 
-`loop` is independent only in a *total* setting. In a language with
+`loop` is independent only in a _total_ setting. In a language with
 general recursion (`fix`), `loop` is derivable:
 `loop f a = let (b, c) = fix (λ c => f (a, c)) in b`.
 But then `fix` is the primitive. For a total arrow calculus (type-level

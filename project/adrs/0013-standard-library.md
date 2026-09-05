@@ -21,15 +21,15 @@ portable.
 
 ### Module taxonomy
 
-| Module | Purpose | Examples |
-|---|---|---|
-| `math` | Numeric operations | `add`, `mul`, `sub`, `div`, `mod`, `floor`, `ceil`, `round` |
-| `text` | String operations | `concat`, `len`, `split`, `join`, `replace`, `trim`, `upper`, `lower` |
-| `regex` | Pattern matching | `match`, `replace`, `capture` |
-| `collections` | Array/object operations | `map`, `filter`, `reduce`, `sort`, `keys`, `values`, `entries` |
-| `datetime` | Date/time operations | `now`, `format`, `parse`, `add`, `diff` |
-| `encoding` | Format conversion | `base64_encode`, `base64_decode`, `json_parse`, `json_stringify` |
-| `fp` | Functional combinators | `pipe`, `compose`, `default`, `coalesce` |
+| Module        | Purpose                 | Examples                                                              |
+| ------------- | ----------------------- | --------------------------------------------------------------------- |
+| `math`        | Numeric operations      | `add`, `mul`, `sub`, `div`, `mod`, `floor`, `ceil`, `round`           |
+| `text`        | String operations       | `concat`, `len`, `split`, `join`, `replace`, `trim`, `upper`, `lower` |
+| `regex`       | Pattern matching        | `match`, `replace`, `capture`                                         |
+| `collections` | Array/object operations | `map`, `filter`, `reduce`, `sort`, `keys`, `values`, `entries`        |
+| `datetime`    | Date/time operations    | `now`, `format`, `parse`, `add`, `diff`                               |
+| `encoding`    | Format conversion       | `base64_encode`, `base64_decode`, `json_parse`, `json_stringify`      |
+| `fp`          | Functional combinators  | `pipe`, `compose`, `default`, `coalesce`                              |
 
 ### Design principles
 

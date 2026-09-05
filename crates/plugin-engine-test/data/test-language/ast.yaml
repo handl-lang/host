@@ -1,0 +1,64 @@
+- id: ast.test
+    node_kind: test
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.property
+    node_kind: property
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.integration_test
+    node_kind: integration_test
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object
+  - id: ast.bench
+    node_kind: bench
+    children:
+      - role: name
+      - role: body
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 2
+          minItems: 2
+          type: array
+      required:
+        - children
+      type: object

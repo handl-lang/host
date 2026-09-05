@@ -166,7 +166,7 @@ In surface-core notation:
 ⟦rec { ... }⟧  =  rec { ... }    -- rec IS the surface form of Loop
 ```
 
-That is, `rec` does not desugar further at the surface level — it *is* the
+That is, `rec` does not desugar further at the surface level — it _is_ the
 surface core form that denotes `Loop`. The desugaring of `while` / `do while`
 / `for` produces `rec` regions; the `rec` itself is lowered to `Loop` by the
 ADR-0052 lowering pass.
@@ -207,13 +207,13 @@ well-typedness; a `rec` without a well-typed fixpoint is a compile error.
 The compiler checks:
 
 1. Every cyclic binding has a consistent type across the feedback edge
-   (the type of `aᵢ` on iteration *n* must unify with the type of `aᵢ` on
-   iteration *n+1*).
+   (the type of `aᵢ` on iteration _n_ must unify with the type of `aᵢ` on
+   iteration _n+1_).
 2. The exit wire's type is well-defined given the state and external inputs.
 3. There are no "ill-founded" reads — a binding that reads a state wire
    before it is defined in the same iteration, under causal/strict semantics
    (ADR-0052 §Feedback semantics). Under causal/strict semantics,
-   read-before-write reads the *previous* iteration's value (or the initial
+   read-before-write reads the _previous_ iteration's value (or the initial
    seed), which is well-defined. Under lazy/fixpoint semantics,
    read-before-write may be productive or ill-founded, detected at runtime.
 
@@ -428,6 +428,7 @@ Desugaring template:
 ```
 
 More precisely, the `rec` region has:
+
 - **State wire `S`**: the tuple of feedback names (names rebound in the
   body). On the first iteration, these are seeded with their initial values
   from the enclosing scope.
@@ -445,12 +446,13 @@ state₀ ──→ cond ──→ if ──┬──→ body ──→ state₁ 
 ```
 
 On each iteration:
+
 - `cond` is evaluated on the current state `state₀`.
 - If `cond` is true: the body runs, producing a new state `state₁` (the
   rebound names). `state₁` feeds back to become the next iteration's
   `state₀`.
 - If `cond` is false: the loop exits. The result is the last expression in
-  the body, evaluated on the *final* iteration — i.e., the state at the
+  the body, evaluated on the _final_ iteration — i.e., the state at the
   point where `cond` became false. If the body never ran, the result is the
   default (§3.4).
 
@@ -596,6 +598,7 @@ first, then branches on the condition:
 ```
 
 More precisely:
+
 - **State wire `S`**: the tuple of feedback names (names rebound in the
   body, same rule as `while` — §11). On the first iteration, these are
   seeded with their initial values from the enclosing scope.
@@ -746,6 +749,7 @@ trait Iterator t a {
 ```
 
 Where:
+
 - `t` is the iterator type (the collection or stream being iterated).
 - `a` is the element type.
 - `next` takes the current iterator state and returns either:
@@ -792,6 +796,7 @@ Desugaring template:
 ```
 
 More precisely, the state wire is `S = (iter, collected)` where:
+
 - `iter` is the remaining iterator (feeds back as `rest`).
 - `collected` is the accumulated collection of body results (feeds back,
   growing by one `bodyResult` each iteration).
@@ -800,6 +805,7 @@ The exit wire is `B = collected` (the full collection when the iterator is
 exhausted).
 
 Feedback-wire naming:
+
 - `iter` feeds back (the "rest" of the iterator).
 - `collected` feeds back (the growing result collection).
 - `x` is **local to each iteration** (bound fresh from `value`, not fed
@@ -838,6 +844,7 @@ Desugaring template:
 ```
 
 The state wire is `S = (iter, acc)` where:
+
 - `iter` is the remaining iterator (feeds back as `rest`).
 - `acc` is the accumulator (feeds back, updated by the body each iteration).
 
@@ -845,6 +852,7 @@ The exit wire is `B = acc` (the final accumulator when the iterator is
 exhausted).
 
 Feedback-wire naming:
+
 - `iter` feeds back (the "rest" of the iterator).
 - `acc` feeds back (the accumulator, updated by the body).
 - `x` is **local to each iteration** (bound fresh from `value`, not fed
@@ -1025,6 +1033,7 @@ value, the `none` arm (and `_` arm) produce `b`.
 The `_` arm is included per the ADR (ADR-0074 Addendum A.3). Per ID.13
 (match exhaustiveness required), the match must be exhaustive. The three
 arms `some` / `none` / `_` cover all cases:
+
 - `some` — the option has a value.
 - `none` — the option is empty.
 - `_` — any non-`some`/non-`none` value (defensive, handles the case where
@@ -1035,7 +1044,7 @@ The `_` arm is **required** for exhaustiveness when `a`'s type is not
 statically known to be exactly `Option`. If `a` is statically typed as
 `Option T`, the `some` / `none` arms are exhaustive and the `_` arm is
 unreachable (but harmless). If `a`'s type is a row-polymorphic sum that
-*might* have other variants, the `_` arm is needed. The desugaring includes
+_might_ have other variants, the `_` arm is needed. The desugaring includes
 `_` unconditionally for safety.
 
 ### 6.4 `Option` is a library type (ID.9)
@@ -1148,6 +1157,7 @@ Desugaring:
 ```
 
 Step by step:
+
 1. `user?.address` → `user ~> ?.address` — if `user` is `some u`, returns
    `some u.address`; if `none`, returns `none`.
 2. `?.city` — if the previous result is `some addr`, returns
@@ -1443,7 +1453,7 @@ if {
 Each arm is a condition expression followed by `:` and a result
 expression. The `_` arm is the catch-all (else). This mirrors `match`
 syntax — same `{ }` delimiters, same `:` separator, same `_` wildcard —
-but each arm is a *guard condition* rather than a pattern. The `if`
+but each arm is a _guard condition_ rather than a pattern. The `if`
 keyword (vs `match`) signals the difference.
 
 The parser distinguishes multi-way `if` from regular `if` by the token
@@ -1550,7 +1560,7 @@ Per ADR-0074 Negative, a `return` inside a `while` / `do while` / `for`
 body should **exit the enclosing arrow, NOT just the loop**. This is the
 interaction of ID.14 (`return` scope = innermost enclosing `~>`) with the
 loop desugaring: since `while` / `do while` / `for` desugar to `rec`
-regions, and `rec` is NOT an arrow (it is a region *inside* an arrow), a
+regions, and `rec` is NOT an arrow (it is a region _inside_ an arrow), a
 `return` in the loop body must propagate through the feedback/exit
 machinery to exit the enclosing `~>` arrow, not the `rec` region.
 
@@ -1564,6 +1574,7 @@ Exit = Normal result | ReturnRequested value
 ```
 
 Where:
+
 - `Normal result` is the normal loop result (the last body expression on
   the final iteration).
 - `ReturnRequested value` is a signal that a `return` was executed in the
@@ -2157,35 +2168,35 @@ The table below maps each surface form to its desugared form, with a
 reference to the section in this document. This is the detailed version of
 the Spec §17.2 desugaring summary table.
 
-| Surface form | Desugars to | Section | Notes |
-|---|---|---|---|
-| `rec { ... }` | `Loop` region (kernel) | §2 | Paterson `loop`; state wire = cyclic deps, exit wire = result (ID.3) |
-| `while cond { body }` | `rec` with implicit feedback | §3 | Result = last body expr on final iteration (ID.5); default if body never runs |
-| `while cond body` | `rec` with implicit feedback | §3 | Same as braced form |
-| `do { body } while cond` | `rec`, body-first | §4 | Runs at least once; result = last body expr (ID.5) |
-| `for x in xs { body }` | `rec` + `Iterator.next` + `match` | §5 | Map semantics; requires Iterator (ID.6, ADR-0075) |
-| `for x in xs, acc = init { body }` | `rec` fold | §5 | Fold semantics; body must produce acc's type |
-| `a ?? b` | `match a { some: value, none: b, _: b }` | §6 | `|||` over Option; `_` arm for exhaustiveness (ID.13) |
-| `user?.field` | `>>> (?.field)` arrow | §7 | `?.field = x ~> match x { some: v ~> v.field, none: none }`; short-circuits on `none` |
-| `user?.address?.city` | `user ~> (?.address >>> ?.city)` | §7 | Chain composes via `>>>`; `none` propagates |
-| `{ ...a, b: 2 }` | `arr` merge node | §8 | Construction form, NOT control-flow sugar; last wins structurally |
-| `{ ...a, ...b, c: 3 }` | `arr` merge node | §8 | Merge; later spreads override earlier on conflicts |
-| `[...a, b]` | `arr` merge node | §8 | Positional spread; concat |
-| `{ ...a, [key]: value }` | `arr` merge node | §8 | Computed key overrides spread |
-| `{ b, ...rest } = a` then `{ ...rest, b: 2 }` | `arr` project + `arr` merge | §8.5 | Round-trip immutable record update |
-| `if { c₁: e₁, ..., _: eₙ }` | nested `if`/`else` | §9 | Exhaustiveness required (ID.13) |
-| `if c e1 else e2` | `arr c >>> choice ⟦e1⟧ ⟦e2⟧` | §9 | Conditional routing (kernel) |
-| `match v { p: e }` | `arr v >>> choice ...` | — | Pattern dispatch via `|||` |
-| `return` in loop body | exit-wire tagging (`ReturnRequested`) | §10 | Exits enclosing `~>`, not just the loop (ID.14) |
-| `import name from "path"` | `name = Project { field: "name", record: ModuleRef { path: "path" } }` | §12 | ID.16, ADR-0069; normalization to projection |
-| `import name1, name2 from "path"` | one `Project` binding per name | §12 | ID.16, ADR-0069; multi-name projection |
-| `import name as local from "path"` | `local = Project { field: "name", record: ModuleRef { path: "path" } }` | §12 | ID.16, ADR-0069; project + rename |
-| `import "path" as alias` | `alias = ModuleRef { path: "path" }` | §12 | ID.16, ADR-0069; bind whole record arrow |
-| `export name` | `name` added to export set | §12 | ADR-0069 §6; visibility sugar; `name` must be a binding |
-| `export name = expr` | binding `name = expr` AND `name` in export set | §12 | ADR-0069 §6; binding + export |
-| `export *` | all bindings added to export set | §12 | ADR-0069 §6; all-public via explicit declaration |
-| `export name from "path"` | `name = Project { ... }` AND `name` in export set | §12 | ADR-0069 §6; re-export (import + export) |
-| `export * from "path"` | import all public names as `Project` bindings, all in export set | §12 | ADR-0069 §6; re-export all |
+| Surface form                                  | Desugars to                                                             | Section | Notes                                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------- |
+| `rec { ... }`                                 | `Loop` region (kernel)                                                  | §2      | Paterson `loop`; state wire = cyclic deps, exit wire = result (ID.3)                  |
+| `while cond { body }`                         | `rec` with implicit feedback                                            | §3      | Result = last body expr on final iteration (ID.5); default if body never runs         |
+| `while cond body`                             | `rec` with implicit feedback                                            | §3      | Same as braced form                                                                   |
+| `do { body } while cond`                      | `rec`, body-first                                                       | §4      | Runs at least once; result = last body expr (ID.5)                                    |
+| `for x in xs { body }`                        | `rec` + `Iterator.next` + `match`                                       | §5      | Map semantics; requires Iterator (ID.6, ADR-0075)                                     |
+| `for x in xs, acc = init { body }`            | `rec` fold                                                              | §5      | Fold semantics; body must produce acc's type                                          |
+| `a ?? b`                                      | `match a { some: value, none: b, _: b }`                                | §6      | `                                                                                     |     |     | `over Option;`_` arm for exhaustiveness (ID.13) |
+| `user?.field`                                 | `>>> (?.field)` arrow                                                   | §7      | `?.field = x ~> match x { some: v ~> v.field, none: none }`; short-circuits on `none` |
+| `user?.address?.city`                         | `user ~> (?.address >>> ?.city)`                                        | §7      | Chain composes via `>>>`; `none` propagates                                           |
+| `{ ...a, b: 2 }`                              | `arr` merge node                                                        | §8      | Construction form, NOT control-flow sugar; last wins structurally                     |
+| `{ ...a, ...b, c: 3 }`                        | `arr` merge node                                                        | §8      | Merge; later spreads override earlier on conflicts                                    |
+| `[...a, b]`                                   | `arr` merge node                                                        | §8      | Positional spread; concat                                                             |
+| `{ ...a, [key]: value }`                      | `arr` merge node                                                        | §8      | Computed key overrides spread                                                         |
+| `{ b, ...rest } = a` then `{ ...rest, b: 2 }` | `arr` project + `arr` merge                                             | §8.5    | Round-trip immutable record update                                                    |
+| `if { c₁: e₁, ..., _: eₙ }`                   | nested `if`/`else`                                                      | §9      | Exhaustiveness required (ID.13)                                                       |
+| `if c e1 else e2`                             | `arr c >>> choice ⟦e1⟧ ⟦e2⟧`                                            | §9      | Conditional routing (kernel)                                                          |
+| `match v { p: e }`                            | `arr v >>> choice ...`                                                  | —       | Pattern dispatch via `                                                                |     |     | `                                               |
+| `return` in loop body                         | exit-wire tagging (`ReturnRequested`)                                   | §10     | Exits enclosing `~>`, not just the loop (ID.14)                                       |
+| `import name from "path"`                     | `name = Project { field: "name", record: ModuleRef { path: "path" } }`  | §12     | ID.16, ADR-0069; normalization to projection                                          |
+| `import name1, name2 from "path"`             | one `Project` binding per name                                          | §12     | ID.16, ADR-0069; multi-name projection                                                |
+| `import name as local from "path"`            | `local = Project { field: "name", record: ModuleRef { path: "path" } }` | §12     | ID.16, ADR-0069; project + rename                                                     |
+| `import "path" as alias`                      | `alias = ModuleRef { path: "path" }`                                    | §12     | ID.16, ADR-0069; bind whole record arrow                                              |
+| `export name`                                 | `name` added to export set                                              | §12     | ADR-0069 §6; visibility sugar; `name` must be a binding                               |
+| `export name = expr`                          | binding `name = expr` AND `name` in export set                          | §12     | ADR-0069 §6; binding + export                                                         |
+| `export *`                                    | all bindings added to export set                                        | §12     | ADR-0069 §6; all-public via explicit declaration                                      |
+| `export name from "path"`                     | `name = Project { ... }` AND `name` in export set                       | §12     | ADR-0069 §6; re-export (import + export)                                              |
+| `export * from "path"`                        | import all public names as `Project` bindings, all in export set        | §12     | ADR-0069 §6; re-export all                                                            |
 
 ### 13.1 Surface core forms (not desugared further at the surface level)
 
@@ -2193,15 +2204,15 @@ These are the surface core forms that denote kernel combinators directly.
 They are the target of all desugaring above, and are lowered to the kernel
 by the ADR-0052 lowering pass.
 
-| Surface core | Kernel combinator | ADR-0052 |
-|---|---|---|
-| `x ~> e` | `arr (λx. ⟦e⟧)` | `Arr` |
-| `f >>> g` | `Seq f g` | `Seq` |
-| `f *** g` | `first f` over product | `First` |
-| `f &&& g` | fan-out to pair | `First` + `Arr` |
-| `f \|\|\| g` | `Choice f g` | `Choice` |
-| `rec { ... }` | `Loop` region | `Loop` |
-| `app(f, x)` | `App { callee, args }` | `App` |
+| Surface core  | Kernel combinator      | ADR-0052        |
+| ------------- | ---------------------- | --------------- |
+| `x ~> e`      | `arr (λx. ⟦e⟧)`        | `Arr`           |
+| `f >>> g`     | `Seq f g`              | `Seq`           |
+| `f *** g`     | `first f` over product | `First`         |
+| `f &&& g`     | fan-out to pair        | `First` + `Arr` |
+| `f \|\|\| g`  | `Choice f g`           | `Choice`        |
+| `rec { ... }` | `Loop` region          | `Loop`          |
+| `app(f, x)`   | `App { callee, args }` | `App`           |
 
 ---
 

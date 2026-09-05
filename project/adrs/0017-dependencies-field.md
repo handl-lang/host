@@ -4,7 +4,7 @@
 
 ADR-0016 introduced user-defined fields declared in `*.field.yml` files.
 Those fields are loaded on demand by the field resolver, but nothing in a
-document explicitly says *which* custom fields it expects to use. This
+document explicitly says _which_ custom fields it expects to use. This
 makes it hard for tooling and the resolver to:
 
 - Pre-load the right `*.field.yml` files before validation.

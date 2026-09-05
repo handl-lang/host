@@ -26,21 +26,21 @@ for f in *.hnl; do echo "=== $f"; hnl run "$f"; echo; done
 
 ### Language core
 
-| File              | Shows                                                         | Output |
-| ----------------- | ------------------------------------------------------------- | ------ |
-| `hello.hnl`       | The built-in `hello.greet` library call                       | `Hello, world!` |
-| `arithmetic.hnl`  | Operator precedence, grouping, `**`, `/`, `%`, `<=>`, unary `-` | object |
-| `records.hnl`     | Nested records/arrays, dot access, computed fields with `proc` | object |
-| `match.hnl`       | `match` over literals, strings, bools, binders, wildcards, nested arms | object |
-| `destructure.hnl` | Array (`[h, ...t]`, `[]`) and object (`{ name: n }`) destructuring in `match` | object |
-| `conditionals.hnl`| Branching via `if/else` and nested `match` | object |
+| File               | Shows                                                                         | Output          |
+| ------------------ | ----------------------------------------------------------------------------- | --------------- |
+| `hello.hnl`        | The built-in `hello.greet` library call                                       | `Hello, world!` |
+| `arithmetic.hnl`   | Operator precedence, grouping, `**`, `/`, `%`, `<=>`, unary `-`               | object          |
+| `records.hnl`      | Nested records/arrays, dot access, computed fields with `proc`                | object          |
+| `match.hnl`        | `match` over literals, strings, bools, binders, wildcards, nested arms        | object          |
+| `destructure.hnl`  | Array (`[h, ...t]`, `[]`) and object (`{ name: n }`) destructuring in `match` | object          |
+| `conditionals.hnl` | Branching via `if/else` and nested `match`                                    | object          |
 
 ### Arrows: `~>` and `>>>`
 
-| File              | Shows                                                         | Output |
-| ----------------- | ------------------------------------------------------------- | ------ |
+| File              | Shows                                                                                                                                               | Output |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | `closures.hnl`    | `~>` with multi-params, immediate invocation, higher-order combinators (`apply_twice`, `compose`, `thrice`), arrays of closures indexed by position | object |
-| `composition.hnl` | `>>>` arrow composition — the kernel's `Seq` combinator as surface syntax | `11` |
+| `composition.hnl` | `>>>` arrow composition — the kernel's `Seq` combinator as surface syntax                                                                           | `11`   |
 
 ### Recursion via `while` (feedback)
 
@@ -58,42 +58,42 @@ while { n: 5, acc: 1 } (
 )
 ```
 
-| File                | Shows                                          | Output |
-| ------------------- | ---------------------------------------------- | ------ |
-| `factorial.hnl`     | `while` with destructured accumulator — factorial of 5 | `120`  |
-| `fibonacci.hnl`     | `while` with 3 destructured vars — Fibonacci(10) | `55`   |
-| `power.hnl`         | `while` with 3 destructured vars — 2^10          | `1024` |
-| `sum-to-n.hnl`      | `while` destructured accumulator — sum of 1..100 | `5050` |
-| `ackermann.hnl`     | Self-applying closure (Ackermann needs a stack, not a simple loop) | `9` |
+| File            | Shows                                                              | Output |
+| --------------- | ------------------------------------------------------------------ | ------ |
+| `factorial.hnl` | `while` with destructured accumulator — factorial of 5             | `120`  |
+| `fibonacci.hnl` | `while` with 3 destructured vars — Fibonacci(10)                   | `55`   |
+| `power.hnl`     | `while` with 3 destructured vars — 2^10                            | `1024` |
+| `sum-to-n.hnl`  | `while` destructured accumulator — sum of 1..100                   | `5050` |
+| `ackermann.hnl` | Self-applying closure (Ackermann needs a stack, not a simple loop) | `9`    |
 
 ### Algorithms
 
-| File                | Algorithm                                         | Output |
-| ------------------- | ------------------------------------------------- | ------ |
-| `gcd.hnl`           | Euclidean GCD with destructured params — gcd(48, 36) | `12`   |
-| `is-prime.hnl`      | Trial division with `if/else if` chain — is 29 prime? | `true` |
-| `largest-factor.hnl`| Largest prime factor by trial division — of 84    | `7`    |
-| `collatz.hnl`       | Collatz step count with `if/else if` — from 27    | `111`  |
-| `fast-exp.hnl`      | Binary exponentiation with destructured params — 3^13 | `1594323` |
-| `binomial.hnl`      | Binomial coefficient with 4 destructured params — C(10, 3) | `120`  |
-| `binary-search.hnl` | Binary search using `let ... in` bindings + state spread | `6`    |
-| `popcount.hnl`      | Count set bits with destructured params — popcount(255) | `8`    |
-| `digital-root.hnl`  | Digital root with nested `if` — of 942            | `6`    |
-| `tribonacci.hnl`    | Tribonacci with 4 destructured params — T(10)     | `149`  |
-| `hanoi.hnl`         | Tower of Hanoi move count — 3 disks               | `7`    |
-| `fizzbuzz.hnl`      | FizzBuzz via `if/else if` chain — last value (15) | `15`   |
+| File                 | Algorithm                                                  | Output    |
+| -------------------- | ---------------------------------------------------------- | --------- |
+| `gcd.hnl`            | Euclidean GCD with destructured params — gcd(48, 36)       | `12`      |
+| `is-prime.hnl`       | Trial division with `if/else if` chain — is 29 prime?      | `true`    |
+| `largest-factor.hnl` | Largest prime factor by trial division — of 84             | `7`       |
+| `collatz.hnl`        | Collatz step count with `if/else if` — from 27             | `111`     |
+| `fast-exp.hnl`       | Binary exponentiation with destructured params — 3^13      | `1594323` |
+| `binomial.hnl`       | Binomial coefficient with 4 destructured params — C(10, 3) | `120`     |
+| `binary-search.hnl`  | Binary search using `let ... in` bindings + state spread   | `6`       |
+| `popcount.hnl`       | Count set bits with destructured params — popcount(255)    | `8`       |
+| `digital-root.hnl`   | Digital root with nested `if` — of 942                     | `6`       |
+| `tribonacci.hnl`     | Tribonacci with 4 destructured params — T(10)              | `149`     |
+| `hanoi.hnl`          | Tower of Hanoi move count — 3 disks                        | `7`       |
+| `fizzbuzz.hnl`       | FizzBuzz via `if/else if` chain — last value (15)          | `15`      |
 
 ### List processing
 
 Lists are processed by destructuring `[h, ...t]` in a `while` that carries the
 remaining list and an accumulator in the state.
 
-| File                | Shows                                          | Output |
-| ------------------- | ---------------------------------------------- | ------ |
-| `list-length.hnl`   | Count via head/tail in `while` + `if`          | `5`    |
-| `list-sum.hnl`      | Reduce/fold with an accumulator in `while`     | `15`   |
-| `list-max.hnl`      | Track-a-best with `if` inside `match`          | `9`    |
-| `list-contains.hnl` | Linear search, early exit via `{ out: true }`  | `true` |
+| File                | Shows                                         | Output |
+| ------------------- | --------------------------------------------- | ------ |
+| `list-length.hnl`   | Count via head/tail in `while` + `if`         | `5`    |
+| `list-sum.hnl`      | Reduce/fold with an accumulator in `while`    | `15`   |
+| `list-max.hnl`      | Track-a-best with `if` inside `match`         | `9`    |
+| `list-contains.hnl` | Linear search, early exit via `{ out: true }` | `true` |
 
 ## Patterns to steal
 
@@ -161,7 +161,7 @@ that `hnl run`/`hnl eval` use today:
   surface keywords. `~>` (arrow construction), `>>>` (composition), and
   `while` (feedback) are wired. `while` uses the kernel `Loop` step protocol
   (`{ out: v }` / `{ state: v }`) via `loop_step` (ADR-0052).
-- Array spread of a *computed* value (`[h, ...self(self, t)]`) — spread of a
+- Array spread of a _computed_ value (`[h, ...self(self, t)]`) — spread of a
   literal (`[1, ...[2, 3]]`) is accepted by the parser but does not flatten
   computed results, so list-building combinators like `map`/`reverse` that
   return new arrays are not yet practical. The examples here stick to

@@ -53,12 +53,8 @@ describe("readConfig", () => {
       const config = readConfig(dir);
       expect(config.enableInlayHints).toBe(false);
       expect(config.enableCodeLens).toBe(false);
-      expect(config.enableRefinementDiagnostics).toBe(
-        CONFIG_DEFAULTS.enableRefinementDiagnostics,
-      );
-      expect(config.enableSemanticHighlighting).toBe(
-        CONFIG_DEFAULTS.enableSemanticHighlighting,
-      );
+      expect(config.enableRefinementDiagnostics).toBe(CONFIG_DEFAULTS.enableRefinementDiagnostics);
+      expect(config.enableSemanticHighlighting).toBe(CONFIG_DEFAULTS.enableSemanticHighlighting);
       expect(config.serverPath).toBe("");
     });
   });

@@ -43,7 +43,7 @@
     node_kind: function
     arity: 2
     block_children:
-    - 1
+      - 1
 # `not.prefix` uses `token.bang` (`!`) — the v0.1 negation operator.
 # The `not` keyword infix (`grammar.not.infix`) is removed in v0.1.
 - id: grammar.not.prefix
@@ -223,8 +223,8 @@
     node_kind: if
     arity: 3
     block_children:
-    - 1
-    - 2
+      - 1
+      - 2
     child_separators:
       - !Optional token.keyword.then
       - !Required token.keyword.else

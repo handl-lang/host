@@ -62,7 +62,7 @@ execution maps onto ADR-0072's concurrent arrows.
 - **Generic systems port as generic systems.** The Rust runner consumes
   generic platform systems (capability reasoning, eval-result memoisation,
   bounded-job scheduler, predicate combinators, event bus — see ADR-0089
-  *Generic infrastructure dependencies*). The handl port consumes the
+  _Generic infrastructure dependencies_). The handl port consumes the
   handl equivalents of those same generic systems; it does not fold them
   into the runner. The runner ports only its test-specific glue
   (providers, planner policy, test event vocabulary, reporters).

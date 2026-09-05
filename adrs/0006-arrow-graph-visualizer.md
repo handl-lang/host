@@ -24,6 +24,7 @@ A visualizer renders this graph as a diagram — nodes are arrows, edges are dat
 ### Why now
 
 The LSP server already has the information needed to build the graph:
+
 - **Document symbols** — arrow definitions and their names
 - **Call hierarchy** — which arrows call which (incoming/outgoing)
 - **Refinement inference** — input/output types and guarantees for each arrow
@@ -54,9 +55,10 @@ handl visualize [path] [--format svg|mermaid] [--output file]
 #### SVG
 
 A standalone SVG file with:
+
 - **Nodes**: rounded rectangles labeled with arrow name + refinement type
 - **Edges**: directed arrows showing data flow
-- **Colors**: 
+- **Colors**:
   - Blue nodes: arrows defined in the workspace
   - Gray nodes: external/stdlib arrows (e.g., `arr("insert")`)
   - Green edges: sequential composition (`>>>`)
@@ -103,6 +105,7 @@ handl visualize --focus sort --depth 2
 ### Integration with existing infrastructure
 
 The visualizer uses the same kit loading as the CLI and LSP server:
+
 1. Resolve `.handl.toml` from the target path
 2. Load the kit's data files
 3. Parse all `.hnl` files under the target path
@@ -112,6 +115,7 @@ The visualizer uses the same kit loading as the CLI and LSP server:
 7. Optionally: run refinement inference to annotate nodes with types
 
 No new analysis logic — the visualizer reuses:
+
 - `Kit` for lexing/parsing
 - `RefinementEngine` for type annotations (optional, can be skipped with `--no-types`)
 - `call_hierarchy` module's reference-finding logic (already implemented)
@@ -127,6 +131,7 @@ Alternatively: a new command in `handl-host-cli` (`handl visualize`). This is si
 ### Layout algorithm
 
 For SVG output, use a simple layered layout:
+
 1. Topological sort arrows by dependency (arrows with no dependencies first)
 2. Assign each arrow to a layer (max depth from roots)
 3. Position nodes in columns by layer, rows by alphabetical order within a layer
@@ -143,6 +148,7 @@ For Mermaid output, the layout is handled by the Mermaid renderer (GitHub, GitLa
 Build a web app that reads `.hnl` files and renders an interactive D3.js graph.
 
 **Rejected because:**
+
 - Requires a JS/WASM backend to parse handl (doesn't exist yet).
 - A web app is a separate deployment concern.
 - Mermaid output works in any Markdown viewer and is diffable in git.
@@ -153,6 +159,7 @@ Build a web app that reads `.hnl` files and renders an interactive D3.js graph.
 Add a `handl.visualize` custom LSP command that returns graph data as JSON. The editor extension renders it.
 
 **Rejected because:**
+
 - VS Code doesn't have a built-in graph renderer. Would need a webview, which is a separate extension feature.
 - A CLI tool produces output that works anywhere (terminal, CI, Markdown).
 - The LSP server should stay focused on language features, not visualization.
@@ -162,6 +169,7 @@ Add a `handl.visualize` custom LSP command that returns graph data as JSON. The 
 Generate Graphviz DOT files and shell out to `dot` for rendering.
 
 **Rejected because:**
+
 - Adds a system dependency (Graphviz must be installed).
 - Mermaid is more portable (renders in GitHub/GitLab natively).
 - SVG can be generated directly without Graphviz.

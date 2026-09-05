@@ -14,8 +14,8 @@ the earlier draft: the absence of destructuring renaming, and the misuse of
 
 ## Context
 
-ADR-0052 fixed the *kernel*: the calculus is `arr` / `>>>` / `first` / `choice`
-/ `loop` / `app`, and `vau` was removed. ADR-0069 fixed the *module model*: a
+ADR-0052 fixed the _kernel_: the calculus is `arr` / `>>>` / `first` / `choice`
+/ `loop` / `app`, and `vau` was removed. ADR-0069 fixed the _module model_: a
 file is an arrow, imports normalize to projections. Neither addressed the
 **surface syntax** that programmers actually write.
 
@@ -71,13 +71,13 @@ reasons:
 
 1. **It re-introduces named function recursion through the back door.** The
    whole point of the arrow calculus (ADR-0052) is that the unit of
-   computation is a *graph*, not a function. A "recursive arrow" is just a
+   computation is a _graph_, not a function. A "recursive arrow" is just a
    function with a feedback edge drawn on top. The recursion is the feedback
    edge; naming the arrow is incidental.
 
 2. **It does not match Paterson's arrow calculus.** In Paterson's model
    (which ADR-0052 follows), recursion is expressed by `loop`, which
-   introduces a *recursive region* where wires may depend on each other
+   introduces a _recursive region_ where wires may depend on each other
    cyclically. The compiler constructs the feedback graph and checks that it
    is well-typed. There is no "recursive arrow declaration" — there is a
    region with cycles. The draft's `rec x ~> { ... }` form obscures this and
@@ -97,15 +97,15 @@ retry = rec request ~> {
 ```
 
 reads as "define a function `retry` that calls itself." But semantically what
-we want is: *inside the arrow `retry`, there is a feedback region whose
+we want is: _inside the arrow `retry`, there is a feedback region whose
 current wire is `request`, whose step is `send`, and whose exit conditions
-are `result.ok` and `attempts >= 3`.* The recursion is a property of a
-*region inside* the arrow, not of the arrow declaration itself.
+are `result.ok` and `attempts >= 3`._ The recursion is a property of a
+_region inside_ the arrow, not of the arrow declaration itself.
 
 ## Decision
 
-Adopt the v0.1 surface syntax as specified in the accompanying *Arrow Language
-Specification v0.1*, with **two corrections** and **one addendum** to the
+Adopt the v0.1 surface syntax as specified in the accompanying _Arrow Language
+Specification v0.1_, with **two corrections** and **one addendum** to the
 draft:
 
 1. **Destructuring supports renaming.** The pattern separates source from
@@ -160,7 +160,7 @@ Nested patterns compose:
 ```
 
 For positional structures there is no source name to rename — the pattern
-variable *is* the local name:
+variable _is_ the local name:
 
 ```text
 [first, second] = value
@@ -252,7 +252,7 @@ iterate = x ~> {
 ```
 
 The earlier `countdown` and `retry` examples are rewritten as arrows that
-*contain* a `rec` region, not as `rec`-declared arrows:
+_contain_ a `rec` region, not as `rec`-declared arrows:
 
 ```text
 countdown = x ~> {
@@ -565,7 +565,7 @@ parseAndMerge = x ~> {
 The solver derives these from the spread operands' structural types — no new
 type machinery, just structural unification with override semantics.
 
-**What spread is and is not.** Spread is a *construction form*, not
+**What spread is and is not.** Spread is a _construction form_, not
 control-flow sugar. It does not desugar to `match` or `rec`; it is the direct
 counterpart to rest destructuring, which is also a primitive pattern form.
 The kernel sees it as an `arr` node that merges two structural values.
@@ -682,12 +682,12 @@ The following from the v0.1 draft are accepted as-is:
   expression-oriented, compositional, dataflow-oriented, structurally typed
   by default, immutable values and wires, parallelism inferred from
   independent branches, explicit control-flow exits via `return`, minimal
-  syntax. The graph *is* the type derivation.
+  syntax. The graph _is_ the type derivation.
 - **Program structure**: `name = expression`, optional semicolons, newline
   separation.
 - **Arrows**: `x ~> e`, `x ~> { ... }`, juxtaposition as application.
 - **Inline and point-free arrows**: `x ~> x * 2`, `* 2`, `+ 1`, `>>> parse
-  User`, `.name`.
+User`, `.name`.
 - **Composition operators**: `>>>` (sequential), `***` (product), `&&&`
   (fan-out), `|||` (choice), with the categorical/arrow laws in §36 of the
   draft.
@@ -696,7 +696,7 @@ The following from the v0.1 draft are accepted as-is:
 - **Conditionals**: `if c e else e`, single-statement and braced forms,
   expression and control-flow uses.
 - **Destructuring**: positional `[a, b]`, record `{ a, b }`, rest `[a,
-  ...rest]` and `{ a, ...rest }`, nested patterns, simultaneous assignment
+...rest]` and `{ a, ...rest }`, nested patterns, simultaneous assignment
   `a, b = b, c`. (Plus the renaming added by Correction 1.)
 - **Records and indexing**: `{ name: "Luis", age: 30 }`, optional commas,
   computed keys `{ [val]: x }`, indexing `obj[val]`, field access
@@ -991,7 +991,7 @@ with full autonomy. The expected follow-ups are:
 6. A reference parser and pretty-printer for the v0.1 surface, targeting
    the kernel IR from ADR-0052.
 
-The accompanying *Arrow Language Specification v0.1* document (in
+The accompanying _Arrow Language Specification v0.1_ document (in
 `platform/research/arrow-calculus-kernel-poc/`) is the authoritative source
 for the surface syntax as accepted by this ADR, with the two corrections
 and the control-flow/construction addendum above applied.

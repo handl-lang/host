@@ -24,7 +24,7 @@ already clarifies the precise claim:
 > distinction: arrows make computational structure **explicit at the
 > representation level** (fanout is `&&&`, feedback is `loop`,
 > sequencing is `>>>`), while lambda makes it **implicit in the term
-> structure**. Both representations *can* yield the same structural
+> structure**. Both representations _can_ yield the same structural
 > information; arrows give it by construction, lambda requires
 > recovery through analysis.
 
@@ -43,11 +43,11 @@ same computations, including obscured (AI-pattern) lambda code.**
 
 We test the same computations under three analysis regimes:
 
-| Level | Approach | How it works |
-|---|---|---|
-| **Naive lambda** | Syntactic | `let x = e1 in e2` → e2 depends on e1 (no variable-usage check) |
-| **Sophisticated lambda** | Data-flow | Checks whether `x` is actually used in `e2`; computes free variables |
-| **Arrow** | By construction | Reads combinators directly (`Fanout` = independent, `Seq` = dependent) |
+| Level                    | Approach        | How it works                                                           |
+| ------------------------ | --------------- | ---------------------------------------------------------------------- |
+| **Naive lambda**         | Syntactic       | `let x = e1 in e2` → e2 depends on e1 (no variable-usage check)        |
+| **Sophisticated lambda** | Data-flow       | Checks whether `x` is actually used in `e2`; computes free variables   |
+| **Arrow**                | By construction | Reads combinators directly (`Fanout` = independent, `Seq` = dependent) |
 
 The **naive** analysis represents what a simple tool (or a human
 skimming code) does: it sees sequential structure and assumes
@@ -62,16 +62,16 @@ Each computation is defined in both lambda and arrow form. The lambda
 forms include "obscured" variants — the kind of code an LLM might
 produce: correct but structurally undisciplined.
 
-| # | Name | True structure | Lambda obscuration | Arrow form |
-|---|---|---|---|---|
-| C1 | Independent pair (obscured) | f, g independent | `let a = f(x) in let b = g(x) in (a,b)` — let-chain makes g appear dependent on f | `f &&& g` |
-| C2 | Independent state reads | Two Gets independent | `let a = Get in let b = Get in (a,b)` — let-chain makes second Get appear dependent on first | `Get &&& Get` |
-| C3 | Real sequential dependency | g depends on f | `let a = f(x) in g(a)` — real dependency, no obscuration | `f >>> g` |
-| C4 | Mixed independent/dependent | f→g dependent, h independent | `let a = f(x) in let b = g(a) in let c = h(x) in (b,c)` — h's independence obscured by let-chain | `(f >>> g) &&& h` |
-| C5 | Feedback (recursion) | Fixed-point structure | `rec fact = λn. if n ≤ 1 then 1 else n * fact(n-1)` — feedback hidden in recursive call | `loop step` |
-| C6 | Branching with effects | Two branches, different effects | `if b then (Get; Throw) else Put` — branching visible | `choice (Get >>> Throw) Put` |
-| C7 | Nested branching | Three-way branching | `if b then (if c then Get else Put) else Throw` — nesting obscures structure | `choice (choice Get Put) Throw` |
-| C8 | AI pattern: dead computation | f, g independent | `let a = f(x) in g(x)` — a is never used; LLM computes unnecessary f(x) | `f &&& g` |
+| #   | Name                         | True structure                  | Lambda obscuration                                                                               | Arrow form                      |
+| --- | ---------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| C1  | Independent pair (obscured)  | f, g independent                | `let a = f(x) in let b = g(x) in (a,b)` — let-chain makes g appear dependent on f                | `f &&& g`                       |
+| C2  | Independent state reads      | Two Gets independent            | `let a = Get in let b = Get in (a,b)` — let-chain makes second Get appear dependent on first     | `Get &&& Get`                   |
+| C3  | Real sequential dependency   | g depends on f                  | `let a = f(x) in g(a)` — real dependency, no obscuration                                         | `f >>> g`                       |
+| C4  | Mixed independent/dependent  | f→g dependent, h independent    | `let a = f(x) in let b = g(a) in let c = h(x) in (b,c)` — h's independence obscured by let-chain | `(f >>> g) &&& h`               |
+| C5  | Feedback (recursion)         | Fixed-point structure           | `rec fact = λn. if n ≤ 1 then 1 else n * fact(n-1)` — feedback hidden in recursive call          | `loop step`                     |
+| C6  | Branching with effects       | Two branches, different effects | `if b then (Get; Throw) else Put` — branching visible                                            | `choice (Get >>> Throw) Put`    |
+| C7  | Nested branching             | Three-way branching             | `if b then (if c then Get else Put) else Throw` — nesting obscures structure                     | `choice (choice Get Put) Throw` |
+| C8  | AI pattern: dead computation | f, g independent                | `let a = f(x) in g(x)` — a is never used; LLM computes unnecessary f(x)                          | `f &&& g`                       |
 
 ### Metrics
 
@@ -216,6 +216,7 @@ The arrow analysis reads structure directly from combinators:
 ### 4. Arrow analysis is correct by construction (8/8, 0 false deps, 131 steps)
 
 The arrow analysis:
+
 - Detects all 4 independent pairs (via `Fanout` combinator)
 - Produces zero false dependencies (structure is enforced)
 - Requires the fewest analysis steps (131 vs 222 vs 308)
@@ -230,6 +231,7 @@ fact.
 
 Feedback (C5) and branching (C6, C7) are detectable by all three
 analysis levels:
+
 - **Feedback**: lambda's `rec` constructor is syntactically visible;
   arrow's `Loop` combinator is explicit. Both naive and sophisticated
   detect it.
@@ -327,25 +329,25 @@ speculation. The key points to update:
 
 28 tests across 7 categories:
 
-| Category | Tests | Status |
-|---|---|---|
-| C1: Independent pair obscured | 4 | ✅ |
-| C2: Independent state reads | 3 | ✅ |
-| C3: Real dependency (control) | 1 | ✅ |
-| C4: Mixed independent/dependent | 3 | ✅ |
-| C5: Feedback (recursion) | 1 | ✅ |
-| C6: Branching with effects | 2 | ✅ |
-| C7: Nested branching | 1 | ✅ |
-| C8: AI pattern (dead computation) | 3 | ✅ |
-| Aggregate: arrow never has false deps | 1 | ✅ |
-| Aggregate: naive misses independence | 1 | ✅ |
-| Aggregate: sophisticated requires more steps | 1 | ✅ |
-| Aggregate: arrow independence = ground truth | 1 | ✅ |
-| Aggregate: sophisticated independence = ground truth | 1 | ✅ |
-| Aggregate: naive independence ≠ ground truth | 1 | ✅ |
-| Aggregate: sophisticated recovers all structure | 1 | ✅ |
-| Aggregate: effect inference consistent | 1 | ✅ |
-| Free variable analysis | 2 | ✅ |
+| Category                                             | Tests | Status |
+| ---------------------------------------------------- | ----- | ------ |
+| C1: Independent pair obscured                        | 4     | ✅     |
+| C2: Independent state reads                          | 3     | ✅     |
+| C3: Real dependency (control)                        | 1     | ✅     |
+| C4: Mixed independent/dependent                      | 3     | ✅     |
+| C5: Feedback (recursion)                             | 1     | ✅     |
+| C6: Branching with effects                           | 2     | ✅     |
+| C7: Nested branching                                 | 1     | ✅     |
+| C8: AI pattern (dead computation)                    | 3     | ✅     |
+| Aggregate: arrow never has false deps                | 1     | ✅     |
+| Aggregate: naive misses independence                 | 1     | ✅     |
+| Aggregate: sophisticated requires more steps         | 1     | ✅     |
+| Aggregate: arrow independence = ground truth         | 1     | ✅     |
+| Aggregate: sophisticated independence = ground truth | 1     | ✅     |
+| Aggregate: naive independence ≠ ground truth         | 1     | ✅     |
+| Aggregate: sophisticated recovers all structure      | 1     | ✅     |
+| Aggregate: effect inference consistent               | 1     | ✅     |
+| Free variable analysis                               | 2     | ✅     |
 
 ---
 
@@ -359,15 +361,15 @@ speculation. The key points to update:
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48 | ✅ |
-| 2 | #6 (effects & handlers) | 20 | ✅ |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | ✅ |
-| Deep dive | Effect typing | 31 | ✅ |
-| 4 | #9 (structural preservation) | 33 | ✅ |
-| 5 | #10 (minimality — Lean4) | 11 theorems | ✅ |
-| 6 | #11 (ArrowApply without opacity) | 19 | ✅ |
-| 7 | Translation asymmetry — Lean4 | 8 theorems | ✅ |
-| 8 | AI-generated code structure | 28 | ✅ |
-| | **Total** | **205 Rust tests + 19 Lean4 theorems** | **All passing** |
+| Phase     | Challenge                                                            | Tests                                  | Status          |
+| --------- | -------------------------------------------------------------------- | -------------------------------------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 48                                     | ✅              |
+| 2         | #6 (effects & handlers)                                              | 20                                     | ✅              |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26                                     | ✅              |
+| Deep dive | Effect typing                                                        | 31                                     | ✅              |
+| 4         | #9 (structural preservation)                                         | 33                                     | ✅              |
+| 5         | #10 (minimality — Lean4)                                             | 11 theorems                            | ✅              |
+| 6         | #11 (ArrowApply without opacity)                                     | 19                                     | ✅              |
+| 7         | Translation asymmetry — Lean4                                        | 8 theorems                             | ✅              |
+| 8         | AI-generated code structure                                          | 28                                     | ✅              |
+|           | **Total**                                                            | **205 Rust tests + 19 Lean4 theorems** | **All passing** |

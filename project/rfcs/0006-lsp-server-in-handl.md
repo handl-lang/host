@@ -37,7 +37,7 @@ it is the design decision everything else depends on.
 - **The Rust boundary stays thin.** JSON-RPC framing, stdio transport, and
   cancellation tokens are host concerns — a small Rust adapter (or any
   other language's adapter) that decodes LSP messages into handl values and
-  encodes results back. The *server logic* is handl; the *transport* is
+  encodes results back. The _server logic_ is handl; the _transport_ is
   not. This keeps the difficult part (integration plumbing) in the mature
   ecosystem while the language-agnostic logic self-hosts.
 - **Latency budget:** analysis features must run on the compiled backend;

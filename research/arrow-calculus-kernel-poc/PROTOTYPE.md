@@ -74,7 +74,7 @@ type Env = [(String, Value)]
 infer :: Context → Expr → Either TypeError Type
 
 -- Variable
-infer ctx (Var x) = 
+infer ctx (Var x) =
   case lookup x ctx of
     Just t  → Right t
     Nothing → Left (UnboundVariable x)
@@ -188,7 +188,7 @@ eval :: Env → Expr → Either EvalError Value
 
 eval env (Lit v) = Right v
 
-eval env (Var x) = 
+eval env (Var x) =
   case lookup x env of
     Just v  → Right v
     Nothing → Left (UnboundVariable x)
@@ -231,7 +231,7 @@ eval env (App f arg) = do
   func ← eval env f
   value ← eval env arg
   case func of
-    (Closure x body closure_env) → 
+    (Closure x body closure_env) →
       eval ((x, value) : closure_env) body
     _ → Left (NotAFunction func)
 
@@ -306,13 +306,13 @@ run_arrow (AChoice af ag) v = Left (ExpectedSum v)
 -- Loop: feedback (state machine)
 -- This is tricky: we need a termination condition
 -- For now, use a fixed iteration limit
-run_arrow (ALoop step state) v = 
+run_arrow (ALoop step state) v =
   loop_iterate step v state max_iterations
   where
     max_iterations = 100
-    loop_iterate step v state 0 = 
+    loop_iterate step v state 0 =
       Left (MaxIterationsExceeded)
-    loop_iterate step v (VProduct v_current s) n = 
+    loop_iterate step v (VProduct v_current s) n =
       case run_arrow step (VProduct v s) of
         Left err → Left err
         Right (VProduct v_out s_out) →
@@ -330,26 +330,26 @@ run_arrow (ALoop step state) v =
 translate_to_arrow :: Expr → Expr
 
 -- Identity
-translate_to_arrow (Lambda x (Var y)) | x == y = 
+translate_to_arrow (Lambda x (Var y)) | x == y =
   Arr (Lambda "_" (Var "_"))  -- λ_. _ (identity)
 
 -- Constant
-translate_to_arrow (Lambda x (Lit c)) = 
+translate_to_arrow (Lambda x (Lit c)) =
   Arr (Lambda "_" (Lit c))
 
 -- Abstraction over computation
-translate_to_arrow (Lambda x e) = 
+translate_to_arrow (Lambda x e) =
   Arr (Lambda x (translate_to_arrow e))
 
 -- Application: f e becomes (arr f) >>> app >>> (arr e)
 -- This is more complex; we need to handle function composition
-translate_to_arrow (App f e) = 
+translate_to_arrow (App f e) =
   let f' = translate_to_arrow f
       e' = translate_to_arrow e
   in Comp f' e'
 
 -- Already an arrow
-translate_to_arrow (Comp f g) = 
+translate_to_arrow (Comp f g) =
   Comp (translate_to_arrow f) (translate_to_arrow g)
 
 -- Other expressions
@@ -404,7 +404,7 @@ composed = Comp add1 mul2
 
 applyTwice f = Comp f f
 
--- Executing: 
+-- Executing:
 -- applyTwice (arr (λx. x+1)) · 5
 -- ⟹ (arr (λx. x+1)) >>> (arr (λx. x+1)) · 5
 -- ⟹ ((λx. x+1) · 5) ; ((λx. x+1) · 6)
@@ -419,9 +419,9 @@ applyTwice f = Comp f f
 --   where step : (() × Int) ~> (Int × Int)
 --         step = arr (λ((), s). (s, s+1))
 
-step = Arr (Lambda "(unit, state)" 
-  (BinOp "pair" 
-    (Var "state") 
+step = Arr (Lambda "(unit, state)"
+  (BinOp "pair"
+    (Var "state")
     (BinOp "+" (Var "state") (Lit (VInt 1)))))
 
 counter = Loop step
@@ -438,17 +438,17 @@ counter = Loop step
 -- factorial : Int ~> Int
 -- factorial = loop step
 --   where step : (Int × (Int, Int)) ~> (Int × (Int, Int))
---         step = arr (λ(n, (acc, _)). 
---           if n <= 1 
+--         step = arr (λ(n, (acc, _)).
+--           if n <= 1
 --             then (acc, (n, acc))
 --             else ((n-1)*acc, (n-1, (n-1)*acc)))
 
-step_body = 
+step_body =
   If (BinOp "<=" (Var "n") (Lit (VInt 1)))
     (BinOp "pair" (Var "acc") (BinOp "pair" (Var "n") (Var "acc")))
-    (BinOp "pair" 
+    (BinOp "pair"
       (BinOp "*" (Var "n") (Var "acc"))
-      (BinOp "pair" 
+      (BinOp "pair"
         (BinOp "-" (Var "n") (Lit (VInt 1)))
         (BinOp "*" (BinOp "-" (Var "n") (Lit (VInt 1))) (Var "acc"))))
 
@@ -474,31 +474,31 @@ run_test :: String → (Either Error Value) → Value → TestResult
 run_test name result expected =
   case result of
     Left err → Fail name (show err) (show expected)
-    Right actual → 
+    Right actual →
       if actual == expected
         then Pass name
         else Fail name (show actual) (show expected)
 
 -- Test suite for Phase 1
 test_phase_1 = [
-  run_test "identity" 
-    (run_arrow id_arrow (VInt 5)) 
+  run_test "identity"
+    (run_arrow id_arrow (VInt 5))
     (VInt 5),
-  
-  run_test "increment" 
-    (run_arrow add1 (VInt 5)) 
+
+  run_test "increment"
+    (run_arrow add1 (VInt 5))
     (VInt 6),
-  
-  run_test "composition" 
-    (run_arrow composed (VInt 5)) 
+
+  run_test "composition"
+    (run_arrow composed (VInt 5))
     (VInt 12),
-  
-  run_test "higher-order (applyTwice)" 
-    (run_arrow (applyTwice add1) (VInt 5)) 
+
+  run_test "higher-order (applyTwice)"
+    (run_arrow (applyTwice add1) (VInt 5))
     (VInt 7),
-  
-  run_test "factorial(5)" 
-    (run_arrow factorial (VInt 5)) 
+
+  run_test "factorial(5)"
+    (run_arrow factorial (VInt 5))
     (VInt 120),
 ]
 ```

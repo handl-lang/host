@@ -65,16 +65,16 @@ establishes the substrate:
 
 2. **The `Language` protocol is already a value-level trait with impls.**
    `RESULTS_PHASE3.md` shows `Language = { parse, eval, format, typecheck,
-   lit }` — a record of arrows. Arithmetic and Boolean are two impls. The
-   research states: *"A compiler/tooling plugin interface is not a
+lit }` — a record of arrows. Arithmetic and Boolean are two impls. The
+   research states: _"A compiler/tooling plugin interface is not a
    separate language feature — it is arrow composition over a record of
-   arrows."* That *is* a trait + two impls, at the value level. This ADR
+   arrows."_ That _is_ a trait + two impls, at the value level. This ADR
    lifts it to the type level.
 
 3. **Curry-Howard gives law proofs for free.** The correspondence
    `TyOf G ⟺ PrOf G` (mechanized in `lean/ArrowMinimalityLib/ProofGraphs.lean`,
    round-trip bijection proven) means: if an impl graph `G` type-checks at
-   the trait's type, the typing derivation *is* a proof. Laws that fall
+   the trait's type, the typing derivation _is_ a proof. Laws that fall
    out of structure (compositionality, functoriality of `first`,
    distributivity) are proven by the graph's wiring — no separate proof
    term.
@@ -105,9 +105,9 @@ Traits reintroduce a declared layer — the trait signature is an
 annotation, not inferred from the graph.
 
 This is **already true of `Σ`**: the base-arrow types are declared, not
-inferred. The "annotation-free" claim is about the *program graph*, not
-the *signature*. Traits are the same: the trait declaration is a
-signature-level annotation; the *impl* (the graph) remains
+inferred. The "annotation-free" claim is about the _program graph_, not
+the _signature_. Traits are the same: the trait declaration is a
+signature-level annotation; the _impl_ (the graph) remains
 annotation-free. The proof that the impl satisfies the trait is still in
 the wiring.
 
@@ -120,10 +120,10 @@ explicitly.
 ### What is NOT yet proven (and how this ADR handles it)
 
 1. **Equational law verification on arbitrary impls.** The current
-   mechanization proves *subject reduction* (type soundness) and the
-   *typing⇔proof bijection*. It does **not** prove that a specific impl
+   mechanization proves _subject reduction_ (type soundness) and the
+   _typing⇔proof bijection_. It does **not** prove that a specific impl
    graph satisfies an arbitrary equational law like `f >>> id ≡ f` or the
-   functor law. The `FORMALISM.md` "Arrow Laws" section *states* these
+   functor law. The `FORMALISM.md` "Arrow Laws" section _states_ these
    laws but they are not discharged as proof obligations on impl graphs.
 
    The right tool exists: `CutElim` (`ProofAdvantage.lean`) is a
@@ -135,7 +135,7 @@ explicitly.
 
 2. **Trait resolution / coherence.** When multiple impls could satisfy a
    trait, Rust/Haskell resolve via coherence. In the arrow calculus this
-   is *program synthesis*: given a target type `A ~> B`, find a graph.
+   is _program synthesis_: given a target type `A ~> B`, find a graph.
    This is undecidable in general. The structural transparency of arrow
    graphs makes heuristic search more tractable than over λ-terms (the
    dependency graph is explicit, fanout is visible), but there is no
@@ -158,9 +158,11 @@ beyond the bare kernel, because most of it is sugar:
 
 2. **Passing arrows as parameters** — sugar for first-class arrows,
    already in the kernel. Without traits:
+
    ```handl
    sort_by = map => cmp => arr cmp >>> map
    ```
+
    The trait bound `Functor<F> =>` is sugar for "expect a `map` arrow as
    an implicit parameter."
 
@@ -177,7 +179,7 @@ beyond the bare kernel, because most of it is sugar:
    compositions normalize to the same graph, and lets that requirement
    be **reused** at every call site of the trait. Without the trait
    layer, you can write both sides of an equation, but you cannot
-   *require* that an arbitrary impl satisfies it, or *compose* the proof
+   _require_ that an arbitrary impl satisfies it, or _compose_ the proof
    that it does.
 
    This is what makes `migrate = deserialize >>> serialize` **proven
@@ -233,8 +235,8 @@ This makes **trait inference the primary mode** of the trait layer:
 - The user writes a graph.
 - The system recognizes which equational laws the graph satisfies, by
   structural pattern recognition + `CutElim` normalization.
-- The system reports: *"this graph satisfies the functor laws, the
-  serializer roundtrip law, the semigroup associativity law."*
+- The system reports: _"this graph satisfies the functor laws, the
+  serializer roundtrip law, the semigroup associativity law."_
 
 At this point, explicit trait declarations become **optional** — names
 for law patterns the system already detects, used for documentation and
@@ -403,7 +405,7 @@ graphs are 5-10 nodes deep). This means:
 - The combinator tree can be indexed as a **trie** — prefix-match the
   tree shape
 - The catalog can be pre-indexed by `(type shape, combinator
-  fingerprint)` — a 2D hash table
+fingerprint)` — a 2D hash table
 
 #### Multi-match: a graph can satisfy multiple traits
 
@@ -454,6 +456,7 @@ override, or replace. The engine itself has zero hardcoded contracts;
 all refinement inference goes through the catalog.
 
 This means:
+
 - **No engine changes needed to add new refinement patterns** — add a
   trait to the catalog
 - **The built-in catalog is versioned with the engine** — standard
@@ -498,12 +501,12 @@ interface TraitCatalogStore {
   lookupByTypeShape(typeShape) -> [CatalogEntry]
   lookupByFingerprint(fingerprint) -> [CatalogEntry]
   get(entryId) -> CatalogEntry
-  
+
   -- mutation
   insert(entry: CatalogEntry) -> entryId
   update(entryId, entry: CatalogEntry)
   remove(entryId)
-  
+
   -- caching
   getCachedVerification(graphFingerprint, lawPatternId) -> Option<VerificationResult>
   putCachedVerification(graphFingerprint, lawPatternId, result)
@@ -763,7 +766,7 @@ The inner code stays abstract; the outer scope wires the impl.
 - **No coherence problem.** Handlers are lexically scoped and
   nearest-wins — same as exception handlers. Two handlers for
   `Functor<List>`? The innermost applies. No ambiguity, no global
-  uniqueness check, no orphan rule. The scoping *is* the resolution.
+  uniqueness check, no orphan rule. The scoping _is_ the resolution.
 - **Law checking is localized.** CutElim verification runs once at the
   `handle` site, where the concrete graph is bound. Every inner use
   inherits the proof. This is the ADR's "proof reuse by composition"
@@ -817,7 +820,7 @@ case. This revision:
 #### Open: bundled operations
 
 Effect handlers typically handle one operation (`Raise`, `Get`). A
-trait is a *bundle* of operations (`Functor` = `map` + laws). Two
+trait is a _bundle_ of operations (`Functor` = `map` + laws). Two
 options: (a) one effect per operation (granular, loses law-bundling),
 or (b) a "trait effect" that is a record of operations handled together.
 Option (b) is cleaner but requires the effect system to support bundled
@@ -870,14 +873,14 @@ payoff over the bare kernel.
   thing and gets the type and the proof for free" — to trait
   conformance. No `trait`, `impl`, or `law` declaration needed in the
   primary mode.
-- **Laws are proven, not tested** *(contingent on law inference
-  mechanization — see Negative)*. The `TyOf ⟺ PrOf` correspondence
-  means the typing derivation of the impl graph *is* the proof. No
+- **Laws are proven, not tested** _(contingent on law inference
+  mechanization — see Negative)_. The `TyOf ⟺ PrOf` correspondence
+  means the typing derivation of the impl graph _is_ the proof. No
   separate proof terms, no test suite for laws.
 - **Proof reuse by composition.** If `migrate = deserialize >>> serialize`
   and both graphs are recognized as satisfying the roundtrip law, then
   `migrate` is proven lossless by one-line composition of the two laws
-  — no separate proof. Laws compose because laws *are* arrow
+  — no separate proof. Laws compose because laws _are_ arrow
   compositions.
 - **Explicit declarations are optional sugar.** When the user wants to
   name a law pattern (for documentation, explicit intent, or generic
@@ -905,7 +908,7 @@ payoff over the bare kernel.
   fingerprint.
 - **Hardcoded refinement contracts become catalog entries.** The
   existing hardcoded base arrow contracts (`sort → Sorted`, `map →
-  LengthEq`, `filter → AllSatisfy`) migrate to the open catalog,
+LengthEq`, `filter → AllSatisfy`) migrate to the open catalog,
   making the refinement engine fully user-extensible.
 - **Multi-match.** A graph can satisfy multiple traits (e.g. `sort`
   satisfies both `Sorting` and `Permutation`). The inference returns a

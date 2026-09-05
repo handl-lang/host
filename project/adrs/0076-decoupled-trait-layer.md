@@ -30,7 +30,7 @@ Six of the eight features are already present in handl, independent of
 any `trait` keyword:
 
 - **Records of arrows** — Phase 3's `Language = { parse, eval, format,
-  typecheck, lit }` is already a named bundle of arrows, with impls
+typecheck, lit }` is already a named bundle of arrows, with impls
   (Arithmetic, Boolean). No `trait` keyword needed.
 - **First-class arrows** — the kernel (`arr`/`>>>`/`first`/`choice`/
   `loop`/`app`) already passes arrows as parameters.
@@ -44,7 +44,7 @@ any `trait` keyword:
 
 The **two features handl lacks** are:
 
-- **Equational laws** — the ability to *require* that an arrow satisfies
+- **Equational laws** — the ability to _require_ that an arrow satisfies
   an equation, and to verify that requirement.
 - **Law proof reuse** — verify the law once, then inherit the proof by
   composition at every use site.
@@ -66,7 +66,7 @@ part of both languages' trait systems.
 ADR-0075 §13 already moved to explicit `handle ... with` as the primary
 resolution mechanism, which avoids the coherence problem by lexical
 scoping (nearest-wins, like exception handlers). This ADR makes that the
-*only* resolution story — there is no implicit global resolution at all.
+_only_ resolution story — there is no implicit global resolution at all.
 The coherence problem is not solved by an algorithm; it is eliminated by
 design.
 
@@ -93,7 +93,7 @@ and are the substrate for this ADR:
 - **Non-functor laws require semantic axioms.**
   `EquationalLawInference.lean` proves that laws like the roundtrip law
   (`serialize >>> deserialize ≡ id`) and semigroup associativity are
-  *not* CutElim rewrites — they are semantic facts about specific base
+  _not_ CutElim rewrites — they are semantic facts about specific base
   arrows. The mechanization models this honestly: the law's `sound`
   field is an explicit hypothesis (an axiom), not hidden behind a
   `sorry`. Structural pattern recognition still triggers the check; the
@@ -103,8 +103,8 @@ and are the substrate for this ADR:
   demonstrates the catalog + CutElim pipeline, including bottom-up
   congruence (`rewrite_pass`) and SQLite-backed storage.
 
-None of this changes. This ADR changes only the *surface syntax and
-semantic framing* of the trait layer — how the user writes laws,
+None of this changes. This ADR changes only the _surface syntax and
+semantic framing_ of the trait layer — how the user writes laws,
 bundles, and handlers — not the verification machinery underneath.
 
 ## Decision
@@ -134,9 +134,9 @@ law map_comp:  map (f >>> g) = map f >>> map g
   `CutElimCongruence.lean`) or by **semantic axioms** (for non-functor
   laws like roundtrip, per `EquationalLawInference.lean`).
 - **Law proof reuse by composition.** If `migrate = deserialize >>>
-  serialize` and both `serialize` and `deserialize` have verified
+serialize` and both `serialize` and `deserialize` have verified
   roundtrip laws, then `migrate` inherits the lossless proof by
-  composition — no separate proof. Laws compose because laws *are*
+  composition — no separate proof. Laws compose because laws _are_
   arrow compositions.
 
 A single-arrow law needs no bundle. The functor law attaches to `map`
@@ -157,7 +157,7 @@ Serializer<F> = {
 ```
 
 - A bundle is a named record of arrows with laws attached. It is
-  *syntactically* a record — no new keyword.
+  _syntactically_ a record — no new keyword.
 - The bundle guarantees the operations come from the same impl (same
   handler). This is what makes the roundtrip law meaningful: both
   `serialize` and `deserialize` are bound together.
@@ -182,7 +182,7 @@ handle migrate json with Serializer<JSON> = json_impl
 
 - **Lexically scoped, nearest-wins** — like exception handlers. An
   inner handler shadows an outer one for the same arrow or bundle.
-- **No coherence problem** — scoping *is* resolution. There is no
+- **No coherence problem** — scoping _is_ resolution. There is no
   global uniqueness check, no orphan rule, no specificity algorithm.
 - **Law checking runs once at the `handle` site.** When the handler is
   installed, the laws are verified (CutElim for structural laws, axioms
@@ -200,14 +200,14 @@ handle migrate json with Serializer<JSON> = json_impl
 The three features are independent. No combination is mandatory. The
 "trait" pattern emerges when all three are present.
 
-| Combo | What you get |
-|---|---|
-| Law alone | Verified arrow |
-| Bundle alone | Named record (sugar) |
-| Handler alone | Effect injection (dynamic ok) |
-| Law + Bundle | Verified multi-op contract |
-| Law + Handler | Verified, injected arrow |
-| Bundle + Handler | Injected contract |
+| Combo                  | What you get                    |
+| ---------------------- | ------------------------------- |
+| Law alone              | Verified arrow                  |
+| Bundle alone           | Named record (sugar)            |
+| Handler alone          | Effect injection (dynamic ok)   |
+| Law + Bundle           | Verified multi-op contract      |
+| Law + Handler          | Verified, injected arrow        |
+| Bundle + Handler       | Injected contract               |
 | Law + Bundle + Handler | The "trait" pattern (all three) |
 
 The "trait" pattern is an emergent shape, not a keyword. A user who
@@ -300,7 +300,7 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
   six-rewrite fragment. Non-functor laws are discharged by explicit
   semantic axioms (`EquationalLawInference.lean`) — honest, not hidden.
 - **Proof reuse by composition.** If `migrate = deserialize >>>
-  serialize` and both arrows have verified roundtrip laws, `migrate`
+serialize` and both arrows have verified roundtrip laws, `migrate`
   inherits the proof. Laws compose because laws are arrow compositions.
 
 ### Negative
@@ -314,7 +314,7 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
   intentional (it is what eliminates coherence), but it means a type
   does not have a single canonical trait impl across a program.
 - **Bundled-operations effect representation is open.** Effect handlers
-  typically handle one operation. A bundle is a *record* of operations
+  typically handle one operation. A bundle is a _record_ of operations
   handled together. How the effect system represents a bundle as one
   handler is a design question for the effect-handler mechanism, not
   resolved here (see Open Questions).
@@ -364,11 +364,11 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
    - **Mode 2 (dynamic, closed set):** multiple impls pre-verified at
      registration. Runtime predicate picks one. Laws hold regardless —
      all were proven at registration. O(1) dispatch, no runtime CutElim.
-     Dynamic dispatch *with* guarantees.
+     Dynamic dispatch _with_ guarantees.
    - **Mode 3 (dynamic, open set):** graph generated at runtime (not
      known at compile time). Handler runs CutElim on it at runtime.
      Accept if laws satisfied, reject with runtime error if not.
-   
+
    All three work because the arrow calculus graph is **always
    inspectable** — CutElim can run at any time, not just compile time.
    This is a handl advantage over Rust/Haskell, where impls are opaque
@@ -388,7 +388,7 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
    syntax is deferred.
 
 5. **Whether single-arrow laws should be inferable or always declared.**
-   ~~ADR-0075's primary mode was trait *inference* — the system recognizes
+   ~~ADR-0075's primary mode was trait _inference_ — the system recognizes
    laws from wiring without declaration. This ADR defaults to declared
    laws (the secondary mode), because inference is proven only for
    functor laws (`TraitInference.lean`) and is not complete in general

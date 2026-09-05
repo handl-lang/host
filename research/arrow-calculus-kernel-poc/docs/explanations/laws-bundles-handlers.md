@@ -5,8 +5,8 @@
 handl has no `trait` keyword and no `impl` keyword. The Rust/Haskell
 trait pattern — a named bundle of operations with laws, a concrete
 implementation, and a resolution mechanism that finds the right impl
-for a type — is not a syntactic category in handl. It is an *emergent
-shape* produced by combining three independent features: **laws**,
+for a type — is not a syntactic category in handl. It is an _emergent
+shape_ produced by combining three independent features: **laws**,
 **bundles**, and **handlers**.
 
 This is not minimalism for its own sake. The reason for the split is
@@ -48,7 +48,7 @@ effect handlers, dependent types, signature inclusion, and ArrowApply
 are all kernel features that predate the trait layer.
 
 The two features handl actually lacked were equational laws (the
-ability to *require* that an arrow satisfies an equation) and law proof
+ability to _require_ that an arrow satisfies an equation) and law proof
 reuse (verify once, inherit by composition at every use site). The
 `trait` keyword was bundling six things the language already had in
 order to deliver two things it did not. That is a poor exchange: one
@@ -65,7 +65,7 @@ case.
 ## The decoupled insight: three independent features
 
 The decoupling rests on the observation that laws, bundles, and
-handlers answer three *different* questions, and that no question
+handlers answer three _different_ questions, and that no question
 requires the others:
 
 - A **law** answers "does this arrow satisfy this equation?" It
@@ -109,7 +109,7 @@ compiler never silently picks an impl.
 
 The reason this works is that the handler is explicit. The user has
 already said which impl they mean. There is nothing to disambiguate.
-The catalog (ADR-0075 §3) survives as a *fallback* — when no handler is
+The catalog (ADR-0075 §3) survives as a _fallback_ — when no handler is
 installed, the compiler searches the open trait catalog. One match is
 injected; multiple matches are an error that asks the user to name one
 explicitly. The fallback is honest: it never guesses.
@@ -186,7 +186,7 @@ is not all laws, but it is the structural core.
 **Non-functor laws require semantic axioms.**
 `EquationalLawInference.lean` proves that laws like the roundtrip law
 (`serialize >>> deserialize ≡ id`) and semigroup associativity are
-*not* CutElim rewrites — they are semantic facts about specific base
+_not_ CutElim rewrites — they are semantic facts about specific base
 arrows. The mechanization models this honestly: the law's `sound` field
 is an explicit hypothesis (an axiom), not hidden behind a `sorry`.
 Structural pattern recognition still triggers the check; the axiom

@@ -114,9 +114,7 @@ export function parseToml(content: string): HandlManifest {
   return manifest;
 }
 
-function buildLanguage(
-  raw: Record<string, unknown>,
-): NonNullable<HandlManifest["language"]> {
+function buildLanguage(raw: Record<string, unknown>): NonNullable<HandlManifest["language"]> {
   const out: {
     kit?: string;
     version?: string;
@@ -131,9 +129,7 @@ function buildLanguage(
   return out;
 }
 
-function buildEditor(
-  raw: Record<string, unknown>,
-): NonNullable<HandlManifest["editor"]> {
+function buildEditor(raw: Record<string, unknown>): NonNullable<HandlManifest["editor"]> {
   const out: {
     enableInlayHints?: boolean;
     enableCodeLens?: boolean;

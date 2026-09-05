@@ -21,13 +21,13 @@ others?
 **The minimal arrow calculus for a total PL requires exactly five
 independent primitives. No primitive can be derived from the others.**
 
-| Primitive | Type | Introduces |
-|---|---|---|
-| `arr` | `(A → B) → α A B` | lifting (pure functions into arrows) |
-| `comp` | `α A B → α B C → α A C` | sequencing (composition) |
-| `first` | `α A B → α (A × C) (B × C)` | products (`×`, fanout) |
-| `loop` | `α (A × C) (B × C) → α A B` | feedback (fixed point) |
-| `left` | `α A B → α (Sum A C) (Sum B C)` | sums (`+`, choice) |
+| Primitive | Type                            | Introduces                           |
+| --------- | ------------------------------- | ------------------------------------ |
+| `arr`     | `(A → B) → α A B`               | lifting (pure functions into arrows) |
+| `comp`    | `α A B → α B C → α A C`         | sequencing (composition)             |
+| `first`   | `α A B → α (A × C) (B × C)`     | products (`×`, fanout)               |
+| `loop`    | `α (A × C) (B × C) → α A B`     | feedback (fixed point)               |
+| `left`    | `α A B → α (Sum A C) (Sum B C)` | sums (`+`, choice)                   |
 
 ---
 
@@ -46,6 +46,7 @@ structurally what each constructor can and cannot produce.
 **Claim:** `left` is not derivable from `arr + comp + first + loop`.
 
 **Proof:** In `FreeArrow G`, inspect each constructor's output type:
+
 - `arrF` — output `B` (user-supplied; can be `Sum` only if user provides it)
 - `compF` — output `C` (from second arrow; no `Sum` introduced by `compF`)
 - `firstF` — output `(B × C)` — a **product**, never a sum
@@ -65,6 +66,7 @@ derivation. ∎
 
 **Proof:** Define `FreeArrowNoFirst G` (free arrow without `firstF`).
 Inspect constructors:
+
 - `arrNF` — output `B`
 - `compNF` — output `C`
 - `loopNF` — output `B`
@@ -84,6 +86,7 @@ product, and only if the user supplies `f : A → B × C`. ∎
 The free arrow without `loop` is **strictly acyclic**: every term is a
 finite tree with forward data flow only. No constructor has the feedback
 shape `α (A × C) (B × C) → α A B`:
+
 - `arrNL` — forward only (`A → B`)
 - `compNL` — forward only (`A → C` via `B`)
 - `firstNL` — forward only (`(A × C) → (B × C)`)
@@ -119,13 +122,13 @@ independent.
 
 ### Proof summary
 
-| Primitive | Not derivable from | Argument |
-|---|---|---|
-| `left` | `arr + comp + first + loop` | No constructor introduces `Sum` |
-| `first` | `arr + comp + loop` | No constructor introduces `×` |
-| `loop` | `arr + comp + first` (total) | No constructor introduces feedback |
-| `comp` | `arr + first + loop + left` | No other combinator chains arrows |
-| `arr` | `comp + first + loop + left` | No other combinator lifts functions |
+| Primitive | Not derivable from           | Argument                            |
+| --------- | ---------------------------- | ----------------------------------- |
+| `left`    | `arr + comp + first + loop`  | No constructor introduces `Sum`     |
+| `first`   | `arr + comp + loop`          | No constructor introduces `×`       |
+| `loop`    | `arr + comp + first` (total) | No constructor introduces feedback  |
+| `comp`    | `arr + first + loop + left`  | No other combinator chains arrows   |
+| `arr`     | `comp + first + loop + left` | No other combinator lifts functions |
 
 All five proven via the free-arrow (initiality) argument. 7 theorems
 mechanized in Lean4, all by `rfl` (the type signatures are the proof).
@@ -135,14 +138,14 @@ mechanized in Lean4, all by `rfl` (the type signatures are the proof).
 ## Why the Free-Arrow Argument is Stronger than Model-Theoretic
 
 A model-theoretic counterexample (an arrow admitting `Arrow + ArrowLoop`
-but no `ArrowChoice`) is hard to construct: `StateArrow S` *does* admit
+but no `ArrowChoice`) is hard to construct: `StateArrow S` _does_ admit
 `ArrowChoice`. The genuine counterexamples are arrows with
 non-commutative effects.
 
 The free-arrow argument sidesteps this by showing non-derivability at
 the **syntax** level: you literally cannot write a `Sum`-producing term
 from the structural combinators. This is stronger than showing
-non-existence in one model — it shows non-existence in *all* models that
+non-existence in one model — it shows non-existence in _all_ models that
 are quotients of the free arrow (which, by initiality, is all of them).
 
 ---
@@ -162,6 +165,7 @@ Combined with the structural preservation result (Challenge #9):
 > information that opaque monadic encodings destroy.**
 
 This is the strongest statement the project makes:
+
 - **Sufficiency** — 154 Rust tests, 9 challenges
 - **Minimality** — 7 Lean4 theorems, 5 independent primitives
 - **Structural advantage** — 33 Rust tests, opaque monads are lossy
@@ -184,12 +188,12 @@ This is the strongest statement the project makes:
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44 | ✅ |
-| 2 | #6 (effects & handlers) | 20 | ✅ |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | ✅ |
-| Deep dive | Effect typing | 31 | ✅ |
-| 4 | #9 (structural preservation) | 33 | ✅ |
-| 5 | #10 (minimality — Lean4) | 7 theorems | ✅ |
-| | **Total** | **154 + 7** | **All passing** |
+| Phase     | Challenge                                                            | Tests       | Status          |
+| --------- | -------------------------------------------------------------------- | ----------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44          | ✅              |
+| 2         | #6 (effects & handlers)                                              | 20          | ✅              |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26          | ✅              |
+| Deep dive | Effect typing                                                        | 31          | ✅              |
+| 4         | #9 (structural preservation)                                         | 33          | ✅              |
+| 5         | #10 (minimality — Lean4)                                             | 7 theorems  | ✅              |
+|           | **Total**                                                            | **154 + 7** | **All passing** |

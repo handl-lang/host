@@ -75,7 +75,7 @@ Graph G  ::= { inputs, outputs, nodes, memory-map }
 
 ### 2.3 Locating SAE in the Arrow-First / Language-First Kernel
 
-SAE is not a standalone language. It is a backend for an Arrow-First kernel whose central thesis is: *the kernel constructs computations; handlers interpret them* (see [PAPER.md](./PAPER.md)). That kernel makes two things first-class — arrows (computations as values) and languages (the rules for constructing/interpreting computations as values, after Cimini's `λ^𝓛`). SAE occupies one cell in that matrix: it is the **spatial-execution handler** for the kernel's statically-resolvable fragment.
+SAE is not a standalone language. It is a backend for an Arrow-First kernel whose central thesis is: _the kernel constructs computations; handlers interpret them_ (see [PAPER.md](./PAPER.md)). That kernel makes two things first-class — arrows (computations as values) and languages (the rules for constructing/interpreting computations as values, after Cimini's `λ^𝓛`). SAE occupies one cell in that matrix: it is the **spatial-execution handler** for the kernel's statically-resolvable fragment.
 
 Three consequences follow from locating SAE here, rather than presenting it as a self-contained macro system:
 
@@ -89,7 +89,7 @@ A further endpoint the kernel enables but SAE does not require: **self-hosted St
 
 ### 2.4 The Three-Way Split: Static Transparency vs. Runtime Transparency
 
-`ArrowApply` (`app`) makes the dynamic continuation an explicit first-class arrow value (a traversable data structure), not a hidden function closure as in monadic `bind`. This is a real representational difference. But it does not, by itself, make the continuation statically known: if the arrow value is produced by runtime data, its shape is unknown at compile time and cannot be route-optimized. The transparency is *runtime* (a handler can inspect, sandbox, or rewrite a received arrow before interpreting it), not *Stage-0* (the arrow's shape is not known at compile time).
+`ArrowApply` (`app`) makes the dynamic continuation an explicit first-class arrow value (a traversable data structure), not a hidden function closure as in monadic `bind`. This is a real representational difference. But it does not, by itself, make the continuation statically known: if the arrow value is produced by runtime data, its shape is unknown at compile time and cannot be route-optimized. The transparency is _runtime_ (a handler can inspect, sandbox, or rewrite a received arrow before interpreting it), not _Stage-0_ (the arrow's shape is not known at compile time).
 
 This distinction yields a three-way split of the kernel (mirroring PAPER.md §9.1), not a two-way "static vs. dynamic" one:
 
@@ -99,24 +99,24 @@ This distinction yields a three-way split of the kernel (mirroring PAPER.md §9.
 
 3. **Unbounded-branch-space `app`** (target set not provably finite, or dependent on unbounded runtime data schemas) → dynamic handler: live Stage 0 re-staging (sub-millisecond graph build + compile) or a conventional VM, exploiting the runtime transparency for inspection and sandboxing. These are the `DynamicIsland` nodes of §2.2.
 
-The boundary is *provable-finite-branch-space*, not `app`-presence. This moves a large class of `app` usage — most conditional branching, pattern matching, and finite dispatch — from the dynamic handler into the spatial handler, leaving only genuinely unbounded dynamic structure to the fallback.
+The boundary is _provable-finite-branch-space_, not `app`-presence. This moves a large class of `app` usage — most conditional branching, pattern matching, and finite dispatch — from the dynamic handler into the spatial handler, leaving only genuinely unbounded dynamic structure to the fallback.
 
-| Profile | Pre-compiled dispatch (finite branch space) | Live re-staging (unbounded branch space) |
-| --- | --- | --- |
-| When | Branch choices known statically or a small predictable set. | Dynamic structure depends on unbounded runtime data schemas. |
-| Runtime overhead | ≈ 0 ns (single pointer read / indirect dispatch). | Sub-millisecond (Stage 0 graph build + compile). |
-| Memory | Pre-allocated slab with proactive chunk recycling. | Temporary graph workspace with immediate discard. |
+| Profile          | Pre-compiled dispatch (finite branch space)                 | Live re-staging (unbounded branch space)                     |
+| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| When             | Branch choices known statically or a small predictable set. | Dynamic structure depends on unbounded runtime data schemas. |
+| Runtime overhead | ≈ 0 ns (single pointer read / indirect dispatch).           | Sub-millisecond (Stage 0 graph build + compile).             |
+| Memory           | Pre-allocated slab with proactive chunk recycling.          | Temporary graph workspace with immediate discard.            |
 
 ## 3. Comparative Evaluation
 
-| Axis | Ordinary λ / Opaque Monad | Pure Interaction Nets (dynamic) | SAE (explicit + staged) |
-| --- | --- | --- | --- |
-| Structure | Buried in binds | Explicit but runtime-mutable | Explicit and frozen after Stage 0 |
-| Dynamic control | Runtime stack / jumps | Runtime dup/era | Resolved in Stage 0 (tiers 1–2); isolated islands or fallback (tier 3) |
-| Memory | Stack + heap | Dynamic node heap | Pre-allocated contiguous buffers (tiers 1–2); bounded workspace (tier 3) |
-| Spatial mapping | Complex analysis | Possible but bloated | Near 1:1 routing (tiers 1–2) |
-| Residual dynamism | Everywhere | Everywhere | Isolated islands or fallback (tier 3 only) |
-| `ArrowApply` handling | N/A (opaque bind) | N/A | Tier 2: pre-compiled dispatch table; tier 3: dynamic island |
+| Axis                  | Ordinary λ / Opaque Monad | Pure Interaction Nets (dynamic) | SAE (explicit + staged)                                                  |
+| --------------------- | ------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| Structure             | Buried in binds           | Explicit but runtime-mutable    | Explicit and frozen after Stage 0                                        |
+| Dynamic control       | Runtime stack / jumps     | Runtime dup/era                 | Resolved in Stage 0 (tiers 1–2); isolated islands or fallback (tier 3)   |
+| Memory                | Stack + heap              | Dynamic node heap               | Pre-allocated contiguous buffers (tiers 1–2); bounded workspace (tier 3) |
+| Spatial mapping       | Complex analysis          | Possible but bloated            | Near 1:1 routing (tiers 1–2)                                             |
+| Residual dynamism     | Everywhere                | Everywhere                      | Isolated islands or fallback (tier 3 only)                               |
+| `ArrowApply` handling | N/A (opaque bind)         | N/A                             | Tier 2: pre-compiled dispatch table; tier 3: dynamic island              |
 
 ## 4. Architectural Trade-offs and Mitigations
 

@@ -6,12 +6,12 @@ Proposed. Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)) and an instance of the
 stdlib-migration program ([ADR-0077](./0077-stdlib-migration-to-handl.md)).
 Companion to [ADR-0089](./0089-bootstrap-test-runner.md), which extracts
-the test *runner* into a new `plugin-engine-test` crate. The future handl
+the test _runner_ into a new `plugin-engine-test` crate. The future handl
 port of the runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
 
 > **Terminology.** This ADR is about the test **framework library** — the
 > `assert`/`property`/`benchmark`/`fuzz`/`snapshot`/`test` primitives that
-> handl test code *calls*. It is **not** about the test *runner* (discovery,
+> handl test code _calls_. It is **not** about the test _runner_ (discovery,
 > planning, scheduling, reporting), which is ADR-0089 and stays Rust for
 > now.
 
@@ -30,7 +30,7 @@ ADR-0089 extracts the runner into `plugin-engine-test`. This ADR migrates
 the **framework library** to handl under `handl-packages/test/` and
 **deletes `plugin-lib-test`**.
 
-The framework is already *declared* in handl: `handl-packages/test/test.hnl`
+The framework is already _declared_ in handl: `handl-packages/test/test.hnl`
 declares the `op` interface (`assert.equal : (Value, Value) -> Bool`, …) and
 binds each op to a Rust handl (`handl "assert.equal" = rust_assert_equal`).
 The Rust modules implement those handls and register them in an
@@ -86,27 +86,27 @@ cases, by a handl to a stdlib FFI primitive).
 
 ### Migration per op
 
-| Op | Now | After | FFI dependency |
-|---|---|---|---|
-| `assert.equal` / `not_equal` / `true` / `false` / `contains` / `throws` | Rust handl | pure handl | none |
-| `snapshot.format` / `snapshot.match` | Rust handl | pure handl | a stdlib JSON serializer |
-| `property.for_all` | Rust handl | pure handl | a seeded RNG primitive (`random.*` in stdlib) |
-| `fuzz.run` | Rust handl | pure handl | same seeded RNG primitive |
-| `test.run` | Rust handl | pure handl | none |
-| `benchmark.run` | Rust handl | handl over `time.now` | a clock primitive (`time.*` in stdlib) |
+| Op                                                                      | Now        | After                 | FFI dependency                                |
+| ----------------------------------------------------------------------- | ---------- | --------------------- | --------------------------------------------- |
+| `assert.equal` / `not_equal` / `true` / `false` / `contains` / `throws` | Rust handl | pure handl            | none                                          |
+| `snapshot.format` / `snapshot.match`                                    | Rust handl | pure handl            | a stdlib JSON serializer                      |
+| `property.for_all`                                                      | Rust handl | pure handl            | a seeded RNG primitive (`random.*` in stdlib) |
+| `fuzz.run`                                                              | Rust handl | pure handl            | same seeded RNG primitive                     |
+| `test.run`                                                              | Rust handl | pure handl            | none                                          |
+| `benchmark.run`                                                         | Rust handl | handl over `time.now` | a clock primitive (`time.*` in stdlib)        |
 
 Ops with an FFI dependency land as handl-over-primitive the moment the
-primitive exists; until then they stay as Rust handls *in the runner crate*
+primitive exists; until then they stay as Rust handls _in the runner crate_
 (`plugin-engine-test`) as a temporary bridge, not in a resurrected
 `plugin-lib-test`.
 
 ### Crate boundary
 
-| Crate | Before | After |
-|---|---|---|
-| `plugin-lib-test` | Framework library + runner | **Deleted** |
-| `plugin-engine-test` (ADR-0089) | — | Runner only; may carry temporary Rust handls for `benchmark`/RNG until stdlib primitives land |
-| `handl-packages/test/` | `test.hnl` (op declarations) | Full pure-handl framework library |
+| Crate                           | Before                       | After                                                                                         |
+| ------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `plugin-lib-test`               | Framework library + runner   | **Deleted**                                                                                   |
+| `plugin-engine-test` (ADR-0089) | —                            | Runner only; may carry temporary Rust handls for `benchmark`/RNG until stdlib primitives land |
+| `handl-packages/test/`          | `test.hnl` (op declarations) | Full pure-handl framework library                                                             |
 
 ### Relationship to ADR-0089
 
@@ -130,7 +130,7 @@ dependencies (RNG, clock) that gate two of the ops.
 - The **runner** (`plugin-engine-test`) — ADR-0089, stays Rust per
   ADR-0085 rule 6.
 - **Temporary Rust handls** for `benchmark.run` (clock) and
-  `property.for_all`/`fuzz.run` (seeded RNG) *if* those stdlib primitives
+  `property.for_all`/`fuzz.run` (seeded RNG) _if_ those stdlib primitives
   don't exist yet. These live in `plugin-engine-test` as stopgaps, **not**
   in a recreated `plugin-lib-test`. They are deleted the moment the
   primitives land.
@@ -152,7 +152,7 @@ dependencies (RNG, clock) that gate two of the ops.
   an op from Rust-handl to pure-handl changes only the `handl "..." = …`
   binding; callers see no difference.
 - **No grammar change.** The framework is handl code using existing
-  surface syntax; the `test` *keyword* (test declarations) is a separate
+  surface syntax; the `test` _keyword_ (test declarations) is a separate
   concern owned by ADR-0089's test-language fragment.
 
 ## Prerequisites

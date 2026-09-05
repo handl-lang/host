@@ -33,7 +33,6 @@ mod error;
 mod function_value;
 mod fuzz;
 mod property;
-pub mod runner;
 mod shared;
 mod snapshot;
 mod test;
@@ -43,7 +42,6 @@ pub use benchmark::BenchmarkModule;
 pub use error::TestError;
 pub use fuzz::FuzzModule;
 pub use property::PropertyModule;
-pub use runner::*;
 pub use snapshot::SnapshotModule;
 pub use test::TestModule;
 

@@ -5,7 +5,7 @@
 Proposed
 
 Refines [ADR-0047 — Meta Functions as `plugin-lib-*` Crates](./0047-meta-functions-as-plugin-lib-crates.md)
-(hands the meta functions to handl as callable modules, which this ADR then *uses* from handl).
+(hands the meta functions to handl as callable modules, which this ADR then _uses_ from handl).
 Related: [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md),
 [ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md).
 
@@ -17,7 +17,7 @@ The platform's composition model — `Plugin`, `Operation`, `Behavior<Op>`, `Rul
 Rust traits with Rust rule acceptors (`BasicFormatter`, `BasicLinter`, …). Rules are Rust
 structs implementing `Behavior<Op>`.
 
-This works, but it puts the *first application of handl* — its own tooling — in Rust. Every
+This works, but it puts the _first application of handl_ — its own tooling — in Rust. Every
 new format/lint rule is a Rust crate, a recompile, and a host edit. The language's own
 toolchain cannot be extended by writing handl. That is the opposite of the platform's stated
 goal ("every concept is a `Plugin`, every tool is a `Host` that composes plugins") when the
@@ -54,7 +54,7 @@ than it first appears.
 
 A self-hosted toolchain does not mean zero Rust. Every self-hosted language keeps a kernel
 runtime in a host language (CPython in C, V8 in C++, rustc in Rust with LLVM in C++). Porting
-the *evaluator* to handl would only make handl slower running handl — no gain. The win is
+the _evaluator_ to handl would only make handl slower running handl — no gain. The win is
 porting the **toolchain** (parser, formatter, linter, type-checker), not the engine.
 
 This ADR therefore fixes two permanent Rust pieces and moves everything above them into handl:
@@ -93,21 +93,21 @@ seam is inherently host-language code. Nothing else needs to be Rust.
 The generic plugin system — `PluginRegistry`, `ContributionContext`, `RuleAcceptor`,
 `Operation`, `Behavior`, `Host.load` fixpoint — is implemented as a **handl module**
 (`plugin.*`) backed by handl data and handl functions. No new `plugin-lib-plugin` Rust crate
-holds the *logic*; the only Rust involved is the binding façade that exposes whatever host
+holds the _logic_; the only Rust involved is the binding façade that exposes whatever host
 primitives the handl module needs (e.g. a stable `ast.parse` callable).
 
 The Rust trait model maps to handl data with no loss of expressiveness, because handl is
 JSON + functions:
 
-| Rust                                | handl                                              |
-| ----------------------------------- | -------------------------------------------------- |
-| `Plugin` trait                      | object `{id, capabilities, contribute, run}`       |
-| `Operation` marker type             | string id (`"fmt"`, `"lint"`)                       |
-| `Behavior<Op>` trait                | object `{kind, apply}`; `apply` is a fn mutating a request |
-| `RuleAcceptor` trait                | a plugin whose `run` dispatches to behaviors by `kind` |
-| `PluginRegistry`                    | handl object: map of capability → plugin            |
-| `ContributionContext`               | handl object passed to `contribute`                |
-| `Host` + fixpoint load              | handl `host.load` function: register → contribute → resolve → repeat to fixpoint |
+| Rust                    | handl                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `Plugin` trait          | object `{id, capabilities, contribute, run}`                                     |
+| `Operation` marker type | string id (`"fmt"`, `"lint"`)                                                    |
+| `Behavior<Op>` trait    | object `{kind, apply}`; `apply` is a fn mutating a request                       |
+| `RuleAcceptor` trait    | a plugin whose `run` dispatches to behaviors by `kind`                           |
+| `PluginRegistry`        | handl object: map of capability → plugin                                         |
+| `ContributionContext`   | handl object passed to `contribute`                                              |
+| `Host` + fixpoint load  | handl `host.load` function: register → contribute → resolve → repeat to fixpoint |
 
 Traits are not needed on the handl side because dispatch is by string `kind` over JSON
 requests, which is exactly what the Rust `BasicFormatter`/`BasicLinter` already do
@@ -202,7 +202,7 @@ self-hosting reward, not the starting line.
   designing the contract in an immature language against real rules is more honest than
   designing it in the abstract — but it means early rule files will be rewritten.
 - **Parser port (step 7) is deferred, not free.** Full self-hosting (no Rust parser) is a
-  later phase with its own ADR. This ADR delivers a self-hosted *toolchain* on top of a
+  later phase with its own ADR. This ADR delivers a self-hosted _toolchain_ on top of a
   Rust parser; the parser port is the next milestone, not part of this decision.
 
 ## References

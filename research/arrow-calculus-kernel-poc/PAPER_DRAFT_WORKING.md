@@ -1,6 +1,6 @@
 # Structural Invariant-Schema Inference and Semantic Verification for λ-Free Arrow Graphs
 
-*A paper draft*
+_A paper draft_
 
 ---
 
@@ -50,16 +50,16 @@ the graph analogue of combinatory logic, but it carries richer structure
 (products, sums, and trace/feedback) than the SK combinators, and it models
 computational effects, choice, and recursion directly.
 
-The key observation is that an arrow graph is *structurally transparent*: its
+The key observation is that an arrow graph is _structurally transparent_: its
 wiring is explicit, every wire is inspectable, and the combinator structure
 determines how information flows. This raises a question that this paper
 investigates empirically and formally:
 
-> *Can the graph structure alone carry enough information to automatically
+> _Can the graph structure alone carry enough information to automatically
 > infer refinement properties — sortedness, length preservation, predicate
 > satisfaction — and to infer invariant schemas for loops from structural
 > patterns, without the user supplying any type annotations, proof terms, or
-> invariants?*
+> invariants?_
 
 We argue that it can, for a useful and characterizable class of programs, and
 we demonstrate this with a Rust prototype that performs annotation-free
@@ -74,7 +74,7 @@ local cut elimination).
    system: `comp` is cut, `first` is ∧-functoriality, `left` is
    ∨-functoriality, `loop` is trace/fixpoint, and `arr` is an axiom. The
    typing judgment `TyOf G` and the proof judgment `PrOf G` are bijections
-   (round-trip theorems proven in Lean4). This is the *foundation* of the
+   (round-trip theorems proven in Lean4). This is the _foundation_ of the
    paper, not the headline novelty.
 
 2. **Annotation-free structural refinement propagation with semantic
@@ -161,8 +161,8 @@ graphical-proof-object idea, but our calculus is **not linear** (`first`
 duplicates the side channel, `comp` can share sub-graphs); the locality of our
 cut elimination comes from the graph structure (no binders), not from
 linearity. Alves, Fernández, and Mackie [1] build a graphical proof calculus
-for intuitionistic logic / λ-calculus; their graphs are a *notation* for
-λ-terms, whereas our graphs are a *primitive syntax* with no λ underneath.
+for intuitionistic logic / λ-calculus; their graphs are a _notation_ for
+λ-terms, whereas our graphs are a _primitive syntax_ with no λ underneath.
 
 ### 2.4 Position
 
@@ -171,7 +171,7 @@ for arrows" (that is the foundation) but the **structural invariant-schema
 inference + semantic verification mechanism** that the graph structure
 enables: refinement propagation and structural invariant-schema inference for
 loops without user annotations. The Curry–Howard
-correspondence is what makes the inference *logically interesting* — the
+correspondence is what makes the inference _logically interesting_ — the
 inferred refinements are proof-relevant — but the practical contribution is
 the inference itself.
 
@@ -246,21 +246,21 @@ We interpret arrow types as propositions in intuitionistic logic:
   ⊥       ↦   ⊥              (falsity)
 ```
 
-The typing rules and the proof rules are then *notation-for-notation
-identical*:
+The typing rules and the proof rules are then _notation-for-notation
+identical_:
 
-| Graph combinator | Type reading | Proof reading |
-|------------------|--------------|---------------|
-| `id_A`           | `A ⇝ A`      | `A ⊢ A` (identity) |
-| `comp(G, H)`     | `A ⇝ C`      | cut: `A⊢B, B⊢C ⟹ A⊢C` |
-| `first(G)`       | `A×C ⇝ B×C`  | ∧-functoriality |
-| `left(G)`        | `A+C ⇝ B+C`  | ∨-functoriality |
-| `loop(G)`        | `A ⇝ B`      | trace / fixpoint invariant |
+| Graph combinator | Type reading | Proof reading                    |
+| ---------------- | ------------ | -------------------------------- |
+| `id_A`           | `A ⇝ A`      | `A ⊢ A` (identity)               |
+| `comp(G, H)`     | `A ⇝ C`      | cut: `A⊢B, B⊢C ⟹ A⊢C`            |
+| `first(G)`       | `A×C ⇝ B×C`  | ∧-functoriality                  |
+| `left(G)`        | `A+C ⇝ B+C`  | ∨-functoriality                  |
+| `loop(G)`        | `A ⇝ B`      | trace / fixpoint invariant       |
 | `arr(φ)`         | `A ⇝ B`      | axiom (primitive inference step) |
 
-**Theorem (Typing ⇔ Proof).** *For every arrow graph `G` and types `A, B`:
+**Theorem (Typing ⇔ Proof).** _For every arrow graph `G` and types `A, B`:
 `Γ ⊢ G : A ⇝ B` iff `Γ ⊢ G ⊩ A ⊢ B`. The derivations are structurally
-identical (rule-for-rule, premise-for-premise).*
+identical (rule-for-rule, premise-for-premise)._
 
 This is mechanized in Lean4 (`ProofGraphs.lean`). The two inductive
 predicates `TyOf` and `PrOf` have the same indices, the same constructors, and
@@ -270,8 +270,8 @@ mutually inverse bijections on derivations, proven by the round-trip theorems
 
 ### 3.4 Subject Reduction
 
-**Theorem (Subject Reduction).** *If `⊢ G : A ⇝ B` and `G · a ⟹ v` with
-`a : A`, then `v : B`.*
+**Theorem (Subject Reduction).** _If `⊢ G : A ⇝ B` and `G · a ⟹ v` with
+`a : A`, then `v : B`._
 
 All seven execution cases are discharged in Lean4, including the two subtle
 ones: `eLeftR` (where `left G` preserves the right summand unchanged) and
@@ -295,7 +295,7 @@ Each rewrite is a single structural step — no substitution, no
 α-conversion, no duplication. We prove `cut_elim_preserves_proof` (every
 `PrOf G` lifts to `PrOf G'` after one rewrite) and `cut_elim_preserves_type`
 (every `TyOf G` lifts to `TyOf G'`). This is a genuinely non-definitional
-theorem *about* the graph calculus: it relates two different graphs, and its
+theorem _about_ the graph calculus: it relates two different graphs, and its
 proof inspects the actual rewrite. No restatement of the Curry–Howard
 bijection discharges it.
 
@@ -353,8 +353,8 @@ graph structure, without user annotations on the graph.** Concretely:
   is not a per-program annotation; it is part of the language definition (like
   the type of `+` or `cons`).
 
-- The **graph** is the program. It carries *no* type information, *no*
-  refinement annotation, *no* proof term. The graph's wiring is the only
+- The **graph** is the program. It carries _no_ type information, _no_
+  refinement annotation, _no_ proof term. The graph's wiring is the only
   structure.
 
 - The **checker** traverses the graph, propagates refinements through each
@@ -408,33 +408,33 @@ filter(p) : {xs : [α] | IsList(xs)} ⇝ {ys : [α] | IsList(ys) ∧ AllSatisfy(
 
 Then the inference produces:
 
-| Graph | Input refinement | Inferred output refinement |
-|-------|------------------|-----------------------------|
-| `arr(sort)` | `IsList` | `Sorted ∧ IsPerm` |
-| `arr(map(f))` | `IsList` | `IsList ∧ LengthPreserved` |
-| `arr(filter(p))` | `IsList` | `IsList ∧ AllSatisfy(p)` |
-| `comp(arr(sort), arr(sort))` | `IsList` | `Sorted ∧ IsPerm` (idempotent: sorting a sorted list is sorted) |
-| `first(arr(sort))` | `(IsList, Q)` | `(Sorted ∧ IsPerm, Q)` |
-| `comp(arr(filter(p)), arr(sort))` | `IsList` | `AllSatisfy(p) ∧ Sorted` |
+| Graph                             | Input refinement | Inferred output refinement                                      |
+| --------------------------------- | ---------------- | --------------------------------------------------------------- |
+| `arr(sort)`                       | `IsList`         | `Sorted ∧ IsPerm`                                               |
+| `arr(map(f))`                     | `IsList`         | `IsList ∧ LengthPreserved`                                      |
+| `arr(filter(p))`                  | `IsList`         | `IsList ∧ AllSatisfy(p)`                                        |
+| `comp(arr(sort), arr(sort))`      | `IsList`         | `Sorted ∧ IsPerm` (idempotent: sorting a sorted list is sorted) |
+| `first(arr(sort))`                | `(IsList, Q)`    | `(Sorted ∧ IsPerm, Q)`                                          |
+| `comp(arr(filter(p)), arr(sort))` | `IsList`         | `AllSatisfy(p) ∧ Sorted`                                        |
 
 The last example illustrates compositional inference: `filter` produces
 `AllSatisfy(p)`, which flows into `sort`'s precondition (`IsList` is
 satisfied, and `sort` adds `Sorted`). The conjunction `AllSatisfy(p) ∧
-Sorted` is inferred *without annotation* — it is the composition of the two
+Sorted` is inferred _without annotation_ — it is the composition of the two
 base-arrow postconditions via the cut rule.
 
 ### 4.5 Why This Is Not Just "Refinement Types with Extra Steps"
 
 One might object: "you have refinement-typed base arrows in the signature;
 isn't this just standard refinement type checking?" The difference is in
-*what the user supplies*:
+_what the user supplies_:
 
 - In standard refinement type systems (Liquid Types [38], Freeman-Pfenning
-  [17]), the user annotates *each function* and often *each loop* with
-  refinement types and invariants. The checker *verifies* the annotations.
+  [17]), the user annotates _each function_ and often _each loop_ with
+  refinement types and invariants. The checker _verifies_ the annotations.
 
-- In our system, the user supplies the *graph* (the program) and the
-  *signature* (the language definition). The checker *infers* the refinements
+- In our system, the user supplies the _graph_ (the program) and the
+  _signature_ (the language definition). The checker _infers_ the refinements
   by propagation. The user never writes a refinement annotation on a
   sub-graph, never supplies a loop invariant, and never writes a proof term.
 
@@ -459,10 +459,10 @@ invariant `I` is a predicate on `C` that each step of `G` preserves.
 
 In traditional verification, the loop invariant is the creative step that the
 user must supply. Our claim is that for a useful and characterizable class of
-loops, the graph structure of `G` determines an invariant *schema* — a
+loops, the graph structure of `G` determines an invariant _schema_ — a
 structural pattern (side-channel, accumulator, filter) that suggests a
 candidate invariant — and the checker can infer this schema by structural
-analysis and then *semantically verify* it against the base arrow contracts:
+analysis and then _semantically verify_ it against the base arrow contracts:
 a computation that starts from `I = True` and strengthens until `G` is
 verified to preserve `I`. The remainder of this section describes the
 algorithm precisely, the structural cases it covers, the SMT-style
@@ -477,14 +477,14 @@ an invariant `I : C → Prop` such that:
 1. **Preservation:** `G` preserves `I` — if `I(c)` and `P(a)`, then
    `I(c')` where `(b, c') = G(a, c)`. Formally, this is the
    `Preserves` predicate of `RefinementProofGraphs.lean`: a graph `G`
-   *preserves* `R` iff for all `a, v`, `Eval G a v` and `R a` imply `R v`.
+   _preserves_ `R` iff for all `a, v`, `Eval G a v` and `R a` imply `R v`.
    The loop case specializes this to the feedback channel: the body
    `G : (A×C) ⇝ (B×C)` must preserve `I` lifted to the second component of
    the pair.
 2. **Output refinement:** the output `b : B` satisfies a refinement
    determined by `P`, `I`, and `G`'s signature.
 
-The invariant `I` is a predicate on `C` that is *stable* under one step of
+The invariant `I` is a predicate on `C` that is _stable_ under one step of
 `G` — equivalently, a fixpoint of the transfer function defined in Section
 5.2.2. This is exactly the classical formulation, but the "loop body" is a
 graph whose wiring is explicit, not an opaque expression.
@@ -513,7 +513,7 @@ discover_invariant(G, P):
 
 The two phases are:
 
-- **`analyze(G, P, I)`** inspects the *structure* of `G` to determine its
+- **`analyze(G, P, I)`** inspects the _structure_ of `G` to determine its
   effect on the feedback channel `C`. The graph wiring makes this a
   structural case analysis, not semantic reasoning over an opaque
   expression:
@@ -527,7 +527,7 @@ The two phases are:
 - **`verify(G, P, candidate)`** is an **SMT-style implication checker** that
   confirms whether `G`'s guarantee (the postcondition from its signature,
   propagated through the graph) implies that `candidate` is preserved. The
-  checker is *conservative*: it may return `Unknown` for true implications it
+  checker is _conservative_: it may return `Unknown` for true implications it
   cannot discharge, but it **never** returns `Verified` for a false one. This
   asymmetry is what makes the inference **sound**: every property the
   algorithm reports as verified is genuinely true.
@@ -535,7 +535,7 @@ The two phases are:
 If verification fails or returns `Unknown`, the algorithm **strengthens** `I`
 by conjoining additional predicates drawn from `G`'s structure (the
 postconditions of the base arrows that touch `C`, the structural patterns
-recognized by `analyze`). Strengthening moves *down* the lattice (toward
+recognized by `analyze`). Strengthening moves _down_ the lattice (toward
 stronger predicates). The procedure terminates when either a candidate is
 verified or no further structural predicates are available (in which case the
 reported invariant is `True` — trivially sound but uninformative).
@@ -543,8 +543,8 @@ reported invariant is `True` — trivially sound but uninformative).
 The structural invariant-schema inference is inspired by abstract
 interpretation but operates on graph structure rather than program syntax. We
 do not claim a formal duality. The structural analysis provides the
-*candidate* invariant schemas; the SMT-style checker provides the
-*soundness* via semantic verification. The lattice and transfer function
+_candidate_ invariant schemas; the SMT-style checker provides the
+_soundness_ via semantic verification. The lattice and transfer function
 that make the fixpoint terminology precise are formalized in Section 5.2.2
 and mechanized in Lean4 (`InvariantDomain.lean`).
 
@@ -555,11 +555,11 @@ domain `D` of invariants that `analyze` can infer. `D` is the smallest set
 of predicates (on the feedback channel `C`) containing:
 
 (a) **base arrow guarantees** — the postcondition predicates carried by the
-    base arrow signatures (from `sig_guarantee`),
+base arrow signatures (from `sig_guarantee`),
 (b) **`True`** — the trivially-sound invariant,
 (c) **conjunctions** of predicates in `D` (`P ∧ Q` whenever `P, Q ∈ D`), and
 (d) **predicates lifted through `first`** (component-wise, `onFirst P`) and
-    **through `left`** (branch-wise, `onLeft P`), whenever `P ∈ D`.
+**through `left`** (branch-wise, `onLeft P`), whenever `P ∈ D`.
 
 `D` does **not** contain arbitrary arithmetic predicates (e.g., `acc = sum of
 processed elements`), predicates requiring induction on the iteration count,
@@ -570,7 +570,7 @@ corresponds to one clause (a)–(d) above, and one structural preservation
 theorem (`preserves_comp`, `preserves_first`, `preserves_left`). The
 soundness of `analyze` is stated **relative to `D`**, not absolutely:
 `analyze` is sound for invariants in `D` (the sound floor is always valid),
-the sound floor is *not* algorithmically complete within `D` (it does not
+the sound floor is _not_ algorithmically complete within `D` (it does not
 discover the strongest preserved `D`-invariant — see `floor_not_complete`),
 and `analyze` is incomplete for true invariants outside `D`.
 
@@ -597,7 +597,7 @@ fixpoint predicate `IsFixpoint`, the theorem `True_is_fixpoint` (the sound
 floor `True` is always a fixpoint), and `lfp_is_invariant` (every fixpoint of
 the transfer is a preserved invariant — proven with zero `sorry`). The
 structural `analyze`/`verify` procedure of the Rust prototype is then an
-*approximation* of this fixpoint: it computes candidates within `D` and uses
+_approximation_ of this fixpoint: it computes candidates within `D` and uses
 the SMT-style checker to confirm fixpoint status, rather than iterating the
 transfer to convergence.
 
@@ -609,13 +609,13 @@ a way the feedback channel `C` can be used in `G`:
 **Side-channel: `loop(first(H))`.** The body is `first(H) : A×C ⇝ B×C`,
 which acts on the first component via `H` and passes `C` through unchanged.
 `C` is a pure side channel — it is never inspected or modified. Therefore
-`G` preserves *any* invariant on `C`, and the coarsest one, `True`, is
+`G` preserves _any_ invariant on `C`, and the coarsest one, `True`, is
 correct. The output refinement is `infer(H, P)` on the first component. This
 is the `preserves_first` theorem of `RefinementProofGraphs.lean`: if `G`
 preserves `R`, then `first G` preserves `R` lifted to the first component of
 a pair — dually, the second component (the side channel) is untouched.
 
-*Example:* `loop(first(id))` — the body is `first(id) : A×C ⇝ A×C`, the
+_Example:_ `loop(first(id))` — the body is `first(id) : A×C ⇝ A×C`, the
 identity on both components. The invariant is `True`; the loop is equivalent
 to `id`. The prototype confirms: `loop(first(id)) : α ⇝ α` with invariant
 `True`, discovered via "side-channel (C passes through first)."
@@ -623,7 +623,7 @@ to `id`. The prototype confirms: `loop(first(id)) : α ⇝ α` with invariant
 **Accumulator: `loop(comp(map_step, first(id)))`.** Here `map_step` processes
 an element of `A` and updates `C`, while `first(id)` keeps the previous `C`
 available as the side channel. If `map_step`'s signature encodes that it
-*adds* to `C` (e.g., `map_step : (Int × Int) ⇝ (Int × Int)` with postcondition
+_adds_ to `C` (e.g., `map_step : (Int × Int) ⇝ (Int × Int)` with postcondition
 `C' = C + a`), the invariant is "the accumulator equals the sum of processed
 elements": `I(c) = (c = Σ processed)`. The `analyze` phase extracts this from
 `map_step`'s signature; the `verify` phase confirms that one step preserves
@@ -636,7 +636,7 @@ from `C` that fail a predicate `p`. The invariant is
 (postcondition `AllSatisfy(output, p)`); `verify` confirms that removing
 non-satisfying elements preserves `AllSatisfy`.
 
-*Example:* `loop(filter_step)` with `filter_step`'s guarantee
+_Example:_ `loop(filter_step)` with `filter_step`'s guarantee
 `AllSatisfy(predicate)`: the inferred invariant schema is
 `AllSatisfy(C, predicate)`, inferred via "filter analysis (output satisfies
 predicate)."
@@ -653,8 +653,8 @@ sort: the output is `Sorted` by the invariant on the accumulator.
 The `verify` phase is the soundness backbone of the algorithm. It is an
 **SMT-style implication checker** that answers the question:
 
-> *Given `G`'s guarantee (the postcondition propagated from its signature
-> through the graph), does it imply that `I` is preserved on `C`?*
+> _Given `G`'s guarantee (the postcondition propagated from its signature
+> through the graph), does it imply that `I` is preserved on `C`?_
 
 The checker returns one of three verdicts:
 
@@ -677,7 +677,7 @@ true. The cost of this soundness is that some true invariants are missed
 (returned as `Unknown` and then strengthened past, or never found).
 
 This is the standard tradeoff in SMT-based verification [16, 20]: a sound but
-incomplete decision procedure. The difference here is that the *candidates*
+incomplete decision procedure. The difference here is that the _candidates_
 come from structural analysis of the graph (not from a user annotation or a
 predicate-abstraction heuristic), so the checker is asked to verify
 structurally-motivated candidates rather than search an unbounded predicate
@@ -695,11 +695,11 @@ cannot prove:
   loop that computes `c' = 2c + 1` has the invariant
   `c = 2ⁿ − 1` (where `n` is the iteration count), but unless a base arrow
   encodes this, the inference cannot discover it. This is a limitation of the
-  *signature*, not of the algorithm: richer signatures enable richer
+  _signature_, not of the algorithm: richer signatures enable richer
   invariants.
 
-- **Termination.** The inference proves *conditional* invariants: *if* the
-  loop reaches a fixpoint, *then* the invariant holds. It does not prove that
+- **Termination.** The inference proves _conditional_ invariants: _if_ the
+  loop reaches a fixpoint, _then_ the invariant holds. It does not prove that
   the loop terminates. Proving termination requires a well-founded measure on
   the feedback channel (a variant), which is a separate concern from the
   invariant. The `IteratedLoop.lean` mechanization provides the operational
@@ -709,12 +709,12 @@ cannot prove:
   `decreasing_measure_bounds_iterations` proves (by induction, zero `sorry`)
   that a decreasing measure bounds the number of non-fixpoint iterations.
   Termination of the inference itself is thus mechanized, though the
-  *invariant* inference remains conditional on reaching a fixpoint.
+  _invariant_ inference remains conditional on reaching a fixpoint.
 
 - **Properties requiring reasoning about iteration count.** Invariants that
-  depend on *how many* times the loop has executed (e.g., "the output is the
+  depend on _how many_ times the loop has executed (e.g., "the output is the
   `n`-th Fibonacci number") are beyond structural analysis. The graph
-  structure shows *how* `C` is updated, not *how many times*; the iteration
+  structure shows _how_ `C` is updated, not _how many times_; the iteration
   count is not a structural property.
 
 - **Non-structural refinements.** Properties that depend on value-level
@@ -783,7 +783,7 @@ soundness/completeness characterization of the inference:
     `{ x : A | P(x) }`), `rProd`, `rSum`.
   - `RHasType`: refinement value typing — `v : R` means both base typing
     (`HasType v A`) and predicate satisfaction (`P v`).
-  - `Preserves`: a graph `G` *preserves* `R` iff for all `a, v`,
+  - `Preserves`: a graph `G` _preserves_ `R` iff for all `a, v`,
     `Eval G a v` and `R a` imply `R v`. This is the formal definition that
     the structural invariant-schema inference targets.
   - `preserves_comp`: if `G` and `H` both preserve `R`, then `comp(G, H)`
@@ -807,12 +807,12 @@ soundness/completeness characterization of the inference:
     only returned for provable implications, so the `Preserves` condition
     holds for every inferred invariant schema.
   - **Algorithmic completeness — characterized by conditional theorem:** the
-    formalized `analyze_spec` is the *sound floor* (returns `True`), which is
+    formalized `analyze_spec` is the _sound floor_ (returns `True`), which is
     sound but **not** algorithmically complete: it does not discover the
     strongest preserved `D`-invariant. The Lean4 theorem `floor_not_complete`
     makes this explicit (for any non-trivial preserved `D`-invariant `I`,
     `True` does not imply `I`). The structural propagation rules
-    `preserves_comp` and `preserves_first` are nonetheless *exact* for the
+    `preserves_comp` and `preserves_first` are nonetheless _exact_ for the
     combinators they cover (if the components preserve `R`, the composite
     preserves `R`, and conversely); the Rust implementation uses them to
     strengthen the floor within `D`. The algorithmic completeness question is
@@ -854,10 +854,10 @@ soundness/completeness characterization of the inference:
     statement that merely observed `True ∈ D` and `I ⟹ True`.
   - **`analyze_incompleteness`:** there exist true invariants outside `D`
     (e.g., arithmetic accumulator invariants like `acc = sum of processed
-    elements`) that `analyze` cannot discover (**INCOMPLETE**).
+elements`) that `analyze` cannot discover (**INCOMPLETE**).
 
   These theorems are stated **relative to the domain `D`**, not absolutely:
-  `analyze` is sound within `D`, the sound floor is *not* algorithmically
+  `analyze` is sound within `D`, the sound floor is _not_ algorithmically
   complete (it does not discover the strongest preserved `D`-invariant), and
   `analyze` is incomplete beyond `D`. Each constructor of `D` corresponds to
   one structural preservation theorem (`preserves_comp` ↔ `conj`,
@@ -889,30 +889,30 @@ soundness/completeness characterization of the inference:
 
 A central concern is the relationship between the Lean4 formalization and
 the Rust implementation. The two are complementary: Lean4 proves the
-*soundness* of the inference framework; Rust demonstrates the *practical
-effectiveness* of the algorithm. The following table makes the division
+_soundness_ of the inference framework; Rust demonstrates the _practical
+effectiveness_ of the algorithm. The following table makes the division
 explicit:
 
-| Component | Lean4 (formal) | Rust (implementation) |
-|---|---|---|
-| Curry-Howard correspondence | ✅ Proven (TyOf ↔ PrOf) | N/A |
-| Subject reduction | ✅ Proven | N/A |
-| Cut elimination advantage | ✅ Proven | N/A |
-| Refinement typing (RTy, RHasType) | ✅ Defined + sound | N/A |
-| Preserves through comp/first/left | ✅ Proven | N/A |
-| Invariant domain D | ✅ Defined | N/A |
-| Sound floor | ✅ Proven | N/A |
-| Floor not complete | ✅ Proven | N/A |
-| Lattice + transfer function | ✅ Defined | N/A |
-| Structural inference soundness | ✅ Proven | N/A |
-| Algorithmic completeness (conditional) | ✅ Proven (`AlgorithmicCompleteness.lean`) | N/A |
-| Termination analysis | ✅ Proven (`Termination.lean`) | ✅ Implemented |
-| Trait/law inference | ✅ Proven (`TraitInference.lean`) | N/A |
-| Actual inference algorithm | Defined (floor) | ✅ Implemented (structural + Z3) |
-| Z3 verification | N/A | ✅ Implemented |
-| Loop invariant discovery | ✅ Proven (`LoopInvariantDiscovery.lean`, full invariant derivations) | ✅ Implemented (structural patterns) |
-| Real programs | N/A | ✅ 5 programs |
-| Coverage/scale/failures | N/A | ✅ 90-cell grid |
+| Component                              | Lean4 (formal)                                                        | Rust (implementation)                |
+| -------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ |
+| Curry-Howard correspondence            | ✅ Proven (TyOf ↔ PrOf)                                               | N/A                                  |
+| Subject reduction                      | ✅ Proven                                                             | N/A                                  |
+| Cut elimination advantage              | ✅ Proven                                                             | N/A                                  |
+| Refinement typing (RTy, RHasType)      | ✅ Defined + sound                                                    | N/A                                  |
+| Preserves through comp/first/left      | ✅ Proven                                                             | N/A                                  |
+| Invariant domain D                     | ✅ Defined                                                            | N/A                                  |
+| Sound floor                            | ✅ Proven                                                             | N/A                                  |
+| Floor not complete                     | ✅ Proven                                                             | N/A                                  |
+| Lattice + transfer function            | ✅ Defined                                                            | N/A                                  |
+| Structural inference soundness         | ✅ Proven                                                             | N/A                                  |
+| Algorithmic completeness (conditional) | ✅ Proven (`AlgorithmicCompleteness.lean`)                            | N/A                                  |
+| Termination analysis                   | ✅ Proven (`Termination.lean`)                                        | ✅ Implemented                       |
+| Trait/law inference                    | ✅ Proven (`TraitInference.lean`)                                     | N/A                                  |
+| Actual inference algorithm             | Defined (floor)                                                       | ✅ Implemented (structural + Z3)     |
+| Z3 verification                        | N/A                                                                   | ✅ Implemented                       |
+| Loop invariant discovery               | ✅ Proven (`LoopInvariantDiscovery.lean`, full invariant derivations) | ✅ Implemented (structural patterns) |
+| Real programs                          | N/A                                                                   | ✅ 5 programs                        |
+| Coverage/scale/failures                | N/A                                                                   | ✅ 90-cell grid                      |
 
 The Lean4 formalization proves the soundness of the inference framework: the
 invariant domain, the lattice structure, and the structural inference
@@ -928,40 +928,40 @@ proves on representative programs. Each row is a test case in the Rust
 prototype. "How Discovered" identifies the structural mechanism; "Verified?"
 indicates whether the SMT-style implication checker confirmed the property.
 
-| Program | Inferred Property | How Discovered | Verified? |
-|---------|-------------------|----------------|-----------|
-| `sort` | `Sorted(output)` | signature | ✓ |
-| `map` | `LengthPreserved` | signature | ✓ |
-| `comp(sort, sort)` | `Sorted` (idempotent) | comp + implication | ✓ |
-| `first(sort)` | `Sorted` on first | first propagation | ✓ |
-| `comp(map, sort)` | `LengthPreserved ∧ Sorted` | comp | ✓ |
-| `loop(first(id))` | `True` invariant | side-channel | ✓ |
-| `loop(filter_step)` | `AllSatisfy(predicate)` | filter analysis | ✓ |
-| `loop(insert_step)` | `Sorted(acc)` | accumulator | ✓ |
-| `comp(filter, sort)` | `AllSatisfy ∧ Sorted` | comp | ✓ |
-| insertion sort via `loop` | `Sorted(output)` | structural schema | ✓ |
-| `comp(map, filter)` | `LengthLe ∧ AllSatisfy` | comp | ✓ |
-| nested `loop` (sum of sums) | `Sum` invariant | nested schema inference | ✓ |
+| Program                     | Inferred Property          | How Discovered          | Verified? |
+| --------------------------- | -------------------------- | ----------------------- | --------- |
+| `sort`                      | `Sorted(output)`           | signature               | ✓         |
+| `map`                       | `LengthPreserved`          | signature               | ✓         |
+| `comp(sort, sort)`          | `Sorted` (idempotent)      | comp + implication      | ✓         |
+| `first(sort)`               | `Sorted` on first          | first propagation       | ✓         |
+| `comp(map, sort)`           | `LengthPreserved ∧ Sorted` | comp                    | ✓         |
+| `loop(first(id))`           | `True` invariant           | side-channel            | ✓         |
+| `loop(filter_step)`         | `AllSatisfy(predicate)`    | filter analysis         | ✓         |
+| `loop(insert_step)`         | `Sorted(acc)`              | accumulator             | ✓         |
+| `comp(filter, sort)`        | `AllSatisfy ∧ Sorted`      | comp                    | ✓         |
+| insertion sort via `loop`   | `Sorted(output)`           | structural schema       | ✓         |
+| `comp(map, filter)`         | `LengthLe ∧ AllSatisfy`    | comp                    | ✓         |
+| nested `loop` (sum of sums) | `Sum` invariant            | nested schema inference | ✓         |
 
 The table reads as follows:
 
 - **Signature-based** properties (`sort`, `map`) are read directly from the
   base-arrow's refinement signature — no structural reasoning needed.
 - **Composition** (`comp(sort, sort)`, `comp(map, sort)`, `comp(filter,
-  sort)`, `comp(map, filter)`) conjoins the guarantees of the sub-graphs via
+sort)`, `comp(map, filter)`) conjoins the guarantees of the sub-graphs via
   the cut rule (`preserves_comp`). The implication checker confirms that the
   conjoined property is preserved.
 - **`first` propagation** (`first(sort)`) lifts the refinement to the first
   component of a product (`preserves_first`).
 - **Loop invariants** are inferred by the structural invariant-schema
   inference algorithm of Section 5:
-  - *Side-channel* (`loop(first(id))`): `True`, because `C` passes through
+  - _Side-channel_ (`loop(first(id))`): `True`, because `C` passes through
     `first` unchanged.
-  - *Filter* (`loop(filter_step)`): `AllSatisfy(predicate)`, from the filter
+  - _Filter_ (`loop(filter_step)`): `AllSatisfy(predicate)`, from the filter
     step's signature.
-  - *Accumulator* (`loop(insert_step)`): `Sorted(acc)`, from the insert
+  - _Accumulator_ (`loop(insert_step)`): `Sorted(acc)`, from the insert
     step's signature — this is insertion sort expressed as a loop.
-  - *Nested invariant-schema inference* (nested `loop`): the outer loop's
+  - _Nested invariant-schema inference_ (nested `loop`): the outer loop's
     invariant schema is inferred by applying the inference algorithm to the
     inner loop's inferred invariant schema, composing the two.
 
@@ -1021,7 +1021,7 @@ is independent (we mechanize arrow graphs, not linear logic proof nets).
 Alves, Fernández, and Mackie [1] build a graphical calculus of proofs for
 intuitionistic logic / λ-calculus, inspired by proof nets and interaction
 nets. This is the closest prior work. The key difference: their graphs are a
-*notation* for λ-terms; our graphs are a *primitive syntax* with no λ
+_notation_ for λ-terms; our graphs are a _primitive syntax_ with no λ
 underneath. They do not mechanize the correspondence, do not prove subject
 reduction or cut elimination preservation, and do not address type inference.
 
@@ -1041,8 +1041,8 @@ invariant-schema inference on the graph, not supplied by the user.
 Cousot and Cousot [10, 11] developed abstract interpretation, the dominant
 framework for loop invariant inference. Graf and Saidi [21] introduced
 predicate abstraction. These approaches infer invariants by analyzing the
-*semantics* of the loop body (an expression). Our approach infers invariant
-*schemas* by analyzing the *structure* of the loop body (a graph): the wiring
+_semantics_ of the loop body (an expression). Our approach infers invariant
+_schemas_ by analyzing the _structure_ of the loop body (a graph): the wiring
 of `G` in `loop G` explicitly shows how the feedback channel is used, which
 determines the invariant schema class. The schemas are then semantically
 verified against base arrow contracts. This is complementary to abstract
@@ -1057,8 +1057,8 @@ type-constraint graph. McAdam [33] shows how to record HM type information as
 graphs. Clerici, Zoltan, and Prestigiacomo [12] use graph grammars for
 incremental type inference in a visual dataflow language. These works show
 that HM inference is not tied to ASTs. Our contribution is connecting
-graph-based typing to *logical proof* (the Curry–Howard correspondence) and
-to *refinement inference*, not just HM type inference.
+graph-based typing to _logical proof_ (the Curry–Howard correspondence) and
+to _refinement inference_, not just HM type inference.
 
 ### 7.7 Traced Monoidal Categories and Recursion from Cyclic Sharing
 
@@ -1124,7 +1124,7 @@ user-supplied loop invariants). The combination is the contribution.
   reasoning not captured by the base-arrow signatures cannot be inferred. The
   inference is only as good as the signature's pre-/post-conditions.
 
-- **Termination.** The inference infers *conditional* invariants (if the loop
+- **Termination.** The inference infers _conditional_ invariants (if the loop
   reaches a fixpoint, the invariant holds). Termination analysis is now
   formalized in `Termination.lean` (zero `sorry`): the `LoopIter` inductive
   threads `c_next` into the recursive call, and
@@ -1243,144 +1243,142 @@ is what makes this practical rather than merely theoretical.
 [1] Sandra Alves, Maribel Fernández, Ian Mackie. "A New Graphical Calculus
 of Proofs." arXiv:1102.2655, 2011.
 
-[2] Kazuyuki Asada. "Arrows are Strong Monads." In *Proc. MSFP 2010*.
+[2] Kazuyuki Asada. "Arrows are Strong Monads." In _Proc. MSFP 2010_.
 doi.org/10.1145/1863597.1863607
 
-[3] Robert Atkey. "What is a Categorical Model of Arrows?" *ENTCS*
+[3] Robert Atkey. "What is a Categorical Model of Arrows?" _ENTCS_
 229:19–37, 2011. doi.org/10.1016/j.entcs.2011.02.014
 
 [4] Guillaume Boisseau and Jeremy Gibbons. "What You Needa Know about Yoneda:
-Profunctor Optics and the Yoneda Lemma." *Proc. ACM Program. Lang.*
+Profunctor Optics and the Yoneda Lemma." _Proc. ACM Program. Lang._
 2(ICFP), Article 84, 2018. doi.org/10.1145/3236779
 
 [5] Silvia Clerici, Cristina Zoltan, Guillermo Prestigiacomo. "Graphical and
-Incremental Type Inference: A Graph Transformation Approach." In *Trends in
-Functional Programming (TFP)*, 2009/2010.
+Incremental Type Inference: A Graph Transformation Approach." In _Trends in
+Functional Programming (TFP)_, 2009/2010.
 doi.org/10.1007/978-3-642-22941-1_5
 
 [6] Patrick Cousot and Radhia Cousot. "Abstract Interpretation: A Unified
 Lattice Model for Static Analysis of Programs by Construction or
-Approximation of Fixpoints." In *Proc. POPL '77*, pp. 238–252, 1977.
+Approximation of Fixpoints." In _Proc. POPL '77_, pp. 238–252, 1977.
 
 [7] Patrick Cousot and Radhia Cousot. "Systematic Design of Program
-Analysis Frameworks." In *Proc. POPL '79*, pp. 269–282, 1979.
+Analysis Frameworks." In _Proc. POPL '79_, pp. 269–282, 1979.
 
 [8] Rémi Di Guardia and Olivier Laurent. "A Formalization of Multiplicative
 Proof-Nets in Rocq." 2025.
 
-[9] Haskell B. Curry and Robert Feys. *Combinatory Logic, Vol. I.*
+[9] Haskell B. Curry and Robert Feys. _Combinatory Logic, Vol. I._
 North-Holland, 1958.
 
 [10] Patrick Cousot and Radhia Cousot. "Abstract Interpretation: A Unified
 Lattice Model for Static Analysis of Programs by Construction or
-Approximation of Fixpoints." In *Proc. 4th ACM SIGPLAN-SIGACT Symposium on
-Principles of Programming Languages (POPL '77)*, pp. 238–252, 1977.
+Approximation of Fixpoints." In _Proc. 4th ACM SIGPLAN-SIGACT Symposium on
+Principles of Programming Languages (POPL '77)_, pp. 238–252, 1977.
 
 [11] Patrick Cousot and Radhia Cousot. "Systematic Design of Program
-Analysis Frameworks." In *Proc. 6th ACM SIGPLAN-SIGACT Symposium on
-Principles of Programming Languages (POPL '79)*, pp. 269–282, 1979.
+Analysis Frameworks." In _Proc. 6th ACM SIGPLAN-SIGACT Symposium on
+Principles of Programming Languages (POPL '79)_, pp. 269–282, 1979.
 
 [12] Silvia Clerici, Cristina Zoltan, Guillermo Prestigiacomo. "Graphical
 and Incremental Type Inference: A Graph Transformation Approach." In
-*Trends in Functional Programming (TFP)*, 2009/2010.
+_Trends in Functional Programming (TFP)_, 2009/2010.
 doi.org/10.1007/978-3-642-22941-1_5
 
 [13] Vincent Danos and Laurent Regnier. "The Structure of Multiplicatives."
-*Archive for Mathematical Logic* 28:181–203, 1989.
+_Archive for Mathematical Logic_ 28:181–203, 1989.
 
 [14] Rémi Di Guardia and Olivier Laurent. "A Formalization of Multiplicative
 Proof-Nets in Rocq." 2025.
 
-[15] Martin Erwig. "Visual Type Inference." *Journal of Visual Languages and
-Computing* 17(2):161–186, 2006. doi.org/10.1016/j.jvlc.2005.04.004
+[15] Martin Erwig. "Visual Type Inference." _Journal of Visual Languages and
+Computing_ 17(2):161–186, 2006. doi.org/10.1016/j.jvlc.2005.04.004
 
 [16] Cormac Flanagan and Shaz Qadeer. "Predicate Abstraction for Software
-Verification." In *Proc. POPL '02*, pp. 191–202, 2002.
+Verification." In _Proc. POPL '02_, pp. 191–202, 2002.
 
-[17] Tim Freeman and Frank Pfenning. "Refinement Types for ML." In *Proc.
-PLDI '91*, pp. 268–277, 1991.
+[17] Tim Freeman and Frank Pfenning. "Refinement Types for ML." In _Proc.
+PLDI '91_, pp. 268–277, 1991.
 
-[18] Jean-Yves Girard. "Linear Logic." *Theoretical Computer Science*
+[18] Jean-Yves Girard. "Linear Logic." _Theoretical Computer Science_
 50:1–102, 1987.
 
 [19] Jean-Yves Girard. "Proof-Nets: The Parallel Syntax for Proof-Theory."
-In *Logic and Algebra*, 1995.
+In _Logic and Algebra_, 1995.
 
 [20] Susanne Graf and Hassen Saïdi. "Construction of Abstract State Graphs
-with PVS." In *Proc. CAV '97*, LNCS 1254, pp. 72–83, 1997.
+with PVS." In _Proc. CAV '97_, LNCS 1254, pp. 72–83, 1997.
 
 [21] Susanne Graf and Hassen Saïdi. "Construction of Abstract State Graphs
-with PVS." In *Proc. 9th International Conference on Computer Aided
-Verification (CAV '97)*, LNCS 1254, pp. 72–83, 1997.
+with PVS." In _Proc. 9th International Conference on Computer Aided
+Verification (CAV '97)_, LNCS 1254, pp. 72–83, 1997.
 doi.org/10.1007/3-540-63166-6_10
 
 [22] Masahito Hasegawa. "Recursion from Cyclic Sharing: Traced Monoidal
-Categories and Models of Cyclic Lambda Calculi." In *Proc. TLCA '97*, LNCS
+Categories and Models of Cyclic Lambda Calculi." In _Proc. TLCA '97_, LNCS
 1210, pp. 196–213, 1997. doi.org/10.1007/3-540-62688-3_37
 
-[23] Masahito Hasegawa. *Models of Sharing Graphs: A Categorical Semantics
-of Let and Letrec.* PhD thesis, University of Edinburgh, 1997.
+[23] Masahito Hasegawa. _Models of Sharing Graphs: A Categorical Semantics
+of Let and Letrec._ PhD thesis, University of Edinburgh, 1997.
 lfcs.inf.ed.ac.uk/reports/97/ECS-LFCS-97-360
 
 [24] Chris Heunen and Bart Jacobs. "Arrows, Like Monads, Are Monoids." In
-*Proc. MFPS-XXII*, ENTCS 158, pp. 219–236, 2006.
+_Proc. MFPS-XXII_, ENTCS 158, pp. 219–236, 2006.
 
 [25] Bart Jacobs, Chris Heunen, Ichiro Hasuo. "Categorical Semantics for
-Arrows." *Journal of Functional Programming* 19(3-4):403–438, 2009.
+Arrows." _Journal of Functional Programming_ 19(3-4):403–438, 2009.
 doi.org/10.1017/S0956796809007308
 
-[26] John Hughes. "Generalising Monads to Arrows." *Science of Computer
-Programming* 37(1-3):67–111, 2000. doi.org/10.1016/S0167-6423(99)00034-6
+[26] John Hughes. "Generalising Monads to Arrows." _Science of Computer
+Programming_ 37(1-3):67–111, 2000. doi.org/10.1016/S0167-6423(99)00034-6
 
 [27] André Joyal, Ross Street, Dominic Verity. "Traced Monoidal
-Categories." *Mathematical Proceedings of the Cambridge Philosophical
-Society* 119(3):447–468, 1996. doi.org/10.1017/s0305004100074338
+Categories." _Mathematical Proceedings of the Cambridge Philosophical
+Society_ 119(3):447–468, 1996. doi.org/10.1017/s0305004100074338
 
-[28] J. Roger Hindley and Jonathan P. Seldin. *Lambda-Calculus and
-Combinators: An Introduction.* 2nd ed., Cambridge University Press, 2008.
+[28] J. Roger Hindley and Jonathan P. Seldin. _Lambda-Calculus and
+Combinators: An Introduction._ 2nd ed., Cambridge University Press, 2008.
 
 [29] William A. Howard. "The Formulae-as-Types Notion of Construction."
-1969 manuscript, published in *To H. B. Curry: Essays on Combinatory
-Logic*, Academic Press, 1980.
+1969 manuscript, published in _To H. B. Curry: Essays on Combinatory
+Logic_, Academic Press, 1980.
 
-[30] Yves Lafont. "Interaction Nets." In *Proc. 17th ACM SIGPLAN-SIGACT
-Symposium on Principles of Programming Languages (POPL '90)*, pp. 95–108,
-1990. doi.org/10.1145/96709.96718
+[30] Yves Lafont. "Interaction Nets." In _Proc. 17th ACM SIGPLAN-SIGACT
+Symposium on Principles of Programming Languages (POPL '90)_, pp. 95–108, 1990. doi.org/10.1145/96709.96718
 
 [31] Sam Lindley, Philip Wadler, Jeremy Yallop. "The Arrow Calculus."
-*Journal of Functional Programming* 20(1):51–69, 2010.
+_Journal of Functional Programming_ 20(1):51–69, 2010.
 doi.org/10.1017/S095679680999027X
 
-[32] Yves Lafont. "Interaction Nets." In *Proc. POPL '90*, pp. 95–108,
-1990. doi.org/10.1145/96709.96718
+[32] Yves Lafont. "Interaction Nets." In _Proc. POPL '90_, pp. 95–108, 1990. doi.org/10.1145/96709.96718
 
 [33] Bruce J. McAdam. "Graphs for Recording Type Information." Technical
 Report ECS-LFCS-99-415, University of Edinburgh, 1999.
 
 [34] Patrick Cousot and Radhia Cousot. "Abstract Interpretation: A Unified
 Lattice Model for Static Analysis of Programs by Construction or
-Approximation of Fixpoints." In *Proc. POPL '77*, pp. 238–252, 1977.
+Approximation of Fixpoints." In _Proc. POPL '77_, pp. 238–252, 1977.
 
 [35] Patrick Cousot and Radhia Cousot. "Systematic Design of Program
-Analysis Frameworks." In *Proc. POPL '79*, pp. 269–282, 1979.
+Analysis Frameworks." In _Proc. POPL '79_, pp. 269–282, 1979.
 
 [36] Patrick M. Rondon, Ming Kawaguchi, Ranjit Jhala. "Liquid Types." In
-*Proc. PLDI '08*, pp. 159–169, 2008. doi.org/10.1145/1375581.1375602
+_Proc. PLDI '08_, pp. 159–169, 2008. doi.org/10.1145/1375581.1375602
 
 [37] Patrick M. Rondon, Ming Kawaguchi, Ranjit Jhala. "Low-Demand Liquid
-Types." In *Proc. POPL '09*, pp. 131–144, 2009.
+Types." In _Proc. POPL '09_, pp. 131–144, 2009.
 
 [38] Patrick M. Rondon, Ming Kawaguchi, Ranjit Jhala. "Liquid Types." In
-*Proc. 29th ACM SIGPLAN Conference on Programming Language Design and
-Implementation (PLDI '08)*, pp. 159–169, 2008. doi.org/10.1145/1375581.1375602
+_Proc. 29th ACM SIGPLAN Conference on Programming Language Design and
+Implementation (PLDI '08)_, pp. 159–169, 2008. doi.org/10.1145/1375581.1375602
 
 [39] Peter Selinger. "A Survey of Graphical Languages for Monoidal
-Categories." In *New Structures for Physics*, Lecture Notes in Physics 813,
+Categories." In _New Structures for Physics_, Lecture Notes in Physics 813,
 pp. 289–355, Springer, 2010. doi.org/10.1007/978-3-642-12821-9_4,
 arxiv:0908.3347
 
 ---
 
-*This is a draft. The Lean4 mechanization and Rust prototype are at
+_This is a draft. The Lean4 mechanization and Rust prototype are at
 `lean/ArrowMinimalityLib/` and `src/` respectively. Build verification:
-`lake build` (Lean4) and `cargo run --bin poly_proof_graph` (Rust).*
+`lake build` (Lean4) and `cargo run --bin poly_proof_graph` (Rust)._

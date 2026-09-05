@@ -42,7 +42,7 @@ runtime runs them, the compiler lowers them, the analyzer inspects them).
    (preserving ADR-0039's "kits are curated plugin lists"); composition is
    list concatenation with conflict checking as a pure arrow.
 4. **Host = handler.** The `Host` is a handler for capability requests:
-   the *same* description dispatches to a native Rust handler (bootstrap),
+   the _same_ description dispatches to a native Rust handler (bootstrap),
    an in-handl handler (self-hosted), or a WASM handler (sandboxed —
    absorbing the backlog's "Sandboxed Target plugins" item).
 5. **Permission manifests survive.** The manifest declares required

@@ -19,17 +19,17 @@ language that provides an AST value.
   pure — no IO, no host calls — which makes them inspectable by the analyzer
   handler (same-description principle, ADR-0052).
 - **Diagnostics as values:** `Diagnostic { rule, severity, span, message,
-  fix? }` as a handl record; `Fix` is a text-edit record so `--fix`
+fix? }` as a handl record; `Fix` is a text-edit record so `--fix`
   application can itself be expressed and composed in handl.
 - **Rule selection by composition:** a lint configuration is a list of rule
   arrows; `lint = fold (>>> collect) rules`. Host-specific rules
   (ADR-0015's namespacing concern) become ordinary modules imported into the
   composition, namespaced by module path — no special machinery.
 - **`--fix` as a pipeline:** `lint-fix = lint >>> take-fixable >>> apply-edits
-  >>> reparse >>> lint` iterated to a fixpoint, mirroring the bootstrap
-  behavior in ADR-0087.
+  > > > reparse >>> lint` iterated to a fixpoint, mirroring the bootstrap
+  > > > behavior in ADR-0087.
 - **Cross-module rules** (unused export, dependency declaration per the old
-  ADR-0015 list) run over module *groups*: the runner builds the module
+  ADR-0015 list) run over module _groups_: the runner builds the module
   graph once and hands each rule the reachable subgraph.
 - **Coverage of the bootstrap rule set:** all ADR-0087 rules port 1:1; their
   acceptance tests are the same fixture files, relocated.

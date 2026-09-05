@@ -15,8 +15,9 @@ identify the precise contribution of this work.
 ## 1. Proof Nets (Girard, 1987)
 
 **Citation:**
-- Jean-Yves Girard. "Linear Logic." *Theoretical Computer Science* 50:1–102, 1987.
-- Jean-Yves Girard. "Proof-Nets: The Parallel Syntax for Proof-Theory." In *Logic and Algebra*, 1995. [girard.perso.math.cnrs.fr/Proofnets.pdf]
+
+- Jean-Yves Girard. "Linear Logic." _Theoretical Computer Science_ 50:1–102, 1987.
+- Jean-Yves Girard. "Proof-Nets: The Parallel Syntax for Proof-Theory." In _Logic and Algebra_, 1995. [girard.perso.math.cnrs.fr/Proofnets.pdf]
 
 **Key result:** Proof nets are a graph-based syntax for linear logic
 proofs that eliminates the inessential orderings of sequent calculus.
@@ -43,6 +44,7 @@ that the arrow calculus — which already models these PL features —
 inherits the proof-net advantage.
 
 **Mechanization:** Proof nets for MLL have been mechanized in Rocq/Coq:
+
 - Rémi Di Guardia and Olivier Laurent. "A Formalization of Multiplicative Proof-Nets in Rocq." 2025. [remidig.github.io/papers/rocqtlla2025.pdf]
 - The `proofnet_mll` Coq library: [github.com/RemiDiG/proofnet_mll]
 - The `ProofNet-IR` Lean4 library: [reservoir.lean-lang.org/@fushanbobfan/proofnet-ir]
@@ -58,11 +60,13 @@ research area.
 ## 2. Interaction Nets (Lafont, 1990)
 
 **Citation:**
-- Yves Lafont. "Interaction Nets." In *Proc. 17th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages (POPL '90)*, pp. 95–108, 1990. [doi.org/10.1145/96709.96718]
+
+- Yves Lafont. "Interaction Nets." In _Proc. 17th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages (POPL '90)_, pp. 95–108, 1990. [doi.org/10.1145/96709.96718]
 
 **Key result:** Interaction nets are a graphical model of computation
 with local rewrite rules. They generalize proof nets and are Turing
 complete. Key properties:
+
 - **Locality:** only active pairs (connected principal ports) can be rewritten.
 - **Linearity:** each interaction rule applies in constant time.
 - **Strong confluence:** one-step diamond property (if c → c₁ and c → c₂, then c₁ → c' and c₂ → c' for some c').
@@ -88,7 +92,8 @@ nets don't address.
 ## 3. Traced Monoidal Categories (Joyal, Street, Verity, 1996)
 
 **Citation:**
-- André Joyal, Ross Street, Dominic Verity. "Traced Monoidal Categories." *Mathematical Proceedings of the Cambridge Philosophical Society* 119(3):447–468, 1996. [doi.org/10.1017/s0305004100074338]
+
+- André Joyal, Ross Street, Dominic Verity. "Traced Monoidal Categories." _Mathematical Proceedings of the Cambridge Philosophical Society_ 119(3):447–468, 1996. [doi.org/10.1017/s0305004100074338]
 
 **Key result:** Introduces the abstract notion of a **trace** in a
 monoidal category — a uniform way to "feed back" outputs as inputs.
@@ -115,7 +120,8 @@ connects them.
 ## 4. String Diagrams for Monoidal Categories (Selinger, 2010)
 
 **Citation:**
-- Peter Selinger. "A Survey of Graphical Languages for Monoidal Categories." In *New Structures for Physics*, Lecture Notes in Physics 813, pp. 289–355, Springer, 2010. [doi.org/10.1007/978-3-642-12821-9_4, arxiv:0908.3347]
+
+- Peter Selinger. "A Survey of Graphical Languages for Monoidal Categories." In _New Structures for Physics_, Lecture Notes in Physics 813, pp. 289–355, Springer, 2010. [doi.org/10.1007/978-3-642-12821-9_4, arxiv:0908.3347]
 
 **Key result:** A systematic survey of string diagram languages for
 various monoidal category structures (braided, rigid, pivotal,
@@ -142,8 +148,9 @@ language protocols.
 ## 5. Recursion from Cyclic Sharing (Hasegawa, 1997)
 
 **Citation:**
-- Masahito Hasegawa. "Recursion from Cyclic Sharing: Traced Monoidal Categories and Models of Cyclic Lambda Calculi." In *Proc. TLCA '97*, LNCS 1210, pp. 196–213, 1997. [doi.org/10.1007/3-540-62688-3_37]
-- Masahito Hasegawa. *Models of Sharing Graphs: A Categorical Semantics of Let and Letrec.* PhD thesis, University of Edinburgh, 1997. [lfcs.inf.ed.ac.uk/reports/97/ECS-LFCS-97-360]
+
+- Masahito Hasegawa. "Recursion from Cyclic Sharing: Traced Monoidal Categories and Models of Cyclic Lambda Calculi." In _Proc. TLCA '97_, LNCS 1210, pp. 196–213, 1997. [doi.org/10.1007/3-540-62688-3_37]
+- Masahito Hasegawa. _Models of Sharing Graphs: A Categorical Semantics of Let and Letrec._ PhD thesis, University of Edinburgh, 1997. [lfcs.inf.ed.ac.uk/reports/97/ECS-LFCS-97-360]
 
 **Key result:** Connects cyclic graph rewriting (sharing graphs) to
 recursion via traced monoidal categories. Shows that `letrec` (cyclic
@@ -169,9 +176,10 @@ proof reading of `loop` is trace/fixpoint in the proof system).
 ## 6. Arrows as Monoids in Profunctor Categories (Heunen, Jacobs, Hasuo, 2006-2009)
 
 **Citation:**
-- Chris Heunen and Bart Jacobs. "Arrows, Like Monads, Are Monoids." In *Proc. MFPS-XXII*, ENTCS 158, pp. 219–236, 2006.
-- Bart Jacobs and Ichiro Hasuo. "Freyd is Kleisli, for Arrows." In *Proc. MSFP 2006*.
-- Bart Jacobs, Chris Heunen, Ichiro Hasuo. "Categorical Semantics for Arrows." *Journal of Functional Programming* 19(3-4):403–438, 2009. [doi.org/10.1017/S0956796809007308]
+
+- Chris Heunen and Bart Jacobs. "Arrows, Like Monads, Are Monoids." In _Proc. MFPS-XXII_, ENTCS 158, pp. 219–236, 2006.
+- Bart Jacobs and Ichiro Hasuo. "Freyd is Kleisli, for Arrows." In _Proc. MSFP 2006_.
+- Bart Jacobs, Chris Heunen, Ichiro Hasuo. "Categorical Semantics for Arrows." _Journal of Functional Programming_ 19(3-4):403–438, 2009. [doi.org/10.1017/S0956796809007308]
 
 **Key result:** Arrows are monoids in the category of bifunctors
 `C^op × C → Set` (i.e., profunctors). The Kleisli construction for
@@ -200,7 +208,8 @@ operational layer.
 ## 7. The Arrow Calculus (Lindley, Wadler, Yallop, 2010)
 
 **Citation:**
-- Sam Lindley, Philip Wadler, Jeremy Yallop. "The Arrow Calculus." *Journal of Functional Programming* 20(1):51–69, 2010. [doi.org/10.1017/S095679680999027X]
+
+- Sam Lindley, Philip Wadler, Jeremy Yallop. "The Arrow Calculus." _Journal of Functional Programming_ 20(1):51–69, 2010. [doi.org/10.1017/S095679680999027X]
 
 **Key result:** Introduces a metalanguage for arrows that resembles
 Moggi's monad metalanguage. Replaces the three constants + nine laws
@@ -226,6 +235,7 @@ is in the wiring, not in binders.
 ## 8. A Graphical Calculus of Proofs (Alves, Fernández, Mackie, 2011)
 
 **Citation:**
+
 - Sandra Alves, Maribel Fernández, Ian Mackie. "A New Graphical Calculus of Proofs." arXiv:1102.2655, 2011. [ar5iv.labs.arxiv.org/html/1102.2655]
 
 **Key result:** A graphical representation for proofs of intuitionistic
@@ -239,8 +249,8 @@ also build a graphical proof calculus inspired by proof nets, and they
 also connect it to Curry-Howard. The key difference: their calculus is
 for **intuitionistic logic / λ-calculus** (they represent λ-terms as
 graphs). Our calculus is for the **arrow calculus** (we represent
-arrow graphs as proofs). Their graphs are a *notation* for λ-terms;
-our graphs are a *primitive* syntax with no λ underneath.
+arrow graphs as proofs). Their graphs are a _notation_ for λ-terms;
+our graphs are a _primitive_ syntax with no λ underneath.
 
 **What we do that they don't:** (1) We work with the arrow calculus
 specifically, not λ-calculus — our graphs have no binder, not even a
@@ -255,7 +265,8 @@ protocols (Phases 1-3).
 ## 9. Boisseau & Gibbons (2018) — Profunctor Optics
 
 **Citation:**
-- Guillaume Boisseau and Jeremy Gibbons. "What You Needa Know about Yoneda: Profunctor Optics and the Yoneda Lemma." *Proc. ACM Program. Lang.* 2(ICFP), Article 84, 2018. [doi.org/10.1145/3236779]
+
+- Guillaume Boisseau and Jeremy Gibbons. "What You Needa Know about Yoneda: Profunctor Optics and the Yoneda Lemma." _Proc. ACM Program. Lang._ 2(ICFP), Article 84, 2018. [doi.org/10.1145/3236779]
 
 **Key result:** Derives the profunctor representation of optics (lenses,
 prisms) from the concrete representation using the Yoneda Lemma. While
@@ -273,7 +284,8 @@ Haskell. Our work is orthogonal: we use the arrow primitives directly
 ## 10. Hughes (2000) — Arrows
 
 **Citation:**
-- John Hughes. "Generalising Monads to Arrows." *Science of Computer Programming* 37(1-3):67–111, 2000. [doi.org/10.1016/S0167-6423(99)00034-6]
+
+- John Hughes. "Generalising Monads to Arrows." _Science of Computer Programming_ 37(1-3):67–111, 2000. [doi.org/10.1016/S0167-6423(99)00034-6]
 
 **Key result:** Introduces arrows as a generalization of monads for
 structuring combinator libraries. Arrows make the dependence on input
@@ -288,9 +300,10 @@ inductive is the arrow syntax; our `Eval` is the arrow semantics.
 ## 11. Graph-Based Type Inference (Erwig, McAdam, Clerici et al.)
 
 **Citations:**
-- Martin Erwig. "Visual Type Inference." *Journal of Visual Languages and Computing* 17(2):161–186, 2006. [doi.org/10.1016/j.jvlc.2005.04.004]
+
+- Martin Erwig. "Visual Type Inference." _Journal of Visual Languages and Computing_ 17(2):161–186, 2006. [doi.org/10.1016/j.jvlc.2005.04.004]
 - Bruce J. McAdam. "Graphs for Recording Type Information." Technical Report ECS-LFCS-99-415, University of Edinburgh, 1999.
-- Silvia Clerici, Cristina Zoltan, Guillermo Prestigiacomo. "Graphical and Incremental Type Inference: A Graph Transformation Approach." In *Trends in Functional Programming (TFP)*, 2009/2010. [doi.org/10.1007/978-3-642-22941-1_5]
+- Silvia Clerici, Cristina Zoltan, Guillermo Prestigiacomo. "Graphical and Incremental Type Inference: A Graph Transformation Approach." In _Trends in Functional Programming (TFP)_, 2009/2010. [doi.org/10.1007/978-3-642-22941-1_5]
 
 **Key result:** Erwig presents HM-style inference that works by
 labeling nodes in a type-constraint graph and propagating types along
@@ -316,9 +329,10 @@ polymorphic base arrows.
 ## 12. Combinatory Logic Curry-Howard (Curry, Hindley-Seldin, Howard)
 
 **Citations:**
-- Haskell B. Curry and Robert Feys. *Combinatory Logic, Vol. I.* North-Holland, 1958.
-- J. Roger Hindley and Jonathan P. Seldin. *Lambda-Calculus and Combinators: An Introduction.* 2nd ed., Cambridge University Press, 2008.
-- William A. Howard. "The Formulae-as-Types Notion of Construction." 1969 manuscript, published in *To H. B. Curry: Essays on Combinatory Logic*, Academic Press, 1980.
+
+- Haskell B. Curry and Robert Feys. _Combinatory Logic, Vol. I._ North-Holland, 1958.
+- J. Roger Hindley and Jonathan P. Seldin. _Lambda-Calculus and Combinators: An Introduction._ 2nd ed., Cambridge University Press, 2008.
+- William A. Howard. "The Formulae-as-Types Notion of Construction." 1969 manuscript, published in _To H. B. Curry: Essays on Combinatory Logic_, Academic Press, 1980.
 
 **Key result:** Typed combinatory logic (SK combinators) has a
 Curry-Howard correspondence with Hilbert-style proofs — no λ-binders,
@@ -351,14 +365,16 @@ exact slogan, we should either (a) prove it as a new result or (b)
 phrase it carefully as folklore and cite the three component papers.
 
 **Additional citation for the profunctor characterization:**
-- Kazuyuki Asada. "Arrows are Strong Monads." In *Proc. MSFP 2010*. [doi.org/10.1145/1863597.1863607]
-- Robert Atkey. "What is a Categorical Model of Arrows?" *ENTCS* 229:19–37, 2011. [doi.org/10.1016/j.entcs.2011.02.014]
+
+- Kazuyuki Asada. "Arrows are Strong Monads." In _Proc. MSFP 2010_. [doi.org/10.1145/1863597.1863607]
+- Robert Atkey. "What is a Categorical Model of Arrows?" _ENTCS_ 229:19–37, 2011. [doi.org/10.1016/j.entcs.2011.02.014]
 
 ---
 
 ## Summary: What Is and Isn't Novel
 
 ### NOT novel (established prior art):
+
 - Graphical proof objects without binders (proof nets, Girard 1987)
 - Local cut elimination on graphs (proof nets, interaction nets)
 - Trace/feedback as a categorical operation (Joyal-Street-Verity 1996)
@@ -368,6 +384,7 @@ phrase it carefully as folklore and cite the three component papers.
 - The arrow calculus (Lindley-Wadler-Yallop 2010)
 
 ### POTENTIALLY novel (our specific contribution):
+
 1. **Arrow graphs as λ-free proof objects with a mechanized Curry-Howard
    correspondence.** The correspondence `TyOf ↔ PrOf` for arrow graphs
    (not λ-terms, not proof nets) is new. The Lean4 mechanization with

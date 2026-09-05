@@ -40,8 +40,8 @@ Arrow syntax is an embedded language, not the language kernel.
 
 There are languages and DSLs heavily based on arrows — particularly **FRP,
 hardware description, signal-processing, parser, and dataflow DSLs** — but
-there is no mainstream general-purpose language whose *core computational
-calculus* is Arrow Calculus in the way this project proposes.
+there is no mainstream general-purpose language whose _core computational
+calculus_ is Arrow Calculus in the way this project proposes.
 
 That is an important distinction. There is a huge difference between:
 
@@ -75,8 +75,8 @@ This project is the second.
 
 ## The research gap
 
-The interesting research gap is therefore not *"Haskell has arrows, so why
-another language?"*
+The interesting research gap is therefore not _"Haskell has arrows, so why
+another language?"_
 
 It is:
 

@@ -58,7 +58,7 @@ Pattern matching is **recursive with stateful bindings**:
   two-way `Choice`.
 - A failed arm must discard its bindings (scope pop), while a successful
   arm's bindings persist into the body evaluation (scope kept).
-- `...rest` captures are computed from the *remaining* elements/keys
+- `...rest` captures are computed from the _remaining_ elements/keys
   after positional/entry matching, requiring access to the scrutinee's
   structure mid-recursion.
 

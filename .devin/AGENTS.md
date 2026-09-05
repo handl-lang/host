@@ -141,7 +141,7 @@ canonical representation for v1 `Language` values; v2 lives alongside it.
   `args: [v]` sketch so `args` stays a pure sub-scheme list. Constructors:
   `arr_native`/`arr_foreign`/`arr_native_lit`/`seq`/`first`/`choice`/
   `loop_feedback`/`app`. `lower_v1_to_v2(&Scheme) -> Result<SchemeV2,
-  LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
+LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
   dynamic `app` form). `foreign_names_v2` derives capabilities from v2.
   Re-exported at the crate root: `SchemeV2`, `ArrSource`,
   `lower_v1_to_v2`, `foreign_names_v2`.
@@ -183,14 +183,14 @@ canonical representation for v1 `Language` values; v2 lives alongside it.
 - **`plugin-engine-eval-cranelift` v2 module** — `compile_v2.rs` +
   `CraneliftEngineV2`. Compiles `SchemeV2` to native code via cranelift
   JIT. v2 functions have signature `fn(*mut EvalCtx, *mut Value) ->
-  *mut Value` (ctx, incoming) → result — the incoming value is a
+*mut Value` (ctx, incoming) → result — the incoming value is a
   parameter, not stored in `EvalCtx`. v1→v2 lowering happens at compile
   time (baked into IR). `Choice` → native `brif`/`jump` with merge block;
   `Loop` → native back-edge blocks with stack-slot iteration counter and
   3-way exit (left/right/pair); `First` → inline `unpair_fst`/`unpair_snd`
-  + compile inner + re-pair (no sub-program needed — cranelift has native
-  control flow). All v2 helpers are `helper_v2_*` (separate from v1
-  `helper_*`). Same derived-step-op limitation as bytecode v2.
+  - compile inner + re-pair (no sub-program needed — cranelift has native
+    control flow). All v2 helpers are `helper_v2_*` (separate from v1
+    `helper_*`). Same derived-step-op limitation as bytecode v2.
 
 Conformance tests: `crates/handl-language/tests/lowering_conformance.rs`
 (every lowering-table row) and
@@ -198,6 +198,7 @@ Conformance tests: `crates/handl-language/tests/lowering_conformance.rs`
 schemes lower; only `eval.vau` errors).
 
 **Remaining cutover work (the risky big-bang, NOT yet done):**
+
 1. Make v2 the default kernel; delete v1 `Scheme` once parity is proven on
    the full workspace suite (ADR-0052 Phase A completion). **Parity is
    proven**: `crates/handl-defining-handl/tests/v2_parity.rs` runs all 42
@@ -236,6 +237,7 @@ not in the `SchemeV2` enum. The v2 engines can be extended with these ops
 without touching the calculus.
 
 **Current state of fexpr-style ops in v2:**
+
 - `match`, `handle`, `json` — v1 `Prim` ops that are node-aware (read from
   `ctx.current_node.payload`). NOT yet implemented in the v2 native op
   set. These are handler extensions to add when needed.

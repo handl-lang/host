@@ -14,7 +14,7 @@ What remains is the conversion of library plugins to use the unified model.
 
 Complete the conversion of the remaining `plugin-lib-*` crates to work cleanly within the unified plugin model. Key questions to resolve:
 
-1. **Should plugin-lib-* crates use Behavior<Op> or is Module/Function the appropriate abstraction for host-exported functions?**
+1. _*Should plugin-lib-* crates use Behavior<Op> or is Module/Function the appropriate abstraction for host-exported functions?_*
    - Current state: ~20+ plugin-lib-* crates use `Module` trait and expose `Function` values for handl code to call
    - Option A: Convert to `Behavior<Op>` (one operation per library capability)
    - Option B: Keep `Module/Function` as the abstraction for "host functions that handl code calls" (distinct from rule contributions)
@@ -24,7 +24,7 @@ Complete the conversion of the remaining `plugin-lib-*` crates to work cleanly w
    - Can a plugin-lib-* declare that it requires or provides specific module capabilities?
    - Should this be done via `Plugin::depends_on()` trait or via a separate dependency manifest?
 
-3. **What about library options?** 
+3. **What about library options?**
    - How do plugin-lib-* register options (e.g., compression level, timeout) if not via the legacy `Library::options()`?
    - Should the `OptionsPlugin` be extended to support library-scoped options?
 

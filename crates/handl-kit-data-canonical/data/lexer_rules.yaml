@@ -6,12 +6,12 @@
 - id: lex.and
   token_kind: token.and
   pattern: !Literal
-    text: '&&'
+    text: "&&"
   priority: 10
 - id: lex.arrow
   token_kind: token.arrow
   pattern: !Literal
-    text: '~>'
+    text: "~>"
   priority: 10
 - id: lex.arrow.unicode
   token_kind: token.arrow
@@ -21,33 +21,39 @@
 - id: lex.bang
   token_kind: token.bang
   pattern: !Literal
-    text: '!'
+    text: "!"
   priority: 20
 - id: lex.bool.false
   token_kind: token.bool
   pattern: !Literal
-    text: 'false'
+    text: "false"
   priority: 15
 - id: lex.bool.true
   token_kind: token.bool
   pattern: !Literal
-    text: 'true'
+    text: "true"
   priority: 15
 - id: lex.colon
   token_kind: token.colon
   pattern: !Literal
-    text: ':'
+    text: ":"
   priority: 30
 - id: lex.comma
   token_kind: token.comma
   pattern: !Literal
-    text: ','
+    text: ","
   priority: 30
 - id: lex.comment
   token_kind: token.comment
   pattern: !Delimited
     open: --
     close: |2+
+
+
+
+
+
+
 
     escape: false
     interpolation: false
@@ -58,6 +64,12 @@
   pattern: !Delimited
     open: ---
     close: |2+
+
+
+
+
+
+
 
     escape: false
     interpolation: false
@@ -71,7 +83,7 @@
 - id: lex.ellipsis
   token_kind: token.ellipsis
   pattern: !Literal
-    text: '...'
+    text: "..."
   priority: 10
 - id: lex.eqeq
   token_kind: token.eqeq
@@ -86,27 +98,27 @@
 - id: lex.fanout
   token_kind: token.fanout
   pattern: !Literal
-    text: '&&&'
+    text: "&&&"
   priority: 10
 - id: lex.choice
   token_kind: token.choice
   pattern: !Literal
-    text: '|||'
+    text: "|||"
   priority: 10
 - id: lex.flow
   token_kind: token.flow
   pattern: !Literal
-    text: '>>>'
+    text: ">>>"
   priority: 10
 - id: lex.gt
   token_kind: token.gt
   pattern: !Literal
-    text: '>'
+    text: ">"
   priority: 20
 - id: lex.gte
   token_kind: token.gte
   pattern: !Literal
-    text: '>='
+    text: ">="
   priority: 10
 - id: lex.identifier
   token_kind: token.identifier
@@ -117,12 +129,12 @@
 - id: lex.json
   token_kind: token.json
   pattern: !Delimited
-    open: 'json{'
-    close: '}'
+    open: "json{"
+    close: "}"
     escape: false
     interpolation: false
     close_at_eof: false
-    nesting_open: '{'
+    nesting_open: "{"
   priority: 5
 - id: lex.keyword.as
   token_kind: token.keyword.as
@@ -244,12 +256,12 @@
 - id: lex.lbrace
   token_kind: token.lbrace
   pattern: !Literal
-    text: '{'
+    text: "{"
   priority: 30
 - id: lex.lbracket
   token_kind: token.lbracket
   pattern: !Literal
-    text: '['
+    text: "["
   priority: 30
 - id: lex.let
   token_kind: token.let
@@ -274,22 +286,22 @@
 - id: lex.minus
   token_kind: token.minus
   pattern: !Literal
-    text: '-'
+    text: "-"
   priority: 20
 - id: lex.neq
   token_kind: token.neq
   pattern: !Literal
-    text: '!='
+    text: "!="
   priority: 10
 - id: lex.null
   token_kind: token.null
   pattern: !Literal
-    text: 'null'
+    text: "null"
   priority: 15
 - id: lex.nullish
   token_kind: token.nullish
   pattern: !Literal
-    text: '??'
+    text: "??"
   priority: 10
 - id: lex.number
   token_kind: token.number
@@ -298,22 +310,22 @@
 - id: lex.opt_chain
   token_kind: token.opt_chain
   pattern: !Literal
-    text: '?.'
+    text: "?."
   priority: 10
 - id: lex.or
   token_kind: token.or
   pattern: !Literal
-    text: '||'
+    text: "||"
   priority: 10
 - id: lex.pipe
   token_kind: token.pipe
   pattern: !Literal
-    text: '|'
+    text: "|"
   priority: 20
 - id: lex.percent
   token_kind: token.percent
   pattern: !Literal
-    text: '%'
+    text: "%"
   priority: 20
 - id: lex.plus
   token_kind: token.plus
@@ -323,27 +335,27 @@
 - id: lex.pow
   token_kind: token.pow
   pattern: !Literal
-    text: '**'
+    text: "**"
   priority: 10
 - id: lex.product
   token_kind: token.product
   pattern: !Literal
-    text: '***'
+    text: "***"
   priority: 10
 - id: lex.question
   token_kind: token.question
   pattern: !Literal
-    text: '?'
+    text: "?"
   priority: 20
 - id: lex.rbrace
   token_kind: token.rbrace
   pattern: !Literal
-    text: '}'
+    text: "}"
   priority: 30
 - id: lex.rbracket
   token_kind: token.rbracket
   pattern: !Literal
-    text: ']'
+    text: "]"
   priority: 30
 - id: lex.rparen
   token_kind: token.rparen
@@ -368,7 +380,7 @@
 - id: lex.star
   token_kind: token.star
   pattern: !Literal
-    text: '*'
+    text: "*"
   priority: 20
 - id: lex.star.unicode
   token_kind: token.star
@@ -387,8 +399,8 @@
 - id: lex.template
   token_kind: token.template
   pattern: !Delimited
-    open: '`'
-    close: '`'
+    open: "`"
+    close: "`"
     escape: true
     interpolation: true
     close_at_eof: false

@@ -129,8 +129,8 @@ from feedback.
 Provides dynamic/higher-order arrow application (`ArrowApply` in the Haskell
 hierarchy). It allows an arrow to receive another arrow as data and invoke it
 during computation. This is distinct from interpreting an entire arrow
-externally — `app` is a calculus operation *within* a computation; a handler
-interprets the computation *from outside*.
+externally — `app` is a calculus operation _within_ a computation; a handler
+interprets the computation _from outside_.
 
 `app` is not part of the minimal Arrow calculus (Lindley–Wadler–Yallop); it
 is an extension. We include it because the language requires higher-order
@@ -175,7 +175,7 @@ The computational description remains unchanged.
 
 Effectful primitives are operations in the arrow computation. A handler
 determines their semantics. We adopt the handler model of Sanada's
-*Algebraic Effects and Handlers for Arrows* as the semantic foundation: an
+_Algebraic Effects and Handlers for Arrows_ as the semantic foundation: an
 operation handler receives the operation's argument and its continuation,
 defining how the operation is interpreted and how computation resumes.
 Sanada provides operational semantics (proved sound and adequate) and a
@@ -290,7 +290,7 @@ Four consequences follow from making both arrows and languages first-class:
   branching arrows, and higher-order arrows without two foundational
   worlds needing bridges between them. This is a **language-design choice
   inspired by the Arrow theory**: the literature supports that functions
-  *can* be an Arrow instance, not that they *should* be eliminated as a
+  _can_ be an Arrow instance, not that they _should_ be eliminated as a
   separate type. The Arrow Calculus itself (Lindley–Wadler–Yallop) is
   formulated by extending simply typed lambda calculus with arrow
   constructs. Our language chooses to make arrows primary and treat
@@ -427,7 +427,7 @@ language.evaluate(ast2)
 
 And **all of those are themselves values/computations**.
 
-That is the distinctive part: not merely *first-class ASTs*, but
+That is the distinctive part: not merely _first-class ASTs_, but
 **first-class languages whose generic protocol exposes lexing, parsing,
 evaluation, and tooling**.
 
@@ -442,16 +442,16 @@ The language is therefore not just the thing that runs the program.
 This proposal does not invent a calculus; it adopts two mature lineages and
 combines them.
 
-| Work | Contribution | Relevance |
-|---|---|---|
-| **Moggi** — *Notions of Computation and Monads* (1991) | Computational effects via monads; the monadic metalanguage. The precursor that Hughes generalizes. | Computational effects foundation |
-| **Hughes (2000)** — *Generalising Monads to Arrows* | Introduced **arrows** as a generalization of monads; the minimal `arr`, `>>>`, `first`. | Computational abstraction |
-| **Paterson (2001)** — *A New Notation for Arrows* | Added practical **arrow notation** (`proc`), making point-free arrow programs readable and compositional; introduced **`loop`** (feedback) and `returnA`. | Surface syntax + feedback |
-| **Lindley, Wadler, Yallop (2008/2010)** — *The Arrow Calculus* | Made arrows into a genuine **Arrow Calculus**: a typed metalanguage for manipulating Hughes's arrows. Four constructs, five laws, proved complete. | Calculus / language foundation |
-| **Lindley, Wadler, Yallop (2011)** — *Idioms are Oblivious, Arrows are Meticulous, Monads are Promiscuous* | Placed arrows in the landscape of monads/idioms/arrows; showed classic arrows and the Arrow Calculus are equationally corresponding. | Algebraic grounding |
-| **Lindley (2014)** — *Algebraic Effects and Effect Handlers for Idioms and Arrows* | Generalized algebraic effects and handlers to idioms and arrows; established that handlers aren't inherently tied to monadic computation. | Effects + handlers for arrows |
-| **Sanada (2024)** — *Algebraic Effects and Handlers for Arrows* | Formalized **Arrow Calculus with operations and handlers**, with operational + denotational semantics; handlers correspond to homomorphisms of arrow algebras; proves soundness and adequacy. | Semantic foundation for our handlers |
-| **Cimini (2018/2022)** — *A Calculus for Multi-language Operational Semantics* | Presents `λ^𝓛`, a typed λ-calculus where **languages are first-class citizens**: bound to variables, passed to functions, returned from functions, used to execute programs. | Languages as first-class values |
+| Work                                                                                                       | Contribution                                                                                                                                                                                  | Relevance                            |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **Moggi** — _Notions of Computation and Monads_ (1991)                                                     | Computational effects via monads; the monadic metalanguage. The precursor that Hughes generalizes.                                                                                            | Computational effects foundation     |
+| **Hughes (2000)** — _Generalising Monads to Arrows_                                                        | Introduced **arrows** as a generalization of monads; the minimal `arr`, `>>>`, `first`.                                                                                                       | Computational abstraction            |
+| **Paterson (2001)** — _A New Notation for Arrows_                                                          | Added practical **arrow notation** (`proc`), making point-free arrow programs readable and compositional; introduced **`loop`** (feedback) and `returnA`.                                     | Surface syntax + feedback            |
+| **Lindley, Wadler, Yallop (2008/2010)** — _The Arrow Calculus_                                             | Made arrows into a genuine **Arrow Calculus**: a typed metalanguage for manipulating Hughes's arrows. Four constructs, five laws, proved complete.                                            | Calculus / language foundation       |
+| **Lindley, Wadler, Yallop (2011)** — _Idioms are Oblivious, Arrows are Meticulous, Monads are Promiscuous_ | Placed arrows in the landscape of monads/idioms/arrows; showed classic arrows and the Arrow Calculus are equationally corresponding.                                                          | Algebraic grounding                  |
+| **Lindley (2014)** — _Algebraic Effects and Effect Handlers for Idioms and Arrows_                         | Generalized algebraic effects and handlers to idioms and arrows; established that handlers aren't inherently tied to monadic computation.                                                     | Effects + handlers for arrows        |
+| **Sanada (2024)** — _Algebraic Effects and Handlers for Arrows_                                            | Formalized **Arrow Calculus with operations and handlers**, with operational + denotational semantics; handlers correspond to homomorphisms of arrow algebras; proves soundness and adequacy. | Semantic foundation for our handlers |
+| **Cimini (2018/2022)** — _A Calculus for Multi-language Operational Semantics_                             | Presents `λ^𝓛`, a typed λ-calculus where **languages are first-class citizens**: bound to variables, passed to functions, returned from functions, used to execute programs.                  | Languages as first-class values      |
 
 ```text
 Moggi
@@ -558,10 +558,10 @@ In a conventional language, a program is an in-memory AST or closure graph.
 To send it across a process boundary, store it, or hand it to a different
 runtime, you serialize it (to JSON, protobuf, bytecode) and deserialize it
 on the other side. This is a tax: every cross-boundary interaction pays a
-formatting and parsing cost, and the deserialized form is a *different
-object* from the original — it has lost structure, identity, or both.
+formatting and parsing cost, and the deserialized form is a _different
+object_ from the original — it has lost structure, identity, or both.
 
-In an Arrow Calculus language, the arrow *is* data. The kernel is six
+In an Arrow Calculus language, the arrow _is_ data. The kernel is six
 serializable primitives; an arrow is a first-class description that can be
 stored, transmitted, and loaded without a separate serialization layer. The
 same value that the runtime interprets is the value that crosses the
@@ -588,7 +588,7 @@ This matters for:
 
 Because an arrow is a first-class description with structural capability
 tracking (foreign operations are tagged, not a string convention), a host
-can inspect an arrow *before* interpreting it and decide whether to allow
+can inspect an arrow _before_ interpreting it and decide whether to allow
 it. Sandboxing is interpretation-time policy, not a property the program
 must opt into.
 
@@ -598,7 +598,7 @@ This matters for:
   inspects its operations (does it call `fs.read`? `net.connect`?
   `process.exit`?), and either rejects it, rewrites it, or interprets it
   under a restricted handler that refuses unauthorized operations. The
-  program cannot bypass the sandbox because the sandbox *is* the handler —
+  program cannot bypass the sandbox because the sandbox _is_ the handler —
   there is no "escape" primitive in the kernel for the program to exploit.
 - **Untrusted game mods.** A game engine loads a community mod as an arrow,
   inspects it for forbidden operations, and interprets it under a handler
@@ -653,21 +653,21 @@ This matters for:
 
 ## 8. Arrow Calculus vs Lambda Calculus
 
-| Property | Lambda Calculus | Arrow Calculus |
-|---|---|---|
-| Primitive computation | Function | Arrow |
-| Core operation | Application | Composition |
-| Primary abstraction | Lambda | Computational construction |
-| Data flow | Implicit | Explicit |
-| Program representation | Usually external | Native first-class value |
-| Interpretation | Usually execution | Explicit handler |
-| Transformation | Meta-level / common tooling | Language-level operation |
-| Compiler | External infrastructure | Possible arrow / handler |
-| DSL representation | Often AST / library | Native computational object |
-| Effects | Usually layered | Intrinsic to arrows; handler-interpreted |
-| Recursion | Primitive (`fix`, Y-combinator) | Derived from feedback (`loop`) |
-| Language definition | External / fixed | First-class value |
-| Tooling | Per-language / bespoke | Generic protocols over any conforming language |
+| Property               | Lambda Calculus                 | Arrow Calculus                                 |
+| ---------------------- | ------------------------------- | ---------------------------------------------- |
+| Primitive computation  | Function                        | Arrow                                          |
+| Core operation         | Application                     | Composition                                    |
+| Primary abstraction    | Lambda                          | Computational construction                     |
+| Data flow              | Implicit                        | Explicit                                       |
+| Program representation | Usually external                | Native first-class value                       |
+| Interpretation         | Usually execution               | Explicit handler                               |
+| Transformation         | Meta-level / common tooling     | Language-level operation                       |
+| Compiler               | External infrastructure         | Possible arrow / handler                       |
+| DSL representation     | Often AST / library             | Native computational object                    |
+| Effects                | Usually layered                 | Intrinsic to arrows; handler-interpreted       |
+| Recursion              | Primitive (`fix`, Y-combinator) | Derived from feedback (`loop`)                 |
+| Language definition    | External / fixed                | First-class value                              |
+| Tooling                | Per-language / bespoke          | Generic protocols over any conforming language |
 
 The point is not that one calculus is universally superior. They optimize
 for different conceptual centers: Lambda Calculus centers **abstraction and
@@ -686,8 +686,8 @@ app : ((A ~> B), A) ~> B
 This is a language-design choice, not a claim established by the Arrow
 literature. The Arrow Calculus (Lindley–Wadler–Yallop) is itself formulated
 by extending simply typed lambda calculus with arrow constructs; the
-literature shows that functions *can* be an Arrow instance (Hughes), not
-that a language *should* eliminate functions as a separate type. Our
+literature shows that functions _can_ be an Arrow instance (Hughes), not
+that a language _should_ eliminate functions as a separate type. Our
 language chooses to make arrows the primary computational abstraction,
 with pure functions represented as the degenerate/pure case.
 
@@ -706,14 +706,14 @@ statically known**.
 `ArrowApply` (`app`) makes the dynamic continuation an explicit first-class
 arrow value (a traversable data structure), not a hidden function closure as
 in monadic `bind`. This is a real representational difference: a handler can
-inspect, sandbox, or rewrite a received arrow *at runtime* before
+inspect, sandbox, or rewrite a received arrow _at runtime_ before
 interpreting it. It is not, however, static transparency: if the arrow value
 is produced by runtime data, its shape is unknown at compile time and cannot
 be route-optimized. Note also that the opacity asymmetry is a representation
 choice, not inherent to either calculus — a free monad `Free f a` is fully
 inspectable data, and an arrow can be opaque if implemented as a closure.
 `ArrowApply ≅ Monad` (Hughes, LWY) means they share the same transparency
-*potential*; the structural-explicitness difference is what makes `app`'s
+_potential_; the structural-explicitness difference is what makes `app`'s
 runtime inspectability cheaper to exploit.
 
 For the Staged Arrow Engine backend (§9.6), the structural explicitness of
@@ -740,7 +740,7 @@ For the Staged Arrow Engine backend (§9.6), the structural explicitness of
    conventional VM, exploiting the runtime transparency for inspection and
    sandboxing.
 
-The boundary is *provable-finite-branch-space*, not `app`-presence. This
+The boundary is _provable-finite-branch-space_, not `app`-presence. This
 moves a large class of `app` usage — most conditional branching, pattern
 matching, and finite dispatch — from the dynamic handler into the spatial
 handler, leaving only genuinely unbounded dynamic structure to the
@@ -806,8 +806,8 @@ which interprets computational descriptions from outside.
 
 The language is not Lambda Calculus with an arrow library. It is Arrow
 Calculus plus effects, handlers, and first-class languages. The conceptual
-shift is from *abstraction → application → substitution* toward
-*construction → composition → interpretation* — and the second-order shift
+shift is from _abstraction → application → substitution_ toward
+_construction → composition → interpretation_ — and the second-order shift
 is from a fixed language with external tooling toward a first-class language
 value participating in generic tooling protocols.
 
@@ -833,26 +833,26 @@ The language is not just the thing that runs the program.
 
 ## References
 
-- Moggi — *Notions of Computation and Monads* (1991). Computational
+- Moggi — _Notions of Computation and Monads_ (1991). Computational
   effects via monads; the monadic metalanguage. The precursor.
-- Hughes — *Generalising Monads to Arrows* (2000). Arrows as a
+- Hughes — _Generalising Monads to Arrows_ (2000). Arrows as a
   generalization of monads; the computational abstraction.
-- Paterson — *A New Notation for Arrows* (2001). `proc` notation;
+- Paterson — _A New Notation for Arrows_ (2001). `proc` notation;
   introduced `loop` (feedback) and `returnA`.
-- Lindley, Wadler, Yallop — *The Arrow Calculus* (2008/2010, JFP). Arrows
+- Lindley, Wadler, Yallop — _The Arrow Calculus_ (2008/2010, JFP). Arrows
   as a genuine typed metalanguage; the calculus foundation.
-- Lindley, Wadler, Yallop — *Idioms are Oblivious, Arrows are Meticulous,
-  Monads are Promiscuous* (2011). Arrows in the monad/applicative/arrow
+- Lindley, Wadler, Yallop — _Idioms are Oblivious, Arrows are Meticulous,
+  Monads are Promiscuous_ (2011). Arrows in the monad/applicative/arrow
   landscape; classic arrows and the Arrow Calculus are equationally
   corresponding.
-- Lindley — *Algebraic Effects and Effect Handlers for Idioms and Arrows*
+- Lindley — _Algebraic Effects and Effect Handlers for Idioms and Arrows_
   (2014). Effects/handlers generalized to arrows; the bridge from
   algebraic effects to arrow-style computation.
-- Sanada — *Algebraic Effects and Handlers for Arrows* (2024). The semantic
+- Sanada — _Algebraic Effects and Handlers for Arrows_ (2024). The semantic
   reference model: arrow handlers, operations, continuations; operational
   semantics (sound, adequate) and denotational semantics (handlers as
   homomorphisms between algebras of arrows).
-- Cimini — *A Calculus for Multi-language Operational Semantics* (2022,
+- Cimini — _A Calculus for Multi-language Operational Semantics_ (2022,
   Springer; vision paper 2018). `λ^𝓛`, a typed λ-calculus where languages
   are first-class citizens. The theoretical foundation for languages as
   first-class values.

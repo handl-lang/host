@@ -13,10 +13,10 @@ return a
 
 ## Parameters
 
-| Mode         | n  | Expected output |
-| ------------ | -- | --------------- |
-| end-to-end   | 35 | 9227465         |
-| heavy-work   | 38 | 39088169        |
+| Mode       | n   | Expected output |
+| ---------- | --- | --------------- |
+| end-to-end | 35  | 9227465         |
+| heavy-work | 38  | 39088169        |
 
 ## Why this task
 

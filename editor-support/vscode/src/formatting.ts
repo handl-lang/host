@@ -2,10 +2,7 @@ import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import { DOCUMENT_SELECTOR } from "./server";
 
-export function registerFormatting(
-  ctx: vscode.ExtensionContext,
-  client: LanguageClient,
-): void {
+export function registerFormatting(ctx: vscode.ExtensionContext, client: LanguageClient): void {
   const provider: vscode.DocumentFormattingEditProvider = {
     provideDocumentFormattingEdits(
       document: vscode.TextDocument,

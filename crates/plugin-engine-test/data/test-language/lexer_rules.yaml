@@ -1,0 +1,20 @@
+- id: lex.keyword.test
+    token_kind: token.keyword.test
+    pattern: !Literal
+      text: test
+    priority: 15
+  - id: lex.keyword.property
+    token_kind: token.keyword.property
+    pattern: !Literal
+      text: property
+    priority: 15
+  - id: lex.keyword.integration_test
+    token_kind: token.keyword.integration_test
+    pattern: !Literal
+      text: integration_test
+    priority: 15
+  - id: lex.keyword.bench
+    token_kind: token.keyword.bench
+    pattern: !Literal
+      text: bench
+    priority: 15

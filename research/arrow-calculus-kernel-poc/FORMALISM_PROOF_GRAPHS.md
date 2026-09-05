@@ -30,21 +30,21 @@ Arrow graph G
 
 The correspondence:
 
-| Graph combinator | Program reading | Type reading | Proof reading |
-|------------------|-----------------|--------------|---------------|
-| `id_A`           | identity arrow  | `A ⇝ A`      | `A ⊢ A` (identity) |
-| `comp(f, g)`     | `f >>> g`       | `A ⇝ C`      | cut: `A⊢B, B⊢C ⟹ A⊢C` |
+| Graph combinator | Program reading | Type reading | Proof reading                       |
+| ---------------- | --------------- | ------------ | ----------------------------------- |
+| `id_A`           | identity arrow  | `A ⇝ A`      | `A ⊢ A` (identity)                  |
+| `comp(f, g)`     | `f >>> g`       | `A ⇝ C`      | cut: `A⊢B, B⊢C ⟹ A⊢C`               |
 | `first(f)`       | act on 1st      | `A×C ⇝ B×C`  | ∧-functoriality (context weakening) |
-| `left(f)`        | act on Left     | `A+C ⇝ B+C`  | ∨-functoriality (case structure) |
-| `loop(f)`        | feedback        | `A ⇝ B`      | trace / fixpoint invariant |
-| `arr(φ)`         | lift pure φ     | `A ⇝ B`      | axiom (primitive inference step φ) |
+| `left(f)`        | act on Left     | `A+C ⇝ B+C`  | ∨-functoriality (case structure)    |
+| `loop(f)`        | feedback        | `A ⇝ B`      | trace / fixpoint invariant          |
+| `arr(φ)`         | lift pure φ     | `A ⇝ B`      | axiom (primitive inference step φ)  |
 
 Derived combinators (defined from the five):
 
-| Derived | From | Proof reading |
-|---------|------|---------------|
-| `f &&& g` | `first` + `arr` | ∧-introduction: `A⊢B, A⊢C ⟹ A⊢B∧C` |
-| `f \|\|\| g` | `left` + `arr` | ∨-elimination: `B⊢A, C⊢A ⟹ B∨C⊢A` |
+| Derived      | From            | Proof reading                      |
+| ------------ | --------------- | ---------------------------------- |
+| `f &&& g`    | `first` + `arr` | ∧-introduction: `A⊢B, A⊢C ⟹ A⊢B∧C` |
+| `f \|\|\| g` | `left` + `arr`  | ∨-elimination: `B⊢A, C⊢A ⟹ B∨C⊢A`  |
 
 ---
 
@@ -100,7 +100,7 @@ correspondence; the five primitives are the canonical constructors.
 
 ### 1.3 Operational semantics
 
-Execution judgment: `G · a ⟹ v`  (graph `G` run on input value `a`
+Execution judgment: `G · a ⟹ v` (graph `G` run on input value `a`
 yields output `v`).
 
 ```
@@ -357,7 +357,7 @@ the operational semantics of §1.3, we have:
      └─ as proof:     Γ ⊢ G ⊩ A ⊢ B      (reason)
 ```
 
-The graph is not *interpreted as* a program, a type derivation, and a
+The graph is not _interpreted as_ a program, a type derivation, and a
 proof; it **is** all three. This is the precise content of the slogan
 "the arrow graph is both the program and the proof object."
 
@@ -375,7 +375,7 @@ proposition).
 **Theorem (Subject Reduction).** If `⊢ G : A ⇝ B` and `G · a ⟹ v`
 with `a : A`, then `v : B`.
 
-*Proof.* By induction on the execution derivation `E : G · a ⟹ v`,
+_Proof._ By induction on the execution derivation `E : G · a ⟹ v`,
 inverting the typing derivation `D : ⊢ G : A ⇝ B` at each step.
 
 - `E-Id`: `D` is `T-Id`, `a : A`, `v = a`, so `v : A = B`. ✓
@@ -397,7 +397,7 @@ inverting the typing derivation `D : ⊢ G : A ⇝ B` at each step.
 `G · a ⟹ v` for some `v : B`, or `G` diverges on `a` (only possible
 via `loop` whose feedback channel does not reach a fixpoint).
 
-*Proof.* By induction on `G`. All cases except `loop` are deterministic
+_Proof._ By induction on `G`. All cases except `loop` are deterministic
 and terminate (the sub-graphs are smaller). For `loop`, either the
 feedback channel stabilises (yields `v`) or it does not (divergence);
 no stuck state is reachable because each step is itself a smaller
@@ -409,9 +409,9 @@ well-typed graph. ∎
 proof (realizer) of `A`, then `G · a ⟹ v` where `v` is a proof of
 `B`.
 
-*Proof.* By the Correspondence Theorem (§4), `⊢ G ⊩ A ⊢ B` iff
+_Proof._ By the Correspondence Theorem (§4), `⊢ G ⊩ A ⊢ B` iff
 `⊢ G : A ⇝ B`. By Subject Reduction, `G · a ⟹ v` with `v : B`. Under
-the Curry-Howard interpretation, `v : B` *is* "`v` is a proof of `B`."
+the Curry-Howard interpretation, `v : B` _is_ "`v` is a proof of `B`."
 The two soundness theorems are the same theorem. ∎
 
 ### 5.3 Combined soundness statement
@@ -425,6 +425,7 @@ The two soundness theorems are the same theorem. ∎
 ```
 
 The single graph `G` is simultaneously:
+
 - a total function from values of type `A` to values of type `B`
   (program reading),
 - a derivation of `A ⇝ B` (type reading),
@@ -509,7 +510,7 @@ dependent type by:
 2. **Propagating values** (symbolic values, not just types) through
    each node. For `comp(G, H)`, the value flowing into `H` is the
    actual output of `G`, so `H`'s output type is `C(a, G·a)` — the
-   type family `C` evaluated at the *realised* intermediate value.
+   type family `C` evaluated at the _realised_ intermediate value.
 3. **Computing type families** by applying the signature's dependent
    base arrows `φ : (a : A) → B(a)`. Each `arr(φ)` refines the output
    type as a function of the input.
@@ -533,20 +534,20 @@ No, for three reasons:
    collection of primitive operations the language exposes (e.g.
    `cons : (x : A, xs : [A]) → [A]`, `le : (x : A, y : A) → Bool`).
    These are the same primitives any language has. The calculus does
-   not introduce a binding construct to *combine* them; combination is
+   not introduce a binding construct to _combine_ them; combination is
    graph composition.
 
 2. **Dependent combination is structural.** The dependent type of
    `comp(G, H)` is `C(a, G·a)` — the type family `C` evaluated at the
-   *output of `G`*. This dependency is created by the **wire** from
+   _output of `G`_. This dependency is created by the **wire** from
    `G`'s output to `H`'s input, not by a λ-binder. Cut the wire and
-   the dependency vanishes; the dependency *is* the wire.
+   the dependency vanishes; the dependency _is_ the wire.
 
 3. **Fixpoint reasoning is feedback, not recursion.** In λ-calculus
    dependent type theory, induction is a scheme involving a motive
    (a type family) and a λ-term for the step. Here, the motive is the
    feedback type `C`, the step is the graph `G`, and the induction is
-   the iteration of `loop` to its fixpoint. The graph *is* the
+   the iteration of `loop` to its fixpoint. The graph _is_ the
    induction proof.
 
 ### 6.5 Dependent proof rules
@@ -613,14 +614,14 @@ generated).
 For each of the following graphs, the checker should infer the listed
 output predicate **without being told it**:
 
-| Graph | Input predicate | Expected inferred output predicate |
-|-------|-----------------|------------------------------------|
-| `sort = loop(step)` | `is_list` | `sorted` (via the loop invariant) |
-| `map(f) = ...` | `is_list` | `is_list ∧ length_preserved` |
-| `filter(p) = ...` | `is_list` | `is_list ∧ all_satisfy(p)` |
-| `f &&& g` | `P` | `P ∧ Q` where `Q = infer(g, P)` (conjunction intro) |
-| `f \|\|\| g` | `P ∨ R` | `S` where `infer(f, P) = infer(g, R) = S` (disjunction elim) |
-| `loop(sort_step)` | `is_list` | `sorted ∧ is_permutation` (invariant + permutation) |
+| Graph               | Input predicate | Expected inferred output predicate                           |
+| ------------------- | --------------- | ------------------------------------------------------------ |
+| `sort = loop(step)` | `is_list`       | `sorted` (via the loop invariant)                            |
+| `map(f) = ...`      | `is_list`       | `is_list ∧ length_preserved`                                 |
+| `filter(p) = ...`   | `is_list`       | `is_list ∧ all_satisfy(p)`                                   |
+| `f &&& g`           | `P`             | `P ∧ Q` where `Q = infer(g, P)` (conjunction intro)          |
+| `f \|\|\| g`        | `P ∨ R`         | `S` where `infer(f, P) = infer(g, R) = S` (disjunction elim) |
+| `loop(sort_step)`   | `is_list`       | `sorted ∧ is_permutation` (invariant + permutation)          |
 
 The falsifiable prediction: **at least the first three** (sort, map,
 filter) are inferred without annotations. If the checker cannot infer
@@ -667,7 +668,7 @@ fixpoint iteration and checked, not supplied).
   structure is hidden.
 - **Dependent type theory (Martin-Löf, CoC, etc.):** dependent types
   are built on λ-abstraction (Π-types are dependent functions). Our
-  claim is that the *combination* of dependent base arrows + graph
+  claim is that the _combination_ of dependent base arrows + graph
   composition + loop fixpoints recovers the expressiveness of
   dependent types without a λ-binder. This is the hypothesis to test,
   not a settled result.
@@ -684,7 +685,7 @@ fixpoint iteration and checked, not supplied).
 2. **Does the dependent extension retain subject reduction?** The
    `D-Comp` rule substitutes `G·a` (a value) into the type family
    `C(a, ·)`. This requires the type family to be defined at the
-   *symbolic* output of `G`, not just the realised value — i.e. the
+   _symbolic_ output of `G`, not just the realised value — i.e. the
    checker must compute a symbolic normal form of `G·a`. This is
    decidable for the graph fragment without `loop` (it is composition
    of base arrows); with `loop` it requires the fixpoint to be

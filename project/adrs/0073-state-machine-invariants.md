@@ -14,12 +14,14 @@ updates state. The key verification question: **what invariants hold
 on the state across all transitions?**
 
 Examples:
+
 - A counter: `Count ≥ 0` (decrement fails on zero)
 - A bounded buffer: `0 ≤ |buffer| ≤ max_size`
 - A protocol: `state ∈ {idle, active, done}` (valid states only)
 - A resource pool: `allocated ≤ total`
 
 State machines map naturally to arrow graphs:
+
 ```
 state_machine = loop(comp(handle_event, first(id)))
 ```
@@ -41,6 +43,7 @@ in the refinement inference engine. No user annotations are required.
      - `guarantee: Le(0, output)` — result is ≥ 0
 
 2. The state machine is a loop:
+
    ```
    counter = loop(comp(choice(state.inc, state.dec), first(id)))
    ```
@@ -97,6 +100,7 @@ in the refinement inference engine. No user annotations are required.
 ## Implementation
 
 State machine atoms and arrow files are in:
+
 - `contracts/state.hnl` — atoms: state.inc, state.dec, state.push,
   state.pop, state.is_empty, state.idle_to_active, state.active_to_done
 - `handl-packages/state/` — arrow files: counter.hnl,

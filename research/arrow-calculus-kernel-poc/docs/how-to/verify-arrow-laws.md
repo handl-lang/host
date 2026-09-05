@@ -141,7 +141,7 @@ migrate = deserialize >>> serialize
 -- migrate inherits the lossless proof by composition
 ```
 
-Laws compose because laws *are* arrow compositions. No separate proof
+Laws compose because laws _are_ arrow compositions. No separate proof
 step is needed.
 
 ## See also

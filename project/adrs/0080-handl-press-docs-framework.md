@@ -28,7 +28,7 @@ routing, theming, search, and i18n. Its success comes from three properties:
 The third property is the one static-site generators that predate VitePress
 (Jekyll, Hugo, MkDocs) approximate with templating languages but never reach
 fully, because their config and templates are not the same language as the
-runtime. VitePress closes that loop by being built *in* the language it
+runtime. VitePress closes that loop by being built _in_ the language it
 configures.
 
 ### Why handl is a strictly better fit than JS/TS for this
@@ -45,7 +45,7 @@ framework:
    and that handl gets from the language.
 
 2. **The same language authors content, config, themes, and the build
-   pipeline.** Markdown is the content layer; everything *around* it — nav
+   pipeline.** Markdown is the content layer; everything _around_ it — nav
    generation, sidebar grouping, route tables, theme rendering, asset
    pipelines, search indexing — is handl. There is no second language to learn
    and no boundary crossing between "config language" and "template
@@ -67,14 +67,14 @@ primitives — `plugin-lib-markdown` does not exist yet but `plugin-lib-yaml`,
 `plugin-lib-http-client`, `plugin-lib-unicode`, `plugin-lib-intl`,
 `plugin-lib-dedent`, `plugin-lib-utils`, `plugin-lib-collections`,
 `plugin-lib-tag` (HTML emission candidate), and the `kit-server` /
-`kit-config` kits already exist. What is missing is the *assembly*: a kit
+`kit-config` kits already exist. What is missing is the _assembly_: a kit
 that curates these into a VitePress-class framework with a defined content
 format, config schema, theme protocol, and build pipeline.
 
 ### Why this is low priority
 
 The platform's stated priority is the language runtime and stdlib migration
-(ADR-0077). A docs framework is a *consumer* of the stable end-state of that
+(ADR-0077). A docs framework is a _consumer_ of the stable end-state of that
 work, not a contributor to it. Building it before ADR-0077 Phase 4 (native
 lib migration) and Phase 5 (capability declaration) lands would mean
 re-implementing capability tracking and `op` dispatch in the framework
@@ -88,7 +88,7 @@ Build `handl-press`: a VitePress-class docs framework authored in and
 configurable through handl. It is structured as one kit (`kit-press`) curating
 a small set of `plugin-lib-*` libraries plus a content/theme protocol defined
 in `.hnl`. No new runtime mechanism is invented; the framework is an
-*application* of ADR-0077's end state.
+_application_ of ADR-0077's end state.
 
 ### 1. Layering — kit, libs, protocol
 
@@ -118,7 +118,7 @@ grouping, route tables, manifest assembly, theme composition — is handl.
 Content files are Markdown. A fence extension allows handl expressions and
 components inline:
 
-```markdown
+````markdown
 # Installation
 
 To install handl-press:
@@ -126,6 +126,7 @@ To install handl-press:
 ```handl-press{component="InstallSteps" platform="linux"}
 {{ kit.press.recommended_install("linux") }}
 ```
+````
 
 The fence is parsed by `plugin-lib-markdown` into an AST node carrying the
 handl source. At render time the theme receives the node and evaluates the
@@ -166,7 +167,7 @@ press-config = {
 press-config
 ```
 
-This is the VitePress `config.ts` property: nav and sidebar are *computed*
+This is the VitePress `config.ts` property: nav and sidebar are _computed_
 from the content directory, not hand-listed. `sidebar-from-dir` and
 `nav-from-dir` are handl functions in `plugin-lib-docs-config` that walk the
 content tree via `fs.read` (capability-tracked) and return structured data.
@@ -293,7 +294,7 @@ invented.
   real application.
 - **Self-documenting.** The framework is built from `plugin-lib-docs-*` libs
   that themselves carry `---` doc comments and axioms (ADR-0077). The docs
-  site can be built *by* the framework it documents, once the framework
+  site can be built _by_ the framework it documents, once the framework
   exists — a small but clean bootstrap.
 
 ### Negative
@@ -324,7 +325,7 @@ invented.
 ### Neutral
 
 - **VitePress is the reference, not the target.** Feature parity is not a
-  goal; the goal is the VitePress *class* of framework (content + config +
+  goal; the goal is the VitePress _class_ of framework (content + config +
   components + SSG + dev server) expressed in handl's idioms. Features
   VitePress has that do not fit handl's model (e.g. Vue-specific reactivity)
   are not replicated; handl's arrow model replaces them where a replacement

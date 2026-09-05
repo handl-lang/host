@@ -278,6 +278,7 @@ is a composition of file-arrows. No new concepts.
 ### Example 1: simple import
 
 Filesystem layout:
+
 ```text
 project/
   main.hnl
@@ -287,23 +288,27 @@ project/
 ```
 
 `collection/insert.hnl`:
+
 ```handl
 loop(comp(compare, choice(cons, cons)))
 ```
 
 `collection/sort.hnl`:
+
 ```handl
 import insert from "collection/insert"
 loop(comp(insert, first(id)))
 ```
 
 `main.hnl`:
+
 ```handl
 import sort from "collection/sort"
 sort([3, 1, 2])
 ```
 
 Behavior (Strategy C — runtime loading):
+
 1. `main.hnl` imports `sort` from `collection/sort`
 2. `collection/sort.hnl` imports `insert` from `collection/insert`
 3. `collection/insert.hnl` is parsed → arrow graph cached
@@ -336,6 +341,7 @@ head(sort([3, 1, 2]))
 ```
 
 Normalized:
+
 ```handl
 collection = <collection.hnl's arrow>  // produces the record
 sort = project(sort, collection)
@@ -376,6 +382,7 @@ import insert from "collection/insert"
 ```
 
 Behavior (all strategies):
+
 - The first import normalizes to `project(insert, <collection/insert's arrow>)`
 - The second import normalizes to the same projection
 - Under Strategy C, the cache ensures the file is parsed and inferred once

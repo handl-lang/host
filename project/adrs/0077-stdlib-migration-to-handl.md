@@ -119,14 +119,14 @@ The tag system already exists as a host-exposed library
 (`crates/plugin-lib-tag/`, ADR-0055). It exposes seven arrows declared
 in `handl-packages/tag/tag.hnl` via the `op`/`handl` form:
 
-| Arrow | Role |
-|---|---|
-| `tag.tag(name, payload)` | **mint** a tagged value `{"__tag__": name, ...payload}` |
-| `tag.untag(v)` | return the payload of a tagged value |
-| `tag.tag_of(v)` | return the tag name string, or null |
-| `tag.is_tag(v)` | test whether `v` is a tagged value |
-| `tag.construct(name, payload)` | mint a registry-scoped type value (ADR-0054) |
-| `tag.match_type(v, cases)` | dispatch on the type tag (ADR-0054) |
+| Arrow                          | Role                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| `tag.tag(name, payload)`       | **mint** a tagged value `{"__tag__": name, ...payload}` |
+| `tag.untag(v)`                 | return the payload of a tagged value                    |
+| `tag.tag_of(v)`                | return the tag name string, or null                     |
+| `tag.is_tag(v)`                | test whether `v` is a tagged value                      |
+| `tag.construct(name, payload)` | mint a registry-scoped type value (ADR-0054)            |
+| `tag.match_type(v, cases)`     | dispatch on the type tag (ADR-0054)                     |
 
 `tag.match_tag` is **not needed** -- the language already has a `match`
 construct that dispatches on tag identity. The tag sugar's
@@ -298,6 +298,7 @@ extraction (`unwrap_or`), and dispatch (`match`) are already covered by
 wrappers needed.
 
 `mood` is the core language feature for interrogatives:
+
 - `mood.int(r, ok)` -- is r an ok-tagged value? (replaces `result.is_ok`)
 - `mood.int(r, err)` -- is r an err-tagged value? (replaces `result.is_err`)
 - `mood.norm(r, ok)` -- project ok payload or return err result

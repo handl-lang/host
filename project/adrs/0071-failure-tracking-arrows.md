@@ -15,6 +15,7 @@ deterministic choice (if-then-else, pattern matching) but not for
 falls back to branch B.
 
 Backtracking parsers need **failure as a first-class notion**:
+
 - `parse_A` may fail (the input doesn't match)
 - On failure, the parser backtracks and tries `parse_B`
 - The output is either a successful parse or a failure value

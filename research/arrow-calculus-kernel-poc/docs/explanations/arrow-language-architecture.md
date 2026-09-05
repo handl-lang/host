@@ -30,13 +30,13 @@ The arrow calculus has neither half:
 
 What you might call a "function" is an arrow `τ ~> σ`: a value that
 takes a `τ` and produces a `σ`. It does not remember anything beyond
-what is wired into it. The wiring *is* the program.
+what is wired into it. The wiring _is_ the program.
 
 This is the deliberate opposite of the monadic tradition, where `bind`
 threads an opaque host-language continuation. The
 [direct-bind impossibility result](../../direct-bind-impossibility.md)
 shows this opacity is not cosmetic: a continuation that only sees the
-predecessor's output *cannot* faithfully encode `fanout` or `loop`.
+predecessor's output _cannot_ faithfully encode `fanout` or `loop`.
 Closures don't just hide structure — they destroy the ability to
 represent certain arrow programs at all.
 
@@ -45,38 +45,38 @@ For the full argument, see
 
 ## Why the graph is the derivation
 
-In classical Curry–Howard, λ-terms *are* proofs, and binders carry the
+In classical Curry–Howard, λ-terms _are_ proofs, and binders carry the
 proof structure. handl's claim is that **graph wiring carries the proof
 structure — no λ needed**. This is a λ-free Curry–Howard
 correspondence.
 
 The translation table:
 
-| Arrow primitive | Program | Proof |
-|---|---|---|
-| `id` | identity | identity `A ⊢ A` |
-| `f >>> g` | composition | **cut** |
-| `first(f)` | act on 1st | **∧-functoriality** |
-| `choice(f, g)` | branch | **∨-functoriality** |
-| `loop(f)` | feedback | **trace / fixpoint** |
-| `arr(φ)` | lift φ | **axiom** |
-| `f &&& g` (derived) | fanout | **∧-introduction** |
-| `f \|\|\| g` (derived) | merge | **∨-elimination** |
+| Arrow primitive        | Program     | Proof                |
+| ---------------------- | ----------- | -------------------- |
+| `id`                   | identity    | identity `A ⊢ A`     |
+| `f >>> g`              | composition | **cut**              |
+| `first(f)`             | act on 1st  | **∧-functoriality**  |
+| `choice(f, g)`         | branch      | **∨-functoriality**  |
+| `loop(f)`              | feedback    | **trace / fixpoint** |
+| `arr(φ)`               | lift φ      | **axiom**            |
+| `f &&& g` (derived)    | fanout      | **∧-introduction**   |
+| `f \|\|\| g` (derived) | merge       | **∨-elimination**    |
 
 The theorem (proven in Lean4): `TyOf G ⟺ PrOf G`. Typing derivation
-and proof derivation are the *same inductive object* — same indices,
+and proof derivation are the _same inductive object_ — same indices,
 same constructors, same side conditions, mutually inverse round-trips.
 The proof judgment adds zero logical power over the typing judgment;
 it's the same derivation read differently.
 
 This is why one object — the graph — carries four readings at once:
 
-| Reading | Carried by |
-|---|---|
-| type | wiring (HM + row polymorphism) |
-| proof | wiring (cut, functoriality, trace) |
+| Reading           | Carried by                               |
+| ----------------- | ---------------------------------------- |
+| type              | wiring (HM + row polymorphism)           |
+| proof             | wiring (cut, functoriality, trace)       |
 | trait conformance | wiring (graph assignment to a signature) |
-| schedule | wiring (dependency graph) |
+| schedule          | wiring (dependency graph)                |
 
 An opaque monad cannot be a proof object because its structure is
 hidden in closures. An arrow graph can, because it has none.
@@ -136,7 +136,7 @@ fall out of ordinary function values. The consequence: there is no
 "proof mode" distinct from "programming mode" — the same language
 does both, and the graph carries both readings simultaneously.
 
-Refinement inference is backed by Z3, but Z3 is an *engine*, not a
+Refinement inference is backed by Z3, but Z3 is an _engine_, not a
 language feature. The predicates are handl values; Z3 just solves
 them.
 
@@ -165,7 +165,7 @@ projections.
 This is forced by the kernel: if the fundamental unit is an arrow, the
 module model cannot be statement-based. There are no statements to
 evaluate into an environment, no sequential execution of bindings, no
-first-class environment to produce. A file *is* an arrow graph; import
+first-class environment to produce. A file _is_ an arrow graph; import
 is projection from that graph; the two caches are the graph itself
 (for execution) and its inferred contracts (for verification).
 
@@ -174,7 +174,7 @@ is projection from that graph; the two caches are the graph itself
 The arrow calculus is deterministic dataflow: given an input, the
 graph produces a unique output. Concurrency does not break this —
 parallelism is inferred from independent branches, and the dependency
-graph *is* the schedule.
+graph _is_ the schedule.
 
 No new primitives (`Parallel`, `Race`, `Channel`, `Lock`) are added.
 Concurrency is expressed within the existing five combinators, because

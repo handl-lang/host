@@ -223,16 +223,12 @@ impl NbeTypecheckEngine {
                 .registry
                 .construct("type.number", &Value::Null)
                 .unwrap_or(Value::Null),
-            Value::String(s) => {
-                let ty = self
-                    .modules
-                    .as_ref()
-                    .and_then(|m| m.lookup_type_signature(s))
-                    .or_else(|| self.registry.construct("type.string", &Value::Null))
-                    .unwrap_or_else(|| Value::String(s.clone()));
-                eprintln!("DEBUG value_to_type string {:?} -> {:?}", s, ty);
-                ty
-            }
+            Value::String(s) => self
+                .modules
+                .as_ref()
+                .and_then(|m| m.lookup_type_signature(s))
+                .or_else(|| self.registry.construct("type.string", &Value::Null))
+                .unwrap_or_else(|| Value::String(s.clone())),
             Value::Array(_) => self
                 .registry
                 .construct("type.array", &json!({"element": self.value_to_type(&Value::Null)}))

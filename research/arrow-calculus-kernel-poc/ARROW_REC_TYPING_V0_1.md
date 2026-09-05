@@ -86,8 +86,8 @@ ADR-0052 §Feedback semantics specifies two interpretation strategies for
 `Loop`, which disagree on read-before-write:
 
 - **Causal/strict semantics.** The `State` output of one step is the `State`
-  input of the *next* step. A read of `State` in step *n* sees the value
-  written in step *n−1*. A read-before-write in the *same* step reads the
+  input of the _next_ step. A read of `State` in step _n_ sees the value
+  written in step _n−1_. A read-before-write in the _same_ step reads the
   prior step's output (or an initial seed) — well-defined, not bottom. This
   is the state-machine reading.
 
@@ -259,12 +259,12 @@ arrow's input — see §4 on seeding.)
 
 ### 3.6 Summary of the distinction
 
-| Pattern | Internal cycle? | State wires | Behavior |
-|---|---|---|---|
-| `rec { a = f b; b = g a }` | Yes (mutual) | `a`, `b` | True feedback region |
-| `rec { n = if n <= 0 then 0 else n - 1 }` | Yes (self) | `n` | True feedback region |
-| `rec { result = if x <= 0 then 0 else countdown (x-1) }` | No | none | Degenerate (plain block) |
-| `rec { next = x - 1; result = ... countdown next }` | No | none | Degenerate (recursion via enclosing arrow) |
+| Pattern                                                  | Internal cycle? | State wires | Behavior                                   |
+| -------------------------------------------------------- | --------------- | ----------- | ------------------------------------------ |
+| `rec { a = f b; b = g a }`                               | Yes (mutual)    | `a`, `b`    | True feedback region                       |
+| `rec { n = if n <= 0 then 0 else n - 1 }`                | Yes (self)      | `n`         | True feedback region                       |
+| `rec { result = if x <= 0 then 0 else countdown (x-1) }` | No              | none        | Degenerate (plain block)                   |
+| `rec { next = x - 1; result = ... countdown next }`      | No              | none        | Degenerate (recursion via enclosing arrow) |
 
 ---
 
@@ -496,7 +496,7 @@ the feedback graph **terminates** (the state reaches a fixpoint).
 
 A `return` inside a `rec` region exits the **innermost enclosing `~>` arrow**
 (ID.14), NOT the `rec` region. The `rec` region is not a `~>` — it is a
-region *inside* a `~>`. So `return` must escape the `rec` and reach the
+region _inside_ a `~>`. So `return` must escape the `rec` and reach the
 enclosing `~>`.
 
 ### 7.2 Effect on typing
@@ -628,6 +628,7 @@ the region).
 ```
 
 With `f : S_b ~> S_a` and `g : S_a ~> S_b`:
+
 - `a = f b` gives `α_b = S_b`, `β_a = S_a`.
 - `b = g a` gives `α_a = S_a`, `β_b = S_b`.
 - Feedback: `α_a = β_a` → `S_a = S_a` ✓; `α_b = β_b` → `S_b = S_b` ✓.
@@ -983,7 +984,7 @@ handler's concern.
 
 - [ADR-0052 — Arrow Calculus Kernel](../../project/adrs/0052-arrow-calculus-kernel.md)
   — defines the kernel `Loop` combinator (`loop : Arrow (A, S) (B, S) →
-  Arrow A B`) and the feedback semantics (causal/strict vs lazy/fixpoint).
+Arrow A B`) and the feedback semantics (causal/strict vs lazy/fixpoint).
   The `rec` typing rule is the surface-level version of the kernel `Loop`
   typing rule.
 - [ADR-0054 — Generic Typecheck Engine](../../project/adrs/0054-generic-typecheck-engine.md)

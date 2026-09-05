@@ -293,25 +293,25 @@ fn main() -> Result<(), PlatformError> {
 
 ### Crate/module architecture
 
-| crate/module | responsibility |
-|---|---|
-| `handl-platform` | `Host`, `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `ContributionContext`, `Options`, `AstNode`, `DataTypes`, resolution, manifests |
-| `handl-ext-fmt` | `Format` operation, `FormatBehavior`, `FormatContext`, `BasicFormatter` `RuleAcceptor` plugin |
-| `handl-ext-lint` | `Lint` operation, `LintBehavior`, `LintContext`, `BasicLinter` `RuleAcceptor` plugin |
-| `handl-ext-lexer` | `Lexer` operation, `LexerBehavior`, `BasicLexer` `RuleAcceptor` plugin |
-| `handl-ext-parser` | `Parser` operation, `ParserBehavior`, `BasicParser` `RuleAcceptor` plugin |
-| `handl-ext-type` | `Typecheck` operation, `TypeBehavior`, `BasicTypechecker` `RuleAcceptor` plugin |
-| `handl-ext-eval` | `Eval` operation, `EvalBehavior`, `EvalContext` |
-| `handl-target-rust-interpreter` | Default `Eval` interpreter `RuleAcceptor` target plugin |
-| `handl-ext-doc` | `Doc` operation, `DocBehavior`, `BasicDoc` `RuleAcceptor` plugin |
-| `handl-ext-cli` | `Cli` operation, `CliCommand`, `BasicCli` `RuleAcceptor` plugin |
-| `handl-ext-lsp` | `Lsp` operation, `LspHandler`, `BasicLsp` `RuleAcceptor` plugin |
-| `handl-plugin-lib-*` | `Library` plugins that register the standard library pieces |
-| `handl-target-*` | `Target` plugins that register runtime backends (e.g. `handl-target-wasm`, `handl-target-llvm`, `handl-target-js-native`, `handl-target-rust-interpreter`) |
-| `handl-plugin-*` | rule plugins that contribute `Behavior`s and `OptionSchema`s to operations |
-| `handl-kit-*` | curated manifest of plugins and default option overrides (not an executable) (e.g. `handl-kit-canonical`, `handl-kit-server`, `handl-kit-sandbox`) |
-| `handl-host-cli` | executable `Host` that loads multiple kits, applies excludes, and runs `Cli` |
-| `handl-host-lsp` | executable `Host` that loads multiple kits, applies excludes, and runs `Lsp` |
+| crate/module                    | responsibility                                                                                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handl-platform`                | `Host`, `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `ContributionContext`, `Options`, `AstNode`, `DataTypes`, resolution, manifests                 |
+| `handl-ext-fmt`                 | `Format` operation, `FormatBehavior`, `FormatContext`, `BasicFormatter` `RuleAcceptor` plugin                                                              |
+| `handl-ext-lint`                | `Lint` operation, `LintBehavior`, `LintContext`, `BasicLinter` `RuleAcceptor` plugin                                                                       |
+| `handl-ext-lexer`               | `Lexer` operation, `LexerBehavior`, `BasicLexer` `RuleAcceptor` plugin                                                                                     |
+| `handl-ext-parser`              | `Parser` operation, `ParserBehavior`, `BasicParser` `RuleAcceptor` plugin                                                                                  |
+| `handl-ext-type`                | `Typecheck` operation, `TypeBehavior`, `BasicTypechecker` `RuleAcceptor` plugin                                                                            |
+| `handl-ext-eval`                | `Eval` operation, `EvalBehavior`, `EvalContext`                                                                                                            |
+| `handl-target-rust-interpreter` | Default `Eval` interpreter `RuleAcceptor` target plugin                                                                                                    |
+| `handl-ext-doc`                 | `Doc` operation, `DocBehavior`, `BasicDoc` `RuleAcceptor` plugin                                                                                           |
+| `handl-ext-cli`                 | `Cli` operation, `CliCommand`, `BasicCli` `RuleAcceptor` plugin                                                                                            |
+| `handl-ext-lsp`                 | `Lsp` operation, `LspHandler`, `BasicLsp` `RuleAcceptor` plugin                                                                                            |
+| `handl-plugin-lib-*`            | `Library` plugins that register the standard library pieces                                                                                                |
+| `handl-target-*`                | `Target` plugins that register runtime backends (e.g. `handl-target-wasm`, `handl-target-llvm`, `handl-target-js-native`, `handl-target-rust-interpreter`) |
+| `handl-plugin-*`                | rule plugins that contribute `Behavior`s and `OptionSchema`s to operations                                                                                 |
+| `handl-kit-*`                   | curated manifest of plugins and default option overrides (not an executable) (e.g. `handl-kit-canonical`, `handl-kit-server`, `handl-kit-sandbox`)         |
+| `handl-host-cli`                | executable `Host` that loads multiple kits, applies excludes, and runs `Cli`                                                                               |
+| `handl-host-lsp`                | executable `Host` that loads multiple kits, applies excludes, and runs `Lsp`                                                                               |
 
 ### Plugins are the only unit
 

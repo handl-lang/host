@@ -65,6 +65,7 @@ left  : α A B → α (Sum A C) (Sum B C) (sums: branching, choice)
 ```
 
 Each introduces a distinct structural capability:
+
 - `arr` lifts pure functions
 - `comp` chains arrows sequentially
 - `first` introduces products (parallel/independent computation)
@@ -161,13 +162,13 @@ structurally what each constructor can and cannot produce.
 
 ### 4.2 The Five Independence Results
 
-| Primitive | Not derivable from | Argument |
-|---|---|---|
-| `left` | `arr + comp + first + loop` | No constructor introduces `Sum` on output |
-| `first` | `arr + comp + loop` | No constructor introduces `×` on output |
-| `loop` | `arr + comp + first` (total) | No constructor introduces feedback |
-| `comp` | `arr + first + loop + left` | No other combinator chains arrows |
-| `arr` | `comp + first + loop + left` | No other combinator lifts functions |
+| Primitive | Not derivable from           | Argument                                  |
+| --------- | ---------------------------- | ----------------------------------------- |
+| `left`    | `arr + comp + first + loop`  | No constructor introduces `Sum` on output |
+| `first`   | `arr + comp + loop`          | No constructor introduces `×` on output   |
+| `loop`    | `arr + comp + first` (total) | No constructor introduces feedback        |
+| `comp`    | `arr + first + loop + left`  | No other combinator chains arrows         |
+| `arr`     | `comp + first + loop + left` | No other combinator lifts functions       |
 
 **11 Lean4 theorems**: 7 type-level observations (by `rfl` — the type
 signatures are the proof), 2 non-trivial case-analysis theorems
@@ -178,7 +179,7 @@ type-inequality steps are discharged within Lean4).
 
 ### 4.3 Caveat on `loop`
 
-`loop` is independent only in a *total* setting. In a language with
+`loop` is independent only in a _total_ setting. In a language with
 general recursion (`fix`), `loop` is derivable:
 `loop f a = let (b, c) = fix (λ c => f (a, c)) in b`. But then `fix` is
 the primitive. For a total arrow calculus (type-level guarantees),
@@ -187,7 +188,7 @@ the primitive. For a total arrow calculus (type-level guarantees),
 ### 4.4 Why the Free-Arrow Argument Is Stronger than Model-Theoretic
 
 A model-theoretic counterexample (an arrow admitting `Arrow + ArrowLoop`
-but no `ArrowChoice`) is hard to construct: `StateArrow S` *does* admit
+but no `ArrowChoice`) is hard to construct: `StateArrow S` _does_ admit
 `ArrowChoice`. The free-arrow argument sidesteps this by showing
 non-derivability at the **syntax** level — you literally cannot write a
 `Sum`-producing term from the structural combinators. This is stronger
@@ -213,16 +214,16 @@ power while keeping the computation tree inspectable.
 
 Three representations were compared (Challenge #9, 33 tests):
 
-| Property | Freer arrow | Opaque monad | Freer monad |
-|---|---|---|---|
-| Sequential composition | explicit | explicit | explicit |
-| Fanout / independence | explicit | **LOST** | explicit |
-| Choice / branching | explicit | **LOST** | explicit |
-| Effect set | traversal | **LOST** | traversal |
-| Per-branch effects | per branch | **LOST** (union only) | per branch |
-| Dependency graph | buildable | **LOST** | buildable |
-| Feedback | explicit | **LOST** | detectable |
-| Semantic results | correct | correct | correct |
+| Property               | Freer arrow | Opaque monad          | Freer monad |
+| ---------------------- | ----------- | --------------------- | ----------- |
+| Sequential composition | explicit    | explicit              | explicit    |
+| Fanout / independence  | explicit    | **LOST**              | explicit    |
+| Choice / branching     | explicit    | **LOST**              | explicit    |
+| Effect set             | traversal   | **LOST**              | traversal   |
+| Per-branch effects     | per branch  | **LOST** (union only) | per branch  |
+| Dependency graph       | buildable   | **LOST**              | buildable   |
+| Feedback               | explicit    | **LOST**              | detectable  |
+| Semantic results       | correct     | correct               | correct     |
 
 The opaque monad produces the same results but loses all structural
 information. The freer monad (a monad with explicit structure) recovers
@@ -234,24 +235,24 @@ structure), not about monadic structure per se.
 ArrowApply, implemented as an explicit tree node, gives full monadic
 power while preserving all structural inspection:
 
-| Property | Explicit ArrowApply | Opaque monad |
-|---|---|---|
-| Monadic power (bind) | ✅ (via Apply) | ✅ (via bind) |
-| Choice recovery | ✅ | ❌ LOST |
-| Effect inference | ✅ | ❌ LOST |
-| Per-branch effects | ✅ | ❌ LOST |
-| Dependency graph | ✅ | ❌ LOST |
-| Fanout independence | ✅ | ❌ LOST |
+| Property             | Explicit ArrowApply | Opaque monad  |
+| -------------------- | ------------------- | ------------- |
+| Monadic power (bind) | ✅ (via Apply)      | ✅ (via bind) |
+| Choice recovery      | ✅                  | ❌ LOST       |
+| Effect inference     | ✅                  | ❌ LOST       |
+| Per-branch effects   | ✅                  | ❌ LOST       |
+| Dependency graph     | ✅                  | ❌ LOST       |
+| Fanout independence  | ✅                  | ❌ LOST       |
 
 ### 5.4 The Corrected Slogan
 
-> *This explicit ArrowApply presentation gives you monadic power WITHOUT
+> _This explicit ArrowApply presentation gives you monadic power WITHOUT
 > the opacity penalty. The structural advantage is not subsumed by
 > profunctors (Challenge #12) and is not shared by standard freer
-> monads (Challenge #13).*
+> monads (Challenge #13)._
 
 It no longer says "arrows are better than monads"; it says "this
-explicit presentation gives you monadic power *without* the opacity
+explicit presentation gives you monadic power _without_ the opacity
 penalty." The structural advantage belongs to **explicit, traversable
 representations** (freer arrows) over **opaque representations**
 (conventional monads and freer monads with function-based continuations).
@@ -339,6 +340,7 @@ possible without executing the function.
 
 Because the explicit presentation keeps `ArrowApply` as a structural
 tree node:
+
 - **The AST is fully inspectable.** Stage 0 can perform static
   reachability analysis to discover all potential targets ahead of time.
 - **Bounded branch space is provable.** You can prove at compile time
@@ -347,11 +349,11 @@ tree node:
 
 ### Two execution profiles
 
-| Approach | Pre-compiled Chunks (Finite) | Live JIT Re-staging (Unbounded) |
-|---|---|---|
-| **When** | Branch choices known statically | Dynamic structure depends on unbound runtime data |
-| **Runtime overhead** | ≈ 0 ns (pointer dispatch) | Sub-ms (graph build + compile) |
-| **Memory** | Pre-allocated slab with recycling | Temporary workspace with immediate discard |
+| Approach             | Pre-compiled Chunks (Finite)      | Live JIT Re-staging (Unbounded)                   |
+| -------------------- | --------------------------------- | ------------------------------------------------- |
+| **When**             | Branch choices known statically   | Dynamic structure depends on unbound runtime data |
+| **Runtime overhead** | ≈ 0 ns (pointer dispatch)         | Sub-ms (graph build + compile)                    |
+| **Memory**           | Pre-allocated slab with recycling | Temporary workspace with immediate discard        |
 
 Pre-rendering chunks turns `ArrowApply` from a runtime graph-synthesis
 step into a **zero-allocation dispatch table**, eliminating the need for
@@ -383,24 +385,24 @@ theoretical result.
 
 ## 8. Complete Results
 
-| # | Challenge | Tests | Status |
-|---|-----------|-------|--------|
-| 1 | Expressiveness | 3 | ✅ |
-| 2 | Abstraction | 11 | ✅ |
-| 3 | Parametricity | 14 | ✅ |
-| 4 | Typing (HM inference) | 15 | ✅ |
-| 5 | Recursion | 5 | ✅ |
-| 6 | Effects & handlers | 20 | ✅ |
-| 7 | Language protocol | 31 | ✅ |
-| 8 | Generic tooling | (in #7) | ✅ |
-| 9 | Structural preservation | 33 | ✅ |
-| 10 | Minimality (Lean4) | 11 theorems (all proven, zero `sorry`) | ✅ |
-| 11 | ArrowApply without opacity | 19 | ✅ |
-| 12 | Profunctor subsumption refuted | 28 | ✅ |
-| 13 | Freer arrows vs freer monads (REVISED) | 23 | ✅ |
-| + | Effect typing (deep dive) | 31 | ✅ |
-| + | Translation asymmetry (Lean4) | 8 theorems (all proven, zero `sorry`) | ✅ |
-| | **Total** | **229 + 19** | **All passing** |
+| #   | Challenge                              | Tests                                  | Status          |
+| --- | -------------------------------------- | -------------------------------------- | --------------- |
+| 1   | Expressiveness                         | 3                                      | ✅              |
+| 2   | Abstraction                            | 11                                     | ✅              |
+| 3   | Parametricity                          | 14                                     | ✅              |
+| 4   | Typing (HM inference)                  | 15                                     | ✅              |
+| 5   | Recursion                              | 5                                      | ✅              |
+| 6   | Effects & handlers                     | 20                                     | ✅              |
+| 7   | Language protocol                      | 31                                     | ✅              |
+| 8   | Generic tooling                        | (in #7)                                | ✅              |
+| 9   | Structural preservation                | 33                                     | ✅              |
+| 10  | Minimality (Lean4)                     | 11 theorems (all proven, zero `sorry`) | ✅              |
+| 11  | ArrowApply without opacity             | 19                                     | ✅              |
+| 12  | Profunctor subsumption refuted         | 28                                     | ✅              |
+| 13  | Freer arrows vs freer monads (REVISED) | 23                                     | ✅              |
+| +   | Effect typing (deep dive)              | 31                                     | ✅              |
+| +   | Translation asymmetry (Lean4)          | 8 theorems (all proven, zero `sorry`)  | ✅              |
+|     | **Total**                              | **229 + 19**                           | **All passing** |
 
 ---
 
@@ -531,7 +533,7 @@ input parameter, which monads lack.
 
 ### Does not establish
 
-- **Necessity in the strongest sense:** that no *different* set of
+- **Necessity in the strongest sense:** that no _different_ set of
   primitives could achieve the same results. Minimality is proven for
   this specific calculus, not against all possible calculi.
 - **Full formalization:** the Lean4 proofs establish independence via
@@ -547,6 +549,7 @@ by the PoC but not initially answered: do arrow programs have provably
 awkward lambda encodings (size blowup, non-compositionality)?
 
 **Answer: No.** The standard arrow-to-lambda translation `T` is:
+
 - **Linear:** `|T(p)| ≤ 8·|p|` (proved in Lean4)
 - **Compositional:** `T(f >>> g) = T(g) ∘ T(f)` (proved in Lean4, by `rfl`)
 - **Law-preserving:** `first` and `left` commute with composition (proved
@@ -568,7 +571,7 @@ See `RESULTS_TRANSLATION_ASYMMETRY.md` for the full argument and
 ## 12. Relationship to the Wikipedia Article on Arrows
 
 The Wikipedia article on [Arrow (computer
-science)](https://en.wikipedia.org/wiki/Arrow_(computer_science)) makes
+science)](<https://en.wikipedia.org/wiki/Arrow_(computer_science)>) makes
 several claims that this project directly addresses — some confirmed,
 some refuted, some extended with new evidence.
 
@@ -687,26 +690,26 @@ demonstrating sufficiency.
 
 ## References
 
-1. Hughes, J. (2000). *Generalising Monads to Arrows.* Science of
+1. Hughes, J. (2000). _Generalising Monads to Arrows._ Science of
    Computer Programming 37(1–2), pp. 67–111.
    — Introduced arrows as a generalization of monads. The foundational
    paper for arrow programming. This project's sufficiency leg rests
    on Hughes's framework.
 
-2. Paterson, R. (2001). *A New Notation for Arrows.* Haskell Workshop.
+2. Paterson, R. (2001). _A New Notation for Arrows._ Haskell Workshop.
    — Introduced the arrow notation (`proc`/`rec`) that makes arrow
    programs readable. Not directly used in this project but
    influential on arrow programming style.
 
-3. Lindley, S., Wadler, P., Yallop, J. (2008). *The Arrow Calculus.*
+3. Lindley, S., Wadler, P., Yallop, J. (2008). _The Arrow Calculus._
    Functional and Logic Programming (FLOPS).
    — Gave arrows a clean calculus with `arr`, `>>>`, `first`, `loop`,
    `left` as primitives, and showed ArrowApply ≅ Monad. This project's
    five-primitive calculus IS their calculus. The minimality proof
    (Challenge #10) is applied to their primitives.
 
-4. Kiselyov, O., Ishii, H., Shan, C. (2013). *Freer Monads, More
-   Extensible Effects.* Haskell Symposium.
+4. Kiselyov, O., Ishii, H., Shan, C. (2013). _Freer Monads, More
+   Extensible Effects._ Haskell Symposium.
    — Showed that explicit tree representations of monadic computations
    (`Free f a`) preserve structural information that opaque `>>=`
    chains destroy. The structural-advantage leg of this project
@@ -714,33 +717,33 @@ demonstrating sufficiency.
    language. The "corrected slogan" (monadic power without opacity)
    is the freer-monad advantage, translated to arrows.
 
-5. Bauer, A., Pretnar, M. (2015). *An Effect System for Algebraic
-   Effects and Handlers.* Logical Methods in Computer Science 11(3).
+5. Bauer, A., Pretnar, M. (2015). _An Effect System for Algebraic
+   Effects and Handlers._ Logical Methods in Computer Science 11(3).
    — Established the runtime/static correspondence for algebraic
    effects: unhandled operations ↔ effect rows, handlers ↔ effect
    eliminators. This project's "central formal claim" (Section 7) is
    their correspondence, observed in the arrow setting.
 
-6. Sanada, Y. (2024). *Algebraic Effects and Handlers for Arrows.*
+6. Sanada, Y. (2024). _Algebraic Effects and Handlers for Arrows._
    — Combined arrows with algebraic effects and handlers. This
    project's Challenge #6 (effects & handlers) follows Sanada's
    approach.
 
-7. VanDomelen, G., Shen, G., Kuper, L., Li, Y. (2025). *Freer Arrows
-   and Why You Need Them in Haskell.* Haskell Symposium (Haskell '25).
+7. VanDomelen, G., Shen, G., Kuper, L., Li, Y. (2025). _Freer Arrows
+   and Why You Need Them in Haskell._ Haskell Symposium (Haskell '25).
    — Introduced freer arrows as a structure amenable to static analysis,
    in contrast to freer monads. Challenge #13 confirms and strengthens
    their claim: the asymmetry is not just about static analysis but also
    about expressiveness (fanout/choice can't be correctly encoded by
    standard freer monads).
 
-8. Atkey, R. (2009). *Syntax for Free: Representing Syntax with
-   Binding Using Parametricity.* TYPES.
+8. Atkey, R. (2009). _Syntax for Free: Representing Syntax with
+   Binding Using Parametricity._ TYPES.
    — Influenced the parametricity work in Challenge #3 (encoding
    binders without name generation).
 
-9. Koka language (Leijen, M.). *Algebraic Effects for Row-Polymorphic
-   Effect Systems.* Microsoft Research.
+9. Koka language (Leijen, M.). _Algebraic Effects for Row-Polymorphic
+   Effect Systems._ Microsoft Research.
    — The row-polymorphic effect typing in the effect-typing deep dive
    follows Koka's approach to effect rows.
 

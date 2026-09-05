@@ -1,0 +1,44 @@
+- id: grammar.test.prefix
+    token: token.keyword.test
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: test
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.property.prefix
+    token: token.keyword.property
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: property
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.integration_test.prefix
+    token: token.keyword.integration_test
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: integration_test
+      arity: 2
+      child_separators:
+        - !Required token.equal
+  - id: grammar.bench.prefix
+    token: token.keyword.bench
+    position: Prefix
+    binding_power:
+      - 0
+      - 0
+    child_shape:
+      node_kind: bench
+      arity: 2
+      child_separators:
+        - !Required token.equal

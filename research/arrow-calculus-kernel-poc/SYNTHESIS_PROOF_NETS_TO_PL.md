@@ -45,6 +45,7 @@ three.
 ### 1. Arrow graphs are proof objects (ProofGraphs.lean)
 
 The five arrow primitives form a proof system:
+
 - `comp` = cut
 - `first` = ∧-functoriality
 - `left` = ∨-functoriality
@@ -150,7 +151,7 @@ Our novelty is the **specific combination**:
 No single prior work achieves this combination. The closest is
 Alves-Fernández-Mackie (2011), who build a graphical proof calculus
 for intuitionistic logic / λ-calculus. But their graphs are a
-*notation* for λ-terms; our graphs are a *primitive syntax* with no
+_notation_ for λ-terms; our graphs are a _primitive syntax_ with no
 λ underneath. And they don't connect to effects, handlers, or
 language protocols.
 
@@ -166,6 +167,7 @@ proof equality hard (requires α-equivalence checking) and proof
 transformation non-local (cut elimination requires substitution).
 
 If proof objects were arrow graphs instead of λ-terms:
+
 - **Proof equality** = structural equality (decidable, no α-equivalence)
 - **Cut elimination** = local graph rewrite (no substitution lemma)
 - **Proof inspection** = graph traversal (every wire is explicit)
@@ -190,6 +192,7 @@ type inference "for free" from the graph structure.
 
 If the program representation is an arrow graph, and the graph is
 simultaneously a proof object, then:
+
 - **Type-checking** = proof-checking (the graph type-checks ⟹ the
   property is proven)
 - **Optimization** = cut elimination (proven to preserve proofs)

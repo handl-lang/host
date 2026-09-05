@@ -17,15 +17,15 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 
 ### Crate map
 
-| Concern | Crate | Key API |
-|---|---|---|
-| Shared diagnostics | `plugin-ext-diag` | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes` |
-| Formatter | `plugin-ext-fmt` | `format_source(src)`, `check_source(src)` |
-| Linter | `plugin-ext-lint` | `lint_source(src)`, `check_source(src)`, `fix_source(src)` |
-| Typechecker | `plugin-engine-typecheck` | `check_module(src) -> TypecheckReport` |
-| Test runner | `plugin-engine-test` (new, ADR-0089) | `discover(paths) -> TestIndex`, `filter(index, predicate) -> TestPlan`, `plan(plan, policy) -> ExecutionPlan`, `run(plan) -> RunReport`, `run_with_filter(plan, filter)`, `format_report_human`/`format_report_json` |
-| Test framework library | `handl-packages/test/` (handl, ADR-0092) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`) |
-| CLI | `host-cli` | `hnl fmt/lint/check/test/run/eval` subcommands |
+| Concern                | Crate                                    | Key API                                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared diagnostics     | `plugin-ext-diag`                        | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                          |
+| Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
+| Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
+| Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
+| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths) -> TestIndex`, `filter(index, predicate) -> TestPlan`, `plan(plan, policy) -> ExecutionPlan`, `run(plan) -> RunReport`, `run_with_filter(plan, filter)`, `format_report_human`/`format_report_json` |
+| Test framework library | `handl-packages/test/` (handl, ADR-0092) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                   |
+| CLI                    | `host-cli`                               | `hnl fmt/lint/check/test/run/eval` subcommands                                                                                                                                                                       |
 
 ### CLI exit codes
 

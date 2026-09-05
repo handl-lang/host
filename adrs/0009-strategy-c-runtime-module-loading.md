@@ -43,7 +43,7 @@ A common objection to runtime loading: "you lose static whole-program analysis."
 - **Infer contracts:** register `module_ref` and `project` in `ContractRegistry` with permissive contracts (input: Any, output: Any). For tighter contracts, load referenced modules' contracts at analysis time and compose — without inlining code.
 - **Type check:** the ops have types, the graph is closed, analysis works.
 
-What you lose is *precision* (permissive contracts for the ops vs. exact contracts for inlined arrows), not the capability itself. And precision is recoverable by loading referenced modules' contracts without inlining their code.
+What you lose is _precision_ (permissive contracts for the ops vs. exact contracts for inlined arrows), not the capability itself. And precision is recoverable by loading referenced modules' contracts without inlining their code.
 
 ## Decision
 
@@ -72,6 +72,7 @@ A handler without these clauses: the graph must be normalised (Strategy A/B) bef
 ### 2. No directive, no capability flag
 
 The original Strategy C framing proposed:
+
 - A `-- @strategy runtime` program directive → **removed.** The handler decides by having (or not having) clauses.
 - A `supports_runtime_loading` handler capability → **removed.** That's just "does the operation table include `module_ref`?"
 - A separate "Strategy C" code path → **removed.** It's the same graph, interpreted by a handler that handles the ops.
@@ -92,6 +93,7 @@ This is handler config — the same place every other capability is governed. No
 Two static passes over the `Scheme` graph, both already implementable with the current op encoding:
 
 **Cycle detection:**
+
 ```
 fn detect_cycles(scheme: &Scheme) -> Result<(), CycleError>
   - walk scheme, collect all module_ref(path) nodes
@@ -100,6 +102,7 @@ fn detect_cycles(scheme: &Scheme) -> Result<(), CycleError>
 ```
 
 **Contract inference:**
+
 - Register `module_ref` and `project` in `ContractRegistry` with permissive contracts.
 - For tighter contracts: load referenced modules' contracts (via `ModuleLoader`'s contract cache), compose without inlining code.
 - `infer_refinement` works on the whole graph without modification.
@@ -109,6 +112,7 @@ fn detect_cycles(scheme: &Scheme) -> Result<(), CycleError>
 `module_ref`/`project` now reach interpretation under this design. They remain `arr` ops, not real `Scheme` variants. The handler matches on `op: "module_ref"` stringly, same as every other op.
 
 Graduate to real `Scheme::ModuleRef`/`Scheme::Project` variants only if:
+
 - A second handler needs to interpret them (one handler matching a string is fine; two duplicating the convention is the signal), AND
 - The stringly-typed matching causes real problems (bugs, missed cases).
 
@@ -152,4 +156,4 @@ What's left:
 
 ## Relationship to ADR-0069
 
-This ADR refines ADR-0069 §5 Strategy C. It does not contradict ADR-0069 — the semantic model (import = projection) is unchanged. It clarifies the implementation: Strategy C is not a separate mechanism but the handler interpreting ops that Strategies A/B would eliminate. ADR-0069's description of Strategy C as "imports are resolved on first access" is accurate; this ADR specifies *how* (handler clauses, not a directive or capability flag).
+This ADR refines ADR-0069 §5 Strategy C. It does not contradict ADR-0069 — the semantic model (import = projection) is unchanged. It clarifies the implementation: Strategy C is not a separate mechanism but the handler interpreting ops that Strategies A/B would eliminate. ADR-0069's description of Strategy C as "imports are resolved on first access" is accurate; this ADR specifies _how_ (handler clauses, not a directive or capability flag).

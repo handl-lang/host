@@ -1,6 +1,5 @@
 # JSON Schema 2020-12 Reference & Composition Support in the Typechecker
 
-
 ## Context
 
 The validation layer already supports JSON Schema Draft 2020-12 reference
@@ -16,6 +15,7 @@ crates/typecheck-schema-json/src/interpret.rs:11-143 only matches on the
 `Type::Unknown`.
 
 This means:
+
 - A field with `{ "$ref": "#/$defs/positiveInt" }` validates correctly at
   runtime but its type is `Unknown` to the typechecker.
 - `allOf`, `anyOf`, `oneOf` and conditional schemas silently degrade.
@@ -190,14 +190,14 @@ The implementation must be safe in the type-system and runtime sense:
 
 ### Risk assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Cycle detection false-positives on DAGs | Medium | High | Use an active-path set, not a visited set; add DAG tests. |
-| `Type` enum becomes too complex | Low | High | Do not add `Type::Intersection` or `Type::Union`; flatten and fall back to `Unknown`. |
-| `jsonschema` resolver is not reusable | Low | Medium | Hand-roll a small resolver in Phase 0; keep it behind a trait. |
-| External refs need module-loader changes | High | High | Gate Phase 3 on module system readiness. |
-| Validator / typechecker mismatch for `$ref` + siblings | Medium | Medium | Document the simplification and fall back to `Unknown` for conflicts. |
-| Callers forget to pass `root` | Medium | Medium | Default impl keeps old behavior; add integration tests that catch unresolved refs. |
+| Risk                                                   | Likelihood | Impact | Mitigation                                                                            |
+| ------------------------------------------------------ | ---------- | ------ | ------------------------------------------------------------------------------------- |
+| Cycle detection false-positives on DAGs                | Medium     | High   | Use an active-path set, not a visited set; add DAG tests.                             |
+| `Type` enum becomes too complex                        | Low        | High   | Do not add `Type::Intersection` or `Type::Union`; flatten and fall back to `Unknown`. |
+| `jsonschema` resolver is not reusable                  | Low        | Medium | Hand-roll a small resolver in Phase 0; keep it behind a trait.                        |
+| External refs need module-loader changes               | High       | High   | Gate Phase 3 on module system readiness.                                              |
+| Validator / typechecker mismatch for `$ref` + siblings | Medium     | Medium | Document the simplification and fall back to `Unknown` for conflicts.                 |
+| Callers forget to pass `root`                          | Medium     | Medium | Default impl keeps old behavior; add integration tests that catch unresolved refs.    |
 
 ### Success criteria
 
@@ -218,6 +218,7 @@ The implementation must be safe in the type-system and runtime sense:
 resolution.
 
 **Work:**
+
 - Inspect the `jsonschema` crate API for an exposed resolver or compiled
   schema inspection.
 - Spike a quick resolution test in a throwaway branch.
@@ -232,12 +233,14 @@ resolution.
 This is the core, corrected schema-refs work.
 
 **Files:**
+
 - `crates/typecheck-core/src/interpreter.rs` — add `interpret_with_root`.
 - `crates/typecheck-schema-json/src/interpret.rs` — resolve local `$ref`.
 - `crates/compiler-pass-typecheck/src/runner.rs` — wire root.
 - `crates/compiler/src/fields.rs` — wire root.
 
 **Implementation:**
+
 - Add `interpret_with_root` with a default impl.
 - Implement the local pointer resolver and active-path cycle detector.
 - Wire `raw` as `root` in the runner and `fields.rs`.
@@ -247,7 +250,7 @@ This is the core, corrected schema-refs work.
 - `{ "$ref": "#/$defs/pos", "$defs": { "pos": { "type": "integer" } } }` →
   `Type::Number`.
 - `{ "$ref": "#/$defs/pair", "$defs": { "pair": { "type": "object",
-  "properties": { "a": { "type": "string" } } } } }` → an object type with
+"properties": { "a": { "type": "string" } } } } }` → an object type with
   a string `a` property.
 - Nested `$ref`: A → B → C, all resolve.
 - DAG with shared target: A → C and B → C under the same root; both resolve
@@ -268,12 +271,14 @@ unaffected by the default impl.
 **Files:** `crates/typecheck-schema-json/src/interpret.rs`.
 
 **Implementation:**
+
 - Pre-scan `root` for `$anchor` values and build an anchor map.
 - Resolve `#myAnchor` through the map.
 - For `$dynamicRef`, track the dynamic parent scope; unresolved dynamic refs
   return `Unknown`.
 
 **Tests:**
+
 - `#myAnchor` resolves to a type.
 - `$dynamicRef: "#myAnchor"` with a known dynamic parent resolves; otherwise
   returns `Unknown`.
@@ -287,10 +292,12 @@ resolver.
 **Goal:** Support references like `"./types.json#/$defs/foo"`.
 
 **Implementation:**
+
 - Pass a `RefResolver` trait or a resolver hook to `interpret_with_root`.
 - The runner provides the resolver; default returns `None` → `Unknown`.
 
 **Tests:**
+
 - External ref resolves when a resolver is provided.
 - Missing external ref → `Unknown`.
 
@@ -302,6 +309,7 @@ module system is ready.
 **Goal:** Stop falling through to `Unknown` for common composition.
 
 **Implementation:**
+
 - `allOf`: merge subschemas. If the merged result has a single concrete
   `type`, return it; else `Unknown`.
 - `anyOf` / `oneOf`: if all alternatives have the same `Type`, return it;
@@ -310,6 +318,7 @@ module system is ready.
 - Keep the `Type` enum unchanged; flatten to the most specific common `Type`.
 
 **Tests:**
+
 - `allOf` with `type: integer` and `minimum: 1` → `Type::Number`.
 - `anyOf` with all alternatives as `string` → `Type::String`.
 - `anyOf` with mixed types → `Unknown`.
@@ -322,11 +331,13 @@ module system is ready.
 **Goal:** Resolve conditionals when they produce a clear type.
 
 **Implementation:**
+
 - If the `if` condition cannot be evaluated at typecheck time, return
   `Unknown`.
 - If `then` and `else` produce the same `Type`, return it; else `Unknown`.
 
 **Tests:**
+
 - `if/then/else` with both branches `string` → `Type::String`.
 - Mixed branches → `Unknown`.
 
@@ -335,6 +346,7 @@ module system is ready.
 ### Phase 6 — Thread parent `root` into key crates
 
 **Files:**
+
 - `crates/typecheck-key-expr/src/check.rs`
 - `crates/typecheck-key-arg/src/lib.rs`
 - `crates/typecheck-key-inherit/src/check.rs`
@@ -342,9 +354,10 @@ module system is ready.
 - `crates/typecheck-import/src/lib.rs`
 
 **Implementation:**
+
 - Where these crates receive a sub-schema extracted from a field, change
   `interpreter.interpret(schema)` to `interpreter.interpret_with_root(schema,
-  parent_schema)`.
+parent_schema)`.
 - Where the parent schema is not yet available, use `schema` as a temporary
   root to resolve per-fragment `$defs`. Thread the parent schema through as
   a follow-up.
@@ -355,11 +368,13 @@ contexts begins to resolve.
 ### Phase 7 — Test mock interpreters
 
 **Files:**
+
 - `crates/typecheck-key-expr/src/lib_tests.rs`
 - `crates/typecheck-key-arg/src/lib_tests.rs`
 - `crates/typecheck-key-inherit/src/lib_tests.rs`
 
 **Implementation:**
+
 - Since `interpret_with_root` has a default impl, no immediate changes are
   required.
 - Add `$ref` support to the mocks only when a test specifically needs it.
@@ -367,6 +382,7 @@ contexts begins to resolve.
 ### Phase 8 — Documentation
 
 **Files:**
+
 - `docs/LANG.md` §9.3 (Schema interpreter):
   - Document that `$ref`, `$anchor`, and `$dynamicRef` are resolved.
   - Explain the `root` concept and per-field vs document-level `$defs`.
@@ -396,19 +412,19 @@ too much work.
 
 ### Feature-completeness matrix
 
-| JSON Schema 2020-12 keyword | Phase | Behavior |
-|---|---|---|
-| `$ref` | 1 | Resolve local `#/$defs/...` pointers. |
-| `$defs` | 1 | Used as the local pointer target namespace. |
-| `$anchor` | 2 | Resolve `#myAnchor` references. |
-| `$dynamicRef` | 2 | Resolve within known dynamic scope, else `Unknown`. |
-| `$id` | — | Document-only; not used for resolution in this plan. |
-| `allOf` | 4 | Flatten to a single `Type` if possible, else `Unknown`. |
-| `anyOf` | 4 | Return common `Type` if all alternatives agree, else `Unknown`. |
-| `oneOf` | 4 | Same as `anyOf` for type inference; does not validate exclusivity. |
-| `not` | 4 | Return `Unknown` (safe). |
-| `if/then/else` | 5 | Return common `Type` of branches if determinable, else `Unknown`. |
-| `type` | existing | Continue to match as before. |
+| JSON Schema 2020-12 keyword | Phase    | Behavior                                                           |
+| --------------------------- | -------- | ------------------------------------------------------------------ |
+| `$ref`                      | 1        | Resolve local `#/$defs/...` pointers.                              |
+| `$defs`                     | 1        | Used as the local pointer target namespace.                        |
+| `$anchor`                   | 2        | Resolve `#myAnchor` references.                                    |
+| `$dynamicRef`               | 2        | Resolve within known dynamic scope, else `Unknown`.                |
+| `$id`                       | —        | Document-only; not used for resolution in this plan.               |
+| `allOf`                     | 4        | Flatten to a single `Type` if possible, else `Unknown`.            |
+| `anyOf`                     | 4        | Return common `Type` if all alternatives agree, else `Unknown`.    |
+| `oneOf`                     | 4        | Same as `anyOf` for type inference; does not validate exclusivity. |
+| `not`                       | 4        | Return `Unknown` (safe).                                           |
+| `if/then/else`              | 5        | Return common `Type` of branches if determinable, else `Unknown`.  |
+| `type`                      | existing | Continue to match as before.                                       |
 
 ## Status
 

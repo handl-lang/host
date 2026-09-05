@@ -78,14 +78,14 @@ an outer one for the same arrow or bundle.
 The three features are independent. No combination is mandatory. The
 "trait" pattern emerges when all three are present.
 
-| Combo | What it produces |
-|---|---|
-| Law alone | Verified arrow |
-| Bundle alone | Named record (sugar) |
-| Handler alone | Effect injection (dynamic ok) |
-| Law + Bundle | Verified multi-op contract |
-| Law + Handler | Verified, injected arrow |
-| Bundle + Handler | Injected contract |
+| Combo                  | What it produces                |
+| ---------------------- | ------------------------------- |
+| Law alone              | Verified arrow                  |
+| Bundle alone           | Named record (sugar)            |
+| Handler alone          | Effect injection (dynamic ok)   |
+| Law + Bundle           | Verified multi-op contract      |
+| Law + Handler          | Verified, injected arrow        |
+| Bundle + Handler       | Injected contract               |
 | Law + Bundle + Handler | The "trait" pattern (all three) |
 
 ## `=` in laws
@@ -97,10 +97,10 @@ symbol is used. ADR-0075 used `≡`; ADR-0076 drops it.
 
 ## Law verification methods
 
-| Method | Applies to | Mechanism | Proven status |
-|---|---|---|---|
-| CutElim normalisation | Structural laws (functor, coproduct) | Wiring-structure recognition (`UsesFirst`), CutElim rewrites, congruence | Proven for the six-rewrite fragment (`CutElimCongruence.lean`: strong normalisation, terminates in at most `graphSize G - 1` steps) |
-| Semantic axiom | Non-functor laws (roundtrip, associativity) | Structural recognition triggers the check; explicit axiom discharges it | Honest hypothesis, not hidden behind `sorry` (`EquationalLawInference.lean`) |
+| Method                | Applies to                                  | Mechanism                                                                | Proven status                                                                                                                       |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| CutElim normalisation | Structural laws (functor, coproduct)        | Wiring-structure recognition (`UsesFirst`), CutElim rewrites, congruence | Proven for the six-rewrite fragment (`CutElimCongruence.lean`: strong normalisation, terminates in at most `graphSize G - 1` steps) |
+| Semantic axiom        | Non-functor laws (roundtrip, associativity) | Structural recognition triggers the check; explicit axiom discharges it  | Honest hypothesis, not hidden behind `sorry` (`EquationalLawInference.lean`)                                                        |
 
 ### Which laws are which
 
@@ -109,7 +109,7 @@ symbol is used. ADR-0075 used `≡`; ADR-0076 drops it.
   coproduct laws. These are theorems of wiring shape, independent of
   base arrows.
 - **Semantic (axiom-required):** roundtrip (`serialize >>> deserialize
-  = id`), semigroup associativity. These are facts about specific base
+= id`), semigroup associativity. These are facts about specific base
   arrows, not about graph shape.
 
 ### Law proof reuse
@@ -121,19 +121,19 @@ compositions. No separate proof step.
 
 ## Resolution methods
 
-| Method | Role | Behaviour |
-|---|---|---|
-| Explicit handler (`handle ... with`) | Primary | Names the impl, lexically scoped, laws checked at installation. Safe default. |
-| Catalog search | Fallback | When no handler is installed, search the open trait catalog (ADR-0075 §3). |
-| Global coherence | None | Not present. Eliminated by lexical scoping, not solved by algorithm. |
+| Method                               | Role     | Behaviour                                                                     |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------- |
+| Explicit handler (`handle ... with`) | Primary  | Names the impl, lexically scoped, laws checked at installation. Safe default. |
+| Catalog search                       | Fallback | When no handler is installed, search the open trait catalog (ADR-0075 §3).    |
+| Global coherence                     | None     | Not present. Eliminated by lexical scoping, not solved by algorithm.          |
 
 ### Catalog search disambiguation
 
-| Match count | Result |
-|---|---|
-| One | Impl is injected automatically. |
-| Multiple | Compile error: "ambiguous — N impls match, name one explicitly via `handle ... with`." The compiler never silently picks. |
-| Zero | Unresolved; install a handler or register an impl in the catalog. |
+| Match count | Result                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| One         | Impl is injected automatically.                                                                                           |
+| Multiple    | Compile error: "ambiguous — N impls match, name one explicitly via `handle ... with`." The compiler never silently picks. |
+| Zero        | Unresolved; install a handler or register an impl in the catalog.                                                         |
 
 The catalog is the ambient default handler set — handlers always
 installed unless overridden by an explicit `handle ... with`. Catalog
@@ -142,10 +142,10 @@ default).
 
 ## Static vs dynamic handler semantics
 
-| Handler kind | Impl fixed | Law guarantee | Use case |
-|---|---|---|---|
-| Static | At compile time | Laws verified at the `handle` site; proof travels to every inner use | The "trait" case |
-| Dynamic | At runtime | No compile-time law guarantee | The effect-handler case |
+| Handler kind | Impl fixed      | Law guarantee                                                        | Use case                |
+| ------------ | --------------- | -------------------------------------------------------------------- | ----------------------- |
+| Static       | At compile time | Laws verified at the `handle` site; proof travels to every inner use | The "trait" case        |
+| Dynamic      | At runtime      | No compile-time law guarantee                                        | The effect-handler case |
 
 A bundle marks "this is static, law-checked." A bare operation handle
 is "this is dynamic, no law claim." Law checking runs once at the
@@ -154,14 +154,14 @@ for runtime-chosen impls.
 
 ## What this replaces from ADR-0075
 
-| ADR-0075 construct | ADR-0076 replacement |
-|---|---|
-| `trait` keyword | Optional bundle (a record with laws attached). No keyword. |
-| `impl` keyword | `handle ... with` (handler installation). No keyword. |
-| `law` inside `trait` | `law` is standalone, attachable to any arrow or bundle. |
-| Implicit catalog search (primary) | Explicit handlers (primary), catalog search (fallback). |
-| Coherence problem | Eliminated by lexical scoping of handlers. |
-| `≡` in laws | `=` (unambiguous in `law` context). |
+| ADR-0075 construct                | ADR-0076 replacement                                       |
+| --------------------------------- | ---------------------------------------------------------- |
+| `trait` keyword                   | Optional bundle (a record with laws attached). No keyword. |
+| `impl` keyword                    | `handle ... with` (handler installation). No keyword.      |
+| `law` inside `trait`              | `law` is standalone, attachable to any arrow or bundle.    |
+| Implicit catalog search (primary) | Explicit handlers (primary), catalog search (fallback).    |
+| Coherence problem                 | Eliminated by lexical scoping of handlers.                 |
+| `≡` in laws                       | `=` (unambiguous in `law` context).                        |
 
 ## What this preserves from ADR-0075
 

@@ -86,6 +86,7 @@ FreerArrowTagged Op V :=
 ```
 
 This representation:
+
 - **Has full monadic power**: includes `apply` (ArrowApply ≅ Monad).
 - **Recovers all standard structural facts**: `fanout_independence`,
   `branching`, `per_branch_effects`, `dependency_graph`, `feedback`,
@@ -156,28 +157,33 @@ R.sigmaRep rc ⊆f sigmaFreerArrowApply c
 ```
 
 By definition (lines 304–305):
+
 ```lean
 def sigmaFreerArrowApply (c : FreerArrow Op V) : FactSet :=
   sigmaFreerArrow c
 ```
 
 And (lines 176–177):
+
 ```lean
 def sigmaFreerArrow (_ : FreerArrow Op V) : FactSet :=
   allFacts
 ```
 
 And (line 149):
+
 ```lean
 def allFacts : FactSet := fun _ => True
 ```
 
 Therefore:
+
 ```
 sigmaFreerArrowApply c = allFacts = fun _ => True
 ```
 
 The subset relation `R.sigmaRep rc ⊆f allFacts` unfolds to:
+
 ```
 ∀ f : StructFact, R.sigmaRep rc f → True
 ```
@@ -194,6 +200,7 @@ care).
 ### Is this correct?
 
 **YES.** The theorem is vacuously true. The proof is one line:
+
 ```lean
 intro f _; trivial
 ```
@@ -230,6 +237,7 @@ Consider a representation `FreerArrowCompact` that merges `seq` and `fanout`
 into a single constructor `par_seq (n : Nat) (branches : List (FreerArrowCompact Op V))`
 where `n = 1` means sequential composition and `n ≥ 2` means fanout. This
 representation:
+
 - Recovers the same six structural facts (fanout is detectable when `n ≥ 2`).
 - Has full monadic power (includes `apply`).
 - Has a simpler traversal (one constructor instead of two, potentially
@@ -246,7 +254,7 @@ analysis cost.
 
 ### Why the claim survives (but is less interesting)
 
-The claim is about the *set* of recoverable facts, not the *cost* of
+The claim is about the _set_ of recoverable facts, not the _cost_ of
 recovery. A representation that recovers the same facts more cheaply does
 not falsify the claim. But it does suggest that the interesting question is
 not "which representation is maximal in σ?" but "which representation
@@ -255,8 +263,8 @@ current formalization does not address.
 
 ### What this reveals
 
-"Maximality" as stated is a claim about the *height* in the fact lattice,
-not about *efficiency* or *expressiveness of the recovery process*. This
+"Maximality" as stated is a claim about the _height_ in the fact lattice,
+not about _efficiency_ or _expressiveness of the recovery process_. This
 makes the claim technically defensible but practically less interesting
 than it appears.
 
@@ -281,6 +289,7 @@ information: it could distinguish the two cases, while the freer arrow
 cannot.
 
 Similarly, `branching` could be refined into:
+
 - **Exhaustive branching** (all branches reachable).
 - **Non-exhaustive branching** (some branches are dead code).
 
@@ -294,7 +303,7 @@ freer arrow recovers both (it can detect fanout but not the sub-type), so
 it recovers strictly less than a representation with separate constructors.
 
 Wait — more precisely: the freer arrow's `fanout` constructor would recover
-the *coarse* fact "some kind of fanout is present" but not the *fine* fact
+the _coarse_ fact "some kind of fanout is present" but not the _fine_ fact
 "this is independent fanout" vs "this is state-sharing fanout." A
 representation with separate constructors would recover both the coarse
 fact and the fine fact.
@@ -337,6 +346,7 @@ FreerArrowTraced Op V :=
 ```
 
 This representation:
+
 - Has full monadic power (includes `apply`).
 - Recovers all six standard structural facts (the tree structure is
   preserved).
@@ -388,6 +398,7 @@ in the Rust tests) recovers ALL structural information:
 > recovers ALL structural information. (RESULTS_CHALLENGE9.md, lines 88–89)
 
 This representation:
+
 - Has full monadic power (it IS a monad, with `Bind`).
 - Recovers all six structural facts (σ = allFacts).
 - Is compositional (explicit tree, fully traversable).
@@ -409,8 +420,8 @@ monad with explicit constructors is also maximal.
 
 The results document already acknowledges this (line 372–375):
 
-> It does not claim that the freer arrow is the *unique* maximal
-> representation — only that it is *a* maximal representation.
+> It does not claim that the freer arrow is the _unique_ maximal
+> representation — only that it is _a_ maximal representation.
 
 So the claim is already hedged. But the theorem statement uses the
 definite article ("the maximal compositional representation"), which is
@@ -422,7 +433,7 @@ not "the maximal."
 Maximality in a lattice is a property of an element (being at the top),
 not a unique characterization. Multiple representations can be maximal.
 The interesting question is not "is the freer arrow maximal?" (many things
-are) but "what is the *minimal* set of constructors needed to achieve
+are) but "what is the _minimal_ set of constructors needed to achieve
 maximality?" — which is the Challenge #10 minimality result, a separate
 and stronger theorem.
 
@@ -479,6 +490,7 @@ The strongest claim that survives all attacks is:
 > maximality result.
 >
 > **What is NOT claimed:**
+>
 > - The freer arrow with Apply is NOT maximal for any lattice beyond L.
 >   Extending L with provenance, finer-grained fanout types, or dynamic
 >   trace facts would break maximality (Attacks 1, 4, 5).
@@ -569,14 +581,14 @@ This is a genuine and interesting result. The maximality theorem is not.
 
 ## Summary Table
 
-| Attack | Description | Falsifies? | Severity |
-|--------|-------------|------------|----------|
-| 1 | Provenance/metadata counterexample | **YES** (for open lattice) | **Fatal** — claim is false for any extendable lattice |
-| 2 | Theorem is vacuously true | **YES** (formal theorem is vacuous) | **Fatal** — the theorem proves nothing |
-| 3 | Same facts but cheaper | No (but weakens significance) | Minor — wrong metric |
-| 4 | Finer-grained facts | **YES** (for refined lattice) | **Serious** — claim is false for any refinement |
-| 5 | Dynamic information | **YES** (if σ includes dynamic facts) | **Serious** — claim must restrict to static facts |
-| 6 | Non-uniqueness | No (but "the" → "a") | Minor — wording fix |
+| Attack | Description                        | Falsifies?                            | Severity                                              |
+| ------ | ---------------------------------- | ------------------------------------- | ----------------------------------------------------- |
+| 1      | Provenance/metadata counterexample | **YES** (for open lattice)            | **Fatal** — claim is false for any extendable lattice |
+| 2      | Theorem is vacuously true          | **YES** (formal theorem is vacuous)   | **Fatal** — the theorem proves nothing                |
+| 3      | Same facts but cheaper             | No (but weakens significance)         | Minor — wrong metric                                  |
+| 4      | Finer-grained facts                | **YES** (for refined lattice)         | **Serious** — claim is false for any refinement       |
+| 5      | Dynamic information                | **YES** (if σ includes dynamic facts) | **Serious** — claim must restrict to static facts     |
+| 6      | Non-uniqueness                     | No (but "the" → "a")                  | Minor — wording fix                                   |
 
 ### Attacks that succeed: 1, 2, 4, 5
 

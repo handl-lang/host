@@ -125,6 +125,7 @@ members = [
   "crates/plugin-engine-typecheck-nbe",
   "crates/plugin-engine-parse-pratt",
   "crates/plugin-engine-eval-tree-walk",
+  "crates/plugin-engine-test",
   "crates/plugin-engine-eval-bytecode",
   "crates/plugin-engine-eval-cranelift",
   "crates/plugin-engine-fmt",
@@ -282,6 +283,7 @@ handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
 handl-plugin-engine-typecheck-nbe = { path = "crates/plugin-engine-typecheck-nbe" }
 handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-eval-tree-walk = { path = "crates/plugin-engine-eval-tree-walk" }
+handl-plugin-engine-test = { path = "crates/plugin-engine-test" }
 handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode" }
 handl-plugin-engine-eval-cranelift = { path = "crates/plugin-engine-eval-cranelift" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }

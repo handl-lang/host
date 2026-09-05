@@ -15,9 +15,9 @@ The problem: **every handler hardcodes language knowledge.** Concrete examples f
 The coupling runs in both directions:
 
 1. **LSP → language:** The server imports `handl_kit_canonical`, `handl_language`, and `plugin_ext_refinement`. Every handler depends on concrete language types.
-2. **Language → LSP:** When the language changes (new keywords, new syntax, new stdlib functions, new grammar rules), the LSP server must be edited and rebuilt. ADR-0002 made the *extension* data-driven (no static TextMate/snippets), but the *server* is still hand-written per language.
+2. **Language → LSP:** When the language changes (new keywords, new syntax, new stdlib functions, new grammar rules), the LSP server must be edited and rebuilt. ADR-0002 made the _extension_ data-driven (no static TextMate/snippets), but the _server_ is still hand-written per language.
 
-ADR-0003 added per-workspace language variants via `.handl.toml` — different workspaces can use different data files. But the server code that *consumes* those data files is still hardcoded to one language shape. Per-workspace variants work only for data-level differences (token names, grammar rules), not for structural differences in how LSP features are computed.
+ADR-0003 added per-workspace language variants via `.handl.toml` — different workspaces can use different data files. But the server code that _consumes_ those data files is still hardcoded to one language shape. Per-workspace variants work only for data-level differences (token names, grammar rules), not for structural differences in how LSP features are computed.
 
 ### What we want
 
@@ -112,14 +112,14 @@ This crate is the **language plugin**. The server loads it based on `.handl.toml
 
 ### What moves where
 
-| Currently in `host-lsp` | Moves to |
-|---|---|
-| `const KEYWORDS` in `completion.rs` | `CompletionProvider` impl |
-| `detect_context()`, `classify_identifier()` | `CompletionProvider` impl |
-| `collect_diagnostics()`, `parse_diagnostics()` | `DiagnosticProvider` impl |
-| `is_comment_kind`, `is_identifier_kind` usage | `StructuralProvider` / `SemanticTokenProvider` impls |
-| `handl_language::Scheme` import in `refinement.rs` | `SemanticProvider` impl |
-| Cross-file def/rename logic | `CrossFileProvider` impl |
+| Currently in `host-lsp`                            | Moves to                                             |
+| -------------------------------------------------- | ---------------------------------------------------- |
+| `const KEYWORDS` in `completion.rs`                | `CompletionProvider` impl                            |
+| `detect_context()`, `classify_identifier()`        | `CompletionProvider` impl                            |
+| `collect_diagnostics()`, `parse_diagnostics()`     | `DiagnosticProvider` impl                            |
+| `is_comment_kind`, `is_identifier_kind` usage      | `StructuralProvider` / `SemanticTokenProvider` impls |
+| `handl_language::Scheme` import in `refinement.rs` | `SemanticProvider` impl                              |
+| Cross-file def/rename logic                        | `CrossFileProvider` impl                             |
 
 ### Migration
 
@@ -133,8 +133,8 @@ This is a large refactor (~30 handler modules). Migrate incrementally:
 
 ### Relationship to existing ADRs
 
-- **ADR-0002** (data-driven editor support): made the *extension* generic. This ADR makes the *server* generic. Same principle, different layer.
-- **ADR-0003** (per-workspace language variants): made the server load different *data files* per workspace. This ADR makes the server delegate to different *provider implementations* per workspace. ADR-0003 is the data-level version; this ADR is the code-level version. They compose: `.handl.toml` selects both the data files and the provider plugin.
+- **ADR-0002** (data-driven editor support): made the _extension_ generic. This ADR makes the _server_ generic. Same principle, different layer.
+- **ADR-0003** (per-workspace language variants): made the server load different _data files_ per workspace. This ADR makes the server delegate to different _provider implementations_ per workspace. ADR-0003 is the data-level version; this ADR is the code-level version. They compose: `.handl.toml` selects both the data files and the provider plugin.
 - **ADR-0069** (arrow-native modules): the `ModuleLoader` and normalisation strategies are language-specific logic that would live behind the `SemanticProvider` / `CrossFileProvider` traits, not in the LSP server.
 
 ## Consequences

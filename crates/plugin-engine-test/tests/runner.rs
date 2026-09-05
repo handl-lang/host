@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use handl_plugin_lib_test::runner::{
+use handl_plugin_engine_test::runner::{
     discover, format_report_human, format_report_json, run, run_with_filter, DiscoverError,
     TestPlan, TestResult,
 };

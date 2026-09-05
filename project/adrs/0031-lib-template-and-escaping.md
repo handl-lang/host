@@ -27,13 +27,13 @@ All language-specific, escaping, and syntax concerns are injected via traits and
 
 ### Pluggable pieces
 
-| Component | Injected via | Examples |
-|---|---|---|
-| Delimiter syntax | `Tokenizer` + `Vec<DelimiterRule>` | `<%= ... %>`, `{{ ... }}`, `${ ... }` |
-| Expression evaluation | `RenderContext` trait | `lib-lang`, VM, no-op, sandboxed |
-| Output escaping | `Escaper` registry | HTML, URL, JS, CSS, SQL, none |
-| Value transforms | `Filter` registry | `upper`, `slugify`, `json` |
-| Control flow | `Tag` registry | `if`, `for`, `with` |
+| Component             | Injected via                       | Examples                              |
+| --------------------- | ---------------------------------- | ------------------------------------- |
+| Delimiter syntax      | `Tokenizer` + `Vec<DelimiterRule>` | `<%= ... %>`, `{{ ... }}`, `${ ... }` |
+| Expression evaluation | `RenderContext` trait              | `lib-lang`, VM, no-op, sandboxed      |
+| Output escaping       | `Escaper` registry                 | HTML, URL, JS, CSS, SQL, none         |
+| Value transforms      | `Filter` registry                  | `upper`, `slugify`, `json`            |
+| Control flow          | `Tag` registry                     | `if`, `for`, `with`                   |
 
 ### The `RenderContext` boundary
 

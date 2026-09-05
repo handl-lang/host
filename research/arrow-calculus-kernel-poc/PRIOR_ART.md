@@ -5,8 +5,8 @@
 Date: 2026-08-31
 
 This document records the result of a prior-art search on the core
-ideas in this project, and identifies what is *not* novel versus what
-*might be* novel. It is intended to keep the project's claims honest
+ideas in this project, and identifies what is _not_ novel versus what
+_might be_ novel. It is intended to keep the project's claims honest
 and to scope the open research question worth investigating further.
 
 ---
@@ -15,7 +15,7 @@ and to scope the open research question worth investigating further.
 
 The claim
 
-> *Explicit representation makes monadic computation inspectable.*
+> _Explicit representation makes monadic computation inspectable._
 
 is **established territory**. There is substantial prior art involving:
 
@@ -108,8 +108,8 @@ appears to be uncharted.
 - **Architectural conclusion:** explicit dynamic computation can
   remain inspectable.
 
-Avoid treating the 19 tests of Challenge #11 as a *mathematical
-proof*. They are empirical evidence for an architectural conclusion.
+Avoid treating the 19 tests of Challenge #11 as a _mathematical
+proof_. They are empirical evidence for an architectural conclusion.
 
 ---
 

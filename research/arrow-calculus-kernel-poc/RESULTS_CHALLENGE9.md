@@ -10,7 +10,7 @@ Cumulative: 154/154 tests passing (121 prior + 33 new), zero warnings.
 
 ## The Question
 
-The fact that a monad can be *encoded* by an arrow system is not enough.
+The fact that a monad can be _encoded_ by an arrow system is not enough.
 The important issue is whether doing so collapses the **structural
 information that makes arrows valuable**.
 
@@ -28,17 +28,17 @@ exploits structure that opaque functions don't expose.
 
 Three representations of the same computations were compared:
 
-| Representation | Structure | Continuations | Inspectable? |
-|---|---|---|---|
+| Representation                | Structure                                                | Continuations              | Inspectable?            |
+| ----------------------------- | -------------------------------------------------------- | -------------------------- | ----------------------- |
 | **Freer arrow** (`ArrowComp`) | Explicit connectives (Seq, Fanout, Choice, Loop, OpNode) | Defunctionalized sub-trees | ✅ Yes — full traversal |
-| **Opaque monad** (`OpaqueM`) | Hidden inside closures | `Rc<dyn Fn>` — black box | ❌ No — can only run |
-| **Freer monad** (`FreeM`) | Explicit (Pure, Ident, FreeOp, Bind, Fanout, Choice) | Defunctionalized sub-trees | ✅ Yes — full traversal |
+| **Opaque monad** (`OpaqueM`)  | Hidden inside closures                                   | `Rc<dyn Fn>` — black box   | ❌ No — can only run    |
+| **Freer monad** (`FreeM`)     | Explicit (Pure, Ident, FreeOp, Bind, Fanout, Choice)     | Defunctionalized sub-trees | ✅ Yes — full traversal |
 
 The key comparison is **freer arrow vs opaque monad**: what structural
 properties can you observe from each?
 
 The freer monad serves as a control: if it recovers structure, the loss
-is about *opacity*, not monadic structure per se.
+is about _opacity_, not monadic structure per se.
 
 ---
 
@@ -46,16 +46,16 @@ is about *opacity*, not monadic structure per se.
 
 For each property, we attempt recovery from each representation:
 
-| Property | Arrow | Opaque monad | Freer monad |
-|---|---|---|---|
-| **Sequential composition** | ✅ explicit | ✅ explicit (bind) | ✅ explicit (Bind) |
-| **Fanout / independence** | ✅ recoverable | ❌ **LOST** | ✅ recoverable |
-| **Choice / branching** | ✅ recoverable | ❌ **LOST** | ✅ recoverable |
-| **Effect set** | ✅ traversal | ❌ **LOST** | ✅ traversal |
-| **Per-branch effects** | ✅ per branch | ❌ **LOST** (union only) | ✅ per branch |
-| **Dependency graph** | ✅ buildable | ❌ **LOST** | ✅ buildable |
-| **Feedback / loop** | ✅ explicit | ❌ **LOST** | ✅ detectable |
-| **Semantic results** | ✅ correct | ✅ correct | ✅ correct |
+| Property                   | Arrow          | Opaque monad             | Freer monad        |
+| -------------------------- | -------------- | ------------------------ | ------------------ |
+| **Sequential composition** | ✅ explicit    | ✅ explicit (bind)       | ✅ explicit (Bind) |
+| **Fanout / independence**  | ✅ recoverable | ❌ **LOST**              | ✅ recoverable     |
+| **Choice / branching**     | ✅ recoverable | ❌ **LOST**              | ✅ recoverable     |
+| **Effect set**             | ✅ traversal   | ❌ **LOST**              | ✅ traversal       |
+| **Per-branch effects**     | ✅ per branch  | ❌ **LOST** (union only) | ✅ per branch      |
+| **Dependency graph**       | ✅ buildable   | ❌ **LOST**              | ✅ buildable       |
+| **Feedback / loop**        | ✅ explicit    | ❌ **LOST**              | ✅ detectable      |
+| **Semantic results**       | ✅ correct     | ✅ correct               | ✅ correct         |
 
 ---
 
@@ -143,18 +143,18 @@ NOT on the opaque monad (branch structure is invisible).
 
 33 tests across 7 categories:
 
-| Category | Tests | Status |
-|---|---|---|
-| Semantic equivalence (arrow = monad = freer) | 6 | ✅ |
-| Fanout / independence recovery | 4 | ✅ |
-| Choice / branching recovery | 3 | ✅ |
-| Effect set inference | 3 | ✅ |
-| Per-branch effect analysis | 3 | ✅ |
-| Dependency graph | 3 | ✅ |
-| Feedback / loop | 2 | ✅ |
-| Key finding: semantically adequate but lossy | 3 | ✅ |
-| Effect set properties | 4 | ✅ |
-| False dependency in monadic fanout | 2 | ✅ |
+| Category                                     | Tests | Status |
+| -------------------------------------------- | ----- | ------ |
+| Semantic equivalence (arrow = monad = freer) | 6     | ✅     |
+| Fanout / independence recovery               | 4     | ✅     |
+| Choice / branching recovery                  | 3     | ✅     |
+| Effect set inference                         | 3     | ✅     |
+| Per-branch effect analysis                   | 3     | ✅     |
+| Dependency graph                             | 3     | ✅     |
+| Feedback / loop                              | 2     | ✅     |
+| Key finding: semantically adequate but lossy | 3     | ✅     |
+| Effect set properties                        | 4     | ✅     |
+| False dependency in monadic fanout           | 2     | ✅     |
 
 ---
 
@@ -174,10 +174,10 @@ It is:
 
 ### What this does NOT establish
 
-- It does not claim monads are *inherently* structurally lossy — freer
+- It does not claim monads are _inherently_ structurally lossy — freer
   monads recover structure (proven here).
-- It does not claim arrows are *minimal* — that's the next question.
-- It does not claim the structural advantage is *unique* to arrows —
+- It does not claim arrows are _minimal_ — that's the next question.
+- It does not claim the structural advantage is _unique_ to arrows —
   freer monads share it.
 
 ### The precise claim
@@ -229,11 +229,11 @@ structural analysis uniformly.
 
 ## Cumulative Results
 
-| Phase | Challenge | Tests | Status |
-|---|---|---|---|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44 | ✅ |
-| 2 | #6 (effects & handlers) | 20 | ✅ |
-| 3 | #7–8 (language protocol, generic tooling) | 26 | ✅ |
-| Deep dive | Effect typing | 31 | ✅ |
-| 4 | #9 (structural preservation) | 33 | ✅ |
-| | **Total** | **154** | **All passing** |
+| Phase     | Challenge                                                            | Tests   | Status          |
+| --------- | -------------------------------------------------------------------- | ------- | --------------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44      | ✅              |
+| 2         | #6 (effects & handlers)                                              | 20      | ✅              |
+| 3         | #7–8 (language protocol, generic tooling)                            | 26      | ✅              |
+| Deep dive | Effect typing                                                        | 31      | ✅              |
+| 4         | #9 (structural preservation)                                         | 33      | ✅              |
+|           | **Total**                                                            | **154** | **All passing** |

@@ -15,7 +15,7 @@ any language instance
 ### ✅ Experiment 9: First-class Language Protocol (CHALLENGE #7)
 
 **Goal:** Show that a programming language can be modelled as a protocol
-whose every operation (parse, eval, format, typecheck) is an *arrow*, and
+whose every operation (parse, eval, format, typecheck) is an _arrow_, and
 that — because arrows compose — generic tools can be built as arrow
 pipelines working over ANY language instance.
 
@@ -124,10 +124,12 @@ Total: 26/26 language protocol & tooling tests PASSED ✅
 ## Summary: Challenges #7 & #8 (Language Protocol & Generic Tooling)
 
 ### Claim Tested
+
 > Can a language be a first-class protocol of arrows, such that generic
 > tools compose over any language instance without hardcoding?
 
 ### What We've Shown
+
 - ✅ A `Language` is a record of arrows (`parse`, `eval`, `format`,
   `typecheck`, `lit`); every operation is an arrow `Value ~> Comp`
 - ✅ Two distinct language instances (Arithmetic, Boolean) implement the
@@ -137,21 +139,23 @@ Total: 26/26 language protocol & tooling tests PASSED ✅
   parameter differs
 - ✅ Tools are arrow pipelines assembled from each language's own arrows
   (`parse >>> format >>> parse`, `parse >>> typecheck`, `arr (pair env)
-  >>> eval`)
+  > > > eval`)
 - ✅ Errors flow through the Phase 2 exception handler — no new effect
   primitive is needed for language tooling
 - ✅ Round-trip `parse >>> format >>> parse` produces an equivalent AST,
   verifying that `format` and `parse` are inverses (an arrow identity)
 
 ### What This Means
+
 **A compiler/tooling plugin interface is not a separate language feature.**
 It emerges directly from arrow composition over a record of arrows. The
-generic tools are *literally* functions `&Language -> ...` that compose the
+generic tools are _literally_ functions `&Language -> ...` that compose the
 language's arrows with `>>>`; no type class, no reflection, no language
 -specific branch is needed. This is the arrow-calculus counterpart of a
 language server / IR toolkit, with composition as the only glue.
 
 ### Key Technical Achievements
+
 - **First-class Language protocol:** a struct of `Rc<dyn Fn(Value) -> Comp>`
   arrows — languages are values that can be passed to tools
 - **Tagged-Value ASTs:** ASTs are ordinary `Value`s, so generic tools can
@@ -166,20 +170,20 @@ language server / IR toolkit, with composition as the only glue.
 
 ## Comparison: Generic Tooling With vs Without Arrows
 
-| Aspect | Without arrows (traditional) | With arrows (this PoC) |
-|--------|------------------------------|------------------------|
-| Tool interface | A type class / trait / interface per tool, implemented per language | A record of arrows; tools are `&Language -> ...` functions |
-| Tool composition | Manual plumbing; each tool re-implements parse/eval glue | `>>>` (`seq`) — tools are arrow pipelines |
-| Adding a language | Implement every tool interface for the new language | Provide the 5 arrows; all tools work automatically |
-| Adding a tool | New interface + per-language implementations | One `&Language -> ...` function; works on all languages |
-| Error handling | Per-tool try/catch, language-specific error types | One `handle_exception` over the freer arrow; uniform `Either` |
-| Round-trip proof | Ad-hoc per language | `parse >>> format >>> parse` is an arrow identity, checked once |
-| Code reuse | Shared via inheritance / generics + boilerplate | Shared via composition; zero per-language tool code |
+| Aspect            | Without arrows (traditional)                                        | With arrows (this PoC)                                          |
+| ----------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Tool interface    | A type class / trait / interface per tool, implemented per language | A record of arrows; tools are `&Language -> ...` functions      |
+| Tool composition  | Manual plumbing; each tool re-implements parse/eval glue            | `>>>` (`seq`) — tools are arrow pipelines                       |
+| Adding a language | Implement every tool interface for the new language                 | Provide the 5 arrows; all tools work automatically              |
+| Adding a tool     | New interface + per-language implementations                        | One `&Language -> ...` function; works on all languages         |
+| Error handling    | Per-tool try/catch, language-specific error types                   | One `handle_exception` over the freer arrow; uniform `Either`   |
+| Round-trip proof  | Ad-hoc per language                                                 | `parse >>> format >>> parse` is an arrow identity, checked once |
+| Code reuse        | Shared via inheritance / generics + boilerplate                     | Shared via composition; zero per-language tool code             |
 
 **Verdict:** Generic tooling without arrows requires a type class (or
 equivalent) per tool, implemented afresh for each language, plus manual
 plumbing to compose parse/eval/format. With arrows, the entire tooling
-surface is *one composition operator* over a record of arrows: the same
+surface is _one composition operator_ over a record of arrows: the same
 `pretty_print` / `report_error` / `optimize` source runs on every language,
 and adding a language means supplying five arrows — nothing more.
 
@@ -187,16 +191,16 @@ and adding a language means supplying five arrows — nothing more.
 
 ## Cumulative Results (Phase 1 + Phase 2 + Phase 3)
 
-| Challenge | Question | Result | Tests |
-|-----------|----------|--------|-------|
-| #1 Expressiveness | Can arrows express basic functional patterns? | ✅ YES | 3/3 |
-| #2 Abstraction | Higher-order patterns without lambda? | ✅ YES | 10/10 |
-| #3 Parametricity | Generic programming without lambda? | ✅ YES | 14/14 |
-| #4 Typing | Hindley-Milner inference on arrows? | ✅ YES | 15/15 |
-| #5 Recursion | State machines replace recursive functions? | ✅ YES | 2/2 |
-| #6 Effects | Handler-based effects replace monads? | ✅ YES | 20/20 |
-| #7 Language Protocol | First-class language as a protocol of arrows? | ✅ YES | 12/12 |
-| #8 Tooling | Generic tools over any language via composition? | ✅ YES | 14/14 |
+| Challenge            | Question                                         | Result | Tests |
+| -------------------- | ------------------------------------------------ | ------ | ----- |
+| #1 Expressiveness    | Can arrows express basic functional patterns?    | ✅ YES | 3/3   |
+| #2 Abstraction       | Higher-order patterns without lambda?            | ✅ YES | 10/10 |
+| #3 Parametricity     | Generic programming without lambda?              | ✅ YES | 14/14 |
+| #4 Typing            | Hindley-Milner inference on arrows?              | ✅ YES | 15/15 |
+| #5 Recursion         | State machines replace recursive functions?      | ✅ YES | 2/2   |
+| #6 Effects           | Handler-based effects replace monads?            | ✅ YES | 20/20 |
+| #7 Language Protocol | First-class language as a protocol of arrows?    | ✅ YES | 12/12 |
+| #8 Tooling           | Generic tools over any language via composition? | ✅ YES | 14/14 |
 
 **Total: 90/90 tests passing** (44 Phase 1 + 20 Phase 2 + 26 Phase 3)
 

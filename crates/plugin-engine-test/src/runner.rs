@@ -39,7 +39,12 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use handl_language::{language_value, Ast, AstNode, AstRef, Language, Source, Value};
+use handl_language::{
+    language_value, Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow, Language,
+    LexerRuleDef, Source, TokenKindDef, Value,
+};
+
+
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
@@ -48,7 +53,7 @@ use handl_plugin_ext_diag::Span;
 use handl_runtime::Runtime;
 use handl_platform::{Function, Module, ModuleLookup};
 
-use crate::assert::AssertModule;
+use handl_plugin_lib_test::AssertModule;
 
 // ---------------------------------------------------------------------------
 // Public types

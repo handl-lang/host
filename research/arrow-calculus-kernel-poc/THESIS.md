@@ -7,8 +7,8 @@
 > without taking lambda abstraction or monadic structure as primitive.**
 
 This is narrower than "arrows are a complete foundation for programming
-languages." The experiments establish *sufficiency for construction*, not
-*minimality* or *necessity*. The distinction matters: sufficiency says
+languages." The experiments establish _sufficiency for construction_, not
+_minimality_ or _necessity_. The distinction matters: sufficiency says
 "you can build it"; minimality says "you need exactly these primitives";
 necessity says "no smaller basis works."
 
@@ -43,9 +43,9 @@ The 121 tests establish a construction arc, not a foundational proof:
    effect typing   generic tooling
 ```
 
-Each layer *emerges from the representation below*, not from a new primitive.
+Each layer _emerges from the representation below_, not from a new primitive.
 This is the strongest aspect of the result: the features are not bolted on,
-they are *observed in* the arrow substrate.
+they are _observed in_ the arrow substrate.
 
 ---
 
@@ -81,7 +81,7 @@ Church-encoded continuations via `Rc<dyn Fn>`) and `IComp` (static,
 defunctionalized continuations via `Box<IComp>`).
 
 **Precise framing:** These are the same object under different encodings of
-the continuation. `Op(op, arg, k)` where `k : Value -> Comp` *is* the Church
+the continuation. `Op(op, arg, k)` where `k : Value -> Comp` _is_ the Church
 encoding of `Op(op, arg, K)` where `K` is a defunctionalized continuation
 datatype. The closure is what you get when you re-functionalize.
 
@@ -100,23 +100,23 @@ minimality over a representation that hides structure.
 
 ## The Structural Question (Challenge #9 — RESOLVED)
 
-The 121 tests established that arrows *work*. Challenge #9 tested whether
+The 121 tests established that arrows _work_. Challenge #9 tested whether
 their **structural advantages survive monadic translation**.
 
 ### Answer: The opaque monad is semantically adequate but structurally lossy
 
 Three representations were compared (154/154 tests, 33 new):
 
-| Property | Arrow | Opaque monad | Freer monad |
-|---|---|---|---|
-| Sequential composition | explicit | explicit | explicit |
-| Fanout / independence | explicit | **LOST** | explicit |
-| Choice / branching | explicit | **LOST** | explicit |
-| Effect set | traversal | **LOST** | traversal |
-| Per-branch effects | per branch | **LOST** (union only) | per branch |
-| Dependency graph | buildable | **LOST** | buildable |
-| Feedback | explicit | **LOST** | detectable |
-| Semantic results | correct | correct | correct |
+| Property               | Arrow      | Opaque monad          | Freer monad |
+| ---------------------- | ---------- | --------------------- | ----------- |
+| Sequential composition | explicit   | explicit              | explicit    |
+| Fanout / independence  | explicit   | **LOST**              | explicit    |
+| Choice / branching     | explicit   | **LOST**              | explicit    |
+| Effect set             | traversal  | **LOST**              | traversal   |
+| Per-branch effects     | per branch | **LOST** (union only) | per branch  |
+| Dependency graph       | buildable  | **LOST**              | buildable   |
+| Feedback               | explicit   | **LOST**              | detectable  |
+| Semantic results       | correct    | correct               | correct     |
 
 The opaque monad produces the same results but loses all structural
 information. The freer monad (a monad with explicit structure) recovers
@@ -166,7 +166,7 @@ be derived from the others.
 All five proven via the free-arrow (initiality) argument in Lean4. See
 `lean/ArrowMinimalityLib/Basic.lean`.
 
-**Caveat:** `loop` is independent only in a *total* setting. In a
+**Caveat:** `loop` is independent only in a _total_ setting. In a
 language with general recursion (`fix`), `loop` is derivable — but then
 general recursion is the primitive, and `loop` is a pattern of use.
 
@@ -212,18 +212,18 @@ See `RESULTS_TRANSLATION_ASYMMETRY.md` and
 
 ## Status
 
-| Phase | Challenges | Tests | Status |
-|-------|-----------|-------|--------|
-| 1 | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44 | ✅ Complete |
-| 2 | #6 (effects & handlers) | 20 | ✅ Complete |
-| 3 | #7–8 (language protocol, generic tooling) | 31 | ✅ Complete |
-| Deep dive | Effect typing (row inference, handler elimination, polymorphic rows) | 31 | ✅ Complete |
-| 4 | #9 (structural preservation under monadic translation) | 33 | ✅ Complete |
-| 5 | #10 (minimality — Lean4) | 7 theorems | ✅ Complete |
-| 6 | #11 (ArrowApply without opacity) | 19 | ✅ Complete |
-| 7 | Translation asymmetry — Lean4 | 8 theorems | ✅ Complete |
-| 8 | #12 (structural preservation under profunctor translation) | 28 | ✅ Complete |
-| 9 | #13 (arrow vs freer monad asymmetry — REVISED) | 23 | ✅ Complete |
+| Phase     | Challenges                                                           | Tests      | Status      |
+| --------- | -------------------------------------------------------------------- | ---------- | ----------- |
+| 1         | #1–5 (expressiveness, abstraction, parametricity, typing, recursion) | 44         | ✅ Complete |
+| 2         | #6 (effects & handlers)                                              | 20         | ✅ Complete |
+| 3         | #7–8 (language protocol, generic tooling)                            | 31         | ✅ Complete |
+| Deep dive | Effect typing (row inference, handler elimination, polymorphic rows) | 31         | ✅ Complete |
+| 4         | #9 (structural preservation under monadic translation)               | 33         | ✅ Complete |
+| 5         | #10 (minimality — Lean4)                                             | 7 theorems | ✅ Complete |
+| 6         | #11 (ArrowApply without opacity)                                     | 19         | ✅ Complete |
+| 7         | Translation asymmetry — Lean4                                        | 8 theorems | ✅ Complete |
+| 8         | #12 (structural preservation under profunctor translation)           | 28         | ✅ Complete |
+| 9         | #13 (arrow vs freer monad asymmetry — REVISED)                       | 23         | ✅ Complete |
 
 **Total: 229/229 Rust tests + 212 Lean4 theorems (17 modules, 9,165 lines), zero `sorry`, zero warnings.**
 
@@ -275,10 +275,10 @@ continuations) reveals a clear asymmetry:
 1. **Expressiveness gap (MECHANIZED UNIVERSAL THEOREM, zero `sorry`):**
    The freer monad CANNOT correctly encode arrow fanout, choice, or
    loop. This is fully mechanized in Lean4 — not just for the canonical
-   encoding, but for the *entire class* of `bind`-based encodings. The
+   encoding, but for the _entire class_ of `bind`-based encodings. The
    key encoding-independent law (`bind_continuation_input_is_predecessor_output`,
    provable by `rfl`): in `bind m k`, the continuation `k` is invoked
-   with `m`'s *output*, never the original input. Three universal
+   with `m`'s _output_, never the original input. Three universal
    theorems: `no_bind_encoding_preserves_fanout` (Get/Put semantics),
    `no_bind_encoding_preserves_choice` (Sum value domain),
    `no_bind_encoding_preserves_loop` (pair/feedback value domain). All
@@ -307,18 +307,18 @@ See `RESULTS_CHALLENGE13.md` and `FORMALIZATION_SUMMARY.md` for the full
 ## Relationship to the Wikipedia Article on Arrows
 
 The Wikipedia article on [Arrow (computer
-science)](https://en.wikipedia.org/wiki/Arrow_(computer_science)) makes
+science)](<https://en.wikipedia.org/wiki/Arrow_(computer_science)>) makes
 several claims that this project directly addresses. The full analysis
 is in `WRITEUP.md` §12; summary:
 
-| Wikipedia claim | Our finding | Challenge |
-|---|---|---|
-| "ArrowApply rarely used because equivalent to monads" | **Refuted**: equivalence is power, not representation. Explicit ArrowApply gives monadic power without opacity. | #11 |
-| "Utility of arrows subsumed by profunctor" | **Refuted**: bare profunctor can't express fanout/choice/feedback. "Strong cocartesian traced profunctor" = Arrow. | #12 |
-| "FP enables static code analysis" (attributed to FP, not arrows specifically) | **Extended**: precise characterization of what explicit arrow structure preserves that opaque monadic structure destroys — effect inference, per-branch analysis, speculative compilation, fusion. | #9, #11, #13 |
-| "Monads often preferable when arrow features unnecessary" | **Extended**: Wikipedia is right that monads are simpler when you don't need arrow features — but understates those features. Fanout/choice are expressiveness gaps monads can't bridge, not optional convenience. | #13 |
-| 3 primitives (Haskell type class) | **Extended**: 5 independent primitives needed for full PL (adds left, loop). Independence proven in Lean4. | #10 |
-| Choice/feedback are optional extensions | **Extended**: necessary for PL (branching, recursion). Sufficiency demonstrated. | #1–#8 |
+| Wikipedia claim                                                               | Our finding                                                                                                                                                                                                        | Challenge    |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| "ArrowApply rarely used because equivalent to monads"                         | **Refuted**: equivalence is power, not representation. Explicit ArrowApply gives monadic power without opacity.                                                                                                    | #11          |
+| "Utility of arrows subsumed by profunctor"                                    | **Refuted**: bare profunctor can't express fanout/choice/feedback. "Strong cocartesian traced profunctor" = Arrow.                                                                                                 | #12          |
+| "FP enables static code analysis" (attributed to FP, not arrows specifically) | **Extended**: precise characterization of what explicit arrow structure preserves that opaque monadic structure destroys — effect inference, per-branch analysis, speculative compilation, fusion.                 | #9, #11, #13 |
+| "Monads often preferable when arrow features unnecessary"                     | **Extended**: Wikipedia is right that monads are simpler when you don't need arrow features — but understates those features. Fanout/choice are expressiveness gaps monads can't bridge, not optional convenience. | #13          |
+| 3 primitives (Haskell type class)                                             | **Extended**: 5 independent primitives needed for full PL (adds left, loop). Independence proven in Lean4.                                                                                                         | #10          |
+| Choice/feedback are optional extensions                                       | **Extended**: necessary for PL (branching, recursion). Sufficiency demonstrated.                                                                                                                                   | #1–#8        |
 
 ---
 
@@ -341,7 +341,7 @@ presentation of the same power that stays **transparent**. That is the
 non-trivial part, and it is what makes the claim interesting.
 
 It no longer says "arrows are better than monads"; it says "this explicit
-ArrowApply presentation gives you monadic power *without* the opacity
+ArrowApply presentation gives you monadic power _without_ the opacity
 penalty."
 
 Challenge #12 extends this: the structural advantages are not subsumed by
@@ -394,6 +394,7 @@ typing derivation and the proof derivation are structurally identical."
 ```
 
 All seven execution cases discharged, including the two subtle ones:
+
 - `eLeftR`: `left G` preserves the right summand (`inr b ⟹ inr b`).
 - `eLoop`: the fixpoint witness `HasType cₙ C` supplies the feedback
   channel's type.
