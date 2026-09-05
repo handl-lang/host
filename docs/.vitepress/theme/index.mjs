@@ -7,7 +7,7 @@ export default {
   Layout: () => {
     return h(DefaultTheme.Layout, null, {});
   },
-  enhanceApp({ app, router, siteData }) {
+  enhanceApp({ _app, _router, _siteData }) {
     // app-specific logic
   },
 };

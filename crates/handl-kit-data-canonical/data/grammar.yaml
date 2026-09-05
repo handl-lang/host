@@ -449,15 +449,27 @@
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
+# `a[i]` — subscript. The `[` is both the infix operator and the opening
+# delimiter (`open_is_operator_token`), so the delimited block parses the
+# subscript expression and consumes the closing `]` — without it the `]`
+# was left in the stream and silently truncated any following tokens
+# (e.g. `r.b[0] + r.a` dropped `+ r.a`).
 - id: grammar.index.postfix
   token: token.lbracket
   position: Infix
   binding_power:
     - 90
-    - 0
+    - 91
   child_shape:
     node_kind: index
     arity: 2
+    delimited:
+      open: token.lbracket
+      close: token.rbracket
+      separator: ~
+      container_kind: index
+      open_is_operator_token: true
+      flatten: true
 - id: grammar.array.prefix
   token: token.lbracket
   position: Prefix

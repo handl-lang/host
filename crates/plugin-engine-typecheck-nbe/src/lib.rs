@@ -1429,6 +1429,12 @@ impl NbeTypecheckEngine {
                             .collect::<Result<Vec<_>, _>>()?
                     }
                 };
+                let scrutinee_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::engine_node("synth_match_arms: scrutinee child index is not a u64", node)
+                })? as usize;
+                let scrutinee_ref = AstRef::new(scrutinee_idx);
+                let scrutinee_type = self.synth_node(lang, ast, scrutinee_ref, ctx)?;
+
                 let mut arm_types: Vec<Value> = Vec::new();
                 for arm_idx in arm_indices {
                     let arm_ref = AstRef::new(arm_idx);
@@ -1454,14 +1460,24 @@ impl NbeTypecheckEngine {
                             "synth_match_arms: arm node needs at least 2 children (pattern, body)",
                         ));
                     }
+                    let pattern_idx = arm_children[0].as_u64().ok_or_else(|| {
+                        LangError::engine_node(
+                            "synth_match_arms: pattern child index is not a u64",
+                            node,
+                        )
+                    })? as usize;
                     let body_idx = arm_children[1].as_u64().ok_or_else(|| {
                         LangError::engine_node(
                             "synth_match_arms: body child index is not a u64",
                             node,
                         )
                     })? as usize;
+                    let pattern_ref = AstRef::new(pattern_idx);
                     let body_ref = AstRef::new(body_idx);
+                    let mark = ctx.mark();
+                    self.bind_pattern_vars(lang, ast, pattern_ref, &scrutinee_type, ctx)?;
                     let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
+                    ctx.restore(mark);
                     arm_types.push(body_type);
                 }
                 // Unify all arm types
@@ -1593,6 +1609,10 @@ impl NbeTypecheckEngine {
                 let param_type = meta_value(param_meta);
                 ctx.extend(param_name.to_string(), param_type.clone());
                 let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
+                // Zonk so callers see solved parameter types (e.g. `flow` can
+                // extract a concrete param type from the function value).
+                let param_type = self.zonk(&param_type, ctx);
+                let body_type = self.zonk(&body_type, ctx);
                 let payload = serde_json::json!({"param": param_type, "body": body_type});
                 ctx.registry
                     .construct("type.function", &payload)
@@ -1882,39 +1902,50 @@ impl NbeTypecheckEngine {
                 }
             }
             "record_field_type" => {
-                // Extract a field's type from a `type.record` value. The field
-                // name comes from `lit` (string) or `incoming` (string); the
-                // record type value comes from `args[0]` (a sub-scheme that
-                // evaluates to the record type value).
-                let field_name = match lit.and_then(|v| if v.is_null() { None } else { Some(v) }) {
-                    Some(v) => v
-                        .as_str()
-                        .ok_or_else(|| {
-                            LangError::engine("record_field_type: lit must be a string field name")
-                        })?
-                        .to_string(),
-                    None => incoming
-                        .as_ref()
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| {
-                            LangError::engine("record_field_type: no field name in lit or incoming")
-                        })?
-                        .to_string(),
+                // Extract a field's or element's type. The field/index name
+                // comes from `lit` or `incoming` (string or number). The
+                // record/array type value comes from `args[0]`. If the type is
+                // `type.array` and the field is a numeric index, return the
+                // array's element type; if it is `type.record`, look up the
+                // string field name.
+                let field_value = match lit.and_then(|v| if v.is_null() { None } else { Some(v) }) {
+                    Some(v) => v.clone(),
+                    None => incoming.clone().ok_or_else(|| {
+                        LangError::engine("record_field_type: no field name in lit or incoming")
+                    })?,
                 };
+                let field_name = field_value.as_str().map(|s| s.to_string());
+                let field_index = field_value.as_u64().or_else(|| field_name.as_ref().and_then(|s| s.parse::<u64>().ok()));
                 if args.is_empty() {
                     return Err(LangError::engine(
                         "record_field_type: requires args[0] (record type sub-scheme)",
                     ));
                 }
-                let record_type =
+                let container_type =
                     self.eval_type_scheme(lang, ast, node_ref, &args[0], ctx, incoming.clone())?;
-                let fields = record_type
+                // Detect whether the type tag is `type.array` by inspecting
+                // the `__tag__` key that the canonical registry adds.
+                if container_type.get("__tag__").and_then(|t| t.as_str()) == Some("type.array")
+                    || (container_type.get("element").is_some() && field_index.is_some())
+                {
+                    let element_type = container_type.get("element").ok_or_else(|| {
+                        LangError::engine(format!(
+                            "record_field_type: array type has no 'element' field: {:?}",
+                            container_type
+                        ))
+                    })?;
+                    return Ok(element_type.clone());
+                }
+                let field_name = field_name.ok_or_else(|| {
+                    LangError::engine("record_field_type: field name must be a string for records")
+                })?;
+                let fields = container_type
                     .get("fields")
                     .and_then(|f| f.as_object())
                     .ok_or_else(|| {
                         LangError::engine(format!(
                             "record_field_type: type value has no 'fields' object: {:?}",
-                            record_type
+                            container_type
                         ))
                     })?;
                 let field_type = fields.get(&field_name).ok_or_else(|| {
@@ -1954,44 +1985,96 @@ impl NbeTypecheckEngine {
                         node_ref.index()
                     ))
                 })?;
-                let entries = node
-                    .payload
-                    .get("entries")
-                    .and_then(|e| e.as_array())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "synth_object_record: node has no entries array",
-                            node,
-                        )
-                    })?;
                 let mut fields = serde_json::Map::new();
-                for entry in entries {
-                    let key = entry.get("key").and_then(|k| k.as_str()).ok_or_else(|| {
-                        LangError::engine_node(
-                            "synth_object_record: entry missing 'key' string",
-                            node,
-                        )
-                    })?;
-                    let value = entry.get("value").ok_or_else(|| {
-                        LangError::engine_node("synth_object_record: entry missing 'value'", node)
-                    })?;
-                    let tag = match value {
-                        Value::Number(_) => "type.number",
-                        Value::String(_) => "type.string",
-                        Value::Bool(_) => "type.bool",
-                        Value::Null => "type.null",
-                        Value::Array(_) => "type.array",
-                        Value::Object(_) => "type.object",
-                    };
-                    let field_type =
-                        ctx.registry.construct(tag, &Value::Null).ok_or_else(|| {
+
+                if let Some(entries) = node.payload.get("entries").and_then(|e| e.as_array()) {
+                    for entry in entries {
+                        let key = entry.get("key").and_then(|k| k.as_str()).ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_object_record: entry missing 'key' string",
+                                node,
+                            )
+                        })?;
+                        let value = entry.get("value").ok_or_else(|| {
+                            LangError::engine_node("synth_object_record: entry missing 'value'", node)
+                        })?;
+                        let tag = match value {
+                            Value::Number(_) => "type.number",
+                            Value::String(_) => "type.string",
+                            Value::Bool(_) => "type.bool",
+                            Value::Null => "type.null",
+                            Value::Array(_) => "type.array",
+                            Value::Object(_) => "type.object",
+                        };
+                        let field_type =
+                            ctx.registry.construct(tag, &Value::Null).ok_or_else(|| {
+                                LangError::engine(format!(
+                                    "synth_object_record: construct failed for tag '{}'",
+                                    tag
+                                ))
+                            })?;
+                        fields.insert(key.to_string(), field_type);
+                    }
+                } else if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                    for child_entry in children {
+                        let child_idx = child_entry.as_u64().ok_or_else(|| {
+                            LangError::engine_node("synth_object_record: child index is not a u64", node)
+                        })? as usize;
+                        let child_ref = AstRef::new(child_idx);
+                        let child_node = ast.get(child_ref).ok_or_else(|| {
                             LangError::engine(format!(
-                                "synth_object_record: construct failed for tag '{}'",
-                                tag
+                                "synth_object_record: child node {} out of bounds",
+                                child_idx
                             ))
                         })?;
-                    fields.insert(key.to_string(), field_type);
+                        // Surface parser emits object entries as child `entry`
+                        // nodes with two children: [key, value]. Use structural
+                        // shape (string payload as first child) to avoid a
+                        // hardcoded node-kind check.
+                        let entry_children = child_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "synth_object_record: child node has no children array",
+                                    node,
+                                )
+                            })?;
+                        if entry_children.len() < 2 {
+                            continue;
+                        }
+                        let key_idx = entry_children[0].as_u64().ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_object_record: child key index is not a u64",
+                                node,
+                            )
+                        })? as usize;
+                        let value_idx = entry_children[1].as_u64().ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_object_record: child value index is not a u64",
+                                node,
+                            )
+                        })? as usize;
+                        let key_node = ast.get(AstRef::new(key_idx)).ok_or_else(|| {
+                            LangError::engine(format!(
+                                "synth_object_record: key node {} out of bounds",
+                                key_idx
+                            ))
+                        })?;
+                        let Some(key) = key_node.payload.as_str() else {
+                            continue;
+                        };
+                        let value_type = self.synth_node(lang, ast, AstRef::new(value_idx), ctx)?;
+                        fields.insert(key.to_string(), value_type);
+                    }
+                } else {
+                    return Err(LangError::engine_node(
+                        "synth_object_record: node has no entries or children array",
+                        node,
+                    ));
                 }
+
                 let fields_value = Value::Object(fields);
                 let mut payload = serde_json::Map::new();
                 payload.insert("fields".to_string(), fields_value);
@@ -2931,6 +3014,119 @@ impl NbeTypecheckEngine {
                     .collect(),
             ),
             _ => v.clone(),
+        }
+    }
+
+    /// Extend the typing context with all variables bound by a `match` arm
+    /// pattern. Binders are `var` leaf nodes; composite patterns (`array`,
+    /// `object`, `entry`, `rest`) are recursed structurally. When the
+    /// scrutinee type provides element/field types, those are used; otherwise
+    /// a fresh metavariable is used. This is a dedicated judgment combinator
+    /// for pattern binding (ADR-0054).
+    fn bind_pattern_vars(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        pattern_ref: AstRef,
+        scrutinee_type: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
+        let pattern = ast.get(pattern_ref).ok_or_else(|| {
+            LangError::engine(format!(
+                "bind_pattern_vars: pattern node {} out of bounds",
+                pattern_ref.index()
+            ))
+        })?;
+
+        match pattern.kind.as_str() {
+            "var" => {
+                if let Some(name) = pattern.payload.as_str() {
+                    if name != "_" {
+                        let meta = ctx.fresh_meta();
+                        ctx.extend(name.to_string(), meta_value(meta));
+                    }
+                }
+                Ok(())
+            }
+            "array" => {
+                let element_type = scrutinee_type
+                    .get("element")
+                    .cloned()
+                    .unwrap_or_else(|| meta_value(ctx.fresh_meta()));
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    for child_entry in children {
+                        let child_idx = child_entry.as_u64().ok_or_else(|| {
+                            LangError::engine("bind_pattern_vars: array child index is not a u64")
+                        })? as usize;
+                        let child_ref = AstRef::new(child_idx);
+                        let Some(child_node) = ast.get(child_ref) else {
+                            continue;
+                        };
+                        if child_node.kind == "rest" {
+                            self.bind_pattern_vars(lang, ast, child_ref, scrutinee_type, ctx)?;
+                        } else {
+                            self.bind_pattern_vars(lang, ast, child_ref, &element_type, ctx)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            "object" => {
+                let fields = scrutinee_type
+                    .get("fields")
+                    .and_then(|f| f.as_object());
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    for child_entry in children {
+                        let child_idx = child_entry.as_u64().ok_or_else(|| {
+                            LangError::engine("bind_pattern_vars: object child index is not a u64")
+                        })? as usize;
+                        let child_ref = AstRef::new(child_idx);
+                        let Some(child_node) = ast.get(child_ref) else {
+                            continue;
+                        };
+                        if child_node.kind == "entry" {
+                            if let Some(entry_children) = child_node
+                                .payload
+                                .get("children")
+                                .and_then(|c| c.as_array())
+                            {
+                                if entry_children.len() >= 2 {
+                                    let key_idx = entry_children[0].as_u64().ok_or_else(|| {
+                                        LangError::engine(
+                                            "bind_pattern_vars: entry key index is not a u64",
+                                        )
+                                    })? as usize;
+                                    let value_idx = entry_children[1].as_u64().ok_or_else(|| {
+                                        LangError::engine(
+                                            "bind_pattern_vars: entry value index is not a u64",
+                                        )
+                                    })? as usize;
+                                    let key_name = ast.get(AstRef::new(key_idx))
+                                        .and_then(|n| n.payload.as_str())
+                                        .unwrap_or("");
+                                    let field_type = fields
+                                        .and_then(|fs| fs.get(key_name))
+                                        .cloned()
+                                        .unwrap_or_else(|| meta_value(ctx.fresh_meta()));
+                                    self.bind_pattern_vars(lang, ast, AstRef::new(value_idx), &field_type, ctx)?;
+                                }
+                            }
+                        } else if child_node.kind == "rest" {
+                            self.bind_pattern_vars(lang, ast, child_ref, scrutinee_type, ctx)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            "rest" => {
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    if let Some(first) = children.first().and_then(|v| v.as_u64()) {
+                        self.bind_pattern_vars(lang, ast, AstRef::new(first as usize), scrutinee_type, ctx)?;
+                    }
+                }
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 

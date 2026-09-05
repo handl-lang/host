@@ -2,7 +2,7 @@
 
 function makeClass() {
   return class {
-    constructor(...args) {}
+    constructor(..._args) {}
   };
 }
 

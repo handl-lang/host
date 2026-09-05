@@ -1,8 +1,9 @@
+---
 - id: token.keyword.test
-    label: test
-  - id: token.keyword.property
-    label: property
-  - id: token.keyword.integration_test
-    label: integration_test
-  - id: token.keyword.bench
-    label: bench
+  label: test
+- id: token.keyword.property
+  label: property
+- id: token.keyword.integration_test
+  label: integration_test
+- id: token.keyword.bench
+  label: bench
