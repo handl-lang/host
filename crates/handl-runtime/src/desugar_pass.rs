@@ -882,38 +882,221 @@ fn collect_constructors(node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor
 /// constructor argument contains the type being defined in a negative
 /// position (e.g. `data Bad = MkBad(Bad -> Int)`).
 ///
-/// For simple inductive types (steps 1-2), we check that no constructor
-/// argument's type name equals the type being defined when the argument
-/// appears in a function position (negative). Since we only store type
-/// *names* (not full type expressions) in the payload, the check is: no
-/// constructor arg type may be a function type whose domain is the type
-/// being defined. For the initial implementation, we check the simpler
-/// condition: the type name must not appear as a function-arg type. This
-/// covers the common cases (`Bad = MkBad(Bad -> Int)`, `Bad = MkBad(Int -> Bad)`).
+/// This parses each constructor argument's type expression into a tree and
+/// walks it with the Coq-style strict positivity rule: in `A -> B`, the type
+/// being defined must not occur **at all** in `A` (the domain), and must be
+/// strictly positive in `B` (the codomain). In `Name(args)`, the type may
+/// occur in `args` (all positive). A bare `Name` is always strictly positive.
+///
+/// This handles nested function types (`(Bad -> Int) -> Int`), parameterized
+/// types (`List(Bad)`), and parenthesized types.
 ///
 /// Returns `Ok(())` if the declaration is strictly positive, `Err(reason)`
 /// otherwise.
 fn check_strict_positivity(type_name: &str, constructors: &[DataConstructor]) -> Result<(), String> {
     for cons in constructors {
         for (arg_name, arg_type) in &cons.args {
-            // A function type containing the type name in its domain is
-            // a negative occurrence. We check for the pattern `Type -> ...`
-            // where `Type` is the type being defined.
-            if arg_type.contains("->") {
-                // The arg type is a function type. Check if the type name
-                // appears in the domain (left of the first `->`).
-                let domain = arg_type.split("->").next().unwrap_or("").trim();
-                if domain == type_name {
+            let mut parser = TypeExprParser::new(arg_type);
+            if let Some(expr) = parser.parse() {
+                if let Err(reason) = check_strict_positivity_rec(&expr, type_name) {
                     return Err(format!(
                         "strict positivity violated: constructor '{}' arg '{}' has type '{}' \
-                         with '{}' in a negative (function domain) position",
-                        cons.name, arg_name, arg_type, type_name
+                         — {}",
+                        cons.name, arg_name, arg_type, reason
                     ));
                 }
             }
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Type-expression parser for strict positivity checking
+// ---------------------------------------------------------------------------
+
+/// A parsed type expression.
+#[derive(Debug, Clone)]
+enum TypeExpr {
+    /// A bare type name, e.g. `Nat`.
+    Atom(String),
+    /// A parameterized type application, e.g. `List(Nat)`.
+    App(String, Vec<TypeExpr>),
+    /// A function type `A -> B`.
+    Func(Box<TypeExpr>, Box<TypeExpr>),
+}
+
+/// Tokenize a type-expression string into `->`, `(`, `)`, `,`, and
+/// identifiers (alphanumeric + `_`).
+fn tokenize_type_expr(s: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut chars = s.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        if c.is_whitespace() {
+            chars.next();
+        } else if c == '-' && chars.clone().nth(1) == Some('>') {
+            chars.next();
+            chars.next();
+            tokens.push("->".to_string());
+        } else if c == '(' || c == ')' || c == ',' {
+            tokens.push(c.to_string());
+            chars.next();
+        } else if c.is_alphanumeric() || c == '_' {
+            let mut ident = String::new();
+            while let Some(&c2) = chars.peek() {
+                if c2.is_alphanumeric() || c2 == '_' {
+                    ident.push(c2);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            tokens.push(ident);
+        } else {
+            // Unknown character — skip it.
+            chars.next();
+        }
+    }
+    tokens
+}
+
+/// A simple recursive-descent parser for type expressions.
+///
+/// Grammar:
+/// ```text
+/// TypeExpr     = FuncType
+/// FuncType     = AppType ('->' FuncType)?
+/// AppType      = AtomType ('(' TypeExprList ')')?
+/// AtomType     = identifier | '(' FuncType ')'
+/// TypeExprList = FuncType (',' FuncType)*
+/// ```
+struct TypeExprParser {
+    tokens: Vec<String>,
+    pos: usize,
+}
+
+impl TypeExprParser {
+    fn new(s: &str) -> Self {
+        TypeExprParser {
+            tokens: tokenize_type_expr(s),
+            pos: 0,
+        }
+    }
+
+    fn peek(&self) -> Option<&str> {
+        self.tokens.get(self.pos).map(|s| s.as_str())
+    }
+
+    fn advance(&mut self) -> Option<&str> {
+        let tok = self.tokens.get(self.pos).map(|s| s.as_str());
+        self.pos += 1;
+        tok
+    }
+
+    fn parse(&mut self) -> Option<TypeExpr> {
+        self.parse_func_type()
+    }
+
+    fn parse_func_type(&mut self) -> Option<TypeExpr> {
+        let left = self.parse_app_type()?;
+        if self.peek() == Some("->") {
+            self.advance(); // consume `->`
+            let right = self.parse_func_type()?;
+            Some(TypeExpr::Func(Box::new(left), Box::new(right)))
+        } else {
+            Some(left)
+        }
+    }
+
+    fn parse_app_type(&mut self) -> Option<TypeExpr> {
+        let atom = self.parse_atom_type()?;
+        // Check for `(args)` — a parameterized type application.
+        if self.peek() == Some("(") {
+            self.advance(); // consume `(`
+            let mut args = Vec::new();
+            if self.peek() != Some(")") {
+                args.push(self.parse_func_type()?);
+                while self.peek() == Some(",") {
+                    self.advance(); // consume `,`
+                    args.push(self.parse_func_type()?);
+                }
+            }
+            if self.peek() == Some(")") {
+                self.advance(); // consume `)`
+            }
+            if let TypeExpr::Atom(name) = atom {
+                Some(TypeExpr::App(name, args))
+            } else {
+                // A parenthesized type followed by `(args)` — unusual; just
+                // return the atom.
+                Some(atom)
+            }
+        } else {
+            Some(atom)
+        }
+    }
+
+    fn parse_atom_type(&mut self) -> Option<TypeExpr> {
+        let peeked = self.peek().map(|s| s.to_string());
+        match peeked.as_deref() {
+            Some("(") => {
+                self.advance(); // consume `(`
+                let inner = self.parse_func_type()?;
+                if self.peek() == Some(")") {
+                    self.advance(); // consume `)`
+                }
+                // Parentheses just unwrap — return the inner type directly.
+                Some(inner)
+            }
+            Some(tok) if tok != "->" && tok != ")" && tok != "," => {
+                self.advance();
+                Some(TypeExpr::Atom(tok.to_string()))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Recursively check strict positivity: the type being defined must not
+/// occur in the domain of any function type (Coq-style strict positivity).
+///
+/// - `Atom(name)`: always OK (a bare type name is in a positive position).
+/// - `App(name, args)`: recurse into each arg (all positive positions).
+/// - `Func(domain, codomain)`: the type must not occur **at all** in
+///   `domain`; it must be strictly positive in `codomain`.
+fn check_strict_positivity_rec(expr: &TypeExpr, type_name: &str) -> Result<(), String> {
+    match expr {
+        TypeExpr::Atom(_) => Ok(()),
+        TypeExpr::App(_, args) => {
+            for arg in args {
+                check_strict_positivity_rec(arg, type_name)?;
+            }
+            Ok(())
+        }
+        TypeExpr::Func(domain, codomain) => {
+            if occurs_in(domain, type_name) {
+                Err(format!(
+                    "'{}' occurs in a function domain (negative position)",
+                    type_name
+                ))
+            } else {
+                check_strict_positivity_rec(codomain, type_name)
+            }
+        }
+    }
+}
+
+/// Check whether the type name occurs anywhere in a type expression.
+fn occurs_in(expr: &TypeExpr, type_name: &str) -> bool {
+    match expr {
+        TypeExpr::Atom(name) => name == type_name,
+        TypeExpr::App(name, args) => {
+            name == type_name || args.iter().any(|a| occurs_in(a, type_name))
+        }
+        TypeExpr::Func(domain, codomain) => {
+            occurs_in(domain, type_name) || occurs_in(codomain, type_name)
+        }
+    }
 }
 
 /// Desugar a `data` declaration into a `block` of definitions:
@@ -1110,14 +1293,22 @@ fn build_cons_check(
 }
 
 /// Build the recursor inner function (self-application form):
-///   (self) -> (base, step) -> (n) ->
-///     if n.tag == "<first_cons>" then base
-///     else step(n.<arg>, self(self)(base, step)(n.<arg>))
+///   (self) -> (c0, c1, ..., c_{N-1}) -> (n) ->
+///     if n.tag == "C0" then <c0-branch>
+///     else if n.tag == "C1" then <c1-branch>
+///     ...
+///     else null
+///
+/// The recursor takes one parameter per constructor. For a nullary
+/// constructor `Ci`, the branch returns `ci` directly. For a non-nullary
+/// constructor `Ci(a1, ..., ak)`, the branch calls `ci(n.a1, ..., n.ak,
+/// rec_1, ..., rec_m)` where `rec_j` is the recursive result for each
+/// recursive arg (arg whose type equals the type being defined).
 ///
 /// The `self` parameter is the recursor's own inner function. The recursive
-/// call uses `self(self)(base, step)(n.arg)` instead of naming the recursor
-/// directly, enabling recursion via self-application (Y-combinator style).
-/// This avoids the need for a self-referential binding.
+/// call uses `self(self)(c0, ..., c_{N-1})(n.arg)` instead of naming the
+/// recursor directly, enabling recursion via self-application (Y-combinator
+/// style). This avoids the need for a self-referential binding.
 fn build_recursor(
     out: &mut Ast,
     type_name: &str,
@@ -1125,86 +1316,107 @@ fn build_recursor(
 ) -> usize {
     // Parameter: self (the inner function, applied to itself for recursion)
     let self_var = push_leaf(out, "var", Value::from("self"));
-    // Parameters: (base, step)
-    let base_var = push_leaf(out, "var", Value::from("base"));
-    let step_var = push_leaf(out, "var", Value::from("step"));
+
+    // Generate one parameter per constructor: c0, c1, ..., c_{N-1}.
+    let param_names: Vec<String> = (0..constructors.len()).map(|i| format!("c{}", i)).collect();
+    let param_vars: Vec<usize> = param_names
+        .iter()
+        .map(|name| push_leaf(out, "var", Value::from(name.clone())))
+        .collect();
 
     // Inner function: (n) -> <dispatch>
     let n_var = push_leaf(out, "var", Value::from("n"));
 
     // Build the dispatch on n.tag for each constructor.
-    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, base_var, step_var, self_var);
+    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, &param_vars, self_var);
 
     let inner_fn = push_function(out, &["n"], dispatch);
-    // Middle function: (base, step) -> inner_fn
-    let mid_fn = push_function(out, &["base", "step"], inner_fn);
+    // Middle function: (c0, c1, ..., c_{N-1}) -> inner_fn
+    let mid_param_refs: Vec<&str> = param_names.iter().map(|s| s.as_str()).collect();
+    let mid_fn = push_function(out, &mid_param_refs, inner_fn);
     // Outer function: (self) -> mid_fn
     push_function(out, &["self"], mid_fn)
 }
 
-/// Build the recursor body: dispatch on n.tag.
-/// - First constructor (nullary): `if n.tag == "C0" then base`
-/// - Other constructors: `else if n.tag == "Ci" then step_i(n.arg, self(self)(base, step)(n.arg))`
+/// Build the recursor body: dispatch on `n.tag` across all constructors,
+/// building a right-nested `if` tree.
+///
+/// For each constructor `Ci`:
+/// - **Nullary** (`Ci` with no args): the branch is `ci` (the parameter
+///   returned directly).
+/// - **Non-nullary** (`Ci(a1, ..., ak)`): the branch is
+///   `ci(n.a1, ..., n.ak, rec_1, ..., rec_m)` where `rec_j` is
+///   `self(self)(c0, ..., c_{N-1})(n.aj)` for each recursive arg `aj`
+///   (whose type equals `type_name`).
+///
+/// The `if` eval scheme expects exactly 3 children `[cond, then, else]`,
+/// so we nest the else-if chain right-to-left, with `null` as the
+/// final fallback.
 fn build_recursor_dispatch(
     out: &mut Ast,
-    _type_name: &str,
+    type_name: &str,
     constructors: &[DataConstructor],
     n_idx: usize,
-    base_idx: usize,
-    step_idx: usize,
+    param_vars: &[usize],
     self_idx: usize,
 ) -> usize {
     if constructors.is_empty() {
         return push_leaf(out, "lit", Value::Null);
     }
 
-    // n.tag
-    let tag_lit = push_leaf(out, "lit", Value::from("tag"));
-    let n_tag = push_node(out, "field-access", vec![n_idx, tag_lit]);
+    // Build `self(self)` — the recursive self-application. Shared across
+    // all recursive calls (multiple nodes can reference the same arena index).
+    let self_self = push_node(out, "call", vec![self_idx, self_idx]);
+    // Build `self(self)(c0, c1, ..., c_{N-1})` — the recursor closure,
+    // shared across all recursive calls.
+    let mut rec_app_children = vec![self_self];
+    rec_app_children.extend(param_vars.iter().copied());
+    let rec_app = push_node(out, "call", rec_app_children);
 
-    // First constructor (base case): n.tag == "C0" → base
-    let first = &constructors[0];
-    let first_name_lit = push_leaf(out, "lit", Value::from(first.name.clone()));
-    let first_tag_eq = push_node(out, "binary.eq", vec![n_tag, first_name_lit]);
+    // Fold right-to-left over constructors, building a right-nested if tree.
+    // The last constructor's else branch is `null`.
+    let mut else_branch = push_leaf(out, "lit", Value::Null);
 
-    if constructors.len() == 1 {
-        // Only one constructor — the recursor just returns base.
-        let null_lit = push_leaf(out, "lit", Value::Null);
-        return push_node(out, "if", vec![first_tag_eq, base_idx, null_lit]);
+    for i in (0..constructors.len()).rev() {
+        let cons = &constructors[i];
+
+        // n.tag == "Ci"
+        let tag_lit = push_leaf(out, "lit", Value::from("tag"));
+        let n_tag = push_node(out, "field-access", vec![n_idx, tag_lit]);
+        let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
+        let tag_eq = push_node(out, "binary.eq", vec![n_tag, cons_name_lit]);
+
+        // Build the then-branch for constructor Ci.
+        let then_branch = if cons.args.is_empty() {
+            // Nullary constructor: return the param directly.
+            param_vars[i]
+        } else {
+            // Non-nullary: call ci(n.a1, ..., n.ak, rec_1, ..., rec_m)
+            let mut call_children = vec![param_vars[i]];
+            // Pass all constructor args: n.a1, n.a2, ...
+            for (arg_name, _) in &cons.args {
+                let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+                let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
+                call_children.push(n_arg);
+            }
+            // Pass recursive results for each recursive arg.
+            for (arg_name, arg_type) in &cons.args {
+                if arg_type == type_name {
+                    let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+                    let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
+                    // self(self)(c0, ..., c_{N-1})(n.arg)
+                    let rec_full = push_node(out, "call", vec![rec_app, n_arg]);
+                    call_children.push(rec_full);
+                }
+            }
+            push_node(out, "call", call_children)
+        };
+
+        // if n.tag == "Ci" then then_branch else else_branch
+        else_branch = push_node(out, "if", vec![tag_eq, then_branch, else_branch]);
     }
 
-    // Second constructor (step case): n.tag == "C1" → step(n.arg, Type.rec(base, step)(n.arg))
-    let second = &constructors[1];
-    let tag_lit2 = push_leaf(out, "lit", Value::from("tag"));
-    let n_tag2 = push_node(out, "field-access", vec![n_idx, tag_lit2]);
-    let second_name_lit = push_leaf(out, "lit", Value::from(second.name.clone()));
-    let second_tag_eq = push_node(out, "binary.eq", vec![n_tag2, second_name_lit]);
-
-    // n.arg (the recursive argument, if any)
-    let step_expr = if second.args.is_empty() {
-        // No args — just call step with no recursive arg.
-        push_node(out, "call", vec![step_idx])
-    } else {
-        // n.<first_arg>
-        let (arg_name, _) = &second.args[0];
-        let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-        let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
-        // self(self) — recursive self-application
-        let rec_call = push_node(out, "call", vec![self_idx, self_idx]);
-        // self(self)(base, step) — apply to base and step
-        let rec_app = push_node(out, "call", vec![rec_call, base_idx, step_idx]);
-        // self(self)(base, step)(n.arg) — apply to the recursive arg
-        let rec_full = push_node(out, "call", vec![rec_app, n_arg]);
-        // step(n.arg, self(self)(base, step)(n.arg))
-        push_node(out, "call", vec![step_idx, n_arg, rec_full])
-    };
-
-    // if n.tag == "C0" then base else if{n.tag == "C1", step_expr, null}
-    // The `if` eval scheme expects exactly 3 children [cond, then, else].
-    // Nest the else-if chain so every `if` node has 3 children.
-    let null_lit = push_leaf(out, "lit", Value::Null);
-    let inner_if = push_node(out, "if", vec![second_tag_eq, step_expr, null_lit]);
-    push_node(out, "if", vec![first_tag_eq, base_idx, inner_if])
+    else_branch
 }
 
 // ---------------------------------------------------------------------------
@@ -2507,6 +2719,325 @@ mod tests {
         assert_eq!(
             params[0], json!("value"),
             "type-annot arg name should be 'value', not a placeholder"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 2.1: Recursor handles N constructors (not just 2)
+    // -----------------------------------------------------------------------
+
+    /// Count nodes of a given kind in the output AST.
+    fn count_kind(out: &Ast, kind: &str) -> usize {
+        out.nodes().iter().filter(|n| n.kind == kind).count()
+    }
+
+    /// Extract the recursor's middle-function param count from a desugared
+    /// `data` block. The recursor is the last `assign` in the block; its
+    /// value is a `rec` region whose first binding (`__rec_inner_<T>`) holds
+    /// the outer function `(self) -> (c0, ..., c_{N-1}) -> (n) -> ...`. We
+    /// walk down: assign → rec → assign[0] → function → body(function) →
+    /// function (middle) → params.len().
+    fn recursor_param_count(out: &Ast, block_children: &[Value]) -> Option<usize> {
+        // Last child is the recursor assign.
+        let rec_assign_idx = block_children.last()?.as_u64()? as usize;
+        let rec_assign = out.get(AstRef::new(rec_assign_idx))?;
+        let rec_children = rec_assign.payload.get("children")?.as_array()?;
+        // rec_assign value (child 1) is the `rec` region.
+        let rec_region_idx = rec_children.get(1)?.as_u64()? as usize;
+        let rec_region = out.get(AstRef::new(rec_region_idx))?;
+        assert_eq!(rec_region.kind, "rec");
+        let rec_region_children = rec_region.payload.get("children")?.as_array()?;
+        // First binding: __rec_inner_<T> = <outer function>
+        let inner_assign_idx = rec_region_children.first()?.as_u64()? as usize;
+        let inner_assign = out.get(AstRef::new(inner_assign_idx))?;
+        let inner_children = inner_assign.payload.get("children")?.as_array()?;
+        // Value (child 1) is the outer function: (self) -> mid_fn
+        let outer_fn_idx = inner_children.get(1)?.as_u64()? as usize;
+        let outer_fn = out.get(AstRef::new(outer_fn_idx))?;
+        assert_eq!(outer_fn.kind, "function");
+        // Body is the middle function: (c0, ..., c_{N-1}) -> inner_fn
+        let mid_fn_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
+        let mid_fn = out.get(AstRef::new(mid_fn_idx))?;
+        assert_eq!(mid_fn.kind, "function");
+        let params = mid_fn.payload.get("params")?.as_array()?;
+        Some(params.len())
+    }
+
+    #[test]
+    fn data_rgb_three_nullary_constructors() {
+        // data RGB = Red | Green | Blue — 3 nullary constructors.
+        // The recursor must dispatch on all 3, not just the first 2.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "RGB",
+            &[("Red", &[]), ("Green", &[]), ("Blue", &[])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 3 constructors + 1 recursor = 5
+        assert_eq!(
+            children.len(),
+            5,
+            "expected 5 statements (pred + 3 cons + rec)"
+        );
+
+        // The recursor middle function should have 3 params (c0, c1, c2).
+        let nparams = recursor_param_count(&out, children).expect("recursor params");
+        assert_eq!(nparams, 3, "RGB recursor should take 3 constructor params");
+
+        // The dispatch should produce 3 `if` nodes (one per constructor).
+        let if_count = count_kind(&out, "if");
+        assert_eq!(
+            if_count, 3,
+            "RGB recursor dispatch should have 3 if nodes, got {}",
+            if_count
+        );
+
+        // Every `if` node must have exactly 3 children.
+        for node in out.nodes() {
+            if node.kind == "if" {
+                let kids = node.payload.get("children").unwrap().as_array().unwrap();
+                assert_eq!(kids.len(), 3, "if node must have 3 children");
+            }
+        }
+    }
+
+    #[test]
+    fn data_nat3_three_constructors_with_recursion() {
+        // data Nat3 = Zero | Succ1(Nat3) | Succ2(Nat3) — 3 constructors,
+        // two of which are recursive. The recursor must handle all 3.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Nat3",
+            &[
+                ("Zero", &[]),
+                ("Succ1", &[("pred", "Nat3")]),
+                ("Succ2", &[("pred", "Nat3")]),
+            ],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 3 constructors + 1 recursor = 5
+        assert_eq!(children.len(), 5);
+
+        // Recursor should take 3 params.
+        let nparams = recursor_param_count(&out, children).expect("recursor params");
+        assert_eq!(nparams, 3, "Nat3 recursor should take 3 constructor params");
+
+        // 3 if nodes in the dispatch.
+        let if_count = count_kind(&out, "if");
+        assert_eq!(if_count, 3, "Nat3 recursor dispatch should have 3 if nodes");
+
+        // Every if node has 3 children.
+        for node in out.nodes() {
+            if node.kind == "if" {
+                let kids = node.payload.get("children").unwrap().as_array().unwrap();
+                assert_eq!(kids.len(), 3);
+            }
+        }
+    }
+
+    #[test]
+    fn data_tree_binary_recursion() {
+        // data Tree = Leaf | Node(Tree, Tree) — a constructor with TWO
+        // recursive args. The step call must pass both recursive results.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Tree",
+            &[("Leaf", &[]), ("Node", &[("left", "Tree"), ("right", "Tree")])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 2 constructors + 1 recursor = 4
+        assert_eq!(children.len(), 4);
+
+        // Recursor should take 2 params (c0=Leaf, c1=Node).
+        let nparams = recursor_param_count(&out, children).expect("recursor params");
+        assert_eq!(nparams, 2, "Tree recursor should take 2 constructor params");
+
+        // 2 if nodes in the dispatch.
+        let if_count = count_kind(&out, "if");
+        assert_eq!(if_count, 2, "Tree recursor dispatch should have 2 if nodes");
+
+        // The Node branch's step call should have:
+        //   c1 (callee) + 2 args (n.left, n.right) + 2 recursive results = 5 children.
+        // Find the `call` node whose first child is a var named "c1" and
+        // which has 5 children (the Node step call).
+        let mut found_node_step = false;
+        for node in out.nodes() {
+            if node.kind != "call" {
+                continue;
+            }
+            let kids = match node.payload.get("children").and_then(|c| c.as_array()) {
+                Some(a) => a,
+                None => continue,
+            };
+            if kids.len() < 2 {
+                continue;
+            }
+            // First child should be a var "c1".
+            let callee_idx = kids[0].as_u64().map(|v| v as usize);
+            if let Some(ci) = callee_idx {
+                if let Some(callee) = out.get(AstRef::new(ci)) {
+                    if callee.kind == "var" && callee.payload == json!("c1") {
+                        // This is the Node step call. It should have 5 children:
+                        // [c1, n.left, n.right, rec(left), rec(right)]
+                        assert_eq!(
+                            kids.len(),
+                            5,
+                            "Node step call should have 5 children (callee + 2 args + 2 rec results), got {}: payload={}",
+                            kids.len(),
+                            node.payload
+                        );
+                        found_node_step = true;
+                    }
+                }
+            }
+        }
+        assert!(
+            found_node_step,
+            "did not find the Node step call with 5 children"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 2.2: Strict positivity check walks type-expression AST
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn data_positivity_nested_function_type_rejected() {
+        // data Bad2 = Cons((Bad2 -> Int) -> Int) — Bad2 occurs in a
+        // negative position inside a nested function domain.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Bad2",
+            &[("Cons", &[("f", "(Bad2 -> Int) -> Int")])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "desugar-error");
+        let reason = root.payload.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+        assert!(
+            reason.contains("strict positivity"),
+            "expected strict positivity error for nested function type, got: {}",
+            reason
+        );
+    }
+
+    #[test]
+    fn data_positivity_positive_codomain_accepted() {
+        // data Ok = Cons(Int -> Ok) — Ok only appears in the positive
+        // (codomain) position, so this is strictly positive.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Ok", &[("Cons", &[("f", "Int -> Ok")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(
+            root.kind, "block",
+            "Int -> Ok should be accepted (positive codomain), got kind: {}",
+            root.kind
+        );
+    }
+
+    #[test]
+    fn data_positivity_bare_type_accepted() {
+        // data Ok2 = Cons(Ok) — a bare type reference is always positive.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Ok2", &[("Cons", &[("v", "Ok2")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(
+            root.kind, "block",
+            "bare type Ok2 should be accepted (always positive), got kind: {}",
+            root.kind
+        );
+    }
+
+    #[test]
+    fn data_positivity_negative_inside_parameterized_rejected() {
+        // data Bad3 = Cons(Wrapper(Bad3 -> Int)) — Bad3 occurs in a
+        // negative position inside a parameterized type's argument.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Bad3",
+            &[("Cons", &[("w", "Wrapper(Bad3 -> Int)")])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "desugar-error");
+        let reason = root
+            .payload
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        assert!(
+            reason.contains("strict positivity"),
+            "expected strict positivity error for negative inside Wrapper, got: {}",
+            reason
+        );
+    }
+
+    #[test]
+    fn data_positivity_parameterized_positive_accepted() {
+        // data Good = Cons(List(Good)) — Good appears inside a
+        // parameterized type's argument, which is a positive position.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Good",
+            &[("Cons", &[("xs", "List(Good)")])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(
+            root.kind, "block",
+            "List(Good) should be accepted (positive inside parameterized), got kind: {}",
+            root.kind
         );
     }
 }
