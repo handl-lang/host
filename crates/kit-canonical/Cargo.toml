@@ -26,6 +26,7 @@ handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-plugin-lib-utils = { workspace = true }
 handl-plugin-lib-handl = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
+handl-plugin-lib-unicode-native = { workspace = true }
 handl-plugin-lib-result = { workspace = true }
 handl-plugin-lib-collections = { workspace = true }
 handl-plugin-lib-tag = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "handl-plugin-lib-unicode-native"
+version.workspace = true
+edition.workspace = true
+description = "Native `unicode` module — Rust/ICU4X backend for the `unicode` contract"
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-lib-char-native = { workspace = true }
+handl-plugin-lib-unicode = { workspace = true }
+handl-plugin-module = { workspace = true }
+serde_json = { workspace = true }
+icu_casemap = { version = "2", features = ["compiled_data"] }
+icu_normalizer = { version = "2", features = ["compiled_data"] }
+icu_segmenter = { version = "2", features = ["compiled_data"] }
+unicode-width = "0.2"
+
+[dev-dependencies]
+serde_json = { workspace = true }
