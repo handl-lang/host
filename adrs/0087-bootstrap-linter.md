@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
 design in [ADR-0015](../0015-linter.md) — which stays valid — into a
 concrete implementation). Temporary: will be replaced by the
@@ -74,4 +74,4 @@ existing `plugin-ext-lint` registry.
 
 ## Status
 
-Proposed
+Implemented (merged to main).

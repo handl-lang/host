@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Depends on
 [ADR-0074](./0074-arrow-syntax-v0_1-surface-redesign.md) and the eval engine
 (`plugin-engine-eval`). Temporary: will be replaced by the self-hosted test
@@ -68,4 +68,4 @@ execution maps onto ADR-0072's concurrent arrows).
 
 ## Status
 
-Proposed
+Implemented (merged to main).

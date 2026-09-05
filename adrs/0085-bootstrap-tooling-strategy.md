@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Amends [ADR-0014](../0014-formatter.md),
+Implemented. Amends [ADR-0014](../0014-formatter.md),
 [ADR-0015](../0015-linter.md), and
 [ADR-0029](../0029-cli-as-capability-orchestrator.md): their generic,
 plugin-driven designs are **retained in Rust**; what changes is that the
@@ -90,5 +90,5 @@ Rules of engagement:
 
 ## Status
 
-Proposed
+Implemented (merged to main).
 
