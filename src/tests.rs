@@ -33,6 +33,7 @@ fn tokens_arg() -> Value {
     serde_json::to_value(Tokens(vec![Token {
         kind: "num".into(),
         text: "42".into(),
+        ..Default::default()
     }]))
     .expect("Tokens serialize")
 }
