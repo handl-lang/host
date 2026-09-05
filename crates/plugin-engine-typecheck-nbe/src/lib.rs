@@ -1629,6 +1629,7 @@ impl NbeTypecheckEngine {
                                 // (predicate). Find it in the AST to pass
                                 // to the symbolic checker.
                                 let sym_proof = self.check_predicate_symbolic(
+                                    lang,
                                     ast,
                                     AstRef::new(type_idx),
                                     AstRef::new(expr_idx),
@@ -1687,6 +1688,7 @@ impl NbeTypecheckEngine {
                                 // normalization.
                                 let proof = if proof.verdict == Verdict::Blocked {
                                     let sym_proof = self.check_predicate_symbolic(
+                                        lang,
                                         ast,
                                         AstRef::new(type_idx),
                                         AstRef::new(expr_idx),
