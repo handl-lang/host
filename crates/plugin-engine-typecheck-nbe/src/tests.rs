@@ -24,11 +24,6 @@ fn type_number() -> Value {
     json!({"__tag__":"type.number","__registry__":"handl.canonical"})
 }
 
-/// The expected tagged type value for `type.int` in `handl.canonical`.
-fn type_int() -> Value {
-    json!({"__tag__":"type.int","__registry__":"handl.canonical"})
-}
-
 /// The expected tagged type value for `type.float` in `handl.canonical`.
 fn type_float() -> Value {
     json!({"__tag__":"type.float","__registry__":"handl.canonical"})
@@ -1056,7 +1051,7 @@ fn json_type_construct_number() {
     ast.push(AstNode::new("test"));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 }
 
 // ---------------------------------------------------------------------------
@@ -1246,7 +1241,7 @@ fn value_rule_dispatches_on_json_type() {
     ast.push(AstNode::new("value").with_payload(json!(42)));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 
     // String literal → type.string
     let mut ast2 = Ast::new();
@@ -1325,7 +1320,7 @@ fn let_rule_extends_gamma_and_synths_body() {
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     // The body is var("x"), which looks up "x" in Γ → type.int.
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 }
 
 // ---------------------------------------------------------------------------
@@ -1407,7 +1402,7 @@ fn function_rule_constructs_function_type() {
         json!({
             "__tag__": "type.function",
             "__registry__": "handl.canonical",
-            "param": type_int(),
+            "param": type_number(),
             "body": type_string()
         })
     );
@@ -1662,7 +1657,7 @@ fn synth_last_child_synthesizes_last_child() {
     ast.push(AstNode::new("block").with_payload(json!({"children": [0, 1, 2]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 }
 
 // ---------------------------------------------------------------------------
@@ -2627,7 +2622,7 @@ fn synth_match_arms_unifies_matching_arms() {
     );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -2681,7 +2676,7 @@ fn synth_match_arms_single_arm() {
     );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -2948,7 +2943,7 @@ fn array_rule_with_elements_carries_element_type() {
     ast.push(AstNode::new("array").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_array(type_int()));
+    assert_eq!(result.typ, type_array(type_number()));
 }
 
 // ---------------------------------------------------------------------------
@@ -3023,7 +3018,7 @@ fn index_rule_returns_element_type() {
     ast.push(AstNode::new("index").with_payload(json!({"children": [2, 3]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 }
 
 // ===========================================================================
@@ -4374,7 +4369,7 @@ fn handle_rule_returns_body_type() {
     ast.push(AstNode::new("handle").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -4956,7 +4951,7 @@ fn pi_synth_creates_closure_based_pi() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.pi")
     );
-    assert_eq!(result.typ.get("param"), Some(&type_int()));
+    assert_eq!(result.typ.get("param"), Some(&type_number()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -4989,7 +4984,7 @@ fn sigma_synth_creates_closure_based_sigma() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.sigma")
     );
-    assert_eq!(result.typ.get("param"), Some(&type_int()));
+    assert_eq!(result.typ.get("param"), Some(&type_number()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -5793,7 +5788,7 @@ fn fanout_rule_infers_arrow_kind_signature() {
     assert_eq!(
         result.typ,
         type_function(
-            type_int(),
+            type_number(),
             type_array_elements(vec![type_string(), type_bool()])
         )
     );
@@ -5998,8 +5993,8 @@ fn product_rule_infers_arrow_kind_signature() {
     assert_eq!(
         result.typ,
         type_function(
-            type_array_elements(vec![type_int(), type_bool()]),
-            type_array_elements(vec![type_string(), type_int()])
+            type_array_elements(vec![type_number(), type_bool()]),
+            type_array_elements(vec![type_string(), type_number()])
         )
     );
 }
@@ -6169,7 +6164,7 @@ fn choice_rule_infers_arrow_kind_signature() {
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(
         result.typ,
-        type_function(type_sum(vec![type_int(), type_bool()]), type_string())
+        type_function(type_sum(vec![type_number(), type_bool()]), type_string())
     );
 }
 
@@ -6234,7 +6229,7 @@ fn forall_synth_creates_closure_based_forall() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.forall")
     );
-    assert_eq!(result.typ.get("kind"), Some(&type_int()));
+    assert_eq!(result.typ.get("kind"), Some(&type_number()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -6329,7 +6324,7 @@ fn vau_synth_creates_closure_based_vau() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.vau")
     );
-    assert_eq!(result.typ.get("param"), Some(&type_int()));
+    assert_eq!(result.typ.get("param"), Some(&type_number()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -8553,7 +8548,7 @@ fn rec_simple_fixpoint_is_int() {
     ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 3]}))); // 4: root
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -8615,10 +8610,6 @@ fn rec_countdown_is_int() {
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 11: result
                                                             // rec { n = if ...; n }
     ast.push(AstNode::new("rec").with_payload(json!({"children": [10, 11]}))); // 12: rec
-                                                                               // let n = 5 in rec { ... }
-    ast.push(
-        AstNode::new("let").with_payload(json!({"name": "n", "children": [0, 12]})), // 13: root
-    );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
@@ -8695,7 +8686,7 @@ fn rec_return_type_is_int() {
     ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 4]}))); // 5: root
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_int());
+    assert_eq!(result.typ, type_number());
 }
 
 // ---------------------------------------------------------------------------
