@@ -7,6 +7,13 @@
 # Reports are written under `coverage/` (gitignored). Run `cargo cov-clean`
 # between runs to discard stale instrumentation data.
 
+[build]
+# This machine has 16 cores but only 11 GiB RAM. Cargo's default of one job per
+# core spawns ~16 rustc/rust-lld processes that each consume 500-850 MB, which
+# exhausts RAM + swap and thrashes the whole system. Cap parallelism so builds
+# fit in memory. Raise if you have more RAM.
+jobs = 4
+
 [alias]
 # Print a per-crate coverage summary to the terminal (fast feedback).
 cov = "llvm-cov --workspace --summary-only"
