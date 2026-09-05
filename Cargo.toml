@@ -76,7 +76,6 @@ members = [
   "crates/plugin-lib-unicode",
   "crates/plugin-lib-url-rfc",
   "crates/plugin-lib-url-whatwg",
-  "crates/plugin-lib-dedent",
   "crates/plugin-lib-utils",
   "crates/plugin-lib-arrow-iter",
   "crates/plugin-lib-ws-rfc",
@@ -235,7 +234,6 @@ handl-plugin-lib-type = { path = "crates/plugin-lib-type", default-features = fa
 handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-plugin-lib-url-rfc = { path = "crates/plugin-lib-url-rfc" }
 handl-plugin-lib-url-whatwg = { path = "crates/plugin-lib-url-whatwg" }
-handl-plugin-lib-dedent = { path = "crates/plugin-lib-dedent" }
 handl-plugin-lib-utils = { path = "crates/plugin-lib-utils" }
 handl-plugin-lib-arrow-iter = { path = "crates/plugin-lib-arrow-iter" }
 handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }

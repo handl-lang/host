@@ -154,6 +154,21 @@ pub struct Throws;
 impl Function for Throws {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
+        // Try the ValueCallable path first (arrow-values from the tree-walk
+        // engine). This handles native handl arrows that serialize as
+        // `{__arrow__: true, params, body, env}` — the TreeWalkCallable
+        // reconstructs and invokes them using the thread-local AST/Language.
+        if let Some(result) = ctx.try_call_value(&args[0], &[]) {
+            if result.is_err() {
+                return Ok(b(true));
+            }
+            return Err(TestError::AssertionFailed {
+                message: "expected function to throw, but it did not".to_string(),
+            }
+            .into());
+        }
+        // Fall back to FunctionValue (legacy JSON function format with a
+        // string body expression).
         let func = require_function(&args[0])?;
         if call_function(ctx, &func, &[]).is_err() {
             return Ok(b(true));

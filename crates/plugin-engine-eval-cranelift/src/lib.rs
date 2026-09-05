@@ -1939,7 +1939,15 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     Err(e) => return ctx.set_error(e),
                 };
                 let mut param_names: Vec<String> = Vec::new();
-                if param_node.kind == "paren" || param_node.kind == "array" {
+                // Collection-vs-single params is a shape question (ADR-0081):
+                // a shape declaring a variadic role (e.g. `params`) is a param
+                // list; the legacy `paren`/`array` kinds remain only as the
+                // role-less fallback.
+                let lang = unsafe { &*ctx.lang };
+                if lang.has_variadic_role(&param_node.kind)
+                    || param_node.kind == "paren"
+                    || param_node.kind == "array"
+                {
                     let param_children = match param_node
                         .payload
                         .get("children")
@@ -3256,8 +3264,15 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
             LangError::engine_node("closure: missing body child".to_string(), node)
         })? as usize;
     let ast = unsafe { &*ctx.ast };
+    let lang = unsafe { &*ctx.lang };
     let param_node = ast.at(AstRef::new(param_idx))?;
-    let param_names: Vec<String> = if param_node.kind == "paren" || param_node.kind == "array" {
+    // Collection-vs-single params is a shape question (ADR-0081): a shape
+    // declaring a variadic role (e.g. `params`) is a param list; the legacy
+    // `paren`/`array` kinds remain only as the role-less fallback.
+    let param_names: Vec<String> = if lang.has_variadic_role(&param_node.kind)
+        || param_node.kind == "paren"
+        || param_node.kind == "array"
+    {
         let param_children = param_node
             .payload
             .get("children")

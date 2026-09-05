@@ -64,6 +64,20 @@ use handl_plugin_module::{ModuleRule, ModuleRuntime};
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 
 // ---------------------------------------------------------------------------
+// Module resolver (ADR-0077: data-driven dependency wiring)
+// ---------------------------------------------------------------------------
+
+/// Resolves module names (e.g. `"str"`, `"fn"`) to [`Module`] implementations.
+///
+/// Used by [`HandlModule::with_resolver`] to auto-wire dependencies declared
+/// in `.hnl` source via `from 'str' import * as 'str'` lines, replacing
+/// hardcoded `.with_dependency(...)` calls in Rust.
+pub trait ModuleResolver: Send + Sync {
+    /// Resolve a module name to a shared [`Module`] impl, or `None` if unknown.
+    fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>>;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers (generalized from the stats/hello bridges)
 // ---------------------------------------------------------------------------
 
@@ -136,10 +150,96 @@ pub fn strip_declaration_lines(src: &str) -> String {
                     }
                 }
             }
+            // Strip `import ...` and `from ... import ...` lines.
+            if is_import_line(trimmed) {
+                return false;
+            }
             true
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Returns true if the line is an import declaration (`import ...` or
+/// `from ... import ...`).
+fn is_import_line(trimmed: &str) -> bool {
+    if let Some(rest) = trimmed.strip_prefix("import") {
+        if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') || rest.starts_with('"') || rest.starts_with('\'') {
+            return true;
+        }
+    }
+    if let Some(rest) = trimmed.strip_prefix("from") {
+        if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+            return true;
+        }
+    }
+    false
+}
+
+/// A parsed import declaration from a `.hnl` source file.
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    /// The module path being imported from (e.g. `"str"`, `"fn"`).
+    pub path: String,
+    /// The local alias for the imported module (e.g. `"str"`).
+    pub alias: String,
+}
+
+/// Parse import declarations from a `.hnl` source string.
+///
+/// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
+pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+    src.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("--") {
+                return None;
+            }
+            parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
+        })
+        .collect()
+}
+
+fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
+    let rest = line.strip_prefix("from")?.trim();
+    if rest.is_empty() { return None; }
+    let (path, after_path) = extract_quoted(rest)?;
+    let import_kw = after_path.trim().strip_prefix("import")?.trim();
+    let star = import_kw.strip_prefix("*")?.trim();
+    let as_kw = star.strip_prefix("as")?.trim();
+    if as_kw.is_empty() { return None; }
+    let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
+        extract_quoted(as_kw)?.0
+    } else {
+        as_kw.split_whitespace().next()?.to_string()
+    };
+    if alias.is_empty() { return None; }
+    Some(ImportDecl { path, alias })
+}
+
+fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
+    let rest = line.strip_prefix("import")?.trim();
+    if rest.is_empty() { return None; }
+    let (path, after) = extract_quoted(rest)?;
+    let after = after.trim();
+    let alias = if let Some(as_part) = after.strip_prefix("as") {
+        let a = as_part.trim();
+        if a.is_empty() { return None; }
+        if a.starts_with('"') || a.starts_with('\'') { extract_quoted(a)?.0 }
+        else { a.split_whitespace().next()?.to_string() }
+    } else {
+        path.rsplit('/').next().unwrap_or(&path).to_string()
+    };
+    Some(ImportDecl { path, alias })
+}
+
+fn extract_quoted(s: &str) -> Option<(String, &str)> {
+    let s = s.trim_start();
+    let quote = s.chars().next()?;
+    if quote != '"' && quote != '\'' { return None; }
+    let rest = &s[quote.len_utf8()..];
+    let end = rest.find(quote)?;
+    Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
 }
 
 /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
@@ -566,6 +666,8 @@ pub struct HandlModule {
     op_functions: HashMap<String, OpFunction>,
     /// Dependency modules registered in the bridge runtime.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
+    /// The raw `.hnl` source (before stripping), used for parsing imports.
+    raw_source: String,
 }
 
 impl HandlModule {
@@ -606,6 +708,7 @@ impl HandlModule {
             functions,
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
+            raw_source: hnl_source.to_string(),
         }
     }
 
@@ -624,6 +727,24 @@ impl HandlModule {
     /// Add a dependency module (already `Arc`ed) to the bridge runtime.
     pub fn with_dependency_arc(mut self, module: Arc<dyn Module + Send + Sync>) -> Self {
         self.dependencies.push(module);
+        self.rebuild_functions();
+        self
+    }
+
+    /// Auto-wire dependencies from `from 'path' import * as 'alias'`
+    /// declarations in the `.hnl` source, using a [`ModuleResolver`] to
+    /// map module names to [`Module`] impls.
+    ///
+    /// This replaces hardcoded `.with_dependency(...)` calls: the `.hnl`
+    /// source declares its own dependencies, and the resolver maps names
+    /// to concrete module implementations.
+    pub fn with_resolver(mut self, resolver: &dyn ModuleResolver) -> Self {
+        let imports = parse_import_declarations(&self.raw_source);
+        for decl in &imports {
+            if let Some(module) = resolver.resolve(&decl.path) {
+                self.dependencies.push(module);
+            }
+        }
         self.rebuild_functions();
         self
     }

@@ -1406,6 +1406,7 @@ mod tests {
                     delim_chars: 1,
                     escapes: vec![
                         ("\\n".into(), "\n".into()),
+                        ("\\r".into(), "\r".into()),
                         ("\\t".into(), "\t".into()),
                         ("\\\"".into(), "\"".into()),
                         ("\\\\".into(), "\\".into()),

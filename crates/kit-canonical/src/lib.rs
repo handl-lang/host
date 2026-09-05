@@ -28,6 +28,7 @@ use handl_plugin_lib_utils::{
     ParseModule as UtilsParseModule, SerializeModule, StrModule, TypeModule,
 };
 use handl_plugin_lib_result::result_module;
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig, RuntimeFactoryImpl};
@@ -50,6 +51,37 @@ use std::rc::Rc;
 /// The handl source defining `greet` — the single source of truth for the
 /// greeting logic. Loaded at compile time from the kit-stdlib data dir.
 const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
+
+// ---------------------------------------------------------------------------
+// dedent module (pure Handl — loaded via generic HandlModule)
+// ---------------------------------------------------------------------------
+
+const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
+const DEDENT_FUNCS: &[&str] = &["dedent"];
+
+/// Resolver that maps stdlib module names to their [`Module`] impls,
+/// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
+/// instead of hardcoding them in Rust.
+struct StdlibResolver;
+
+impl ModuleResolver for StdlibResolver {
+    fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
+        match name {
+            "str" => Some(std::sync::Arc::new(StrModule)),
+            "fn" => Some(std::sync::Arc::new(FnModule)),
+            "math" => Some(std::sync::Arc::new(MathModule)),
+            "bool" => Some(std::sync::Arc::new(BoolModule)),
+            "option" => Some(std::sync::Arc::new(OptionModule)),
+            "type" => Some(std::sync::Arc::new(TypeModule)),
+            _ => None,
+        }
+    }
+}
+
+fn build_dedent_module() -> HandlModule {
+    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS)
+        .with_resolver(&StdlibResolver)
+}
 
 thread_local! {
     /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached
@@ -362,6 +394,7 @@ impl Kit {
         stdlib_registry.register(SerializeModule::new());
         stdlib_registry.register(CollectionsModule);
         stdlib_registry.register(TagModule);
+        stdlib_registry.register(build_dedent_module());
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(

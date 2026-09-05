@@ -1065,6 +1065,7 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-nbe",
  "handl-plugin-lib-collections",
+ "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
  "handl-plugin-lib-lang-lex",
@@ -1756,17 +1757,6 @@ dependencies = [
  "chrono",
  "handl-platform",
  "handl-plugin-lib-handl",
- "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-dedent"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-utils",
  "handl-plugin-module",
  "serde_json",
 ]

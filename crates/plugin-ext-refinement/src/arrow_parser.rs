@@ -1141,7 +1141,10 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     // scheme uses `extend_env`/`assign` for runtime evaluation, but for
     // static materialization we just materialize the expression (child 1).
     // The name binding is handled at the file level.
-    if kind == "named_arrow" || kind == "assign" {
+    if lang.child_role_index(kind, "target").ok().flatten().is_some()
+        || kind == "named_arrow"
+        || kind == "assign"
+    {
         let children = get_children(&node.payload)?;
         let expr_idx = children
             .get(1)

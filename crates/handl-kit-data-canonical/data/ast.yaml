@@ -19,6 +19,9 @@
     type: object
 - id: ast.array
   node_kind: array
+  children:
+  - role: elements
+    variadic: true
   payload_schema:
     properties:
       elements:
@@ -499,6 +502,7 @@
   node_kind: paren
   children:
   - role: body
+    variadic: true
   payload_schema:
     properties:
       children:
