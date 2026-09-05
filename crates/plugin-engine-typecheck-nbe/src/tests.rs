@@ -10524,3 +10524,50 @@ fn b1_b2_agreement_property_test() {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0082 step 3: Termination metadata reading
+// ---------------------------------------------------------------------------
+
+#[test]
+fn read_termination_metadata_from_function_node() {
+    // A function node with a `termination` payload field should be
+    // recognized as structurally recursive.
+    let node = AstNode::new("function").with_payload(json!({
+        "params": ["n"],
+        "body": 0,
+        "termination": {
+            "decreasing_arg": 0,
+            "decreasing_field": "pred"
+        }
+    }));
+    let info = read_termination_metadata(&node).expect("termination metadata");
+    assert_eq!(info.decreasing_arg, 0);
+    assert_eq!(info.decreasing_field, "pred");
+}
+
+#[test]
+fn read_termination_metadata_absent_returns_none() {
+    // A function node without a `termination` field should return None.
+    let node = AstNode::new("function").with_payload(json!({
+        "params": ["x"],
+        "body": 0
+    }));
+    assert!(read_termination_metadata(&node).is_none());
+}
+
+#[test]
+fn read_termination_metadata_non_function_node() {
+    // A non-function node with a `termination` field should still be
+    // readable — the helper is payload-driven, not kind-driven.
+    let node = AstNode::new("assign").with_payload(json!({
+        "children": [0, 1],
+        "termination": {
+            "decreasing_arg": 2,
+            "decreasing_field": "left"
+        }
+    }));
+    let info = read_termination_metadata(&node).expect("termination metadata");
+    assert_eq!(info.decreasing_arg, 2);
+    assert_eq!(info.decreasing_field, "left");
+}
