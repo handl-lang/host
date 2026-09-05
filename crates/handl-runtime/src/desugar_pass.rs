@@ -39,6 +39,8 @@ use handl_language::{
     Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, Language,
 };
 use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 /// Apply all data-driven desugar rules to an [`Ast`].
 ///
@@ -1683,14 +1685,126 @@ fn desugar_match_to_recursor(
 }
 
 // ---------------------------------------------------------------------------
-// Rust desugar dispatch
+// Rust desugar dispatch (registry-based, ADR-0081 engine genericity)
 // ---------------------------------------------------------------------------
 
-/// Try to apply a Rust-level desugar for v0.1 sugar forms.
+/// Type of a Rust-level desugar handler registered in [`desugar_registry`].
 ///
-/// Called after the declarative rule check fails. Returns `Some(AstRef)`
-/// if a Rust desugar fired, or `None` if the node kind is not a v0.1
-/// sugar form (or the guard condition skipped it).
+/// Each handler takes the `Language`, the original (pre-remap) node, the
+/// full original AST, the output arena, and the old→new remap table. It
+/// returns the replacement node's `AstRef` in the output arena, or `None`
+/// if the handler decides not to desugar this particular node (e.g. the
+/// `while` guard that skips the state-passing form).
+type DesugarFn = fn(&Language, &AstNode, &Ast, &mut Ast, &[Option<usize>]) -> Option<AstRef>;
+
+// --- Adapter wrappers ---------------------------------------------------
+//
+// These thin wrappers adapt the individual desugar functions (which have
+// heterogeneous signatures — some take `lang`, some return `AstRef` vs
+// `Option<AstRef>`) to the uniform `DesugarFn` type expected by the
+// registry.
+
+fn desugar_nullish_wrapped(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    Some(desugar_nullish(original, ast, out, remap))
+}
+
+fn desugar_opt_chain_wrapped(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    Some(desugar_opt_chain(original, ast, out, remap))
+}
+
+fn desugar_while_wrapped(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    desugar_while(original, ast, out, remap)
+}
+
+fn desugar_do_while_wrapped(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    Some(desugar_do_while(original, ast, out, remap))
+}
+
+fn desugar_for_wrapped(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    Some(desugar_for(original, ast, out, remap))
+}
+
+fn desugar_data_wrapped(
+    lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    _remap: &[Option<usize>],
+) -> Option<AstRef> {
+    desugar_data(lang, original, ast, out)
+}
+
+/// Build (once) and return the static desugar registry — a table mapping
+/// node kind strings to handler functions.
+///
+/// This is a data-driven dispatch: the registry is a `HashMap` table, not
+/// a hardcoded `match` statement. New sugar forms can be added by
+/// inserting a new entry here (or, in the future, by loading entries from
+/// language data). The handlers themselves still know about the kinds they
+/// generate — this is inherent to a code generator — but the *dispatch* is
+/// table-driven and extensible.
+///
+/// NOTE: `if` → `match` desugar is implemented as `desugar_if` but NOT
+/// registered here. The canonical typechecker has an `if`-specific type
+/// rule (`type.if`) that checks the condition is `type.bool` — desugaring
+/// `if` to `match` before typechecking would bypass this check and break
+/// `typecheck_if_with_non_bool_cond_errors`. The `if` eval scheme
+/// (`Seq`/`Choice`/`tag`) already handles `if` correctly at eval time.
+/// The `desugar_if` function is tested directly in the test module below.
+fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
+    static REGISTRY: OnceLock<HashMap<&'static str, DesugarFn>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let mut m = HashMap::new();
+        m.insert("nullish", desugar_nullish_wrapped as DesugarFn);
+        m.insert("opt-chain", desugar_opt_chain_wrapped as DesugarFn);
+        m.insert("while", desugar_while_wrapped as DesugarFn);
+        m.insert("do-while", desugar_do_while_wrapped as DesugarFn);
+        m.insert("for", desugar_for_wrapped as DesugarFn);
+        m.insert("data", desugar_data_wrapped as DesugarFn);
+        // ADR-0082 step 4: `match` with constructor patterns desugars to
+        // recursor application. Returns `None` (no desugar) for conditional
+        // matches (wildcard `_` or non-constructor patterns) — those pass
+        // through unchanged and are evaluated by the `match` eval primitive.
+        m.insert("match", desugar_match_to_recursor as DesugarFn);
+        m
+    })
+}
+
+/// Try a Rust-level desugar for ADR-0074 v0.1 sugar forms.
+///
+/// Looks up the node's kind in the [`desugar_registry`] and, if a handler
+/// is registered, invokes it. Returns `None` if no handler is registered
+/// for this kind (the caller pushes the remapped node unchanged).
 fn try_rust_desugar(
     lang: &Language,
     original: &AstNode,
@@ -1698,28 +1812,9 @@ fn try_rust_desugar(
     out: &mut Ast,
     remap: &[Option<usize>],
 ) -> Option<AstRef> {
-    match original.kind.as_str() {
-        // NOTE: `if` → `match` desugar is implemented as `desugar_if` but
-        // NOT registered in the dispatch. The canonical typechecker has
-        // an `if`-specific type rule (`type.if`) that checks the condition
-        // is `type.bool` — desugaring `if` to `match` before typechecking
-        // would bypass this check and break
-        // `typecheck_if_with_non_bool_cond_errors`. The `if` eval scheme
-        // (`Seq`/`Choice`/`tag`) already handles `if` correctly at eval
-        // time. The `desugar_if` function is tested directly below.
-        "nullish" => Some(desugar_nullish(original, ast, out, remap)),
-        "opt-chain" => Some(desugar_opt_chain(original, ast, out, remap)),
-        "while" => desugar_while(original, ast, out, remap),
-        "do-while" => Some(desugar_do_while(original, ast, out, remap)),
-        "for" => Some(desugar_for(original, ast, out, remap)),
-        "data" => desugar_data(lang, original, ast, out),
-        // ADR-0082 step 4: `match` with constructor patterns desugars to
-        // recursor application. Returns `None` (no desugar) for conditional
-        // matches (wildcard `_` or non-constructor patterns) — those pass
-        // through unchanged and are evaluated by the `match` eval primitive.
-        "match" => desugar_match_to_recursor(lang, original, ast, out, remap),
-        _ => None,
-    }
+    desugar_registry()
+        .get(original.kind.as_str())
+        .and_then(|f| f(lang, original, ast, out, remap))
 }
 
 #[cfg(test)]
@@ -3685,5 +3780,26 @@ mod tests {
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "match", "match with unknown constructors should not be desugared");
+    }
+
+    #[test]
+    fn desugar_registry_contains_expected_entries() {
+        // The registry must be table-driven and contain the v0.1 sugar
+        // forms. `if` is intentionally NOT registered (see desugar_registry
+        // docs). This test guards against accidental removal of entries.
+        let reg = desugar_registry();
+        assert!(reg.contains_key("nullish"));
+        assert!(reg.contains_key("opt-chain"));
+        assert!(reg.contains_key("while"));
+        assert!(reg.contains_key("do-while"));
+        assert!(reg.contains_key("for"));
+        assert!(reg.contains_key("data"));
+        assert!(reg.contains_key("match"));
+        // `if` is deliberately excluded — the typechecker has an `if`-specific
+        // type rule that desugaring to `match` would bypass.
+        assert!(
+            !reg.contains_key("if"),
+            "`if` must not be in the desugar registry (typechecker has an if-specific type rule)"
+        );
     }
 }
