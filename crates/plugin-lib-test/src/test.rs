@@ -1,9 +1,27 @@
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, obj, require_array, require_function};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `test` module.
+const TEST_OPS: &[&str] = &["test.run"];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for test.
+static TEST_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for test.
+fn test_module() -> &'static HandlModule {
+    TEST_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("test", TEST_HNL, &[]).with_ops(TEST_OPS, registry)
+    })
+}
 
 /// The `test` module — test suite execution and reporting.
 ///
@@ -13,14 +31,15 @@ pub struct TestModule;
 
 impl Module for TestModule {
     fn name(&self) -> &str {
-        "test"
+        test_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "run" => Some(&Run),
-            _ => None,
-        }
+        test_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        test_module().functions()
     }
 }
 

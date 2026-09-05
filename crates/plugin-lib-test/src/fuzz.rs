@@ -1,4 +1,7 @@
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -7,6 +10,21 @@ use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, require_function, require_integer};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `fuzz` module.
+const FUZZ_OPS: &[&str] = &["fuzz.run"];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for fuzz.
+static FUZZ_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for fuzz.
+fn fuzz_module() -> &'static HandlModule {
+    FUZZ_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("fuzz", TEST_HNL, &[]).with_ops(FUZZ_OPS, registry)
+    })
+}
 
 /// The `fuzz` module — structure-agnostic random-input stress testing.
 ///
@@ -16,14 +34,15 @@ pub struct FuzzModule;
 
 impl Module for FuzzModule {
     fn name(&self) -> &str {
-        "fuzz"
+        fuzz_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "run" => Some(&Run),
-            _ => None,
-        }
+        fuzz_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        fuzz_module().functions()
     }
 }
 

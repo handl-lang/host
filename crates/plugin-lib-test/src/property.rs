@@ -1,4 +1,7 @@
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -7,6 +10,21 @@ use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{b, call_function, require_function, require_integer};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `property` module.
+const PROPERTY_OPS: &[&str] = &["property.for_all"];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for property.
+static PROPERTY_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for property.
+fn property_module() -> &'static HandlModule {
+    PROPERTY_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("property", TEST_HNL, &[]).with_ops(PROPERTY_OPS, registry)
+    })
+}
 
 /// The `property` module — property-based testing with seeded RNG.
 ///
@@ -16,14 +34,15 @@ pub struct PropertyModule;
 
 impl Module for PropertyModule {
     fn name(&self) -> &str {
-        "property"
+        property_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "for_all" => Some(&ForAll),
-            _ => None,
-        }
+        property_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        property_module().functions()
     }
 }
 

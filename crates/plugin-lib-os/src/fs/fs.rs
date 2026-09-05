@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Abstract filesystem service.
 ///
@@ -21,41 +24,35 @@ pub trait Fs: Send + Sync {
 }
 
 /// Module adapter for [`Fs`] — exposes `fs.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct FsModule {
-    read: ReadFileFn,
-    write: WriteFileFn,
-    exists: ExistsFn,
-    remove: RemoveFn,
-    list: ListDirFn,
+    module: HandlModule,
 }
 
 impl FsModule {
     pub fn new(fs: impl Fs + 'static) -> Self {
-        let fs = Arc::new(fs);
-        FsModule {
-            read: ReadFileFn { fs: fs.clone() },
-            write: WriteFileFn { fs: fs.clone() },
-            exists: ExistsFn { fs: fs.clone() },
-            remove: RemoveFn { fs: fs.clone() },
-            list: ListDirFn { fs },
+        let mut registry = OpRegistry::new();
+        register_fs_ops(&mut registry, fs);
+        Self {
+            module: HandlModule::new("fs", OS_HNL, &[]).with_ops(FS_OPS, Arc::new(registry)),
         }
     }
 }
 
 impl Module for FsModule {
     fn name(&self) -> &str {
-        "fs"
+        self.module.name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "read" => Some(&self.read),
-            "write" => Some(&self.write),
-            "exists" => Some(&self.exists),
-            "remove" => Some(&self.remove),
-            "list" => Some(&self.list),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

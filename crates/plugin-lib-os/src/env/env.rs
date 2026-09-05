@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Abstract environment variable service.
 ///
@@ -18,35 +21,35 @@ pub trait Env: Send + Sync {
 }
 
 /// Module adapter for [`Env`] — exposes `env.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct EnvModule {
-    get: GetFn,
-    has: HasFn,
-    keys: KeysFn,
+    module: HandlModule,
 }
 
 impl EnvModule {
     pub fn new(env: impl Env + 'static) -> Self {
-        let env = Arc::new(env);
-        EnvModule {
-            get: GetFn { env: env.clone() },
-            has: HasFn { env: env.clone() },
-            keys: KeysFn { env },
+        let mut registry = OpRegistry::new();
+        register_env_ops(&mut registry, env);
+        Self {
+            module: HandlModule::new("env", OS_HNL, &[]).with_ops(ENV_OPS, Arc::new(registry)),
         }
     }
 }
 
 impl Module for EnvModule {
     fn name(&self) -> &str {
-        "env"
+        self.module.name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "get" => Some(&self.get),
-            "has" => Some(&self.has),
-            "keys" => Some(&self.keys),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

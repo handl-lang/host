@@ -1,8 +1,33 @@
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 
 use crate::error::TestError;
 use crate::shared::{b, call_function, require_bool, require_function, require_len};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `assert` module.
+const ASSERT_OPS: &[&str] = &[
+    "assert.equal",
+    "assert.not_equal",
+    "assert.true",
+    "assert.false",
+    "assert.contains",
+    "assert.throws",
+];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for assert.
+static ASSERT_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for assert.
+fn assert_module() -> &'static HandlModule {
+    ASSERT_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("assert", TEST_HNL, &[]).with_ops(ASSERT_OPS, registry)
+    })
+}
 
 /// The `assert` module — assertion primitives for test expressions.
 ///
@@ -13,19 +38,15 @@ pub struct AssertModule;
 
 impl Module for AssertModule {
     fn name(&self) -> &str {
-        "assert"
+        assert_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "equal" => Some(&Equal),
-            "not_equal" => Some(&NotEqual),
-            "true" => Some(&True),
-            "false" => Some(&False),
-            "contains" => Some(&Contains),
-            "throws" => Some(&Throws),
-            _ => None,
-        }
+        assert_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        assert_module().functions()
     }
 }
 

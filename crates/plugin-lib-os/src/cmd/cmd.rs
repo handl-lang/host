@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Output from a command execution.
 #[derive(Debug, Clone)]
@@ -27,30 +30,35 @@ pub trait Cmd: Send + Sync {
 }
 
 /// Module adapter for [`Cmd`] — exposes `cmd.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct CmdModule {
-    run: RunFn,
+    module: HandlModule,
 }
 
 impl CmdModule {
     pub fn new(command: impl Cmd + 'static) -> Self {
-        CmdModule {
-            run: RunFn {
-                command: Arc::new(command),
-            },
+        let mut registry = OpRegistry::new();
+        register_cmd_ops(&mut registry, command);
+        Self {
+            module: HandlModule::new("cmd", OS_HNL, &[]).with_ops(CMD_OPS, Arc::new(registry)),
         }
     }
 }
 
 impl Module for CmdModule {
     fn name(&self) -> &str {
-        "cmd"
+        self.module.name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "run" => Some(&self.run),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

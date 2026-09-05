@@ -1,11 +1,28 @@
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, obj, require_function, require_integer};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `benchmark` module.
+const BENCHMARK_OPS: &[&str] = &["benchmark.run"];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for benchmark.
+static BENCHMARK_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for benchmark.
+fn benchmark_module() -> &'static HandlModule {
+    BENCHMARK_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("benchmark", TEST_HNL, &[]).with_ops(BENCHMARK_OPS, registry)
+    })
+}
 
 /// The `benchmark` module — simple wall-clock timing for functions.
 ///
@@ -15,14 +32,15 @@ pub struct BenchmarkModule;
 
 impl Module for BenchmarkModule {
     fn name(&self) -> &str {
-        "benchmark"
+        benchmark_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "run" => Some(&Run),
-            _ => None,
-        }
+        benchmark_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        benchmark_module().functions()
     }
 }
 

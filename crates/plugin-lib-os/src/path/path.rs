@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Abstract path manipulation service.
 ///
@@ -20,41 +23,35 @@ pub trait Path: Send + Sync {
 }
 
 /// Module adapter for [`Path`] — exposes `path.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct PathModule {
-    join: JoinFn,
-    resolve: ResolveFn,
-    basename: BasenameFn,
-    dirname: DirnameFn,
-    extname: ExtnameFn,
+    module: HandlModule,
 }
 
 impl PathModule {
     pub fn new(path: impl Path + 'static) -> Self {
-        let path = Arc::new(path);
-        PathModule {
-            join: JoinFn { path: path.clone() },
-            resolve: ResolveFn { path: path.clone() },
-            basename: BasenameFn { path: path.clone() },
-            dirname: DirnameFn { path: path.clone() },
-            extname: ExtnameFn { path },
+        let mut registry = OpRegistry::new();
+        register_path_ops(&mut registry, path);
+        Self {
+            module: HandlModule::new("path", OS_HNL, &[]).with_ops(PATH_OPS, Arc::new(registry)),
         }
     }
 }
 
 impl Module for PathModule {
     fn name(&self) -> &str {
-        "path"
+        self.module.name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "join" => Some(&self.join),
-            "resolve" => Some(&self.resolve),
-            "basename" => Some(&self.basename),
-            "dirname" => Some(&self.dirname),
-            "extname" => Some(&self.extname),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

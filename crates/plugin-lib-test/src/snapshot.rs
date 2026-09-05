@@ -1,8 +1,26 @@
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 
 use crate::error::TestError;
 use crate::shared::{b, require_len, require_string, str};
+use crate::{test_op_registry, TEST_HNL};
+
+/// The op names declared in `test.hnl` for the `snapshot` module.
+const SNAPSHOT_OPS: &[&str] = &["snapshot.format", "snapshot.match"];
+
+/// A thread-safe lazy-initialized [`HandlModule`] for snapshot.
+static SNAPSHOT_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for snapshot.
+fn snapshot_module() -> &'static HandlModule {
+    SNAPSHOT_MODULE.get_or_init(|| {
+        let registry = Arc::new(test_op_registry());
+        HandlModule::new("snapshot", TEST_HNL, &[]).with_ops(SNAPSHOT_OPS, registry)
+    })
+}
 
 /// The `snapshot` module — snapshot formatting and matching.
 ///
@@ -12,15 +30,15 @@ pub struct SnapshotModule;
 
 impl Module for SnapshotModule {
     fn name(&self) -> &str {
-        "snapshot"
+        snapshot_module().name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "format" => Some(&Format),
-            "match" => Some(&Match),
-            _ => None,
-        }
+        snapshot_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        snapshot_module().functions()
     }
 }
 

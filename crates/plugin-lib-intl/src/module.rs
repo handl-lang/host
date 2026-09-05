@@ -1,5 +1,7 @@
-use handl_platform::Function;
-use handl_platform::Module;
+use std::sync::Arc;
+
+use handl_platform::{Function, Module};
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use super::compare_strings::CompareStrings;
 use super::display_name::DisplayName;
@@ -14,42 +16,128 @@ use super::provider::IntlProvider;
 use super::segment::Segment;
 use super::select_plural::SelectPlural;
 
+/// The handl source declaring the intl `op` interface — the single source
+/// of truth for the intl API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const INTL_HNL: &str = include_str!("../../../handl-packages/intl/intl.hnl");
+
+/// The op names declared in `intl.hnl`.
+const INTL_OPS: &[&str] = &[
+    "intl.format_number",
+    "intl.format_number_to_parts",
+    "intl.select_plural",
+    "intl.format_list",
+    "intl.format_relative_time",
+    "intl.format_date",
+    "intl.format_date_to_parts",
+    "intl.format_duration",
+    "intl.compare_strings",
+    "intl.display_name",
+    "intl.segment",
+    "intl.locale",
+    "intl.get_canonical_locales",
+    "intl.supported_locales_of",
+];
+
+/// Build an [`OpRegistry`] for intl using ICU4X compiled CLDR data.
+fn intl_op_registry_default() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("intl.format_number", Arc::new(FormatNumber::new()));
+    registry.register(
+        "intl.format_number_to_parts",
+        Arc::new(FormatNumberToParts::new()),
+    );
+    registry.register("intl.select_plural", Arc::new(SelectPlural::new()));
+    registry.register("intl.format_list", Arc::new(FormatList::new()));
+    registry.register(
+        "intl.format_relative_time",
+        Arc::new(FormatRelativeTime::new()),
+    );
+    registry.register("intl.format_date", Arc::new(FormatDate::new()));
+    registry.register(
+        "intl.format_date_to_parts",
+        Arc::new(FormatDateToParts::new()),
+    );
+    registry.register("intl.format_duration", Arc::new(FormatDuration::new()));
+    registry.register("intl.compare_strings", Arc::new(CompareStrings::new()));
+    registry.register("intl.display_name", Arc::new(DisplayName::new()));
+    registry.register("intl.segment", Arc::new(Segment::new()));
+    registry.register(
+        "intl.supported_locales_of",
+        Arc::new(SupportedLocalesOf::new()),
+    );
+    registry.register("intl.get_canonical_locales", Arc::new(GetCanonicalLocales));
+    registry.register("intl.locale", Arc::new(LocaleInfo));
+    registry
+}
+
+/// Build an [`OpRegistry`] for intl using a runtime-loaded data blob.
+fn intl_op_registry_with_provider(provider: &IntlProvider) -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register(
+        "intl.format_number",
+        Arc::new(FormatNumber::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_number_to_parts",
+        Arc::new(FormatNumberToParts::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.select_plural",
+        Arc::new(SelectPlural::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_list",
+        Arc::new(FormatList::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_relative_time",
+        Arc::new(FormatRelativeTime::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_date",
+        Arc::new(FormatDate::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_date_to_parts",
+        Arc::new(FormatDateToParts::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.format_duration",
+        Arc::new(FormatDuration::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.compare_strings",
+        Arc::new(CompareStrings::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.display_name",
+        Arc::new(DisplayName::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.segment",
+        Arc::new(Segment::with_provider(provider.clone())),
+    );
+    registry.register(
+        "intl.supported_locales_of",
+        Arc::new(SupportedLocalesOf::with_provider(provider.clone())),
+    );
+    registry.register("intl.get_canonical_locales", Arc::new(GetCanonicalLocales));
+    registry.register("intl.locale", Arc::new(LocaleInfo));
+    registry
+}
+
 /// The `intl` module — internationalization functions.
 ///
 /// Provides functions callable as `intl.format_number(n, locale?, opts?)`,
-/// `intl.select_plural(n, locale?, opts?)`,
-/// `intl.format_list(items, locale?, opts?)`,
-/// `intl.format_relative_time(value, unit, locale?, opts?)`,
-/// `intl.format_date(date, locale?, opts?)`,
-/// `intl.format_duration(duration, locale?, opts?)`,
-/// `intl.compare_strings(a, b, locale?, opts?)`,
-/// `intl.display_name(code, type, locale?, opts?)`,
-/// `intl.segment(text, granularity, locale?, opts?)`,
-/// `intl.supported_locales_of()` in handl expressions.
-///
-/// All functions accept an optional locale argument (BCP 47 tag).
-/// If omitted, defaults to English.
+/// `intl.select_plural(n, locale?, opts?)`, etc. in handl expressions.
 ///
 /// By default, uses ICU4X compiled CLDR data (600+ locales).
 /// For smaller binaries, construct with [`IntlModule::with_provider`]
 /// to use a runtime-loaded data blob.
-#[derive(Clone)]
 pub struct IntlModule {
     provider: Option<IntlProvider>,
-    f_format_number: FormatNumber,
-    f_format_number_to_parts: FormatNumberToParts,
-    f_select_plural: SelectPlural,
-    f_format_list: FormatList,
-    f_format_relative_time: FormatRelativeTime,
-    f_format_date: FormatDate,
-    f_format_date_to_parts: FormatDateToParts,
-    f_format_duration: FormatDuration,
-    f_compare_strings: CompareStrings,
-    f_display_name: DisplayName,
-    f_segment: Segment,
-    f_supported_locales_of: SupportedLocalesOf,
-    f_get_canonical_locales: GetCanonicalLocales,
-    f_locale: LocaleInfo,
+    module: HandlModule,
 }
 
 impl Default for IntlModule {
@@ -61,55 +149,23 @@ impl Default for IntlModule {
 impl IntlModule {
     /// Create a new `IntlModule` using ICU4X compiled CLDR data.
     pub fn new() -> Self {
+        let registry = intl_op_registry_default();
         Self {
             provider: None,
-            f_format_number: FormatNumber::new(),
-            f_format_number_to_parts: FormatNumberToParts::new(),
-            f_select_plural: SelectPlural::new(),
-            f_format_list: FormatList::new(),
-            f_format_relative_time: FormatRelativeTime::new(),
-            f_format_date: FormatDate::new(),
-            f_format_date_to_parts: FormatDateToParts::new(),
-            f_format_duration: FormatDuration::new(),
-            f_compare_strings: CompareStrings::new(),
-            f_display_name: DisplayName::new(),
-            f_segment: Segment::new(),
-            f_supported_locales_of: SupportedLocalesOf::new(),
-            f_get_canonical_locales: GetCanonicalLocales,
-            f_locale: LocaleInfo,
+            module: HandlModule::new("intl", INTL_HNL, &[]).with_ops(INTL_OPS, Arc::new(registry)),
         }
     }
 
     /// Create a new `IntlModule` using a runtime-loaded data blob.
-    ///
-    /// The blob must be in ICU4X postcard format (`.postcard`).
-    /// Generate one with `icu4x-datagen`:
-    /// ```sh
-    /// icu4x-datagen --keys all --locales en,de,ja --format blob --out data.postcard
-    /// ```
     pub fn with_provider(provider: IntlProvider) -> Self {
+        let registry = intl_op_registry_with_provider(&provider);
         Self {
-            provider: Some(provider.clone()),
-            f_format_number: FormatNumber::with_provider(provider.clone()),
-            f_format_number_to_parts: FormatNumberToParts::with_provider(provider.clone()),
-            f_select_plural: SelectPlural::with_provider(provider.clone()),
-            f_format_list: FormatList::with_provider(provider.clone()),
-            f_format_relative_time: FormatRelativeTime::with_provider(provider.clone()),
-            f_format_date: FormatDate::with_provider(provider.clone()),
-            f_format_date_to_parts: FormatDateToParts::with_provider(provider.clone()),
-            f_format_duration: FormatDuration::with_provider(provider.clone()),
-            f_compare_strings: CompareStrings::with_provider(provider.clone()),
-            f_display_name: DisplayName::with_provider(provider.clone()),
-            f_segment: Segment::with_provider(provider.clone()),
-            f_supported_locales_of: SupportedLocalesOf::with_provider(provider),
-            f_get_canonical_locales: GetCanonicalLocales,
-            f_locale: LocaleInfo,
+            provider: Some(provider),
+            module: HandlModule::new("intl", INTL_HNL, &[]).with_ops(INTL_OPS, Arc::new(registry)),
         }
     }
 
     /// Create a new `IntlModule` from a blob of ICU4X postcard data.
-    ///
-    /// The blob is not validated until the first function call.
     pub fn with_blob_provider(blob: Vec<u8>) -> Self {
         Self::with_provider(IntlProvider::from_blob(blob))
     }
@@ -122,26 +178,14 @@ impl IntlModule {
 
 impl Module for IntlModule {
     fn name(&self) -> &str {
-        "intl"
+        self.module.name()
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "format_number" => Some(&self.f_format_number),
-            "format_number_to_parts" => Some(&self.f_format_number_to_parts),
-            "select_plural" => Some(&self.f_select_plural),
-            "format_list" => Some(&self.f_format_list),
-            "format_relative_time" => Some(&self.f_format_relative_time),
-            "format_date" => Some(&self.f_format_date),
-            "format_date_to_parts" => Some(&self.f_format_date_to_parts),
-            "format_duration" => Some(&self.f_format_duration),
-            "compare_strings" => Some(&self.f_compare_strings),
-            "display_name" => Some(&self.f_display_name),
-            "segment" => Some(&self.f_segment),
-            "supported_locales_of" => Some(&self.f_supported_locales_of),
-            "get_canonical_locales" => Some(&self.f_get_canonical_locales),
-            "locale" => Some(&self.f_locale),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
