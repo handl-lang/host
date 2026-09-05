@@ -656,23 +656,41 @@ impl TreeWalkEngine {
                 // unpack it into individual arguments. This supports the
                 // eval.call scheme where proj_rest packs all call args into
                 // one array value.
-                let actual_args: Vec<TaggedValue> = if arg_vals.len() == 1 && arg_vals[0].is_array()
-                {
-                    arg_vals[0]
-                        .as_array()
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                "App: expected array argument".to_string(),
-                                current_node,
-                            )
-                        })?
-                        .iter()
-                        .cloned()
-                        .collect()
+                //
+                // ADR-0074: also unpack a single `Pair` (product `***`)
+                // argument into individual arguments. This supports the
+                // `value >>> function` pipe model where multi-arg callees
+                // receive a product: `a *** b >>> f` → `f(a, b)`.
+                let actual_args: Vec<TaggedValue> = if arg_vals.len() == 1 {
+                    if arg_vals[0].is_array() {
+                        arg_vals[0]
+                            .as_array()
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "App: expected array argument".to_string(),
+                                    current_node,
+                                )
+                            })?
+                            .iter()
+                            .cloned()
+                            .collect()
+                    } else if matches!(arg_vals[0], TaggedValue::Pair(_)) {
+                        flatten_pair(&arg_vals[0])
+                    } else {
+                        arg_vals
+                    }
                 } else {
                     arg_vals
                 };
-                let val = self.apply_app(&callee_val, &actual_args, ast, lang, env)?;
+                // Dispatch: if the callee is a string, it's a host function
+                // name — look it up in the module registry and call it
+                // (same path as `call` nodes). Otherwise, it's an
+                // arrow-value — apply it as a closure.
+                let val = if let Some(name) = callee_val.as_str() {
+                    self.call_host_fn(name, &actual_args, current_node)?
+                } else {
+                    self.apply_app(&callee_val, &actual_args, ast, lang, env)?
+                };
                 Ok((val, false))
             }
             // `handle body with target = impl_` (ADR-0076): eliminate the
@@ -1234,23 +1252,17 @@ impl TreeWalkEngine {
                                 )
                             })? as usize;
                             let pnode = ast.at(AstRef::new(pidx))?;
-                            let pname = pnode.payload.as_str().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "closure: param must be a var with string payload".to_string(),
-                                    current_node,
-                                )
-                            })?;
-                            names.push(pname.to_string());
+                            let pname = lang
+                                .param_name(ast, pnode)
+                                .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
+                            names.push(pname);
                         }
                         names
                     } else {
-                        let pname = param_node.payload.as_str().ok_or_else(|| {
-                            LangError::engine_node(
-                                "closure: param node must be a var with string payload".to_string(),
-                                current_node,
-                            )
-                        })?;
-                        vec![pname.to_string()]
+                        let pname = lang
+                            .param_name(ast, param_node)
+                            .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
+                        vec![pname]
                     };
                     (param_names, body_idx)
                 } else {
@@ -2150,6 +2162,37 @@ impl TreeWalkEngine {
     }
 
     /// Apply an `App` callee: closure application only (ADR-0060).
+    /// Call a host function by name (string callee). This is the
+    /// `App`/`>>>` dispatch path for string callees — mirrors the
+    /// `call_host` native op used by `call` nodes. Looks up the function
+    /// in the module registry and invokes it with the given arguments.
+    fn call_host_fn(
+        &self,
+        name: &str,
+        args: &[TaggedValue],
+        current_node: &AstNode,
+    ) -> Result<TaggedValue, LangError> {
+        let modules = self.modules.as_ref().ok_or_else(|| {
+            LangError::engine_node(
+                "call_host: no module registry".to_string(),
+                current_node,
+            )
+        })?;
+        let func = modules.lookup(name).ok_or_else(|| {
+            LangError::engine_node(
+                format!("call_host: function '{}' not found", name),
+                current_node,
+            )
+        })?;
+        let call_args: Vec<Value> = args.iter().map(tagged_to_value).collect();
+        let mut pctx = handl_platform::EvalContext::new();
+        pctx.set_value_callable(Rc::new(TreeWalkCallable));
+        let val = func
+            .call(&call_args, &mut pctx)
+            .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
+        Ok(TaggedValue::from(val))
+    }
+
     ///
     /// Host-function dispatch (string callee) has been moved to the
     /// `call_host` native op. This helper only handles arrow-value
@@ -2173,7 +2216,18 @@ impl TreeWalkEngine {
             }
         };
         let body_ref = AstRef::new(body_idx);
-        if params.len() != args.len() {
+        // ADR-0074: if the arrow expects multiple params but receives a
+        // single `Pair` (product `***`), destructure it into individual
+        // args. `(a, b) ~> body` applied to `Pair(x, y)` binds `a=x, b=y`.
+        let actual_args: Vec<TaggedValue> = if params.len() > 1
+            && args.len() == 1
+            && matches!(args[0], TaggedValue::Pair(_))
+        {
+            flatten_pair(&args[0])
+        } else {
+            args.to_vec()
+        };
+        if params.len() != actual_args.len() {
             return Err(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
@@ -2197,7 +2251,7 @@ impl TreeWalkEngine {
         arrow_env.captured = Some(captured_env);
         arrow_env.set_globals(Rc::clone(&env.globals));
         arrow_env.push_scope();
-        for (param, arg) in params.iter().zip(args.iter()) {
+        for (param, arg) in params.iter().zip(actual_args.iter()) {
             arrow_env.define(param, arg.clone());
         }
         self.eval_node_inner(ast, body_ref, lang, &mut arrow_env)
@@ -3051,11 +3105,44 @@ impl ValueCallable for TreeWalkCallable {
                     .collect()
             })
             .unwrap_or_default();
-        if params.len() != args.len() {
+        // ADR-0074: destructure a single Pair (product) arg for multi-param
+        // arrows. Host functions like fn.map may pass a Pair to a multi-param
+        // arrow-value.
+        let actual_args: Vec<Value> = if params.len() > 1
+            && args.len() == 1
+        {
+            // Try to flatten if the single arg is a Pair (serialized as
+            // {"__pair__": [a, b]}).
+            if let Some(pair) = args[0].get("__pair__").and_then(|v| v.as_array()) {
+                let mut flat: Vec<Value> = Vec::new();
+                fn flatten_pair_json(v: &Value, flat: &mut Vec<Value>) {
+                    if let Some(p) = v.get("__pair__").and_then(|p| p.as_array()) {
+                        if p.len() == 2 {
+                            flatten_pair_json(&p[0], flat);
+                            flatten_pair_json(&p[1], flat);
+                            return;
+                        }
+                    }
+                    flat.push(v.clone());
+                }
+                if pair.len() == 2 {
+                    flatten_pair_json(&pair[0], &mut flat);
+                    flatten_pair_json(&pair[1], &mut flat);
+                    flat
+                } else {
+                    args.to_vec()
+                }
+            } else {
+                args.to_vec()
+            }
+        } else {
+            args.to_vec()
+        };
+        if params.len() != actual_args.len() {
             return Err(handl_platform::EvalError::Other(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
-                args.len()
+                actual_args.len()
             )));
         }
         // Build a fresh env that **shares** the arrow's captured env via
@@ -3070,7 +3157,7 @@ impl ValueCallable for TreeWalkCallable {
             arrow_env.set_globals(g);
         }
         arrow_env.push_scope();
-        for (param, arg) in params.iter().zip(args.iter()) {
+        for (param, arg) in params.iter().zip(actual_args.iter()) {
             arrow_env.define(param, TaggedValue::from(arg.clone()));
         }
         // Get AST and Language from thread-locals.
@@ -3282,6 +3369,26 @@ fn pair_fst(v: &TaggedValue) -> Option<&TaggedValue> {
 /// Extract the second component of a pair value, or `None` if not a pair.
 fn pair_snd(v: &TaggedValue) -> Option<&TaggedValue> {
     handl_value::pair_snd(v)
+}
+
+/// Recursively flatten a (possibly nested) `Pair` value into a flat list
+/// of individual `TaggedValue`s. A non-`Pair` value returns a single-element
+/// list. This is the inverse of `***` (product) construction — used by
+/// `App`/`>>>` to destructure a product argument into individual params
+/// for multi-arity callees.
+///
+/// `Pair(a, Pair(b, c))` → `[a, b, c]`
+/// `Pair(a, b)`          → `[a, b]`
+/// `v` (non-pair)        → `[v]`
+fn flatten_pair(v: &TaggedValue) -> Vec<TaggedValue> {
+    match v {
+        TaggedValue::Pair(p) => {
+            let mut left = flatten_pair(&p.0);
+            left.extend(flatten_pair(&p.1));
+            left
+        }
+        other => vec![other.clone()],
+    }
 }
 
 /// Construct a `left` Either value.

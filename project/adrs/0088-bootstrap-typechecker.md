@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Builds on
 [ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md),
 [ADR-0052](./0052-arrow-calculus-kernel.md), and
@@ -74,4 +74,4 @@ that say "not yet checked" rather than silently passing.
 
 ## Status
 
-Proposed
+Implemented (merged to main).

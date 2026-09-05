@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)).
 
 ## Context
@@ -52,4 +52,4 @@ using them) → switch `host-cli` rendering to the shared renderer.
 
 ## Status
 
-Proposed
+Implemented (merged to main).

@@ -998,21 +998,19 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 )
                             })? as usize;
                             let pnode = self.ast.at(AstRef::new(pidx))?;
-                            let pname = pnode.payload.as_str().ok_or_else(|| {
-                                LangError::engine(
-                                    "closure: param must be a var with string payload".to_string(),
-                                )
-                            })?;
-                            names.push(pname.to_string());
+                            let pname = self
+                                .lang
+                                .param_name(self.ast, pnode)
+                                .map_err(|e| LangError::engine_node(e.to_string(), node))?;
+                            names.push(pname);
                         }
                         names
                     } else {
-                        let pname = param_node.payload.as_str().ok_or_else(|| {
-                            LangError::engine(
-                                "closure: param node must be a var with string payload".to_string(),
-                            )
-                        })?;
-                        vec![pname.to_string()]
+                        let pname = self
+                            .lang
+                            .param_name(self.ast, param_node)
+                            .map_err(|e| LangError::engine_node(e.to_string(), node))?;
+                        vec![pname]
                     };
                     (param_names, body_idx)
                 } else {

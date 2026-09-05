@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
 design in [ADR-0014](../0014-formatter.md) — which stays valid — into a
 concrete implementation). Temporary: will be replaced by
@@ -66,4 +66,4 @@ comment reflow, plugin-contributed rules (all RFC-0002).
 
 ## Status
 
-Proposed
+Implemented (merged to main).

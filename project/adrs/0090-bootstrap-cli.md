@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Implemented (merged to main). Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Deliberately narrows
 [ADR-0029 — CLI as Capability Orchestrator](../0029-cli-as-capability-orchestrator.md)
 for the bootstrap phase; the full plugin-driven, generic CLI returns as
@@ -78,4 +78,4 @@ config discovery, `handl lang` namespaces (RFC-0007).
 
 ## Status
 
-Proposed
+Implemented (merged to main).
