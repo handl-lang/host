@@ -85,6 +85,8 @@ pub fn lex(lang: &Language, src: &str) -> Result<Tokens, LangError> {
                 tokens.push(Token {
                     kind: kind.to_string(),
                     text,
+                    start: pos,
+                    end: next,
                 });
                 pos = next;
                 matched = true;
@@ -440,11 +442,13 @@ mod tests {
         lang
     }
 
-    fn tok(kind: &str, text: &str) -> Token {
-        Token {
-            kind: kind.into(),
-            text: text.into(),
-        }
+    /// Project a token slice to `(kind, text)` pairs, ignoring byte spans.
+    /// The lexer now populates `start`/`end` on every token; tests that only
+    /// care about tokenization (not positions) compare via this projection.
+    fn kinds_texts(toks: &[Token]) -> Vec<(&str, &str)> {
+        toks.iter()
+            .map(|t| (t.kind.as_str(), t.text.as_str()))
+            .collect()
     }
 
     #[test]
@@ -452,11 +456,11 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "1 + 2").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.number", "1"),
-                tok("token.plus", "+"),
-                tok("token.number", "2"),
+                ("token.number", "1"),
+                ("token.plus", "+"),
+                ("token.number", "2"),
             ]
         );
     }
@@ -466,10 +470,10 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "foo bar").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.identifier", "foo"),
-                tok("token.identifier", "bar"),
+                ("token.identifier", "foo"),
+                ("token.identifier", "bar"),
             ]
         );
     }
@@ -478,14 +482,17 @@ mod tests {
     fn lex_string_with_escapes() {
         let lang = test_lang();
         let toks = lex(&lang, "\"hello\"").unwrap();
-        assert_eq!(toks.0, vec![tok("token.string", "\"hello\"")]);
+        assert_eq!(kinds_texts(&toks.0), vec![("token.string", "\"hello\"")]);
     }
 
     #[test]
     fn lex_string_with_escaped_quote() {
         let lang = test_lang();
         let toks = lex(&lang, r#""he\"llo""#).unwrap();
-        assert_eq!(toks.0, vec![tok("token.string", r#""he\"llo""#)]);
+        assert_eq!(
+            kinds_texts(&toks.0),
+            vec![("token.string", r#""he\"llo""#)]
+        );
     }
 
     #[test]
@@ -493,10 +500,10 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "let x").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.keyword.let", "let"),
-                tok("token.identifier", "x"),
+                ("token.keyword.let", "let"),
+                ("token.identifier", "x"),
             ]
         );
     }
@@ -509,7 +516,11 @@ mod tests {
         let lang = test_lang();
         for src in ["letx", "let_x", "letter", "lets"] {
             let toks = lex(&lang, src).unwrap();
-            assert_eq!(toks.0, vec![tok("token.identifier", src)], "{src}");
+            assert_eq!(
+                kinds_texts(&toks.0),
+                vec![("token.identifier", src)],
+                "{src}"
+            );
         }
     }
 
@@ -518,11 +529,11 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "a == b").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.identifier", "a"),
-                tok("token.eqeq", "=="),
-                tok("token.identifier", "b"),
+                ("token.identifier", "a"),
+                ("token.eqeq", "=="),
+                ("token.identifier", "b"),
             ]
         );
     }
@@ -532,13 +543,13 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "(a, b)").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.lparen", "("),
-                tok("token.identifier", "a"),
-                tok("token.comma", ","),
-                tok("token.identifier", "b"),
-                tok("token.rparen", ")"),
+                ("token.lparen", "("),
+                ("token.identifier", "a"),
+                ("token.comma", ","),
+                ("token.identifier", "b"),
+                ("token.rparen", ")"),
             ]
         );
     }
@@ -548,11 +559,11 @@ mod tests {
         let lang = test_lang();
         let toks = lex(&lang, "  1\t\n+  2  ").unwrap();
         assert_eq!(
-            toks.0,
+            kinds_texts(&toks.0),
             vec![
-                tok("token.number", "1"),
-                tok("token.plus", "+"),
-                tok("token.number", "2"),
+                ("token.number", "1"),
+                ("token.plus", "+"),
+                ("token.number", "2"),
             ]
         );
     }
@@ -575,14 +586,14 @@ mod tests {
     fn lex_decimal_number() {
         let lang = test_lang();
         let toks = lex(&lang, "3.14").unwrap();
-        assert_eq!(toks.0, vec![tok("token.number", "3.14")]);
+        assert_eq!(kinds_texts(&toks.0), vec![("token.number", "3.14")]);
     }
 
     #[test]
     fn lex_negative_number() {
         let lang = test_lang();
         let toks = lex(&lang, "-42").unwrap();
-        assert_eq!(toks.0, vec![tok("token.number", "-42")]);
+        assert_eq!(kinds_texts(&toks.0), vec![("token.number", "-42")]);
     }
 
     #[test]

@@ -26,14 +26,17 @@ fn canned_tokens() -> Tokens {
         Token {
             kind: "num".into(),
             text: "1".into(),
+            ..Default::default()
         },
         Token {
             kind: "plus".into(),
             text: "+".into(),
+            ..Default::default()
         },
         Token {
             kind: "num".into(),
             text: "2".into(),
+            ..Default::default()
         },
     ])
 }

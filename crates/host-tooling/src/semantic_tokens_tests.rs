@@ -463,6 +463,7 @@ fn token_struct_has_kind_and_text() {
     let t = Token {
         kind: "token.identifier".into(),
         text: "foo".into(),
+        ..Default::default()
     };
     assert_eq!(t.kind, "token.identifier");
     assert_eq!(t.text, "foo");

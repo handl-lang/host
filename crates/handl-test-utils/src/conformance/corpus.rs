@@ -312,6 +312,7 @@ pub fn parse_corpus() -> Vec<ParseCase> {
         Token {
             kind: kind.into(),
             text: text.into(),
+            ..Default::default()
         }
     }
 

@@ -196,6 +196,7 @@ mod tests {
         let toks = Tokens(vec![Token {
             kind: "token.number".into(),
             text: "42".into(),
+            ..Default::default()
         }]);
         let req = ParserRequest::new(toks);
         assert_eq!(req.tokens.as_slice().len(), 1);
@@ -242,10 +243,12 @@ mod tests {
             Token {
                 kind: "token.a".into(),
                 text: "a".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.b".into(),
                 text: "b".into(),
+                ..Default::default()
             },
         ];
         let engine = StubParser;
@@ -264,6 +267,7 @@ mod tests {
         let toks = vec![Token {
             kind: "token.a".into(),
             text: "a".into(),
+            ..Default::default()
         }];
         let engine = StubParser;
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
@@ -287,6 +291,7 @@ mod tests {
         let toks = vec![Token {
             kind: "token.x".into(),
             text: "x".into(),
+            ..Default::default()
         }];
         let engine = StubParser;
         let ctx = ParserContext::new(&engine, &lang, &toks);
@@ -300,6 +305,7 @@ mod tests {
         let toks = vec![Token {
             kind: "token.a".into(),
             text: "a".into(),
+            ..Default::default()
         }];
         let engine = StubParser;
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
@@ -315,6 +321,7 @@ mod tests {
         let req = ParserRequest::new(Tokens(vec![Token {
             kind: "token.number".into(),
             text: "42".into(),
+            ..Default::default()
         }]));
         let ast = engine.parse(&lang, &req).unwrap();
         assert_eq!(ast.len(), 1);
@@ -344,6 +351,7 @@ mod tests {
         let req = ParserRequest::new(Tokens(vec![Token {
             kind: "token.number".into(),
             text: "1".into(),
+            ..Default::default()
         }]));
         let ast = run_parse(&engine, &lang, &req).unwrap();
         assert_eq!(ast.len(), 1);
@@ -379,6 +387,7 @@ mod tests {
         let req = ParserRequest::new(Tokens(vec![Token {
             kind: "token.x".into(),
             text: "x".into(),
+            ..Default::default()
         }]));
         // Default parse calls expression but returns an empty Ast.
         let ast = engine.parse(&lang, &req).unwrap();

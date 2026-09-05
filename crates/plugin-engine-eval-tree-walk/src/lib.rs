@@ -486,8 +486,9 @@ impl TreeWalkEngine {
                         .clone();
                     self.eval_inner(r, ast, node_ref, lang, env, current_node, Some(v))?
                 } else {
-                    return Err(LangError::engine(
+                    return Err(LangError::engine_node(
                         "Choice: incoming is not an Either".to_string(),
+                        current_node,
                     ));
                 };
                 if pushed {
@@ -558,20 +559,23 @@ impl TreeWalkEngine {
                             }
                             if is_either_right(&either) {
                                 state = either_value(&either).cloned().ok_or_else(|| {
-                                    LangError::engine(
+                                    LangError::engine_node(
                                         "Loop: right Either missing value".to_string(),
+                                        current_node,
                                     )
                                 })?;
                                 continue;
                             }
                             // interpret_loop_step_result always returns
                             // an Either, so this is unreachable.
-                            return Err(LangError::engine(
+                            return Err(LangError::engine_node(
                                 "Loop: loop_step produced non-Either".to_string(),
+                                current_node,
                             ));
                         }
-                        return Err(LangError::engine(
+                        return Err(LangError::engine_node(
                             "Loop: exceeded max iterations".to_string(),
+                            current_node,
                         ));
                     }
                 }
@@ -613,8 +617,9 @@ impl TreeWalkEngine {
                     })?;
                     return Ok((out.clone(), false));
                 }
-                Err(LangError::engine(
+                Err(LangError::engine_node(
                     "Loop: exceeded max iterations".to_string(),
+                    current_node,
                 ))
             }
             Scheme::App { callee, args } => {
@@ -802,8 +807,9 @@ impl TreeWalkEngine {
                 current_node,
                 incoming,
             ),
-            ArrSource::Judgment => Err(LangError::engine(
+            ArrSource::Judgment => Err(LangError::engine_node(
                 "judgment ops are not supported by the tree-walk engine".to_string(),
+                current_node,
             )),
         }
     }
@@ -889,9 +895,10 @@ impl TreeWalkEngine {
                 })?;
                 let (counter, acc) = if state.is_null() {
                     let count = pair_fst(&in_val).cloned().ok_or_else(|| {
-                        LangError::engine(
+                        LangError::engine_node(
                             "for_step: input must be pair(count, initial) when state is Null"
                                 .to_string(),
+                            current_node,
                         )
                     })?;
                     let initial = pair_snd(&in_val).cloned().unwrap_or(TaggedValue::Null);
@@ -906,7 +913,7 @@ impl TreeWalkEngine {
                     let a = pair_snd(&state).cloned().unwrap_or(TaggedValue::Null);
                     (c, a)
                 };
-                let count_n = as_num(&counter)?;
+                let count_n = as_num(&counter).map_err(|e| e.with_node(current_node))?;
                 if count_n > Num::Int(0) {
                     let new_acc = self.eval_scheme_tagged(
                         body,
@@ -986,10 +993,10 @@ impl TreeWalkEngine {
                 let result = self.apply_app(&closure_val, &args, ast, lang, env)?;
                 Ok((interpret_loop_step_result(&result), false))
             }
-            _ => Err(LangError::engine(format!(
-                "unknown derived step op: {}",
-                op
-            ))),
+            _ => Err(LangError::engine_node(
+                format!("unknown derived step op: {}", op),
+                current_node,
+            )),
         }
     }
 
@@ -1080,8 +1087,9 @@ impl TreeWalkEngine {
                         .payload
                         .as_str()
                         .ok_or_else(|| {
-                            LangError::engine(
+                            LangError::engine_node(
                                 "expected string payload for $payload proj_env".to_string(),
+                                current_node,
                             )
                         })?
                         .to_string()
@@ -1108,8 +1116,9 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine(
+                        LangError::engine_node(
                             "proj_child: expected children array in payload".to_string(),
+                            current_node,
                         )
                     })?;
                 let arena_idx = children
@@ -1219,14 +1228,16 @@ impl TreeWalkEngine {
                         let mut names = Vec::with_capacity(param_children.len());
                         for pc in param_children {
                             let pidx = pc.as_u64().ok_or_else(|| {
-                                LangError::engine(
+                                LangError::engine_node(
                                     "closure: param index must be a number".to_string(),
+                                    current_node,
                                 )
                             })? as usize;
                             let pnode = ast.at(AstRef::new(pidx))?;
                             let pname = pnode.payload.as_str().ok_or_else(|| {
-                                LangError::engine(
+                                LangError::engine_node(
                                     "closure: param must be a var with string payload".to_string(),
+                                    current_node,
                                 )
                             })?;
                             names.push(pname.to_string());
@@ -1234,16 +1245,18 @@ impl TreeWalkEngine {
                         names
                     } else {
                         let pname = param_node.payload.as_str().ok_or_else(|| {
-                            LangError::engine(
+                            LangError::engine_node(
                                 "closure: param node must be a var with string payload".to_string(),
+                                current_node,
                             )
                         })?;
                         vec![pname.to_string()]
                     };
                     (param_names, body_idx)
                 } else {
-                    return Err(LangError::engine(
+                    return Err(LangError::engine_node(
                         "closure: missing params/body in payload".to_string(),
+                        current_node,
                     ));
                 };
                 let captured = env.capture();
@@ -1291,8 +1304,9 @@ impl TreeWalkEngine {
                     }
                     Ok((TaggedValue::Arr(Rc::from(result)), false))
                 } else {
-                    Err(LangError::engine(
+                    Err(LangError::engine_node(
                         "array: missing elements/children in payload".to_string(),
+                        current_node,
                     ))
                 }
             }
@@ -1322,10 +1336,10 @@ impl TreeWalkEngine {
                             )
                         })?;
                         if handl_language::is_reserved_value_key(key) {
-                            return Err(LangError::engine(format!(
-                                "object: key '{}' is reserved",
-                                key
-                            )));
+                            return Err(LangError::engine_node(
+                                format!("object: key '{}' is reserved", key),
+                                current_node,
+                            ));
                         }
                         obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
                     }
@@ -1351,8 +1365,9 @@ impl TreeWalkEngine {
                         let mut last = TaggedValue::Null;
                         for entry in children {
                             let idx = entry.as_u64().ok_or_else(|| {
-                                LangError::engine(
+                                LangError::engine_node(
                                     "object: entry index must be a number".to_string(),
+                                    current_node,
                                 )
                             })? as usize;
                             last = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
@@ -1406,8 +1421,9 @@ impl TreeWalkEngine {
                                 .get(1)
                                 .and_then(|v| v.as_u64())
                                 .ok_or_else(|| {
-                                    LangError::engine(
+                                    LangError::engine_node(
                                         "object: entry missing value child".to_string(),
+                                        current_node,
                                     )
                                 })? as usize;
                         // Object key: if the key node is a `var` (bare
@@ -1443,17 +1459,18 @@ impl TreeWalkEngine {
                         };
                         let value = self.eval_node_inner(ast, AstRef::new(val_idx), lang, env)?;
                         if handl_language::is_reserved_value_key(&key) {
-                            return Err(LangError::engine(format!(
-                                "object: key '{}' is reserved",
-                                key
-                            )));
+                            return Err(LangError::engine_node(
+                                format!("object: key '{}' is reserved", key),
+                                current_node,
+                            ));
                         }
                         obj.insert(Rc::from(key.as_str()), value);
                     }
                     Ok((TaggedValue::Obj(Rc::new(obj)), false))
                 } else {
-                    Err(LangError::engine(
+                    Err(LangError::engine_node(
                         "object: missing entries/children in payload".to_string(),
+                        current_node,
                     ))
                 }
             }
@@ -1473,8 +1490,9 @@ impl TreeWalkEngine {
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
                         let i = n.as_u64().ok_or_else(|| {
-                            LangError::engine(
+                            LangError::engine_node(
                                 "index: index must be a non-negative integer".to_string(),
+                                current_node,
                             )
                         })? as usize;
                         let v = arr.get(i).cloned().ok_or_else(|| {
@@ -1494,9 +1512,10 @@ impl TreeWalkEngine {
                         })?;
                         Ok((TaggedValue::from(v), false))
                     }
-                    _ => Err(LangError::engine(
+                    _ => Err(LangError::engine_node(
                         "index: target must be array/object and index must be number/string"
                             .to_string(),
+                        current_node,
                     )),
                 }
             }
@@ -1535,8 +1554,9 @@ impl TreeWalkEngine {
                             let var_name = {
                                 let var_node = ast.at(AstRef::new(var_idx))?;
                                 var_node.payload.as_str().ok_or_else(|| {
-                                    LangError::engine(
+                                    LangError::engine_node(
                                         "assign: LHS must be an identifier".to_string(),
+                                        current_node,
                                     )
                                 })?
                             };
@@ -1554,8 +1574,9 @@ impl TreeWalkEngine {
                                 .map(|v| (v, false))
                         }
                     } else {
-                        Err(LangError::engine(
+                        Err(LangError::engine_node(
                             "assign: expected at least 2 children".to_string(),
+                            current_node,
                         ))
                     }
                 } else {
@@ -1586,13 +1607,16 @@ impl TreeWalkEngine {
                 // Export marking is a no-op for now.
                 Ok((args.first().cloned().unwrap_or(TaggedValue::Null), false))
             }
-            // Arithmetic / comparison / logic.
-            "add" => bin_add(args),
-            "sub" => bin_num(args, |a, b| a - b),
-            "mul" => bin_num(args, |a, b| a * b),
+            // Arithmetic / comparison / logic. The numeric helpers (`bin_add`,
+            // `bin_num`, `cmp_num`, `as_num`) produce span-less errors because
+            // they only see `&[TaggedValue]`; attach the current node's span
+            // here so type-mismatch diagnostics point at the offending source.
+            "add" => bin_add(args).map_err(|e| e.with_node(current_node)),
+            "sub" => bin_num(args, |a, b| a - b).map_err(|e| e.with_node(current_node)),
+            "mul" => bin_num(args, |a, b| a * b).map_err(|e| e.with_node(current_node)),
             "div" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
+                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
+                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
                 if b.to_f64() == 0.0 {
                     return Err(LangError::engine_node(
                         "division by zero".to_string(),
@@ -1602,8 +1626,8 @@ impl TreeWalkEngine {
                 Ok((num_value(a / b), false))
             }
             "mod" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
+                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
+                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
                 if b.to_f64() == 0.0 {
                     return Err(LangError::engine_node(
                         "modulo by zero".to_string(),
@@ -1617,7 +1641,7 @@ impl TreeWalkEngine {
                 Ok((val, false))
             }
             "neg" => {
-                let a = as_num(&args[0])?;
+                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
                 let val = match a {
                     Num::Int(i) => num_value(Num::Int(-i)),
                     Num::Float(f) => num_value(Num::Float(-f)),
@@ -1632,18 +1656,18 @@ impl TreeWalkEngine {
                 TaggedValue::Bool(!handl_value::eq(&args[0], &args[1])),
                 false,
             )),
-            "lt" => cmp_num(args, |a, b| a < b),
-            "gt" => cmp_num(args, |a, b| a > b),
-            "lte" => cmp_num(args, |a, b| a <= b),
-            "gte" => cmp_num(args, |a, b| a >= b),
+            "lt" => cmp_num(args, |a, b| a < b).map_err(|e| e.with_node(current_node)),
+            "gt" => cmp_num(args, |a, b| a > b).map_err(|e| e.with_node(current_node)),
+            "lte" => cmp_num(args, |a, b| a <= b).map_err(|e| e.with_node(current_node)),
+            "gte" => cmp_num(args, |a, b| a >= b).map_err(|e| e.with_node(current_node)),
             "pow" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
+                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
+                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
                 Ok((num_value(Num::Float(a.to_f64().powf(b.to_f64()))), false))
             }
             "compare" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
+                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
+                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
                 let cmp = a.partial_cmp(&b).ok_or_else(|| {
                     LangError::engine_node("compare: incomparable values".to_string(), current_node)
                 })?;
@@ -1722,8 +1746,9 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine(
+                        LangError::engine_node(
                             "proj_rest: expected children array in payload".to_string(),
+                            current_node,
                         )
                     })?;
                 let mut vals = Vec::new();
@@ -1749,8 +1774,9 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine(
+                        LangError::engine_node(
                             "eval_block: expected children array in payload".to_string(),
+                            current_node,
                         )
                     })?;
                 if children.is_empty() {
@@ -1780,25 +1806,28 @@ impl TreeWalkEngine {
                                 let var_idx = role_child_arena(lang, &child_node, "target")
                                     .or_else(|| ac[0].as_u64().map(|i| i as usize))
                                     .ok_or_else(|| {
-                                        LangError::engine(
+                                        LangError::engine_node(
                                             "eval_block: assign var index must be a number"
                                                 .to_string(),
+                                            current_node,
                                         )
                                     })?;
                                 let value_idx = role_child_arena(lang, &child_node, "value")
                                     .or_else(|| ac[1].as_u64().map(|i| i as usize))
                                     .ok_or_else(|| {
-                                        LangError::engine(
+                                        LangError::engine_node(
                                             "eval_block: assign value index must be a number"
                                                 .to_string(),
+                                            current_node,
                                         )
                                     })?;
                                 let var_name = {
                                     let var_node = ast.at(AstRef::new(var_idx))?;
                                     var_node.payload.as_str().ok_or_else(|| {
-                                        LangError::engine(
+                                        LangError::engine_node(
                                             "eval_block: assign LHS must be an identifier"
                                                 .to_string(),
+                                            current_node,
                                         )
                                     })?
                                 };
@@ -1873,22 +1902,22 @@ impl TreeWalkEngine {
             // their single operand.
             "is_pos" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v)?;
+                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
                 Ok((TaggedValue::Bool(n > Num::Int(0)), false))
             }
             "dec" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v)?;
+                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
                 Ok((num_value(n - Num::Int(1)), false))
             }
             "inc" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v)?;
+                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
                 Ok((num_value(n + Num::Int(1)), false))
             }
             "half_floor" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v)?;
+                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
                 let result = match n {
                     Num::Int(i) => Num::Int(i / 2),
                     Num::Float(f) => Num::Float((f / 2.0).floor()),
@@ -1920,7 +1949,7 @@ impl TreeWalkEngine {
                         )
                     })?
                     .clone();
-                let a_n = as_num(&a)?;
+                let a_n = as_num(&a).map_err(|e| e.with_node(current_node))?;
                 let new_a = num_value(a_n + Num::Int(1));
                 Ok((pair(new_a, b), false))
             }
@@ -1943,13 +1972,14 @@ impl TreeWalkEngine {
                 })?;
                 let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let result_val = pair_fst(&a).cloned().ok_or_else(|| {
-                    LangError::engine(
+                    LangError::engine_node(
                         "countdown_step: in must be pair(result, initial)".to_string(),
+                        current_node,
                     )
                 })?;
                 let initial = pair_snd(&a).cloned().unwrap_or(TaggedValue::Null);
                 let state = if b.is_null() { initial } else { b };
-                let n = as_num(&state)?;
+                let n = as_num(&state).map_err(|e| e.with_node(current_node))?;
                 if n > Num::Int(0) {
                     Ok((either_right(num_value(n - Num::Int(1))), false))
                 } else {
@@ -2759,8 +2789,9 @@ impl TreeWalkEngine {
                         let var_idx = role_child_arena(lang, &child_node, "target")
                             .or_else(|| ac[0].as_u64().map(|i| i as usize))
                             .ok_or_else(|| {
-                                LangError::engine(
+                                LangError::engine_node(
                                     "eval_rec: assign var index must be a number".to_string(),
+                                    current_node,
                                 )
                             })?;
                         let var_node = ast.at(AstRef::new(var_idx))?;
@@ -2833,21 +2864,25 @@ impl TreeWalkEngine {
                             let var_idx = role_child_arena(lang, &child_node, "target")
                                 .or_else(|| ac[0].as_u64().map(|i| i as usize))
                                 .ok_or_else(|| {
-                                    LangError::engine(
+                                    LangError::engine_node(
                                         "eval_rec: assign var index must be a number".to_string(),
+                                        current_node,
                                     )
                                 })?;
                             let value_idx = role_child_arena(lang, &child_node, "value")
                                 .or_else(|| ac[1].as_u64().map(|i| i as usize))
                                 .ok_or_else(|| {
-                                    LangError::engine(
-                                        "eval_rec: assign value index must be a number".to_string(),
+                                    LangError::engine_node(
+                                        "eval_rec: assign value index must be a number"
+                                            .to_string(),
+                                        current_node,
                                     )
                                 })?;
                             let var_node = ast.at(AstRef::new(var_idx))?;
                             let var_name = var_node.payload.as_str().ok_or_else(|| {
-                                LangError::engine(
+                                LangError::engine_node(
                                     "eval_rec: assign var payload must be a string".to_string(),
+                                    current_node,
                                 )
                             })?;
 
@@ -2888,8 +2923,10 @@ impl TreeWalkEngine {
 
         if !converged {
             env.pop_scope();
-            return Err(LangError::engine(
-                "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint".to_string(),
+            return Err(LangError::engine_node(
+                "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint"
+                    .to_string(),
+                current_node,
             ));
         }
 

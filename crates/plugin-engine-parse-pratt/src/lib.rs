@@ -32,7 +32,7 @@ use std::cell::RefCell;
 
 use handl_language::{
     Ast, AstNode, AstRef, ChildSeparator, DelimitedShape, GrammarPosition, LangError, Language,
-    LiteralKind, PayloadTokenSpec, Token, Value,
+    LiteralKind, PayloadTokenSpec, Span, Token, Value,
 };
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -239,7 +239,27 @@ impl<'a> Cursor<'a> {
                 self.pos += 1;
                 Ok(t.clone())
             }
-            None => Err(LangError::engine("unexpected end of input".to_string())),
+            None => Err(LangError::engine_at(
+                "unexpected end of input".to_string(),
+                self.last_span(),
+                None::<&str>,
+            )),
+        }
+    }
+
+    /// The byte span of the token at the current cursor position, if any.
+    /// Used to attach source locations to parse errors.
+    fn current_span(&self) -> Option<Span> {
+        self.tokens.get(self.pos).and_then(|t| t.span())
+    }
+
+    /// The byte span of the most recently consumed token, falling back to the
+    /// current token's span. Used for end-of-input diagnostics.
+    fn last_span(&self) -> Option<Span> {
+        if self.pos == 0 {
+            self.current_span()
+        } else {
+            self.tokens.get(self.pos - 1).and_then(|t| t.span())
         }
     }
 }
@@ -259,7 +279,13 @@ impl PrattEngine {
 
         // 1. Look up the prefix row for this token.
         let prefix_row = Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix)
-            .ok_or_else(|| LangError::engine(format!("unexpected token: {}", token.kind)))?;
+            .ok_or_else(|| {
+                LangError::engine_at(
+                    format!("unexpected token: {}", token.kind),
+                    token.span(),
+                    Some("token".to_string()),
+                )
+            })?;
 
         let shape = &prefix_row.child_shape;
         let arity = shape.arity;
@@ -285,10 +311,11 @@ impl PrattEngine {
             for spec in &shape.payload_tokens {
                 let tok = cursor.advance()?;
                 if tok.kind != spec.token {
-                    return Err(LangError::engine(format!(
-                        "expected payload token {}, got {}",
-                        spec.token, tok.kind
-                    )));
+                    return Err(LangError::engine_at(
+                        format!("expected payload token {}, got {}", spec.token, tok.kind),
+                        tok.span(),
+                        Some("token".to_string()),
+                    ));
                 }
                 if let Some(field) = &spec.field {
                     payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
@@ -371,7 +398,11 @@ impl PrattEngine {
             };
 
             let (lbp, rbp_right) = infix_row.binding_power.ok_or_else(|| {
-                LangError::engine(format!("infix row {} has no binding power", infix_row.id))
+                LangError::engine_at(
+                    format!("infix row {} has no binding power", infix_row.id),
+                    next.span(),
+                    Some("token".to_string()),
+                )
             })?;
 
             if lbp < rbp {
@@ -459,10 +490,11 @@ impl PrattEngine {
             ChildSeparator::Required(kind) => {
                 let tok = cursor.advance()?;
                 if tok.kind != *kind {
-                    return Err(LangError::engine(format!(
-                        "expected separator {}, got {}",
-                        kind, tok.kind
-                    )));
+                    return Err(LangError::engine_at(
+                        format!("expected separator {}, got {}", kind, tok.kind),
+                        tok.span(),
+                        Some("token".to_string()),
+                    ));
                 }
             }
             ChildSeparator::Optional(kind) => {
@@ -475,10 +507,11 @@ impl PrattEngine {
             ChildSeparator::OneOf(kinds) => {
                 let tok = cursor.advance()?;
                 if !kinds.iter().any(|k| k == &tok.kind) {
-                    return Err(LangError::engine(format!(
-                        "expected one of {:?}, got {}",
-                        kinds, tok.kind
-                    )));
+                    return Err(LangError::engine_at(
+                        format!("expected one of {:?}, got {}", kinds, tok.kind),
+                        tok.span(),
+                        Some("token".to_string()),
+                    ));
                 }
             }
         }
@@ -510,10 +543,11 @@ impl PrattEngine {
         if !delim.open_is_operator_token {
             let open = cursor.advance()?;
             if open.kind != delim.open {
-                return Err(LangError::engine(format!(
-                    "expected opening delimiter {}, got {}",
-                    delim.open, open.kind
-                )));
+                return Err(LangError::engine_at(
+                    format!("expected opening delimiter {}, got {}", delim.open, open.kind),
+                    open.span(),
+                    Some("token".to_string()),
+                ));
             }
         }
 
@@ -606,8 +640,10 @@ impl PrattEngine {
                 }
                 Some(t) if t.kind == delim.close => break,
                 None => {
-                    return Err(LangError::engine(
+                    return Err(LangError::engine_at(
                         "unexpected end of input in delimited block".to_string(),
+                        cursor.last_span(),
+                        None::<&str>,
                     ));
                 }
                 Some(_) if delim.separator.is_none() => {
@@ -630,12 +666,16 @@ impl PrattEngine {
                     continue;
                 }
                 Some(t) => {
-                    return Err(LangError::engine(format!(
-                        "expected separator {} or closing {}, got {}",
-                        delim.separator.as_deref().unwrap_or("(none)"),
-                        delim.close,
-                        t.kind
-                    )));
+                    return Err(LangError::engine_at(
+                        format!(
+                            "expected separator {} or closing {}, got {}",
+                            delim.separator.as_deref().unwrap_or("(none)"),
+                            delim.close,
+                            t.kind
+                        ),
+                        t.span(),
+                        Some("token".to_string()),
+                    ));
                 }
             }
         }
@@ -643,10 +683,11 @@ impl PrattEngine {
         // Consume the closing delimiter.
         let close = cursor.advance()?;
         if close.kind != delim.close {
-            return Err(LangError::engine(format!(
-                "expected closing delimiter {}, got {}",
-                delim.close, close.kind
-            )));
+            return Err(LangError::engine_at(
+                format!("expected closing delimiter {}, got {}", delim.close, close.kind),
+                close.span(),
+                Some("token".to_string()),
+            ));
         }
 
         if delim.flatten {
@@ -743,6 +784,7 @@ mod tests {
         Token {
             kind: kind.into(),
             text: text.into(),
+            ..Default::default()
         }
     }
 
