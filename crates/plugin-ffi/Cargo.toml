@@ -8,3 +8,6 @@ handl-platform.workspace = true
 handl-value = { workspace = true }
 libloading.workspace = true
 serde_json.workspace = true
+cranelift.workspace = true
+cranelift-jit.workspace = true
+cranelift-module.workspace = true

@@ -681,3 +681,109 @@ fn handle_return_unmarshal_unit() {
         .and_then(|v| v.as_i64());
     assert_eq!(ptr, Some(0x1234));
 }
+
+// -------------------------------------------------------------------------
+// Phase 8.1: Cranelift trampolines — no arity ceiling
+//
+// These tests define `#[unsafe(no_mangle)] extern "C"` functions in the test
+// binary and call them through the FFI dispatcher via the "self" library
+// (Library::this()), exercising signatures the old arity-0..=6 macro
+// dispatch could not express.
+// -------------------------------------------------------------------------
+
+/// An 8-argument integer C function (exceeds the old 6-arg ceiling).
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_test_sum8(
+    a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64,
+) -> i64 {
+    a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8
+}
+
+/// A 9-argument mixed int/float C function — verifies that args beyond the
+/// 6th still land in the right registers/stack slots on both the integer
+/// and floating-point sides.
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_test_mixed9(
+    a: i64, x: f64, b: i64, y: f64, c: i64, z: f64, d: i64, w: f64, e: i64,
+) -> i64 {
+    a + b + c + d + e + (x + y + z + w) as i64
+}
+
+#[test]
+fn ffi_call_with_eight_args_exceeds_old_ceiling() {
+    let func = FfiOpFunction::new(
+        "self",
+        "ffi_test_sum8",
+        vec![
+            "i64".to_string(), "i64".to_string(), "i64".to_string(), "i64".to_string(),
+            "i64".to_string(), "i64".to_string(), "i64".to_string(), "i64".to_string(),
+        ],
+        "i64",
+        false,
+    );
+    // 1 + 2*2 + 3*3 + 4*4 + 5*5 + 6*6 + 7*7 + 8*8 = 204
+    let result = call(
+        &func,
+        &[
+            json!(1), json!(2), json!(3), json!(4),
+            json!(5), json!(6), json!(7), json!(8),
+        ],
+    )
+    .expect("8-arg FFI call should succeed");
+    assert_eq!(result.as_i64(), Some(204));
+}
+
+#[test]
+fn ffi_call_with_nine_mixed_args() {
+    let func = FfiOpFunction::new(
+        "self",
+        "ffi_test_mixed9",
+        vec![
+            "i64".to_string(), "f64".to_string(), "i64".to_string(),
+            "f64".to_string(), "i64".to_string(), "f64".to_string(),
+            "i64".to_string(), "f64".to_string(), "i64".to_string(),
+        ],
+        "i64",
+        false,
+    );
+    // ints: 1+3+5+7+9 = 25; floats: 0.5+1.5+2.5+3.5 = 8.0 → 33
+    let result = call(
+        &func,
+        &[
+            json!(1), json!(0.5), json!(3), json!(1.5), json!(5),
+            json!(2.5), json!(7), json!(3.5), json!(9),
+        ],
+    )
+    .expect("9-arg mixed FFI call should succeed");
+    assert_eq!(result.as_i64(), Some(33));
+}
+
+#[test]
+fn cranelift_shim_is_cached_per_signature() {
+    use crate::cranelift_shim::{ArgClass, resolve_shim};
+    use crate::marshal::CRetKind;
+
+    // A distinctive signature unlikely to collide with other tests.
+    // (Note: the shim cache is process-global and shared with the parallel
+    // tests above, so we assert on Arc identity, not global cache counts.)
+    let args = vec![CArg::Int(1), CArg::Float(2.0), CArg::Int(3), CArg::Float(4.0)];
+    let s1 = resolve_shim(CRetKind::Int64, &args).expect("shim compile");
+    let s2 = resolve_shim(CRetKind::Int64, &args).expect("shim reuse");
+    assert!(
+        std::sync::Arc::ptr_eq(&s1, &s2),
+        "same signature should reuse the cached shim"
+    );
+
+    // A different signature compiles a distinct shim.
+    let other_args = vec![CArg::Int(1), CArg::Float(2.0), CArg::Int(3), CArg::Int(4)];
+    let s3 = resolve_shim(CRetKind::Int64, &other_args).expect("distinct shim");
+    assert!(!std::sync::Arc::ptr_eq(&s1, &s3));
+
+    // A different return kind is a different signature too.
+    let s4 = resolve_shim(CRetKind::Float, &args).expect("different-ret shim");
+    assert!(!std::sync::Arc::ptr_eq(&s1, &s4));
+
+    // ArgClass classification sanity check.
+    assert_eq!(ArgClass::from(&CArg::Int(0)), ArgClass::Int);
+    assert_eq!(ArgClass::from(&CArg::Float(0.0)), ArgClass::Float);
+}

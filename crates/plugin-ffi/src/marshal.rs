@@ -66,7 +66,7 @@ pub(crate) enum CArg {
 /// sign-extended), so reading the full 64-bit `rax` as `i64` would turn a
 /// `-1` `int` return into `4_294_967_295`. Reading it as `i32` and then
 /// sign-extending to `i64` gives the correct `-1`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum CRetKind {
     /// 32-bit integer return (read as `i32`, sign-extended to `i64`).
     Int32,

@@ -14,7 +14,8 @@
 //! 2. **Look up** the symbol via `dlsym` (cached by library + symbol).
 //! 3. **Marshal** each `serde_json::Value` argument to a C type per its
 //!    descriptor string.
-//! 4. **Call** the C symbol (`unsafe extern "C"`).
+//! 4. **Call** the C symbol via a cranelift-generated call stub
+//!    (`cranelift_shim`) — no arity ceiling.
 //! 5. **Unmarshal** the return (C type → `serde_json::Value`).
 //! 6. **Error clause** — when `error_on_lt_zero` is set and the integer return
 //!    is negative, extract `errno` (via `__errno_location()` on Linux) and
@@ -49,23 +50,18 @@ use handl_platform::{EvalContext, EvalError, Function};
 use libloading::Library;
 use serde_json::Value as JsonValue;
 
+use crate::cranelift_shim::resolve_shim;
 use crate::error::last_errno;
 use crate::marshal::{
     CArg, CRet, CRetKind, marshal_call_args, return_kind, unmarshal_return, wrap_out_buf_return,
 };
 
+mod cranelift_shim;
 mod error;
 mod marshal;
 
 #[cfg(test)]
 mod tests;
-
-/// Maximum number of arguments supported by the dispatcher.
-///
-/// The call-dispatch macro generates a typed function-pointer transmute for
-/// every arity from 0 to this limit. Most POSIX syscalls take six or fewer
-/// arguments.
-const MAX_ARGS: usize = 6;
 
 // ---------------------------------------------------------------------------
 // Global caches (process-lifetime)
@@ -153,9 +149,8 @@ fn resolve_symbol(library: &str, symbol: &str) -> Result<*mut c_void, EvalError>
         let lib = cache
             .get(library)
             .ok_or_else(|| EvalError::Other(format!("library not loaded: {library}")))?;
-        let sym: libloading::Symbol<unsafe extern "C" fn()> =
-            unsafe { lib.get(symbol.as_bytes()) }
-                .map_err(|e| EvalError::Other(format!("dlsym failed for {symbol}: {e}")))?;
+        let sym: libloading::Symbol<unsafe extern "C" fn()> = unsafe { lib.get(symbol.as_bytes()) }
+            .map_err(|e| EvalError::Other(format!("dlsym failed for {symbol}: {e}")))?;
         unsafe { sym.try_as_raw_ptr() }
             .ok_or_else(|| EvalError::Other(format!("null symbol: {symbol}")))?
     };
@@ -167,131 +162,22 @@ fn resolve_symbol(library: &str, symbol: &str) -> Result<*mut c_void, EvalError>
 }
 
 // ---------------------------------------------------------------------------
-// Call dispatch (macro-generated typed transmutes)
+// Call dispatch (Cranelift-generated trampolines)
 // ---------------------------------------------------------------------------
-
-/// Invoke a C function pointer with typed arguments, dispatching on the
-/// return kind.
-///
-/// All integer/pointer arguments are passed as `i64` (sound on x86-64 SysV
-/// and AArch64 where 32-bit ints are sign-extended in-register); float
-/// arguments are passed as `f64` so they land in XMM registers.
-macro_rules! invoke {
-    ($sym:expr, $ret:expr, [$($t:ty: $v:expr),* $(,)?]) => {
-        match $ret {
-            CRetKind::Int32 => {
-                let f: unsafe extern "C" fn($($t),*) -> i32 = unsafe {
-                    std::mem::transmute::<
-                        *mut c_void,
-                        unsafe extern "C" fn($($t),*) -> i32,
-                    >($sym)
-                };
-                CRet::Int(unsafe { f($($v),*) } as i64)
-            }
-            CRetKind::Int64 => {
-                let f: unsafe extern "C" fn($($t),*) -> i64 = unsafe {
-                    std::mem::transmute::<
-                        *mut c_void,
-                        unsafe extern "C" fn($($t),*) -> i64,
-                    >($sym)
-                };
-                CRet::Int(unsafe { f($($v),*) })
-            }
-            CRetKind::Float => {
-                let f: unsafe extern "C" fn($($t),*) -> f64 = unsafe {
-                    std::mem::transmute::<
-                        *mut c_void,
-                        unsafe extern "C" fn($($t),*) -> f64,
-                    >($sym)
-                };
-                CRet::Float(unsafe { f($($v),*) })
-            }
-            CRetKind::Void => {
-                let f: unsafe extern "C" fn($($t),*) = unsafe {
-                    std::mem::transmute::<
-                        *mut c_void,
-                        unsafe extern "C" fn($($t),*),
-                    >($sym)
-                };
-                unsafe { f($($v),*) };
-                CRet::Void
-            }
-        }
-    };
-}
-
-/// Recursively dispatch over argument kinds (`Int` / `Float`), building up
-/// the typed function-pointer signature, then emit the call via [`invoke!`].
-///
-/// Each argument position branches on whether it is an integer/pointer
-/// (`i64` slot) or a float (`f64` slot), producing 2^N typed call sites for
-/// N arguments.
-macro_rules! dispatch {
-    // Base case: no more indices — emit the call with accumulated types/vals.
-    (sym=$sym:expr, ret=$ret:expr, args=$args:expr,
-     types=[$($t:ty),* $(,)?], vals=[$($v:expr),* $(,)?], rest=[]) => {
-        invoke!($sym, $ret, [$($t: $v),*])
-    };
-    // Recursive step: process the next index, branching on Int/Float.
-    (sym=$sym:expr, ret=$ret:expr, args=$args:expr,
-     types=[$($t:ty),* $(,)?], vals=[$($v:expr),* $(,)?],
-     rest=[$idx:tt $($rest:tt)*]) => {
-        match $args[$idx] {
-            CArg::Int(val) => dispatch!(
-                sym=$sym, ret=$ret, args=$args,
-                types=[$($t,)* i64], vals=[$($v,)* val],
-                rest=[$($rest)*]
-            ),
-            CArg::Float(val) => dispatch!(
-                sym=$sym, ret=$ret, args=$args,
-                types=[$($t,)* f64], vals=[$($v,)* val],
-                rest=[$($rest)*]
-            ),
-        }
-    };
-}
-
-/// Generate a typed call function for a fixed arity.
-macro_rules! gen_call_fn {
-    ($n:ident, [$($idx:tt)*]) => {
-        fn $n(sym: *mut c_void, ret: CRetKind, args: &[CArg]) -> CRet {
-            let _ = &args;
-            dispatch!(
-                sym=sym, ret=ret, args=args,
-                types=[], vals=[], rest=[$($idx)*]
-            )
-        }
-    };
-}
-
-gen_call_fn!(call0, []);
-gen_call_fn!(call1, [0]);
-gen_call_fn!(call2, [0 1]);
-gen_call_fn!(call3, [0 1 2]);
-gen_call_fn!(call4, [0 1 2 3]);
-gen_call_fn!(call5, [0 1 2 3 4]);
-gen_call_fn!(call6, [0 1 2 3 4 5]);
 
 /// Call a C function pointer with the given marshalled arguments.
 ///
-/// Dispatches on arity (0..=[`MAX_ARGS`]), transmuting the raw symbol to the
-/// appropriate typed function pointer and invoking it. The return is read
-/// according to `ret_kind`.
+/// Resolves (compiling on first use, then cached) a cranelift-generated call
+/// stub for the flat signature `(ret_kind, classes(args))` and invokes it.
+/// There is no arity ceiling — the stub loads each argument from the
+/// int/float slot arrays and issues an indirect call with the exact C ABI
+/// signature. See [`crate::cranelift_shim`] for the trampoline contract.
 fn call_c(sym: *mut c_void, ret: CRetKind, args: &[CArg]) -> Result<CRet, EvalError> {
-    Ok(match args.len() {
-        0 => call0(sym, ret, args),
-        1 => call1(sym, ret, args),
-        2 => call2(sym, ret, args),
-        3 => call3(sym, ret, args),
-        4 => call4(sym, ret, args),
-        5 => call5(sym, ret, args),
-        6 => call6(sym, ret, args),
-        n => {
-            return Err(EvalError::Other(format!(
-                "too many FFI args: {n} (max {MAX_ARGS})"
-            )))
-        }
-    })
+    let shim = resolve_shim(ret, args)?;
+    // SAFETY: `shim` was compiled for exactly this signature (same arg
+    // classes in the same order, same return kind); `sym` is the `dlsym`
+    // result for the caller-declared signature.
+    Ok(unsafe { shim.call(sym, args) })
 }
 
 // ---------------------------------------------------------------------------
@@ -382,10 +268,7 @@ impl FfiOpFunction {
     /// The caller must ensure `finalizer` is safe to call with the opaque
     /// pointer returned by the C symbol and that it releases the underlying
     /// resource exactly once.
-    pub unsafe fn with_finalizer(
-        mut self,
-        finalizer: unsafe extern "C" fn(*mut c_void),
-    ) -> Self {
+    pub unsafe fn with_finalizer(mut self, finalizer: unsafe extern "C" fn(*mut c_void)) -> Self {
         self.finalizer = Some(finalizer);
         self
     }
