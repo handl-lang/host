@@ -13,7 +13,7 @@ fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let f = CharModule
         .function(name)
         .unwrap_or_else(|| panic!("char.{name} must exist"));
-    f.call(args, &mut handl_platform::EvalContext::default())
+    f.call(args, &mut handl_platform::EvalContext::new())
         .unwrap_or_else(|e| panic!("char.{name}({args:?}) failed: {e}"))
 }
 
@@ -21,7 +21,7 @@ fn call_err(name: &str, args: &[serde_json::Value]) -> String {
     let f = CharModule
         .function(name)
         .unwrap_or_else(|| panic!("char.{name} must exist"));
-    f.call(args, &mut handl_platform::EvalContext::default())
+    f.call(args, &mut handl_platform::EvalContext::new())
         .unwrap_err()
         .to_string()
 }

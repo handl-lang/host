@@ -24,23 +24,7 @@ use handl_language::{is_tag_value, REGISTRY_VALUE_KEY, TAG_VALUE_KEY, Value};
 const TYPE_TAG_PREFIX: &str = "type.";
 
 /// A host type registry (ADR-0054 — Generic Typecheck Engine).
-///
-/// A `TypeRegistry` mints **type values**: tagged values whose `__tag__`
-/// starts with `"type."` and that carry a [`REGISTRY_VALUE_KEY`] field
-/// identifying this registry. Type values are the currency of the
-/// typechecker — `construct` mints them, `match_type` dispatches on them,
-/// and equality is structural within a single registry.
-///
-/// The registry identity makes type values unforgeable across registries: a
-/// type value minted by registry `"handl.canonical"` is not recognized by a
-/// registry with a different id, so two independent typecheck hosts cannot
-/// be confused for one another.
-///
-/// `TypeRegistry` is pure data — it holds only a `registry_id` string and
-/// performs no global registration. Construct one per host typecheck
-/// surface (e.g. the canonical handl typechecker uses `"handl.canonical"`).
-///
-/// [`REGISTRY_VALUE_KEY`]: handl_language::REGISTRY_VALUE_KEY
+#[derive(Clone)]
 pub struct TypeRegistry {
     /// The registry identity stamped into every minted type value's
     /// `__registry__` field.

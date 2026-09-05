@@ -1682,6 +1682,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-char-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-cmp"
 version = "0.1.0"
 dependencies = [
