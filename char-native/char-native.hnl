@@ -1,0 +1,90 @@
+--- char-native — the Rust `std::char` backend for the `char` contract.
+---
+--- Implements every `char.*` axiom in `handl-packages/char/char.hnl` using
+--- Rust's standard-library character facilities (`char::is_whitespace`,
+--- `is_alphabetic`, `is_numeric`, `is_alphanumeric`, `is_uppercase`,
+--- `is_lowercase`, `to_uppercase`, `to_lowercase`, `from_u32`, and
+--- `str::chars`-based indexing/slicing). This is the Unicode-semantics
+--- backend for the Rust runtime: "whitespace", "alphabetic", "uppercase"
+--- etc. are interpreted per the Unicode Character Database.
+---
+--- Indices are character indices (0-based position in the scalar-value
+--- sequence), never byte offsets. `chars`/`from_chars` convert between a
+--- string and a list of 1-char strings in O(n) so `str-handl` algorithms
+--- can iterate without quadratic `at` scans.
+---
+--- Note: Rust `std::char` has no `to_titlecase`; `char.to_title` falls back
+--- to `to_uppercase` (titlecase digraphs like `ǲ` need an ICU backend).
+
+cap "char.is_whitespace"
+cap "char.is_alpha"
+cap "char.is_numeric"
+cap "char.is_alnum"
+cap "char.is_uppercase"
+cap "char.is_lowercase"
+cap "char.to_upper"
+cap "char.to_lower"
+cap "char.to_title"
+cap "char.code_point"
+cap "char.from_code_point"
+cap "char.at"
+cap "char.slice"
+cap "char.length"
+cap "char.concat"
+cap "char.code_point_at"
+cap "char.chars"
+cap "char.from_chars"
+
+op "char.is_whitespace" : String -> Bool
+  guarantee: True
+op "char.is_alpha" : String -> Bool
+  guarantee: True
+op "char.is_numeric" : String -> Bool
+  guarantee: True
+op "char.is_alnum" : String -> Bool
+  guarantee: True
+op "char.is_uppercase" : String -> Bool
+  guarantee: True
+op "char.is_lowercase" : String -> Bool
+  guarantee: True
+op "char.to_upper" : String -> String
+  guarantee: True
+op "char.to_lower" : String -> String
+  guarantee: True
+op "char.to_title" : String -> String
+  guarantee: True
+op "char.code_point" : String -> Int
+  guarantee: Le(0, output)
+op "char.from_code_point" : Int -> String
+  guarantee: True
+op "char.at" : (String * Int) -> String
+  guarantee: True
+op "char.slice" : (String * Int * Int) -> String
+  guarantee: LengthLe(output, input.0)
+op "char.concat" : (String * String) -> String
+  guarantee: True
+op "char.code_point_at" : (String * Int) -> Int
+  guarantee: Le(0, output)
+op "char.chars" : String -> (List String)
+  guarantee: True
+op "char.from_chars" : (List String) -> String
+  guarantee: True
+
+handl "char.is_whitespace" = rust_char_is_whitespace
+handl "char.is_alpha" = rust_char_is_alpha
+handl "char.is_numeric" = rust_char_is_numeric
+handl "char.is_alnum" = rust_char_is_alnum
+handl "char.is_uppercase" = rust_char_is_uppercase
+handl "char.is_lowercase" = rust_char_is_lowercase
+handl "char.to_upper" = rust_char_to_upper
+handl "char.to_lower" = rust_char_to_lower
+handl "char.to_title" = rust_char_to_title
+handl "char.code_point" = rust_char_code_point
+handl "char.from_code_point" = rust_char_from_code_point
+handl "char.at" = rust_char_at
+handl "char.slice" = rust_char_slice
+handl "char.length" = rust_char_length
+handl "char.concat" = rust_char_concat
+handl "char.code_point_at" = rust_char_code_point_at
+handl "char.chars" = rust_char_chars
+handl "char.from_chars" = rust_char_from_chars
