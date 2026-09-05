@@ -112,6 +112,7 @@ fn tok(kind: &str, text: &str) -> Token {
     Token {
         kind: kind.into(),
         text: text.into(),
+        ..Default::default()
     }
 }
 

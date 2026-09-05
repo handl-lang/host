@@ -12,7 +12,21 @@ fn lex(src: &str) -> Vec<Token> {
     let lang = kit.lang();
     let engine = DataLexerEngine::new();
     let req = LexerRequest::new(Source::new(src));
-    engine.lex(lang, &req).unwrap().0
+    // These integration tests verify *tokenization* (kind/text) against the
+    // canonical kit, not byte spans. The lexer now populates `start`/`end`;
+    // zero them out so the expected tokens (built with `..Default::default()`)
+    // compare equal. Span population is covered by the lib unit tests.
+    engine
+        .lex(lang, &req)
+        .unwrap()
+        .0
+        .into_iter()
+        .map(|mut t| {
+            t.start = 0;
+            t.end = 0;
+            t
+        })
+        .collect()
 }
 
 #[test]
@@ -23,15 +37,18 @@ fn lex_simple_expression() {
         vec![
             Token {
                 kind: "token.number".into(),
-                text: "1".into()
+                text: "1".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.plus".into(),
-                text: "+".into()
+                text: "+".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.number".into(),
-                text: "2".into()
+                text: "2".into(),
+                ..Default::default()
             },
         ]
     );
@@ -45,19 +62,23 @@ fn lex_let_binding() {
         vec![
             Token {
                 kind: "token.let".into(),
-                text: "let".into()
+                text: "let".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "x".into()
+                text: "x".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.equal".into(),
-                text: "=".into()
+                text: "=".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.number".into(),
-                text: "42".into()
+                text: "42".into(),
+                ..Default::default()
             },
         ]
     );
@@ -70,7 +91,8 @@ fn lex_string_literal() {
         toks,
         vec![Token {
             kind: "token.string".into(),
-            text: "\"hello world\"".into()
+            text: "\"hello world\"".into(),
+            ..Default::default()
         }]
     );
 }
@@ -83,23 +105,28 @@ fn lex_delimiters() {
         vec![
             Token {
                 kind: "token.lparen".into(),
-                text: "(".into()
+                text: "(".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "a".into()
+                text: "a".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.comma".into(),
-                text: ",".into()
+                text: ",".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "b".into()
+                text: "b".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.rparen".into(),
-                text: ")".into()
+                text: ")".into(),
+                ..Default::default()
             },
         ]
     );
@@ -113,15 +140,18 @@ fn lex_bool_and_null() {
         vec![
             Token {
                 kind: "token.bool".into(),
-                text: "true".into()
+                text: "true".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.bool".into(),
-                text: "false".into()
+                text: "false".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.null".into(),
-                text: "null".into()
+                text: "null".into(),
+                ..Default::default()
             },
         ]
     );
@@ -135,15 +165,18 @@ fn lex_longest_match_operators() {
         vec![
             Token {
                 kind: "token.identifier".into(),
-                text: "a".into()
+                text: "a".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.eqeq".into(),
-                text: "==".into()
+                text: "==".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "b".into()
+                text: "b".into(),
+                ..Default::default()
             },
         ]
     );
@@ -154,15 +187,18 @@ fn lex_longest_match_operators() {
         vec![
             Token {
                 kind: "token.identifier".into(),
-                text: "a".into()
+                text: "a".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.spaceship".into(),
-                text: "<=>".into()
+                text: "<=>".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "b".into()
+                text: "b".into(),
+                ..Default::default()
             },
         ]
     );
@@ -204,15 +240,18 @@ fn lex_unicode_greek_type_variables() {
         vec![
             Token {
                 kind: "token.identifier".into(),
-                text: "α".into()
+                text: "α".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "β".into()
+                text: "β".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "γ".into()
+                text: "γ".into(),
+                ..Default::default()
             },
         ]
     );
@@ -227,15 +266,18 @@ fn lex_unicode_greek_uppercase_identifiers() {
         vec![
             Token {
                 kind: "token.identifier".into(),
-                text: "Ω".into()
+                text: "Ω".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "Λ".into()
+                text: "Λ".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.identifier".into(),
-                text: "Δ".into()
+                text: "Δ".into(),
+                ..Default::default()
             },
         ]
     );
@@ -266,15 +308,18 @@ fn lex_decimal_and_minus() {
         vec![
             Token {
                 kind: "token.number".into(),
-                text: "3.14".into()
+                text: "3.14".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.minus".into(),
-                text: "-".into()
+                text: "-".into(),
+                ..Default::default()
             },
             Token {
                 kind: "token.number".into(),
-                text: "5".into()
+                text: "5".into(),
+                ..Default::default()
             },
         ]
     );

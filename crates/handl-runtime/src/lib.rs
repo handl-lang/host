@@ -1627,6 +1627,7 @@ mod tests {
         Token {
             kind: kind.into(),
             text: text.into(),
+            ..Default::default()
         }
     }
 
@@ -2099,6 +2100,7 @@ mod tests {
         let toks = vec![Token {
             kind: "token.x".into(),
             text: "x".into(),
+            ..Default::default()
         }];
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
         let r = engine.expression(&mut ctx, 0).unwrap();
