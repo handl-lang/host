@@ -357,6 +357,52 @@ fn push_function(out: &mut Ast, params: &[&str], body_idx: usize) -> usize {
         .index()
 }
 
+/// Push a `function` node with termination metadata in its payload
+/// (ADR-0082 step 3).
+///
+/// The `termination` field declares that the function is structurally
+/// recursive on the parameter at `decreasing_arg`, decreasing via the
+/// field named `decreasing_field`. The typechecker reads this metadata
+/// to recognize structural recursion without hardcoded name matching.
+fn push_function_with_termination(
+    out: &mut Ast,
+    params: &[&str],
+    body_idx: usize,
+    decreasing_arg: usize,
+    decreasing_field: &str,
+) -> usize {
+    let params_arr: Vec<Value> = params.iter().map(|s| Value::from(*s)).collect();
+    let payload = serde_json::json!({
+        "params": params_arr,
+        "body": body_idx,
+        "termination": {
+            "decreasing_arg": decreasing_arg,
+            "decreasing_field": decreasing_field
+        }
+    });
+    out.push(AstNode::new("function").with_payload(payload))
+        .index()
+}
+
+/// Find the first recursive field name across all constructors of a type.
+///
+/// A recursive field is a constructor argument whose type equals the type
+/// being defined. Returns the first such field name (e.g. "pred" for Nat),
+/// or `None` if the type has no recursive constructors.
+fn find_first_recursive_field(
+    constructors: &[DataConstructor],
+    type_name: &str,
+) -> Option<String> {
+    for cons in constructors {
+        for (arg_name, arg_type) in &cons.args {
+            if arg_type == type_name {
+                return Some(arg_name.clone());
+            }
+        }
+    }
+    None
+}
+
 /// Check if `original`'s child `i` has the given kind in the original AST.
 fn child_is_kind(ast: &Ast, original: &AstNode, i: usize, kind: &str) -> bool {
     let old_idx = original
@@ -1330,7 +1376,15 @@ fn build_recursor(
     // Build the dispatch on n.tag for each constructor.
     let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, &param_vars, self_var);
 
-    let inner_fn = push_function(out, &["n"], dispatch);
+    // ADR-0082 step 3: if the type has recursive constructors, attach
+    // termination metadata to the inner function. The recursor decreases
+    // on `n` (param 0) via the first recursive field (e.g. "pred" for Nat).
+    // The typechecker reads this metadata to recognize structural recursion
+    // without hardcoded name matching.
+    let inner_fn = match find_first_recursive_field(constructors, type_name) {
+        Some(field) => push_function_with_termination(out, &["n"], dispatch, 0, &field),
+        None => push_function(out, &["n"], dispatch),
+    };
     // Middle function: (c0, c1, ..., c_{N-1}) -> inner_fn
     let mid_param_refs: Vec<&str> = param_names.iter().map(|s| s.as_str()).collect();
     let mid_fn = push_function(out, &mid_param_refs, inner_fn);
@@ -1420,6 +1474,212 @@ fn build_recursor_dispatch(
 }
 
 // ---------------------------------------------------------------------------
+// 9. `match n { Zero => 0, Succ(pred) => 1 }` → `Nat.rec(0, (pred, rec) => 1)(n)`
+//     (ADR-0082 step 4: match as sugar over the recursor)
+// ---------------------------------------------------------------------------
+
+/// Parsed match arm: constructor name, arg names from the pattern, and the
+/// remapped body index in the output arena.
+struct MatchArm {
+    cons_name: String,
+    arg_names: Vec<String>,
+    body_idx: usize,
+}
+
+/// Parse a match arm's pattern to determine if it's a constructor pattern.
+///
+/// Returns `Some(MatchArm)` if the pattern is constructor-like:
+/// - `var` node (not `_`): nullary constructor. Name = payload, no args.
+/// - `call` node (child 0 is `var`): N-ary constructor. Name = child 0's
+///   payload, arg names from children 1+ (each must be a `var`).
+///
+/// Returns `None` if the pattern is NOT constructor-like:
+/// - `var("_")`: wildcard (conditional match, not inductive).
+/// - `lit`, `object`, `array`, etc.: non-constructor pattern.
+/// - `call` with non-`var` callee: not a constructor pattern.
+fn parse_arm_pattern(out: &Ast, pattern: &AstNode) -> Option<MatchArm> {
+    match pattern.kind.as_str() {
+        "var" => {
+            let name = pattern.payload.as_str()?;
+            if name == "_" {
+                return None; // wildcard — conditional match
+            }
+            Some(MatchArm {
+                cons_name: name.to_string(),
+                arg_names: Vec::new(),
+                body_idx: 0, // filled by caller
+            })
+        }
+        "call" => {
+            let call_children = pattern
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())?;
+            if call_children.is_empty() {
+                return None;
+            }
+            let callee_idx = call_children[0].as_u64()? as usize;
+            let callee = out.get(AstRef::new(callee_idx))?;
+            if callee.kind != "var" {
+                return None;
+            }
+            let cons_name = callee.payload.as_str()?.to_string();
+            let mut arg_names = Vec::new();
+            for arg_val in &call_children[1..] {
+                let arg_idx = arg_val.as_u64()? as usize;
+                let arg_node = out.get(AstRef::new(arg_idx))?;
+                if arg_node.kind != "var" {
+                    return None;
+                }
+                arg_names.push(arg_node.payload.as_str()?.to_string());
+            }
+            Some(MatchArm {
+                cons_name,
+                arg_names,
+                body_idx: 0,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Desugar an inductive `match` expression into a recursor application
+/// (ADR-0082 step 4).
+///
+/// `match n { Zero => 0, Succ(pred) => 1 }` becomes
+/// `Nat.rec(0, (pred, __rec_0) => 1)(n)`.
+///
+/// **Guard:** Only fires when ALL arms have constructor-like patterns
+/// (var nodes that aren't `_`, or call nodes with a var callee). If any
+/// arm uses a wildcard (`_`) or non-constructor pattern (lit, object,
+/// array, etc.), the match is a conditional match (from `if`/`nullish`/
+/// `opt-chain`/`for` desugaring) and is left unchanged.
+///
+/// **Type inference:** The inductive type is determined by looking up the
+/// constructor names in `data` nodes from the original AST. All arms must
+/// correspond to constructors of the same type, and all constructors of
+/// that type must be covered.
+fn desugar_match_to_recursor(
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    // match node has children [scrutinee, block_of_arms]
+    let scrutinee = remap_child(original, remap, 0)?;
+    let block_idx = remap_child(original, remap, 1)?;
+
+    // Get the block's children (arms) from the output arena.
+    let block_node = out.get(AstRef::new(block_idx))?;
+    let arm_indices: Vec<usize> = block_node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())?
+        .iter()
+        .map(|v| v.as_u64().map(|i| i as usize))
+        .collect::<Option<_>>()?;
+
+    if arm_indices.is_empty() {
+        return None;
+    }
+
+    // Parse each arm's pattern and body from the output arena.
+    let mut arms: Vec<MatchArm> = Vec::new();
+    for &arm_idx in &arm_indices {
+        let arm_node = out.get(AstRef::new(arm_idx))?;
+        let arm_children = arm_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())?;
+        if arm_children.len() < 2 {
+            return None;
+        }
+        let pattern_idx = arm_children[0].as_u64()? as usize;
+        let body_idx = arm_children[1].as_u64()? as usize;
+        let pattern = out.get(AstRef::new(pattern_idx))?;
+
+        let mut arm = parse_arm_pattern(out, pattern)?;
+        arm.body_idx = body_idx;
+        arms.push(arm);
+    }
+
+    // Build a constructor→type map by scanning the original AST for `data`
+    // nodes. This is data-driven: we read the `data` node payloads, not
+    // hardcoded constructor names.
+    let mut cons_to_type: std::collections::HashMap<String, (String, Vec<DataConstructor>)> =
+        std::collections::HashMap::new();
+    for node in ast.nodes() {
+        if node.kind == "data" {
+            if let Some((type_name, constructors)) = parse_data_payload(node, ast) {
+                for cons in &constructors {
+                    cons_to_type
+                        .insert(cons.name.clone(), (type_name.clone(), constructors.clone()));
+                }
+            }
+        }
+    }
+
+    // Determine the type from the first arm's constructor name.
+    let first_cons_name = &arms[0].cons_name;
+    let (type_name, constructors) = cons_to_type.get(first_cons_name)?;
+
+    // All arms must correspond to constructors of this type, and all
+    // constructors must be covered (exhaustive match).
+    if arms.len() != constructors.len() {
+        return None;
+    }
+
+    // Build a map from constructor name → arm, checking for duplicates and
+    // unknown constructors.
+    let mut arm_map: std::collections::HashMap<&str, &MatchArm> = std::collections::HashMap::new();
+    for arm in &arms {
+        if !constructors.iter().any(|c| c.name == arm.cons_name) {
+            return None; // unknown constructor
+        }
+        if arm_map.insert(arm.cons_name.as_str(), arm).is_some() {
+            return None; // duplicate arm
+        }
+    }
+
+    // Build recursor arguments in constructor declaration order.
+    let rec_name = format!("{}.rec", type_name);
+    let rec_var = push_leaf(out, "var", Value::from(rec_name));
+
+    let mut rec_args: Vec<usize> = Vec::new();
+    for cons in constructors {
+        let arm = arm_map.get(cons.name.as_str())?;
+        if cons.args.is_empty() {
+            // Nullary constructor: the arm body is the recursor argument
+            // (base case) — passed directly.
+            rec_args.push(arm.body_idx);
+        } else {
+            // Non-nullary constructor: build a step function
+            // (p1, ..., pk, __rec_0, ..., __rec_m) => body
+            // where __rec_j is the recursive result for each recursive arg.
+            let mut params: Vec<String> = arm.arg_names.clone();
+            for (_arg_name, arg_type) in &cons.args {
+                if arg_type == type_name {
+                    params.push(format!("__rec_{}", params.len() - arm.arg_names.len()));
+                }
+            }
+            let param_refs: Vec<&str> = params.iter().map(|s| s.as_str()).collect();
+            let step_fn = push_function(out, &param_refs, arm.body_idx);
+            rec_args.push(step_fn);
+        }
+    }
+
+    // Build: Type.rec(arg0, arg1, ..., argN)
+    let mut call_children = vec![rec_var];
+    call_children.extend(rec_args);
+    let rec_call = push_node(out, "call", call_children);
+
+    // Build: Type.rec(...)(scrutinee)
+    let full_call = push_node(out, "call", vec![rec_call, scrutinee]);
+
+    Some(AstRef::new(full_call))
+}
+
+// ---------------------------------------------------------------------------
 // Rust desugar dispatch
 // ---------------------------------------------------------------------------
 
@@ -1449,6 +1709,11 @@ fn try_rust_desugar(
         "do-while" => Some(desugar_do_while(original, ast, out, remap)),
         "for" => Some(desugar_for(original, ast, out, remap)),
         "data" => desugar_data(original, ast, out),
+        // ADR-0082 step 4: `match` with constructor patterns desugars to
+        // recursor application. Returns `None` (no desugar) for conditional
+        // matches (wildcard `_` or non-constructor patterns) — those pass
+        // through unchanged and are evaluated by the `match` eval primitive.
+        "match" => desugar_match_to_recursor(original, ast, out, remap),
         _ => None,
     }
 }
@@ -2438,6 +2703,97 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // ADR-0082 step 3: Termination metadata on recursor's inner function
+    // -----------------------------------------------------------------------
+
+    /// Helper: walk the recursor's function chain to find the inner function
+    /// `(n) -> dispatch`. Returns the inner function node.
+    fn recursor_inner_fn<'a>(out: &'a Ast, block_children: &[Value]) -> Option<&'a AstNode> {
+        let rec_assign_idx = block_children.last()?.as_u64()? as usize;
+        let rec_assign = out.get(AstRef::new(rec_assign_idx))?;
+        let rec_children = rec_assign.payload.get("children")?.as_array()?;
+        let rec_region_idx = rec_children.get(1)?.as_u64()? as usize;
+        let rec_region = out.get(AstRef::new(rec_region_idx))?;
+        let rec_region_children = rec_region.payload.get("children")?.as_array()?;
+        let inner_assign_idx = rec_region_children.first()?.as_u64()? as usize;
+        let inner_assign = out.get(AstRef::new(inner_assign_idx))?;
+        let inner_children = inner_assign.payload.get("children")?.as_array()?;
+        let outer_fn_idx = inner_children.get(1)?.as_u64()? as usize;
+        let outer_fn = out.get(AstRef::new(outer_fn_idx))?;
+        let mid_fn_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
+        let mid_fn = out.get(AstRef::new(mid_fn_idx))?;
+        let inner_fn_idx = mid_fn.payload.get("body")?.as_u64()? as usize;
+        out.get(AstRef::new(inner_fn_idx))
+    }
+
+    #[test]
+    fn data_nat_recursor_has_termination_metadata() {
+        // ADR-0082 step 3: the recursor's inner function `(n) -> dispatch`
+        // should carry a `termination` payload field with decreasing_arg=0
+        // and decreasing_field="pred".
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let inner_fn = recursor_inner_fn(&out, children).expect("inner function");
+        assert_eq!(inner_fn.kind, "function");
+        let term = inner_fn.payload.get("termination").expect("termination metadata");
+        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
+        assert_eq!(term.get("decreasing_field").unwrap(), &json!("pred"));
+    }
+
+    #[test]
+    fn data_bool_recursor_no_termination_metadata() {
+        // Non-recursive types (no recursive constructors) should NOT have
+        // termination metadata — the recursor is not structurally recursive.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Bool", &[("True", &[]), ("False", &[])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let inner_fn = recursor_inner_fn(&out, children).expect("inner function");
+        assert_eq!(inner_fn.kind, "function");
+        assert!(
+            inner_fn.payload.get("termination").is_none(),
+            "non-recursive recursor should not have termination metadata"
+        );
+    }
+
+    #[test]
+    fn data_tree_recursor_termination_uses_first_recursive_field() {
+    // data Tree = Leaf | Node(Tree, Tree) — two recursive fields. The
+    // termination metadata should use the first recursive field "left".
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node(
+            "Tree",
+            &[("Leaf", &[]), ("Node", &[("left", "Tree"), ("right", "Tree")])],
+        ));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let inner_fn = recursor_inner_fn(&out, children).expect("inner function");
+        let term = inner_fn.payload.get("termination").expect("termination metadata");
+        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
+        assert_eq!(term.get("decreasing_field").unwrap(), &json!("left"));
+    }
+
+    // -----------------------------------------------------------------------
     // Bug 0.1: Constructor json node references arg variables, not string lits
     // -----------------------------------------------------------------------
 
@@ -3039,5 +3395,291 @@ mod tests {
             "List(Good) should be accepted (positive inside parameterized), got kind: {}",
             root.kind
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0082 step 4: `match` as sugar over the recursor
+    // -----------------------------------------------------------------------
+
+    /// Build a `data` AST node followed by a `match` node for
+    /// `match n { Zero => 0, Succ(pred) => 1 }`.
+    ///
+    /// The match node uses the `children: [scrutinee, block_of_arms]` format
+    /// where the block contains `arm` nodes, each with `children: [pattern, body]`.
+    fn data_plus_match_nat_ast() -> Ast {
+        let mut ast = Ast::new();
+        // data Nat = Zero | Succ(Nat)
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+
+        // match n { Zero => 0, Succ(pred) => 1 }
+        // scrutinee: var("n") — index 1
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
+        // arm 1 pattern: var("Zero") — index 2
+        let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
+        // arm 1 body: lit(0) — index 3
+        let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        // arm 1: arm { children: [zero_pat, zero_body] } — index 4
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        // arm 2 pattern: call(var("Succ"), var("pred")) — indices 5, 6, 7
+        let succ_var = ast.push(AstNode::new("var").with_payload(json!("Succ")));
+        let pred_var = ast.push(AstNode::new("var").with_payload(json!("pred")));
+        let succ_pat = ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
+        // arm 2 body: lit(1) — index 8
+        let succ_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
+        // arm 2: arm { children: [succ_pat, succ_body] } — index 9
+        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
+        // block { arm1, arm2 } — index 10
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
+        // match { scrut, block } — index 11
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+        ast
+    }
+
+    #[test]
+    fn match_nat_desugars_to_recursor_call() {
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let ast = data_plus_match_nat_ast();
+        let out = apply_desugar(&lang, &ast);
+
+        // The last node should be a `call` (the recursor application),
+        // not a `match`.
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "call", "match should desugar to call (recursor application)");
+
+        // The outer call has 2 children: [rec_call, scrutinee]
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+
+        // Child 1 (scrutinee) should be var("n")
+        let scrut = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(scrut.kind, "var");
+        assert_eq!(scrut.payload, json!("n"));
+
+        // Child 0 is the inner call: Nat.rec(0, (pred, __rec_0) => 1)
+        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(rec_call.kind, "call");
+        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        // [Nat.rec, base_case, step_fn] = 3 children
+        assert_eq!(rec_children.len(), 3);
+
+        // Child 0: var("Nat.rec")
+        let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(rec_var.kind, "var");
+        assert_eq!(rec_var.payload, json!("Nat.rec"));
+
+        // Child 1: base case = lit(0)
+        let base = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(base.kind, "lit");
+        assert_eq!(base.payload, json!(0));
+
+        // Child 2: step function (pred, __rec_0) => lit(1)
+        let step = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(step.kind, "function");
+        let params = step.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params.len(), 2, "step function should have 2 params (pred, __rec_0)");
+        assert_eq!(params[0], json!("pred"));
+        assert_eq!(params[1], json!("__rec_0"));
+    }
+
+    #[test]
+    fn match_with_wildcard_not_desugared() {
+        // `match n { Zero => 0, _ => 1 }` — has a wildcard arm, so it
+        // should NOT be desugared to a recursor application.
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        // data Nat = Zero | Succ(Nat)
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+
+        // match n { Zero => 0, _ => 1 }
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
+        let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
+        let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let wildcard = ast.push(AstNode::new("var").with_payload(json!("_")));
+        let else_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
+        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [wildcard, else_body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        // Should remain `match`, not desugared to `call`.
+        assert_eq!(root.kind, "match", "wildcard match should not be desugared");
+    }
+
+    #[test]
+    fn match_conditional_not_desugared() {
+        // `match 5 { x: x }` — a conditional match with a binder pattern,
+        // not a constructor pattern. Should NOT be desugared.
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.value", "value")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        // scrutinee: value(5)
+        let scrut = ast.push(AstNode::new("value").with_payload(json!(5)));
+        // arm: pattern = var("x"), body = var("x")
+        let pat = ast.push(AstNode::new("var").with_payload(json!("x")));
+        let body = ast.push(AstNode::new("var").with_payload(json!("x")));
+        let arm = ast.push(AstNode::new("arm").with_payload(json!({"children": [pat, body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "match", "conditional match should not be desugared");
+    }
+
+    #[test]
+    fn match_bool_desugars_to_recursor_call() {
+        // data Bool = True | False
+        // match b { True => 1, False => 0 } → Bool.rec(1, 0)(b)
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        ast.push(data_node("Bool", &[("True", &[]), ("False", &[])]));
+
+        // match b { True => 1, False => 0 }
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("b")));
+        let true_pat = ast.push(AstNode::new("var").with_payload(json!("True")));
+        let true_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [true_pat, true_body]})));
+        let false_pat = ast.push(AstNode::new("var").with_payload(json!("False")));
+        let false_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [false_pat, false_body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "call", "Bool match should desugar to call");
+
+        // Outer call: [rec_call, scrutinee]
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+
+        // Inner call: Bool.rec(1, 0)
+        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        // [Bool.rec, 1, 0] = 3 children (both constructors are nullary → no step functions)
+        assert_eq!(rec_children.len(), 3);
+        let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(rec_var.payload, json!("Bool.rec"));
+    }
+
+    #[test]
+    fn match_arms_out_of_order_still_works() {
+        // match n { Succ(pred) => 1, Zero => 0 } — arms in reverse order.
+        // The recursor arguments should be in constructor declaration order
+        // (Zero first, Succ second), regardless of arm order.
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+
+        // match n { Succ(pred) => 1, Zero => 0 }
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
+        // arm 1: Succ(pred) => 1
+        let succ_var = ast.push(AstNode::new("var").with_payload(json!("Succ")));
+        let pred_var = ast.push(AstNode::new("var").with_payload(json!("pred")));
+        let succ_pat = ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
+        let succ_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
+        // arm 2: Zero => 0
+        let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
+        let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "call", "out-of-order match should desugar to call");
+
+        // Inner call: Nat.rec(0, (pred, __rec_0) => 1)
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(rec_children.len(), 3);
+
+        // First arg (Zero's base case) should be lit(0), not lit(1).
+        let base = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(base.payload, json!(0), "Zero base case should be 0 regardless of arm order");
+
+        // Second arg (Succ's step fn) should be a function with params [pred, __rec_0].
+        let step = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(step.kind, "function");
+        let params = step.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params[0], json!("pred"));
+    }
+
+    #[test]
+    fn match_incomplete_not_desugared() {
+    // match n { Zero => 0 } — only covers one of two constructors.
+    // This is not an exhaustive inductive match, so it should NOT desugar.
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+
+        // match n { Zero => 0 } — missing Succ arm
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
+        let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
+        let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "match", "incomplete match should not be desugared");
+    }
+
+    #[test]
+    fn match_no_data_decl_not_desugared() {
+    // match n { Foo => 0, Bar => 1 } — constructors "Foo" and "Bar" are
+    // not declared in any `data` node. Should NOT desugar (no recursor).
+        let mut lang = Language::new();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+
+        let mut ast = Ast::new();
+        let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
+        let foo_pat = ast.push(AstNode::new("var").with_payload(json!("Foo")));
+        let foo_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
+        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [foo_pat, foo_body]})));
+        let bar_pat = ast.push(AstNode::new("var").with_payload(json!("Bar")));
+        let bar_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
+        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [bar_pat, bar_body]})));
+        let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
+        ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "match", "match with unknown constructors should not be desugared");
     }
 }
