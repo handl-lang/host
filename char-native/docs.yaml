@@ -1,0 +1,4 @@
+category:
+  slug: lib-char-native
+  title: Char Native
+  description: Rust std::char backend for the char contract (Unicode semantics, char-indexed access).

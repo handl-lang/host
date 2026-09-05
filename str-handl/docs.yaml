@@ -1,0 +1,4 @@
+category:
+  slug: lib-str-handl
+  title: Str Handl
+  description: Pure-handl implementation of the str contract — all 45 string algorithms over the char floor.
