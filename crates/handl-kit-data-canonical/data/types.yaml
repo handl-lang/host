@@ -2917,3 +2917,16 @@
     args: []
     source: Judgment
     lit: type.unknown
+
+# Marshalable is a predicate type: Marshalable(T) asserts that type T
+# is FFI-marshalable (cstr, i32, i64, f64, buf, ptr, void, handle) per
+# ADR-0083. The typechecker handles it specially in `synth_type_annot`
+# by detecting the `type.Marshalable` tag and dispatching to
+# `is_marshalable()` (data-driven via `FFI_MARSHALLING_TYPES`).
+- id: type.Marshalable
+  node_kind: predicate.marshalable
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown

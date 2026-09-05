@@ -352,7 +352,8 @@ mod tests {
         // 60 type rules in types.yaml. ADR-0079 removed `type.let` and
         // `type.stmt.let` (let keyword deleted, graph blocks replace it).
         // Phase 7 added `type.Total` and `type.Pure` meta-predicate types.
-        assert_eq!(lang.types.len(), 60);
+        // Phase 8.2 added `type.Marshalable` meta-predicate type.
+        assert_eq!(lang.types.len(), 61);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.
