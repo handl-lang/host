@@ -93,6 +93,14 @@ handl-packages/str-handl/str-handl.hnl   canonical `str` impl: pure handl
                                          char.from_chars for O(n) iter)
 handl-packages/char-native/      `char` backend: Rust `std::char` (Unicode
                                  scalar values, not bytes)
+handl-packages/unicode/unicode.hnl  contract: graphemes/normalization/
+                                    casefold/width (UAX #29/#15/#11)
+handl-packages/unicode-handl/       `unicode` impl: code-point-level subset
+                                    over `char.*` (graphemes/width are
+                                    code-point fallbacks; `nfc`/`nfd` are
+                                    backend-required and omitted so they
+                                    fail loudly rather than return
+                                    un-normalized text)
 crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
 ```
 
@@ -118,10 +126,12 @@ crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
 - **Reentrancy fix:** `HandlFunction` caches per-thread `Rc<Runtime>` and
   clones the `Rc` out of the `RefCell` before `run` so nested module calls
   don't hit `RefCell already borrowed`.
-- `plugin-lib-utils`'s `StrModule` + `handl-packages/utils/str.hnl` remain as
-  a **legacy fallback** for kits that don't wire the `char` resolver; the
-  canonical `"str"` is `str-handl`. `unicode/` contract + `unicode-handl`
-  are deferred.
+- `plugin-lib-utils`'s `StrModule` + `handl-packages/utils/str.hnl` are
+  **demoted to a backend** (not deleted): `kit-cli`/`kit-stdlib`/
+  `kit-server`/`host-lsp` consume `str.*` via `plugin-lib-utils`'s
+  `contribute` and don't wire the `char` resolver, so `StrModule` stays
+  registered as the non-canonical fallback. The canonical `"str"` is
+  `str-handl`.
 
 ## Stashes
 

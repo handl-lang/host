@@ -1,0 +1,4 @@
+category:
+  slug: lib-unicode-handl
+  title: Unicode Handl
+  description: Pure-handl implementation of the unicode contract over the char floor (code-point fallback; normalization is backend-required).

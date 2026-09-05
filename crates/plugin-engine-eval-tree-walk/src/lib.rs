@@ -1483,47 +1483,49 @@ impl TreeWalkEngine {
                     ))
                 }
             }
+            // `index` — `target[index]` subscript. Operates on the two
+            // evaluated children (the `index` node kind carries children,
+            // not payload): array+int → element, object+string → value.
+            // Unlike `field_access`, a missing object key is an error.
             "index" => {
-                let target = current_node.payload.get("target").ok_or_else(|| {
-                    LangError::engine_node(
-                        "index: missing target in payload".to_string(),
-                        current_node,
-                    )
-                })?;
-                let index = current_node.payload.get("index").ok_or_else(|| {
-                    LangError::engine_node(
-                        "index: missing index in payload".to_string(),
-                        current_node,
-                    )
-                })?;
+                let target = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let index = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                 match (target, index) {
-                    (Value::Array(arr), Value::Number(n)) => {
-                        let i = n.as_u64().ok_or_else(|| {
-                            LangError::engine_node(
-                                "index: index must be a non-negative integer".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                        let v = arr.get(i).cloned().ok_or_else(|| {
+                    (TaggedValue::Arr(arr), index) => {
+                        let i = index
+                            .as_f64()
+                            .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                            .map(|n| n as usize)
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "index: index must be a non-negative integer".to_string(),
+                                    current_node,
+                                )
+                            })?;
+                        arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
                             LangError::engine_node(
                                 format!("index: index {} out of bounds", i),
                                 current_node,
                             )
-                        })?;
-                        Ok((TaggedValue::from(v), false))
+                        })
                     }
-                    (Value::Object(obj), Value::String(key)) => {
-                        let v = obj.get(key).cloned().ok_or_else(|| {
-                            LangError::engine_node(
-                                format!("index: key '{}' not found", key),
-                                current_node,
-                            )
-                        })?;
-                        Ok((TaggedValue::from(v), false))
+                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
+                        map.get(key.as_ref())
+                            .cloned()
+                            .map(|v| (v, false))
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    format!("index: key '{}' not found", key),
+                                    current_node,
+                                )
+                            })
                     }
-                    _ => Err(LangError::engine_node(
-                        "index: target must be array/object and index must be number/string"
-                            .to_string(),
+                    (target, index) => Err(LangError::engine_node(
+                        format!(
+                            "index: target must be array/object and index must be number/string; got {} and {}",
+                            type_tag(&target),
+                            type_tag(&index),
+                        ),
                         current_node,
                     )),
                 }

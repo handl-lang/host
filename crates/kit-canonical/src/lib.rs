@@ -13,7 +13,8 @@
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
-use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
+use handl_platform::{EvalContext, EvalError, Function, ModuleLookup, TypeSignature};
+use handl_plugin_lib_tag::TypeRegistry;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_lib_collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
@@ -86,6 +87,25 @@ const STR_HANDL_FUNCS: &[&str] = &[
     "slugify", "word_wrap",
 ];
 
+// ---------------------------------------------------------------------------
+// unicode-handl module (pure Handl over the `char` floor — the `unicode` impl)
+// ---------------------------------------------------------------------------
+
+/// The handl source implementing the `unicode` contract
+/// (`handl-packages/unicode/unicode.hnl`) as pure handl over `char.*`
+/// atoms. `unicode-handl` provides the code-point-level subset; table-
+/// dependent ops (`nfc`/`nfd`) are backend-required and intentionally
+/// omitted. Resolves `char` through [`StdlibResolver`].
+const UNICODE_HANDL_HNL: &str =
+    include_str!("../../../handl-packages/unicode-handl/unicode-handl.hnl");
+
+/// The record field names exposed by `unicode-handl.hnl` — each becomes a
+/// callable [`Function`](handl_platform::Function) on the `"unicode"` module.
+const UNICODE_HANDL_FUNCS: &[&str] = &[
+    "code_points", "from_code_points", "is_ascii", "code_point_at",
+    "graphemes", "grapheme_count", "width", "casefold",
+];
+
 /// Resolver that maps stdlib module names to their [`Module`] impls,
 /// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
 /// instead of hardcoding them in Rust.
@@ -96,6 +116,7 @@ impl ModuleResolver for StdlibResolver {
         match name {
             "str" => Some(std::sync::Arc::new(build_str_handl_module())),
             "char" => Some(std::sync::Arc::new(CharModule)),
+            "unicode" => Some(std::sync::Arc::new(build_unicode_handl_module())),
             "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
             "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
             "math" => Some(std::sync::Arc::new(MathModule)),
@@ -121,6 +142,18 @@ fn build_dedent_module() -> HandlModule {
 /// (`char-native` by default).
 fn build_str_handl_module() -> HandlModule {
     HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
+        .with_resolver(&StdlibResolver)
+}
+
+/// Build the [`HandlModule`] for `unicode-handl` — the pure-handl `unicode`
+/// implementation over the `char` floor.
+///
+/// `unicode-handl.hnl` evaluates to a record of the code-point-level
+/// functions; each name in [`UNICODE_HANDL_FUNCS`] becomes a callable
+/// `Function`. `char.*` calls resolve through [`StdlibResolver`] to the
+/// registered `char` backend (`char-native` by default).
+fn build_unicode_handl_module() -> HandlModule {
+    HandlModule::new("unicode", UNICODE_HANDL_HNL, UNICODE_HANDL_FUNCS)
         .with_resolver(&StdlibResolver)
 }
 
@@ -184,7 +217,12 @@ fn escape_handl_string(s: &str) -> String {
 /// Pratt parser evaluates, so it is removed before evaluation.
 fn strip_comment_lines(src: &str) -> String {
     src.lines()
-        .filter(|line| !line.trim_start().starts_with("--"))
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty()
+                && !trimmed.starts_with("--")
+                && !trimmed.starts_with("cap ")
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -228,6 +266,10 @@ fn greet_via_handl(name: &str) -> Result<String, EvalError> {
 pub struct HelloGreetHostFn;
 
 impl Function for HelloGreetHostFn {
+    fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
+        Some(self)
+    }
+
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 1 {
             return Err(EvalError::Other(format!(
@@ -239,6 +281,21 @@ impl Function for HelloGreetHostFn {
             .as_str()
             .ok_or_else(|| EvalError::Other("hello.greet: expected string argument".to_string()))?;
         Ok(Value::String(greet_via_handl(name)?))
+    }
+}
+
+impl TypeSignature for HelloGreetHostFn {
+    fn type_signature(&self) -> Value {
+        // `hello.greet : String -> String`
+        static REGISTRY: std::sync::OnceLock<TypeRegistry> = std::sync::OnceLock::new();
+        let registry = REGISTRY.get_or_init(|| TypeRegistry::new("handl.canonical"));
+        let string = registry
+            .construct("type.string", &Value::Null)
+            .expect("type.string should construct");
+        let function = registry
+            .construct("type.function", &serde_json::json!({"param": string, "body": string}))
+            .expect("type.function should construct");
+        function
     }
 }
 
@@ -452,6 +509,7 @@ impl Kit {
         // `from "str" import` callers resolve to the handl impl.
         stdlib_registry.register(build_str_handl_module());
         stdlib_registry.register(CharModule);
+        stdlib_registry.register(build_unicode_handl_module());
         stdlib_registry.register(BoolModule);
         stdlib_registry.register(TypeModule);
         stdlib_registry.register(OptionModule);

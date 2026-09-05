@@ -431,7 +431,17 @@
   node_kind: index
   scheme: !Arr
     op: index
-    args: []
+    args:
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
     source: Native
 - id: eval.json
   node_kind: json
