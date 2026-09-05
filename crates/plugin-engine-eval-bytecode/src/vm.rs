@@ -1028,7 +1028,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 })
             }
             "array" => {
-                // Two payload shapes (mirrors v1 `array` prim):
+                // Two payload shapes for `array`:
                 // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
                 // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
                 //   element is an arena index to evaluate.
@@ -1055,7 +1055,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }
             }
             "object" => {
-                // Two payload shapes (mirrors v1 `object` prim):
+                // Two payload shapes for `object`:
                 // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
                 // - Pratt-parsed: `{"children": [entry_idx, ...]}` where each
                 //   entry node has `{"children": [key_idx, value_idx]}`.
@@ -1979,7 +1979,7 @@ fn op_is_derived_step(op: &str) -> bool {
 // Numeric op helpers (mirror the v2 tree-walk)
 // ---------------------------------------------------------------------------
 
-/// Binary numeric op helper. Preserves int-int arithmetic (matching v1).
+/// Binary numeric op helper. Preserves int-int arithmetic.
 fn bin_num<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
 where
     F: FnOnce(f64, f64) -> f64,

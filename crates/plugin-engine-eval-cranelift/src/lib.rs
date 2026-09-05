@@ -876,48 +876,6 @@ pub unsafe extern "C" fn helper_push_literal(
 
 /// Load a variable by name index from the scope stack.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut TaggedValue {
-    unsafe {
-        let ctx = &mut *ctx;
-        if name_idx >= ctx.names.len() {
-            return ctx.set_error(LangError::engine(format!(
-                "name index {} out of bounds",
-                name_idx
-            )));
-        }
-        let name = &ctx.names[name_idx];
-        match ctx.env.lookup(name) {
-            Some(v) => box_value(v.clone()),
-            None => ctx.set_error(LangError::UnknownVariable { name: name.clone() }),
-        }
-    }
-}
-
-/// Load the payload variable: reads `node.payload` as a string (the variable
-/// name) and looks it up in the scope.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut TaggedValue {
-    unsafe {
-        let ctx = &mut *ctx;
-        match ctx.current_node() {
-            Ok(node) => match node.payload.as_str() {
-                Some(var_name) => match ctx.env.lookup(var_name) {
-                    Some(v) => box_value(v.clone()),
-                    None => ctx.set_error(LangError::UnknownVariable {
-                        name: var_name.to_string(),
-                    }),
-                },
-                None => ctx.set_error(LangError::engine(
-                    "expected string payload for $payload var".to_string(),
-                )),
-            },
-            Err(e) => ctx.set_error(e),
-        }
-    }
-}
-
-/// Load the current node's payload directly (no-scheme fallback).
-#[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
@@ -933,122 +891,6 @@ pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut TaggedVa
 /// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
 /// calls the child's pre-compiled native function.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut TaggedValue {
-    unsafe {
-        let ctx = &mut *ctx;
-        let node = match ctx.current_node() {
-            Ok(n) => n,
-            Err(e) => return ctx.set_error(e),
-        };
-        let children = match node.payload.get("children").and_then(|c| c.as_array()) {
-            Some(arr) => arr,
-            None => {
-                return ctx.set_error(LangError::engine(
-                    "expected children array in payload".to_string(),
-                ));
-            }
-        };
-        let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
-            Some(idx) => idx as usize,
-            None => {
-                return ctx.set_error(LangError::engine_node(
-                    format!("child {} not found", child_n),
-                    node,
-                ));
-            }
-        };
-        // Look up the compiled function for the child.
-        let func = match ctx.compiled.get(&arena_idx).copied() {
-            Some(f) => f,
-            None => {
-                return ctx.set_error(LangError::engine(format!(
-                    "no compiled function for node {}",
-                    arena_idx
-                )));
-            }
-        };
-        // Save and set current_ref for the child evaluation.
-        let saved_ref = ctx.current_ref;
-        ctx.current_ref = arena_idx;
-        let null_incoming = null_incoming_ptr();
-        let result =
-            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
-        // Restore current_ref.
-        ctx.current_ref = saved_ref;
-        result
-    }
-}
-
-/// Store a value in a new scope under the given name (by index).
-///
-/// Pushes a new scope and defines the variable. The value pointer is
-/// consumed (reclaimed).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut TaggedValue) {
-    unsafe {
-        let ctx = &mut *ctx;
-        if name_idx >= ctx.names.len() {
-            ctx.set_error(LangError::engine(format!(
-                "name index {} out of bounds",
-                name_idx
-            )));
-            if !val.is_null() {
-                let _ = take_value(val);
-            }
-            return;
-        }
-        let name = ctx.names[name_idx].clone();
-        let value = if val.is_null() {
-            return;
-        } else {
-            take_value(val)
-        };
-        ctx.env.push_scope();
-        ctx.env.define(&name, value);
-    }
-}
-
-/// Store a value in a new scope under the name from `node.payload["name"]`.
-///
-/// Pushes a new scope and defines the variable. The value pointer is
-/// consumed (reclaimed).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut TaggedValue) {
-    unsafe {
-        let ctx = &mut *ctx;
-        let node = match ctx.current_node() {
-            Ok(n) => n,
-            Err(e) => {
-                ctx.set_error(e);
-                if !val.is_null() {
-                    let _ = take_value(val);
-                }
-                return;
-            }
-        };
-        let bind_name = match node.payload.get("name").and_then(|v| v.as_str()) {
-            Some(s) => s.to_string(),
-            None => {
-                ctx.set_error(LangError::engine(
-                    "expected name in payload for $payload bind".to_string(),
-                ));
-                if !val.is_null() {
-                    let _ = take_value(val);
-                }
-                return;
-            }
-        };
-        if val.is_null() {
-            return;
-        }
-        let value = take_value(val);
-        ctx.env.push_scope();
-        ctx.env.define(&bind_name, value);
-    }
-}
-
-/// Pop the innermost scope.
-#[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx) {
     unsafe {
         let ctx = &mut *ctx;
@@ -1057,81 +899,6 @@ pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx) {
 }
 
 /// Push a new empty scope for the `vau` parameter bindings (ADR-0041 §6).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx) {
-    unsafe {
-        let ctx = &mut *ctx;
-        ctx.env.push_scope();
-    }
-}
-
-/// Bind the `n`-th child of the current node — unevaluated — to the name
-/// (by index) in the current scope (the `vau` escape, ADR-0041 §6).
-///
-/// Reads `node.payload["children"][child_n]` to get the child's `AstRef`,
-/// extracts the child's subtree into a standalone `Ast`, wraps it as a
-/// tagged `__ast__` value, and binds it to the name in the current
-/// (innermost) scope. The child is **not** evaluated.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, child_n: usize) {
-    unsafe {
-        let ctx = &mut *ctx;
-        if name_idx >= ctx.names.len() {
-            ctx.set_error(LangError::engine(format!(
-                "name index {} out of bounds",
-                name_idx
-            )));
-            return;
-        }
-        let name = ctx.names[name_idx].clone();
-        let node = match ctx.current_node() {
-            Ok(n) => n,
-            Err(e) => {
-                ctx.set_error(e);
-                return;
-            }
-        };
-        let children = match node.payload.get("children").and_then(|c| c.as_array()) {
-            Some(arr) => arr,
-            None => {
-                ctx.set_error(LangError::engine(
-                    "expected children array in payload".to_string(),
-                ));
-                return;
-            }
-        };
-        let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
-            Some(idx) => idx as usize,
-            None => {
-                ctx.set_error(LangError::engine(format!(
-                    "vau: child {} not found",
-                    child_n
-                )));
-                return;
-            }
-        };
-        let ast_ref = &*ctx.ast;
-        let sub = match ast_ref.subtree(AstRef::new(arena_idx)) {
-            Ok(s) => s,
-            Err(e) => {
-                ctx.set_error(e);
-                return;
-            }
-        };
-        let val = handl_language::ast_value(&sub);
-        ctx.env.define(&name, TaggedValue::from(val));
-    }
-}
-
-/// Reclaim a boxed [`TaggedValue`] pointer, freeing the allocation.
-///
-/// This is used to free intermediate values that are checked but not consumed
-/// by a helper (e.g. a `Branch` condition).
-///
-/// # Safety
-///
-/// `ptr` must be a valid pointer returned by [`box_value`] (or
-/// `Box::into_raw`), or null.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_drop_value(val: *mut TaggedValue) {
     unsafe {
@@ -1249,53 +1016,6 @@ pub unsafe extern "C" fn helper_apply_closure(
 }
 
 /// Apply a primitive operation (by name index).
-///
-/// All argument value pointers are consumed (reclaimed).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_apply_prim(
-    ctx: *mut EvalCtx,
-    op_idx: usize,
-    args: *const *mut TaggedValue,
-    n: usize,
-) -> *mut TaggedValue {
-    unsafe {
-        let ctx = &mut *ctx;
-        if op_idx >= ctx.names.len() {
-            // Consume args.
-            for i in 0..n {
-                let p = *args.add(i);
-                if !p.is_null() {
-                    let _ = take_value(p);
-                }
-            }
-            return ctx.set_error(LangError::engine(format!(
-                "op index {} out of bounds",
-                op_idx
-            )));
-        }
-        let op = ctx.names[op_idx].clone();
-
-        // Collect arg values.
-        let mut arg_vals = Vec::with_capacity(n);
-        for i in 0..n {
-            let arg_ptr = *args.add(i);
-            if arg_ptr.is_null() {
-                for j in (i + 1)..n {
-                    let p = *args.add(j);
-                    if !p.is_null() {
-                        let _ = take_value(p);
-                    }
-                }
-                return std::ptr::null_mut();
-            }
-            arg_vals.push(take_value(arg_ptr));
-        }
-
-        apply_prim(ctx, &op, &arg_vals)
-    }
-}
-
-/// Call a foreign (host) function (by name index).
 ///
 /// All argument value pointers are consumed (reclaimed).
 #[unsafe(no_mangle)]
@@ -1729,457 +1449,6 @@ fn type_tag(v: &TaggedValue) -> &'static str {
     }
 }
 
-/// Apply a primitive operation (shared logic).
-fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedValue {
-    let result = match op {
-        "add" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("add: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a + b)) {
-                Ok(n) => Ok(num_value(n)),
-                Err(e) => Err(e),
-            }
-        }
-        "sub" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("sub: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a - b)) {
-                Ok(n) => Ok(num_value(n)),
-                Err(e) => Err(e),
-            }
-        }
-        "mul" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("mul: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a * b)) {
-                Ok(n) => Ok(num_value(n)),
-                Err(e) => Err(e),
-            }
-        }
-        "div" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("div: expected 2 args".to_string()));
-            }
-            let b_num = as_num(&args[1]);
-            // Match tree-walk: if b.to_f64() == 0.0, return error.
-            if let Ok(bn) = &b_num {
-                if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::engine("division by zero".to_string()));
-                }
-            }
-            match as_num(&args[0]).and_then(|a| b_num.map(|b| a / b)) {
-                Ok(n) => Ok(num_value(n)),
-                Err(e) => Err(e),
-            }
-        }
-        "mod" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("mod: expected 2 args".to_string()));
-            }
-            let b_num = as_num(&args[1]);
-            if let Ok(bn) = &b_num {
-                if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::engine("modulo by zero".to_string()));
-                }
-            }
-            match as_num(&args[0]).and_then(|a| b_num.map(|b| a % b)) {
-                Ok(n) => Ok(num_value(n)),
-                Err(e) => Err(e),
-            }
-        }
-        "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
-        "lt" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("lt: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a < b)) {
-                Ok(b) => Ok(TaggedValue::Bool(b)),
-                Err(e) => Err(e),
-            }
-        }
-        "gt" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("gt: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a > b)) {
-                Ok(b) => Ok(TaggedValue::Bool(b)),
-                Err(e) => Err(e),
-            }
-        }
-        "pow" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("pow: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| {
-                as_num(&args[1]).map(|b| num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "gte" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("gte: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a >= b)) {
-                Ok(b) => Ok(TaggedValue::Bool(b)),
-                Err(e) => Err(e),
-            }
-        }
-        "lte" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("lte: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a <= b)) {
-                Ok(b) => Ok(TaggedValue::Bool(b)),
-                Err(e) => Err(e),
-            }
-        }
-        "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
-        "compare" => {
-            if args.len() < 2 {
-                return ctx.set_error(LangError::engine("compare: expected 2 args".to_string()));
-            }
-            match as_num(&args[0]).and_then(|a| {
-                as_num(&args[1]).map(|b| {
-                    let af = a.to_f64();
-                    let bf = b.to_f64();
-                    if af < bf {
-                        num_value(Num::Int(-1))
-                    } else if af > bf {
-                        num_value(Num::Int(1))
-                    } else {
-                        num_value(Num::Int(0))
-                    }
-                })
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "typeof" => Ok(TaggedValue::Str(Rc::from(type_tag(&args[0])))),
-        "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(TaggedValue::Bool(
-            is_truthy(&args[0]) && is_truthy(&args[1]),
-        )),
-        "or" => Ok(TaggedValue::Bool(
-            is_truthy(&args[0]) || is_truthy(&args[1]),
-        )),
-        "neg" => {
-            if args.is_empty() {
-                return ctx.set_error(LangError::engine("neg: expected 1 arg".to_string()));
-            }
-            match as_num(&args[0]).map(|a| match a {
-                Num::Int(i) => num_value(Num::Int(-i)),
-                Num::Float(f) => num_value(Num::Float(-f)),
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "closure" => {
-            // Create a closure from the current node's payload.
-            // Supports two payload shapes:
-            //   1. Rich: {"params": ["x", ...], "body": idx}
-            //   2. Pratt-parsed: {"children": [param_idx, body_idx]}
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            let payload = &node.payload;
-            if let (Some(p), Some(b)) = (
-                payload.get("params").and_then(|v| v.as_array()),
-                payload.get("body").and_then(|v| v.as_u64()),
-            ) {
-                let param_names: Result<Vec<String>, LangError> = p
-                    .iter()
-                    .map(|v| {
-                        v.as_str()
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "closure: param must be a string".to_string(),
-                                    node,
-                                )
-                            })
-                            .map(String::from)
-                    })
-                    .collect();
-                let param_names = match param_names {
-                    Ok(names) => names,
-                    Err(e) => return ctx.set_error(e),
-                };
-                let env = ctx.env.capture();
-                Ok(TaggedValue::Arrow {
-                    params: Rc::from(param_names),
-                    body: b as usize,
-                    env: Rc::new(env),
-                })
-            } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
-                let param_idx = match children.first().and_then(|v| v.as_u64()) {
-                    Some(idx) => idx as usize,
-                    None => {
-                        return ctx.set_error(LangError::engine(
-                            "closure: missing param child".to_string(),
-                        ))
-                    }
-                };
-                let body_idx = match children.get(1).and_then(|v| v.as_u64()) {
-                    Some(idx) => idx as usize,
-                    None => {
-                        return ctx.set_error(LangError::engine(
-                            "closure: missing body child".to_string(),
-                        ))
-                    }
-                };
-                let param_node = match ctx.ast_at(AstRef::new(param_idx)) {
-                    Ok(n) => n,
-                    Err(e) => return ctx.set_error(e),
-                };
-                let mut param_names: Vec<String> = Vec::new();
-                // Collection-vs-single params is a shape question (ADR-0081):
-                // a shape declaring a variadic role (e.g. `params`) is a param
-                // list; the legacy `paren`/`array` kinds remain only as the
-                // role-less fallback.
-                let lang = unsafe { &*ctx.lang };
-                if lang.has_variadic_role(&param_node.kind)
-                    || param_node.kind == "paren"
-                    || param_node.kind == "array"
-                {
-                    let param_children = match param_node
-                        .payload
-                        .get("children")
-                        .and_then(|c| c.as_array())
-                    {
-                        Some(c) => c,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "closure: params missing children".to_string(),
-                            ))
-                        }
-                    };
-                    for pc in param_children {
-                        let pidx = match pc.as_u64() {
-                            Some(idx) => idx as usize,
-                            None => {
-                                return ctx.set_error(LangError::engine(
-                                    "closure: param index must be a number".to_string(),
-                                ))
-                            }
-                        };
-                        let pnode = match ctx.ast_at(AstRef::new(pidx)) {
-                            Ok(n) => n,
-                            Err(e) => return ctx.set_error(e),
-                        };
-                        let pname = match pnode.payload.as_str() {
-                            Some(s) => s,
-                            None => {
-                                return ctx.set_error(LangError::engine(
-                                    "closure: param must be a var with string payload".to_string(),
-                                ))
-                            }
-                        };
-                        param_names.push(pname.to_string());
-                    }
-                } else {
-                    let pname = match param_node.payload.as_str() {
-                        Some(s) => s,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "closure: param node must be a var with string payload".to_string(),
-                            ))
-                        }
-                    };
-                    param_names.push(pname.to_string());
-                }
-                let env = ctx.env.capture();
-                Ok(TaggedValue::Arrow {
-                    params: Rc::from(param_names),
-                    body: body_idx,
-                    env: Rc::new(env),
-                })
-            } else {
-                return ctx.set_error(LangError::engine(
-                    "closure prim: missing params/body in payload".to_string(),
-                ));
-            }
-        }
-        "array" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            match node.payload.get("elements") {
-                Some(elements) => Ok(TaggedValue::from(elements.clone())),
-                None => {
-                    return ctx.set_error(LangError::engine(
-                        "array: missing elements in payload".to_string(),
-                    ));
-                }
-            }
-        }
-        "object" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            let entries = match node.payload.get("entries").and_then(|v| v.as_array()) {
-                Some(arr) => arr,
-                None => {
-                    return ctx.set_error(LangError::engine(
-                        "object: missing entries in payload".to_string(),
-                    ));
-                }
-            };
-            let mut obj = FxHashMap::default();
-            for entry in entries {
-                let key = match entry.get("key").and_then(|v| v.as_str()) {
-                    Some(k) => k,
-                    None => {
-                        return ctx.set_error(LangError::engine_node(
-                            "object: entry missing key".to_string(),
-                            node,
-                        ));
-                    }
-                };
-                let value = match entry.get("value") {
-                    Some(v) => v,
-                    None => {
-                        return ctx.set_error(LangError::engine(
-                            "object: entry missing value".to_string(),
-                        ));
-                    }
-                };
-                if handl_language::is_reserved_value_key(key) {
-                    return ctx.set_error(LangError::engine(format!(
-                        "object: key '{}' is reserved",
-                        key
-                    )));
-                }
-                obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
-            }
-            Ok(TaggedValue::Obj(Rc::new(obj)))
-        }
-        "index" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            let target = match node.payload.get("target") {
-                Some(t) => t,
-                None => {
-                    return ctx.set_error(LangError::engine(
-                        "index: missing target in payload".to_string(),
-                    ));
-                }
-            };
-            let index = match node.payload.get("index") {
-                Some(i) => i,
-                None => {
-                    return ctx.set_error(LangError::engine(
-                        "index: missing index in payload".to_string(),
-                    ));
-                }
-            };
-            // Convert target/index to TaggedValue for matching.
-            let target_t = TaggedValue::from(target.clone());
-            let index_t = TaggedValue::from(index.clone());
-            match (&target_t, &index_t) {
-                (TaggedValue::Arr(arr), TaggedValue::Int(i)) => {
-                    let idx = *i as usize;
-                    match arr.get(idx) {
-                        Some(v) => Ok(v.clone()),
-                        None => Err(LangError::engine(format!(
-                            "index: index {} out of bounds",
-                            idx
-                        ))),
-                    }
-                }
-                (TaggedValue::Arr(arr), TaggedValue::Float(f)) => {
-                    let idx = *f as usize;
-                    match arr.get(idx) {
-                        Some(v) => Ok(v.clone()),
-                        None => Err(LangError::engine(format!(
-                            "index: index {} out of bounds",
-                            idx
-                        ))),
-                    }
-                }
-                (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
-                    Some(v) => Ok(v.clone()),
-                    None => Err(LangError::engine_node(
-                        format!("index: key '{}' not found", key),
-                        node,
-                    )),
-                },
-                _ => Err(LangError::engine(
-                    "index: target must be array/object and index must be number/string"
-                        .to_string(),
-                )),
-            }
-        }
-        "assign" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            // ADR-0053: `assign { children: [var, value] }` — evaluate
-            // child 1 (value) and return it. Fall back to legacy
-            // `payload.value` for hand-built ASTs.
-            if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
-                if children.len() >= 2 {
-                    let value_idx = match children[1].as_u64() {
-                        Some(i) => i as usize,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "assign: value index must be a number".to_string(),
-                            ));
-                        }
-                    };
-                    eval_child_node(ctx, value_idx)
-                } else {
-                    Err(LangError::engine(
-                        "assign: expected at least 2 children".to_string(),
-                    ))
-                }
-            } else {
-                match node.payload.get("value") {
-                    Some(value) => Ok(TaggedValue::from(value.clone())),
-                    None => {
-                        return ctx.set_error(LangError::engine(
-                            "assign: missing value in payload".to_string(),
-                        ));
-                    }
-                }
-            }
-        }
-        "match" => return prim_match(ctx),
-        "handle" => return prim_handle(ctx),
-        "json" => {
-            // ADR-0053: json node payload is the JSON template string.
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            match node.payload.as_str() {
-                Some(expr) => serde_json::from_str::<Value>(expr)
-                    .map(TaggedValue::from)
-                    .map_err(|e| LangError::engine_node(format!("json: parse error: {}", e), node)),
-                None => Err(LangError::engine(
-                    "json: payload must be a string".to_string(),
-                )),
-            }
-        }
-        _ => Err(LangError::engine(format!("unknown prim: {}", op))),
-    };
-
-    match result {
-        Ok(v) => unsafe { box_value(v) },
-        Err(e) => ctx.set_error(e),
-    }
-}
 
 // ---------------------------------------------------------------------------
 // CompileEngine / CompiledArtifact impls (ADR-0047 §3)
@@ -2276,7 +1545,7 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
 
 /// Push a literal value (from the constant pool) as a boxed clone.
 ///
-/// Delegates to the v1 [`helper_push_literal`] (identical behavior).
+/// Pushes a literal value (from the constant pool) as a boxed clone.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_push_literal(
     ctx: *mut EvalCtx,
@@ -2287,7 +1556,7 @@ pub unsafe extern "C" fn helper_v2_push_literal(
 
 /// Load a variable by name index from the scope stack.
 ///
-/// Unlike the v1 [`helper_load_var`], an unbound variable returns the name as
+/// Loads a variable from the environment. An unbound variable returns the name as
 /// a string value (matching the v2 tree-walk convention), not an error.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_load_var(
@@ -2313,7 +1582,7 @@ pub unsafe extern "C" fn helper_v2_load_var(
 /// Load the payload variable: reads `node.payload` as a string (the variable
 /// name) and looks it up in the scope.
 ///
-/// Unlike the v1 [`helper_load_payload_var`], an unbound variable returns the
+/// Loads the current node's payload as a variable name. An unbound variable returns the
 /// name as a string value (matching the v2 tree-walk convention).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut TaggedValue {
@@ -2336,7 +1605,7 @@ pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut T
 
 /// Load the current node's payload directly (no-scheme fallback).
 ///
-/// Delegates to the v1 [`helper_load_payload`] (identical behavior).
+/// Loads the current node's payload as a value.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_load_payload(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe { helper_load_payload(ctx) }
@@ -2475,7 +1744,7 @@ pub unsafe extern "C" fn helper_v2_extend_env_payload(
 
 /// Pop the innermost scope.
 ///
-/// Delegates to the v1 [`helper_pop_scope`] (identical behavior).
+/// Pops the current scope from the environment stack.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_pop_scope(ctx: *mut EvalCtx) {
     unsafe { helper_pop_scope(ctx) }
@@ -2483,7 +1752,7 @@ pub unsafe extern "C" fn helper_v2_pop_scope(ctx: *mut EvalCtx) {
 
 /// Reclaim a boxed [`Value`] pointer, freeing the allocation.
 ///
-/// Delegates to the v1 [`helper_drop_value`] (identical behavior).
+/// Drops a boxed value (decrements refcount).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_drop_value(val: *mut TaggedValue) {
     unsafe { helper_drop_value(val) }
@@ -2492,7 +1761,7 @@ pub unsafe extern "C" fn helper_v2_drop_value(val: *mut TaggedValue) {
 /// Apply a closure value (or host function) to argument values.
 ///
 /// The callee and all argument value pointers are consumed (reclaimed). This
-/// mirrors the v1 [`helper_apply_closure`] but calls the child's v2 compiled
+/// Applies a closure to arguments by calling the child's v2 compiled
 /// function (which takes an incoming value parameter). For closure bodies, the
 /// incoming value is a boxed `Null` (closure bodies are evaluated as fresh
 /// computations). For host-function string callees, dispatches to the module
@@ -2765,7 +2034,7 @@ fn prim_v2_loop_step(
 
 /// Call a foreign (host) function (by name index).
 ///
-/// Delegates to the v1 [`helper_call_foreign`] logic (identical behavior —
+/// Calls a foreign (host) function (identical behavior —
 /// foreign dispatch does not use the incoming value).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_call_foreign(
@@ -3309,7 +2578,7 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
 
 /// v2 `array` prim: construct an array value from the current node's payload.
 ///
-/// Two payload shapes (mirrors v1 `array` prim):
+/// Two payload shapes for `array`:
 /// - Rich: `{"elements": [v1, v2, ...]}` — literal values, returned as-is.
 /// - Pratt-parsed: `{"children": [elem_idx, ...]}` — each element is an arena
 ///   index evaluated via [`eval_child_node`].
@@ -3355,7 +2624,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
 
 /// v2 `object` prim: construct an object value from the current node's payload.
 ///
-/// Two payload shapes (mirrors v1 `object` prim):
+/// Two payload shapes for `object`:
 /// - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
 /// - Pratt-parsed: `{"children": [entry_idx, ...]}` where each entry node has
 ///   `{"children": [key_idx, value_idx]}`.
@@ -6096,23 +5365,6 @@ mod tests {
     }
 
     // 9. Version checks
-
-    #[test]
-    #[ignore = "v1 kernel removed in ADR-0052; engine only supports v2"]
-    fn v2_engine_accepts_v1_lang() {
-        // SchemeVersion::v1() no longer exists (ADR-0052 big-bang cutover).
-        /*
-        let mut lang = Language::new();
-        lang.scheme_version = SchemeVersion::v1();
-        lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
-            .unwrap();
-        let ast = make_ast(vec![AstNode::new("c")]);
-        let engine = CraneliftEngineV2::new();
-        let req = EvalRequest::new(ast);
-        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
-        */
-    }
 
     #[test]
     fn v2_engine_accepts_v2_lang() {

@@ -488,7 +488,7 @@ fn make_host_isa() -> Result<Arc<dyn TargetIsa>, LangError> {
 }
 
 /// The backend-agnostic v2 core: declare helpers + node functions, and compile
-/// (define) each node by lowering v1->v2 then compiling the `Scheme`.
+/// (define) each node by compiling its `Scheme`.
 ///
 /// Generic over `M: Module` so the same IR-generation code drives both
 /// [`JITModule`] and [`ObjectModule`]. Returns the per-node `FuncId`s and the
@@ -496,8 +496,8 @@ fn make_host_isa() -> Result<Arc<dyn TargetIsa>, LangError> {
 ///
 /// # Errors
 ///
-/// Returns [`LangError`] on unsupported scheme version, v1->v2 lowering
-/// failure, or any cranelift declare/compile failure.
+/// Returns [`LangError`] on unsupported scheme version or any cranelift
+/// declare/compile failure.
 fn compile_core_v2<M: Module>(
     module: &mut M,
     lang: &Language,
@@ -505,10 +505,10 @@ fn compile_core_v2<M: Module>(
     node_linkage: Linkage,
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
-    // Scheme version check — v2 engine accepts v1 AND v2.
+    // Scheme version check — v2 only.
     if !SchemeVersion::v2().supports(&lang.scheme_version) {
         return Err(LangError::engine(format!(
-            "unsupported scheme version: {} (v2 engine supports v1 and v2)",
+            "unsupported scheme version: {} (v2 only)",
             lang.scheme_version
         )));
     }

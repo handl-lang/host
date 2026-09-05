@@ -3456,7 +3456,7 @@ mod tests {
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 
-    // --- v2 scheme constructor helpers (mirror the old v1 shapes) ---
+    // --- v2 scheme constructor helpers ---
 
     /// `proj_child n` — the v2 equivalent of the old `Scheme::Child(n)`.
     fn child(n: u64) -> Scheme {
