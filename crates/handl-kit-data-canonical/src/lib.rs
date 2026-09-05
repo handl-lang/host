@@ -349,9 +349,10 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 58 type rules in types.yaml. ADR-0079 removed `type.let` and
+        // 60 type rules in types.yaml. ADR-0079 removed `type.let` and
         // `type.stmt.let` (let keyword deleted, graph blocks replace it).
-        assert_eq!(lang.types.len(), 58);
+        // Phase 7 added `type.Total` and `type.Pure` meta-predicate types.
+        assert_eq!(lang.types.len(), 60);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

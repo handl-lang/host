@@ -2880,3 +2880,40 @@
     args: []
     source: Judgment
     lit: type.unknown
+
+# ---------------------------------------------------------------------------
+# Phase 7: Meta-predicate types (Total, Pure)
+# ---------------------------------------------------------------------------
+#
+# These are predicate types that assert a meta-property of a function:
+#   - Total(A -> B) asserts the function is total (terminates on all inputs)
+#     via structural recursion checking.
+#   - Pure(A -> B) asserts the function is pure (effect-free) by checking
+#     that its effect row is empty.
+#
+# They are not type rules for AST node kinds — the `node_kind` is a sentinel
+# that will never appear in a real AST. The typechecker handles them
+# specially in `synth_type_annot` by detecting the `type.Total` / `type.Pure`
+# tag on the annotation type value and dispatching to the meta-property
+# checker (totality_check / purity check). The `synth` scheme is a trivial
+# placeholder that is never invoked.
+
+# Total is a predicate type: Total(A -> B) asserts that the function
+# of type A -> B is total (terminates on all inputs).
+- id: type.Total
+  node_kind: predicate.total
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# Pure is a predicate type: Pure(A -> B) asserts that the function
+# of type A -> B is pure (effect-free).
+- id: type.Pure
+  node_kind: predicate.pure
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown

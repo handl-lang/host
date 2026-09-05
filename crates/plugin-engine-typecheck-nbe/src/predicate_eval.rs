@@ -797,6 +797,69 @@ impl super::NbeTypecheckEngine {
         }
     }
 
+    /// Check purity of a function by inspecting its effect row (Phase 7.2).
+    ///
+    /// `expr_type` is the synthesized type of the annotated expression. If it
+    /// is a `type.function` with an `effects` field, the effect row is
+    /// inspected:
+    /// - Empty ops array → [`Proof::ok`] (pure, no effects).
+    /// - Non-empty ops array → [`Proof::no`] (impure, has effects).
+    /// - No `effects` field → [`Proof::ok`] (no effects declared = pure by
+    ///   default).
+    ///
+    /// If the type is not a `type.function`, the check is blocked (we can't
+    /// determine purity of a non-function).
+    pub(crate) fn check_purity(&self, expr_type: &Value) -> Proof {
+        // Check if it's a type.function.
+        let is_function = self
+            .registry_id_check(expr_type);
+        if !is_function {
+            return Proof::blocked(format!(
+                "purity: expression type is not a function, cannot check purity"
+            ));
+        }
+
+        // Read the effects field from the function type.
+        let effects = expr_type.get("effects");
+        match effects {
+            Some(eff) => {
+                // Check if the effects value is a type.effects with ops.
+                let ops = eff.get("ops").and_then(|o| o.as_array());
+                match ops {
+                    Some(ops_arr) if ops_arr.is_empty() => {
+                        Proof::ok("function has no effects")
+                    }
+                    Some(ops_arr) => {
+                        let effect_names: Vec<String> = ops_arr
+                            .iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect();
+                        Proof::no(format!(
+                            "function has effects: {}",
+                            effect_names.join(", ")
+                        ))
+                    }
+                    None => {
+                        // effects field present but no ops array — treat as
+                        // empty (pure).
+                        Proof::ok("function has no effects (effects field without ops)")
+                    }
+                }
+            }
+            None => {
+                // No effects field — pure by default.
+                Proof::ok("function has no effects (no effects field)")
+            }
+        }
+    }
+
+    /// Helper: check if a value is a `type.function` from this engine's
+    /// registry. Uses the registry id string comparison since we don't have
+    /// direct access to the TypeRegistry here (it's in the context).
+    fn registry_id_check(&self, v: &Value) -> bool {
+        v.get("__tag__").and_then(|t| t.as_str()) == Some("type.function")
+    }
+
     /// Check whether a value is a closure (arrow-value).
     ///
     /// A closure is a JSON object with `"__arrow__": true`. This is the

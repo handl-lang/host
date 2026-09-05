@@ -10571,3 +10571,481 @@ fn read_termination_metadata_non_function_node() {
     assert_eq!(info.decreasing_arg, 2);
     assert_eq!(info.decreasing_field, "left");
 }
+
+// ===========================================================================
+// Phase 7: Total and Pure meta-predicates
+//
+// Total(A -> B) asserts a function is total (terminates) via structural
+// recursion checking. Pure(A -> B) asserts a function is pure (effect-free)
+// by checking its effect row is empty. Both are meta-predicates handled
+// specially in synth_type_annot.
+// ===========================================================================
+
+/// Build a minimal language for meta-predicate integration tests: `lit`,
+/// `var`, `function`, `binary.add`, and `type-annot` type rules, plus eval
+/// schemes for `var` and `function` (needed by the bound eval engine when
+/// the predicate path falls back to it).
+fn meta_predicate_lang() -> Language {
+    let mut lang = Language::new();
+
+    // --- eval schemes (for closure creation / var lookup) ---
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.var",
+            "var",
+            Scheme::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+        ))
+        .unwrap();
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.function",
+            "function",
+            Scheme::arr_native("closure", vec![]),
+        ))
+        .unwrap();
+
+    // --- type rules ---
+    // lit → type.number
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.lit",
+            "lit",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    // var → lookup from Γ
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.var",
+            "var",
+            Scheme::arr_judgment_lit("lookup", vec![], Value::from("$payload")),
+        ))
+        .unwrap();
+    // function → synth_function
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.function",
+            "function",
+            Scheme::arr_judgment("synth_function", vec![]),
+        ))
+        .unwrap();
+    // binary.add → type.number (both children type.number)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.binary.add",
+            "binary.add",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    // type-annot → synth_type_annot
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.type-annot",
+            "type-annot",
+            Scheme::arr_judgment("synth_type_annot", vec![]),
+        ))
+        .unwrap();
+    // assign → type.unit (statement with side effects; matches canonical)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.assign",
+            "assign",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.unit")),
+        ))
+        .unwrap();
+
+    lang
+}
+
+// --- 7.1: Total predicate — check_totality unit tests ---
+
+#[test]
+fn total_nonrecursive_function_is_trivially_total() {
+    // `(x) -> x + 1` — anonymous, non-recursive → trivially total.
+    // AST:
+    //   0: var("x")                       — param
+    //   1: paren{children:[0]}            — params wrapper
+    //   2: lit(1)                         — 1
+    //   3: binary.add{children:[0,2]}     — x + 1
+    //   4: function{children:[1,3]}       — (x) -> x + 1
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 0
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 2
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 2]}))); // 3
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 3]}))); // 4
+
+    let lang = Language::new();
+    let proof = totality_check::check_totality(&ast, AstRef::new(4), &lang);
+    assert_eq!(proof.verdict, Verdict::Proven);
+    assert!(
+        proof.reason.contains("trivially total"),
+        "expected trivially total, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn total_recursor_with_termination_metadata_is_total() {
+    // A generated recursor function carrying `termination` metadata →
+    // recognized as structurally recursive → Proven.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1: params
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 2: body (placeholder)
+    ast.push(
+        AstNode::new("function").with_payload(json!({
+            "children": [1, 2],
+            "termination": {
+                "decreasing_arg": 0,
+                "decreasing_field": "pred"
+            }
+        })),
+    ); // 3: recursor function
+
+    let lang = Language::new();
+    let proof = totality_check::check_totality(&ast, AstRef::new(3), &lang);
+    assert_eq!(proof.verdict, Verdict::Proven);
+    assert!(
+        proof.reason.contains("recursor metadata"),
+        "expected recursor metadata reason, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn total_recursive_function_without_decreasing_is_disproved() {
+    // A named recursive function `f = (n) -> f(n)` — the recursive call
+    // passes `n` directly (not a strict sub-structure) → Disproved.
+    //
+    // AST:
+    //   0: var("n")                        — param
+    //   1: paren{children:[0]}             — params wrapper
+    //   2: var("f")                        — callee (recursive call)
+    //   3: var("n")                        — arg (bare param, not decreasing)
+    //   4: call{children:[2,3]}            — f(n)
+    //   5: function{children:[1,4]}        — (n) -> f(n)
+    //   6: var("f")                        — assign target
+    //   7: assign{children:[6,5]}          — f = (n) -> f(n)
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 2
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 3
+    ast.push(AstNode::new("call").with_payload(json!({"children": [2, 3]}))); // 4
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 4]}))); // 5
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 6
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [6, 5]}))); // 7
+
+    let lang = Language::new();
+    // Check totality of the assign node (named function definition).
+    let proof = totality_check::check_totality(&ast, AstRef::new(7), &lang);
+    assert_eq!(proof.verdict, Verdict::Disproved);
+    assert!(
+        proof.reason.contains("does not decrease"),
+        "expected does-not-decrease reason, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn total_recursive_function_with_field_access_decreasing_is_proven() {
+    // A named recursive function `f = (n) -> f(n.pred)` — the recursive
+    // call passes `n.pred` (a field-access on the param) → strict
+    // sub-structure → Proven.
+    //
+    // AST:
+    //   0: var("n")                        — param
+    //   1: paren{children:[0]}             — params wrapper
+    //   2: var("f")                        — callee
+    //   3: var("n")                        — field-access target
+    //   4: var("pred")                     — field name
+    //   5: field-access{children:[3,4]}    — n.pred
+    //   6: call{children:[2,5]}            — f(n.pred)
+    //   7: function{children:[1,6]}        — (n) -> f(n.pred)
+    //   8: var("f")                        — assign target
+    //   9: assign{children:[8,7]}          — f = (n) -> f(n.pred)
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 2
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 3
+    ast.push(AstNode::new("var").with_payload(json!("pred"))); // 4
+    ast.push(
+        AstNode::new("field-access").with_payload(json!({"children": [3, 4]})),
+    ); // 5
+    ast.push(AstNode::new("call").with_payload(json!({"children": [2, 5]}))); // 6
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 6]}))); // 7
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 8
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [8, 7]}))); // 9
+
+    let lang = Language::new();
+    let proof = totality_check::check_totality(&ast, AstRef::new(9), &lang);
+    assert_eq!(proof.verdict, Verdict::Proven);
+    assert!(
+        proof.reason.contains("structurally recursive"),
+        "expected structurally recursive reason, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn total_var_reference_looks_up_assign() {
+    // `f` referenced as a var — totality checker looks up the assign for
+    // `f` and checks it. The function is non-recursive → trivially total.
+    //
+    // AST:
+    //   0: var("x")                        — param
+    //   1: paren{children:[0]}             — params wrapper
+    //   2: lit(1)                          — 1
+    //   3: binary.add{children:[0,2]}      — x + 1
+    //   4: function{children:[1,3]}        — (x) -> x + 1
+    //   5: var("f")                        — assign target
+    //   6: assign{children:[5,4]}          — f = (x) -> x + 1
+    //   7: var("f")                        — reference to check
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 0
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 2
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 2]}))); // 3
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 3]}))); // 4
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 5
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [5, 4]}))); // 6
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 7
+
+    let lang = Language::new();
+    let proof = totality_check::check_totality(&ast, AstRef::new(7), &lang);
+    assert_eq!(proof.verdict, Verdict::Proven);
+}
+
+#[test]
+fn total_non_function_expression_is_blocked() {
+    // A lit node is not a function → Blocked.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("lit").with_payload(json!(42)));
+
+    let lang = Language::new();
+    let proof = totality_check::check_totality(&ast, AstRef::new(0), &lang);
+    assert_eq!(proof.verdict, Verdict::Blocked);
+}
+
+// --- 7.2: Pure predicate — check_purity unit tests ---
+
+#[test]
+fn pure_function_with_no_effects_field_is_pure() {
+    // A function type with no `effects` field → pure by default.
+    let engine = engine();
+    let fn_type = json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": type_number(),
+        "body": type_number()
+    });
+    let proof = engine.check_purity(&fn_type);
+    assert_eq!(proof.verdict, Verdict::Proven);
+    assert!(
+        proof.reason.contains("no effects"),
+        "expected no-effects reason, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn pure_function_with_empty_effects_is_pure() {
+    // A function type with an empty effects ops array → pure.
+    let engine = engine();
+    let fn_type = json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": type_number(),
+        "body": type_number(),
+        "effects": {
+            "__tag__": "type.effects",
+            "__registry__": "handl.canonical",
+            "ops": []
+        }
+    });
+    let proof = engine.check_purity(&fn_type);
+    assert_eq!(proof.verdict, Verdict::Proven);
+}
+
+#[test]
+fn pure_function_with_effects_is_disproved() {
+    // A function type with a non-empty effects ops array → impure.
+    let engine = engine();
+    let fn_type = json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": type_number(),
+        "body": type_number(),
+        "effects": {
+            "__tag__": "type.effects",
+            "__registry__": "handl.canonical",
+            "ops": ["Foreign"]
+        }
+    });
+    let proof = engine.check_purity(&fn_type);
+    assert_eq!(proof.verdict, Verdict::Disproved);
+    assert!(
+        proof.reason.contains("Foreign"),
+        "expected effect name in reason, got: {}",
+        proof.reason
+    );
+}
+
+#[test]
+fn pure_non_function_type_is_blocked() {
+    // A non-function type → cannot check purity → Blocked.
+    let engine = engine();
+    let proof = engine.check_purity(&type_number());
+    assert_eq!(proof.verdict, Verdict::Blocked);
+}
+
+// --- Integration: Total / Pure through synth_type_annot ---
+
+/// Build a `type.number` field-access type-expression subtree, returning
+/// the index of the root `field-access` node. Pushes 3 nodes: var("type"),
+/// var("number"), field-access{children:[type_idx, number_idx]}.
+fn push_type_number_expr(ast: &mut Ast, type_idx_offset: usize) -> usize {
+    let type_idx = type_idx_offset;
+    let number_idx = type_idx + 1;
+    let fa_idx = type_idx + 2;
+    ast.push(AstNode::new("var").with_payload(json!("type"))); // type_idx
+    ast.push(AstNode::new("var").with_payload(json!("number"))); // number_idx
+    ast.push(
+        AstNode::new("field-access").with_payload(json!({"children": [type_idx, number_idx]})),
+    ); // fa_idx
+    fa_idx
+}
+
+#[test]
+fn total_annotation_on_nonrecursive_function_proven() {
+    // `(x) -> x + 1 : Total(type.number -> type.number)` → Proven.
+    //
+    // The type expression is `call{var("Total"), function{...}}`.
+    let engine = engine();
+    let lang = meta_predicate_lang();
+
+    let mut ast = Ast::new();
+    // --- expression: (x) -> x + 1 ---
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 0: param
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1: params
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 2: 1
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 2]}))); // 3: x+1
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 3]}))); // 4: fn
+
+    // --- type expression: Total(type.number -> type.number) ---
+    let param_fa = push_type_number_expr(&mut ast, 5); // 5,6,7 → 7
+    let body_fa = push_type_number_expr(&mut ast, 8); // 8,9,10 → 10
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
+    ); // 11: type.number -> type.number
+    ast.push(AstNode::new("var").with_payload(json!("Total"))); // 12: callee
+    ast.push(AstNode::new("call").with_payload(json!({"children": [12, 11]}))); // 13: Total(...)
+
+    // --- annotation ---
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [4, 13]})),
+    ); // 14
+
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // Proven → annotation accepted, no diagnostics.
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        result.diagnostics
+    );
+    // The accepted type is the annotation type (type.Total).
+    let tag = result
+        .typ
+        .get("__tag__")
+        .and_then(|t| t.as_str());
+    assert_eq!(tag, Some("type.Total"));
+}
+
+#[test]
+fn pure_annotation_on_pure_function_proven() {
+    // `(x) -> x + 1 : Pure(type.number -> type.number)` → Proven.
+    // synth_function produces a type.function with no `effects` field → pure.
+    let engine = engine();
+    let lang = meta_predicate_lang();
+
+    let mut ast = Ast::new();
+    // --- expression: (x) -> x + 1 ---
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 0
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 2
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 2]}))); // 3
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 3]}))); // 4
+
+    // --- type expression: Pure(type.number -> type.number) ---
+    let param_fa = push_type_number_expr(&mut ast, 5); // 7
+    let body_fa = push_type_number_expr(&mut ast, 8); // 10
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
+    ); // 11
+    ast.push(AstNode::new("var").with_payload(json!("Pure"))); // 12
+    ast.push(AstNode::new("call").with_payload(json!({"children": [12, 11]}))); // 13
+
+    // --- annotation ---
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [4, 13]})),
+    ); // 14
+
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        result.diagnostics
+    );
+    let tag = result
+        .typ
+        .get("__tag__")
+        .and_then(|t| t.as_str());
+    assert_eq!(tag, Some("type.Pure"));
+}
+
+#[test]
+fn total_annotation_on_non_decreasing_recursion_disproved() {
+    // `f = (n) -> f(n) : Total(...)` via assign — the recursive call does
+    // not decrease → Disproved → typecheck errors.
+    //
+    // We annotate the `assign` node itself with Total.
+    let engine = engine();
+    let lang = meta_predicate_lang();
+
+    let mut ast = Ast::new();
+    // --- expression: f = (n) -> f(n) ---
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1: params
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 2: callee
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 3: arg
+    ast.push(AstNode::new("call").with_payload(json!({"children": [2, 3]}))); // 4: f(n)
+    ast.push(AstNode::new("function").with_payload(json!({"children": [1, 4]}))); // 5: fn
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 6: target
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [6, 5]}))); // 7: assign
+
+    // --- type expression: Total(type.number -> type.number) ---
+    let param_fa = push_type_number_expr(&mut ast, 8); // 10
+    let body_fa = push_type_number_expr(&mut ast, 11); // 13
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
+    ); // 14
+    ast.push(AstNode::new("var").with_payload(json!("Total"))); // 15
+    ast.push(AstNode::new("call").with_payload(json!({"children": [15, 14]}))); // 16
+
+    // --- annotation ---
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [7, 16]})),
+    ); // 17
+
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("disproved")),
+        "expected disproved error, got {:?}",
+        err
+    );
+}

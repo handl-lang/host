@@ -100,6 +100,7 @@ use handl_plugin_engine_typecheck::{
 use handl_plugin_lib_tag::TypeRegistry;
 
 mod predicate_eval;
+mod totality_check;
 
 /// The key under which a metavariable id is encoded in a type value.
 ///
@@ -1600,6 +1601,39 @@ impl NbeTypecheckEngine {
 
                 match annotation_result {
                     Ok(annotation_type) => {
+                        // Phase 7: Check for meta-predicate types (Total, Pure).
+                        // These are not regular predicate functions — they
+                        // assert a meta-property of the function itself
+                        // (termination, purity) and require special handling.
+                        let annotation_tag = ctx.registry.as_type_tag(&annotation_type);
+                        match annotation_tag {
+                            Some("type.Total") => {
+                                // Total predicate: check structural recursion.
+                                let proof = totality_check::check_totality(
+                                    ast,
+                                    AstRef::new(expr_idx),
+                                    lang,
+                                );
+                                return self.resolve_predicate_proof(
+                                    proof,
+                                    &expr_type,
+                                    &annotation_type,
+                                    ctx,
+                                );
+                            }
+                            Some("type.Pure") => {
+                                // Pure predicate: check effect row emptiness.
+                                let proof = self.check_purity(&expr_type);
+                                return self.resolve_predicate_proof(
+                                    proof,
+                                    &expr_type,
+                                    &annotation_type,
+                                    ctx,
+                                );
+                            }
+                            _ => {}
+                        }
+
                         // If the annotation is a `type.function` whose body
                         // is `type.bool`, it is a predicate type: evaluate
                         // the type expression to get the predicate closure
@@ -4045,10 +4079,119 @@ fn interpret_type_expr(
                 LangError::engine("interpret_type_expr: failed to construct type.array")
             })
         }
+        "call" => {
+            // Meta-predicate type expressions: `Total(A -> B)` or
+            // `Pure(A -> B)`. The callee (child 0) is a `var` naming the
+            // predicate (e.g. `Total`) or a `field-access` like
+            // `type.Total`. The argument (child 1) is the function type
+            // (e.g. `(type.number) -> type.number`).
+            //
+            // We construct `type.Total{arg: <fn-type>}` or
+            // `type.Pure{arg: <fn-type>}`. The typechecker's
+            // `synth_type_annot` detects these tags and dispatches to the
+            // meta-property checker (totality / purity).
+            let children = node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .ok_or_else(|| {
+                    LangError::engine("interpret_type_expr: call has no children array")
+                })?;
+            if children.len() < 2 {
+                return Err(LangError::engine(
+                    "interpret_type_expr: call needs 2 children (callee, arg)",
+                ));
+            }
+            let callee_idx = children[0].as_u64().ok_or_else(|| {
+                LangError::engine("interpret_type_expr: call callee index is not a u64")
+            })? as usize;
+            let arg_idx = children[1].as_u64().ok_or_else(|| {
+                LangError::engine("interpret_type_expr: call arg index is not a u64")
+            })? as usize;
+            let callee_node = ast.get(AstRef::new(callee_idx)).ok_or_else(|| {
+                LangError::engine(format!(
+                    "interpret_type_expr: call callee node {} out of bounds",
+                    callee_idx
+                ))
+            })?;
+
+            // Resolve the callee to a meta-predicate type tag.
+            let meta_tag = resolve_meta_predicate_tag(ast, callee_node);
+            match meta_tag {
+                Some(tag) => {
+                    let arg_node = ast.get(AstRef::new(arg_idx)).ok_or_else(|| {
+                        LangError::engine(format!(
+                            "interpret_type_expr: call arg node {} out of bounds",
+                            arg_idx
+                        ))
+                    })?;
+                    let arg_type = interpret_type_expr(lang, ast, arg_node, registry)?;
+                    let payload = serde_json::json!({"arg": arg_type});
+                    registry.construct(tag, &payload).ok_or_else(|| {
+                        LangError::engine(format!(
+                            "interpret_type_expr: failed to construct '{}'",
+                            tag
+                        ))
+                    })
+                }
+                None => Err(LangError::engine(format!(
+                    "interpret_type_expr: unsupported type-expr kind '{}'",
+                    node.kind
+                ))),
+            }
+        }
         _ => Err(LangError::engine(format!(
             "interpret_type_expr: unsupported type-expr kind '{}'",
             node.kind
         ))),
+    }
+}
+
+/// Resolve a callee AST node to a meta-predicate type tag.
+///
+/// Recognizes `var("Total")` / `var("Pure")` and `field-access` producing
+/// `type.Total` / `type.Pure`. Returns `None` if the callee does not name a
+/// known meta-predicate.
+fn resolve_meta_predicate_tag(
+    ast: &Ast,
+    node: &handl_language::AstNode,
+) -> Option<&'static str> {
+    match node.kind.as_str() {
+        "var" => {
+            let name = node.payload.as_str()?;
+            match name {
+                "Total" => Some("type.Total"),
+                "Pure" => Some("type.Pure"),
+                _ => None,
+            }
+        }
+        "field-access" => {
+            // `type.Total` or `type.Pure` — the field name is in the payload
+            // (`field` key) or in a child node (children[1]).
+            let field: String = node
+                .payload
+                .get("field")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    let children = node.payload.get("children")?.as_array()?;
+                    let field_idx = children.get(1)?.as_u64()? as usize;
+                    let field_node = ast.get(AstRef::new(field_idx))?;
+                    field_node
+                        .payload
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| field_node.payload.get("value").and_then(|v| v.as_str()))
+                        .or_else(|| field_node.payload.as_str())
+                        .map(|s| s.to_string())
+                })?;
+            match field.as_str() {
+                "Total" => Some("type.Total"),
+                "Pure" => Some("type.Pure"),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
