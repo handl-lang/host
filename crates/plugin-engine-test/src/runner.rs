@@ -36,8 +36,13 @@
 //! `value` roles for each binding node; it falls back to positional children
 //! (0 = target, 1 = value) only when no roles are declared.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::time::{Duration, Instant};
+
+use serde::Deserialize;
 
 use handl_language::{
     language_value, Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow, Language,
@@ -49,11 +54,16 @@ use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
+use handl_plugin_exec_cache::AstKey;
 use handl_plugin_ext_diag::Span;
+use handl_plugin_lib_predicate::{glob_matches, Predicate};
+use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
 use handl_platform::{Function, Module, ModuleLookup};
 
 use handl_plugin_lib_test::AssertModule;
+
+use crate::events::TestEvent;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -117,6 +127,31 @@ pub enum TestResult {
     Skip,
 }
 
+/// Structured failure detail (ADR-0089 §"Structured failures").
+///
+/// Carries the ADR's failure fields beyond the error message: the failed
+/// `assertion`, `expected`/`actual` values, a rendered `diff`, and an
+/// underlying `cause`. The test's identity and source `location` live on
+/// [`TestOutcome::case`] and the error message on
+/// [`TestResult::Fail::message`]; `duration` lives on [`TestOutcome`].
+///
+/// Today's assertion primitives raise unstructured errors, so these fields
+/// are `None` unless the error carries them — the fields exist so the
+/// structured contract is stable before assertion reporting is enriched.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FailureDetail {
+    /// The assertion that failed (e.g. `assert.equal`), when known.
+    pub assertion: Option<String>,
+    /// The expected value, rendered, when known.
+    pub expected: Option<String>,
+    /// The actual value, rendered, when known.
+    pub actual: Option<String>,
+    /// A rendered diff between expected and actual, when available.
+    pub diff: Option<String>,
+    /// An underlying cause, when the error carries one.
+    pub cause: Option<String>,
+}
+
 /// A single test's outcome with metadata.
 #[derive(Debug, Clone)]
 pub struct TestOutcome {
@@ -124,6 +159,13 @@ pub struct TestOutcome {
     pub case: TestCase,
     /// The result.
     pub result: TestResult,
+    /// Measured execution duration. Parallel-safe: taken inside each
+    /// scheduler job around the body evaluation. Zero for skipped tests
+    /// and cache replays.
+    pub duration: Duration,
+    /// Structured failure detail; empty unless the error carried the
+    /// fields (see [`FailureDetail`]).
+    pub failure: FailureDetail,
 }
 
 /// A run report: outcomes for all tests in a plan.
@@ -328,6 +370,100 @@ fn binding_roles(lang: &Language, kind: &str) -> (Option<usize>, Option<usize>) 
 }
 
 // ---------------------------------------------------------------------------
+// Test-language fragment (ADR-0089 §"Test declaration syntax")
+// ---------------------------------------------------------------------------
+
+/// The test-language fragment YAML, embedded at compile time.
+///
+/// Declares `test`/`property`/`integration_test`/`bench` `AstShapeDef`s
+/// (with `name`/`body` roles), `GrammarRow`s, `LexerRule`s, and
+/// `EvalSchemeDef`s. Merged onto the canonical kit via [`Language::merge`]
+/// (ADR-0044 language-as-data) — the ADR-0074 core grammar is not amended.
+const TEST_LANGUAGE_YAML: &str = include_str!("../data/test-language.yaml");
+
+/// Deserialized view of [`TEST_LANGUAGE_YAML`]'s top-level sections.
+///
+/// The fragment file declares each fragment type as a YAML list under a
+/// named section; each list is merged into a fresh [`Language`] fragment.
+#[derive(Debug, Deserialize)]
+struct TestLanguageYaml {
+    /// `tokens:` — keyword token kinds (`test`, `property`, ...).
+    #[serde(default)]
+    tokens: Vec<TokenKindDef>,
+    /// `lexer_rules:` — literal patterns for the new keywords.
+    #[serde(default)]
+    lexer_rules: Vec<LexerRuleDef>,
+    /// `grammar:` — prefix grammar rows for the declaration forms.
+    #[serde(default)]
+    grammar: Vec<GrammarRow>,
+    /// `ast:` — `AstShapeDef`s declaring the `name`/`body` child roles.
+    #[serde(default)]
+    ast: Vec<AstShapeDef>,
+    /// `eval:` — eval schemes that project the `body` child.
+    #[serde(default)]
+    eval: Vec<EvalSchemeDef>,
+}
+
+/// Build the test-language fragment as a standalone [`Language`].
+///
+/// # Errors
+///
+/// Returns an error string if the embedded YAML fails to deserialize or a
+/// fragment merge fails (should not happen — the fragment is self-contained).
+fn test_language_fragment() -> Result<Language, String> {
+    let doc: TestLanguageYaml = serde_yaml::from_str(TEST_LANGUAGE_YAML)
+        .map_err(|e| format!("test-language.yaml: {e}"))?;
+    let mut frag = Language::new();
+    for f in doc.tokens {
+        frag.tokens.merge(f).map_err(|e| e.to_string())?;
+    }
+    for f in doc.lexer_rules {
+        frag.lexer_rules.merge(f).map_err(|e| e.to_string())?;
+    }
+    for f in doc.grammar {
+        frag.grammar.merge(f).map_err(|e| e.to_string())?;
+    }
+    for f in doc.ast {
+        frag.ast.merge(f).map_err(|e| e.to_string())?;
+    }
+    for f in doc.eval {
+        frag.eval.merge(f).map_err(|e| e.to_string())?;
+    }
+    Ok(frag)
+}
+
+/// Build the **test language**: canonical kit ⊕ test-language fragment.
+///
+/// Both discovery and execution use this merged language so that
+/// `test "name" = body`-style declarations parse and evaluate identically
+/// in both stages (ADR-0089, ADR-0044).
+///
+/// # Errors
+///
+/// Returns an error string if the canonical kit or the merge fails.
+fn test_language() -> Result<Language, String> {
+    let kit = handl_kit_canonical::Kit::new()
+        .map_err(|e| format!("failed to assemble canonical kit: {e}"))?;
+    let mut lang = kit.runtime().lang().clone();
+    lang.merge(test_language_fragment()?)
+        .map_err(|e| format!("failed to merge test-language fragment: {e}"))?;
+    Ok(lang)
+}
+
+/// Resolve the `name`/`body` child indices for a test-declaration node kind.
+///
+/// A node kind whose `AstShapeDef` declares **both** `name` and `body` roles
+/// is a test declaration (the test-language fragment's `test`, `property`,
+/// `integration_test`, `bench` shapes). This is resolved by role, never by
+/// `kind ==` checks (ADR-0081): adding a new test-kind is a fragment edit,
+/// not a runner edit.
+fn test_decl_roles(lang: &Language, kind: &str) -> Option<(usize, usize)> {
+    let name_idx = lang.child_role_index(kind, "name").ok().flatten()?;
+    let body_idx = lang.child_role_index(kind, "body").ok().flatten()?;
+    Some((name_idx, body_idx))
+}
+
+// ---------------------------------------------------------------------------
 // Test discovery
 // ---------------------------------------------------------------------------
 
@@ -366,6 +502,34 @@ fn discover_tests_in_module(
             Ok(n) => n,
             Err(_) => continue,
         };
+
+        // Test-language declaration: a node kind declaring both `name` and
+        // `body` roles (`test`, `property`, `integration_test`, `bench` —
+        // resolved via `child_role_index`, ADR-0081).
+        if let Some((name_idx, _body_idx)) = test_decl_roles(lang, &root.kind) {
+            let children = children_of(root);
+            if let Some(&name_raw) = children.get(name_idx) {
+                if let Ok(name_node) = ast.at(AstRef::new(name_raw)) {
+                    if let Some(name) = var_name(name_node) {
+                        // The body expression is the text after the `=`
+                        // separator in the declaration chunk.
+                        let body_source = extract_body_source(&chunk.text);
+                        let span = Span::from_byte_range(
+                            chunk.offset,
+                            chunk.offset + chunk.text.len(),
+                            src,
+                        );
+                        tests.push(TestCase {
+                            module: module.to_path_buf(),
+                            name,
+                            body_source,
+                            span,
+                        });
+                    }
+                }
+            }
+            continue;
+        }
 
         // Check for a `test` node kind (future grammar support).
         let is_test_kind = root.kind.contains("test");
@@ -470,6 +634,33 @@ fn collect_handl_files(dir: &Path, files: &mut Vec<PathBuf>) {
 /// Parse errors for individual modules are recorded in the returned
 /// [`TestPlan::parse_errors`] rather than propagated.
 pub fn discover(paths: &[PathBuf]) -> Result<TestPlan, DiscoverError> {
+    crate::provider::discover_with(&crate::provider::FileSystemProvider, paths, None)
+}
+
+/// Push a [`TestEvent`] into `sink` when one is supplied.
+///
+/// Events are emitted only by the coordinator thread (discovery and the
+/// run loop), never from scheduler workers, so event order is always
+/// canonical and deterministic.
+fn emit(sink: &mut Option<&mut Vec<TestEvent>>, event: TestEvent) {
+    if let Some(events) = sink.as_deref_mut() {
+        events.push(event);
+    }
+}
+
+/// Filesystem discovery implementation behind
+/// [`crate::provider::FileSystemProvider`].
+///
+/// Identical to [`discover`] plus an optional event sink: each discovered
+/// test emits [`TestEvent::TestDiscovered`].
+///
+/// # Errors
+///
+/// See [`discover`].
+pub(crate) fn discover_inner(
+    paths: &[PathBuf],
+    mut events: Option<&mut Vec<TestEvent>>,
+) -> Result<TestPlan, DiscoverError> {
     let mut plan = TestPlan::default();
 
     // Validate paths and collect files.
@@ -490,11 +681,9 @@ pub fn discover(paths: &[PathBuf]) -> Result<TestPlan, DiscoverError> {
     // Sort files lexicographically for deterministic ordering.
     files.sort();
 
-    // Build the canonical language for parsing.
-    let kit = handl_kit_canonical::Kit::new().map_err(|e| {
-        DiscoverError::Io(format!("failed to assemble canonical kit: {e}"))
-    })?;
-    let lang = kit.runtime().lang().clone();
+    // Build the test language: canonical kit ⊕ test-language fragment
+    // (ADR-0089 §"Test declaration syntax", ADR-0044).
+    let lang = test_language().map_err(DiscoverError::Io)?;
 
     // Discover tests in each file.
     for file in &files {
@@ -504,6 +693,15 @@ pub fn discover(paths: &[PathBuf]) -> Result<TestPlan, DiscoverError> {
 
         match discover_tests_in_module(&lang, &src, file) {
             Ok(tests) => {
+                for case in &tests {
+                    emit(
+                        &mut events,
+                        TestEvent::TestDiscovered {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+                }
                 plan.tests.extend(tests);
             }
             Err(msg) => {
@@ -564,7 +762,9 @@ impl ModuleLookup for TestModuleLookup {
 fn build_test_runtime() -> Result<Runtime, String> {
     let kit = handl_kit_canonical::Kit::new()
         .map_err(|e| format!("failed to assemble canonical kit: {e}"))?;
-    let lang = kit.runtime().lang().clone();
+    // Canonical language ⊕ test-language fragment, so `test`-kind nodes
+    // (whose eval scheme projects the `body` child) evaluate correctly.
+    let lang = test_language()?;
 
     // Get the Kit's module chain (stdlib + fp + meta + hello).
     let kit_modules = kit.runtime().modules().cloned();
@@ -592,64 +792,399 @@ fn build_test_runtime() -> Result<Runtime, String> {
 
 /// Run a test plan.
 ///
-/// Executes each test in order, evaluating the test body with the eval
-/// engine. Failures (raised errors) are caught and recorded. No shared
-/// state between tests.
+/// Thin wrapper over [`run_selected`]: selects all tests and runs them
+/// sequentially. See [`crate::config::run_with_config`] for the full
+/// planner/policy entry point.
 pub fn run(plan: &TestPlan) -> RunReport {
-    run_with_filter(plan, "")
+    run_selected(plan, &Predicate::True, &SchedulePolicy::sequential())
 }
 
 /// Run a test plan with a filter pattern.
 ///
-/// Only tests whose name matches the filter (substring match) are run;
-/// others are skipped. An empty filter matches all tests.
+/// Thin wrapper over [`run_selected`]: the pattern becomes a
+/// [`filter_predicate`] (substring or glob match on the test name; an
+/// empty pattern selects all) and the run is sequential.
 pub fn run_with_filter(plan: &TestPlan, filter: &str) -> RunReport {
-    let mut report = RunReport::default();
+    run_selected(plan, &filter_predicate(filter), &SchedulePolicy::sequential())
+}
 
-    // Build the test runtime once; reuse for all tests (no shared state
-    // between tests — handl has no mutation primitive).
-    let runtime = match build_test_runtime() {
-        Ok(rt) => rt,
-        Err(msg) => {
-            // If the runtime can't be built, all tests fail.
-            for case in &plan.tests {
-                report.outcomes.push(TestOutcome {
-                    case: case.clone(),
-                    result: TestResult::Fail {
+// ---------------------------------------------------------------------------
+// Filtering (predicate model, ADR-0089)
+// ---------------------------------------------------------------------------
+
+/// Build a [`Predicate<TestCase>`] from a filter pattern string.
+///
+/// An empty pattern selects all tests ([`Predicate::True`]). A pattern
+/// containing glob metacharacters (`*` or `?`) is matched against the test
+/// **name** via [`glob_matches`]; a plain pattern is a substring match on
+/// the name, mirroring [`run_with_filter`].
+///
+/// This is the runner's consumer-side glue over the generic
+/// `plugin-lib-predicate` combinators (ADR-0089 §"Filtering as a predicate
+/// model"): composable via [`Predicate::and`]/[`Predicate::or`]/
+/// [`Predicate::not`].
+pub fn filter_predicate(pattern: &str) -> Predicate<TestCase> {
+    if pattern.is_empty() {
+        return Predicate::True;
+    }
+    let pat = pattern.to_string();
+    let is_glob = pat.contains('*') || pat.contains('?');
+    Predicate::atom(move |case: &TestCase| {
+        if is_glob {
+            glob_matches(&pat, &case.name)
+        } else {
+            case.name.contains(&pat)
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled execution (generic bounded-job scheduler, ADR-0089)
+// ---------------------------------------------------------------------------
+
+thread_local! {
+    /// Per-worker cached test runtime.
+    ///
+    /// [`Runtime`] is not `Send` (the module chain is `Rc`-based), so it
+    /// cannot be shared across scheduler worker threads. Each worker builds
+    /// one lazily on first use and reuses it across all jobs dispatched to
+    /// that thread.
+    static TEST_RUNTIME: RefCell<Option<Rc<Runtime>>> = RefCell::new(None);
+}
+
+/// Evaluate a single test body on the calling thread's cached runtime.
+///
+/// Returns the [`TestResult`] plus the measured duration. The `Instant`
+/// is taken inside the job closure (i.e. on the worker thread), so the
+/// measurement is parallel-safe and independent of dispatch order.
+fn eval_test_body(body_source: &str) -> (TestResult, Duration) {
+    let start = Instant::now();
+    let result = TEST_RUNTIME.with(|cell| {
+        let mut borrow = cell.borrow_mut();
+        if borrow.is_none() {
+            match build_test_runtime() {
+                Ok(rt) => *borrow = Some(Rc::new(rt)),
+                Err(msg) => {
+                    return TestResult::Fail {
                         message: format!("runtime setup error: {msg}"),
-                    },
-                });
+                    };
+                }
             }
-            return report;
         }
-    };
-
-    for case in &plan.tests {
-        // Apply filter: skip tests that don't match.
-        if !filter.is_empty() && !case.name.contains(filter) {
-            report.outcomes.push(TestOutcome {
-                case: case.clone(),
-                result: TestResult::Skip,
-            });
-            continue;
-        }
-
-        // Evaluate the test body. If it succeeds, the test passes. If it
-        // raises an error, the test fails with the error message.
-        let result = match runtime.run(&Source::new(&case.body_source)) {
+        let rt = borrow.as_ref().expect("runtime initialized above");
+        match rt.run(&Source::new(body_source)) {
             Ok(_) => TestResult::Pass,
             Err(e) => TestResult::Fail {
                 message: e.to_string(),
             },
-        };
+        }
+    });
+    (result, start.elapsed())
+}
 
+/// Convert a scheduler [`JobError`] into a [`TestResult::Fail`].
+fn job_error_result(err: JobError) -> TestResult {
+    match err {
+        JobError::Panic => TestResult::Fail {
+            message: "test job panicked".to_string(),
+        },
+        JobError::Timeout => TestResult::Fail {
+            message: "test job timed out".to_string(),
+        },
+    }
+}
+
+/// Run a test plan, selecting tests with a [`Predicate`] and executing them
+/// under a [`SchedulePolicy`] via the generic [`BoundedScheduler`]
+/// (ADR-0089 §"Planner + Scheduler").
+///
+/// Tests the predicate rejects are reported as [`TestResult::Skip`]. Selected
+/// tests are dispatched to the scheduler as independent jobs keyed by plan
+/// index; results are re-collected into canonical plan order, so parallel
+/// execution changes timing but never logical result ordering (ADR-0089
+/// §"Determinism").
+///
+/// Each worker thread reuses a lazily built [`Runtime`] (see
+/// [`TEST_RUNTIME`]); there is no shared state between tests.
+pub fn run_selected(
+    plan: &TestPlan,
+    predicate: &Predicate<TestCase>,
+    policy: &SchedulePolicy,
+) -> RunReport {
+    run_selected_impl(plan, predicate, policy, None, None)
+}
+
+/// Shared implementation for [`run_selected`], [`run_selected_cached`],
+/// and [`crate::config::run_with_config`].
+///
+/// When `events` is supplied, the coordinator emits the ADR-0089 event
+/// vocabulary: `RunStarted`, `TestSelected`/`TestSkipped` during the
+/// selection pass, `TestStarted` at dispatch, `TestCached` on cache hits,
+/// `TestFinished` (+ `TestFailed` on failures) in canonical plan order at
+/// collection, and `RunFinished` last. Events are emitted only on this
+/// thread, so ordering is deterministic under any `--jobs`.
+pub(crate) fn run_selected_impl(
+    plan: &TestPlan,
+    predicate: &Predicate<TestCase>,
+    policy: &SchedulePolicy,
+    mut cache: Option<&mut TestRunCache>,
+    mut events: Option<&mut Vec<TestEvent>>,
+) -> RunReport {
+    let run_start = Instant::now();
+    emit(
+        &mut events,
+        TestEvent::RunStarted {
+            total: plan.tests.len(),
+        },
+    );
+
+    // Slot per plan index; `None` until decided (skip, cache hit, or job).
+    // Selected tests get a measured duration; skipped/cached tests are
+    // recorded with zero duration.
+    let mut results: Vec<Option<(TestResult, Duration)>> = vec![None; plan.tests.len()];
+    let mut jobs: Vec<(usize, Box<dyn FnOnce() -> (TestResult, Duration) + Send>)> = Vec::new();
+
+    for (i, case) in plan.tests.iter().enumerate() {
+        if !predicate.eval(case) {
+            results[i] = Some((TestResult::Skip, Duration::ZERO));
+            emit(
+                &mut events,
+                TestEvent::TestSkipped {
+                    module: case.module.clone(),
+                    name: case.name.clone(),
+                },
+            );
+            continue;
+        }
+        emit(
+            &mut events,
+            TestEvent::TestSelected {
+                module: case.module.clone(),
+                name: case.name.clone(),
+            },
+        );
+        // Opt-in result cache: a hit replays the recorded result without
+        // re-evaluating the body (ADR-0089 §"Cache domains").
+        if let Some(c) = cache.as_deref_mut() {
+            if let Some(cached) = c.lookup(case) {
+                c.record_hit();
+                results[i] = Some((cached, Duration::ZERO));
+                emit(
+                    &mut events,
+                    TestEvent::TestCached {
+                        module: case.module.clone(),
+                        name: case.name.clone(),
+                    },
+                );
+                continue;
+            }
+            c.record_miss();
+        }
+        let body = case.body_source.clone();
+        jobs.push((i, Box::new(move || eval_test_body(&body))));
+    }
+
+    // Which plan indices were actually dispatched as scheduler jobs (as
+    // opposed to skipped or cache-replayed). Used to emit `TestFinished`
+    // only for executed tests at collection time.
+    let mut executed = vec![false; plan.tests.len()];
+    for (i, _) in &jobs {
+        executed[*i] = true;
+    }
+
+    // Emit TestStarted for each dispatched job, in plan order, before the
+    // scheduler runs — keeps the event log deterministic regardless of
+    // worker scheduling.
+    for (i, _) in &jobs {
+        let case = &plan.tests[*i];
+        emit(
+            &mut events,
+            TestEvent::TestStarted {
+                module: case.module.clone(),
+                name: case.name.clone(),
+            },
+        );
+    }
+
+    // Dispatch uncached, selected tests to the generic bounded scheduler.
+    for (i, job_result) in BoundedScheduler::run(jobs, policy) {
+        let (result, duration) = match job_result.output {
+            Ok(pair) => pair,
+            Err(e) => (job_error_result(e), Duration::ZERO),
+        };
+        if let Some(c) = cache.as_deref_mut() {
+            c.store(&plan.tests[i], &result);
+        }
+        results[i] = Some((result, duration));
+    }
+
+    // Re-collect into canonical plan order (determinism invariant).
+    let mut report = RunReport::default();
+    for (i, case) in plan.tests.iter().enumerate() {
+        let (result, duration) = results[i].take().unwrap_or_else(|| {
+            (
+                TestResult::Fail {
+                    message: "internal error: test result not collected".to_string(),
+                },
+                Duration::ZERO,
+            )
+        });
+        // Emit completion events in canonical plan order, only for tests
+        // that actually executed — skipped and cache-replayed tests
+        // already emitted `TestSkipped`/`TestCached` during selection.
+        if executed[i] {
+            emit(
+                &mut events,
+                TestEvent::TestFinished {
+                    module: case.module.clone(),
+                    name: case.name.clone(),
+                    result: result.clone(),
+                    duration,
+                },
+            );
+            if let TestResult::Fail { message } = &result {
+                emit(
+                    &mut events,
+                    TestEvent::TestFailed {
+                        module: case.module.clone(),
+                        name: case.name.clone(),
+                        message: message.clone(),
+                    },
+                );
+            }
+        }
         report.outcomes.push(TestOutcome {
             case: case.clone(),
             result,
+            duration,
+            failure: FailureDetail::default(),
         });
     }
-
+    emit(
+        &mut events,
+        TestEvent::RunFinished {
+            passed: report.passed(),
+            failed: report.failed(),
+            skipped: report.skipped(),
+            duration: run_start.elapsed(),
+        },
+    );
     report
+}
+
+// ---------------------------------------------------------------------------
+// Test-result cache (opt-in `--cache`, ADR-0089 §"Cache domains")
+// ---------------------------------------------------------------------------
+
+/// Opt-in, in-memory test-result cache (`ExecutionCache` in ADR-0089).
+///
+/// The generic eval-result memoisation concern lives in
+/// `plugin-exec-cache`; this is the thin **test-domain layer** over it. Keys
+/// reuse the generic fingerprint machinery — an [`AstKey`] whose `kind` is
+/// `"test.result"` and whose `payload_json` serializes the test identity
+/// (`module` path + `name` + `body_source`), so a test is re-evaluated when
+/// its source changes. Values are the recorded [`TestResult`]s.
+///
+/// For pure tests `same test + same source + same runtime = same result`,
+/// so a cached second run replays `Pass`/`Fail` outcomes without
+/// re-evaluating — identical in ordering and content to a fresh run.
+///
+/// The handle is caller-provided and reusable across runs; it is **not**
+/// used unless passed to [`run_selected_cached`]. Result caching is opt-in
+/// per the ADR-0089 `--cache` flag.
+#[derive(Debug, Default)]
+pub struct TestRunCache {
+    /// Recorded results keyed by test identity fingerprint.
+    entries: HashMap<AstKey, TestResult>,
+    /// Number of lookups served from the cache.
+    hits: usize,
+    /// Number of lookups that had to execute.
+    misses: usize,
+}
+
+impl TestRunCache {
+    /// Create a new empty cache.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The number of cached entries.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// `true` if the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The number of cache hits recorded since creation (or [`Self::clear`]).
+    pub fn hits(&self) -> usize {
+        self.hits
+    }
+
+    /// The number of cache misses recorded since creation (or [`Self::clear`]).
+    pub fn misses(&self) -> usize {
+        self.misses
+    }
+
+    /// Clear all entries and statistics.
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.hits = 0;
+        self.misses = 0;
+    }
+
+    /// The cache key for a test case: `AstKey` fingerprint of
+    /// `{module, name, body_source}` under the `"test.result"` kind.
+    fn key_for(case: &TestCase) -> AstKey {
+        AstKey {
+            kind: "test.result".to_string(),
+            payload_json: serde_json::json!({
+                "module": case.module.display().to_string(),
+                "name": &case.name,
+                "body_source": &case.body_source,
+            })
+            .to_string(),
+        }
+    }
+
+    /// Look up the recorded result for a test case.
+    fn lookup(&self, case: &TestCase) -> Option<TestResult> {
+        self.entries.get(&Self::key_for(case)).cloned()
+    }
+
+    /// Record a freshly computed result for a test case.
+    fn store(&mut self, case: &TestCase, result: &TestResult) {
+        self.entries.insert(Self::key_for(case), result.clone());
+    }
+
+    /// Record a cache hit (stats only).
+    fn record_hit(&mut self) {
+        self.hits += 1;
+    }
+
+    /// Record a cache miss (stats only).
+    fn record_miss(&mut self) {
+        self.misses += 1;
+    }
+}
+
+/// Run a test plan like [`run_selected`], but consult and populate the
+/// caller-provided [`TestRunCache`] (the ADR-0089 `--cache` flag made
+/// programmatic).
+///
+/// Selected tests with a cached result replay it without re-evaluating;
+/// uncached tests execute under `policy` and their `Pass`/`Fail` results
+/// are stored. Cached reports are identical in ordering and content to a
+/// fresh run.
+pub fn run_selected_cached(
+    plan: &TestPlan,
+    predicate: &Predicate<TestCase>,
+    policy: &SchedulePolicy,
+    cache: &mut TestRunCache,
+) -> RunReport {
+    run_selected_impl(plan, predicate, policy, Some(cache), None)
 }
 
 // ---------------------------------------------------------------------------
@@ -660,74 +1195,21 @@ pub fn run_with_filter(plan: &TestPlan, filter: &str) -> RunReport {
 ///
 /// One line per test (`PASS`/`FAIL`/`SKIP`), summary counts, failures with
 /// error messages and locations.
+///
+/// Thin wrapper over the reporting pipeline: `summarize` →
+/// [`crate::report::HumanReporter`] (ADR-0089 §"Reporting pipeline").
 pub fn format_report_human(report: &RunReport) -> String {
-    let mut out = String::new();
-
-    for outcome in &report.outcomes {
-        let module = outcome.case.module.display().to_string();
-        match &outcome.result {
-            TestResult::Pass => {
-                out.push_str(&format!("PASS  {} ({})\n", outcome.case.name, module));
-            }
-            TestResult::Fail { message } => {
-                out.push_str(&format!(
-                    "FAIL  {} ({}): {}\n",
-                    outcome.case.name, module, message
-                ));
-            }
-            TestResult::Skip => {
-                out.push_str(&format!("SKIP  {} ({})\n", outcome.case.name, module));
-            }
-        }
-    }
-
-    // Summary line.
-    out.push_str(&format!(
-        "\n---\n{} tests: {} passed, {} failed, {} skipped\n",
-        report.total(),
-        report.passed(),
-        report.failed(),
-        report.skipped()
-    ));
-
-    out
+    use crate::report::{summarize, HumanReporter, Reporter};
+    HumanReporter.format(report, &summarize(report))
 }
 
 /// Format a run report as JSON for CI consumers.
+///
+/// Thin wrapper over the reporting pipeline: `summarize` →
+/// [`crate::report::JsonReporter`].
 pub fn format_report_json(report: &RunReport) -> String {
-    let tests: Vec<serde_json::Value> = report
-        .outcomes
-        .iter()
-        .map(|outcome| {
-            let status = match &outcome.result {
-                TestResult::Pass => "pass",
-                TestResult::Fail { .. } => "fail",
-                TestResult::Skip => "skip",
-            };
-            let mut entry = serde_json::json!({
-                "name": outcome.case.name,
-                "module": outcome.case.module.display().to_string(),
-                "status": status,
-            });
-            if let TestResult::Fail { message } = &outcome.result {
-                entry["message"] = serde_json::Value::String(message.clone());
-            }
-            entry
-        })
-        .collect();
-
-    let summary = serde_json::json!({
-        "total": report.total(),
-        "passed": report.passed(),
-        "failed": report.failed(),
-        "skipped": report.skipped(),
-    });
-
-    serde_json::json!({
-        "tests": tests,
-        "summary": summary,
-    })
-    .to_string()
+    use crate::report::{summarize, JsonReporter, Reporter};
+    JsonReporter.format(report, &summarize(report))
 }
 
 // ---------------------------------------------------------------------------
@@ -814,6 +1296,8 @@ mod tests {
                         span: Span::default(),
                     },
                     result: TestResult::Pass,
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
                 TestOutcome {
                     case: TestCase {
@@ -825,6 +1309,8 @@ mod tests {
                     result: TestResult::Fail {
                         message: "oops".to_string(),
                     },
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
                 TestOutcome {
                     case: TestCase {
@@ -834,6 +1320,8 @@ mod tests {
                         span: Span::default(),
                     },
                     result: TestResult::Skip,
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
             ],
         };
@@ -921,6 +1409,8 @@ mod tests {
                         span: Span::default(),
                     },
                     result: TestResult::Pass,
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
                 TestOutcome {
                     case: TestCase {
@@ -932,6 +1422,8 @@ mod tests {
                     result: TestResult::Fail {
                         message: "expected true".to_string(),
                     },
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
                 TestOutcome {
                     case: TestCase {
@@ -941,6 +1433,8 @@ mod tests {
                         span: Span::default(),
                     },
                     result: TestResult::Skip,
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
             ],
         };
@@ -963,6 +1457,8 @@ mod tests {
                         span: Span::default(),
                     },
                     result: TestResult::Pass,
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
                 TestOutcome {
                     case: TestCase {
@@ -974,6 +1470,8 @@ mod tests {
                     result: TestResult::Fail {
                         message: "oops".to_string(),
                     },
+                    duration: Duration::ZERO,
+                    failure: FailureDetail::default(),
                 },
             ],
         };

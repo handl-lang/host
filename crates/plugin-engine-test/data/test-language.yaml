@@ -53,7 +53,9 @@ grammar:
     token: token.keyword.test
     position: Prefix
     binding_power:
-      - 0
+      # 6 > assign's lbp (5) so the name child stops before the `=`
+      # separator (same trick as the `data` row in the canonical grammar).
+      - 6
       - 0
     child_shape:
       node_kind: test
@@ -64,7 +66,9 @@ grammar:
     token: token.keyword.property
     position: Prefix
     binding_power:
-      - 0
+      # 6 > assign's lbp (5) so the name child stops before the `=`
+      # separator (same trick as the `data` row in the canonical grammar).
+      - 6
       - 0
     child_shape:
       node_kind: property
@@ -75,7 +79,9 @@ grammar:
     token: token.keyword.integration_test
     position: Prefix
     binding_power:
-      - 0
+      # 6 > assign's lbp (5) so the name child stops before the `=`
+      # separator (same trick as the `data` row in the canonical grammar).
+      - 6
       - 0
     child_shape:
       node_kind: integration_test
@@ -86,7 +92,9 @@ grammar:
     token: token.keyword.bench
     position: Prefix
     binding_power:
-      - 0
+      # 6 > assign's lbp (5) so the name child stops before the `=`
+      # separator (same trick as the `data` row in the canonical grammar).
+      - 6
       - 0
     child_shape:
       node_kind: bench

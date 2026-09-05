@@ -15,6 +15,9 @@ handl-plugin-engine-parse = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-ext-diag = { workspace = true }
+handl-plugin-lib-scheduler = { workspace = true }
+handl-plugin-lib-predicate = { workspace = true }
+handl-plugin-exec-cache = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = "0.9"

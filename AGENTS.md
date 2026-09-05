@@ -23,7 +23,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
-| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths) -> TestIndex`, `filter(index, predicate) -> TestPlan`, `plan(plan, policy) -> ExecutionPlan`, `run(plan) -> RunReport`, `run_with_filter(plan, filter)`, `format_report_human`/`format_report_json` |
+| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`Predicate<TestCase>`; `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-lib-predicate`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (handl, ADR-0092) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                   |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/check/test/run/eval` subcommands                                                                                                                                                                       |
 
@@ -60,19 +60,28 @@ and linter all split source into top-level statements at bracket-depth zero
 - `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
   (pre-existing, unrelated to ADR 0085-0091 work).
 - `plugin-engine-parse-pratt` has an unused import warning (`PayloadTokenSpec`).
-- **ADR-0089 prerequisite (not yet done):** the production test runner
-  requires (a) a new `plugin-engine-test` crate extracted from
-  `plugin-lib-test`, (b) a **test-language fragment** — a YAML
-  `Language` fragment declaring `test`/`property`/`integration_test`/`bench`
-  `AstShapeDef`s (with `name`/`body` roles), `GrammarRow`s,
-  `LexerPattern`s, and `EvalSchemeDef`s — merged onto the canonical kit at
-  discovery time via `Language::merge` (ADR-0044), and (c) reusing generic
-  platform systems rather than reinventing them: capability reasoning from
-  `handl-language::capabilities`, eval-result memoisation from
-  `plugin-exec-cache`, and a bounded-job scheduler + predicate combinators
-  consumed as generic systems (extracted to dedicated crates when a second
-  consumer appears; until then the runner may ship simple in-crate
-  implementations per ADR-0085 rule 6). ADR-0074 grammar is **not** amended.
+- **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
+  a standalone crate; (b) the **test-language fragment**
+  (`plugin-engine-test/data/test-language.yaml`) declares
+  `test`/`property`/`integration_test`/`bench` `AstShapeDef`s (with
+  `name`/`body` roles — the name child parses as a `var` node; the rows use
+  `binding_power [6, 0]` so the name stops before infix `=`, the same trick
+  as `data`), `GrammarRow`s, `LexerRule`s, and `EvalSchemeDef`s, merged onto
+  the canonical kit at discovery time via `Language::merge` (ADR-0044) — the
+  legacy `test_*` binding convention remains as a fallback; (c) generic
+  systems live in dedicated crates — `plugin-lib-scheduler` (bounded-job
+  `BoundedScheduler`/`SchedulePolicy`) and `plugin-lib-predicate`
+  (`Predicate<T>`/`StringMatcher`/glob+path matching) — plus
+  `handl-language::capabilities` and `plugin-exec-cache` (`TestRunCache` keys
+  results by `AstKey{kind:"test.result", module+name+body_source}`). The
+  runner now consumes all of them: `run_with_config(&mut RunConfig)` is the
+  single `--filter`/`--jobs`/`--cache` entry point, `TestEvent` covers the
+  ADR event vocabulary (Vec sink — no event bus until a second consumer),
+  `TestProvider`/`Reporter` are the provider and reporter seams, and
+  `TestOutcome` carries `duration` + `FailureDetail`. **Remaining:** wiring
+  `hnl test` in `host-cli`, suite grouping (`SuiteStarted`/`SuiteFinished`
+  unemitted), structured `expected`/`actual`/`diff` once assert errors carry
+  them. ADR-0074 grammar is **not** amended.
 - **ADR-0092 (proposed):** `plugin-lib-test` is deleted once the test
   framework library is migrated to handl under `handl-packages/test/` and
   the runner has been extracted to `plugin-engine-test` (ADR-0089). Until
@@ -98,16 +107,22 @@ handl-packages/unicode/unicode.hnl  contract: graphemes/normalization/
 handl-packages/unicode-handl/       `unicode` impl: code-point-level subset
                                     over `char.*` (graphemes/width are
                                     code-point fallbacks; `nfc`/`nfd` are
-                                    backend-required and omitted so they
-                                    fail loudly rather than return
-                                    un-normalized text)
+                                    backend-required and omitted from the
+                                    record so a composite backend can fail
+                                    loudly if no native layer is wired)
 crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
+crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
+                                 (graphemes/width/casefold/nfc/nfd/decode/
+                                 identifiers) composed with `unicode-handl`
 ```
 
 - `kit-canonical` registers `str-handl` under `"str"` **first** (before any
   legacy `StrModule` fallback in `plugin-lib-utils`), so `str.*` and
   `from "str" import` resolve to the handl impl. `char` resolves via
   `StdlibResolver` → `CharModule`.
+- `kit-canonical` registers `handl-plugin-lib-unicode-native::UnicodeModule`
+  under `"unicode"`; native `op`s take precedence and the `unicode-handl`
+  record supplies fallback behavior for anything not implemented natively.
 - `str-handl` must depend only on `char.*` atoms — never on Rust/Js/UTF-8 or
   byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
   conversion replaces O(n²) `char.at` loops.

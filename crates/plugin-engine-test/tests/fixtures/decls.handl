@@ -1,0 +1,7 @@
+-- Test-language fragment declarations (ADR-0089 §4).
+-- Names are captured into payload.name; the body is the `body` child role.
+test literal_pass = 1 + 1
+test literal_fail = assert.true(false)
+property identity = 42
+integration_test end_to_end = "ok"
+bench small = 0

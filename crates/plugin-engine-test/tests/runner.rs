@@ -2,10 +2,16 @@
 
 use std::path::PathBuf;
 
+use handl_plugin_engine_test::config::{run_with_config, RunConfig};
+use handl_plugin_engine_test::events::TestEvent;
+use handl_plugin_engine_test::provider::{discover_with, FileSystemProvider, TestProvider};
+use handl_plugin_engine_test::report::{summarize, HumanReporter, JsonReporter, Reporter};
 use handl_plugin_engine_test::runner::{
-    discover, format_report_human, format_report_json, run, run_with_filter, DiscoverError,
-    TestPlan, TestResult,
+    discover, filter_predicate, format_report_human, format_report_json, run,
+    run_selected, run_selected_cached, run_with_filter, DiscoverError, TestPlan,
+    TestResult, TestRunCache,
 };
+use handl_plugin_lib_scheduler::SchedulePolicy;
 
 /// Helper: path to a fixture file.
 fn fixture(name: &str) -> PathBuf {
@@ -35,6 +41,65 @@ fn discover_single_file() {
     assert_eq!(plan.tests[0].name, "test_addition");
     assert_eq!(plan.tests[1].name, "test_number");
     assert_eq!(plan.tests[2].name, "test_string");
+}
+
+#[test]
+fn discover_test_language_decls() {
+    // ADR-0089 §4: `test`/`property`/`integration_test`/`bench` declarations
+    // from the test-language fragment merged onto the canonical kit.
+    let plan = discover(&[fixture("decls.handl")]).unwrap();
+    assert!(plan.parse_errors.is_empty(), "parse errors: {:?}", plan.parse_errors);
+    let names: Vec<&str> = plan.tests.iter().map(|t| t.name.as_str()).collect();
+    assert_eq!(
+        names,
+        vec!["literal_pass", "literal_fail", "identity", "end_to_end", "small"]
+    );
+    // Body source is the expression after `=`.
+    assert_eq!(plan.tests[0].body_source, "1 + 1");
+    assert_eq!(plan.tests[1].body_source, "assert.true(false)");
+}
+
+#[test]
+fn run_test_language_decls() {
+    let plan = discover(&[fixture("decls.handl")]).unwrap();
+    let report = run(&plan);
+    assert_eq!(report.total(), 5);
+    assert_eq!(report.passed(), 4);
+    assert_eq!(report.failed(), 1);
+}
+
+#[test]
+fn run_selected_parallel_matches_sequential_order() {
+    // ADR-0089: parallelism changes timing, never logical result ordering.
+    // BoundedScheduler returns completion order; the runner re-collects in
+    // canonical plan order.
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let seq = run(&plan);
+    let par = run_selected(
+        &plan,
+        &handl_plugin_lib_predicate::Predicate::True,
+        &SchedulePolicy::parallel(4),
+    );
+    let seq_results: Vec<(&str, &TestResult)> = seq
+        .outcomes
+        .iter()
+        .map(|o| (o.case.name.as_str(), &o.result))
+        .collect();
+    let par_results: Vec<(&str, &TestResult)> = par
+        .outcomes
+        .iter()
+        .map(|o| (o.case.name.as_str(), &o.result))
+        .collect();
+    assert_eq!(seq_results, par_results);
+}
+
+#[test]
+fn filter_predicate_glob() {
+    let plan = discover(&[fixture("decls.handl")]).unwrap();
+    let report = run_selected(&plan, &filter_predicate("literal_*"), &SchedulePolicy::sequential());
+    assert_eq!(report.total(), 5);
+    assert_eq!(report.passed() + report.failed(), 2);
+    assert_eq!(report.skipped(), 3);
 }
 
 #[test]
@@ -281,4 +346,300 @@ fn determinism_source_order() {
         assert_eq!(o1.case.name, o2.case.name);
         assert_eq!(o1.result, o2.result);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Result-cache tests (opt-in `--cache`, ADR-0089 §"Cache domains")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cached_second_run_replays_identical_results() {
+    // A second run over the same plan must replay the recorded results
+    // without re-evaluating: all lookups are hits and the report is
+    // identical in ordering and content.
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut cache = TestRunCache::new();
+    let pred = handl_plugin_lib_predicate::Predicate::True;
+    let policy = SchedulePolicy::sequential();
+
+    let first = run_selected_cached(&plan, &pred, &policy, &mut cache);
+    assert_eq!(first.passed(), 2);
+    assert_eq!(first.failed(), 1);
+    assert_eq!(cache.len(), 3);
+    assert_eq!(cache.misses(), 3);
+    assert_eq!(cache.hits(), 0);
+
+    let second = run_selected_cached(&plan, &pred, &policy, &mut cache);
+    assert_eq!(cache.hits(), 3, "all tests served from cache");
+    assert_eq!(cache.misses(), 3, "no re-evaluation on second run");
+    assert_eq!(cache.len(), 3);
+
+    let r1: Vec<(&str, &TestResult)> = first
+        .outcomes
+        .iter()
+        .map(|o| (o.case.name.as_str(), &o.result))
+        .collect();
+    let r2: Vec<(&str, &TestResult)> = second
+        .outcomes
+        .iter()
+        .map(|o| (o.case.name.as_str(), &o.result))
+        .collect();
+    assert_eq!(r1, r2, "cached report must be identical to the fresh run");
+}
+
+#[test]
+fn cache_is_opt_in_and_invalidates_on_source_change() {
+    // Default runs never touch the cache; a mutated body_source is a
+    // different fingerprint and re-evaluates.
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut cache = TestRunCache::new();
+    let pred = handl_plugin_lib_predicate::Predicate::True;
+    let policy = SchedulePolicy::sequential();
+
+    // run / run_selected do not use a cache — nothing to assert on the
+    // cache itself; the API simply doesn't take one.
+    let _ = run_selected(&plan, &pred, &policy);
+
+    run_selected_cached(&plan, &pred, &policy, &mut cache);
+    assert_eq!(cache.misses(), 3);
+
+    // Mutate one test's body: its key changes, the others still hit.
+    let mut plan2 = plan.clone();
+    plan2.tests[0].body_source = "1 + 2".to_string();
+    let report = run_selected_cached(&plan2, &pred, &policy, &mut cache);
+    assert_eq!(cache.hits(), 2);
+    assert_eq!(cache.misses(), 4);
+    assert_eq!(report.passed(), 2);
+    assert_eq!(report.failed(), 1);
+}
+
+#[test]
+fn filtered_out_tests_are_not_cached() {
+    // Skipped tests must not be recorded in the cache.
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut cache = TestRunCache::new();
+    let report = run_selected_cached(
+        &plan,
+        &filter_predicate("test_pass*"),
+        &SchedulePolicy::sequential(),
+        &mut cache,
+    );
+    assert_eq!(report.skipped(), 1);
+    assert_eq!(cache.len(), 2, "only executed tests are cached");
+    assert_eq!(cache.misses(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Structured-event tests (ADR-0089 §"Observability")
+// ---------------------------------------------------------------------------
+
+/// Positions of each variant occurrence in an event log, by name.
+fn event_positions(events: &[TestEvent], pred: impl Fn(&TestEvent) -> bool) -> Vec<usize> {
+    events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| pred(e))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+#[test]
+fn events_run_lifecycle_ordering() {
+    // RunStarted first, RunFinished last; for every executed test,
+    // TestSelected precedes TestStarted precedes TestFinished.
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut config = RunConfig::new();
+    let report = run_with_config(&plan, &mut config);
+    assert_eq!(report.total(), 3);
+
+    let events = &config.events;
+    assert!(matches!(events.first(), Some(TestEvent::RunStarted { total: 3 })));
+    assert!(matches!(
+        events.last(),
+        Some(TestEvent::RunFinished {
+            passed: 2,
+            failed: 1,
+            skipped: 0,
+            ..
+        })
+    ));
+
+    for name in ["test_pass", "test_fail", "test_pass_two"] {
+        let sel = event_positions(events, |e| {
+            matches!(e, TestEvent::TestSelected { name: n, .. } if n == name)
+        });
+        let start = event_positions(events, |e| {
+            matches!(e, TestEvent::TestStarted { name: n, .. } if n == name)
+        });
+        let fin = event_positions(events, |e| {
+            matches!(e, TestEvent::TestFinished { name: n, .. } if n == name)
+        });
+        assert_eq!(sel.len(), 1, "TestSelected for {name}");
+        assert_eq!(start.len(), 1, "TestStarted for {name}");
+        assert_eq!(fin.len(), 1, "TestFinished for {name}");
+        assert!(sel[0] < start[0] && start[0] < fin[0]);
+    }
+
+    // The failing test also emits TestFailed after its TestFinished.
+    let failed = event_positions(events, |e| {
+        matches!(e, TestEvent::TestFailed { name: n, .. } if n == "test_fail")
+    });
+    assert_eq!(failed.len(), 1);
+    let fin_fail = event_positions(events, |e| {
+        matches!(e, TestEvent::TestFinished { name: n, .. } if n == "test_fail")
+    });
+    assert!(failed[0] > fin_fail[0]);
+
+    // Parallel runs emit the same canonical event order.
+    let mut config = RunConfig::new().with_policy(SchedulePolicy::parallel(4));
+    run_with_config(&plan, &mut config);
+    let kind_seq: Vec<&'static str> = config
+        .events
+        .iter()
+        .map(|e| match e {
+            TestEvent::RunStarted { .. } => "RunStarted",
+            TestEvent::RunFinished { .. } => "RunFinished",
+            TestEvent::SuiteStarted { .. } => "SuiteStarted",
+            TestEvent::SuiteFinished { .. } => "SuiteFinished",
+            TestEvent::TestDiscovered { .. } => "TestDiscovered",
+            TestEvent::TestSelected { .. } => "TestSelected",
+            TestEvent::TestStarted { .. } => "TestStarted",
+            TestEvent::TestFinished { .. } => "TestFinished",
+            TestEvent::TestCached { .. } => "TestCached",
+            TestEvent::TestSkipped { .. } => "TestSkipped",
+            TestEvent::TestFailed { .. } => "TestFailed",
+        })
+        .collect();
+    let seq_kinds: Vec<&'static str> = {
+        let mut c = RunConfig::new();
+        run_with_config(&plan, &mut c);
+        c.events
+            .iter()
+            .map(|e| match e {
+                TestEvent::RunStarted { .. } => "RunStarted",
+                TestEvent::RunFinished { .. } => "RunFinished",
+                TestEvent::SuiteStarted { .. } => "SuiteStarted",
+                TestEvent::SuiteFinished { .. } => "SuiteFinished",
+                TestEvent::TestDiscovered { .. } => "TestDiscovered",
+                TestEvent::TestSelected { .. } => "TestSelected",
+                TestEvent::TestStarted { .. } => "TestStarted",
+                TestEvent::TestFinished { .. } => "TestFinished",
+                TestEvent::TestCached { .. } => "TestCached",
+                TestEvent::TestSkipped { .. } => "TestSkipped",
+                TestEvent::TestFailed { .. } => "TestFailed",
+            })
+            .collect()
+    };
+    assert_eq!(kind_seq, seq_kinds, "event order must not depend on --jobs");
+}
+
+#[test]
+fn events_skipped_tests_emit_test_skipped() {
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut config = RunConfig::new().with_filter("test_pass*");
+    let report = run_with_config(&plan, &mut config);
+    assert_eq!(report.skipped(), 1);
+    let skipped = event_positions(&config.events, |e| {
+        matches!(e, TestEvent::TestSkipped { name: n, .. } if n == "test_fail")
+    });
+    assert_eq!(skipped.len(), 1);
+}
+
+#[test]
+fn discovery_emits_test_discovered() {
+    let mut events = Vec::new();
+    let plan = discover_with(&FileSystemProvider, &[fixture("pass.handl")], Some(&mut events))
+        .unwrap();
+    assert_eq!(plan.tests.len(), 3);
+    let discovered: Vec<&str> = events
+        .iter()
+        .filter_map(|e| match e {
+            TestEvent::TestDiscovered { name, .. } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(discovered, vec!["test_addition", "test_number", "test_string"]);
+    // `discover` is equivalent to the default provider without events.
+    assert_eq!(FileSystemProvider.name(), "filesystem");
+}
+
+#[test]
+fn duration_is_populated_for_executed_tests() {
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let report = run_with_config(
+        &plan,
+        &mut RunConfig::new().with_policy(SchedulePolicy::parallel(4)),
+    );
+    for outcome in &report.outcomes {
+        assert!(
+            outcome.duration > std::time::Duration::ZERO,
+            "executed test {} has zero duration",
+            outcome.case.name
+        );
+    }
+    // Structured failure fields are present but unset for unstructured
+    // assertion errors.
+    assert!(report.outcomes[1].failure.expected.is_none());
+    assert!(report.outcomes[1].failure.actual.is_none());
+}
+
+#[test]
+fn cached_hit_emits_test_cached() {
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut config = RunConfig::new()
+        .with_policy(SchedulePolicy::sequential())
+        .with_cache(TestRunCache::new());
+    run_with_config(&plan, &mut config);
+    config.events.clear();
+    run_with_config(&plan, &mut config);
+
+    let cached = event_positions(&config.events, |e| {
+        matches!(e, TestEvent::TestCached { .. })
+    });
+    assert_eq!(cached.len(), 3, "every test replayed from cache");
+    // Cached tests are not dispatched: no TestStarted/TestFinished.
+    assert!(
+        event_positions(&config.events, |e| matches!(e, TestEvent::TestStarted { .. }))
+            .is_empty()
+    );
+    assert!(
+        event_positions(&config.events, |e| matches!(e, TestEvent::TestFinished { .. }))
+            .is_empty()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Reporter-pipeline tests (ADR-0089 §"Reporting pipeline")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn reporters_via_trait_match_legacy_formatters() {
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let report = run(&plan);
+    let summary = summarize(&report);
+    assert_eq!(summary.total, 3);
+    assert_eq!(summary.passed, 2);
+    assert_eq!(summary.failed, 1);
+    assert_eq!(summary.skipped, 0);
+    assert!(summary.total_duration > std::time::Duration::ZERO);
+    // slowest is whichever executed test took longest; just check it names
+    // a real test.
+    assert!(summary.slowest.as_ref().unwrap().0.starts_with("test_"));
+
+    assert_eq!(HumanReporter.name(), "console");
+    assert_eq!(JsonReporter.name(), "json");
+    assert_eq!(
+        HumanReporter.format(&report, &summary),
+        format_report_human(&report)
+    );
+    assert_eq!(
+        JsonReporter.format(&report, &summary),
+        format_report_json(&report)
+    );
+
+    // JSON includes the structured duration field.
+    let parsed: serde_json::Value =
+        serde_json::from_str(&JsonReporter.format(&report, &summary)).unwrap();
+    assert!(parsed["tests"][0]["duration_ms"].is_number());
+    assert!(parsed["summary"]["duration_ms"].is_number());
 }

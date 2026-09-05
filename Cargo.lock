@@ -1075,6 +1075,7 @@ dependencies = [
  "handl-plugin-lib-lang-typecheck",
  "handl-plugin-lib-result",
  "handl-plugin-lib-tag",
+ "handl-plugin-lib-unicode-native",
  "handl-plugin-lib-utils",
  "handl-plugin-module",
  "handl-runtime",
@@ -1390,7 +1391,10 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
+ "handl-plugin-lib-predicate",
+ "handl-plugin-lib-scheduler",
  "handl-plugin-lib-test",
  "handl-runtime",
  "serde",
@@ -2233,6 +2237,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-unicode-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-char-native",
+ "handl-plugin-lib-handl",
+ "handl-plugin-lib-unicode",
+ "handl-plugin-module",
+ "icu_casemap",
+ "icu_normalizer",
+ "icu_segmenter",
+ "serde_json",
+ "unicode-width",
+]
+
+[[package]]
 name = "handl-plugin-lib-url-rfc"
 version = "0.1.0"
 dependencies = [
@@ -2262,6 +2282,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-lib-base64",
+ "handl-plugin-lib-char-native",
  "handl-plugin-lib-encoding",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-hex",
