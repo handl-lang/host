@@ -2,8 +2,24 @@ use handl_platform::{EvalContext, EvalError, Function};
 use std::sync::Arc;
 
 use handl_platform::Module;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::KvError;
+
+/// The handl source declaring the kv `op` interface — the single source
+/// of truth for the kv API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const KV_HNL: &str = include_str!("../../../handl-packages/kv/kv.hnl");
+
+/// The op names declared in `kv.hnl`.
+const KV_OPS: &[&str] = &[
+    "kv.get",
+    "kv.set",
+    "kv.remove",
+    "kv.clear",
+    "kv.has",
+    "kv.size",
+];
 
 /// Abstract key-value store service.
 ///
@@ -20,35 +36,20 @@ pub trait KeyValueStore: Send + Sync {
 }
 
 /// Module adapter for [`KeyValueStore`] — exposes `kv.*` functions.
+///
+/// The interface is declared in `kv.hnl` via `cap` declarations and loaded
+/// via the generic [`HandlModule`]; this struct delegates [`Module`] lookups
+/// to the [`HandlModule`] built from the store.
 pub struct KeyValueStoreModule {
-    get: GetFn,
-    set: SetFn,
-    remove: RemoveFn,
-    clear: ClearFn,
-    has: HasFn,
-    size: SizeFn,
+    module: HandlModule,
 }
 
 impl KeyValueStoreModule {
+    /// Creates a `KeyValueStoreModule` with the given [`KeyValueStore`].
     pub fn new(store: impl KeyValueStore + 'static) -> Self {
-        let store = Arc::new(store);
-        KeyValueStoreModule {
-            get: GetFn {
-                store: store.clone(),
-            },
-            set: SetFn {
-                store: store.clone(),
-            },
-            remove: RemoveFn {
-                store: store.clone(),
-            },
-            clear: ClearFn {
-                store: store.clone(),
-            },
-            has: HasFn {
-                store: store.clone(),
-            },
-            size: SizeFn { store },
+        let registry = Arc::new(kv_op_registry(store));
+        Self {
+            module: HandlModule::new("kv", KV_HNL, &[]).with_ops(KV_OPS, registry),
         }
     }
 }
@@ -59,16 +60,26 @@ impl Module for KeyValueStoreModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "get" => Some(&self.get),
-            "set" => Some(&self.set),
-            "remove" => Some(&self.remove),
-            "clear" => Some(&self.clear),
-            "has" => Some(&self.has),
-            "size" => Some(&self.size),
-            _ => None,
-        }
+        self.module.function(name)
     }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
+    }
+}
+
+/// Build an [`OpRegistry`] for the kv ops, registering Rust handls that
+/// delegate to the given [`KeyValueStore`] under their op names.
+fn kv_op_registry(store: impl KeyValueStore + 'static) -> OpRegistry {
+    let store: Arc<dyn KeyValueStore> = Arc::new(store);
+    let mut registry = OpRegistry::new();
+    registry.register("kv.get", Arc::new(GetFn { store: store.clone() }));
+    registry.register("kv.set", Arc::new(SetFn { store: store.clone() }));
+    registry.register("kv.remove", Arc::new(RemoveFn { store: store.clone() }));
+    registry.register("kv.clear", Arc::new(ClearFn { store: store.clone() }));
+    registry.register("kv.has", Arc::new(HasFn { store: store.clone() }));
+    registry.register("kv.size", Arc::new(SizeFn { store }));
+    registry
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
