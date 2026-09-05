@@ -769,6 +769,48 @@
     required:
     - children
     type: object
+# `data` — inductive type declaration (ADR-0082). Has one named child
+# role `constructors` (the constructor list expression, an `alt` tree or
+# a single constructor). The type name is carried in `payload.name`
+# (extracted by `grammar.data.prefix` payload_tokens). The desugar pass
+# (`desugar_data`) reads the child AST to extract constructors.
+- id: ast.data
+  node_kind: data
+  children:
+  - role: constructors
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+      name:
+        type: string
+    required:
+    - children
+    - name
+    type: object
+# `alt` — constructor alternative node created by `|` pipe infix
+# (ADR-0082). Two children: `left` and `right`. The desugar pass walks
+# the `alt` tree to collect all constructors from a `data` declaration.
+- id: ast.alt
+  node_kind: alt
+  children:
+  - role: left
+  - role: right
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 # `desugar-error` — error node emitted by the desugar pass when a
 # declaration fails a compile-time check (e.g. strict positivity violation
 # in `data`). The payload carries `{kind, reason}`. The eval scheme

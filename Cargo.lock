@@ -1060,6 +1060,7 @@ dependencies = [
  "handl-plugin-engine-eval-cranelift",
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-nbe",

@@ -59,6 +59,8 @@
   label: as
 - id: token.keyword.axiom
   label: axiom
+- id: token.keyword.data
+  label: data
 - id: token.keyword.do
   label: do
 - id: token.keyword.else
@@ -125,6 +127,8 @@
   label: '?.'
 - id: token.or
   label: '||'
+- id: token.pipe
+  label: '|'
 - id: token.percent
   label: '%'
 - id: token.plus

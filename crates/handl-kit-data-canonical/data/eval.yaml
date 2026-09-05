@@ -793,3 +793,19 @@
     op: desugar_error
     args: []
     source: Native
+# `data` — inductive type declaration (ADR-0082). A `data` node should
+# never reach the evaluator: the desugar pass (`desugar_data`) rewrites it
+# into a `block` of predicate/constructor/recursor definitions at parse
+# time. If an undesugared `data` node reaches eval, the `desugar_error`
+# op raises a LangError. The `lit` payload carries the error message so
+# it is visible even though the `data` node's own payload has `name`/
+# `children` (not `kind`/`reason`).
+- id: eval.data
+  node_kind: data
+  scheme: !Arr
+    op: desugar_error
+    args: []
+    source: Native
+    lit:
+      kind: data-error
+      reason: data declaration was not desugared before evaluation

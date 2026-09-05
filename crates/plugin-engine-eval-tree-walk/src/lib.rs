@@ -1006,16 +1006,39 @@ impl TreeWalkEngine {
                 // strict positivity violation in `data`). The op name and
                 // node kind are data-driven (declared in eval.yaml /
                 // ast.yaml), not hardcoded kind checks.
-                let reason = current_node
-                    .payload
-                    .get("reason")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown desugar error");
-                let kind = current_node
-                    .payload
-                    .get("kind")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("desugar-error");
+                //
+                // The error message is read from `current_node.payload`
+                // (`kind`/`reason` fields) for `desugar-error` nodes, or
+                // falls back to the scheme's `lit` payload for nodes like
+                // `data` that carry their own payload shape (`name`/
+                // `children`) but still use the `desugar_error` op.
+                let (reason, kind) = if let Some(lit_obj) = lit.and_then(|v| v.as_object()) {
+                    let reason = current_node
+                        .payload
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| lit_obj.get("reason").and_then(|v| v.as_str()))
+                        .unwrap_or("unknown desugar error");
+                    let kind = current_node
+                        .payload
+                        .get("kind")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| lit_obj.get("kind").and_then(|v| v.as_str()))
+                        .unwrap_or("desugar-error");
+                    (reason, kind)
+                } else {
+                    let reason = current_node
+                        .payload
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown desugar error");
+                    let kind = current_node
+                        .payload
+                        .get("kind")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("desugar-error");
+                    (reason, kind)
+                };
                 Err(LangError::engine_node(
                     format!("{}: {}", kind, reason),
                     current_node,
