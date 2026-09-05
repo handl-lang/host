@@ -93,6 +93,39 @@ pub trait EvalEngine {
     fn with_global(&self, _name: &str, _val: Value) -> Box<dyn EvalEngine> {
         self.box_clone()
     }
+
+    /// Produce a fresh owned engine with an [`ImportResolver`] wired in for
+    /// `import` statement dispatch (Phase 9.5). Default: clone + ignore.
+    /// Engines that support `import` (e.g. the tree-walk engine) override
+    /// this to store the resolver; other engines silently drop it.
+    fn with_import_resolver(&self, _resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
+        self.box_clone()
+    }
+}
+
+/// A resolver for `import "path"` statements (Phase 9.5).
+///
+/// When the eval engine encounters an `import` node, it calls the
+/// configured [`ImportResolver`] to load the referenced module and return
+/// its top-level bindings as a [`Value::Object`]. The engine then binds
+/// each entry into the current scope.
+///
+/// This trait is intentionally narrow: it knows nothing about the engine's
+/// internals, keeping the engine generic (ADR-0044 "language as data"). The
+/// concrete resolution strategy — file I/O, lex/parse/eval, caching, cycle
+/// detection — lives in the implementor (e.g. the runtime's module loader).
+///
+/// The trait is `?Send`/`?Sync`-agnostic: it uses `Rc` (not `Arc`) to match
+/// the single-threaded eval model shared with [`handl_platform::ModuleLookup`].
+pub trait ImportResolver {
+    /// Resolve `path` to a module's bindings, returned as a [`Value::Object`]
+    /// mapping binding names to their values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if the module cannot be found, read, parsed,
+    /// or evaluated (including circular-import detection).
+    fn resolve_import(&self, path: &str) -> Result<Value, LangError>;
 }
 
 #[cfg(test)]

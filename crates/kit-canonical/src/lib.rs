@@ -30,9 +30,11 @@ use handl_plugin_lib_utils::{
 use handl_plugin_lib_result::result_module;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_module::ModuleRegistry;
+use handl_plugin_engine_eval::ImportResolver;
+use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_runtime::RuntimeFactory;
-use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig, RuntimeFactoryImpl};
-use std::path::Path;
+use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 // ---------------------------------------------------------------------------
@@ -272,6 +274,9 @@ pub struct SpannedToken {
 pub struct Kit {
     /// The runtime (no lifetime — engines own `Rc<dyn ModuleLookup>`).
     runtime: Runtime,
+    /// The base directory for resolving relative `import "path"` paths
+    /// (Phase 9.5). `None` → resolve against the process CWD.
+    module_root: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for Kit {
@@ -300,7 +305,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("nbe");
-        Self::build_kit(lang, config)
+        Self::build_kit(lang, config, None)
     }
 
     /// Build the canonical kit with a specific eval engine name
@@ -319,7 +324,22 @@ impl Kit {
             .clone()
             .with_eval(eval_name)
             .with_typecheck("nbe");
-        Self::build_kit(lang, config)
+        Self::build_kit(lang, config, None)
+    }
+
+    /// Build the canonical kit with a `module_root` directory for resolving
+    /// relative `import "path"` statements (Phase 9.5).
+    ///
+    /// Otherwise identical to [`Kit::new`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if fragment assembly or engine binding fails.
+    pub fn new_with_module_root(module_root: PathBuf) -> Result<Self, LangError> {
+        let kit = handl_kit_data_canonical::assemble()?;
+        let lang = kit.lang().clone();
+        let config = kit.runtime_config().clone().with_typecheck("nbe");
+        Self::build_kit(lang, config, Some(module_root))
     }
 
     /// Build a [`Kit`] from a caller-supplied [`Language`] and
@@ -333,7 +353,11 @@ impl Kit {
     /// # Errors
     ///
     /// Returns [`LangError`] if engine binding fails.
-    fn build_kit(lang: Language, config: RuntimeConfig) -> Result<Self, LangError> {
+    fn build_kit(
+        lang: Language,
+        config: RuntimeConfig,
+        module_root: Option<PathBuf>,
+    ) -> Result<Self, LangError> {
         // Build the engine registry with all available engine impls
         // (ADR-0047 §2). The host (this crate) registers the engines;
         // handl-runtime names none.
@@ -463,14 +487,52 @@ impl Kit {
             "hello".to_string(),
             serde_json::json!({ "greet": "hello.greet" }),
         );
-        let runtime = Runtime::from_registry_with_globals(
+
+        // Phase 9.5: build a shared `ModuleLoader` for `import "path"`
+        // statements. The loader owns independent engine clones (cloned from
+        // the registry) plus a shared module cache and cycle-detector. Its
+        // eval engine is a `TreeWalkEngine` wired with the same module chain
+        // and `self` global as the main runtime, and with the loader itself
+        // as its import resolver (so nested imports resolve through the same
+        // cache). Two-phase construction (see `ModuleLoader` docs): create
+        // the loader, build its engine holding an `Rc` clone of the loader,
+        // then late-bind the engine.
+        let lang_rc = Rc::new(lang.clone());
+        let loader = Rc::new(ModuleLoader::new(
+            Rc::clone(&lang_rc),
+            registry
+                .lex_engine("data")
+                .ok_or_else(|| LangError::engine("missing lex engine 'data' for module loader"))?
+                .box_clone(),
+            registry
+                .parse_engine("pratt")
+                .ok_or_else(|| {
+                    LangError::engine("missing parse engine 'pratt' for module loader")
+                })?
+                .box_clone(),
+            module_root.clone(),
+        ));
+        let loader_eval_engine = TreeWalkEngine::new()
+            .with_modules(Rc::clone(&meta_chain) as Rc<dyn handl_platform::ModuleLookup>)
+            .with_global("self", handl_language::language_value(&lang))
+            .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
+        loader.set_eval_engine(Box::new(loader_eval_engine));
+        let import_resolver: Rc<dyn ImportResolver> =
+            Rc::clone(&loader) as Rc<dyn ImportResolver>;
+
+        let runtime = Runtime::from_registry_with_resolver(
             lang,
             &registry,
             &config,
             Some(meta_chain),
             Some(&globals),
+            Some(import_resolver),
+            module_root.clone(),
         )?;
-        Ok(Kit { runtime })
+        Ok(Kit {
+            runtime,
+            module_root,
+        })
     }
 
     /// Build a [`Kit`] from a kit data directory path (ADR 0003 per-file kit
@@ -515,7 +577,7 @@ impl Kit {
                 .with_eval("tree-walk")
                 .with_typecheck("nbe");
             match handl_kit_data_canonical::language_from_yaml() {
-                Ok(lang) => return Self::build_kit(lang, config),
+                Ok(lang) => return Self::build_kit(lang, config, None),
                 Err(e) => {
                     eprintln!(
                         "kit-canonical: from_path: failed to load canonical language: {}; \
@@ -683,6 +745,13 @@ impl Kit {
     /// [`Ast`] inputs.
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
+    }
+
+    /// Returns the configured module root for resolving relative
+    /// `import "path"` paths (Phase 9.5). `None` → resolve against the
+    /// process CWD.
+    pub fn module_root(&self) -> Option<&Path> {
+        self.module_root.as_deref()
     }
 }
 

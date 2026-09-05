@@ -73,7 +73,7 @@ use rustc_hash::FxHashMap;
 use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{tagged_to_value, TaggedValue};
 
 // Thread-local storage for the current AST and Language, so the
@@ -253,6 +253,11 @@ pub struct TreeWalkEngine {
     /// Global variables injected by the host, pre-populated into the root
     /// scope on every eval call.
     globals: HashMap<String, Value>,
+    /// The import resolver for `import "path"` statements (Phase 9.5).
+    /// When `Some`, the `import` native op delegates to this resolver to
+    /// load the module and bind its top-level bindings into the current
+    /// scope. `None` → `import` errors gracefully.
+    import_resolver: Option<Rc<dyn ImportResolver>>,
     /// Cache for handler-eliminated schemes, keyed by node kind (ADR-0076).
     /// Avoids re-running `eliminate_and_check` on every eval of the same
     /// node kind.
@@ -265,6 +270,7 @@ impl TreeWalkEngine {
         Self {
             modules: None,
             globals: HashMap::new(),
+            import_resolver: None,
             eliminated_cache: RefCell::new(HashMap::new()),
         }
     }
@@ -281,6 +287,15 @@ impl TreeWalkEngine {
     pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
         self.globals.insert(name.into(), value);
         self.eliminated_cache = RefCell::new(HashMap::new());
+        self
+    }
+
+    /// Attach an import resolver for `import "path"` statements (builder
+    /// style, Phase 9.5). The `import` native op delegates to this resolver
+    /// to load the referenced module and bind its top-level bindings into
+    /// the current scope.
+    pub fn with_import_resolver(mut self, resolver: Rc<dyn ImportResolver>) -> Self {
+        self.import_resolver = Some(resolver);
         self
     }
 
@@ -1559,6 +1574,18 @@ impl TreeWalkEngine {
             "handle" => self.prim_handle(ast, lang, env, current_node),
             "json" => self.prim_json(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
+            // Phase 9.5: import/export. The eval schemes for `stmt.import`
+            // and `stmt.export` are `Arr { op: import/export, source: Native }`,
+            // so they dispatch here. The engine stays generic: it delegates
+            // module loading to the configured `ImportResolver` trait object
+            // (no hardcoded kind checks — the op names come from eval.yaml).
+            "import" => self.prim_import(args, current_node, env),
+            "export" => {
+                // Bootstrap pass-through: evaluate the child expression (already
+                // computed as `args[0]` via `proj_child(0)`) and return it.
+                // Export marking is a no-op for now.
+                Ok((args.first().cloned().unwrap_or(TaggedValue::Null), false))
+            }
             // Arithmetic / comparison / logic.
             "add" => bin_add(args),
             "sub" => bin_num(args, |a, b| a - b),
@@ -2262,6 +2289,70 @@ impl TreeWalkEngine {
     /// Evaluates `y` in the current env, pushes a scope with `x = y`,
     /// evaluates `body` in the extended env, pops the scope. No closure
     /// creation, no env capture — just env extension via `Seq` semantics.
+    /// `import` op (Phase 9.5): load a module via the configured
+    /// [`ImportResolver`] and bind its top-level bindings into the current
+    /// scope.
+    ///
+    /// The `stmt.import` eval scheme is
+    /// `Arr { op: import, args: [proj_child(0)], source: Native }`, so
+    /// `args[0]` is the evaluated path expression (a string literal). As a
+    /// fallback, the path is also read from `current_node.payload["path"]`
+    /// (the `ast.import` shape declares a `path` field).
+    ///
+    /// The resolver returns a `Value::Object` of `{name: value, ...}`; each
+    /// entry is bound into the current (innermost) scope via
+    /// [`ScopeStack::define`]. No new scope is pushed (`did_push = false`):
+    /// imported bindings share the importer's scope.
+    ///
+    /// If no resolver is configured, the op errors gracefully.
+    fn prim_import(
+        &self,
+        args: &[TaggedValue],
+        current_node: &AstNode,
+        env: &mut ScopeStack,
+    ) -> Result<(TaggedValue, bool), LangError> {
+        // Resolve the module path: prefer the evaluated child (`args[0]`),
+        // fall back to the node's `path` payload field.
+        let path: String = args
+            .first()
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .or_else(|| {
+                current_node
+                    .payload
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "import: missing module path (expected string argument or 'path' payload)"
+                        .to_string(),
+                    current_node,
+                )
+            })?;
+        let resolver = self.import_resolver.as_ref().ok_or_else(|| {
+            LangError::engine_node(
+                "import: no import resolver configured".to_string(),
+                current_node,
+            )
+        })?;
+        let bindings = resolver.resolve_import(&path).map_err(|e| {
+            // Annotate with the import node for diagnostics if the error
+            // is a bare engine error.
+            LangError::engine_node(format!("import \"{}\": {}", path, e), current_node)
+        })?;
+        // Bind each entry into the current scope. The resolver returns a
+        // Value::Object; non-object results bind nothing (bootstrap).
+        if let Value::Object(map) = bindings {
+            for (name, val) in map {
+                env.define(&name, TaggedValue::from(val));
+            }
+        }
+        // `import` is a statement; it produces no value.
+        Ok((TaggedValue::Null, false))
+    }
+
     fn prim_bind(
         &self,
         ast: &Ast,
@@ -2865,6 +2956,10 @@ impl EvalEngine for TreeWalkEngine {
     fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_global(name, val))
     }
+
+    fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_import_resolver(resolver))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3451,6 +3546,57 @@ mod tests {
     }
 
     // --- arr const -------------------------------------------------------
+
+    /// A stub `ImportResolver` returning a fixed bindings object, used to
+    /// test the `import` native op in isolation (Phase 9.5).
+    struct StubResolver {
+        bindings: Value,
+    }
+    impl ImportResolver for StubResolver {
+        fn resolve_import(&self, _path: &str) -> Result<Value, LangError> {
+            Ok(self.bindings.clone())
+        }
+    }
+
+    #[test]
+    fn import_op_binds_module_bindings_into_scope() {
+        let resolver = Rc::new(StubResolver {
+            bindings: json!({ "x": 42, "y": "hi" }),
+        });
+        let engine = TreeWalkEngine::new().with_import_resolver(resolver);
+        let mut env = ScopeStack::new();
+        // `import "m.hnl"` — the path is the evaluated arg (a const string).
+        let s = prim("import", vec![lit("m.hnl")]);
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        // `import` is a statement; it produces no value.
+        assert_eq!(result, Value::Null);
+        // The module's bindings are bound into the current scope.
+        assert_eq!(tagged_to_value(env.lookup("x").unwrap()), json!(42));
+        assert_eq!(tagged_to_value(env.lookup("y").unwrap()), json!("hi"));
+    }
+
+    #[test]
+    fn import_op_errors_without_resolver() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = prim("import", vec![lit("m.hnl")]);
+        let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
+        assert!(
+            format!("{}", err).contains("no import resolver"),
+            "expected no-resolver error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn export_op_passes_through_child_value() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        // `export 42` — pass-through of the evaluated child.
+        let s = prim("export", vec![lit(json!(42))]);
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(42));
+    }
 
     #[test]
     fn arr_const_returns_literal() {
