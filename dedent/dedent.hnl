@@ -1,82 +1,117 @@
---- dedent — strips common leading whitespace from multi-line strings.
+from "str" import * as str
+from "combinators" import * as combinators
+
+--- Dedents a multi-line string by removing its common indentation.
 ---
---- Find the minimum indentation across non-blank lines and remove it from every
---- line, preserving relative indentation.
+--- @details
+--- CRLF line endings are normalized to LF. Leading and trailing newlines
+--- are removed. Blank lines do not contribute to the common indentation.
+--- Spaces and tabs are treated as leading whitespace.
 ---
---- # dedent.dedent
+--- The relative indentation between non-blank lines is preserved.
 ---
---- `dedent.dedent(text: String) -> String`
----
---- Strips common leading whitespace from all lines of `text`.
----
---- Algorithm:
----   1. Normalize CRLF (`\r\n`) to LF (`\n`).
----   2. Trim leading/trailing newlines.
----   3. If empty after trim, return `""`.
----   4. Split into lines.
----   5. Find the minimum leading-whitespace count across non-blank lines.
----   6. Strip that many leading whitespace chars from each line.
----   7. Re-join with `\n`.
----
---- Blank lines (whitespace-only) are ignored when computing the common
---- indent. Both spaces and tabs count as leading whitespace.
----
---- ## Examples
----
+--- @example
 --- ```hnl
---- dedent.dedent("    Hello,\n    World!")
---- -- => "Hello,\nWorld!"
+--- `
+---     Hello
+---     World
+--- ` >>> dedent
+--- -- => `
+--- Hello
+--- World
+--- `
 ---
---- dedent.dedent("    Hello,\n      World!")
---- -- => "Hello,\n  World!"
----
---- dedent.dedent("  Hello,\r\n  World!")
---- -- => "Hello,\nWorld!"
+--- @example
+--- `
+---     Hello
+---       World
+--- ` >>> dedent
+--- -- => `
+--- Hello
+---   World
+--- `
 --- ```
----
---- ## Contract
----
---- IsDedented(output) — output has no common leading whitespace beyond
---- the relative indentation of the input.
+export dedent = text ~> {
+  normalized = str.replace(text, "\r\n", "\n")
+  trimmed = str.trim_matches(normalized, "\n")
 
-from 'str' import * as 'str'
-from 'fn' import * as 'fn'
+  if str.is_empty(trimmed) {
+    return ""
+  }
 
-cap "dedent.dedent"
-{
-  dedent: text ~> {
-    indent_of = line ~> str.length(line) - str.length(str.trim_start(line))
-    is_blank = line ~> str.trim(line) == ""
-    strip_indent = [line, n] ~>
+  lines = str.lines(trimmed)
 
-    if indent_of(line) >= n {
-      str.slice(line, n, str.length(line))
-    } else {
-      line
-    }
+  indent_of = line ~> {
+    length = str.length(line)
+    trimmed_length = str.length(str.trim_start(line))
 
-    trimmed = str.trim_matches(str.replace(text, "\r\n", "\n"), "\n")
+    length - trimmed_length
+  }
 
-    if str.is_empty(trimmed) {
-      ""
-    } else {
-      lines = str.lines(trimmed)
-      common = while { lines: lines, min: 0, seen: false } {
-        [lines, min, seen] ~> match lines {
-          []: { out: min },
-          [h, ...t]: if is_blank(h) {
-            { state: { lines: t, min: min, seen: seen } }
-          } else {
-            c = indent_of(h)
-            { state: {
-                lines: t,
-                min  : if seen { if c < min { c } else { min } } else { c },
-                seen : true
-              } }
+  is_blank = line ~> str.is_empty(str.trim(line))
+
+  common = while { lines: lines, min: 0, seen: false } {
+    [line, ...rest] ~> match lines {
+      []: {
+        out: min
+      }
+
+      [line, ...rest]: {
+        if is_blank(line) {
+          return {
+            state: {
+              lines: rest,
+              min,
+              seen
+            }
+          }
+        }
+
+        indent = indent_of(line)
+
+        if !seen {
+          return {
+            state: {
+              lines: rest,
+              min  : indent,
+              seen : true
+            }
+          }
+        }
+
+        if indent < min {
+          return {
+            state: {
+              lines: rest,
+              min  : indent,
+              seen : true
+            }
+          }
+        }
+
+        {
+          state: {
+            lines: rest,
+            min,
+            seen: true
           }
         }
       }
-      str.join(fn.map(line ~> strip_indent(line, common), lines), "\n")
     }
   }
+
+  strip_indent = (line, n) ~> {
+    indent = indent_of(line)
+
+    if indent < n {
+      return line
+    }
+
+    length = str.length(line)
+    str.slice(line, n, length)
+  }
+
+  lines
+  >>> combinators.map(strip_indent)
+  >>> str.join("\n")
 }
