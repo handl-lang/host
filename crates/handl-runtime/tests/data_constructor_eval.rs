@@ -119,7 +119,7 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
     let pred_target_idx = desugared.len();
     desugared.push(AstNode::new("var").with_payload(json!("pred")));
 
-    let assign_idx = desugared.len();
+    let _assign_idx = desugared.len();
     desugared.push(AstNode::new("assign").with_payload(json!({
         "children": [pred_target_idx as u64, zero_idx as u64, body_json_idx as u64]
     })));

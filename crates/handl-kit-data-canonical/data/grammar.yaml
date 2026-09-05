@@ -382,24 +382,28 @@
     node_kind: infer
     arity: 1
 # `data Name = <constructors>` — inductive type declaration (ADR-0082).
-# The `data` keyword is followed by the type name (identifier), `=`, and
-# one child expression: the constructor list. Constructors are separated
-# by `|` (pipe), which creates `alt` nodes. The desugar pass
-# (`desugar_data`) reads `payload.name` and walks the child `alt` tree to
-# extract constructors.
+# The `data` keyword is followed by the type name (identifier), optional
+# parenthesised type parameters/indices, `=`, and one child expression: the
+# constructor list. Constructors are separated by `|` (pipe), which creates
+# `alt` nodes. The desugar pass (`desugar_data`) reads the first child to
+# obtain the type name and parameters, then walks the second child (`alt`
+# tree) to extract constructors. Backward-compatible hand-built nodes may
+# still carry the type name in `payload.name` with a single constructor
+# child.
 - id: grammar.data.prefix
   token: token.keyword.data
   position: Prefix
   binding_power:
-    - 0
+    # Left binding power is passed to the type-expression child; it must be
+    # higher than `=` (assign) so `data Vec(n : Nat, a : Type) = ...` stops
+    # parsing the type expression before the separating `=`.
+    - 6
     - 0
   child_shape:
     node_kind: data
-    arity: 1
-    payload_tokens:
-    - token: token.identifier
-      field: name
-    - token: token.equal
+    arity: 2
+    child_separators:
+      - !Required token.equal
 # `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.
 # namespace"). `type` is a keyword, but it is used as a namespace identifier
 # in type expressions (`type.number`, `type.bool`, `type.string`, ...). It is

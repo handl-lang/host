@@ -12,7 +12,7 @@
 #![warn(missing_docs)]
 
 use handl_kit_data_canonical;
-use handl_language::{Ast, AstNode, LangError, Language, Source, Span, Tokens, Value};
+use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_lib_collections::CollectionsModule;
@@ -984,6 +984,7 @@ pub fn is_template_kind(kind: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_language::AstNode;
 
     #[test]
     fn lex_number() {
@@ -1529,11 +1530,16 @@ mod tests {
         // payload.name should be "Nat".
         let name = root.payload.get("name").and_then(|v| v.as_str()).unwrap();
         assert_eq!(name, "Nat");
-        // One child (the constructor list expression).
+        // Two children: [type_expr, constructors_expr].
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 1, "data node should have 1 child");
-        // The child should be an `alt` node.
-        let child_idx = children[0].as_u64().unwrap() as usize;
+        assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
+        // Child 0 is the type expression: var("Nat").
+        let type_idx = children[0].as_u64().unwrap() as usize;
+        let type_node = ast.get(handl_language::AstRef::new(type_idx)).unwrap();
+        assert_eq!(type_node.kind, "var");
+        assert_eq!(type_node.payload, serde_json::json!("Nat"));
+        // Child 1 should be an `alt` node.
+        let child_idx = children[1].as_u64().unwrap() as usize;
         let child = ast.get(handl_language::AstRef::new(child_idx)).unwrap();
         assert_eq!(child.kind, "alt");
         // The alt node should have 2 children (left=Zero, right=Succ(Nat)).

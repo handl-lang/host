@@ -2479,9 +2479,11 @@ impl TreeWalkEngine {
 
     /// `match` op: pattern-match a scrutinee against a list of arms.
     ///
-    /// The `match` node's payload has `children: [scrut_idx, block_idx]`.
-    /// The block node (kind `block`) has `children: [arm_idx, ...]`. Each
-    /// arm node (kind `arm`) has `children: [pattern_idx, body_idx]`.
+    /// The `match` node's payload has `children: [scrut_idx, (motive_idx,) block_idx]`.
+    /// An optional motive child is accepted for Phase 6.3 dependent motives;
+    /// it is ignored at runtime. The block node (kind `block`) has
+    /// `children: [arm_idx, ...]`. Each arm node (kind `arm`) has
+    /// `children: [pattern_idx, body_idx]`.
     ///
     /// Pattern matching interprets the pattern AST node structurally:
     /// - A `var` node named `_` or starting with `_` → **wildcard**.
@@ -2509,9 +2511,13 @@ impl TreeWalkEngine {
         let scrut_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
             LangError::engine_node("match: missing scrutinee child".to_string(), current_node)
         })? as usize;
-        let block_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("match: missing block child".to_string(), current_node)
-        })? as usize;
+        let has_motive = children.len() >= 3;
+        let block_idx = children
+            .get(if has_motive { 2 } else { 1 })
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| {
+                LangError::engine_node("match: missing block child".to_string(), current_node)
+            })? as usize;
 
         // Evaluate the scrutinee.
         let scrut_val = self.eval_node_inner(ast, AstRef::new(scrut_idx), lang, env)?;

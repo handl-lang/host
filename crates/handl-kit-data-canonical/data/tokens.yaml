@@ -99,6 +99,8 @@
   label: type
 - id: token.keyword.while
   label: while
+- id: token.keyword.with
+  label: with
 - id: token.lbrace
   label: '{'
 - id: token.lbracket
