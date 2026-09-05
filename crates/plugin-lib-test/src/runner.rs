@@ -255,17 +255,31 @@ fn split_statements(src: &str) -> Vec<Chunk> {
     chunks
 }
 
-/// Push a trimmed chunk from `src[start..end]` if it is non-empty.
+/// Push a trimmed chunk from `src[start..end]` if it is non-empty and
+/// not an import declaration (`from ... import ...` / `import ...`).
 fn push_chunk(src: &str, chunks: &mut Vec<Chunk>, start: usize, end: usize) {
     let slice = &src[start..end];
     let lead = slice.len() - slice.trim_start().len();
     let trimmed = slice.trim();
-    if !trimmed.is_empty() {
-        chunks.push(Chunk {
-            text: trimmed.to_string(),
-            offset: start + lead,
-        });
+    if trimmed.is_empty() {
+        return;
     }
+    // Skip import declarations — they are not valid bare expressions.
+    // The test runtime already registers stdlib modules (str, fn, dedent,
+    // etc.) via the kit's module chain, so test files don't need imports.
+    if trimmed.starts_with("from ")
+        || trimmed.starts_with("from\t")
+        || trimmed.starts_with("import ")
+        || trimmed.starts_with("import\t")
+        || trimmed.starts_with("import\"")
+        || trimmed.starts_with("import'")
+    {
+        return;
+    }
+    chunks.push(Chunk {
+        text: trimmed.to_string(),
+        offset: start + lead,
+    });
 }
 
 // ---------------------------------------------------------------------------

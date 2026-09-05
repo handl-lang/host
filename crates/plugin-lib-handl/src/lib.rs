@@ -160,6 +160,107 @@ pub fn strip_declaration_lines(src: &str) -> String {
         .join("\n")
 }
 
+/// Transform top-level `export name = expr` declarations into an object
+/// literal `{ name: expr, ... }` so the source evaluates to a record of
+/// exported functions.
+///
+/// Each `export name = expr` line (at column 0) starts a binding. The
+/// expression continues until the next top-level `export` line or end of
+/// source. The collected expressions are joined into an object literal:
+///
+/// ```text
+/// { name1: expr1, name2: expr2, ... }
+/// ```
+///
+/// If no `export` lines are found, the source is returned unchanged (the
+/// existing object-literal form is preserved).
+fn transform_export_to_object(src: &str) -> String {
+    // Collect (name, expr_lines) pairs from top-level export lines.
+    let mut entries: Vec<(String, Vec<String>)> = Vec::new();
+    let mut current: Option<(String, Vec<String>)> = None;
+
+    for line in src.lines() {
+        let trimmed = line.trim_start();
+        // A top-level export line starts at column 0 with `export `.
+        if !line.starts_with(' ')
+            && !line.starts_with('\t')
+            && trimmed.starts_with("export ")
+        {
+            // Flush the previous entry.
+            if let Some(entry) = current.take() {
+                entries.push(entry);
+            }
+            let rest = &trimmed["export ".len()..];
+            // Find the binding `=` (not `==`, `>=`, `<=`, `!=`, `=>`).
+            if let Some(eq_pos) = find_binding_eq(rest) {
+                let name = rest[..eq_pos].trim().to_string();
+                let expr_start = rest[eq_pos + 1..].trim();
+                let mut expr_lines = Vec::new();
+                if !expr_start.is_empty() {
+                    expr_lines.push(expr_start.to_string());
+                }
+                current = Some((name, expr_lines));
+            }
+            // If no `=` found, skip (not a valid export binding).
+        } else if let Some((_, ref mut lines)) = current {
+            // Accumulate indented continuation lines (part of the export
+            // expression body). Stop at blank lines only if the next
+            // non-blank line is a top-level export.
+            if !line.trim().is_empty() {
+                lines.push(line.to_string());
+            }
+        }
+    }
+    if let Some(entry) = current.take() {
+        entries.push(entry);
+    }
+
+    if entries.is_empty() {
+        return src.to_string();
+    }
+
+    // Build the object literal.
+    let mut out = String::from("{ ");
+    for (i, (name, expr_lines)) in entries.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(name);
+        out.push_str(": ");
+        let expr = expr_lines.join("\n");
+        out.push_str(expr.trim());
+    }
+    out.push_str(" }");
+    out
+}
+
+/// Find the position of a binding `=` in `s`, skipping `==`, `>=`, `<=`,
+/// `!=`, and `=>`. Returns `None` if no binding `=` is found.
+fn find_binding_eq(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    let mut depth: i32 = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b'=' if depth == 0 => {
+                let prev = if i > 0 { bytes[i - 1] } else { 0 };
+                let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
+                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
+                    i += 1;
+                    continue;
+                }
+                return Some(i);
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
 /// Returns true if the line is an import declaration (`import ...` or
 /// `from ... import ...`).
 fn is_import_line(trimmed: &str) -> bool {
@@ -682,7 +783,8 @@ impl HandlModule {
     pub fn new(name: impl Into<String>, hnl_source: &str, func_names: &[&str]) -> Self {
         let name = name.into();
         let stripped = strip_declaration_lines(&strip_comment_lines(hnl_source));
-        let source = expand_tag_declarations(&stripped);
+        let exported = transform_export_to_object(&stripped);
+        let source = expand_tag_declarations(&exported);
         let module_id = allocate_module_id();
 
         // Initial builder with no dependencies. `with_dependency` will

@@ -24,7 +24,7 @@ use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_utils::{
-    BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule,
+    BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
     ParseModule as UtilsParseModule, SerializeModule, StrModule, TypeModule,
 };
 use handl_plugin_lib_result::result_module;
@@ -70,7 +70,8 @@ impl ModuleResolver for StdlibResolver {
     fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
             "str" => Some(std::sync::Arc::new(StrModule)),
-            "fn" => Some(std::sync::Arc::new(FnModule)),
+            "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
+            "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
             "math" => Some(std::sync::Arc::new(MathModule)),
             "bool" => Some(std::sync::Arc::new(BoolModule)),
             "option" => Some(std::sync::Arc::new(OptionModule)),
@@ -405,7 +406,7 @@ impl Kit {
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
         let mut stdlib_registry = ModuleRegistry::new();
-        stdlib_registry.register(FnModule);
+        stdlib_registry.register(CombinatorsModule);
         stdlib_registry.register(MathModule);
         stdlib_registry.register(StrModule);
         stdlib_registry.register(BoolModule);

@@ -142,7 +142,7 @@ impl FpHostFunctions {
 impl ModuleLookup for FpHostFunctions {
     fn lookup(&self, name: &str) -> Option<&dyn Function> {
         match name {
-            "fn.fanout_fn" => Some(&self.fanout),
+            "fn.fanout_fn" | "combinators.fanout_fn" => Some(&self.fanout),
             "field_access" => Some(&self.field_access),
             _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
         }

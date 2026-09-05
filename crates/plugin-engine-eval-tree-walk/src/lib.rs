@@ -1229,10 +1229,7 @@ impl TreeWalkEngine {
                     // (ADR-0081): a shape declaring a variadic role (e.g.
                     // `params`) is a param list; the legacy `paren`/`array`
                     // kinds remain only as the role-less fallback.
-                    let param_names: Vec<String> = if shape_has_variadic_role(lang, &param_node.kind)
-                        || param_node.kind == "paren"
-                        || param_node.kind == "array"
-                    {
+                    let param_names: Vec<String> = if shape_has_variadic_role(lang, &param_node.kind) {
                         let param_children = param_node
                             .payload
                             .get("children")
@@ -3515,15 +3512,14 @@ fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize
 /// Whether `node` is a binding (assign-like) node: its shape declares a
 /// `target` role. Falls back to the legacy kind check for role-less shapes.
 fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "target") || node.kind == "assign"
+    role_declared(lang, &node.kind, "target")
 }
 
 /// Whether `node` is a return node: its shape declares a `value` role but no
 /// `target` role (a binding declares both). Falls back to the legacy kind
 /// check for role-less shapes.
 fn is_return_node(lang: &Language, node: &AstNode) -> bool {
-    (role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target"))
-        || node.kind == "return"
+    role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target")
 }
 
 /// Convergence comparison for `eval_rec` bindings.
@@ -3557,7 +3553,7 @@ fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, EvalSchemeDef, Language, Scheme};
+    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Scheme};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_eval::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
@@ -5518,6 +5514,17 @@ mod tests {
         lang.eval
             .merge(EvalSchemeDef::new("e.paren", "paren", child(0)))
             .unwrap();
+        // AST shape roles for collection-like nodes (ADR-0081).
+        lang.ast
+            .merge(AstShapeDef::new("ast.paren", "paren").with_children(vec![
+                ChildRoleSpec { role: "body".into(), variadic: true },
+            ]))
+            .unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.array", "array").with_children(vec![
+                ChildRoleSpec { role: "elements".into(), variadic: true },
+            ]))
+            .unwrap();
         lang
     }
 
@@ -6065,6 +6072,18 @@ mod tests {
                 "let",
                 bind("$payload", child(0), child(1)),
             ))
+            .unwrap();
+        // AST shape roles for assign/return (ADR-0081).
+        lang.ast
+            .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
+                ChildRoleSpec { role: "target".into(), variadic: false },
+                ChildRoleSpec { role: "value".into(), variadic: false },
+            ]))
+            .unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.return", "return").with_children(vec![
+                ChildRoleSpec { role: "value".into(), variadic: false },
+            ]))
             .unwrap();
         lang
     }

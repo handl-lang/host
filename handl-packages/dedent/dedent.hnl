@@ -1,6 +1,3 @@
-from "str" import * as str
-from "combinators" import * as combinators
-
 --- Dedents a multi-line string by removing its common indentation.
 ---
 --- @details
@@ -11,7 +8,6 @@ from "combinators" import * as combinators
 --- The relative indentation between non-blank lines is preserved.
 ---
 --- @example
---- ```hnl
 --- `
 ---     Hello
 ---     World
@@ -23,95 +19,57 @@ from "combinators" import * as combinators
 ---
 --- @example
 --- `
----     Hello
----       World
+---         Hello
+---
+---         World
 --- ` >>> dedent
 --- -- => `
 --- Hello
----   World
+---
+--- World
 --- `
---- ```
-export dedent = text ~> {
-  normalized = str.replace(text, "\r\n", "\n")
-  trimmed = str.trim_matches(normalized, "\n")
+---
+--- @example
+--- "    Hello\r\n    World" >>> dedent
+--- -- => "Hello\nWorld"
+---
+from "str" import * as str
+from "combinators" import * as combinators
 
-  if str.is_empty(trimmed) {
-    return ""
+export dedent = (text: String) ~> {
+  indent_of = (line: String) ~> {
+    (line >>> str.length) - ((line >>> str.trim_start) >>> str.length)
   }
 
-  lines = str.lines(trimmed)
+  is_blank = (line: String) ~> (line >>> str.trim >>> str.is_empty)
 
-  indent_of = line ~> {
-    length = str.length(line)
-    trimmed_length = str.length(str.trim_start(line))
-
-    length - trimmed_length
-  }
-
-  is_blank = line ~> str.is_empty(str.trim(line))
-
-  common = while { lines: lines, min: 0, seen: false } {
-    [line, ...rest] ~> match lines {
-      []: {
-        out: min
-      }
-
-      [line, ...rest]: {
-        if is_blank(line) {
-          return {
-            state: {
-              lines: rest,
-              min,
-              seen
-            }
-          }
-        }
-
-        indent = indent_of(line)
-
-        if !seen {
-          return {
-            state: {
-              lines: rest,
-              min  : indent,
-              seen : true
-            }
-          }
-        }
-
-        if indent < min {
-          return {
-            state: {
-              lines: rest,
-              min  : indent,
-              seen : true
-            }
-          }
-        }
-
-        {
-          state: {
-            lines: rest,
-            min,
-            seen: true
-          }
-        }
-      }
+  strip_indent = (line: String, n: Number) ~> {
+    if (line >>> indent_of) >= n {
+      (line *** n *** (line >>> str.length)) >>> str.slice
+    } else {
+      line
     }
   }
 
-  strip_indent = (line, n) ~> {
-    indent = indent_of(line)
+  normalized = (text *** "\r\n" *** "\n") >>> str.replace
+  trimmed = (normalized *** "\n") >>> str.trim_matches
 
-    if indent < n {
-      return line
-    }
+  if (trimmed >>> str.is_empty) {
+    ""
+  } else {
+    lines = trimmed >>> str.lines;
 
-    length = str.length(line)
-    str.slice(line, n, length)
+    common = while { lines: lines, min: 0, seen: false } {
+      [lines, min, seen] ~> match lines {
+        []: { out: min },
+        [h, ...t]: if (h >>> is_blank) {
+          { state: { lines: t, min: min, seen: seen } }
+        } else {
+          { state: { lines: t, min: if seen { if (h >>> indent_of) < min { h >>> indent_of } else { min } } else { h >>> indent_of }, seen: true } }
+        }
+      }
+    };
+
+    (((((line: String) ~> (line *** common) >>> strip_indent) *** lines) >>> combinators.map) *** "\n") >>> str.join
   }
-
-  lines
-  >>> combinators.map(strip_indent)
-  >>> str.join("\n")
 }

@@ -26,10 +26,10 @@
 //!   `str.slugify`, `str.word_wrap`
 //! - [`BoolModule`] — `bool.and`, `bool.or`, `bool.not`, `bool.xor`,
 //!   `bool.nand`, `bool.nor`, `bool.implies`, `bool.eq`
-//! - [`FnModule`] — `fn.pipe`, `fn.flow`, `fn.compose`, `fn.fanout`,
-//!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.reduce`,
-//!   `fn.tap`, `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`,
-//!   `fn.unless`, `fn.converge`
+//! - [`CombinatorsModule`] — `combinators.pipe`, `combinators.flow`, `combinators.compose`, `combinators.fanout`,
+//!   `combinators.choice`, `combinators.apply`, `combinators.map`, `combinators.filter`,
+//!   `combinators.reduce`, `combinators.tap`, `combinators.constantly`, `combinators.flip`,
+//!   `combinators.partial`, `combinators.when`, `combinators.unless`, `combinators.converge`
 //! - [`TypeModule`] — `type.to_string`, `type.to_number`, `type.to_bool`,
 //!   `type.type_of`, `type.identity`, `type.default`, `type.coalesce`
 //! - [`OptionModule`] — `option.some`, `option.none`, `option.is_some`,
@@ -41,14 +41,14 @@
 //! ```ignore
 //! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_utils::{MathModule, StrModule, BoolModule, CmpModule,
-//!     FnModule, TypeModule, OptionModule};
+//!     CombinatorsModule, TypeModule, OptionModule};
 //!
 //! let host = ModuleRuntime::new()
 //!     .with(MathModule)
 //!     .with(StrModule)
 //!     .with(BoolModule)
 //!     .with(CmpModule)
-//!     .with(FnModule)
+//!     .with(CombinatorsModule)
 //!     .with(TypeModule)
 //!     .with(OptionModule);
 //! ```
@@ -89,7 +89,7 @@ mod r#type;
 
 pub use bool::BoolModule;
 pub use encoding::EncodingModule;
-pub use r#fn::FnModule;
+pub use r#fn::CombinatorsModule;
 pub use handl_plugin_lib_base64::Base64Module;
 pub use handl_plugin_lib_hex::HexModule;
 pub use handl_plugin_lib_json::JsonModule;
@@ -182,7 +182,7 @@ impl Plugin for UtilsLibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(MathModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(StrModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(BoolModule))?;
-        ctx.contribute::<ModuleRuntime>(ModuleRule::new(FnModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(CombinatorsModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(MoodModule))?;
