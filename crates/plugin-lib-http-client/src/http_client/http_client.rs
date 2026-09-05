@@ -3,9 +3,15 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::HttpError;
+
+/// The handl source declaring the http-client `op` interface — the single
+/// source of truth for the HTTP client API surface. Loaded at compile time
+/// from the kit-stdlib data dir.
+const HTTP_CLIENT_HNL: &str =
+    include_str!("../../../../handl-packages/http_client/http_client.hnl");
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -158,39 +164,22 @@ pub trait HttpClient: Send + Sync {
 ///
 /// `headers` is a JSON object of header name to value.
 /// `body` in `http.request` can be `null` for bodyless requests.
+///
+/// The interface is declared in `http_client.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// delegates [`Module`] lookups to the [`HandlModule`] built from the
+/// client.
 pub struct HttpClientModule {
-    get: GetFn,
-    post: PostFn,
-    put: PutFn,
-    patch: PatchFn,
-    delete: DeleteFn,
-    head: HeadFn,
-    request: RequestFn,
+    module: HandlModule,
 }
 
 impl HttpClientModule {
     pub fn new(client: impl HttpClient + 'static) -> Self {
-        let client = Arc::new(client);
-        HttpClientModule {
-            get: GetFn {
-                client: client.clone(),
-            },
-            post: PostFn {
-                client: client.clone(),
-            },
-            put: PutFn {
-                client: client.clone(),
-            },
-            patch: PatchFn {
-                client: client.clone(),
-            },
-            delete: DeleteFn {
-                client: client.clone(),
-            },
-            head: HeadFn {
-                client: client.clone(),
-            },
-            request: RequestFn { client },
+        let mut registry = OpRegistry::new();
+        register_http_client_ops(&mut registry, client);
+        Self {
+            module: HandlModule::new("http", HTTP_CLIENT_HNL, &[])
+                .with_ops(HTTP_CLIENT_OPS, Arc::new(registry)),
         }
     }
 }
@@ -201,16 +190,11 @@ impl Module for HttpClientModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "get" => Some(&self.get),
-            "post" => Some(&self.post),
-            "put" => Some(&self.put),
-            "patch" => Some(&self.patch),
-            "delete" => Some(&self.delete),
-            "head" => Some(&self.head),
-            "request" => Some(&self.request),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

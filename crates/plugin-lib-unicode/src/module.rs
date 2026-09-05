@@ -9,14 +9,55 @@
 //! - `unicode.code_point_at(string, index)` — number or `null`
 //! - `unicode.decode(string)` — array of `[byte_offset, code_point]` pairs
 
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value as JsonValue;
 
 use super::decode::Utf8Iterator;
 use super::ident::{is_identifier, is_identifier_continue, is_identifier_start};
 
+/// The handl source declaring the unicode `op` interface — the single source
+/// of truth for the unicode API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const UNICODE_HNL: &str = include_str!("../../../handl-packages/unicode/unicode.hnl");
+
+/// The op names declared in `unicode.hnl` — each maps to a Rust `Function`
+/// impl registered in the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+const UNICODE_OPS: &[&str] = &[
+    "unicode.is_valid_identifier",
+    "unicode.is_xid_start",
+    "unicode.is_xid_continue",
+    "unicode.code_points",
+    "unicode.code_point_at",
+    "unicode.decode",
+];
+
+/// Build the [`HandlModule`] for unicode.
+///
+/// All functions are op-backed (FFI atoms). No pure-logic arrows are
+/// used (`func_names` is empty); the `HandlModule` dispatches every
+/// function lookup to the [`OpRegistry`] via [`OpFunction`].
+fn build_unicode_module() -> HandlModule {
+    let registry = Arc::new(super::unicode_op_registry());
+    HandlModule::new("unicode", UNICODE_HNL, &[]).with_ops(UNICODE_OPS, registry)
+}
+
+/// A thread-safe lazy-initialized [`HandlModule`] for unicode.
+static UNICODE_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for unicode, initializing it on first call.
+fn unicode_module() -> &'static HandlModule {
+    UNICODE_MODULE.get_or_init(build_unicode_module)
+}
+
 /// The `unicode` module — Unicode primitives for handl expressions.
+///
+/// The interface is declared in `unicode.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct only delegates
+/// [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct UnicodeModule;
 
@@ -26,15 +67,11 @@ impl Module for UnicodeModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "is_valid_identifier" => Some(&IsValidIdentifier),
-            "is_xid_start" => Some(&IsXidStart),
-            "is_xid_continue" => Some(&IsXidContinue),
-            "code_points" => Some(&CodePoints),
-            "code_point_at" => Some(&CodePointAt),
-            "decode" => Some(&Decode),
-            _ => None,
-        }
+        unicode_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        unicode_module().functions()
     }
 }
 

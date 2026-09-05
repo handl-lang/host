@@ -2,72 +2,37 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 use serde_json::Value;
 
 use super::error::TlsError;
 use super::service::TlsService;
 use super::stub::StubTls;
 
+/// The handl source declaring the tls `op` interface — the single source
+/// of truth for the TLS API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const TLS_HNL: &str = include_str!("../../../handl-packages/tls/tls.hnl");
+
 /// The `tls` runtime module.
 ///
 /// `TlsModule` is backed by a [`TlsService`] implementation. The `stub`
 /// backend is used by default and for unit tests; `handl-lib-tls-native`
 /// supplies a real implementation.
+///
+/// The interface is declared in `tls.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct TlsModule {
-    version: VersionFn,
-    generate_self_signed: GenerateSelfSignedFn,
-    parse_cert: ParseCertFn,
-    fingerprint: FingerprintFn,
-    client_config: ClientConfigFn,
-    server_config: ServerConfigFn,
-    connect: ConnectFn,
-    accept: AcceptFn,
-    read: ReadFn,
-    write: WriteFn,
-    close_conn: CloseConnFn,
-    close_listener: CloseListenerFn,
+    module: HandlModule,
 }
 
 impl TlsModule {
     /// Creates a `TlsModule` with the given `TlsService`.
     pub fn new(service: impl TlsService + 'static) -> Self {
-        let service = Arc::new(service);
+        let registry = Arc::new(tls_op_registry(service));
         Self {
-            version: VersionFn {
-                service: service.clone(),
-            },
-            generate_self_signed: GenerateSelfSignedFn {
-                service: service.clone(),
-            },
-            parse_cert: ParseCertFn {
-                service: service.clone(),
-            },
-            fingerprint: FingerprintFn {
-                service: service.clone(),
-            },
-            client_config: ClientConfigFn {
-                service: service.clone(),
-            },
-            server_config: ServerConfigFn {
-                service: service.clone(),
-            },
-            connect: ConnectFn {
-                service: service.clone(),
-            },
-            accept: AcceptFn {
-                service: service.clone(),
-            },
-            read: ReadFn {
-                service: service.clone(),
-            },
-            write: WriteFn {
-                service: service.clone(),
-            },
-            close_conn: CloseConnFn {
-                service: service.clone(),
-            },
-            close_listener: CloseListenerFn { service },
+            module: HandlModule::new("tls", TLS_HNL, &[]).with_ops(TLS_OPS, registry),
         }
     }
 }
@@ -84,21 +49,11 @@ impl Module for TlsModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "version" => Some(&self.version),
-            "generate_self_signed" => Some(&self.generate_self_signed),
-            "parse_cert" => Some(&self.parse_cert),
-            "fingerprint" => Some(&self.fingerprint),
-            "client_config" => Some(&self.client_config),
-            "server_config" => Some(&self.server_config),
-            "connect" => Some(&self.connect),
-            "accept" => Some(&self.accept),
-            "read" => Some(&self.read),
-            "write" => Some(&self.write),
-            "close_conn" => Some(&self.close_conn),
-            "close_listener" => Some(&self.close_listener),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

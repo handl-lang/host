@@ -11,13 +11,88 @@
 //!   `cidr.network(cidr)`, `cidr.broadcast(cidr)`
 //! - `socket.parse(string)`, `socket.format(sock)`
 
+use std::sync::{Arc, OnceLock};
+
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value as JsonValue;
 
 use crate::{Cidr, IpAddr, IpError, SocketAddr};
 
+/// The handl source declaring the ip `op` interface — the single source
+/// of truth for the ip API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const IP_HNL: &str = include_str!("../../../handl-packages/ip/ip.hnl");
+
+// ---------------------------------------------------------------------------
+// Op names per sub-module prefix
+// ---------------------------------------------------------------------------
+
+const IP_OPS: &[&str] = &[
+    "ip.parse",
+    "ip.format",
+    "ip.is_loopback",
+    "ip.is_multicast",
+    "ip.is_private",
+    "ip.is_link_local",
+    "ip.is_unspecified",
+];
+
+const CIDR_OPS: &[&str] = &[
+    "ip.cidr.parse",
+    "ip.cidr.format",
+    "ip.cidr.contains",
+    "ip.cidr.network",
+    "ip.cidr.broadcast",
+];
+
+const SOCKET_OPS: &[&str] = &["ip.socket.parse", "ip.socket.format"];
+
+// ---------------------------------------------------------------------------
+// HandlModule sub-modules (one per sub-module prefix)
+// ---------------------------------------------------------------------------
+
+/// The 3 [`HandlModule`] instances, one per ip sub-module prefix.
+///
+/// The ip module dispatches functions across multiple sub-module names
+/// (ip, cidr, socket). Each sub-module's ops have unique local names
+/// (the segment after the last `.`), so [`HandlModule::with_ops`] stores
+/// them without collision. The shared [`OpRegistry`] is cloned (via
+/// [`Arc::clone`]) into each sub-module.
+struct IpModules {
+    ip: HandlModule,
+    cidr: HandlModule,
+    socket: HandlModule,
+}
+
+/// Build the [`IpModules`] from the shared [`OpRegistry`] and the `.hnl`
+/// source.
+fn build_modules() -> IpModules {
+    let registry = Arc::new(crate::ip_op_registry());
+    IpModules {
+        ip: HandlModule::new("ip", IP_HNL, &[]).with_ops(IP_OPS, Arc::clone(&registry)),
+        cidr: HandlModule::new("cidr", IP_HNL, &[]).with_ops(CIDR_OPS, Arc::clone(&registry)),
+        socket: HandlModule::new("socket", IP_HNL, &[]).with_ops(SOCKET_OPS, registry),
+    }
+}
+
+/// A thread-safe lazy-initialized [`IpModules`].
+static MODULES: OnceLock<IpModules> = OnceLock::new();
+
+/// Get the shared [`IpModules`], initializing on first call.
+fn modules() -> &'static IpModules {
+    MODULES.get_or_init(build_modules)
+}
+
 /// The `ip` module — IP, CIDR, and socket primitives for handl expressions.
+///
+/// This is an **aggregator** module: it dispatches functions across
+/// multiple sub-module prefixes (ip, cidr, socket). Each sub-module is
+/// backed by a [`HandlModule`] with op functions dispatching to a shared
+/// [`OpRegistry`]. The interface is declared in `ip.hnl` via `op`/`handl`
+/// declarations; this struct delegates [`Module`] lookups to the shared
+/// [`IpModules`].
 #[derive(Clone, Copy)]
 pub struct IpModule;
 
@@ -27,22 +102,19 @@ impl Module for IpModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "parse" => Some(&IpParse),
-            "format" => Some(&IpFormat),
-            "is_loopback" => Some(&IpIsLoopback),
-            "is_multicast" => Some(&IpIsMulticast),
-            "is_private" => Some(&IpIsPrivate),
-            "is_link_local" => Some(&IpIsLinkLocal),
-            "is_unspecified" => Some(&IpIsUnspecified),
-            "cidr.parse" => Some(&CidrParse),
-            "cidr.format" => Some(&CidrFormat),
-            "cidr.contains" => Some(&CidrContains),
-            "cidr.network" => Some(&CidrNetwork),
-            "cidr.broadcast" => Some(&CidrBroadcast),
-            "socket.parse" => Some(&SocketParse),
-            "socket.format" => Some(&SocketFormat),
-            _ => None,
+        // The ip module dispatches on dotted function names like
+        // "cidr.parse", "socket.format", etc. Split on the first dot to
+        // get the sub-module prefix and the local function name, then
+        // delegate to the appropriate HandlModule. Names without a dot
+        // (e.g. "parse", "format") are delegated to the ip sub-module.
+        let m = modules();
+        match name.split_once('.') {
+            Some((prefix, local)) => match prefix {
+                "cidr" => m.cidr.function(local),
+                "socket" => m.socket.function(local),
+                _ => None,
+            },
+            None => m.ip.function(name),
         }
     }
 }

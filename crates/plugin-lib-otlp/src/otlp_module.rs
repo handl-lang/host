@@ -3,10 +3,15 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 use serde_json::Value;
 
 use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
+
+/// The handl source declaring the otlp `op` interface — the single source
+/// of truth for the OTLP API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const OTLP_HNL: &str = include_str!("../../../handl-packages/otlp/otlp.hnl");
 
 /// Module adapter for [`OtlpState`] — exposes `otlp.*` functions.
 ///
@@ -21,47 +26,21 @@ use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOp
 /// | `otlp.record_metric(name, value, options?)` | `(name, value, options?)` | Record a numeric metric. |
 /// | `otlp.flush()` | `()` | Export all buffered telemetry. |
 /// | `otlp.shutdown()` | `()` | End all spans, flush and release the exporter. |
+///
+/// The interface is declared in `otlp.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the state.
 pub struct OtlpModule {
-    configure_fn: ConfigureFn,
-    start_span_fn: StartSpanFn,
-    end_span_fn: EndSpanFn,
-    set_attr_fn: SetAttributeFn,
-    add_event_fn: AddEventFn,
-    record_log_fn: RecordLogFn,
-    record_metric_fn: RecordMetricFn,
-    flush_fn: FlushFn,
-    shutdown_fn: ShutdownFn,
+    module: HandlModule,
 }
 
 impl OtlpModule {
     /// Create a new module backed by the given state.
     pub fn new(state: Arc<dyn OtlpState>) -> Self {
+        let mut registry = OpRegistry::new();
+        register_otlp_ops(&mut registry, state);
         Self {
-            configure_fn: ConfigureFn {
-                state: state.clone(),
-            },
-            start_span_fn: StartSpanFn {
-                state: state.clone(),
-            },
-            end_span_fn: EndSpanFn {
-                state: state.clone(),
-            },
-            set_attr_fn: SetAttributeFn {
-                state: state.clone(),
-            },
-            add_event_fn: AddEventFn {
-                state: state.clone(),
-            },
-            record_log_fn: RecordLogFn {
-                state: state.clone(),
-            },
-            record_metric_fn: RecordMetricFn {
-                state: state.clone(),
-            },
-            flush_fn: FlushFn {
-                state: state.clone(),
-            },
-            shutdown_fn: ShutdownFn { state },
+            module: HandlModule::new("otlp", OTLP_HNL, &[]).with_ops(OTLP_OPS, Arc::new(registry)),
         }
     }
 }
@@ -72,18 +51,11 @@ impl Module for OtlpModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "configure" => Some(&self.configure_fn),
-            "start_span" => Some(&self.start_span_fn),
-            "end_span" => Some(&self.end_span_fn),
-            "set_attribute" => Some(&self.set_attr_fn),
-            "add_event" => Some(&self.add_event_fn),
-            "record_log" => Some(&self.record_log_fn),
-            "record_metric" => Some(&self.record_metric_fn),
-            "flush" => Some(&self.flush_fn),
-            "shutdown" => Some(&self.shutdown_fn),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 
