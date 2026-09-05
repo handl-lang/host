@@ -976,10 +976,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // (ADR-0081): a shape declaring a variadic role (e.g.
                     // `params`) is a param list; the legacy `paren`/`array`
                     // kinds remain only as the role-less fallback.
-                    let param_names: Vec<String> = if self.lang.has_variadic_role(&param_node.kind)
-                        || param_node.kind == "paren"
-                        || param_node.kind == "array"
-                    {
+                    let param_names: Vec<String> = if self.lang.has_variadic_role(&param_node.kind) {
                         let param_children = param_node
                             .payload
                             .get("children")

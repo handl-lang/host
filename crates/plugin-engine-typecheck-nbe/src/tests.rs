@@ -4,7 +4,7 @@
 //! the judgment ops, combinators, and engine lifecycle methods end-to-end.
 
 use super::*;
-use handl_language::fragments::{EvalSchemeDef, TypeRuleDef};
+use handl_language::fragments::{AstShapeDef, ChildRoleSpec, EvalSchemeDef, TypeRuleDef};
 use handl_language::{Ast, AstNode, Language, Scheme, Value};
 use handl_platform::ModuleLookup;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -8520,6 +8520,18 @@ fn rec_test_lang() -> Language {
             Scheme::arr_judgment("fresh_meta", vec![]),
         ))
         .unwrap();
+    // AST shape roles: assign has target/value, return has value.
+    lang.ast
+        .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
+            ChildRoleSpec { role: "target".into(), variadic: false },
+            ChildRoleSpec { role: "value".into(), variadic: false },
+        ]))
+        .unwrap();
+    lang.ast
+        .merge(AstShapeDef::new("ast.return", "return").with_children(vec![
+            ChildRoleSpec { role: "value".into(), variadic: false },
+        ]))
+        .unwrap();
     lang
 }
 
@@ -10654,6 +10666,11 @@ fn meta_predicate_lang() -> Language {
         ))
         .unwrap();
 
+    lang.ast
+        .merge(AstShapeDef::new("ast.paren", "paren").with_children(vec![
+            ChildRoleSpec { role: "body".into(), variadic: true },
+        ]))
+        .unwrap();
     lang
 }
 

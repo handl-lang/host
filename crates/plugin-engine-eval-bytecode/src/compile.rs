@@ -606,10 +606,7 @@ fn try_extract_closure_params_body(
         // shape declaring a variadic role (e.g. `params`) is a param list;
         // the legacy `paren`/`array` kinds remain only as the role-less
         // fallback.
-        let names: Vec<String> = if lang.has_variadic_role(&param_node.kind)
-            || param_node.kind == "paren"
-            || param_node.kind == "array"
-        {
+        let names: Vec<String> = if lang.has_variadic_role(&param_node.kind) {
             let param_children = match param_node
                 .payload
                 .get("children")

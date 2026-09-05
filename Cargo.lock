@@ -2055,6 +2055,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-predicate"
+version = "0.1.0"
+
+[[package]]
 name = "handl-plugin-lib-prim"
 version = "0.1.0"
 dependencies = [
@@ -2085,6 +2089,10 @@ dependencies = [
  "handl-plugin-lib-tag",
  "serde_json",
 ]
+
+[[package]]
+name = "handl-plugin-lib-scheduler"
+version = "0.1.0"
 
 [[package]]
 name = "handl-plugin-lib-serialize"

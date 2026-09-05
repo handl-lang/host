@@ -1,0 +1,4 @@
+category:
+  slug: lib-str
+  title: Str
+  description: String library abstraction contract (axioms and laws).

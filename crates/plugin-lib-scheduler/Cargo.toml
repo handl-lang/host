@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-lib-scheduler"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[dev-dependencies]

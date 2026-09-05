@@ -3916,33 +3916,32 @@ fn role_child_ref(
 /// Whether `node` is a binding (assign-like) node: its shape declares a
 /// `target` role. Falls back to the legacy kind check for role-less shapes.
 fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "target") || node.kind == "assign"
+    role_declared(lang, &node.kind, "target")
 }
 
 /// Whether `node` is a return node: its shape declares a `value` role but no
 /// `target` role (a binding declares both). Falls back to the legacy kind
 /// check for role-less shapes.
 fn is_return_node(lang: &Language, node: &AstNode) -> bool {
-    (role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target"))
-        || node.kind == "return"
+    role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target")
 }
 
 /// Whether `node` is a type annotation: its shape declares an `annot` role.
 /// Falls back to the legacy kind check for role-less shapes.
 fn is_type_annot(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "annot") || node.kind == "type-annot"
+    role_declared(lang, &node.kind, "annot")
 }
 
 /// Whether `node` is a block: its shape declares a `statements` role.
 /// Falls back to the legacy kind check for role-less shapes.
 fn is_block_node(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "statements") || node.kind == "block"
+    role_declared(lang, &node.kind, "statements")
 }
 
 /// Whether `node` is a paren wrapper: its shape declares a `body` role.
 /// Falls back to the legacy kind check for role-less shapes.
 fn is_paren_node(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "body") || node.kind == "paren"
+    role_declared(lang, &node.kind, "body")
 }
 
 /// Encode a metavariable id as `{"__meta__": id}`.

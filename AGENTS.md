@@ -23,7 +23,8 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Formatter | `plugin-ext-fmt` | `format_source(src)`, `check_source(src)` |
 | Linter | `plugin-ext-lint` | `lint_source(src)`, `check_source(src)`, `fix_source(src)` |
 | Typechecker | `plugin-engine-typecheck` | `check_module(src) -> TypecheckReport` |
-| Test runner | `plugin-lib-test` | `discover(paths)`, `run(plan)`, `run_with_filter(plan, filter)` |
+| Test runner | `plugin-engine-test` (new, ADR-0089) | `discover(paths) -> TestIndex`, `filter(index, predicate) -> TestPlan`, `plan(plan, policy) -> ExecutionPlan`, `run(plan) -> RunReport`, `run_with_filter(plan, filter)`, `format_report_human`/`format_report_json` |
+| Test framework library | `handl-packages/test/` (handl, ADR-0092) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`) |
 | CLI | `host-cli` | `hnl fmt/lint/check/test/run/eval` subcommands |
 
 ### CLI exit codes
@@ -43,9 +44,10 @@ shapes that declare no roles.
 `plugin-engine-typecheck` and `plugin-ext-lint` embed YAML language data
 directly via `include_str!` instead of depending on `handl-kit-canonical`,
 because `handl-kit-canonical` → `handl-runtime` → `plugin-engine-typecheck`
-would create a cycle. `plugin-ext-fmt` and `plugin-lib-test` use
-`handl-kit-data-canonical` (no eval engine) or `handl-kit-canonical`
-respectively.
+would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (new,
+ADR-0089) use `handl-kit-data-canonical` (no eval engine) or
+`handl-kit-canonical` respectively. (`plugin-lib-test` is being deleted per
+ADR-0092.)
 
 ### Source splitting
 
@@ -58,6 +60,23 @@ and linter all split source into top-level statements at bracket-depth zero
 - `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
   (pre-existing, unrelated to ADR 0085-0091 work).
 - `plugin-engine-parse-pratt` has an unused import warning (`PayloadTokenSpec`).
+- **ADR-0089 prerequisite (not yet done):** the production test runner
+  requires (a) a new `plugin-engine-test` crate extracted from
+  `plugin-lib-test`, (b) a **test-language fragment** — a YAML
+  `Language` fragment declaring `test`/`property`/`integration_test`/`bench`
+  `AstShapeDef`s (with `name`/`body` roles), `GrammarRow`s,
+  `LexerPattern`s, and `EvalSchemeDef`s — merged onto the canonical kit at
+  discovery time via `Language::merge` (ADR-0044), and (c) reusing generic
+  platform systems rather than reinventing them: capability reasoning from
+  `handl-language::capabilities`, eval-result memoisation from
+  `plugin-exec-cache`, and a bounded-job scheduler + predicate combinators
+  consumed as generic systems (extracted to dedicated crates when a second
+  consumer appears; until then the runner may ship simple in-crate
+  implementations per ADR-0085 rule 6). ADR-0074 grammar is **not** amended.
+- **ADR-0092 (proposed):** `plugin-lib-test` is deleted once the test
+  framework library is migrated to handl under `handl-packages/test/` and
+  the runner has been extracted to `plugin-engine-test` (ADR-0089). Until
+  then `plugin-lib-test` still hosts both concerns.
 
 ## Stashes
 

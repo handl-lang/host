@@ -17,6 +17,10 @@ Explanations help you understand _why_ handl works the way it does. They are bac
 - [Options and configuration](./options-and-configuration) — how options are defined, resolved, and used.
 - [Security and trust](./security-and-trust) — threat model and recommended practices.
 
+## The standard library
+
+- [Why strings, chars, and Unicode live in three layers](./strings-chars-unicode-layers) — why the string stack is split into algorithms (handl), Unicode tables (Rust floor), and ICU (future swappable backend).
+
 ## When to use another section
 
 - If you are new to handl, start with [Tutorials](../tutorials/getting-started).
