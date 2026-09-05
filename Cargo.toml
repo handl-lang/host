@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lib-char-native"
+version.workspace = true
+edition.workspace = true
+description = "Native `char` module — the Rust `std::char` backend for the `char` contract"
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }
