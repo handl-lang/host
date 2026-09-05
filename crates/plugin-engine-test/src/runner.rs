@@ -61,7 +61,7 @@ use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
 use handl_platform::{Function, Module, ModuleLookup};
 
-use handl_plugin_lib_test::AssertModule;
+use crate::framework::AssertModule;
 
 use crate::events::TestEvent;
 

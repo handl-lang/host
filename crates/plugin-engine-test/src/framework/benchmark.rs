@@ -6,9 +6,9 @@ use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 use serde_json::json;
 
-use crate::error::TestError;
-use crate::shared::{call_function, obj, require_function, require_integer};
-use crate::{test_op_registry, TEST_HNL};
+use crate::framework::error::TestError;
+use crate::framework::shared::{call_function, obj, require_function, require_integer};
+use crate::framework::{test_op_registry, TEST_HNL};
 
 /// The op names declared in `test.hnl` for the `benchmark` module.
 const BENCHMARK_OPS: &[&str] = &["benchmark.run"];
@@ -71,7 +71,7 @@ impl Function for Run {
                 None => {
                     return Err(TestError::TypeMismatch {
                         expected: "array",
-                        got: crate::shared::type_name(&args[2]),
+                        got: crate::framework::shared::type_name(&args[2]),
                     }
                     .into());
                 }

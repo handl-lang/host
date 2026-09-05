@@ -1,3 +1,14 @@
+--- Test framework contract (ADR-0092).
+---
+--- This file is the stable op/cap contract for the handl test framework:
+--- `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`,
+--- `snapshot.*`, `test.run`. `handl-plugin-lib-test` is deleted; the
+--- `handl "..." = rust_*` bindings below resolve to the temporary Rust
+--- handls hosted in `handl-plugin-engine-test` (`src/framework/`) until the
+--- stdlib primitives the pure-handl implementations need land:
+--- error raise/capture (assert.*, snapshot.match, test.run), a seeded RNG
+--- reachable from handl (property/fuzz), and a clock (benchmark).
+---
 --- test.run — run a test suite (array of test cases) and return a report.
 --- assert.equal — assert that two values are deeply equal.
 --- assert.not_equal — assert that two values are not equal.

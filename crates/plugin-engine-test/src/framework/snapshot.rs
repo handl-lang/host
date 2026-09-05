@@ -4,9 +4,9 @@ use handl_platform::{EvalContext, EvalError, Function, Module};
 use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 
-use crate::error::TestError;
-use crate::shared::{b, require_len, require_string, str};
-use crate::{test_op_registry, TEST_HNL};
+use crate::framework::error::TestError;
+use crate::framework::shared::{b, require_len, require_string, str};
+use crate::framework::{test_op_registry, TEST_HNL};
 
 /// The op names declared in `test.hnl` for the `snapshot` module.
 const SNAPSHOT_OPS: &[&str] = &["snapshot.format", "snapshot.match"];

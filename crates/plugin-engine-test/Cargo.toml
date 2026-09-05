@@ -4,7 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-plugin-lib-test = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-module = { workspace = true }
 handl-platform = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-kit-data-canonical = { workspace = true }
@@ -18,6 +19,7 @@ handl-plugin-ext-diag = { workspace = true }
 handl-plugin-lib-scheduler = { workspace = true }
 handl-plugin-lib-predicate = { workspace = true }
 handl-plugin-exec-cache = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = "0.9"

@@ -5,9 +5,9 @@ use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 use serde_json::json;
 
-use crate::error::TestError;
-use crate::shared::{call_function, obj, require_array, require_function};
-use crate::{test_op_registry, TEST_HNL};
+use crate::framework::error::TestError;
+use crate::framework::shared::{call_function, obj, require_array, require_function};
+use crate::framework::{test_op_registry, TEST_HNL};
 
 /// The op names declared in `test.hnl` for the `test` module.
 const TEST_OPS: &[&str] = &["test.run"];

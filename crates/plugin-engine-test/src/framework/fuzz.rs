@@ -8,9 +8,9 @@ use rand::rngs::StdRng;
 use serde_json::Value;
 use serde_json::json;
 
-use crate::error::TestError;
-use crate::shared::{call_function, require_function, require_integer};
-use crate::{test_op_registry, TEST_HNL};
+use crate::framework::error::TestError;
+use crate::framework::shared::{call_function, require_function, require_integer};
+use crate::framework::{test_op_registry, TEST_HNL};
 
 /// The op names declared in `test.hnl` for the `fuzz` module.
 const FUZZ_OPS: &[&str] = &["fuzz.run"];

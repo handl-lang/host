@@ -12,12 +12,17 @@
 //! and re-collects results into canonical plan order (parallelism changes
 //! timing, never ordering — ADR-0089).
 //!
-//! This crate is the extracted home of the test runner; the test framework
-//! library (`assert`/`property`/`benchmark`/`fuzz`/`snapshot`) remains in
-//! `handl-plugin-lib-test` pending ADR-0092.
+//! This crate is the extracted home of the test runner. Per ADR-0092,
+//! `handl-plugin-lib-test` has been deleted: the framework contract is
+//! declared in handl (`handl-packages/test/test.hnl`) and the
+//! [`framework`] module hosts the temporary Rust handls behind it until
+//! the required stdlib primitives (error raise/capture, seeded RNG, clock)
+//! land, when the implementations move to pure handl under
+//! `handl-packages/test/`.
 
 pub mod config;
 pub mod events;
+pub mod framework;
 pub mod provider;
 pub mod report;
 pub mod runner;

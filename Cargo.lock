@@ -1006,6 +1006,7 @@ dependencies = [
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
+ "handl-plugin-lib-scheduler",
  "serde_json",
 ]
 
@@ -1393,10 +1394,12 @@ dependencies = [
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
+ "handl-plugin-lib-handl",
  "handl-plugin-lib-predicate",
  "handl-plugin-lib-scheduler",
- "handl-plugin-lib-test",
+ "handl-plugin-module",
  "handl-runtime",
+ "rand 0.9.5",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -2160,17 +2163,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-test"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "rand 0.9.5",
  "serde_json",
 ]
 

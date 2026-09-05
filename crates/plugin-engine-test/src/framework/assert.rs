@@ -4,9 +4,9 @@ use handl_platform::{EvalContext, EvalError, Function, Module};
 use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value;
 
-use crate::error::TestError;
-use crate::shared::{b, call_function, require_bool, require_function, require_len};
-use crate::{test_op_registry, TEST_HNL};
+use crate::framework::error::TestError;
+use crate::framework::shared::{b, call_function, require_bool, require_function, require_len};
+use crate::framework::{test_op_registry, TEST_HNL};
 
 /// The op names declared in `test.hnl` for the `assert` module.
 const ASSERT_OPS: &[&str] = &[

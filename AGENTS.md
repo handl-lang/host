@@ -24,7 +24,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`Predicate<TestCase>`; `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-lib-predicate`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (handl, ADR-0092) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                   |
+| Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/check/test/run/eval` subcommands                                                                                                                                                                       |
 
 ### CLI exit codes
@@ -44,10 +44,11 @@ shapes that declare no roles.
 `plugin-engine-typecheck` and `plugin-ext-lint` embed YAML language data
 directly via `include_str!` instead of depending on `handl-kit-canonical`,
 because `handl-kit-canonical` → `handl-runtime` → `plugin-engine-typecheck`
-would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (new,
-ADR-0089) use `handl-kit-data-canonical` (no eval engine) or
-`handl-kit-canonical` respectively. (`plugin-lib-test` is being deleted per
-ADR-0092.)
+would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (ADR-0089)
+use `handl-kit-data-canonical` (no eval engine) or
+`handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
+ADR-0092 — the framework's temporary Rust handls live in
+`plugin-engine-test::framework`.
 
 ### Source splitting
 
@@ -82,10 +83,20 @@ and linter all split source into top-level statements at bracket-depth zero
   `hnl test` in `host-cli`, suite grouping (`SuiteStarted`/`SuiteFinished`
   unemitted), structured `expected`/`actual`/`diff` once assert errors carry
   them. ADR-0074 grammar is **not** amended.
-- **ADR-0092 (proposed):** `plugin-lib-test` is deleted once the test
-  framework library is migrated to handl under `handl-packages/test/` and
-  the runner has been extracted to `plugin-engine-test` (ADR-0089). Until
-  then `plugin-lib-test` still hosts both concerns.
+- **ADR-0092 (crate deletion done; pure-handl migration blocked):**
+  `plugin-lib-test` is **deleted**. The framework contract stays in
+  `handl-packages/test/test.hnl` (`op`/`handl` declarations); all 12 Rust
+  handls moved into `plugin-engine-test::framework` (`src/framework/`),
+  which the runner's `TestModuleLookup` resolves `assert` through. No op
+  could move to pure handl yet: the language has **no error-raising
+  primitive** (assertions must fail loudly) and **no error capture**
+  (`assert.throws`/`test.run` need host-side `EvalContext::try_call_value`);
+  `property`/`fuzz` additionally need a handl-reachable seeded RNG
+  (`rand.seeded_*` exists in `plugin-lib-rand` but isn't wired into the
+  canonical module chain) and `benchmark` needs a clock (`time.now`).
+  Remaining: add those primitives to the stdlib, then rewrite the
+  `handl "..."` bindings as pure-handl `assert.hnl`/`property.hnl`/etc.
+  per the ADR target layout.
 
 ## String / Char / Unicode layering (ADR-0093)
 

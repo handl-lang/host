@@ -1,8 +1,6 @@
-//! # handl-lib-test
+//! # Test framework library (ADR-0092 temporary Rust handls)
 //!
-//! First-class testing standard library for the handl runtime.
-//!
-//! Provides the runtime modules used by handl expressions:
+//! The handl-callable test framework surface:
 //!
 //! - [`TestModule`] — `test.run`
 //! - [`AssertModule`] — `assert.equal`, `assert.not_equal`, `assert.true`,
@@ -12,12 +10,27 @@
 //! - [`FuzzModule`] — `fuzz.run`
 //! - [`SnapshotModule`] — `snapshot.match`, `snapshot.format`
 //!
-//! This crate has been migrated to the `op`/`handl` declaration form
-//! (ADR-0077 Phase 4). The test interface is declared in
-//! `handl-packages/test/test.hnl` via `op` declarations, and the Rust
-//! test logic is registered as handls (handlers) in an [`OpRegistry`].
-//! The [`TestLibraryPlugin`] wraps 6 [`HandlModule`] instances (one per
-//! module namespace) with the shared op registry.
+//! The framework contract is declared in handl:
+//! `handl-packages/test/test.hnl` declares the `op` interface
+//! (`assert.equal : (Value, Value) -> Bool`, …) and binds each op to a
+//! Rust handl (`handl "assert.equal" = rust_assert_equal`). The Rust
+//! modules below implement those handls and register them in an
+//! [`OpRegistry`] (ADR-0077 `op`/`handl` Phase 1 form).
+//!
+//! Per ADR-0092 these Rust handls are **temporary bridges hosted in the
+//! runner crate** — `plugin-lib-test` is deleted, and the pure-handl
+//! implementations under `handl-packages/test/` replace them as the
+//! required stdlib primitives land:
+//!
+//! - `assert.*` / `snapshot.match` / `test.run` need an **error-raising**
+//!   primitive (`assert` must fail loudly) and, for `assert.throws` and
+//!   `test.run`, **error capture** (call a function value and observe
+//!   failure — today only the host-side `EvalContext::try_call_value`
+//!   provides that).
+//! - `property.for_all` / `fuzz.run` additionally need a seeded RNG
+//!   reachable from handl (`rand.seeded_*` exists in `plugin-lib-rand` but
+//!   is not yet wired into the canonical module chain).
+//! - `benchmark.run` needs a clock primitive (`time.now`).
 //!
 //! All modules are stateless, `Copy`, and follow the `Function`
 //! contract used by the rest of the standard library.
@@ -52,8 +65,8 @@ mod tests;
 
 /// The handl source declaring the test `op` interface — the single source
 /// of truth for the test API surface. Loaded at compile time from the
-/// kit-stdlib data dir.
-const TEST_HNL: &str = include_str!("../../../handl-packages/test/test.hnl");
+/// `handl-packages/test/` package dir.
+const TEST_HNL: &str = include_str!("../../../../handl-packages/test/test.hnl");
 
 /// The op names declared in `test.hnl`, grouped by module.
 const TEST_OPS: &[&str] = &["test.run"];
@@ -102,9 +115,10 @@ pub fn test_op_registry() -> OpRegistry {
 /// `property`, `benchmark`, `fuzz`, `snapshot`), all sharing a single
 /// [`OpRegistry`].
 ///
-/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
 /// The test interface is declared in `test.hnl` via `op`/`handl`
 /// declarations; the Rust test handls are registered in the op registry.
+/// This is the ADR-0092 stopgap form; it is deleted once the pure-handl
+/// implementations land.
 pub struct TestLibraryPlugin {
     capabilities: Vec<handl_platform::CapabilityId>,
 }

@@ -4,9 +4,9 @@ use handl_platform::{EvalContext, EvalError, Module};
 use serde_json::Value;
 use serde_json::json;
 
-use crate::function_value::FunctionValue;
-use crate::test_helpers::{ErrorEval, TrueEval};
-use crate::{
+use crate::framework::function_value::FunctionValue;
+use crate::framework::test_helpers::{ErrorEval, TrueEval};
+use crate::framework::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
 };
 
