@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Completes the scope [ADR-0058](./0058-generic-data-driven-engines.md) opened. Depends on the v1→v2 cutover ([ADR-0052](./0052-arrow-calculus-kernel.md)); implementation should land alongside it so v1 hardcoding is deleted, not rewritten.
+Accepted. Phases 1–4 are implemented and the Phase 4 cross-language acceptance test passes (renamed kinds `set`/`block2`/`ret`/`params2`/`func2` with identical roles run through unchanged tree-walk and bytecode engines). Phase 5 (v1 deletion) remains coordinated with the [ADR-0052](./0052-arrow-calculus-kernel.md) cutover and is not blocking acceptance — the v2 engines are role-aware and the v1 path is no longer extended.
 
 ## Context
 
@@ -87,6 +87,23 @@ Define a language with renamed kinds (`set`/`params`/`body`) but identical roles
 3. **Rewrite primitives** — replace `kind ==` with role lookups; v2 only. Gate: existing tests pass unchanged.
 4. **Cross-language test** — renamed kinds, same roles, unchanged engines. Gate: passes → mark Accepted.
 5. **v1 deletion** — coordinated with ADR-0052 cutover. Gate: workspace builds without v1.
+
+## Implementation evidence
+
+**Phase 1–2** (prior session): `AstShapeDef.children` / `ChildRoleSpec` schema added; `Language::child_role_index(kind, role)` resolver added; roles declared in `data/ast.yaml` for `assign`, `block`, `function`, `return`, `type-annot`, and others.
+
+**Phase 3** (this change): Replaced the remaining `kind == "paren" || kind == "array"` shape heuristics in the eval engines with `Language::has_variadic_role(kind)`, which inspects `AstShapeDef` role metadata. Sites converted:
+- `plugin-engine-eval-cranelift` — two closure param-list sites (runtime + helper).
+- `plugin-engine-eval-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
+- `handl-runtime/desugar_pass.rs` — `type-annot` detection now uses `child_role_index(kind, "annot")` first (threaded `&Language` through `try_rust_desugar`/`desugar_data`/`parse_data_payload`/`collect_constructors`/`desugar_match_to_recursor`).
+- `plugin-ext-refinement/arrow_parser.rs` — binding detection now uses `child_role_index(kind, "target")` first.
+- `data/ast.yaml` — added `variadic: true` to `paren`'s `body` role and a new `elements` variadic role to `array`, so collection-like shapes are detectable by role metadata alone.
+
+All legacy `kind ==` checks are retained only as fallbacks for role-less shapes (backward compatibility).
+
+**Phase 4** (this change): `crates/plugin-engine-eval-tree-walk/tests/adr0081_cross_language.rs` defines a language with renamed kinds (`set`/`block2`/`ret`/`params2`/`func2`) but identical roles and eval schemes, then runs it through the **unchanged** tree-walk and bytecode engines. Three tests cover block-with-binding and closure application. All pass — the engines handle renamed kinds without edits, satisfying the acceptance gate.
+
+**Test results:** `cargo test -p handl-plugin-engine-eval-tree-walk -p handl-plugin-engine-eval-bytecode -p handl-plugin-engine-eval-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
 
 ## References
 
