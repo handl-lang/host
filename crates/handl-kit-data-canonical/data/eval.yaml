@@ -362,7 +362,7 @@
       args: []
       source: Native
       lit: 1
-    source: !Foreign field_access
+    source: Native
 - id: eval.flow
   node_kind: flow
   scheme: !App

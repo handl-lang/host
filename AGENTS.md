@@ -78,6 +78,51 @@ and linter all split source into top-level statements at bracket-depth zero
   the runner has been extracted to `plugin-engine-test` (ADR-0089). Until
   then `plugin-lib-test` still hosts both concerns.
 
+## String / Char / Unicode layering (ADR-0093)
+
+The `str`/`char`/`unicode` surface is layered: a **backend-neutral contract**
+(`.hnl` axioms + laws) is separate from **implementations** (pure-Handl and
+runtime-specific backends), mirroring the `encoding`/`url`/`ws` pattern.
+
+```text
+handl-packages/str/str.hnl       contract: 45 axioms + laws (no impl)
+handl-packages/char/char.hnl     contract: 18 char axioms (semantic names —
+                                 `is_whitespace`/`is_alpha`, NOT `is_ascii_*`)
+handl-packages/str-handl/str-handl.hnl   canonical `str` impl: pure handl
+                                         over the `char` floor (char.chars /
+                                         char.from_chars for O(n) iter)
+handl-packages/char-native/      `char` backend: Rust `std::char` (Unicode
+                                 scalar values, not bytes)
+crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
+```
+
+- `kit-canonical` registers `str-handl` under `"str"` **first** (before any
+  legacy `StrModule` fallback in `plugin-lib-utils`), so `str.*` and
+  `from "str" import` resolve to the handl impl. `char` resolves via
+  `StdlibResolver` → `CharModule`.
+- `str-handl` must depend only on `char.*` atoms — never on Rust/Js/UTF-8 or
+  byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
+  conversion replaces O(n²) `char.at` loops.
+- **Runtime fix (field-access):** `eval.field-access` is `source: Native`
+  (the `field_access` native op in `plugin-engine-eval-tree-walk`), not a
+  `!Foreign` host call. Passing a record of closures through the
+  `serde_json` boundary serialized each `Arrow`'s captured env recursively —
+  exponential in the number of prior bindings (OOM at ~20 helpers). Native
+  `field_access` keeps `TaggedValue::Obj`/`Arr` in-engine.
+- **Runtime fix (nested eval):** `TreeWalkEngine::eval` saves/restores the
+  `CURRENT_AST`/`CURRENT_LANG`/`CURRENT_MODULES`/`CURRENT_GLOBALS`
+  thread-locals instead of clearing them, so a `.hnl` module function
+  calling another `HandlFunction` (e.g. `dedent` → `str.*` → `str-handl` →
+  `char.*`) doesn't clobber the outer runtime's state — `call_value` /
+  `TreeWalkCallable` depend on them.
+- **Reentrancy fix:** `HandlFunction` caches per-thread `Rc<Runtime>` and
+  clones the `Rc` out of the `RefCell` before `run` so nested module calls
+  don't hit `RefCell already borrowed`.
+- `plugin-lib-utils`'s `StrModule` + `handl-packages/utils/str.hnl` remain as
+  a **legacy fallback** for kits that don't wire the `char` resolver; the
+  canonical `"str"` is `str-handl`. `unicode/` contract + `unicode-handl`
+  are deferred.
+
 ## Stashes
 
 - `stash@{0}`: "pre-ADR: result module refactoring" — a `plugin-lib-result`

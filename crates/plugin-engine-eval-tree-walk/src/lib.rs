@@ -2032,6 +2032,65 @@ impl TreeWalkEngine {
                     Ok((right, false))
                 }
             }
+            // `field_access` — dynamic field access `target[field]`,
+            // native on `TaggedValue`. Keeping this in-engine matters: the
+            // `field-access` scheme is `Native`, so `a.b`/`a[i]` on a
+            // `TaggedValue::Obj`/`Arr` never crosses the `serde_json` host
+            // boundary. A record of closures (e.g. the module records
+            // `HandlModule` produces) would otherwise force each closure's
+            // captured env through `tagged_to_value`, whose recursive env
+            // serialization is exponential in the number of prior bindings
+            // and overflows on module-sized scopes.
+            //
+            // Semantics mirror `FieldAccessHostFn` (fp.rs): object+string
+            // → lookup, array+int → index, string+string → `a.b` concat
+            // (module-path construction: an unbound `mod` identifier
+            // evaluates to the string "mod", so `mod.f` yields "mod.f"
+            // which `apply_app` dispatches to the module registry).
+            "field_access" => {
+                let target = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let field = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+                match (target, field) {
+                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
+                        let v = map
+                            .get(key.as_ref())
+                            .cloned()
+                            .unwrap_or(TaggedValue::Null);
+                        Ok((v, false))
+                    }
+                    (TaggedValue::Arr(arr), field) => {
+                        let i = field
+                            .as_f64()
+                            .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                            .map(|n| n as usize)
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "field_access: array index must be a non-negative integer"
+                                        .to_string(),
+                                    current_node,
+                                )
+                            })?;
+                        arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
+                            LangError::engine_node(
+                                format!("field_access: index {i} out of bounds (len {})", arr.len()),
+                                current_node,
+                            )
+                        })
+                    }
+                    (TaggedValue::Str(s), TaggedValue::Str(key)) => {
+                        let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
+                        Ok((TaggedValue::Str(joined), false))
+                    }
+                    (target, field) => Err(LangError::engine_node(
+                        format!(
+                            "field_access: target must be object/array, field must be string/number; got {} and {}",
+                            type_tag(&target),
+                            type_tag(&field),
+                        ),
+                        current_node,
+                    )),
+                }
+            }
             // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
             // args = [input, field_name]. If input is some(v), return
             // some(v[field_name]); if input is none or null, return none.
@@ -3005,13 +3064,20 @@ impl EvalEngine for TreeWalkEngine {
             return Ok(Value::Null);
         }
         // Set thread-locals so host functions can call arrow-values via
-        // ctx.try_call_value (see TreeWalkCallable below).
+        // ctx.try_call_value (see TreeWalkCallable below). Save the previous
+        // values so a *nested* eval (a `.hnl` module function calling into
+        // another `HandlFunction` — e.g. `dedent` → `str.*` → `str-handl` →
+        // `char.*` runs a nested `Runtime::run` → `eval`) restores them on
+        // return instead of clobbering the outer runtime's state.
         let ast_rc = Rc::new(ast.clone());
         let lang_rc = Rc::new(lang.clone());
         let modules_rc = self.modules.clone();
-        CURRENT_AST.with(|c| *c.borrow_mut() = Some(Rc::clone(&ast_rc)));
-        CURRENT_LANG.with(|c| *c.borrow_mut() = Some(Rc::clone(&lang_rc)));
-        CURRENT_MODULES.with(|c| *c.borrow_mut() = modules_rc);
+        let prev_ast =
+            CURRENT_AST.with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&ast_rc))));
+        let prev_lang = CURRENT_LANG
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&lang_rc))));
+        let prev_modules =
+            CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules_rc));
         let mut env = ScopeStack::new();
         // Inject host-provided globals (e.g. `self` → language value) into
         // the env's `globals` field (an `Rc<HashMap>`) rather than the root
@@ -3027,15 +3093,16 @@ impl EvalEngine for TreeWalkEngine {
                 .collect(),
         );
         env.set_globals(Rc::clone(&globals_rc));
-        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = Some(Rc::clone(&globals_rc)));
+        let prev_globals = CURRENT_GLOBALS
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&globals_rc))));
         // The root is the last node in the arena (Pratt convention).
         let root_ref = AstRef::new(ast_rc.len() - 1);
         let result = self.eval_node(&ast_rc, root_ref, &lang_rc, &mut env);
-        // Clear thread-locals.
-        CURRENT_AST.with(|c| *c.borrow_mut() = None);
-        CURRENT_LANG.with(|c| *c.borrow_mut() = None);
-        CURRENT_MODULES.with(|c| *c.borrow_mut() = None);
-        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = None);
+        // Restore the previous thread-locals (None for a non-nested eval).
+        CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
+        CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
+        CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
+        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
         result
     }
 

@@ -85,10 +85,10 @@ do {
 
   -- drop leading elements satisfying p
   drop_while = [xs, p] ~> {
-    while { xs: xs } {
-      st ~> match st.xs {
+    while xs {
+      st ~> match st {
         []: { out: [] },
-        [h, ...t]: if p(h) { { state: { xs: t } } } else { { out: st.xs } }
+        [h, ...t]: if p(h) { { state: t } } else { { out: st } }
       }
     }
   }
@@ -102,20 +102,25 @@ do {
     }
   }
 
+  -- per-char case map over a whole string (char.to_lower/to_upper are
+  -- single-char atoms; these lift them to strings)
+  lower_str = s ~> char.from_chars(map(char.chars(s), c ~> char.to_lower(c)))
+  upper_str = s ~> char.from_chars(map(char.chars(s), c ~> char.to_upper(c)))
+
   all = [xs, p] ~> {
-    while { xs: xs } {
-      st ~> match st.xs {
+    while xs {
+      st ~> match st {
         []: { out: true },
-        [h, ...t]: if p(h) { { state: { xs: t } } } else { { out: false } }
+        [h, ...t]: if p(h) { { state: t } } else { { out: false } }
       }
     }
   }
 
   member = [x, xs] ~> {
-    while { xs: xs } {
-      st ~> match st.xs {
+    while xs {
+      st ~> match st {
         []: { out: false },
-        [h, ...t]: if h == x { { out: true } } else { { state: { xs: t } } }
+        [h, ...t]: if h == x { { out: true } } else { { state: t } }
       }
     }
   }
@@ -240,7 +245,7 @@ do {
       }
     }
     words2 = push_word(r.cur, r.words)
-    map(rev(words2), w ~> char.to_lower(w))
+    map(rev(words2), w ~> lower_str(w))
   }
 
   capitalize_first = w ~> {
@@ -308,9 +313,10 @@ do {
     if ab < c { ab } else { c }
   }
 
+  -- iota(n) = [0, 1, ..., n] — the Levenshtein DP "row 0" (n+1 entries).
   iota = n ~> {
     while { n: n, acc: [] } {
-      [n, acc] ~> if n <= 0 {
+      [n, acc] ~> if n < 0 {
         { out: acc }
       } else {
         { state: { n: n - 1, acc: [n, ...acc] } }
@@ -394,9 +400,9 @@ do {
   {
     -- ---- basic transforms ----
 
-    upper: s ~> char.to_upper(s),
+    upper: s ~> upper_str(s),
 
-    lower: s ~> char.to_lower(s),
+    lower: s ~> lower_str(s),
 
     trim: s ~> {
       a = drop_while(char.chars(s), c ~> char.is_whitespace(c))
@@ -669,13 +675,10 @@ do {
 
     split_whitespace: s ~> split_ws_impl(s),
 
-    truncate: args ~> match args {
-      [s, m]: truncate_impl(s, m, "..."),
-      [s, m, suf]: truncate_impl(s, m, suf)
-    },
+    truncate: [s, m] ~> truncate_impl(s, m, "..."),
 
     slugify: s ~> {
-      cs = char.chars(char.to_lower(s))
+      cs = char.chars(lower_str(s))
       mapped = while { xs: cs, acc: [] } {
         [xs, acc] ~> match xs {
           []: { out: rev(acc) },

@@ -607,7 +607,7 @@ thread_local! {
     /// on first use. This is necessary because the tree-walk engine stores
     /// the active AST / `Language` in thread-locals, so `Runtime` is not
     /// `Send`.
-    static RUNTIME_CACHE: RefCell<HashMap<usize, Runtime>> = RefCell::new(HashMap::new());
+    static RUNTIME_CACHE: RefCell<HashMap<usize, std::rc::Rc<Runtime>>> = RefCell::new(HashMap::new());
 }
 
 /// Allocate a unique module ID (called at [`HandlModule`] construction time).
@@ -718,15 +718,26 @@ impl Function for HandlFunction {
         let builder = Arc::clone(&self.builder);
         let module_name = &self.module_name;
         let func_name = &self.func_name;
-        RUNTIME_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            let runtime = cache
-                .entry(module_id)
-                .or_insert_with(|| builder().expect("canonical kit assembly should not fail"));
-            runtime
-                .run(&Source::new(&source))
-                .map_err(|e| EvalError::Other(format!("{module_name}.{func_name}: {e}")))
-        })
+        // Clone the `Rc<Runtime>` out of the cache and release the
+        // `RefCell` borrow *before* `run`: a `.hnl` function may itself call
+        // another `HandlFunction` (e.g. `str-handl` → `char.*`, or `dedent`
+        // → `str.*`), which re-enters `call` and would otherwise hit
+        // `RefCell already borrowed`.
+        let runtime = RUNTIME_CACHE.with(|cache| {
+            std::rc::Rc::clone(
+                cache
+                    .borrow_mut()
+                    .entry(module_id)
+                    .or_insert_with(|| {
+                        std::rc::Rc::new(
+                            builder().expect("canonical kit assembly should not fail"),
+                        )
+                    }),
+            )
+        });
+        runtime
+            .run(&Source::new(&source))
+            .map_err(|e| EvalError::Other(format!("{module_name}.{func_name}: {e}")))
     }
 }
 

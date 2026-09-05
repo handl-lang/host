@@ -23,9 +23,10 @@ use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
+use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_utils::{
     BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
-    ParseModule as UtilsParseModule, SerializeModule, StrModule, TypeModule,
+    ParseModule as UtilsParseModule, SerializeModule, TypeModule,
 };
 use handl_plugin_lib_result::result_module;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
@@ -61,6 +62,30 @@ const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 const DEDENT_FUNCS: &[&str] = &["dedent"];
 
+// ---------------------------------------------------------------------------
+// str-handl module (pure Handl over the `char` floor — the `str` impl)
+// ---------------------------------------------------------------------------
+
+/// The handl source implementing the `str` contract
+/// (`handl-packages/str/str.hnl`) as pure handl algorithms over `char.*`
+/// atoms. Loaded via the generic [`HandlModule`], resolving `char` through
+/// [`StdlibResolver`].
+const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+
+/// The record field names exposed by `str-handl.hnl` — each becomes a
+/// callable [`Function`](handl_platform::Function) on the `"str"` module.
+const STR_HANDL_FUNCS: &[&str] = &[
+    "upper", "lower", "trim", "trim_start", "trim_end", "trim_matches",
+    "reverse", "length", "concat", "is_empty", "equals", "is_alpha",
+    "is_numeric", "is_alphanumeric", "capitalize", "title_case",
+    "snake_case", "camel_case", "pascal_case", "kebab_case", "contains",
+    "starts_with", "ends_with", "count", "find", "rfind", "levenshtein",
+    "similarity", "split", "join", "replace", "replace_first", "repeat",
+    "char_at", "slice", "pad_left", "pad_right", "strip_prefix",
+    "strip_suffix", "lines", "split_at", "split_whitespace", "truncate",
+    "slugify", "word_wrap",
+];
+
 /// Resolver that maps stdlib module names to their [`Module`] impls,
 /// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
 /// instead of hardcoding them in Rust.
@@ -69,7 +94,8 @@ struct StdlibResolver;
 impl ModuleResolver for StdlibResolver {
     fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
-            "str" => Some(std::sync::Arc::new(StrModule)),
+            "str" => Some(std::sync::Arc::new(build_str_handl_module())),
+            "char" => Some(std::sync::Arc::new(CharModule)),
             "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
             "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
             "math" => Some(std::sync::Arc::new(MathModule)),
@@ -83,6 +109,18 @@ impl ModuleResolver for StdlibResolver {
 
 fn build_dedent_module() -> HandlModule {
     HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS)
+        .with_resolver(&StdlibResolver)
+}
+
+/// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
+/// implementation over the `char` floor.
+///
+/// `str-handl.hnl` evaluates to a record of 45 arrows; each name in
+/// [`STR_HANDL_FUNCS`] becomes a callable `Function`. `char.*` calls
+/// resolve through [`StdlibResolver`] to the registered `char` backend
+/// (`char-native` by default).
+fn build_str_handl_module() -> HandlModule {
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
         .with_resolver(&StdlibResolver)
 }
 
@@ -408,7 +446,12 @@ impl Kit {
         let mut stdlib_registry = ModuleRegistry::new();
         stdlib_registry.register(CombinatorsModule);
         stdlib_registry.register(MathModule);
-        stdlib_registry.register(StrModule);
+        // `str-handl` is the pure-handl `str` impl over the `char` floor;
+        // it satisfies the `str` contract. Registered under `"str"` in
+        // place of the former all-FFI `StrModule`, so `str.*` lookups and
+        // `from "str" import` callers resolve to the handl impl.
+        stdlib_registry.register(build_str_handl_module());
+        stdlib_registry.register(CharModule);
         stdlib_registry.register(BoolModule);
         stdlib_registry.register(TypeModule);
         stdlib_registry.register(OptionModule);

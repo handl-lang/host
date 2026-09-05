@@ -37,3 +37,38 @@ fn str_contract_parses_all_45_axioms() {
         );
     }
 }
+
+/// The `char` contract is the semantic floor beneath `str`: category,
+/// case, scalar, and char-sequence atoms that every backend
+/// (`char-native`, `char-ascii`, `char-js`, `char-icu`) implements.
+#[test]
+fn char_contract_parses_all_axioms() {
+    let path = workspace_root().join("handl-packages/char/char.hnl");
+    let src = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("failed to read {}: {}", path.display(), e));
+    let reg = parse_contracts(&src).expect("char.hnl must parse");
+    assert_eq!(reg.len(), 18, "char contract must declare exactly 18 axioms");
+
+    let names: Vec<String> = reg.iter().map(|(n, _, _)| n.clone()).collect();
+    for required in [
+        "char.is_whitespace",
+        "char.is_alpha",
+        "char.is_alnum",
+        "char.to_upper",
+        "char.to_lower",
+        "char.code_point",
+        "char.from_code_point",
+        "char.at",
+        "char.slice",
+        "char.length",
+        "char.concat",
+        "char.chars",
+        "char.from_chars",
+    ] {
+        assert!(
+            names.iter().any(|n| n == required),
+            "missing axiom `{}` in char contract",
+            required
+        );
+    }
+}

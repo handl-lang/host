@@ -34,27 +34,27 @@
 
 axiom char.is_whitespace : String -> Bool
 -- LAW: output <=> IsWhitespace(input)  (backend-defined "whitespace")
-guarantee: True
+  guarantee: True
 
 axiom char.is_alpha : String -> Bool
 -- LAW: output <=> IsAlpha(input)  (backend-defined "alphabetic")
-guarantee: True
+  guarantee: True
 
 axiom char.is_numeric : String -> Bool
 -- LAW: output <=> IsNumeric(input)  (backend-defined "numeric")
-guarantee: True
+  guarantee: True
 
 axiom char.is_alnum : String -> Bool
 -- LAW: output <=> IsAlpha(input) || IsNumeric(input)
-guarantee: True
+  guarantee: True
 
 axiom char.is_uppercase : String -> Bool
 -- LAW: output <=> IsUpper(input)
-guarantee: True
+  guarantee: True
 
 axiom char.is_lowercase : String -> Bool
 -- LAW: output <=> IsLower(input)
-guarantee: True
+  guarantee: True
 
 -- ---------------------------------------------------------------------------
 -- Case-mapping atoms
@@ -65,15 +65,15 @@ guarantee: True
 
 axiom char.to_upper : String -> String
 -- LAW: IsUpper(output)  (backend-defined case map; may expand e.g. ß→SS)
-guarantee: True
+  guarantee: True
 
 axiom char.to_lower : String -> String
 -- LAW: IsLower(output)
-guarantee: True
+  guarantee: True
 
 axiom char.to_title : String -> String
 -- LAW: IsTitle(output); backends without titlecase use to_upper
-guarantee: True
+  guarantee: True
 
 -- ---------------------------------------------------------------------------
 -- Scalar-value conversion atoms
@@ -81,15 +81,15 @@ guarantee: True
 
 axiom char.code_point : String -> Int
 -- LAW: output = CodePoint(input); requires input is a single char
-requires: LengthEq(input, 1)
-guarantee: Le(0, output)
+  requires: LengthEq(input, 1)
+  guarantee: Le(0, output)
 
 axiom char.from_code_point : Int -> String
 -- LAW: output is the char whose scalar value is input; fails if input is
 -- not a valid scalar value in the backend's character set
-requires: Le(0, input)
+  requires: Le(0, input)
 -- LAW: LengthEq(output, 1) && code_point(output) = input
-guarantee: True
+  guarantee: True
 
 -- ---------------------------------------------------------------------------
 -- Char-sequence access atoms (indices are char indices, not bytes)
@@ -97,27 +97,27 @@ guarantee: True
 
 axiom char.at : (String * Int) -> String
 -- LAW: output = input[input.1] as a 1-char string
-requires: Le(0, input.1) && LengthLe(input.1, input.0)
+  requires: Le(0, input.1) && LengthLe(input.1, input.0)
 -- LAW: LengthEq(output, 1)
-guarantee: True
+  guarantee: True
 
-axiom char.slice : (String * Int * Int) -> String
+axiom char.slice : (String * (Int * Int)) -> String
 -- LAW: output = input[input.1 .. input.2] (char indices)
-requires: Le(0, input.1) && Le(input.1, input.2) && LengthLe(input.2, input.0)
-guarantee: LengthLe(output, input.0)
+  requires: Le(0, input.1) && Le(input.1, input.2) && LengthLe(input.2, input.0)
+  guarantee: LengthLe(output, input.0)
 
 axiom char.length : String -> Int
 -- LAW: output = number of chars in input
-guarantee: Le(0, output)
+  guarantee: Le(0, output)
 
 axiom char.concat : (String * String) -> String
 -- LAW: LengthEq(output, input.0 + input.1)
-guarantee: LengthLe(input.0, output) && LengthLe(input.1, output)
+  guarantee: LengthLe(input.0, output) && LengthLe(input.1, output)
 
 axiom char.code_point_at : (String * Int) -> Int
-requires: Le(0, input.1) && LengthLe(input.1, input.0)
+  requires: Le(0, input.1) && LengthLe(input.1, input.0)
 -- LAW: output = code_point(at(input.0, input.1))
-guarantee: Le(0, output)
+  guarantee: Le(0, output)
 
 -- ---------------------------------------------------------------------------
 -- Bulk char-sequence conversion atoms (O(n) split/join)
@@ -131,8 +131,8 @@ guarantee: Le(0, output)
 axiom char.chars : String -> List String
 -- LAW: LengthEq(output, input) && forall c in output, IsChar(c)
 --      && from_chars(chars(s)) = s  (round-trip)
-guarantee: True
+  guarantee: True
 
 axiom char.from_chars : List String -> String
 -- LAW: from_chars(chars(s)) = s  (round-trip)
-guarantee: True
+  guarantee: True
