@@ -1075,6 +1075,7 @@ dependencies = [
  "handl-plugin-lib-lang-typecheck",
  "handl-plugin-lib-result",
  "handl-plugin-lib-tag",
+ "handl-plugin-lib-unicode-native",
  "handl-plugin-lib-utils",
  "handl-plugin-module",
  "handl-runtime",
@@ -2230,6 +2231,22 @@ dependencies = [
  "handl-plugin-module",
  "serde_json",
  "unicode-ident",
+]
+
+[[package]]
+name = "handl-plugin-lib-unicode-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-char-native",
+ "handl-plugin-lib-handl",
+ "handl-plugin-lib-unicode",
+ "handl-plugin-module",
+ "icu_casemap",
+ "icu_normalizer",
+ "icu_segmenter",
+ "serde_json",
+ "unicode-width",
 ]
 
 [[package]]

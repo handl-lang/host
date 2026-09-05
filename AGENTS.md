@@ -98,16 +98,22 @@ handl-packages/unicode/unicode.hnl  contract: graphemes/normalization/
 handl-packages/unicode-handl/       `unicode` impl: code-point-level subset
                                     over `char.*` (graphemes/width are
                                     code-point fallbacks; `nfc`/`nfd` are
-                                    backend-required and omitted so they
-                                    fail loudly rather than return
-                                    un-normalized text)
+                                    backend-required and omitted from the
+                                    record so a composite backend can fail
+                                    loudly if no native layer is wired)
 crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
+crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
+                                 (graphemes/width/casefold/nfc/nfd/decode/
+                                 identifiers) composed with `unicode-handl`
 ```
 
 - `kit-canonical` registers `str-handl` under `"str"` **first** (before any
   legacy `StrModule` fallback in `plugin-lib-utils`), so `str.*` and
   `from "str" import` resolve to the handl impl. `char` resolves via
   `StdlibResolver` → `CharModule`.
+- `kit-canonical` registers `handl-plugin-lib-unicode-native::UnicodeModule`
+  under `"unicode"`; native `op`s take precedence and the `unicode-handl`
+  record supplies fallback behavior for anything not implemented natively.
 - `str-handl` must depend only on `char.*` atoms — never on Rust/Js/UTF-8 or
   byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
   conversion replaces O(n²) `char.at` loops.

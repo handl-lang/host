@@ -25,6 +25,7 @@ use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_lib_utils::{
     BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
     ParseModule as UtilsParseModule, SerializeModule, TypeModule,
@@ -88,23 +89,14 @@ const STR_HANDL_FUNCS: &[&str] = &[
 ];
 
 // ---------------------------------------------------------------------------
-// unicode-handl module (pure Handl over the `char` floor — the `unicode` impl)
+// unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
 // ---------------------------------------------------------------------------
-
-/// The handl source implementing the `unicode` contract
-/// (`handl-packages/unicode/unicode.hnl`) as pure handl over `char.*`
-/// atoms. `unicode-handl` provides the code-point-level subset; table-
-/// dependent ops (`nfc`/`nfd`) are backend-required and intentionally
-/// omitted. Resolves `char` through [`StdlibResolver`].
-const UNICODE_HANDL_HNL: &str =
-    include_str!("../../../handl-packages/unicode-handl/unicode-handl.hnl");
-
-/// The record field names exposed by `unicode-handl.hnl` — each becomes a
-/// callable [`Function`](handl_platform::Function) on the `"unicode"` module.
-const UNICODE_HANDL_FUNCS: &[&str] = &[
-    "code_points", "from_code_points", "is_ascii", "code_point_at",
-    "graphemes", "grapheme_count", "width", "casefold",
-];
+//
+// The native `unicode` implementation lives in `handl-plugin-lib-unicode-native`.
+// It is composed with the pure-Handl `unicode-handl` record: native `op`s win,
+// and the handl record supplies fallback behavior for anything not implemented
+// natively. `char.*` calls inside `unicode-handl.hnl` are resolved by the
+// built-in `CharModule` dependency.
 
 /// Resolver that maps stdlib module names to their [`Module`] impls,
 /// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
@@ -116,7 +108,7 @@ impl ModuleResolver for StdlibResolver {
         match name {
             "str" => Some(std::sync::Arc::new(build_str_handl_module())),
             "char" => Some(std::sync::Arc::new(CharModule)),
-            "unicode" => Some(std::sync::Arc::new(build_unicode_handl_module())),
+            "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
             "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
             "math" => Some(std::sync::Arc::new(MathModule)),
@@ -145,17 +137,7 @@ fn build_str_handl_module() -> HandlModule {
         .with_resolver(&StdlibResolver)
 }
 
-/// Build the [`HandlModule`] for `unicode-handl` — the pure-handl `unicode`
-/// implementation over the `char` floor.
-///
-/// `unicode-handl.hnl` evaluates to a record of the code-point-level
-/// functions; each name in [`UNICODE_HANDL_FUNCS`] becomes a callable
-/// `Function`. `char.*` calls resolve through [`StdlibResolver`] to the
-/// registered `char` backend (`char-native` by default).
-fn build_unicode_handl_module() -> HandlModule {
-    HandlModule::new("unicode", UNICODE_HANDL_HNL, UNICODE_HANDL_FUNCS)
-        .with_resolver(&StdlibResolver)
-}
+
 
 thread_local! {
     /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached
