@@ -90,8 +90,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{
-    infer_effect_row, ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Scheme,
-    Value, Verdict,
+    infer_effect_row, ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof,
+    Scheme, Value, Verdict,
 };
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_typecheck::{
@@ -1624,6 +1624,48 @@ impl NbeTypecheckEngine {
                             Some("type.Pure") => {
                                 // Pure predicate: check effect row emptiness.
                                 let proof = self.check_purity(&expr_type);
+                                return self.resolve_predicate_proof(
+                                    proof,
+                                    &expr_type,
+                                    &annotation_type,
+                                    ctx,
+                                );
+                            }
+                            Some("type.Marshalable") => {
+                                // Marshalable predicate: check that the type
+                                // carried in the `arg` field is FFI-marshalable
+                                // (ADR-0083). Unlike Total/Pure which inspect
+                                // the expression, Marshalable inspects the
+                                // type argument embedded in the annotation.
+                                let arg_type = annotation_type.get("arg");
+                                let proof = match arg_type {
+                                    Some(ty) => {
+                                        if is_marshalable(&ctx.registry, ty) {
+                                            let tag = ctx
+                                                .registry
+                                                .as_type_tag(ty)
+                                                .unwrap_or("unknown");
+                                            Proof::ok(format!(
+                                                "type '{}' is FFI-marshalable (ADR-0083)",
+                                                tag
+                                            ))
+                                        } else {
+                                            let tag = ctx
+                                                .registry
+                                                .as_type_tag(ty)
+                                                .unwrap_or("unknown");
+                                            Proof::no(format!(
+                                                "type '{}' is not FFI-marshalable (ADR-0083)",
+                                                tag
+                                            ))
+                                        }
+                                    }
+                                    None => Proof::no(
+                                        "Marshalable predicate requires a type argument \
+                                         (arg field missing)"
+                                            .to_string(),
+                                    ),
+                                };
                                 return self.resolve_predicate_proof(
                                     proof,
                                     &expr_type,
@@ -4149,9 +4191,9 @@ fn interpret_type_expr(
 
 /// Resolve a callee AST node to a meta-predicate type tag.
 ///
-/// Recognizes `var("Total")` / `var("Pure")` and `field-access` producing
-/// `type.Total` / `type.Pure`. Returns `None` if the callee does not name a
-/// known meta-predicate.
+/// Recognizes `var("Total")` / `var("Pure")` / `var("Marshalable")` and
+/// `field-access` producing `type.Total` / `type.Pure` / `type.Marshalable`.
+/// Returns `None` if the callee does not name a known meta-predicate.
 fn resolve_meta_predicate_tag(
     ast: &Ast,
     node: &handl_language::AstNode,
@@ -4162,12 +4204,14 @@ fn resolve_meta_predicate_tag(
             match name {
                 "Total" => Some("type.Total"),
                 "Pure" => Some("type.Pure"),
+                "Marshalable" => Some("type.Marshalable"),
                 _ => None,
             }
         }
         "field-access" => {
-            // `type.Total` or `type.Pure` — the field name is in the payload
-            // (`field` key) or in a child node (children[1]).
+            // `type.Total`, `type.Pure`, or `type.Marshalable` — the field
+            // name is in the payload (`field` key) or in a child node
+            // (children[1]).
             let field: String = node
                 .payload
                 .get("field")
@@ -4188,6 +4232,7 @@ fn resolve_meta_predicate_tag(
             match field.as_str() {
                 "Total" => Some("type.Total"),
                 "Pure" => Some("type.Pure"),
+                "Marshalable" => Some("type.Marshalable"),
                 _ => None,
             }
         }

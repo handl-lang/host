@@ -11049,3 +11049,143 @@ fn total_annotation_on_non_decreasing_recursion_disproved() {
         err
     );
 }
+
+// ===========================================================================
+// Phase 8.2: Marshalable meta-predicate
+//
+// Marshalable(T) asserts that type T is FFI-marshalable (cstr, i32, i64,
+// f64, buf, ptr, void, handle) per ADR-0083. It is a meta-predicate handled
+// specially in synth_type_annot — the type argument is embedded in the
+// annotation's `arg` field, and `is_marshalable()` is called on it.
+//
+// ffi_bind type checking (Step 3) is deferred until the FFI declaration
+// syntax is formalized — there is no `ffi_bind` AST node kind yet. The
+// Marshalable predicate provides the building block: once ffi_bind
+// declarations exist, each arg/return type can be checked with
+// `T : Marshalable`.
+// ===========================================================================
+
+/// Build a `type.<name>` field-access type-expression subtree, returning
+/// the index of the root `field-access` node. Pushes 3 nodes: var("type"),
+/// var(name), field-access{children:[type_idx, name_idx]}.
+fn push_type_expr(ast: &mut Ast, offset: usize, type_name: &str) -> usize {
+    let type_idx = offset;
+    let name_idx = type_idx + 1;
+    let fa_idx = type_idx + 2;
+    ast.push(AstNode::new("var").with_payload(json!("type"))); // type_idx
+    ast.push(AstNode::new("var").with_payload(json!(type_name))); // name_idx
+    ast.push(
+        AstNode::new("field-access").with_payload(json!({"children": [type_idx, name_idx]})),
+    ); // fa_idx
+    fa_idx
+}
+
+/// Build a `Marshalable(type.<name>)` call-expression subtree, returning
+/// the index of the root `call` node. Pushes the type expr (3 nodes) plus
+/// var("Marshalable") and call{children:[marshalable_idx, type_expr_idx]}.
+fn push_marshalable_annotation(ast: &mut Ast, offset: usize, type_name: &str) -> usize {
+    let type_expr_idx = push_type_expr(ast, offset, type_name); // offset+2
+    let marshalable_idx = offset + 3;
+    let call_idx = offset + 4;
+    ast.push(AstNode::new("var").with_payload(json!("Marshalable"))); // marshalable_idx
+    ast.push(
+        AstNode::new("call").with_payload(json!({"children": [marshalable_idx, type_expr_idx]})),
+    ); // call_idx
+    call_idx
+}
+
+#[test]
+fn marshalable_predicate_proven_for_ffi_type() {
+    // `42 : Marshalable(type.i32)` → Proven (type.i32 is FFI-marshalable).
+    let engine = engine();
+    let lang = meta_predicate_lang();
+
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
+    let annot_idx = push_marshalable_annotation(&mut ast, 1, "i32"); // 5
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
+    ); // 6
+
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // Proven → annotation accepted, no diagnostics.
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        result.diagnostics
+    );
+    // The accepted type is the annotation type (type.Marshalable).
+    let tag = result.typ.get("__tag__").and_then(|t| t.as_str());
+    assert_eq!(tag, Some("type.Marshalable"));
+}
+
+#[test]
+fn marshalable_predicate_disproved_for_non_ffi_type() {
+    // `42 : Marshalable(type.string)` → Disproved (type.string is not
+    // FFI-marshalable).
+    let engine = engine();
+    let lang = meta_predicate_lang();
+
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
+    let annot_idx = push_marshalable_annotation(&mut ast, 1, "string"); // 5
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
+    ); // 6
+
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("disproved")),
+        "expected disproved error, got {:?}",
+        err
+    );
+    assert!(
+        err.to_string().contains("not FFI-marshalable"),
+        "error should mention FFI-marshalable, got: {}",
+        err
+    );
+}
+
+#[test]
+fn marshalable_predicate_for_each_ffi_type() {
+    // Test each type in FFI_MARSHALLING_TYPES → all Proven.
+    // The FFI marshalling types are: cstr, i32, i64, f64, buf, ptr, void,
+    // handle (ADR-0083).
+    let ffi_types = ["cstr", "i32", "i64", "f64", "buf", "ptr", "void", "handle"];
+
+    for type_name in &ffi_types {
+        let engine = engine();
+        let lang = meta_predicate_lang();
+
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
+        let annot_idx = push_marshalable_annotation(&mut ast, 1, type_name); // 5
+        ast.push(
+            AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
+        ); // 6
+
+        let req = TypecheckRequest::new(ast);
+        let result = engine.typecheck(&lang, &req).unwrap_or_else(|e| {
+            panic!(
+                "Marshalable(type.{}) should be Proven but got error: {}",
+                type_name, e
+            )
+        });
+        assert!(
+            result.diagnostics.is_empty(),
+            "Marshalable(type.{}): expected no diagnostics, got: {:?}",
+            type_name,
+            result.diagnostics
+        );
+        let tag = result.typ.get("__tag__").and_then(|t| t.as_str());
+        assert_eq!(
+            tag,
+            Some("type.Marshalable"),
+            "Marshalable(type.{}): expected type.Marshalable, got {:?}",
+            type_name,
+            result.typ
+        );
+    }
+}
