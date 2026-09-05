@@ -54,3 +54,47 @@ cap "intl.segment"
 cap "intl.locale"
 cap "intl.get_canonical_locales"
 cap "intl.supported_locales_of"
+
+op "intl.format_number" : Value -> Value
+  guarantee: True
+op "intl.format_number_to_parts" : Value -> Value
+  guarantee: True
+op "intl.select_plural" : Value -> Value
+  guarantee: True
+op "intl.format_list" : Value -> Value
+  guarantee: True
+op "intl.format_relative_time" : Value -> Value
+  guarantee: True
+op "intl.format_date" : Value -> Value
+  guarantee: True
+op "intl.format_date_to_parts" : Value -> Value
+  guarantee: True
+op "intl.format_duration" : Value -> Value
+  guarantee: True
+op "intl.compare_strings" : Value -> Value
+  guarantee: True
+op "intl.display_name" : Value -> Value
+  guarantee: True
+op "intl.segment" : Value -> Value
+  guarantee: True
+op "intl.locale" : Value -> Value
+  guarantee: True
+op "intl.get_canonical_locales" : Value -> Value
+  guarantee: True
+op "intl.supported_locales_of" : Value -> Value
+  guarantee: True
+
+handl "intl.format_number" = rust_intl_format_number
+handl "intl.format_number_to_parts" = rust_intl_format_number_to_parts
+handl "intl.select_plural" = rust_intl_select_plural
+handl "intl.format_list" = rust_intl_format_list
+handl "intl.format_relative_time" = rust_intl_format_relative_time
+handl "intl.format_date" = rust_intl_format_date
+handl "intl.format_date_to_parts" = rust_intl_format_date_to_parts
+handl "intl.format_duration" = rust_intl_format_duration
+handl "intl.compare_strings" = rust_intl_compare_strings
+handl "intl.display_name" = rust_intl_display_name
+handl "intl.segment" = rust_intl_segment
+handl "intl.locale" = rust_intl_locale
+handl "intl.get_canonical_locales" = rust_intl_get_canonical_locales
+handl "intl.supported_locales_of" = rust_intl_supported_locales_of
