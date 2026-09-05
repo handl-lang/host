@@ -134,6 +134,11 @@
   pattern: !Literal
     text: axiom
   priority: 15
+- id: lex.keyword.data
+  token_kind: token.keyword.data
+  pattern: !Literal
+    text: data
+  priority: 15
 - id: lex.keyword.do
   token_kind: token.keyword.do
   pattern: !Literal
@@ -295,6 +300,11 @@
   pattern: !Literal
     text: '||'
   priority: 10
+- id: lex.pipe
+  token_kind: token.pipe
+  pattern: !Literal
+    text: '|'
+  priority: 20
 - id: lex.percent
   token_kind: token.percent
   pattern: !Literal

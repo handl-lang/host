@@ -740,6 +740,17 @@ impl Runtime {
     ///
     /// Returns [`LangError::NotImplemented`] if no parse engine is bound, or
     /// propagates the engine's error.
+    ///
+    /// # Desugar pipeline (ADR-0082, Option A)
+    ///
+    /// The desugar pass runs **at parse time** (here in `Runtime::parse`),
+    /// before both typecheck and eval. The typechecker and evaluator always
+    /// see the desugared AST — they never observe raw `data`/`while`/`for`/
+    /// `nullish`/`opt-chain` nodes. This is Option A from the Phase 1 task
+    /// spec: desugar at parse time is the current and preferred behavior.
+    /// `data` declarations (ADR-0082) are rewritten into `block` definitions
+    /// (predicate + constructors + recursor) by `desugar_data` before any
+    /// downstream tool sees them.
     pub fn parse(&self, toks: &Tokens) -> Result<Ast, LangError> {
         let engine = self
             .parse_engine

@@ -12,6 +12,28 @@
 //! `Create` children and reuses original arena indices for `Keep` children.
 //! The root node of the input AST is the last node in the arena (Pratt
 //! convention); the output preserves this convention.
+//!
+//! ## Pipeline ordering (ADR-0082, Phase 1.2)
+//!
+//! The desugar pass runs **at parse time** — `Runtime::parse` calls
+//! `apply_desugar` immediately after the Pratt parser produces the raw AST,
+//! before returning the AST to the caller. This means:
+//!
+//! - `Runtime::eval` always sees the desugared AST (no raw `data`/`while`/
+//!   `for`/`nullish`/`opt-chain` nodes).
+//! - `Runtime::typecheck` always sees the desugared AST (the typechecker
+//!   and NbeTypecheckEngine never observe raw `data` nodes — they see the
+//!   desugared `block` of predicate/constructor/recursor assignments).
+//! - `Kit::typecheck` calls `Kit::parse` (which desugars) before
+//!   `Runtime::typecheck`, so the full pipeline is: lex → parse → desugar
+//!   → typecheck.
+//!
+//! The bootstrap `check_module` in `plugin-engine-typecheck` parses
+//! directly (without desugar) due to a cyclic dependency constraint
+//! (`plugin-engine-typecheck` cannot depend on `handl-runtime`). This is
+//! a known limitation: the bootstrap checker does not handle `data`
+//! declarations. The runtime pipeline (`Kit`/`Runtime`) is the
+//! recommended path for typechecking `data` declarations.
 
 use handl_language::{
     Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, Language,
@@ -685,7 +707,9 @@ struct DataConstructor {
 
 /// Parse a `data` node's payload into the type name and constructor list.
 ///
-/// Expected payload shape:
+/// Supports two payload shapes:
+///
+/// **Hand-built (backward compat):** structured JSON payload:
 /// ```json
 /// {
 ///   "name": "Nat",
@@ -695,32 +719,163 @@ struct DataConstructor {
 ///   ]
 /// }
 /// ```
-fn parse_data_payload(node: &AstNode) -> Option<(String, Vec<DataConstructor>)> {
+///
+/// **Parser-produced (ADR-0082):** `payload.name` (string from
+/// `payload_tokens`) + one child (the constructor list expression). The
+/// child is an `alt` tree (from `|` pipe infix) or a single constructor
+/// node. Each constructor is either:
+/// - A `var` node: nullary constructor (name = var payload, no args).
+/// - A `call` node: N-ary constructor (callee child 0 is a `var` with the
+///   name; children 1+ are type expressions, each a `var` whose payload is
+///   the type name). Arg names are derived from the lowercased type name.
+fn parse_data_payload(node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataConstructor>)> {
     let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
-    let constructors = node
+
+    // Backward compatibility: if `payload.constructors` exists (hand-built
+    // test nodes), use the old structured-JSON path.
+    if let Some(constructors) = node.payload.get("constructors").and_then(|c| c.as_array()) {
+        let cons = constructors
+            .iter()
+            .map(|c| {
+                let cname = c.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let args = c
+                    .get("args")
+                    .and_then(|a| a.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .map(|a| {
+                                let aname = a.get("name").and_then(|v| v.as_str()).unwrap_or("_").to_string();
+                                let atype = a.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                (aname, atype)
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                DataConstructor { name: cname, args }
+            })
+            .collect();
+        return Some((name, cons));
+    }
+
+    // Parser-produced path: extract constructors from the child AST.
+    // The `data` node has one child (the constructor list expression).
+    let child_idx = node
         .payload
-        .get("constructors")
-        .and_then(|c| c.as_array())?
-        .iter()
-        .map(|c| {
-            let cname = c.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let args = c
-                .get("args")
-                .and_then(|a| a.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .map(|a| {
-                            let aname = a.get("name").and_then(|v| v.as_str()).unwrap_or("_").to_string();
-                            let atype = a.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            (aname, atype)
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            DataConstructor { name: cname, args }
-        })
-        .collect();
+        .get("children")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize)?;
+    let child = ast.get(AstRef::new(child_idx))?;
+    let mut constructors = Vec::new();
+    collect_constructors(child, ast, &mut constructors);
     Some((name, constructors))
+}
+
+/// Recursively collect constructors from an `alt` tree or a single
+/// constructor node.
+///
+/// - `alt` node: recurse on both children (left and right).
+/// - `var` node: nullary constructor (name = payload string, no args).
+/// - `call` node: N-ary constructor (callee = child 0 `var`, args =
+///   children 1+ type expressions). Arg names are derived from the
+///   lowercased type name; arg types from the `var` payload. Non-`var`
+///   args get a placeholder type `"_"`.
+fn collect_constructors(node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor>) {
+    match node.kind.as_str() {
+        "alt" => {
+            // Recurse on both children.
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            if let Some(arr) = children {
+                for child_val in arr {
+                    if let Some(idx) = child_val.as_u64() {
+                        if let Some(child) = ast.get(AstRef::new(idx as usize)) {
+                            collect_constructors(child, ast, out);
+                        }
+                    }
+                }
+            }
+        }
+        "var" => {
+            // Nullary constructor: name = payload string, no args.
+            let cname = node.payload.as_str().unwrap_or("").to_string();
+            out.push(DataConstructor {
+                name: cname,
+                args: Vec::new(),
+            });
+        }
+        "call" => {
+            // N-ary constructor: callee (child 0) is a `var` with the name,
+            // children 1+ are type expression args.
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            let arr = match children {
+                Some(a) => a,
+                None => return,
+            };
+            // Child 0: callee (var with constructor name).
+            let callee_idx = arr.first().and_then(|v| v.as_u64()).map(|v| v as usize);
+            let cname = callee_idx
+                .and_then(|idx| ast.get(AstRef::new(idx)))
+                .and_then(|n| n.payload.as_str())
+                .unwrap_or("")
+                .to_string();
+            // Children 1+: type expression args. Each arg is either:
+            // - A `var` node: implicit arg name (lowercased type name), e.g.
+            //   `Succ(Nat)` → arg name "nat", type "Nat".
+            // - A `type-annot` node: explicit arg name, e.g.
+            //   `Just(value : Nat)` → arg name "value", type "Nat". The
+            //   `type-annot` node has children [subject(var), annot(var)].
+            let mut args = Vec::new();
+            for (i, arg_val) in arr.iter().enumerate().skip(1) {
+                if let Some(arg_idx) = arg_val.as_u64() {
+                    if let Some(arg_node) = ast.get(AstRef::new(arg_idx as usize)) {
+                        let (arg_name, arg_type) = if arg_node.kind == "var" {
+                            // Implicit arg: `Succ(Nat)` → name "nat", type "Nat".
+                            let type_name = arg_node.payload.as_str().unwrap_or("_").to_string();
+                            let lower = type_name.to_lowercase();
+                            (lower, type_name)
+                        } else if arg_node.kind == "type-annot" {
+                            // Explicit arg: `Just(value : Nat)` → name "value",
+                            // type "Nat". The type-annot node has children
+                            // [subject, annot] where subject is a var with the
+                            // arg name and annot is a var with the type name.
+                            let ta_children = arg_node
+                                .payload
+                                .get("children")
+                                .and_then(|c| c.as_array());
+                            let (name, typ) = match ta_children {
+                                Some(ta_arr) if ta_arr.len() >= 2 => {
+                                    let subject_name = ta_arr[0]
+                                        .as_u64()
+                                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                                        .and_then(|n| n.payload.as_str())
+                                        .unwrap_or("_")
+                                        .to_string();
+                                    let type_name = ta_arr[1]
+                                        .as_u64()
+                                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                                        .and_then(|n| n.payload.as_str())
+                                        .unwrap_or("_")
+                                        .to_string();
+                                    (subject_name, type_name)
+                                }
+                                _ => (format!("_{}", i - 1), "_".to_string()),
+                            };
+                            (name, typ)
+                        } else {
+                            // Non-var, non-type-annot: use placeholder.
+                            (format!("_{}", i - 1), "_".to_string())
+                        };
+                        args.push((arg_name, arg_type));
+                    }
+                }
+            }
+            out.push(DataConstructor { name: cname, args });
+        }
+        _ => {
+            // Unknown node kind: skip (or could be a single constructor).
+        }
+    }
 }
 
 /// Check strict positivity (ADR-0082 §6): reject a `data` declaration if a
@@ -773,8 +928,8 @@ fn check_strict_positivity(type_name: &str, constructors: &[DataConstructor]) ->
 ///
 /// The recursor is structurally recursive on `n` (decreasing via `n.pred`),
 /// consistent with ADR-0068's `array.rec` approach.
-fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
-    let (type_name, constructors) = parse_data_payload(original)?;
+fn desugar_data(original: &AstNode, ast: &Ast, out: &mut Ast) -> Option<AstRef> {
+    let (type_name, constructors) = parse_data_payload(original, ast)?;
 
     // Step 2: strict positivity check.
     if let Err(reason) = check_strict_positivity(&type_name, &constructors) {
@@ -1081,7 +1236,7 @@ fn try_rust_desugar(
         "while" => desugar_while(original, ast, out, remap),
         "do-while" => Some(desugar_do_while(original, ast, out, remap)),
         "for" => Some(desugar_for(original, ast, out, remap)),
-        "data" => desugar_data(original, out),
+        "data" => desugar_data(original, ast, out),
         _ => None,
     }
 }
@@ -2148,5 +2303,210 @@ mod tests {
                 );
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0082 Phase 1: AST-based constructor extraction (parser-produced
+    // `data` nodes with `alt` tree children)
+    // -----------------------------------------------------------------------
+
+    /// Build a full AST arena mimicking the parser output for
+    /// `data Nat = Zero | Succ(Nat)`.
+    fn parser_style_ast_nat() -> Ast {
+        let mut ast = Ast::new();
+        // var("Zero") — index 0
+        let zero = ast.push(AstNode::new("var").with_payload(json!("Zero")));
+        // var("Succ") — index 1
+        let succ = ast.push(AstNode::new("var").with_payload(json!("Succ")));
+        // var("Nat") — index 2
+        let nat = ast.push(AstNode::new("var").with_payload(json!("Nat")));
+        // call(Succ, Nat) — index 3
+        let call = ast.push(
+            AstNode::new("call").with_payload(json!({ "children": [succ, nat] })),
+        );
+        // alt(Zero, call) — index 4
+        let alt = ast.push(
+            AstNode::new("alt").with_payload(json!({ "children": [zero, call] })),
+        );
+        // data(Nat, alt) — index 5
+        let _data = ast.push(
+            AstNode::new("data").with_payload(json!({ "name": "Nat", "children": [alt] })),
+        );
+        ast
+    }
+
+    #[test]
+    fn data_ast_based_extraction_nat() {
+        // Build a parser-style AST for `data Nat = Zero | Succ(Nat)` and
+        // verify the desugar pass extracts constructors from the alt tree.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let ast = parser_style_ast_nat();
+        let out = apply_desugar(&lang, &ast);
+
+        // The root should be a `block` with 4 statements.
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+
+        // Each statement should be an `assign`.
+        for (i, child_idx) in children.iter().enumerate() {
+            let node = out.get(AstRef::new(child_idx.as_u64().unwrap() as usize)).unwrap();
+            assert_eq!(node.kind, "assign", "statement {} should be assign, got {}", i, node.kind);
+        }
+
+        // Verify the predicate target is var("Nat").
+        let pred_assign = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let pred_children = pred_assign.payload.get("children").unwrap().as_array().unwrap();
+        let target = out.get(AstRef::new(pred_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(target.kind, "var");
+        assert_eq!(target.payload, json!("Nat"));
+
+        // Verify the Succ constructor has arg name "nat" (lowercased type).
+        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
+        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(succ_fn.kind, "function");
+        let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], json!("nat"), "arg name should be lowercased type name");
+    }
+
+    #[test]
+    fn data_ast_based_extraction_bool() {
+        // Build a parser-style AST for `data Bool = True | False`.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        let true_var = ast.push(AstNode::new("var").with_payload(json!("True")));
+        let false_var = ast.push(AstNode::new("var").with_payload(json!("False")));
+        let alt = ast.push(
+            AstNode::new("alt").with_payload(json!({ "children": [true_var, false_var] })),
+        );
+        ast.push(
+            AstNode::new("data").with_payload(json!({ "name": "Bool", "children": [alt] })),
+        );
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+    }
+
+    #[test]
+    fn data_ast_based_extraction_single_constructor() {
+        // A data declaration with a single constructor (no alt tree).
+        // `data Unit = Unit` → child is a var node, not an alt.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        let unit_var = ast.push(AstNode::new("var").with_payload(json!("Unit")));
+        ast.push(
+            AstNode::new("data").with_payload(json!({ "name": "Unit", "children": [unit_var] })),
+        );
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 1 constructor + 1 recursor = 3
+        assert_eq!(children.len(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Backward compatibility: hand-built data nodes still work
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn data_handbuilt_backward_compat() {
+        // Verify that hand-built data nodes (with payload.constructors)
+        // still desugar correctly after the AST-based extraction change.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 4);
+
+        // Verify the Succ constructor uses "pred" (from hand-built payload).
+        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
+        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params[0], json!("pred"), "hand-built arg name should be 'pred'");
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0082 Phase 1: type-annot arg extraction (explicit arg names)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn data_ast_based_extraction_type_annot_args() {
+        // `data Maybe = Nothing | Just(value : Nat)` — the `Just` constructor
+        // has an explicit arg name via a `type-annot` node. The desugar pass
+        // should extract arg name "value" and type "Nat" from the type-annot
+        // node's children [subject(var), annot(var)].
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        // var("Nothing") — index 0
+        let nothing = ast.push(AstNode::new("var").with_payload(json!("Nothing")));
+        // var("Just") — index 1
+        let just = ast.push(AstNode::new("var").with_payload(json!("Just")));
+        // var("value") — index 2
+        let value = ast.push(AstNode::new("var").with_payload(json!("value")));
+        // var("Nat") — index 3
+        let nat = ast.push(AstNode::new("var").with_payload(json!("Nat")));
+        // type-annot(value, Nat) — index 4
+        let type_annot = ast.push(
+            AstNode::new("type-annot").with_payload(json!({ "children": [value, nat] })),
+        );
+        // call(Just, type-annot) — index 5
+        let call = ast.push(
+            AstNode::new("call").with_payload(json!({ "children": [just, type_annot] })),
+        );
+        // alt(Nothing, call) — index 6
+        let alt = ast.push(
+            AstNode::new("alt").with_payload(json!({ "children": [nothing, call] })),
+        );
+        // data(Maybe, alt) — index 7
+        ast.push(
+            AstNode::new("data").with_payload(json!({ "name": "Maybe", "children": [alt] })),
+        );
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+
+        // The Just constructor (statement 2) should have param "value".
+        let just_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(just_assign.kind, "assign");
+        let just_children = just_assign.payload.get("children").unwrap().as_array().unwrap();
+        let just_fn = out.get(AstRef::new(just_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(just_fn.kind, "function");
+        let params = just_fn.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params.len(), 1);
+        assert_eq!(
+            params[0], json!("value"),
+            "type-annot arg name should be 'value', not a placeholder"
+        );
     }
 }

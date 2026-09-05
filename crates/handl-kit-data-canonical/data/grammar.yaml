@@ -124,6 +124,19 @@
   child_shape:
     node_kind: choice
     arity: 2
+# `|` pipe — low-precedence infix for constructor alternatives in `data`
+# declarations (ADR-0082). Creates `alt` nodes: `Zero | Succ(Nat)` parses
+# as `alt(Zero, Succ(Nat))`. Binding power 1/2 is lower than every other
+# operator so `|` only appears at the top level of a constructor list.
+- id: grammar.pipe.infix
+  token: token.pipe
+  position: Infix
+  binding_power:
+    - 1
+    - 2
+  child_shape:
+    node_kind: alt
+    arity: 2
 - id: grammar.flow.infix
   token: token.flow
   position: Infix
@@ -368,6 +381,25 @@
   child_shape:
     node_kind: infer
     arity: 1
+# `data Name = <constructors>` — inductive type declaration (ADR-0082).
+# The `data` keyword is followed by the type name (identifier), `=`, and
+# one child expression: the constructor list. Constructors are separated
+# by `|` (pipe), which creates `alt` nodes. The desugar pass
+# (`desugar_data`) reads `payload.name` and walks the child `alt` tree to
+# extract constructors.
+- id: grammar.data.prefix
+  token: token.keyword.data
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: data
+    arity: 1
+    payload_tokens:
+    - token: token.identifier
+      field: name
+    - token: token.equal
 # `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.
 # namespace"). `type` is a keyword, but it is used as a namespace identifier
 # in type expressions (`type.number`, `type.bool`, `type.string`, ...). It is
