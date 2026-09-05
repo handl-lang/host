@@ -340,7 +340,8 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(5),
-            tree_walk_only: false,
+            // ADR-0079: `let` removed; cranelift does not support it.
+            tree_walk_only: true,
         },
         // 14. stmt.let + var: let x = 6 in x  (stmt.let uses the same Bind scheme as let)
         CorpusCase {
@@ -356,7 +357,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(6),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 15. If true: if (true) 1 else 2
         CorpusCase {
@@ -371,7 +372,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(1),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 16. If false: if (false) 1 else 2
         CorpusCase {
@@ -481,7 +482,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 23. Pipe: let f = (x ~> x + 1) in 5 | f
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
@@ -514,7 +515,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(6),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 24. Nested let + add: let x = 3 in let y = 4 in x + y
         CorpusCase {
@@ -541,7 +542,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 25. If with let in branch: if (true) (let x = 1 in x) else 0
         CorpusCase {
@@ -564,7 +565,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(1),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
         // 26. Greater-than-or-equal true: 2 >= 2
         CorpusCase {
@@ -996,7 +997,7 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(8),
-            tree_walk_only: false,
+            tree_walk_only: true,
         },
     ]
 }
