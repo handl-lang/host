@@ -1,91 +1,82 @@
---- dedent.dedent — strips common leading whitespace from all lines.
+--- dedent — strips common leading whitespace from multi-line strings.
 ---
---- Single source of truth for the `dedent` stdlib logic. The Rust bridge in
---- `plugin-lib-dedent` loads this file via `include_str!`, evaluates it to
---- obtain a record of procs, and applies the `dedent` field to the caller's
---- string argument.
+--- Find the minimum indentation across non-blank lines and remove it from every
+--- line, preserving relative indentation.
 ---
---- Algorithm (ported from the prior Rust `dedent` fn):
----   1. Trim leading/trailing newlines from `text` (str.trim_matches).
----   2. If empty after trim, return `""`.
----   3. Split into lines (str.lines splits on \n and \r\n, like Rust .lines()).
----   4. For each non-blank line, count leading whitespace (space or tab).
----   5. Find the minimum count (the common indent); 0 if no non-blank lines.
+--- # dedent.dedent
+---
+--- `dedent.dedent(text: String) -> String`
+---
+--- Strips common leading whitespace from all lines of `text`.
+---
+--- Algorithm:
+---   1. Normalize CRLF (`\r\n`) to LF (`\n`).
+---   2. Trim leading/trailing newlines.
+---   3. If empty after trim, return `""`.
+---   4. Split into lines.
+---   5. Find the minimum leading-whitespace count across non-blank lines.
 ---   6. Strip that many leading whitespace chars from each line.
----   7. Re-join with "\n".
+---   7. Re-join with `\n`.
 ---
---- Requires `StrModule` (from plugin-lib-utils) in the bridge runtime for
---- str.trim_matches, str.is_empty, str.lines, str.trim, str.length,
---- str.char_at, str.slice, str.join.
+--- Blank lines (whitespace-only) are ignored when computing the common
+--- indent. Both spaces and tabs count as leading whitespace.
 ---
---- Iteration uses the `while { state } { ... }` form (see stats.hnl). Lines
---- that are empty or contain only whitespace are ignored when computing the
---- common indentation. Tab and space characters are both counted as
---- whitespace.
+--- ## Examples
 ---
---- Contract: IsDedented(output) — output has no common leading whitespace
---- beyond the relative indentation of the input.
+--- ```hnl
+--- dedent.dedent("    Hello,\n    World!")
+--- -- => "Hello,\nWorld!"
+---
+--- dedent.dedent("    Hello,\n      World!")
+--- -- => "Hello,\n  World!"
+---
+--- dedent.dedent("  Hello,\r\n  World!")
+--- -- => "Hello,\nWorld!"
+--- ```
+---
+--- ## Contract
+---
+--- IsDedented(output) — output has no common leading whitespace beyond
+--- the relative indentation of the input.
+
+from 'str' import * as 'str'
+from 'fn' import * as 'fn'
+
 cap "dedent.dedent"
 {
   dedent: text ~> {
-    is_blank = line ~> { str.trim(line) == "" }
-    count_leading_ws = line ~> {
-      while { i: 0, n: str.length(line), line: line } {
-        [i, n, line] ~>
-        if i < n {
-          match str.char_at(line, i) {
-            " ": { state: { i: i + 1, n: n, line: line } },
-            "\t": { state: { i: i + 1, n: n, line: line } },
-            _: { out: i }
-          }
-        } else {
-          { out: i }
-        }
-      }
+    indent_of = line ~> str.length(line) - str.length(str.trim_start(line))
+    is_blank = line ~> str.trim(line) == ""
+    strip_indent = [line, n] ~>
+
+    if indent_of(line) >= n {
+      str.slice(line, n, str.length(line))
+    } else {
+      line
     }
-    strip_leading_ws = [line, n] ~> {
-      if count_leading_ws(line) >= n {
-        str.slice(line, n, str.length(line))
-      } else {
-        line
-      }
-    }
-    reverse = xs ~> {
-      while { xs: xs, acc: [] } {
-        [xs, acc] ~> match xs {
-          []: { out: acc },
-          [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
-        }
-      }
-    }
-    trimmed = str.trim_matches(text, "\n")
+
+    trimmed = str.trim_matches(str.replace(text, "\r\n", "\n"), "\n")
+
     if str.is_empty(trimmed) {
       ""
     } else {
       lines = str.lines(trimmed)
-      common_indent = while { lines: lines, min: 0, seen: false } {
+      common = while { lines: lines, min: 0, seen: false } {
         [lines, min, seen] ~> match lines {
           []: { out: min },
           [h, ...t]: if is_blank(h) {
             { state: { lines: t, min: min, seen: seen } }
           } else {
-            c = count_leading_ws(h)
-            if seen {
-              { state: { lines: t, min: if c < min { c } else { min }, seen: true } }
-            } else {
-              { state: { lines: t, min: c, seen: true } }
-            }
+            c = indent_of(h)
+            { state: {
+                lines: t,
+                min  : if seen { if c < min { c } else { min } } else { c },
+                seen : true
+              } }
           }
         }
       }
-      stripped_rev = while { lines: lines, indent: common_indent, acc: [] } {
-        [lines, indent, acc] ~> match lines {
-          []: { out: acc },
-          [h, ...t]: { state: { lines: t, indent: indent, acc: [strip_leading_ws(h, indent), ...acc] } }
-        }
-      }
-      stripped = reverse(stripped_rev)
-      str.join(stripped, "\n")
+      str.join(fn.map(line ~> strip_indent(line, common), lines), "\n")
     }
   }
 }
