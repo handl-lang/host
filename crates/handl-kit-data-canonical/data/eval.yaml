@@ -488,7 +488,7 @@
       args: []
       source: Native
       lit: 0
-    source: !Foreign export
+    source: Native
 - id: eval.stmt-import
   node_kind: stmt.import
   scheme: !Arr
@@ -499,7 +499,7 @@
       args: []
       source: Native
       lit: 0
-    source: !Foreign import
+    source: Native
 - id: eval.stmt-let
   node_kind: stmt.let
   scheme: !Seq

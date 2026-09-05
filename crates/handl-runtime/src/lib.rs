@@ -62,14 +62,15 @@ pub mod fp;
 pub mod runtime_assert_pass;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
@@ -627,6 +628,14 @@ pub struct Runtime {
     /// The optional module registry, retained for inspection and for
     /// `run_compiled` to pass to the artifact.
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// The optional import resolver for `import "path"` statements
+    /// (Phase 9.5). The runtime exposes this via its [`ImportResolver`]
+    /// impl (delegating here) and wires it into the eval engine at build
+    /// time via [`Runtime::from_registry_with_resolver`].
+    import_resolver: Option<Rc<dyn ImportResolver>>,
+    /// The base directory for resolving relative import paths (Phase 9.5).
+    /// `None` → resolve against the process current working directory.
+    module_root: Option<PathBuf>,
     /// The registry this runtime was built from (for `RuntimeFactory::build`
     /// to re-build sub-runtimes). `None` if built via the `with_*` builders.
     registry: Option<Rc<EngineRegistry>>,
@@ -666,6 +675,8 @@ impl Runtime {
             typecheck_engine: None,
             compile_engines: HashMap::new(),
             modules: None,
+            import_resolver: None,
+            module_root: None,
             registry: None,
             config: RuntimeConfig::default(),
         }
@@ -711,6 +722,34 @@ impl Runtime {
     pub fn with_modules(mut self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         self.modules = Some(modules);
         self
+    }
+
+    /// Attach an import resolver for `import "path"` statements (builder
+    /// style, Phase 9.5). Note: this stores the resolver but does **not**
+    /// rewire an already-attached eval engine. Use
+    /// [`Runtime::from_registry_with_resolver`] to wire the resolver into
+    /// the eval engine at build time.
+    pub fn with_import_resolver(mut self, resolver: Rc<dyn ImportResolver>) -> Self {
+        self.import_resolver = Some(resolver);
+        self
+    }
+
+    /// Set the base directory for resolving relative import paths (builder
+    /// style, Phase 9.5). `None` (the default) resolves against the process
+    /// current working directory.
+    pub fn with_module_root(mut self, root: PathBuf) -> Self {
+        self.module_root = Some(root);
+        self
+    }
+
+    /// The import resolver, if one was provided (Phase 9.5).
+    pub fn import_resolver(&self) -> Option<&Rc<dyn ImportResolver>> {
+        self.import_resolver.as_ref()
+    }
+
+    /// The configured module root for resolving relative imports (Phase 9.5).
+    pub fn module_root(&self) -> Option<&Path> {
+        self.module_root.as_deref()
     }
 
     /// The language definition bound to this runtime.
@@ -955,6 +994,32 @@ impl Runtime {
         modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
         globals: Option<&HashMap<String, Value>>,
     ) -> Result<Self, LangError> {
+        Self::from_registry_with_resolver(lang, registry, config, modules, globals, None, None)
+    }
+
+    /// Like [`from_registry_with_globals`] but also wires an
+    /// [`ImportResolver`] into the eval engine for `import "path"`
+    /// statements and records a `module_root` for relative path resolution
+    /// (Phase 9.5).
+    ///
+    /// The resolver is passed to the eval engine via
+    /// [`EvalEngine::with_import_resolver`] (engines that support imports
+    /// override it; others ignore it). The runtime also stores the resolver
+    /// so its own [`ImportResolver`] impl can delegate to it, and stores
+    /// `module_root` for path resolution.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::Engine`] for any unknown engine name.
+    pub fn from_registry_with_resolver(
+        lang: Language,
+        registry: &Rc<EngineRegistry>,
+        config: &RuntimeConfig,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+        globals: Option<&HashMap<String, Value>>,
+        import_resolver: Option<Rc<dyn ImportResolver>>,
+        module_root: Option<PathBuf>,
+    ) -> Result<Self, LangError> {
         // Resolve lex engine (clone out of the registry).
         let lex_engine: Option<Box<dyn LexerEngine>> = if config.lex.is_empty() {
             None
@@ -983,7 +1048,8 @@ impl Runtime {
             )
         };
 
-        // Resolve eval engine (clone + wire modules/globals via trait methods).
+        // Resolve eval engine (clone + wire modules/globals/resolver via
+        // trait methods).
         let eval_engine: Option<Box<dyn EvalEngine>> = if config.eval.is_empty() {
             None
         } else {
@@ -998,6 +1064,9 @@ impl Runtime {
                 for (name, val) in globals {
                     engine = engine.with_global(name, val.clone());
                 }
+            }
+            if let Some(resolver) = &import_resolver {
+                engine = engine.with_import_resolver(Rc::clone(resolver));
             }
             Some(engine)
         };
@@ -1034,6 +1103,8 @@ impl Runtime {
             typecheck_engine,
             compile_engines,
             modules,
+            import_resolver,
+            module_root,
             registry: Some(Rc::clone(registry)),
             config: config.clone(),
         })
@@ -1062,12 +1133,14 @@ impl RuntimeFactory for Runtime {
         let self_val = handl_language::language_value(&lang);
         let mut globals = HashMap::new();
         globals.insert("self".to_string(), self_val);
-        let rt = Self::from_registry_with_globals(
+        let rt = Self::from_registry_with_resolver(
             lang,
             registry,
             &self.config,
             modules,
             Some(&globals),
+            self.import_resolver.clone(),
+            self.module_root.clone(),
         )?;
         Ok(Box::new(rt))
     }
@@ -1097,6 +1170,236 @@ impl RuntimeHandle for Runtime {
     fn run_compiled(&self, handle: &CompiledHandle) -> Result<Value, LangError> {
         Runtime::run_compiled(self, handle)
     }
+}
+
+// ---------------------------------------------------------------------------
+// ImportResolver — Runtime delegation + ModuleLoader (Phase 9.5)
+// ---------------------------------------------------------------------------
+
+impl ImportResolver for Runtime {
+    fn resolve_import(&self, path: &str) -> Result<Value, LangError> {
+        // The runtime delegates to its configured import resolver (a
+        // shared `ModuleLoader`). This keeps the runtime's own engines
+        // free of self-reference: the loader owns independent engine clones
+        // and a shared module cache, so loading a module never re-enters the
+        // runtime's eval engine directly. If no resolver is configured,
+        // imports are unsupported.
+        let resolver = self.import_resolver.as_ref().ok_or_else(|| {
+            LangError::engine("import: no import resolver configured for this runtime")
+        })?;
+        resolver.resolve_import(path)
+    }
+}
+
+/// A self-contained module loader for `import "path"` statements
+/// (Phase 9.5).
+///
+/// A `ModuleLoader` owns independent clones of the lex/parse/eval engines
+/// (so evaluating an imported module never re-enters the importer's eval
+/// engine), a shared module cache keyed by canonical path, a "currently
+/// loading" set for cycle detection, and a `module_root` for resolving
+/// relative paths. It implements [`ImportResolver`]; the runtime delegates
+/// to it.
+///
+/// # Construction (two-phase)
+///
+/// The loader's eval engine needs the loader itself as its import resolver
+/// (so nested `import` statements inside a module resolve through the same
+/// cache/cycle-detector). Because the engine holds an `Rc` clone of the
+/// loader, the engine cannot be set at construction time (the `Rc` would
+/// prevent `Rc::get_mut`). Instead, construct via [`ModuleLoader::new`]
+/// (engine unset), build the eval engine with
+/// `TreeWalkEngine::with_import_resolver(Rc::clone(&loader))`, then call
+/// [`ModuleLoader::set_eval_engine`] (which requires a unique `Rc` — call
+/// before sharing the loader).
+pub struct ModuleLoader {
+    /// The language bound to this loader (shared with the runtime).
+    lang: Rc<Language>,
+    /// The lex engine clone for module source lexing.
+    lex_engine: Box<dyn LexerEngine>,
+    /// The parse engine clone for module source parsing.
+    parse_engine: Box<dyn ParseEngineDyn>,
+    /// The eval engine for module evaluation. Stored in an `Rc` so it can
+    /// be cheaply cloned out per `load_module` call (the eval engine is
+    /// re-entrant: an imported module may itself import, re-entering
+    /// `load_module` → `eval`). A `RefCell<Option<...>>` allows late
+    /// binding via [`ModuleLoader::set_eval_engine`].
+    eval_engine: RefCell<Option<Rc<dyn EvalEngine>>>,
+    /// The base directory for resolving relative import paths.
+    module_root: Option<PathBuf>,
+    /// Cache of evaluated module bindings, keyed by canonical path.
+    cache: RefCell<HashMap<String, Value>>,
+    /// Paths currently being loaded (cycle detection).
+    loading: RefCell<HashSet<String>>,
+}
+
+impl ModuleLoader {
+    /// Create a new module loader with the given engines and module root.
+    /// The eval engine is unset; call [`ModuleLoader::set_eval_engine`]
+    /// before using the loader (with a `TreeWalkEngine` wired with
+    /// `Rc::clone(&loader) as Rc<dyn ImportResolver>` as its import
+    /// resolver).
+    pub fn new(
+        lang: Rc<Language>,
+        lex_engine: Box<dyn LexerEngine>,
+        parse_engine: Box<dyn ParseEngineDyn>,
+        module_root: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            lang,
+            lex_engine,
+            parse_engine,
+            eval_engine: RefCell::new(None),
+            module_root,
+            cache: RefCell::new(HashMap::new()),
+            loading: RefCell::new(HashSet::new()),
+        }
+    }
+
+    /// Late-bind the eval engine (two-phase construction). Requires a
+    /// unique `Rc` (call before sharing the loader). The engine should be
+    /// a `TreeWalkEngine` wired with `Rc::clone(&loader)` as its import
+    /// resolver so nested imports resolve through this loader.
+    pub fn set_eval_engine(self: &Rc<Self>, engine: Box<dyn EvalEngine>) {
+        debug_assert!(
+            self.eval_engine.borrow().is_none(),
+            "ModuleLoader::set_eval_engine called twice"
+        );
+        *self.eval_engine.borrow_mut() = Some(Rc::from(engine));
+    }
+
+    /// Resolve a (possibly relative) import path to a canonical absolute
+    /// path string, used as the cache key.
+    fn resolve_path(&self, path: &str) -> Result<String, LangError> {
+        let base = self
+            .module_root
+            .as_deref()
+            .map(Path::to_path_buf)
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("."));
+        let joined = base.join(path);
+        // `canonicalize` fails if the file does not exist; in that case use
+        // the joined path so the subsequent read error is clear.
+        let resolved = std::fs::canonicalize(&joined)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| joined.to_string_lossy().into_owned());
+        Ok(resolved)
+    }
+
+    /// Load (or return cached) module bindings for `path`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if the file is missing/unreadable, lex/parse/
+    /// eval fails, or a circular import is detected.
+    pub fn load_module(&self, path: &str) -> Result<Value, LangError> {
+        let resolved = self.resolve_path(path)?;
+
+        // Cache hit — return the previously evaluated bindings.
+        if let Some(cached) = self.cache.borrow().get(&resolved).cloned() {
+            return Ok(cached);
+        }
+        // Cycle detection: if this path is already on the active loading
+        // stack, we have a circular import.
+        if self.loading.borrow().contains(&resolved) {
+            return Err(LangError::engine(format!(
+                "circular import detected: {}",
+                path
+            )));
+        }
+        self.loading.borrow_mut().insert(resolved.clone());
+
+        // Read the module source.
+        let src = std::fs::read_to_string(&resolved).map_err(|e| {
+            LangError::engine(format!("import \"{}\": cannot read module: {}", path, e))
+        })?;
+        let source = Source::new(&src);
+        let toks = {
+            let req = LexerRequest::new(source);
+            self.lex_engine.lex(&self.lang, &req)?
+        };
+        let ast = {
+            let req = ParserRequest::new(toks);
+            self.parse_engine.parse_dyn(&self.lang, &req)?
+        };
+        // Apply the same desugar pass the runtime applies at parse time
+        // (ADR-0082), so imported modules see the same AST shape.
+        let ast = desugar_pass::apply_desugar(&self.lang, &ast);
+
+        // Evaluate the module. Clone the eval engine out of the RefCell
+        // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
+        // imports) can independently borrow the cell without panic.
+        let value = {
+            let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
+                LangError::engine("import: module loader has no eval engine configured")
+            })?;
+            let req = EvalRequest::new(ast.clone());
+            engine_rc.eval(&self.lang, &req)?
+        };
+
+        // Collect the module's top-level bindings into a Value::Object.
+        let bindings = collect_module_bindings(&ast, value);
+
+        // Remove from the loading set and cache the result.
+        self.loading.borrow_mut().remove(&resolved);
+        self.cache.borrow_mut().insert(resolved, bindings.clone());
+        Ok(bindings)
+    }
+}
+
+impl ImportResolver for ModuleLoader {
+    fn resolve_import(&self, path: &str) -> Result<Value, LangError> {
+        self.load_module(path)
+    }
+}
+
+/// Collect a module's top-level bindings into a [`Value::Object`].
+///
+/// The Pratt parser currently parses one top-level statement per `parse`
+/// call, so a module AST has a single root node. This extracts the binding
+/// introduced by that statement:
+///
+/// - `assign { children: [var, value] }` (`x = 42`) → `{ "x": <evaluated> }`.
+/// - `let { name, ... }` → `{ <name>: <evaluated> }` (if the payload carries
+///   a `name` field).
+/// - Any other root → `{}` (no exported bindings; the module is evaluated
+///   for effect only).
+///
+/// The value is the result of evaluating the whole module AST (the root),
+/// which for an `assign` is its right-hand side.
+fn collect_module_bindings(ast: &Ast, value: Value) -> Value {
+    use serde_json::Map;
+    if ast.is_empty() {
+        return Value::Object(Map::new());
+    }
+    let root_idx = ast.len() - 1;
+    let root = match ast.at(AstRef::new(root_idx)) {
+        Ok(n) => n,
+        Err(_) => return Value::Object(Map::new()),
+    };
+    // `assign { children: [var_idx, value_idx] }` — read the var name.
+    if root.kind == "assign" {
+        if let Some(children) = root.payload.get("children").and_then(|c| c.as_array()) {
+            if let Some(var_idx) = children.first().and_then(|v| v.as_u64()) {
+                if let Ok(var_node) = ast.at(AstRef::new(var_idx as usize)) {
+                    if let Some(name) = var_node.payload.as_str() {
+                        let mut map = Map::new();
+                        map.insert(name.to_string(), value);
+                        return Value::Object(map);
+                    }
+                }
+            }
+        }
+    }
+    // `let { name }` — read the name from the payload (rich AST shape).
+    if root.kind == "let" {
+        if let Some(name) = root.payload.get("name").and_then(|v| v.as_str()) {
+            let mut map = Map::new();
+            map.insert(name.to_string(), value);
+            return Value::Object(map);
+        }
+    }
+    Value::Object(Map::new())
 }
 
 #[cfg(test)]
