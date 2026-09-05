@@ -5,15 +5,49 @@
 //! - `gzip.compress(string)` — base64-encoded gzipped bytes
 //! - `gzip.decompress(base64_string)` — original string, or base64 if not UTF-8
 
+use std::sync::{Arc, OnceLock};
+
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_compress::{Compressor, Decompressor};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value as JsonValue;
 
 use crate::Gzip;
 
+/// The handl source declaring the gzip `op` interface — the single source
+/// of truth for the gzip API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const COMPRESS_GZIP_HNL: &str =
+    include_str!("../../../handl-packages/compress_gzip/compress_gzip.hnl");
+
+/// The op names declared in `compress_gzip.hnl`.
+const COMPRESS_GZIP_OPS: &[&str] = &["gzip.compress", "gzip.decompress"];
+
+/// Build the [`HandlModule`] for gzip.
+///
+/// Both functions are op-backed (FFI atoms). No pure-logic arrows are
+/// used (`func_names` is empty); the [`HandlModule`] dispatches every
+/// function lookup to the [`OpRegistry`] via [`OpFunction`].
+fn build_gzip_module() -> HandlModule {
+    let registry = Arc::new(crate::compress_gzip_op_registry());
+    HandlModule::new("gzip", COMPRESS_GZIP_HNL, &[]).with_ops(COMPRESS_GZIP_OPS, registry)
+}
+
+/// A thread-safe lazy-initialized [`HandlModule`] for gzip.
+static GZIP_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for gzip, initializing it on first call.
+fn gzip_module() -> &'static HandlModule {
+    GZIP_MODULE.get_or_init(build_gzip_module)
+}
+
 /// The `gzip` module.
+///
+/// The interface is declared in `compress_gzip.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// only delegates [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct GzipModule;
 
@@ -23,11 +57,11 @@ impl Module for GzipModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "compress" => Some(&Compress),
-            "decompress" => Some(&Decompress),
-            _ => None,
-        }
+        gzip_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        gzip_module().functions()
     }
 }
 

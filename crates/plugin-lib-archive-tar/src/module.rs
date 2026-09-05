@@ -7,15 +7,48 @@
 //! - `tar.unpack(string)` — unpacks a base64 tar archive string into
 //!   an array of `{path, contents}` objects where `contents` is base64.
 
+use std::sync::{Arc, OnceLock};
+
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_archive::{Archive, ArchiveEntry};
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value as JsonValue;
 
 use crate::TarArchive;
 
+/// The handl source declaring the tar `op` interface — the single source
+/// of truth for the tar API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const ARCHIVE_TAR_HNL: &str = include_str!("../../../handl-packages/archive_tar/archive_tar.hnl");
+
+/// The op names declared in `archive_tar.hnl`.
+const ARCHIVE_TAR_OPS: &[&str] = &["tar.pack", "tar.unpack"];
+
+/// Build the [`HandlModule`] for tar.
+///
+/// Both functions are op-backed (FFI atoms). No pure-logic arrows are
+/// used (`func_names` is empty); the [`HandlModule`] dispatches every
+/// function lookup to the [`OpRegistry`] via [`OpFunction`].
+fn build_tar_module() -> HandlModule {
+    let registry = Arc::new(crate::archive_tar_op_registry());
+    HandlModule::new("tar", ARCHIVE_TAR_HNL, &[]).with_ops(ARCHIVE_TAR_OPS, registry)
+}
+
+/// A thread-safe lazy-initialized [`HandlModule`] for tar.
+static TAR_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for tar, initializing it on first call.
+fn tar_module() -> &'static HandlModule {
+    TAR_MODULE.get_or_init(build_tar_module)
+}
+
 /// The `tar` module — tar archive pack/unpack for handl expressions.
+///
+/// The interface is declared in `archive_tar.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// only delegates [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct TarModule;
 
@@ -25,11 +58,11 @@ impl Module for TarModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "pack" => Some(&TarPack),
-            "unpack" => Some(&TarUnpack),
-            _ => None,
-        }
+        tar_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        tar_module().functions()
     }
 }
 
