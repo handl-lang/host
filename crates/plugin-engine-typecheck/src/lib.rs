@@ -123,6 +123,12 @@ pub trait TypecheckEngine {
     ) -> Box<dyn TypecheckEngine> {
         self.box_clone()
     }
+
+    /// Produce a fresh owned engine with an additional global binding.
+    /// Default: clone + ignore. ADR-0047 §2.
+    fn with_global(&self, _name: &str, _val: Value) -> Box<dyn TypecheckEngine> {
+        self.box_clone()
+    }
 }
 
 // ---------------------------------------------------------------------------
