@@ -2000,6 +2000,91 @@ impl TreeWalkEngine {
                     ))
                 }
             }
+            "runtime_assert" => {
+                // ADR-0068 graduated guarantees: runtime backstop for
+                // predicate annotations the typechecker could not normalize
+                // statically (`Verdict::Blocked`). The `runtime-assert` node
+                // has two children — `predicate` (a closure that takes the
+                // expr's value and returns bool) and `expr` (the expression
+                // to check). The op evaluates the predicate, evaluates the
+                // expr, applies the predicate to the expr value, and either
+                // returns the value (pass-through) or raises a `LangError`.
+                //
+                // Child positions are resolved by named role
+                // (`lang.child_role_index`), falling back to positional
+                // [0, 1] when the shape declares no roles (engine-genericity
+                // rule, ADR-0081).
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "runtime_assert: expected children array in payload".to_string(),
+                            current_node,
+                        )
+                    })?;
+                let pred_idx = role_index_of(lang, "runtime-assert", "predicate")
+                    .unwrap_or(0);
+                let expr_idx = role_index_of(lang, "runtime-assert", "expr")
+                    .unwrap_or(1);
+                let pred_arena = children
+                    .get(pred_idx)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            format!(
+                                "runtime_assert: predicate child {} not found",
+                                pred_idx
+                            ),
+                            current_node,
+                        )
+                    })? as usize;
+                let expr_arena = children
+                    .get(expr_idx)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            format!(
+                                "runtime_assert: expr child {} not found",
+                                expr_idx
+                            ),
+                            current_node,
+                        )
+                    })? as usize;
+                // 1. Evaluate the predicate child → closure.
+                let pred_val =
+                    self.eval_node_inner(ast, AstRef::new(pred_arena), lang, env)?;
+                // 2. Evaluate the expr child → value.
+                let expr_val =
+                    self.eval_node_inner(ast, AstRef::new(expr_arena), lang, env)?;
+                // 3. If the predicate is not a closure (e.g. a plain type
+                //    tag from a non-predicate annotation that was wrapped
+                //    by the over-eager lowering pass), pass through without
+                //    checking — the typechecker already accepted it
+                //    statically.
+                if !matches!(pred_val, TaggedValue::Arrow { .. }) {
+                    return Ok((expr_val, false));
+                }
+                // 4. Apply the closure to the value → bool.
+                let check_result = self.apply_app(
+                    &pred_val,
+                    &[expr_val.clone()],
+                    ast,
+                    lang,
+                    env,
+                )?;
+                // 5. If true → return the value (pass-through).
+                //    If false → raise LangError.
+                if is_truthy(&check_result) {
+                    Ok((expr_val, false))
+                } else {
+                    Err(LangError::engine_node(
+                        "runtime_assert: assertion failed — predicate returned false".to_string(),
+                        current_node,
+                    ))
+                }
+            }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
                 current_node,
@@ -5913,5 +5998,110 @@ mod tests {
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(1));
+    }
+
+    // --- runtime_assert native op (ADR-0068) -----------------------------
+
+    /// Helper: build a language with the node kinds needed for
+    /// runtime-assert tests (function, var, binary.gt, lit, runtime-assert).
+    fn runtime_assert_lang() -> Language {
+        let mut lang = Language::new();
+        // "function" → closure creation.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.fn",
+                "function",
+                prim("closure", vec![]),
+            ))
+            .unwrap();
+        // "var" → variable lookup.
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
+            .unwrap();
+        // "binary.gt" → greater-than comparison.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.gt",
+                "binary.gt",
+                prim("gt", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        // "lit" has no scheme → returns payload (used for literal values).
+        // "runtime-assert" → runtime_assert native op.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.ra",
+                "runtime-assert",
+                prim("runtime_assert", vec![]),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn runtime_assert_node_eval_passing_predicate() {
+        // Construct: runtime-assert { [predicate, expr] }
+        // predicate = (n) -> n > 0, expr = 5
+        // The assert should pass and return 5.
+        let engine = TreeWalkEngine::new();
+        let lang = runtime_assert_lang();
+        // 0: var("n") — used in the predicate body
+        // 1: lit(0) — the 0 in n > 0
+        // 2: binary.gt {children: [0, 1]} — body: n > 0
+        // 3: function {params: ["n"], body: 2} — the predicate closure
+        // 4: lit(5) — the expr value
+        // 5: runtime-assert {children: [3, 4]} — assert(predicate, expr)
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("n")),
+            AstNode::new("lit").with_payload(json!(0)),
+            AstNode::new("binary.gt").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("function").with_payload(json!({"params": ["n"], "body": 2})),
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("runtime-assert").with_payload(json!({"children": [3, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn runtime_assert_node_eval_failing_predicate() {
+        // Construct: runtime-assert { [predicate, expr] }
+        // predicate = (n) -> n > 0, expr = -1
+        // The assert should fail with a LangError.
+        let engine = TreeWalkEngine::new();
+        let lang = runtime_assert_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("n")),
+            AstNode::new("lit").with_payload(json!(0)),
+            AstNode::new("binary.gt").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("function").with_payload(json!({"params": ["n"], "body": 2})),
+            AstNode::new("lit").with_payload(json!(-1)),
+            AstNode::new("runtime-assert").with_payload(json!({"children": [3, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(
+            matches!(err, LangError::Engine { ref message, .. } if message.contains("assertion failed"))
+        );
+    }
+
+    #[test]
+    fn runtime_assert_node_eval_non_closure_predicate_passes_through() {
+        // When the predicate is not a closure (e.g. a plain type tag),
+        // the assert should pass through the expr value unchanged.
+        let engine = TreeWalkEngine::new();
+        let lang = runtime_assert_lang();
+        // 0: lit("type.number") — a non-closure predicate
+        // 1: lit(42) — the expr value
+        // 2: runtime-assert {children: [0, 1]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("type.number")),
+            AstNode::new("lit").with_payload(json!(42)),
+            AstNode::new("runtime-assert").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(42));
     }
 }
