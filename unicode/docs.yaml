@@ -1,4 +1,4 @@
 category:
-  slug: unicode
+  slug: lib-unicode
   title: Unicode
-  description: Unicode identifier and decode utilities.
+  description: Higher-level Unicode contract (axioms and laws) — grapheme clusters, normalization, case folding, display width over the char floor.
