@@ -31,7 +31,7 @@ functions:
     signature: "fn.choice(...fns: Function[])"
   compose:
     description: Return the result of the `compose` function on `fn`.
-    details: "Calls `fn.compose(...fns: Function[])` with the given arguments and
+    details: "Calls `combinators.compose(...fns: Function[])` with the given arguments and
       returns a `Function` result."
     examples: []
     params:
@@ -40,7 +40,7 @@ functions:
         description: the `fns` Function... value
     return_value: Function
     see: []
-    signature: "fn.compose(...fns: Function[])"
+    signature: "combinators.compose(...fns: Function[])"
   constantly:
     description: Return the result of the `constantly` function on `fn`.
     details: "Calls `fn.constantly(...fns: Function[])` with the given arguments and
@@ -139,7 +139,7 @@ functions:
     signature: "fn.partial(...fns: Function[])"
   pipe:
     description: Return the result of the `pipe` function on `fn`.
-    details: "Calls `fn.pipe(...fns: Function[])` with the given arguments and returns
+    details: "Calls `combinators.pipe(...fns: Function[])` with the given arguments and returns
       a `Function` result."
     examples: []
     params:
@@ -148,7 +148,7 @@ functions:
         description: the `fns` Function... value
     return_value: Function
     see: []
-    signature: "fn.pipe(...fns: Function[])"
+    signature: "combinators.pipe(...fns: Function[])"
   tap:
     description: Return the result of the `tap` function on `fn`.
     details: "Calls `fn.tap(...fns: Function[])` with the given arguments and returns
@@ -187,7 +187,7 @@ functions:
     signature: "fn.when(...fns: Function[])"
   map:
     description: Return the result of the `map` function on `fn`.
-    details: "Calls `fn.map(f: Function, xs: Array)` with the given arguments and
+    details: "Calls `combinators.map(f: Function, xs: Array)` with the given arguments and
       returns a `Array` result."
     examples: []
     params:
@@ -199,10 +199,10 @@ functions:
         description: the `xs` Array value
     return_value: Array
     see: []
-    signature: "fn.map(f: Function, xs: Array)"
+    signature: "combinators.map(f: Function, xs: Array)"
   filter:
     description: Return the result of the `filter` function on `fn`.
-    details: "Calls `fn.filter(f: Function, xs: Array)` with the given arguments and
+    details: "Calls `combinators.filter(f: Function, xs: Array)` with the given arguments and
       returns a `Array` result."
     examples: []
     params:
@@ -214,10 +214,10 @@ functions:
         description: the `xs` Array value
     return_value: Array
     see: []
-    signature: "fn.filter(f: Function, xs: Array)"
+    signature: "combinators.filter(f: Function, xs: Array)"
   reduce:
     description: Return the result of the `reduce` function on `fn`.
-    details: "Calls `fn.reduce(f: Function, xs: Array, init: type.any)` with the given
+    details: "Calls `combinators.reduce(f: Function, xs: Array, init: type.any)` with the given
       arguments and returns a `type.any` result."
     examples: []
     params:
@@ -232,4 +232,4 @@ functions:
         description: the `init` type.any value
     return_value: type.any
     see: []
-    signature: "fn.reduce(f: Function, xs: Array, init: type.any)"
+    signature: "combinators.reduce(f: Function, xs: Array, init: type.any)"

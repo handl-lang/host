@@ -40,103 +40,103 @@
 --- fn.when — apply a transform when a predicate holds, otherwise return the value unchanged.
 --- fn.unless — apply a transform unless a predicate holds, otherwise return the value unchanged.
 --- fn.converge — apply branches to a value, then combine the results with a combiner.
-cap "fn.pipe"
-cap "fn.flow"
-cap "fn.compose"
-cap "fn.fanout"
-cap "fn.fanout_fn"
-cap "fn.choice"
-cap "fn.apply"
-cap "fn.map"
-cap "fn.filter"
-cap "fn.reduce"
-cap "fn.flat_map"
-cap "fn.find"
-cap "fn.some"
-cap "fn.every"
-cap "fn.group_by"
-cap "fn.partition"
-cap "fn.count_by"
-cap "fn.tap"
-cap "fn.match"
-cap "fn.constantly"
-cap "fn.flip"
-cap "fn.partial"
-cap "fn.when"
-cap "fn.unless"
-cap "fn.converge"
-op "fn.pipe" : (Value * Value) -> Value
+cap "combinators.pipe"
+cap "combinators.flow"
+cap "combinators.compose"
+cap "combinators.fanout"
+cap "combinators.fanout_fn"
+cap "combinators.choice"
+cap "combinators.apply"
+cap "combinators.map"
+cap "combinators.filter"
+cap "combinators.reduce"
+cap "combinators.flat_map"
+cap "combinators.find"
+cap "combinators.some"
+cap "combinators.every"
+cap "combinators.group_by"
+cap "combinators.partition"
+cap "combinators.count_by"
+cap "combinators.tap"
+cap "combinators.match"
+cap "combinators.constantly"
+cap "combinators.flip"
+cap "combinators.partial"
+cap "combinators.when"
+cap "combinators.unless"
+cap "combinators.converge"
+op "combinators.pipe" : (Value * Value) -> Value
   guarantee: True
-op "fn.flow" : Value -> Value
+op "combinators.flow" : Value -> Value
   guarantee: True
-op "fn.compose" : Value -> Value
+op "combinators.compose" : Value -> Value
   guarantee: True
-op "fn.fanout" : (Value * Value) -> Value
+op "combinators.fanout" : (Value * Value) -> Value
   guarantee: True
-op "fn.fanout_fn" : Value -> Value
+op "combinators.fanout_fn" : Value -> Value
   guarantee: True
-op "fn.choice" : (Value * Value * Value * Value) -> Value
+op "combinators.choice" : (Value * Value * Value * Value) -> Value
   guarantee: True
-op "fn.apply" : (Value * Value) -> Value
+op "combinators.apply" : (Value * Value) -> Value
   guarantee: True
-op "fn.map" : (Value * Value) -> Value
+op "combinators.map" : (Value * Value) -> Value
   guarantee: True
-op "fn.filter" : (Value * Value) -> Value
+op "combinators.filter" : (Value * Value) -> Value
   guarantee: True
-op "fn.reduce" : (Value * Value * Value) -> Value
+op "combinators.reduce" : (Value * Value * Value) -> Value
   guarantee: True
-op "fn.flat_map" : (Value * Value) -> Value
+op "combinators.flat_map" : (Value * Value) -> Value
   guarantee: True
-op "fn.find" : (Value * Value) -> Value
+op "combinators.find" : (Value * Value) -> Value
   guarantee: True
-op "fn.some" : (Value * Value) -> Value
+op "combinators.some" : (Value * Value) -> Value
   guarantee: True
-op "fn.every" : (Value * Value) -> Value
+op "combinators.every" : (Value * Value) -> Value
   guarantee: True
-op "fn.group_by" : (Value * Value) -> Value
+op "combinators.group_by" : (Value * Value) -> Value
   guarantee: True
-op "fn.partition" : (Value * Value) -> Value
+op "combinators.partition" : (Value * Value) -> Value
   guarantee: True
-op "fn.count_by" : (Value * Value) -> Value
+op "combinators.count_by" : (Value * Value) -> Value
   guarantee: True
-op "fn.tap" : (Value * Value) -> Value
+op "combinators.tap" : (Value * Value) -> Value
   guarantee: True
-op "fn.match" : (Value * Value) -> Value
+op "combinators.match" : (Value * Value) -> Value
   guarantee: True
-op "fn.constantly" : Value -> Value
+op "combinators.constantly" : Value -> Value
   guarantee: True
-op "fn.flip" : Value -> Value
+op "combinators.flip" : Value -> Value
   guarantee: True
-op "fn.partial" : (Value * Value) -> Value
+op "combinators.partial" : (Value * Value) -> Value
   guarantee: True
-op "fn.when" : (Value * Value * Value) -> Value
+op "combinators.when" : (Value * Value * Value) -> Value
   guarantee: True
-op "fn.unless" : (Value * Value * Value) -> Value
+op "combinators.unless" : (Value * Value * Value) -> Value
   guarantee: True
-op "fn.converge" : (Value * Value * Value) -> Value
+op "combinators.converge" : (Value * Value * Value) -> Value
   guarantee: True
-handl "fn.pipe" = rust_fn_pipe
-handl "fn.flow" = rust_fn_flow
-handl "fn.compose" = rust_fn_compose
-handl "fn.fanout" = rust_fn_fanout
-handl "fn.fanout_fn" = rust_fn_fanout_fn
-handl "fn.choice" = rust_fn_choice
-handl "fn.apply" = rust_fn_apply
-handl "fn.map" = rust_fn_map
-handl "fn.filter" = rust_fn_filter
-handl "fn.reduce" = rust_fn_reduce
-handl "fn.flat_map" = rust_fn_flat_map
-handl "fn.find" = rust_fn_find
-handl "fn.some" = rust_fn_some
-handl "fn.every" = rust_fn_every
-handl "fn.group_by" = rust_fn_group_by
-handl "fn.partition" = rust_fn_partition
-handl "fn.count_by" = rust_fn_count_by
-handl "fn.tap" = rust_fn_tap
-handl "fn.match" = rust_fn_match
-handl "fn.constantly" = rust_fn_constantly
-handl "fn.flip" = rust_fn_flip
-handl "fn.partial" = rust_fn_partial
-handl "fn.when" = rust_fn_when
-handl "fn.unless" = rust_fn_unless
-handl "fn.converge" = rust_fn_converge
+handl "combinators.pipe" = rust_fn_pipe
+handl "combinators.flow" = rust_fn_flow
+handl "combinators.compose" = rust_fn_compose
+handl "combinators.fanout" = rust_fn_fanout
+handl "combinators.fanout_fn" = rust_fn_fanout_fn
+handl "combinators.choice" = rust_fn_choice
+handl "combinators.apply" = rust_fn_apply
+handl "combinators.map" = rust_fn_map
+handl "combinators.filter" = rust_fn_filter
+handl "combinators.reduce" = rust_fn_reduce
+handl "combinators.flat_map" = rust_fn_flat_map
+handl "combinators.find" = rust_fn_find
+handl "combinators.some" = rust_fn_some
+handl "combinators.every" = rust_fn_every
+handl "combinators.group_by" = rust_fn_group_by
+handl "combinators.partition" = rust_fn_partition
+handl "combinators.count_by" = rust_fn_count_by
+handl "combinators.tap" = rust_fn_tap
+handl "combinators.match" = rust_fn_match
+handl "combinators.constantly" = rust_fn_constantly
+handl "combinators.flip" = rust_fn_flip
+handl "combinators.partial" = rust_fn_partial
+handl "combinators.when" = rust_fn_when
+handl "combinators.unless" = rust_fn_unless
+handl "combinators.converge" = rust_fn_converge
