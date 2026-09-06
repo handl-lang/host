@@ -3,8 +3,8 @@
 //! interpreted by the v2 tree-walk engine.
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
-use handl_plugin_engine_eval_tree_walk::ScopeStack;
-use handl_plugin_engine_eval_tree_walk::v2::V2Interpreter;
+use handl_plugin_engine_exec_tree_walk::ScopeStack;
+use handl_plugin_engine_exec_tree_walk::v2::V2Interpreter;
 use handl_plugin_lib_stdlib::arrow_iter::{fix_loop, for_loop, while_loop};
 use serde_json::json;
 
