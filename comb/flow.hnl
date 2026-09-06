@@ -1,4 +1,20 @@
---- Compose a list of functions left-to-right, returning an arrow
+--- Composes a list of functions left-to-right, returning a single arrow.
+---
+--- @details
+--- `flow` takes a list `fs` and returns an arrow equivalent to
+--- `x ~> fn(...f2(f1(x)))` — functions run in list order, reading like
+--- a pipeline. For mathematical right-to-left ordering use
+--- `comb.compose`; to feed an initial value in directly use `comb.pipe`.
+---
+--- An empty list yields the identity arrow.
+---
+--- @example
+--- `inc :: x ~> x + 1`
+--- `dbl :: x ~> x * 2`
+--- `f :: [inc, dbl] >>> comb.flow`
+--- `3 >>> f`
+--- -- => 8
+---
 export flow :: fs ~> x ~> while { xs: fs, acc: x } {
   [xs, acc] ~> match xs {
     []: { out: acc },

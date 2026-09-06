@@ -1,2 +1,17 @@
---- Apply a transform unless a predicate holds
-export unless :: [value, pred, fn] ~> if pred(value) { value } else { fn(value) }
+--- Applies a transform to a value unless a predicate holds for it.
+---
+--- @details
+--- `unless` takes `[value, pred, fn]`. If `pred(value)` is truthy the
+--- value passes through untouched; otherwise `fn(value)` is returned.
+--- Mirror of `comb.when`; for a two-sided branch use `comb.choice`.
+---
+--- @example
+--- `[4, x ~> x % 2 == 0, x ~> x * 10] >>> comb.unless`
+--- -- => 4
+---
+export unless :: [value, pred, fn] ~> {
+  if pred(value) {
+    value
+  }
+  fn(value)
+}

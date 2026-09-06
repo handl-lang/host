@@ -1,2 +1,13 @@
---- Call a function with an array of arguments
+--- Calls a function with an array of arguments.
+---
+--- @details
+--- `apply` takes a pair `[f, args]` and invokes `f` with `args` as its
+--- argument list. It is the arrow-level counterpart of a spread call:
+--- useful when the argument list is computed or stored in a variable
+--- rather than written literally at the call site.
+---
+--- @example
+--- `[[x, y] ~> x + y, [1, 2]] >>> comb.apply`
+--- -- => 3
+---
 export apply :: [f, args] ~> f(args)

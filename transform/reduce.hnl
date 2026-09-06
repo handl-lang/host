@@ -1,4 +1,19 @@
---- Left fold over a list
+--- Folds a list from the left with an initial accumulator.
+---
+--- @details
+--- `reduce` takes `[xs, init, f]` and computes
+--- `f(...f(f(init, x1), x2)..., xn)`. Because `init` is always
+--- supplied, an empty `xs` returns `init` — there is no
+--- "empty fold" error case.
+---
+--- @example
+--- `[[1, 2, 3], 0, [acc, x] ~> acc + x] >>> transform.reduce`
+--- -- => 6
+---
+--- @example
+--- `[[], "seed", [acc, x] ~> acc] >>> transform.reduce`
+--- -- => "seed"
+---
 export reduce :: [xs, init, f] ~> {
   while { xs: xs, acc: init } {
     [xs, acc] ~> match xs {

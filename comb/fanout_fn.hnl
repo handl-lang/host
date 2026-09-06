@@ -1,4 +1,18 @@
---- Lazy fanout — returns an arrow that splits input across branches
+--- Returns an arrow that splits its input across several functions.
+---
+--- @details
+--- `fanout_fn` takes a list `fs` and returns `x ~> [f1(x), f2(x), ...]`,
+--- preserving the order of `fs`. Unlike `comb.fanout`, no value is
+--- needed up front — use it to build a reusable branching stage inside
+--- a `comb.flow` / `comb.compose` pipeline.
+---
+--- An empty `fs` yields an arrow that always returns `[]`.
+---
+--- @example
+--- `f :: [x ~> x + 1, x ~> x * 2] >>> comb.fanout_fn`
+--- `3 >>> f`
+--- -- => [4, 6]
+---
 export fanout_fn :: fs ~> x ~> do {
   rev :: xs ~> while { xs: xs, acc: [] } {
     [xs, acc] ~> match xs {

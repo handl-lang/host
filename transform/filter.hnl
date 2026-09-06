@@ -1,4 +1,14 @@
---- Keep elements that satisfy a predicate
+--- Keeps the elements of a list that satisfy a predicate.
+---
+--- @details
+--- `filter` takes `[xs, p]` and returns the sublist of `xs` for which
+--- `p` is truthy, preserving order. To remove matching elements
+--- instead, compose the predicate with a negation before passing it in.
+---
+--- @example
+--- `[[1, 2, 3, 4], x ~> x % 2 == 0] >>> transform.filter`
+--- -- => [2, 4]
+---
 export filter :: do {
   rev :: xs ~> {
     while { xs: xs, acc: [] } {
