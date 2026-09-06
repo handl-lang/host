@@ -999,7 +999,7 @@ dependencies = [
  "handl-kit-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-applier",
+ "handl-plugin-applier-bootstrap",
  "handl-plugin-engine-test",
  "handl-plugin-engine-typecheck",
  "handl-plugin-ext-cli",
@@ -1018,7 +1018,6 @@ dependencies = [
  "handl-kit-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-applier",
  "handl-plugin-ext-lsp",
  "handl-plugin-ext-refinement",
  "serde",
@@ -1066,7 +1065,6 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-nbe",
  "handl-plugin-lib-char-native",
- "handl-plugin-lib-collections",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
@@ -1074,10 +1072,6 @@ dependencies = [
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
  "handl-plugin-lib-lang-typecheck",
- "handl-plugin-lib-result",
- "handl-plugin-lib-tag",
- "handl-plugin-lib-unicode-native",
- "handl-plugin-lib-utils",
  "handl-plugin-module",
  "handl-runtime",
  "serde",
@@ -1189,7 +1183,7 @@ dependencies = [
  "handl-plugin-lib-http-client-std",
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
- "handl-plugin-lib-rand",
+ "handl-plugin-lib-rand-native",
 ]
 
 [[package]]
@@ -1242,7 +1236,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-applier"
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-applier-default",
+]
+
+[[package]]
+name = "handl-plugin-applier-default"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -2110,7 +2112,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-rand"
+name = "handl-plugin-lib-rand-native"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -2163,6 +2165,15 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-module",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-time-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-handl",
  "serde_json",
 ]
 
@@ -2389,14 +2400,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-load",
  "libloading",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-loader-native-fixture-echo"
-version = "0.1.0"
-dependencies = [
  "serde",
  "serde_json",
 ]

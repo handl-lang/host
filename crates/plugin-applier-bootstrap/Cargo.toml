@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-applier-bootstrap"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = {path = "../platform" }
+handl-plugin-applier-default = {path = "../plugin-applier-default" }

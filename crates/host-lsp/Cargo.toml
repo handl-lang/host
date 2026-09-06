@@ -9,7 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 handl-platform.workspace = true
-handl-plugin-applier.workspace = true
 handl-plugin-ext-lsp.workspace = true
 handl-plugin-ext-refinement.workspace = true
 handl-kit-canonical.workspace = true
