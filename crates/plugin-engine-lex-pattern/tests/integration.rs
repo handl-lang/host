@@ -96,7 +96,7 @@ fn lex_let_binding() {
                 ..Default::default()
             },
             Token {
-                kind: "token.equal".into(),
+                kind: "token.bind".into(),
                 text: "=".into(),
                 ..Default::default()
             },

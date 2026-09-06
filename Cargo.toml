@@ -110,6 +110,8 @@ members = [
   "crates/plugin-engine-parse-pratt",
   "crates/plugin-engine-exec-tree-walk",
   "crates/plugin-engine-test",
+  "crates/plugin-engine-transform",
+  "crates/plugin-engine-transform-rewrite",
   "crates/plugin-engine-exec-bytecode",
   "crates/plugin-engine-exec-cranelift",
   "crates/plugin-engine-fmt",

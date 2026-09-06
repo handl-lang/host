@@ -70,7 +70,7 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
         "Nat",
         &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
     ));
-    let mut desugared = apply_desugar(&lang, &ast);
+    let mut desugared = apply_desugar(&lang, &ast).expect("desugar failed");
 
     // Walk the desugared `block` to the `Succ` constructor's `json` body node.
     // block children: [Nat assign, Zero assign, Succ assign, Nat.rec assign]

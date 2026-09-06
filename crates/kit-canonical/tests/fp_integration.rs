@@ -33,7 +33,7 @@ fn data_constructor_substitutes_arg_value() {
             {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
         ]
     })));
-    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
     let data_block_idx = desugared.nodes().len() - 1;
 
     // Build: Succ(Zero) in the same AST arena.
@@ -383,7 +383,7 @@ fn json_prim_with_placeholder_substitution() {
     ast.push(call_node);
     // Apply the desugar pass (same as Runtime::parse does) so the call
     // node is rewritten into a json node before evaluation.
-    let ast = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let ast = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
     let result = kit
         .runtime()
         .eval(&ast)
@@ -445,7 +445,7 @@ fn data_recursor_base_case_zero() {
             {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
         ]
     })));
-    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
     let data_block_idx = desugared.nodes().len() - 1;
 
     // Build step function: (pred, rec_pred) -> rec_pred
@@ -494,7 +494,7 @@ fn data_recursor_step_case_one() {
             {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
         ]
     })));
-    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
     let data_block_idx = desugared.nodes().len() - 1;
 
     // step = (pred, rec_pred) -> rec_pred + 1
@@ -554,7 +554,7 @@ fn data_recursor_recurse_depth_two() {
             {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
         ]
     })));
-    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
     let data_block_idx = desugared.nodes().len() - 1;
 
     // step = (pred, rec_pred) -> rec_pred + 1
@@ -621,7 +621,7 @@ fn data_strict_positivity_violation_raises_error() {
             {"name": "MkBad", "args": [{"name": "f", "type": "Bad -> Int"}]}
         ]
     })));
-    let desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
 
     // The desugared AST should contain a `desugar-error` node.
     let has_error = desugared.nodes().iter().any(|n| n.kind == "desugar-error");

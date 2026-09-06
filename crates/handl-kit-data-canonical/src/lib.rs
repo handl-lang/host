@@ -157,11 +157,13 @@ fn merge_fragments(
         lang.types.merge(frag)?;
     }
 
-    // AST shapes (union — idempotent merge).
+    // AST shapes (union — idempotent merge). `merge_ast_fragment` also
+    // lowers any `desugar:` rule each shape carries into a `TransformDef` in
+    // `lang.transforms` (pass "desugar", ADR-0094 §6).
     let ast: Vec<AstShapeDef> = serde_yaml::from_str(ast_yaml)
         .map_err(|e| LangError::engine(format!("ast.yaml: {}", e)))?;
     for frag in ast {
-        lang.ast.merge(frag)?;
+        lang.merge_ast_fragment(frag)?;
     }
 
     // Capabilities (union — idempotent merge).
@@ -183,6 +185,26 @@ fn merge_fragments(
         .map_err(|e| LangError::engine(format!("lexer_rules.yaml: {}", e)))?;
     for frag in lexer_rules {
         lang.lexer_rules.merge(frag)?;
+    }
+
+    // ADR-0094 "Production readiness": transform-rule validation runs at
+    // `Language` build. Error-severity diagnostics (duplicate identity keys,
+    // out-of-bounds `Keep`/`KeepRole`/`KeepPath`/`KeepRest`/`Apply` steps,
+    // dangling `Apply` rule ids, contradictory `KindAt` role/index pairs)
+    // fail the merge; warnings (unknown target kinds, potential `Fixpoint`
+    // cycles, `Native` rules pending a wired registry) do not — shapes and
+    // registries may legitimately arrive from other fragments or engines.
+    let diags = handl_plugin_engine_transform::validate::validate_transforms(&lang);
+    let errors: Vec<String> = diags
+        .iter()
+        .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)
+        .map(|d| d.message.clone())
+        .collect();
+    if !errors.is_empty() {
+        return Err(LangError::engine(format!(
+            "transform rule validation failed: {}",
+            errors.join("; ")
+        )));
     }
 
     Ok(lang)
@@ -423,6 +445,55 @@ mod tests {
         assert!(lang.types.get_by_identity("binary.add").is_some());
         assert!(lang.types.get_by_identity("unary.neg").is_some());
         assert!(lang.types.get_by_identity("paren").is_some());
+    }
+
+    #[test]
+    fn ast_desugar_rules_lower_into_transforms() {
+        // ADR-0094 §6: `desugar:` fields on `AstShapeDef`s are lowered into
+        // `lang.transforms` (pass "desugar") at merge time.
+        let lang = language_from_yaml().unwrap();
+        assert_eq!(lang.transforms.len(), 2);
+        let rules = lang.transforms_for("desugar", "call");
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].id, "transform.desugar.call");
+        assert_eq!(rules[0].priority, 0);
+    }
+
+    #[test]
+    fn canonical_transforms_validate_clean() {
+        // ADR-0094 "Production readiness": `validate_transforms` runs at
+        // `Language` build (see `merge_fragments`); the canonical kit must
+        // produce zero Error-severity diagnostics.
+        let lang = language_from_yaml().unwrap();
+        let diags = handl_plugin_engine_transform::validate::validate_transforms(&lang);
+        let errors: Vec<_> = diags
+            .iter()
+            .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected transform errors: {errors:?}");
+    }
+
+    #[test]
+    fn merge_rejects_invalid_transform_rules() {
+        // A `desugar:` rule whose `Keep` index is out of bounds for the
+        // shape's declared roles must fail `Language` assembly, not pass
+        // silently (ADR-0094: no silent fallthrough).
+        let ast_yaml = r#"
+- id: ast.bogus
+  node_kind: bogus
+  children:
+    - role: only
+  desugar:
+    target_kind: bogus
+    children:
+      - !Keep 7
+"#;
+        let err = merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]")
+            .unwrap_err();
+        assert!(
+            format!("{err}").contains("transform rule validation failed"),
+            "expected validation failure, got: {err}"
+        );
     }
 
     #[test]

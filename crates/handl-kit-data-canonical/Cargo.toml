@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-language = {path = "../handl-language" }
+handl-plugin-engine-transform = {path = "../plugin-engine-transform" }
+handl-plugin-ext-diag = {path = "../plugin-ext-diag" }
 handl-emitters = {path = "../handl-emitters" }
 handl-kit-data = {path = "../handl-kit-data" }
 handl-runtime = {path = "../handl-runtime" }

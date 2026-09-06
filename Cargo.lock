@@ -1115,6 +1115,8 @@ dependencies = [
  "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform",
+ "handl-plugin-ext-diag",
  "handl-runtime",
  "serde",
  "serde_json",
@@ -1349,6 +1351,27 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "handl-plugin-engine-transform"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-ext-diag",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-engine-transform-rewrite"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-plugin-engine-transform",
+ "handl-runtime",
+ "serde_json",
 ]
 
 [[package]]
@@ -2302,6 +2325,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
  "handl-plugin-module",
  "serde",
