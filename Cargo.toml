@@ -1,0 +1,31 @@
+[package]
+name = "handl-plugin-lib-stdlib"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-module = { path = "../plugin-module" }
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-plugin-lib-encoding = { path = "../plugin-lib-encoding" }
+handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
+handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
+base64 = "0.22"
+hex = "0.4"
+iri-string = "=0.7.12"
+serde = "1"
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+url = "2"
+
+[dev-dependencies]
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-plugin-lib-tag = { workspace = true }
+handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
+handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
+serde_json = { workspace = true }
