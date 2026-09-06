@@ -1,0 +1,4 @@
+category:
+  slug: lib-type-handl
+  title: Type Handl
+  description: Pure-handl implementation of the type runtime introspection contract over the native type.of kind-tag atom (predicates, kind guards, truthiness).
