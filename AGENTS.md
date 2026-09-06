@@ -61,6 +61,32 @@ and linter all split source into top-level statements at bracket-depth zero
 - `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
   (pre-existing, unrelated to ADR 0085-0091 work).
 - `plugin-engine-parse-pratt` has an unused import warning (`PayloadTokenSpec`).
+- **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
+  hits — these are debt to close via `Language` data, not patterns to extend):
+  - `plugin-engine-parse-pratt/src/lib.rs` ~L293/337: `match`/`data` special
+    parse branches — need grammar-row fields (optional motive, data params).
+  - `plugin-engine-eval-bytecode` (`vm.rs`/`compile.rs`) +
+    `plugin-engine-eval-cranelift/src/lib.rs`: object-key `var`/`string`
+    heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
+    `AstShapeDef`.
+  - `handl-runtime/src/lib.rs` `collect_module_bindings`: `assign`/`let` root
+    kind checks — needs a generic top-level-export role convention.
+  - `handl-runtime/src/desugar_pass.rs`: `if`/`type-annot`/`paren` checks —
+    desugar rules belong in `AstShapeDef` data or documented as bootstrap.
+  - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: pattern-kind
+    match (`array`/`object`/`rest`/`entry`) — needs pattern-role metadata on
+    `AstShapeDef`/`TypeRuleDef`.
+  - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
+    replace with `Language::param_name` where `Language` is reachable.
+  - `host-lsp/src/*` (~20): token-kind/keyword checks — need
+    `Language.tokens`/classification data instead of `token.lbrace`/`return`/
+    `while`/`do` matching.
+  - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
+    treat as bootstrap or move arrow-grammar into `Language` data.
+  - `data/eval.yaml`/`data/types.yaml` have **no `let` row** →
+    `full_language_parity`/`parity_block_*` failures (7 tests). Needs an eval
+    scheme that can read `name`/`value` payload fields (`payload_field`
+    combinator or native `let` op) + a `TypeRuleDef`.
 - **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
   (`plugin-engine-test/data/test-language.yaml`) declares

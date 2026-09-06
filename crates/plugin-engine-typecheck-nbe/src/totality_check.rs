@@ -37,15 +37,15 @@ use super::read_termination_metadata;
 /// Returns [`Proof::ok`] if the function is total, [`Proof::no`] if it is
 /// not (a recursive call doesn't decrease), or [`Proof::blocked`] if the
 /// check cannot be performed (e.g. the expression is not a function).
-pub fn check_totality(ast: &Ast, expr_ref: AstRef, _lang: &Language) -> Proof {
+pub fn check_totality(ast: &Ast, expr_ref: AstRef, lang: &Language) -> Proof {
     let node = match ast.get(expr_ref) {
         Some(n) => n,
         None => return Proof::blocked("totality: expression node out of bounds"),
     };
 
     match node.kind.as_str() {
-        "function" => check_function_totality(ast, node, None),
-        "assign" => check_assign_totality(ast, node),
+        "function" => check_function_totality(ast, node, None, lang),
+        "assign" => check_assign_totality(ast, node, lang),
         "var" => {
             // Named function reference: look up the assignment in the AST
             // by scanning for an `assign` whose target var matches this name.
@@ -53,12 +53,12 @@ pub fn check_totality(ast: &Ast, expr_ref: AstRef, _lang: &Language) -> Proof {
                 Some(n) => n,
                 None => return Proof::blocked("totality: var node has no string payload"),
             };
-            find_assign_for_name(ast, name)
+            find_assign_for_name(ast, lang, name)
                 .and_then(|assign_ref| {
                     let assign_node = ast.get(assign_ref)?;
-                    let fn_name = extract_assign_name(ast, assign_node);
-                    let fn_node = extract_assign_value(ast, assign_node)?;
-                    Some(check_function_totality(ast, fn_node, fn_name.as_deref()))
+                    let fn_name = extract_assign_name(ast, lang, assign_node);
+                    let fn_node = extract_assign_value(ast, lang, assign_node)?;
+                    Some(check_function_totality(ast, fn_node, fn_name.as_deref(), lang))
                 })
                 .unwrap_or_else(|| {
                     Proof::blocked("totality: could not find function definition for var")
@@ -79,7 +79,7 @@ pub fn check_totality(ast: &Ast, expr_ref: AstRef, _lang: &Language) -> Proof {
 /// `fn_name` is the name of the function (if named via `assign`), used to
 /// find recursive calls. If `None`, the function is anonymous and has no
 /// recursive calls (trivially total).
-fn check_function_totality(ast: &Ast, fn_node: &AstNode, fn_name: Option<&str>) -> Proof {
+fn check_function_totality(ast: &Ast, fn_node: &AstNode, fn_name: Option<&str>, lang: &Language) -> Proof {
     // 1. Check for termination metadata (generated recursors).
     if let Some(info) = read_termination_metadata(fn_node) {
         return Proof::ok(format!(
@@ -89,7 +89,7 @@ fn check_function_totality(ast: &Ast, fn_node: &AstNode, fn_name: Option<&str>) 
     }
 
     // 2. Extract param names and body index.
-    let (param_names, body_idx) = match function_param_body(ast, fn_node) {
+    let (param_names, body_idx) = match function_param_body(ast, fn_node, lang) {
         Some(v) => v,
         None => return Proof::blocked("totality: function has invalid params/body"),
     };
@@ -134,9 +134,9 @@ fn check_function_totality(ast: &Ast, fn_node: &AstNode, fn_name: Option<&str>) 
 /// The assign node has a target (the function name) and a value (the
 /// function node). We extract the name and function, then delegate to
 /// [`check_function_totality`].
-fn check_assign_totality(ast: &Ast, assign_node: &AstNode) -> Proof {
-    let fn_name = extract_assign_name(ast, assign_node);
-    let fn_node = match extract_assign_value(ast, assign_node) {
+fn check_assign_totality(ast: &Ast, assign_node: &AstNode, lang: &Language) -> Proof {
+    let fn_name = extract_assign_name(ast, lang, assign_node);
+    let fn_node = match extract_assign_value(ast, lang, assign_node) {
         Some(n) => n,
         None => return Proof::blocked("totality: assign has no value child"),
     };
@@ -148,33 +148,56 @@ fn check_assign_totality(ast: &Ast, assign_node: &AstNode) -> Proof {
         ));
     }
 
-    check_function_totality(ast, fn_node, fn_name.as_deref())
+    check_function_totality(ast, fn_node, fn_name.as_deref(), lang)
 }
 
-/// Extract the function name from an `assign` node's target child.
-fn extract_assign_name(ast: &Ast, assign_node: &AstNode) -> Option<String> {
-    // Try role-based resolution first (target role), then positional.
+/// Extract the function name from a binding node's target child.
+fn extract_assign_name(ast: &Ast, lang: &Language, assign_node: &AstNode) -> Option<String> {
+    // Resolve the `target` child by role (ADR-0081), falling back to
+    // positional 0 for role-less shapes.
     let children = assign_node.payload.get("children")?.as_array()?;
-    let target_idx = children.first()?.as_u64()? as usize;
-    let target_node = ast.get(AstRef::new(target_idx))?;
-    // `var` is a core calculus primitive (leaf node with string payload).
-    // Check payload is a string — equivalent to `kind == "var"` for
-    // assign targets (lit nodes are not valid assign targets).
+    let target_idx = lang
+        .child_role_index(&assign_node.kind, "target")
+        .ok()
+        .flatten()
+        .or_else(|| children.first().map(|_| 0))?;
+    let child_entry = children.get(target_idx)?;
+    let target_ref = AstRef::new(child_entry.as_u64()? as usize);
+    let target_node = ast.get(target_ref)?;
+    // Assign targets are identifier leaves (string payload).
     target_node.payload.as_str().map(|s| s.to_string())
 }
 
-/// Extract the value (function) node from an `assign` node.
-fn extract_assign_value<'a>(ast: &'a Ast, assign_node: &'a AstNode) -> Option<&'a AstNode> {
+/// Extract the value (function) node from a binding node.
+fn extract_assign_value<'a>(ast: &'a Ast, lang: &Language, assign_node: &'a AstNode) -> Option<&'a AstNode> {
+    // Resolve the `value` child by role (ADR-0081), falling back to
+    // positional 1 for role-less shapes.
     let children = assign_node.payload.get("children")?.as_array()?;
-    let value_idx = children.get(1)?.as_u64()? as usize;
-    ast.get(AstRef::new(value_idx))
+    let value_idx = lang
+        .child_role_index(&assign_node.kind, "value")
+        .ok()
+        .flatten()
+        .or_else(|| if children.len() >= 2 { Some(1) } else { None })?;
+    let child_entry = children.get(value_idx)?;
+    let value_ref = AstRef::new(child_entry.as_u64()? as usize);
+    ast.get(value_ref)
 }
 
-/// Find an `assign` node in the AST whose target var matches `name`.
-fn find_assign_for_name(ast: &Ast, name: &str) -> Option<AstRef> {
+/// Find a binding node whose target var matches `name`.
+fn find_assign_for_name(ast: &Ast, lang: &Language, name: &str) -> Option<AstRef> {
     for (idx, node) in ast.nodes().iter().enumerate() {
-        if node.kind == "assign" {
-            if let Some(n) = extract_assign_name(ast, node) {
+        let is_binding = if lang.ast.get_by_identity(&node.kind).is_some() {
+            // Data-driven: a binding is any shape that declares both
+            // `target` and `value` child roles.
+            let has_target = lang.child_role_index(&node.kind, "target").ok().flatten().is_some();
+            let has_value = lang.child_role_index(&node.kind, "value").ok().flatten().is_some();
+            has_target && has_value
+        } else {
+            // Role-less shape fallback: the canonical `assign` kind.
+            node.kind == "assign"
+        };
+        if is_binding {
+            if let Some(n) = extract_assign_name(ast, lang, node) {
                 if n == name {
                     return Some(AstRef::new(idx));
                 }
@@ -188,7 +211,7 @@ fn find_assign_for_name(ast: &Ast, name: &str) -> Option<AstRef> {
 ///
 /// Handles both the rich format (`{params: [...], body: idx}`) and the
 /// legacy format (`{children: [param_idx, body_idx]}`).
-fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)> {
+fn function_param_body(ast: &Ast, node: &AstNode, lang: &Language) -> Option<(Vec<String>, usize)> {
     // Rich format: {params: ["name", ...], body: idx}
     if let (Some(params), Some(body)) = (
         node.payload.get("params").and_then(|v| v.as_array()),
@@ -200,14 +223,17 @@ fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)
             .collect();
         return Some((names, body as usize));
     }
-    // Legacy format: {children: [param_idx, body_idx]}
+    // Legacy format: resolve `params` and `body` child roles (ADR-0081),
+    // falling back to positional (0, 1) for role-less shapes.
     let children = node.payload.get("children").and_then(|c| c.as_array())?;
-    if children.len() < 2 {
-        return None;
-    }
-    let param_idx = children[0].as_u64()? as usize;
-    let body_idx = children[1].as_u64()? as usize;
-    let param_node = ast.get(AstRef::new(param_idx))?;
+    let param_role = lang.child_role_index(&node.kind, "params").ok().flatten();
+    let body_role = lang.child_role_index(&node.kind, "body").ok().flatten();
+    let param_idx = param_role.or_else(|| children.first().map(|_| 0))?;
+    let body_idx = body_role.or_else(|| children.get(1).map(|_| 1))?;
+    let param_ref = AstRef::new(children.get(param_idx)?.as_u64()? as usize);
+    let body_ref = AstRef::new(children.get(body_idx)?.as_u64()? as usize);
+    let body = body_ref.index();
+    let param_node = ast.get(param_ref)?;
     // `var` is a core calculus primitive (leaf node with string payload).
     // A bare var param carries the name directly; a collection wrapper
     // holds multiple var children.
@@ -228,7 +254,7 @@ fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)
             })
             .collect()
     };
-    Some((names, body_idx))
+    Some((names, body))
 }
 
 /// Recursively find all `call` nodes in a subtree that call `fn_name`.
