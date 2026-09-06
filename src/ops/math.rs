@@ -1,7 +1,7 @@
 //! Rust `Function` impls for the `math` module — the handls (handlers)
 //! for the `op`/`handl` declarations in `math.hnl`.
 //!
-//! All 54 functions are FFI atoms: they call `f64` methods or Rust
+//! All 60 functions are FFI atoms: they call `f64` methods or Rust
 //! arithmetic that cannot be expressed as pure handl arrows without
 //! losing the exact `TypeMismatch` error messages the tests rely on.
 //! The `op`/`handl` declaration form (ADR-0077 Phase 2) declares the
@@ -22,6 +22,41 @@ fn require_number(arg: &serde_json::Value) -> Result<f64, EvalError> {
             "expected {}, got {}",
             "number", "non-number",
         )))
+}
+
+fn require_integer(arg: &serde_json::Value) -> Result<i64, EvalError> {
+    arg.as_i64()
+        .ok_or(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer",
+        )))
+}
+
+fn require_two_integers(args: &[serde_json::Value]) -> Result<(i64, i64), EvalError> {
+    if args.len() < 2 {
+        return Err(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
+    }
+    let a = require_integer(&args[0])?;
+    let b = require_integer(&args[1])?;
+    Ok((a, b))
+}
+
+/// Shift amounts are total: the shift count must be in `0..64`
+/// (64-bit two's-complement semantics); anything else is a
+/// `TypeMismatch`.
+fn require_shift_amount(arg: &serde_json::Value) -> Result<u32, EvalError> {
+    let k = require_integer(arg)?;
+    if !(0..64).contains(&k) {
+        return Err(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "shift amount in 0..64", k,
+        )));
+    }
+    Ok(k as u32)
 }
 
 fn require_two_numbers(args: &[serde_json::Value]) -> Result<(f64, f64), EvalError> {
@@ -365,6 +400,114 @@ impl Function for MapRange {
 }
 
 // ---------------------------------------------------------------------------
+// Bitwise (integer-only)
+// ---------------------------------------------------------------------------
+//
+// `math.bit_*` operate on 64-bit two's-complement integers. Non-integer
+// arguments are a `TypeMismatch`. Shifts (`math.shl`/`math.shr`) are total:
+// the shift amount must be in `0..64`, otherwise `TypeMismatch` (no
+// wrapping/masking semantics).
+
+#[derive(Clone, Copy)]
+pub struct BitAnd;
+impl Function for BitAnd {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_integers(args)?;
+        Ok(serde_json::Value::from(a & b))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct BitOr;
+impl Function for BitOr {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_integers(args)?;
+        Ok(serde_json::Value::from(a | b))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct BitXor;
+impl Function for BitXor {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_integers(args)?;
+        Ok(serde_json::Value::from(a ^ b))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct BitNot;
+impl Function for BitNot {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
+        let a = require_integer(arg)?;
+        Ok(serde_json::Value::from(!a))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Shl;
+impl Function for Shl {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        if args.len() < 2 {
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
+        }
+        let a = require_integer(&args[0])?;
+        let k = require_shift_amount(&args[1])?;
+        Ok(serde_json::Value::from(a.wrapping_shl(k)))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Shr;
+impl Function for Shr {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        if args.len() < 2 {
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
+        }
+        let a = require_integer(&args[0])?;
+        let k = require_shift_amount(&args[1])?;
+        // Arithmetic shift (sign-extending), matching `i64 >>`.
+        Ok(serde_json::Value::from(a.wrapping_shr(k)))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -564,6 +707,10 @@ pub const MATH_OPS: &[&str] = &[
     "math.asinh",
     "math.acosh",
     "math.atanh",
+    "math.bit_and",
+    "math.bit_not",
+    "math.bit_or",
+    "math.bit_xor",
     "math.degrees",
     "math.div",
     "math.e",
@@ -595,6 +742,8 @@ pub const MATH_OPS: &[&str] = &[
     "math.radians",
     "math.round",
     "math.round_to",
+    "math.shl",
+    "math.shr",
     "math.sign",
     "math.sin",
     "math.sinh",
@@ -622,6 +771,10 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.asinh", Arc::new(Asinh));
     registry.register("math.acosh", Arc::new(Acosh));
     registry.register("math.atanh", Arc::new(Atanh));
+    registry.register("math.bit_and", Arc::new(BitAnd));
+    registry.register("math.bit_not", Arc::new(BitNot));
+    registry.register("math.bit_or", Arc::new(BitOr));
+    registry.register("math.bit_xor", Arc::new(BitXor));
     registry.register("math.degrees", Arc::new(Degrees));
     registry.register("math.div", Arc::new(Div));
     registry.register("math.e", Arc::new(E));
@@ -653,6 +806,8 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.radians", Arc::new(Radians));
     registry.register("math.round", Arc::new(Round));
     registry.register("math.round_to", Arc::new(RoundTo));
+    registry.register("math.shl", Arc::new(Shl));
+    registry.register("math.shr", Arc::new(Shr));
     registry.register("math.sign", Arc::new(Sign));
     registry.register("math.sin", Arc::new(Sin));
     registry.register("math.sinh", Arc::new(Sinh));
