@@ -21,7 +21,7 @@ rec {
     []: return state.acc,
 
     [h, ...t]: {
-      inserted = insert({ elem: h, acc: state.acc })
+      inserted :: insert({ elem: h, acc: state.acc })
       {
         state: {
           remaining: t,

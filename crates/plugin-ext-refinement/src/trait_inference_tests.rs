@@ -12,7 +12,7 @@
 use handl_language::Scheme;
 
 use crate::trait_inference::{
-    infer_law_annotations, inferred_trait, law_verified, satisfies_law, uses_first, uses_left, Law,
+    Law, infer_law_annotations, inferred_trait, law_verified, satisfies_law, uses_first, uses_left,
 };
 
 // ============================================================================
@@ -108,10 +108,7 @@ fn test_uses_first_nested_in_choice() {
 fn test_uses_first_deeply_nested() {
     // comp(loop(first(id)), first(comp(id, id))) — first appears in both
     // halves, at different depths.
-    let g = comp(
-        loop_fb(first(id())),
-        first(comp(id(), id())),
-    );
+    let g = comp(loop_fb(first(id())), first(comp(id(), id())));
     assert!(uses_first(&g));
 }
 
@@ -459,11 +456,7 @@ fn test_law_equation() {
 fn test_all_laws_verified() {
     // All four laws are proven verified in the Lean4 formalization.
     for law in Law::all() {
-        assert!(
-            law_verified(*law),
-            "law {:?} should be verified",
-            law
-        );
+        assert!(law_verified(*law), "law {:?} should be verified", law);
     }
 }
 
@@ -545,10 +538,7 @@ fn test_inferred_trait_filter_graph_no_functor_law() {
     // The real `filter` graph: loop(comp(filter_step, id)).
     // This does NOT use first (it uses comp(filter_step, id), not
     // comp(filter_step, first(id))). So it should not satisfy functor laws.
-    let g = loop_fb(comp(
-        Scheme::arr_native("filter_step", vec![]),
-        id(),
-    ));
+    let g = loop_fb(comp(Scheme::arr_native("filter_step", vec![]), id()));
     let laws = inferred_trait(&g);
     // filter does not use first or left → no laws.
     assert!(
@@ -561,10 +551,7 @@ fn test_inferred_trait_filter_graph_no_functor_law() {
 fn test_inferred_trait_fold_graph_uses_first() {
     // The real `fold` graph: loop(comp(fold_step, first(id))).
     // The `first(id)` uses first → functor laws.
-    let g = loop_fb(comp(
-        Scheme::arr_native("fold_step", vec![]),
-        first(id()),
-    ));
+    let g = loop_fb(comp(Scheme::arr_native("fold_step", vec![]), first(id())));
     let laws = inferred_trait(&g);
     assert!(laws.contains(&Law::FunctorIdentity));
     assert!(laws.contains(&Law::FunctorComposition));

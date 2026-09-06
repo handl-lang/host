@@ -4,9 +4,9 @@
 //! prim.compare, prim.alloc) -> handl arrow graphs (insert, sort, map,
 //! filter, fold) -> inferred contracts with zero annotations.
 
-use handl_language::Scheme;
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
+use handl_language::Scheme;
 
 /// Build the `insert` arrow graph as a Scheme:
 ///   loop(comp(compare_step, choice(cons_before, cons_after)))
@@ -30,8 +30,8 @@ fn insert_graph() -> Scheme {
 
     // The loop body: compare elem with head, then choice
     let compare_step = Scheme::arr_native("prim.compare", vec![]);
-    let cons_before = Scheme::arr_native("cons", vec![]);  // cons elem before head
-    let cons_after = Scheme::arr_native("cons", vec![]);   // cons head, recurse
+    let cons_before = Scheme::arr_native("cons", vec![]); // cons elem before head
+    let cons_after = Scheme::arr_native("cons", vec![]); // cons head, recurse
 
     let body = Seq {
         fst: Box::new(compare_step),
@@ -41,7 +41,9 @@ fn insert_graph() -> Scheme {
         }),
     };
 
-    Loop { body: Box::new(body) }
+    Loop {
+        body: Box::new(body),
+    }
 }
 
 /// Build the `sort` arrow graph:
@@ -59,7 +61,9 @@ fn sort_graph() -> Scheme {
         snd: Box::new(pass_through),
     };
 
-    Loop { body: Box::new(body) }
+    Loop {
+        body: Box::new(body),
+    }
 }
 
 /// Build the `map` arrow graph:
@@ -112,7 +116,11 @@ mod tests {
         let registry = ContractRegistry::minimal();
 
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "insert inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "insert inference should succeed: {:?}",
+            result.err()
+        );
 
         let result = result.unwrap();
         // The guarantee should be non-trivial (not just True).
@@ -210,10 +218,7 @@ mod tests {
         // list (feedback channel C) each iteration, so the termination
         // measure must be ListLength, NOT Constant.
         let term = result.termination.as_ref();
-        assert!(
-            term.is_some(),
-            "fold should have a termination measure"
-        );
+        assert!(term.is_some(), "fold should have a termination measure");
         let term = term.unwrap();
         assert_ne!(
             *term,
@@ -258,12 +263,25 @@ mod tests {
         let registry = ContractRegistry::minimal();
 
         // Verify we have the atom contracts (prim.* + list.* + id + cons)
-        assert!(registry.len() >= 3, "minimal registry should have at least 3 atoms, got {}", registry.len());
+        assert!(
+            registry.len() >= 3,
+            "minimal registry should have at least 3 atoms, got {}",
+            registry.len()
+        );
 
         // Verify all 5 stdlib arrows can be inferred with just these atoms
-        for graph in [insert_graph(), sort_graph(), map_graph(), filter_graph(), fold_graph()] {
+        for graph in [
+            insert_graph(),
+            sort_graph(),
+            map_graph(),
+            filter_graph(),
+            fold_graph(),
+        ] {
             let result = infer_refinement(&graph, &registry);
-            assert!(result.is_ok(), "inference should succeed with atom registry");
+            assert!(
+                result.is_ok(),
+                "inference should succeed with atom registry"
+            );
         }
     }
 
@@ -408,7 +426,9 @@ mod tests {
                 r: Box::new(Scheme::arr_native("id", vec![])),
             }),
         };
-        let graph = Loop { body: Box::new(body) };
+        let graph = Loop {
+            body: Box::new(body),
+        };
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("loop inference");
         let pretty = result.guarantee.pretty();
@@ -585,7 +605,11 @@ mod tests {
         let graph = vec_push_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "vec.push inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "vec.push inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // list.cons has a conditional Sorted guarantee -- non-trivial.
         assert_ne!(
@@ -606,7 +630,11 @@ mod tests {
         let graph = vec_pop_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "vec.pop inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "vec.pop inference should succeed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -615,7 +643,11 @@ mod tests {
         let graph = vec_get_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "vec.get inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "vec.get inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // first(id) preserves the side channel, so LengthEq(input.1, output.1).
         let pretty = result.guarantee.pretty();
@@ -656,7 +688,11 @@ mod tests {
         let graph = take_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "take inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "take inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // The Choice arm uses cons which carries Sorted; the loop fixpoint
         // should propagate a non-trivial guarantee.
@@ -669,7 +705,11 @@ mod tests {
         let graph = drop_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "drop inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "drop inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // first(id) preserves the side channel: LengthEq(input.1, output.1).
         let pretty = result.guarantee.pretty();
@@ -686,7 +726,11 @@ mod tests {
         let graph = reduce_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "reduce inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "reduce inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // reduce is structurally identical to fold, so it must terminate with
         // a ListLength measure (fold_step decrements the list).
@@ -706,7 +750,11 @@ mod tests {
         let graph = scan_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "scan inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "scan inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         // first(arr("list.cons")) carries the cons Sorted guarantee AND the
         // side-channel LengthEq, so the guarantee should be non-trivial.
@@ -726,7 +774,11 @@ mod tests {
         let graph = zip_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry);
-        assert!(result.is_ok(), "zip inference should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "zip inference should succeed: {:?}",
+            result.err()
+        );
         let result = result.unwrap();
         println!("zip inferred guarantee: {:?}", result.guarantee);
     }

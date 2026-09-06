@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use handl_language::{ArrSource, Scheme, Value};
 
 use crate::arrow_parser::{
-    parse_arrow_module, parse_arrow_module_no_rewrite, ExportDecl, ImportDecl, ParsedFile,
+    ExportDecl, ImportDecl, ParsedFile, parse_arrow_module, parse_arrow_module_no_rewrite,
 };
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
@@ -37,7 +37,8 @@ use crate::types::{Contract, Pred, RefinementResult};
 /// For multi-name files, returns the first named arrow (or the whole record
 /// if there's only one).
 pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
+    let content =
+        fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
     let parsed = parse_arrow_module_no_rewrite(&content)?;
 
     match parsed.arrows {
@@ -58,7 +59,8 @@ pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
 /// the file's stem name.
 /// For multi-name files, returns all named arrows.
 pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Scheme>, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
+    let content =
+        fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
     let parsed = parse_arrow_module_no_rewrite(&content)?;
 
     match parsed.arrows {
@@ -702,9 +704,7 @@ fn refinement_to_contract(result: &RefinementResult) -> Contract {
 /// unknown names serve the same role.
 pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bool {
     match scheme {
-        Scheme::Arr { args, .. } => {
-            args.iter().any(|a| has_unresolved_apps(a, known_names))
-        }
+        Scheme::Arr { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
         Scheme::Seq { fst, snd } => {
             has_unresolved_apps(fst, known_names) || has_unresolved_apps(snd, known_names)
         }
@@ -727,8 +727,7 @@ pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bo
         // combined graph's unresolved apps are the union of body's and
         // impl's.
         Scheme::Handle { body, impl_, .. } => {
-            has_unresolved_apps(body, known_names)
-                || has_unresolved_apps(impl_, known_names)
+            has_unresolved_apps(body, known_names) || has_unresolved_apps(impl_, known_names)
         }
     }
 }
@@ -737,12 +736,8 @@ pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bo
 /// (the production representation of a module reference).
 pub fn contains_module_ref(scheme: &Scheme) -> bool {
     match scheme {
-        Scheme::Arr { op, args, .. } => {
-            op == "module_ref" || args.iter().any(contains_module_ref)
-        }
-        Scheme::Seq { fst, snd } => {
-            contains_module_ref(fst) || contains_module_ref(snd)
-        }
+        Scheme::Arr { op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
+        Scheme::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
         Scheme::First { inner } => contains_module_ref(inner),
         Scheme::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
         Scheme::Loop { body } => contains_module_ref(body),
@@ -761,9 +756,7 @@ pub fn contains_module_ref(scheme: &Scheme) -> bool {
 /// (the production representation of a projection).
 pub fn contains_project(scheme: &Scheme) -> bool {
     match scheme {
-        Scheme::Arr { op, args, .. } => {
-            op == "project" || args.iter().any(contains_project)
-        }
+        Scheme::Arr { op, args, .. } => op == "project" || args.iter().any(contains_project),
         Scheme::Seq { fst, snd } => contains_project(fst) || contains_project(snd),
         Scheme::First { inner } => contains_project(inner),
         Scheme::Choice { l, r } => contains_project(l) || contains_project(r),
@@ -773,9 +766,7 @@ pub fn contains_project(scheme: &Scheme) -> bool {
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
-        Scheme::Handle { body, impl_, .. } => {
-            contains_project(body) || contains_project(impl_)
-        }
+        Scheme::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
     }
 }
 
@@ -785,21 +776,19 @@ pub fn contains_project(scheme: &Scheme) -> bool {
 fn build_module_record(arrows: &HashMap<String, Scheme>) -> Scheme {
     let fields: Vec<Scheme> = arrows
         .iter()
-        .map(|(name, scheme)| {
-            Scheme::Arr {
-                op: "field".to_string(),
-                args: vec![
-                    Scheme::Arr {
-                        op: "const".to_string(),
-                        args: vec![],
-                        source: ArrSource::Native,
-                        lit: Some(Value::String(name.clone())),
-                    },
-                    scheme.clone(),
-                ],
-                source: ArrSource::Native,
-                lit: None,
-            }
+        .map(|(name, scheme)| Scheme::Arr {
+            op: "field".to_string(),
+            args: vec![
+                Scheme::Arr {
+                    op: "const".to_string(),
+                    args: vec![],
+                    source: ArrSource::Native,
+                    lit: Some(Value::String(name.clone())),
+                },
+                scheme.clone(),
+            ],
+            source: ArrSource::Native,
+            lit: None,
         })
         .collect();
     Scheme::Arr {
@@ -968,7 +957,12 @@ fn replace_imports_with_projects(
                 args: args.clone(),
             }
         }
-        Scheme::Arr { op, args, source, lit } if op == "module_ref" => {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } if op == "module_ref" => {
             if let Some(Value::String(path)) = lit {
                 if let Some(replacement) = path_records.get(path) {
                     return replacement.clone();
@@ -983,9 +977,12 @@ fn replace_imports_with_projects(
         }
         // Bare reference to a named arrow (no args, no lit): if it matches
         // an import name, replace with the project/record node.
-        Scheme::Arr { op, args, source, lit }
-            if args.is_empty() && lit.is_none() =>
-        {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } if args.is_empty() && lit.is_none() => {
             if let Some(replacement) = import_records.get(op) {
                 return replacement.clone();
             }
@@ -1267,7 +1264,12 @@ fn resolve_all_apps(
     resolving: &HashSet<String>,
 ) -> Scheme {
     match scheme {
-        Scheme::Arr { op, args, source, lit } => {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } => {
             // Handle module_ref nodes: replace with inlined record if known.
             if op == "module_ref" {
                 if let Some(Value::String(path)) = lit {
@@ -1305,7 +1307,10 @@ fn resolve_all_apps(
             }
             Scheme::Arr {
                 op: op.clone(),
-                args: args.iter().map(|a| resolve_all_apps(a, known, resolving)).collect(),
+                args: args
+                    .iter()
+                    .map(|a| resolve_all_apps(a, known, resolving))
+                    .collect(),
                 source: source.clone(),
                 lit: lit.clone(),
             }
@@ -1349,7 +1354,10 @@ fn resolve_all_apps(
             }
             Scheme::App {
                 callee: Box::new(resolved_callee),
-                args: args.iter().map(|a| resolve_all_apps(a, known, resolving)).collect(),
+                args: args
+                    .iter()
+                    .map(|a| resolve_all_apps(a, known, resolving))
+                    .collect(),
             }
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
@@ -1381,9 +1389,19 @@ fn lookup_field_in_record(record: &Scheme, field: &str) -> Option<Scheme> {
     if let Scheme::Arr { op, args, .. } = record {
         if op == "record" {
             for f in args {
-                if let Scheme::Arr { op: fop, args: fargs, .. } = f {
+                if let Scheme::Arr {
+                    op: fop,
+                    args: fargs,
+                    ..
+                } = f
+                {
                     if fop == "field" && fargs.len() == 2 {
-                        if let Scheme::Arr { op: cop, lit: Some(Value::String(name)), .. } = &fargs[0] {
+                        if let Scheme::Arr {
+                            op: cop,
+                            lit: Some(Value::String(name)),
+                            ..
+                        } = &fargs[0]
+                        {
                             if cop == "const" && name == field {
                                 return Some(fargs[1].clone());
                             }

@@ -1,0 +1,5 @@
+--- Run a side-effect function, then return the original value
+export tap :: [f, x] ~> do {
+  f(x)
+  x
+}

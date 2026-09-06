@@ -20,7 +20,7 @@ rec {
     []: return state.acc,
 
     [h, ...t]: {
-      y = state.f(h)
+      y :: state.f(h)
       {
         state: {
           remaining: t,

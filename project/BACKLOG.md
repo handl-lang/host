@@ -54,6 +54,16 @@ Order: RFC-0001 → 0002/0003 → 0005 → 0007 → 0004 → 0006.
 
 - Add graph theory production-ready bindings/lib. feature complete.
 
+## Test framework primitives (ADR-0092 unblockers)
+
+- Add `time.sleep_ms` to `handl-packages/time` + `plugin-lib-time-native`
+  (medium priority — deferred from the initial `time` contract; effectful,
+  belongs behind a capability, not needed by `benchmark`/`property`/`fuzz`).
+- Strengthen `rand.seeded_*` contract guarantees: add a determinism
+  predicate (e.g. `Deterministic`/`Eq`) to `plugin-ext-refinement`'s `Pred`
+  vocabulary so "same seed + args ⇒ same output" is a real `guarantee:`
+  rather than a `-- LAW:` comment.
+
 ## lib-utils (combinators)
 
 - AST-based inlining — `substitute_param` uses byte-level string scanning, not AST-based substitution. Correct for all tested cases but theoretically fragile with exotic string escapes. See notes/ast-based-inlining.md.

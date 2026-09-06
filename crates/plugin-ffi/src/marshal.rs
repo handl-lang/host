@@ -127,9 +127,8 @@ pub(crate) fn marshal_arg(
             let s = value
                 .as_str()
                 .ok_or_else(|| EvalError::TypeMismatch("expected string for cstr".to_string()))?;
-            let c = CString::new(s).map_err(|_| {
-                EvalError::TypeMismatch("embedded NUL byte in cstr".to_string())
-            })?;
+            let c = CString::new(s)
+                .map_err(|_| EvalError::TypeMismatch("embedded NUL byte in cstr".to_string()))?;
             let ptr = c.as_ptr();
             keep_alive.push(c);
             Ok(CArg::Int(ptr as i64))
@@ -208,7 +207,7 @@ pub(crate) fn json_to_bytes(value: &JsonValue) -> Result<Vec<u8>, EvalError> {
             None => {
                 return Err(EvalError::TypeMismatch(
                     "expected Bytes ({__bytes__: [numbers]})".to_string(),
-                ))
+                ));
             }
         }
     } else if let Some(a) = value.as_array() {
@@ -223,9 +222,8 @@ pub(crate) fn json_to_bytes(value: &JsonValue) -> Result<Vec<u8>, EvalError> {
         let n = el.as_i64().ok_or_else(|| {
             EvalError::TypeMismatch("Bytes array must contain numbers".to_string())
         })?;
-        let b = u8::try_from(n).map_err(|_| {
-            EvalError::TypeMismatch(format!("byte out of range 0..=255: {n}"))
-        })?;
+        let b = u8::try_from(n)
+            .map_err(|_| EvalError::TypeMismatch(format!("byte out of range 0..=255: {n}")))?;
         out.push(b);
     }
     Ok(out)
@@ -259,9 +257,9 @@ pub(crate) fn marshal_call_args(
     let mut arg_idx = 0usize;
     for desc in descriptors {
         if desc == "in_buf" || desc == "cbytes" {
-            let value = args.get(arg_idx).ok_or_else(|| {
-                EvalError::TypeMismatch(format!("missing argument for {desc}"))
-            })?;
+            let value = args
+                .get(arg_idx)
+                .ok_or_else(|| EvalError::TypeMismatch(format!("missing argument for {desc}")))?;
             arg_idx += 1;
             let bytes = json_to_bytes(value)?;
             let ptr = bytes.as_ptr() as i64;
@@ -272,9 +270,9 @@ pub(crate) fn marshal_call_args(
             res.c_args.push(CArg::Int(ptr));
             res.c_args.push(CArg::Int(len));
         } else if let Some(n_str) = desc.strip_prefix("out_buf:") {
-            let n: usize = n_str.parse().map_err(|_| {
-                EvalError::TypeMismatch(format!("invalid out_buf size: {n_str:?}"))
-            })?;
+            let n: usize = n_str
+                .parse()
+                .map_err(|_| EvalError::TypeMismatch(format!("invalid out_buf size: {n_str:?}")))?;
             let mut buf = vec![0u8; n];
             let ptr = buf.as_mut_ptr() as i64;
             let len = buf.len() as i64;
@@ -282,9 +280,9 @@ pub(crate) fn marshal_call_args(
             res.c_args.push(CArg::Int(len));
             res.out_bufs.push(OutBuf { buf, len: n });
         } else {
-            let value = args.get(arg_idx).ok_or_else(|| {
-                EvalError::TypeMismatch(format!("missing argument for {desc}"))
-            })?;
+            let value = args
+                .get(arg_idx)
+                .ok_or_else(|| EvalError::TypeMismatch(format!("missing argument for {desc}")))?;
             arg_idx += 1;
             let arg = marshal_arg(desc, value, &mut res.keep_alive)?;
             res.c_args.push(arg);

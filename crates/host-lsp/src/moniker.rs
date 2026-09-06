@@ -72,25 +72,23 @@ fn stable_identifier(path: &str, name: &str) -> String {
     // Checked BEFORE the kit root, since contracts/ is a child of the kit
     // root and would otherwise be matched by find_arrows_root.
     if normalised.contains("/contracts/") {
-        let filename = normalised
-            .rsplit('/')
-            .next()
-            .unwrap_or(&normalised);
+        let filename = normalised.rsplit('/').next().unwrap_or(&normalised);
         let stem = filename.strip_suffix(".hnl").unwrap_or(filename);
         return format!("contracts/{}/{}", stem, name);
     }
 
     // Arrow files: identifier is the path relative to the kit root.
     if let Some(root) = find_arrows_root(&normalised) {
-        let rel = normalised
-            .strip_prefix(&root)
-            .unwrap_or(&normalised);
+        let rel = normalised.strip_prefix(&root).unwrap_or(&normalised);
         let rel = rel.strip_suffix(".hnl").unwrap_or(rel);
         return rel.to_string();
     }
 
     // Fallback: <filename_stem>/<name>.
     let filename = normalised.rsplit('/').next().unwrap_or(&normalised);
-    let stem = filename.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(filename);
+    let stem = filename
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(filename);
     format!("{}/{}", stem, name)
 }

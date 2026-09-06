@@ -21,8 +21,8 @@ use std::collections::HashMap;
 
 use handl_language::Scheme;
 use handl_plugin_ext_refinement::{
-    infer_refinement, load_all_arrows, parse_arrow_file, resolve_apps, ContractRegistry,
-    ParsedFile, RefinementResult, RefTy,
+    ContractRegistry, ParsedFile, RefTy, RefinementResult, infer_refinement, load_all_arrows,
+    parse_arrow_file, resolve_apps,
 };
 
 use crate::diagnostics::offset_to_position;
@@ -176,8 +176,14 @@ impl RefinementEngine {
 
         let mut md = String::new();
         md.push_str(&format!("### `{}`\n\n", property_name));
-        md.push_str(&format!("**Input type**  `{}`\n\n", input_component.pretty()));
-        md.push_str(&format!("**Output type** `{}`\n\n", output_component.pretty()));
+        md.push_str(&format!(
+            "**Input type**  `{}`\n\n",
+            input_component.pretty()
+        ));
+        md.push_str(&format!(
+            "**Output type** `{}`\n\n",
+            output_component.pretty()
+        ));
 
         if mentions_property {
             md.push_str(&format!("**Guarantee** `{}`\n", guarantee_str));
@@ -353,7 +359,10 @@ pub(crate) fn format_refinement_summary(result: &RefinementResult) -> String {
         .and_then(|m| format_measure(m))
         .unwrap_or_else(|| "no measure".to_string());
     let inv_count = result.loop_invariants.len();
-    format!("guarantee: {} | terminates: {} | invariants: {}", guarantee, term, inv_count)
+    format!(
+        "guarantee: {} | terminates: {} | invariants: {}",
+        guarantee, term, inv_count
+    )
 }
 
 /// Find the arrows root directory from a file path.

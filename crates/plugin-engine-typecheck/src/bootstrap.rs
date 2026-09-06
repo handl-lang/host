@@ -53,8 +53,7 @@ const TYPES_YAML: &str = include_str!("../../handl-kit-data-canonical/data/types
 const AST_YAML: &str = include_str!("../../handl-kit-data-canonical/data/ast.yaml");
 const CAPS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/options.yaml");
-const LEXER_RULES_YAML: &str =
-    include_str!("../../handl-kit-data-canonical/data/lexer_rules.yaml");
+const LEXER_RULES_YAML: &str = include_str!("../../handl-kit-data-canonical/data/lexer_rules.yaml");
 
 /// Merge the eight embedded YAML fragment strings into a single [`Language`].
 fn assemble_language() -> Result<Language, CheckError> {
@@ -92,8 +91,8 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("types.yaml: {e}")))?;
     }
 
-    let ast: Vec<AstShapeDef> = serde_yaml::from_str(AST_YAML)
-        .map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
+    let ast: Vec<AstShapeDef> =
+        serde_yaml::from_str(AST_YAML).map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
     for frag in ast {
         lang.ast
             .merge(frag)
@@ -413,10 +412,7 @@ fn collect_decls(
                         } else {
                             seen.insert(name.clone(), i);
                         }
-                        bindings.push(Binding {
-                            name,
-                            stmt_idx: i,
-                        });
+                        bindings.push(Binding { name, stmt_idx: i });
                     }
                 }
             }
@@ -429,11 +425,14 @@ fn collect_decls(
             if let Some(&child_raw) = children.first() {
                 if let Ok(child_node) = stmt.ast.at(AstRef::new(child_raw)) {
                     if let Some(name) = var_name(child_node) {
-                        imports.push(Import {
-                            name,
-                            stmt_idx: i,
-                        });
+                        imports.push(Import { name, stmt_idx: i });
                     }
+                }
+            }
+            // `from "path" import * as alias` stores the alias in the payload.
+            if let Some(name) = root.payload.get("alias").and_then(|v| v.as_str()) {
+                if !name.is_empty() {
+                    imports.push(Import { name: name.to_string(), stmt_idx: i });
                 }
             }
             continue;
@@ -445,10 +444,7 @@ fn collect_decls(
             if let Some(&child_raw) = children.first() {
                 if let Ok(child_node) = stmt.ast.at(AstRef::new(child_raw)) {
                     if let Some(name) = var_name(child_node) {
-                        exports.push(Export {
-                            name,
-                            stmt_idx: i,
-                        });
+                        exports.push(Export { name, stmt_idx: i });
                     }
                 }
             }
@@ -517,7 +513,13 @@ fn check_expr(
         }
         if let Some(&body_raw) = children.get(bi) {
             check_expr(
-                lang, src, ast, AstRef::new(body_raw), &inner_scope, stmt, diags,
+                lang,
+                src,
+                ast,
+                AstRef::new(body_raw),
+                &inner_scope,
+                stmt,
+                diags,
                 references,
             );
         }
@@ -544,7 +546,14 @@ fn check_expr(
         let children = children_of(node);
         if let Some(&value_raw) = children.get(1) {
             check_expr(
-                lang, src, ast, AstRef::new(value_raw), scope, stmt, diags, references,
+                lang,
+                src,
+                ast,
+                AstRef::new(value_raw),
+                scope,
+                stmt,
+                diags,
+                references,
             );
         }
         return;
@@ -557,7 +566,14 @@ fn check_expr(
         let children = children_of(node);
         if let Some(&target_raw) = children.first() {
             check_expr(
-                lang, src, ast, AstRef::new(target_raw), scope, stmt, diags, references,
+                lang,
+                src,
+                ast,
+                AstRef::new(target_raw),
+                scope,
+                stmt,
+                diags,
+                references,
             );
         }
         return;
@@ -568,7 +584,14 @@ fn check_expr(
     // walked positionally per ADR-0081's fallback for shapes without roles.)
     for &child_raw in &children_of(node) {
         check_expr(
-            lang, src, ast, AstRef::new(child_raw), scope, stmt, diags, references,
+            lang,
+            src,
+            ast,
+            AstRef::new(child_raw),
+            scope,
+            stmt,
+            diags,
+            references,
         );
     }
 }
@@ -578,20 +601,13 @@ fn check_expr(
 // ---------------------------------------------------------------------------
 
 /// Run the single-pass bootstrap check over all parsed statements.
-fn check_pass(
-    lang: &Language,
-    src: &str,
-    stmts: &[Stmt],
-    diags: &mut Vec<Diagnostic>,
-) {
+fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagnostic>) {
     // Phase 1: collect bindings, imports, exports (+ duplicate detection).
     let (bindings, imports, exports) = collect_decls(lang, stmts, diags, src);
 
     // Build the module-level scope: all binding names + all import names.
-    let binding_names: HashSet<String> =
-        bindings.iter().map(|b| b.name.clone()).collect();
-    let import_names: HashSet<String> =
-        imports.iter().map(|i| i.name.clone()).collect();
+    let binding_names: HashSet<String> = bindings.iter().map(|b| b.name.clone()).collect();
+    let import_names: HashSet<String> = imports.iter().map(|i| i.name.clone()).collect();
     let module_scope: HashSet<String> = binding_names
         .iter()
         .cloned()
@@ -631,8 +647,14 @@ fn check_pass(
         let children = children_of(root);
         if let Some(&value_raw) = children.get(value_idx) {
             check_expr(
-                lang, src, &stmt.ast, AstRef::new(value_raw), &module_scope,
-                stmt, diags, &mut references,
+                lang,
+                src,
+                &stmt.ast,
+                AstRef::new(value_raw),
+                &module_scope,
+                stmt,
+                diags,
+                &mut references,
             );
         }
     }

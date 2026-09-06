@@ -1,0 +1,2 @@
+--- Return a function that always returns the same value
+export constantly :: c ~> _ ~> c

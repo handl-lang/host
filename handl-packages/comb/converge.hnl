@@ -1,0 +1,13 @@
+--- Apply branches to a value and reduce with a combiner
+export converge :: [value, combiner, ...branches] ~> {
+  while { xs: branches, acc: null, first: true } {
+    [xs, acc, first] ~> match xs {
+      []: { out: acc },
+      [h, ...t]: if first {
+        { state: { xs: t, acc: h(value), first: false } }
+      } else {
+        { state: { xs: t, acc: combiner(acc, h(value)), first: false } }
+      }
+    }
+  }
+}

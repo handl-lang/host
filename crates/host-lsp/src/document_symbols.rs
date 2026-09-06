@@ -17,9 +17,7 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{
-    SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind,
-};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind};
 
 use crate::kit_resolver::kit_for_file;
 use crate::line_map::LineMap;
@@ -199,14 +197,7 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
                             // Use the original source text so the pattern
                             // keeps its formatting (e.g. "[h, ...t]").
                             let name = &source[pstart..pend];
-                            out.push(sym(
-                                name,
-                                KIND_VARIABLE,
-                                "match arm",
-                                lines,
-                                pstart,
-                                pend,
-                            ));
+                            out.push(sym(name, KIND_VARIABLE, "match arm", lines, pstart, pend));
                         }
                         pattern_start = None;
                     }
@@ -221,14 +212,12 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
             }
             _ => {
                 // Object key: an identifier directly inside a record literal
-                // followed by `:` or `=` is a field name. v0.1 syntax uses
-                // `=` for field assignment (e.g. `elem = input.0`), while
-                // older syntax uses `:` (e.g. `elem: input.0`).
+                // followed by `:` or `::` is a field name. v0.1 syntax uses
+                // `::` for field assignment while `:` is used for typed fields.
                 if is_identifier_kind(kind) {
                     if matches!(stack.last(), Some(Frame::BraceObject)) {
                         if let Some(ni) = next_sig_idx(tokens, i + 1) {
-                            if tokens[ni].kind == "token.colon"
-                                || tokens[ni].kind == "token.equal"
+                            if tokens[ni].kind == "token.colon" || tokens[ni].kind == "token.bind"
                             {
                                 out.push(sym(
                                     &t.text,
@@ -413,12 +402,12 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
             continue;
         }
         if is_identifier_kind(kind) {
-            // A binding declaration at the start of a line: `name = value` or
+            // A binding declaration at the start of a line: `name :: value` or
             // `name: type`.
             if lines.is_at_line_start(t.span.start) {
                 if let Some(ni) = next_sig_idx(tokens, i + 1) {
                     let nk = tokens[ni].kind.as_str();
-                    if nk == "token.equal" || nk == "token.colon" {
+                    if nk == "token.bind" || nk == "token.colon" {
                         out.push(sym(
                             &t.text,
                             KIND_VARIABLE,

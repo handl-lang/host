@@ -39,7 +39,12 @@ use crate::instr::Instr;
 ///
 /// Returns [`LangError::Engine`] if a sub-scheme fails to compile. In
 /// practice, every well-formed [`Scheme`] variant compiles successfully.
-pub fn compile(scheme: &Scheme, lang: &Language, ast: &Ast, node: &AstNode) -> Result<Vec<Instr>, LangError> {
+pub fn compile(
+    scheme: &Scheme,
+    lang: &Language,
+    ast: &Ast,
+    node: &AstNode,
+) -> Result<Vec<Instr>, LangError> {
     let mut out = Vec::new();
     let pushed = compile_into(scheme, lang, ast, node, &mut out)?;
     // A bare extend_env (no enclosing Seq to pop it) is balanced here.
@@ -117,7 +122,7 @@ fn compile_into(
             }
             let left_jump_pos = out.len();
             out.push(Instr::Jump(0)); // placeholder -- skip right branch
-                                      // Right branch.
+            // Right branch.
             let right_target = out.len();
             let r_pushed = compile_into(r, lang, ast, node, out)?;
             if r_pushed {

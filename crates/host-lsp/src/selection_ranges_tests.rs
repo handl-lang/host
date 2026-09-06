@@ -200,13 +200,11 @@ fn selection_ranges_returns_valid_json() {
         assert!(range.get("start").is_some(), "range missing start");
         assert!(range.get("end").is_some(), "range missing end");
         assert!(
-            range["start"].get("line").is_some()
-                && range["start"].get("character").is_some(),
+            range["start"].get("line").is_some() && range["start"].get("character").is_some(),
             "start missing line/character"
         );
         assert!(
-            range["end"].get("line").is_some()
-                && range["end"].get("character").is_some(),
+            range["end"].get("line").is_some() && range["end"].get("character").is_some(),
             "end missing line/character"
         );
         cur = node.get("parent").filter(|p| !p.is_null());

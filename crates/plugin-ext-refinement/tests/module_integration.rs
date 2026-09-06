@@ -15,8 +15,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use handl_plugin_ext_refinement::{
-    contains_module_ref, contains_project, flatten_program, has_unresolved_apps,
-    normalize_compile_time, FileResolver, LoadError, ModuleLoader,
+    FileResolver, LoadError, ModuleLoader, contains_module_ref, contains_project, flatten_program,
+    has_unresolved_apps, normalize_compile_time,
 };
 
 // ============================================================================
@@ -84,7 +84,10 @@ fn loader_for(root: PathBuf) -> ModuleLoader {
 /// Try to load a single example file via `ModuleLoader::load`. Returns the
 /// `LoadedModule` on success, or `None` if the file does not parse (the
 /// parser is minimal and some example files use syntax it does not support).
-fn try_load_example(loader: &ModuleLoader, name: &str) -> Option<handl_plugin_ext_refinement::LoadedModule> {
+fn try_load_example(
+    loader: &ModuleLoader,
+    name: &str,
+) -> Option<handl_plugin_ext_refinement::LoadedModule> {
     match loader.load(name) {
         Ok(m) => Some(m),
         Err(LoadError::Parse(msg)) => {
@@ -106,7 +109,10 @@ fn test_file_resolver_examples() {
     if !dir.is_dir() {
         // The examples directory may not be present in some checkouts; skip
         // gracefully rather than failing.
-        eprintln!("  [skip] examples/handl directory not found at {}", dir.display());
+        eprintln!(
+            "  [skip] examples/handl directory not found at {}",
+            dir.display()
+        );
         return;
     }
     let loader = loader_for(dir);
@@ -180,26 +186,16 @@ fn test_file_resolver_examples() {
 fn test_multi_file_disk_strategy_a() {
     let dir = make_temp_dir("strategy_a");
     // util.hnl — defines `helper`.
-    write_module(
-        &dir,
-        "util",
-        "helper = arr(\"add\") >>> arr(\"add\")",
-    );
+    write_module(&dir, "util", "helper = arr(\"add\") >>> arr(\"add\")");
     // main.hnl — imports `helper` from `util`, uses it.
-    write_module(
-        &dir,
-        "main",
-        "import helper from \"util\"\nmain = helper",
-    );
+    write_module(&dir, "main", "import helper from \"util\"\nmain = helper");
 
     let loader = loader_for(dir);
 
     match normalize_compile_time("main", &loader) {
         Ok(normalized) => {
             // Strategy A eliminates module_ref (replaces with inlined records).
-            let any_ref = normalized
-                .values()
-                .any(|s| contains_module_ref(s));
+            let any_ref = normalized.values().any(|s| contains_module_ref(s));
             assert!(
                 !any_ref,
                 "Strategy A: no module_ref should remain after normalization"
@@ -215,16 +211,8 @@ fn test_multi_file_disk_strategy_a() {
 #[test]
 fn test_multi_file_disk_strategy_b() {
     let dir = make_temp_dir("strategy_b");
-    write_module(
-        &dir,
-        "util",
-        "helper = arr(\"add\") >>> arr(\"add\")",
-    );
-    write_module(
-        &dir,
-        "main",
-        "import helper from \"util\"\nmain = helper",
-    );
+    write_module(&dir, "util", "helper = arr(\"add\") >>> arr(\"add\")");
+    write_module(&dir, "main", "import helper from \"util\"\nmain = helper");
 
     let loader = loader_for(dir);
 
@@ -307,11 +295,7 @@ fn test_three_file_chain() {
         "import base from \"c\"\nmid = base >>> arr(\"const\")",
     );
     // a.hnl — imports `mid` from b, defines `main`.
-    write_module(
-        &dir,
-        "a",
-        "import mid from \"b\"\nmain = mid",
-    );
+    write_module(&dir, "a", "import mid from \"b\"\nmain = mid");
 
     let loader = loader_for(dir);
 
@@ -368,7 +352,10 @@ fn test_three_file_chain() {
 fn test_file_resolver_kit_stdlib() {
     let dir = kit_stdlib_arrows_dir();
     if !dir.is_dir() {
-        eprintln!("  [skip] handl-packages directory not found at {}", dir.display());
+        eprintln!(
+            "  [skip] handl-packages directory not found at {}",
+            dir.display()
+        );
         return;
     }
     let loader = loader_for(dir);

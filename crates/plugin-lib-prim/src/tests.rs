@@ -2,7 +2,7 @@ use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, Plu
 use handl_plugin_module::ModuleRegistry;
 use serde_json::json;
 
-use crate::{prim_op_registry, PrimLibraryPlugin, PrimModule, prim_handl_plugin};
+use crate::{PrimLibraryPlugin, PrimModule, prim_handl_plugin, prim_op_registry};
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
@@ -40,26 +40,17 @@ fn unknown_function() {
 
 #[test]
 fn add_positive() {
-    assert_eq!(
-        call(&PrimModule, "add", &[n(2), n(3)]).as_i64(),
-        Some(5)
-    );
+    assert_eq!(call(&PrimModule, "add", &[n(2), n(3)]).as_i64(), Some(5));
 }
 
 #[test]
 fn add_negative() {
-    assert_eq!(
-        call(&PrimModule, "add", &[n(-4), n(7)]).as_i64(),
-        Some(3)
-    );
+    assert_eq!(call(&PrimModule, "add", &[n(-4), n(7)]).as_i64(), Some(3));
 }
 
 #[test]
 fn add_zero() {
-    assert_eq!(
-        call(&PrimModule, "add", &[n(0), n(0)]).as_i64(),
-        Some(0)
-    );
+    assert_eq!(call(&PrimModule, "add", &[n(0), n(0)]).as_i64(), Some(0));
 }
 
 #[test]
@@ -150,10 +141,7 @@ fn or_with_zero() {
 
 #[test]
 fn or_all_bits() {
-    assert_eq!(
-        call(&PrimModule, "or", &[n(-1), n(0)]).as_i64(),
-        Some(-1)
-    );
+    assert_eq!(call(&PrimModule, "or", &[n(-1), n(0)]).as_i64(), Some(-1));
 }
 
 #[test]
@@ -215,7 +203,9 @@ fn op_registry_or_dispatches() {
     let registry = std::sync::Arc::new(prim_op_registry());
     let op_func = handl_plugin_lib_handl::OpFunction::new("prim.or", registry);
     let mut ctx = EvalContext::new();
-    let result = op_func.call(&[json!(0b0011), json!(0b0101)], &mut ctx).unwrap();
+    let result = op_func
+        .call(&[json!(0b0011), json!(0b0101)], &mut ctx)
+        .unwrap();
     assert_eq!(result, json!(0b0111));
 }
 
@@ -249,9 +239,7 @@ fn prim_module_works_in_module_registry() {
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
-    let func = lookup
-        .lookup("prim.add")
-        .expect("prim.add should resolve");
+    let func = lookup.lookup("prim.add").expect("prim.add should resolve");
     let mut ctx = EvalContext::new();
     let result = func.call(&[json!(2), json!(3)], &mut ctx).unwrap();
     assert_eq!(result, json!(5));

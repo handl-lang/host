@@ -4,15 +4,15 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = { workspace = true }
-handl-platform = { workspace = true }
-handl-plugin-engine-eval = { workspace = true }
-handl-value = { workspace = true }
+handl-language = {path = "../handl-language" }
+handl-platform = {path = "../platform" }
+handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-value = {path = "../handl-value" }
 serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
-handl-test-utils = { workspace = true }
-handl-plugin-module = { workspace = true }
-handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-test-utils = {path = "../handl-test-utils" }
+handl-plugin-module = {path = "../plugin-module" }
+handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
 serde_json = { workspace = true }

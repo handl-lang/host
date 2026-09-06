@@ -4,6 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-plugin-lib-type = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-plugin-lib-type = {path = "../plugin-lib-type" }
 serde_json = { workspace = true }

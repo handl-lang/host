@@ -190,7 +190,10 @@ pub fn app_call(num_args: usize) -> Scheme {
     let args: Vec<Scheme> = (1..=num_args)
         .map(|i| Scheme::arr_native_lit("proj_child", vec![], Value::from(i as u64)))
         .collect();
-    Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), args)
+    Scheme::app(
+        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+        args,
+    )
 }
 
 #[cfg(test)]
@@ -270,7 +273,10 @@ mod tests {
         let s = app_call(0);
         assert_eq!(
             s,
-            Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![])
+            Scheme::app(
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                vec![]
+            )
         );
     }
 

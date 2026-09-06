@@ -41,10 +41,7 @@ impl LspClient {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap_or_else(|e| panic!("failed to spawn {bin}: {e}"));
-        let stdout = child
-            .stdout
-            .take()
-            .expect("server stdout was not piped");
+        let stdout = child.stdout.take().expect("server stdout was not piped");
         let reader = BufReader::new(stdout);
         LspClient {
             child,
@@ -56,8 +53,18 @@ impl LspClient {
     /// Write a single LSP message (header + body) to the server's stdin.
     fn write_message(&mut self, body: &Value) {
         let serialized = serde_json::to_string(body).unwrap();
-        let stdin = self.child.stdin.as_mut().expect("server stdin was not piped");
-        write!(stdin, "Content-Length: {}\r\n\r\n{}", serialized.len(), serialized).unwrap();
+        let stdin = self
+            .child
+            .stdin
+            .as_mut()
+            .expect("server stdin was not piped");
+        write!(
+            stdin,
+            "Content-Length: {}\r\n\r\n{}",
+            serialized.len(),
+            serialized
+        )
+        .unwrap();
         stdin.flush().unwrap();
     }
 
@@ -86,9 +93,7 @@ impl LspClient {
             if let Some(obj) = msg.as_object() {
                 // A response has an `id` (and `result` or `error`) but no
                 // `method`.
-                if obj.contains_key("id")
-                    && !obj.contains_key("method")
-                {
+                if obj.contains_key("id") && !obj.contains_key("method") {
                     return msg;
                 }
             }
@@ -178,9 +183,7 @@ impl LspClient {
         }
         let len = content_length.expect("missing Content-Length header");
         let mut buf = vec![0u8; len];
-        self.reader
-            .read_exact(&mut buf)
-            .expect("read message body");
+        self.reader.read_exact(&mut buf).expect("read message body");
         let body = String::from_utf8(buf).expect("message body is valid UTF-8");
         serde_json::from_str(&body).expect("message body is valid JSON")
     }
@@ -203,14 +206,16 @@ impl LspClient {
     fn read_diagnostics(&mut self, uri: &str) -> Value {
         loop {
             let msg = self.read_message();
-            if msg.as_object().and_then(|o| o.get("method")).and_then(|m| m.as_str())
+            if msg
+                .as_object()
+                .and_then(|o| o.get("method"))
+                .and_then(|m| m.as_str())
                 == Some("textDocument/publishDiagnostics")
             {
-                let params = msg.get("params").expect("diagnostics notification has params");
-                let got_uri = params
-                    .get("uri")
-                    .and_then(|u| u.as_str())
-                    .unwrap_or("");
+                let params = msg
+                    .get("params")
+                    .expect("diagnostics notification has params");
+                let got_uri = params.get("uri").and_then(|u| u.as_str()).unwrap_or("");
                 if got_uri == uri {
                     return params.clone();
                 }
@@ -246,7 +251,10 @@ fn initialize_returns_server_capabilities() {
         .expect("initialize result has capabilities");
 
     // A representative set of providers the server advertises.
-    assert_eq!(caps.get("hoverProvider").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        caps.get("hoverProvider").and_then(|v| v.as_bool()),
+        Some(true)
+    );
     assert_eq!(
         caps.get("definitionProvider").and_then(|v| v.as_bool()),
         Some(true),
@@ -275,7 +283,10 @@ fn shutdown_returns_null() {
     let mut client = LspClient::new();
     client.initialize();
     let result = client.send_request("shutdown", Value::Null);
-    assert!(result.is_null(), "shutdown result should be null, got {result}");
+    assert!(
+        result.is_null(),
+        "shutdown result should be null, got {result}"
+    );
     client.send_notification("exit", Value::Null);
 }
 
@@ -356,7 +367,10 @@ fn did_open_then_completion_returns_items() {
     };
     // At the start of a document the server offers keywords/snippets, so we
     // expect a non-empty list.
-    assert!(!items.is_empty(), "completion should return items, got empty");
+    assert!(
+        !items.is_empty(),
+        "completion should return items, got empty"
+    );
     client.shutdown();
 }
 
@@ -570,7 +584,10 @@ fn semantic_tokens_returns_data() {
         "semantic tokens data length must be a multiple of 5, got {}",
         arr.len(),
     );
-    assert!(!arr.is_empty(), "expected semantic tokens for non-trivial source");
+    assert!(
+        !arr.is_empty(),
+        "expected semantic tokens for non-trivial source"
+    );
     client.shutdown();
 }
 
@@ -661,14 +678,13 @@ fn malformed_json_does_not_crash() {
     // will fail to parse the body and return `None`, ending the loop. We
     // verify the server does not emit a panic/crash and that a subsequent
     // well-formed session still works by spawning a fresh client.
-    let stdin = client.child.stdin.as_mut().expect("server stdin was not piped");
+    let stdin = client
+        .child
+        .stdin
+        .as_mut()
+        .expect("server stdin was not piped");
     let garbage = b"{ this is not valid json ";
-    write!(
-        stdin,
-        "Content-Length: {}\r\n\r\n",
-        garbage.len(),
-    )
-    .unwrap();
+    write!(stdin, "Content-Length: {}\r\n\r\n", garbage.len(),).unwrap();
     stdin.write_all(garbage).unwrap();
     stdin.flush().unwrap();
 

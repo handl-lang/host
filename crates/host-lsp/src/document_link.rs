@@ -99,8 +99,7 @@ fn links_in_comment(
     // URLs are collected first so that file/arrow reference scanning can
     // skip matches that fall inside a URL.
     let url_matches = find_urls(comment_text);
-    let url_spans: Vec<(usize, usize)> =
-        url_matches.iter().map(|(s, e, _)| (*s, *e)).collect();
+    let url_spans: Vec<(usize, usize)> = url_matches.iter().map(|(s, e, _)| (*s, *e)).collect();
 
     for (rel_start, rel_end, url) in &url_matches {
         out.push(make_link(
@@ -114,8 +113,7 @@ fn links_in_comment(
 
     // File references (`foo.hnl`, `bar/baz.hnl`).
     let file_matches = find_file_refs(comment_text, &url_spans);
-    let file_spans: Vec<(usize, usize)> =
-        file_matches.iter().map(|(s, e, _)| (*s, *e)).collect();
+    let file_spans: Vec<(usize, usize)> = file_matches.iter().map(|(s, e, _)| (*s, *e)).collect();
 
     for (rel_start, rel_end, file_ref) in &file_matches {
         let tooltip = format!("Open {}", file_ref);
@@ -270,8 +268,7 @@ fn find_arrow_refs(
     let mut i = 0;
     while i + 3 <= lower.len() {
         if &lower[i..i + 3] == b"see" {
-            let prev_ok = i == 0
-                || !(lower[i - 1].is_ascii_alphanumeric() || lower[i - 1] == b'_');
+            let prev_ok = i == 0 || !(lower[i - 1].is_ascii_alphanumeric() || lower[i - 1] == b'_');
             let after = i + 3;
             let next_ok = after >= lower.len()
                 || !(lower[after].is_ascii_alphanumeric() || lower[after] == b'_');
@@ -283,12 +280,9 @@ fn find_arrow_refs(
                 while p < bytes.len() && (bytes[p] as char).is_whitespace() {
                     p += 1;
                 }
-                if p < bytes.len()
-                    && (bytes[p].is_ascii_alphabetic() || bytes[p] == b'_')
-                {
+                if p < bytes.len() && (bytes[p].is_ascii_alphabetic() || bytes[p] == b'_') {
                     let name_start = p;
-                    while p < bytes.len()
-                        && (bytes[p].is_ascii_alphanumeric() || bytes[p] == b'_')
+                    while p < bytes.len() && (bytes[p].is_ascii_alphanumeric() || bytes[p] == b'_')
                     {
                         p += 1;
                     }

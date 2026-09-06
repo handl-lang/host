@@ -130,8 +130,11 @@ fn pred_to_z3<'ctx>(ctx: &'ctx Context, p: &Pred) -> Bool<'ctx> {
             let sym = atom_symbol(p).unwrap();
             Bool::new_const(ctx, sym.as_str())
         }
-        Pred::Le(_, _) | Pred::HeadOf(_, _) | Pred::IsPerm(_, _)
-        | Pred::IsSuccess(_) | Pred::IsError(_) => {
+        Pred::Le(_, _)
+        | Pred::HeadOf(_, _)
+        | Pred::IsPerm(_, _)
+        | Pred::IsSuccess(_)
+        | Pred::IsError(_) => {
             let sym = atom_symbol(p).unwrap();
             Bool::new_const(ctx, sym.as_str())
         }
@@ -194,8 +197,7 @@ fn find_z3_python() -> Option<&'static str> {
                     .arg("import z3; print(z3.get_version_string())")
                     .output()
                     .map(|o| {
-                        o.status.success()
-                            && !String::from_utf8_lossy(&o.stdout).trim().is_empty()
+                        o.status.success() && !String::from_utf8_lossy(&o.stdout).trim().is_empty()
                     })
                     .unwrap_or(false);
                 if ok {
@@ -477,9 +479,9 @@ fn collect_length_facts(pred: &Pred, out: &mut Vec<Pred>) {
 /// The two variable names referenced by a length-arithmetic fact.
 fn length_vars_of(p: &Pred) -> Vec<String> {
     match p {
-        Pred::LengthEq(a, b)
-        | Pred::LengthPlusOne(a, b)
-        | Pred::LengthSubOne(a, b) => vec![a.clone(), b.clone()],
+        Pred::LengthEq(a, b) | Pred::LengthPlusOne(a, b) | Pred::LengthSubOne(a, b) => {
+            vec![a.clone(), b.clone()]
+        }
         _ => vec![],
     }
 }
@@ -617,9 +619,7 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         // And(X,Y) ==> And(And(X,Y), And(X,Y)) where neither X nor Y
         // alone implies the full conjunction but the whole does.
         (Pred::And(a, b), Pred::And(c, d)) => {
-            toy_implies(a, &q)
-                || toy_implies(b, &q)
-                || (toy_implies(&p, c) && toy_implies(&p, d))
+            toy_implies(a, &q) || toy_implies(b, &q) || (toy_implies(&p, c) && toy_implies(&p, d))
         }
         // Conjunction on the left: if either conjunct implies q
         (Pred::And(a, b), _) => toy_implies(a, &q) || toy_implies(b, &q),
@@ -630,9 +630,7 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         // Disjunction on the left: need both to imply q
         (Pred::Or(a, b), _) => toy_implies(a, &q) && toy_implies(b, &q),
         // Implication on the right: P ==> (A ==> B) means (P && A) ==> B
-        (_, Pred::Implies(a, b)) => {
-            toy_implies(&Pred::And(Box::new(p.clone()), a.clone()), b)
-        }
+        (_, Pred::Implies(a, b)) => toy_implies(&Pred::And(Box::new(p.clone()), a.clone()), b),
         // Implication on the left: (A ==> B) ==> Q means (!A || B) ==> Q,
         // conservatively: if B ==> Q
         (Pred::Implies(_, b), _) => toy_implies(b, &q),
@@ -669,11 +667,17 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         // IsSuccess(x) ==> IsSuccess(x) || anything
         (Pred::IsSuccess(a), Pred::Or(l, r))
             if matches!(l.as_ref(), Pred::IsSuccess(b) if a == b)
-               || matches!(r.as_ref(), Pred::IsSuccess(b) if a == b) => true,
+                || matches!(r.as_ref(), Pred::IsSuccess(b) if a == b) =>
+        {
+            true
+        }
         // IsError(x) ==> IsError(x) || anything
         (Pred::IsError(a), Pred::Or(l, r))
             if matches!(l.as_ref(), Pred::IsError(b) if a == b)
-               || matches!(r.as_ref(), Pred::IsError(b) if a == b) => true,
+                || matches!(r.as_ref(), Pred::IsError(b) if a == b) =>
+        {
+            true
+        }
         // LengthPlusOne(a, b) ==> LengthLe(b, a)  (|a| = |b|+1 ==> |b| <= |a|)
         (Pred::LengthPlusOne(a, b), Pred::LengthLe(c, d)) if b == c && a == d => true,
         // LengthSubOne(a, b) ==> LengthLe(a, b)  (|a| = |b|-1 ==> |a| <= |b|)
@@ -715,9 +719,14 @@ fn var_to_len(v: &str) -> String {
 /// Collect every custom-predicate atom appearing in `p` (deduplicated).
 fn collect_atoms(p: &Pred, atoms: &mut Vec<String>) {
     match p {
-        Pred::Sorted(_) | Pred::AllSatisfy(_, _) | Pred::Forall(_, _, _) | Pred::Le(_, _)
-        | Pred::HeadOf(_, _) | Pred::IsPerm(_, _)
-        | Pred::IsSuccess(_) | Pred::IsError(_) => {
+        Pred::Sorted(_)
+        | Pred::AllSatisfy(_, _)
+        | Pred::Forall(_, _, _)
+        | Pred::Le(_, _)
+        | Pred::HeadOf(_, _)
+        | Pred::IsPerm(_, _)
+        | Pred::IsSuccess(_)
+        | Pred::IsError(_) => {
             if let Some(a) = atom_symbol(p) {
                 if !atoms.contains(&a) {
                     atoms.push(a);
@@ -735,7 +744,9 @@ fn collect_atoms(p: &Pred, atoms: &mut Vec<String>) {
 /// Collect every length constant referenced by arithmetic predicates.
 fn collect_len_vars(p: &Pred, vars: &mut Vec<String>) {
     match p {
-        Pred::LengthEq(a, b) | Pred::LengthLe(a, b) | Pred::LengthPlusOne(a, b)
+        Pred::LengthEq(a, b)
+        | Pred::LengthLe(a, b)
+        | Pred::LengthPlusOne(a, b)
         | Pred::LengthSubOne(a, b) => {
             for v in [a.as_str(), b.as_str()] {
                 let lv = var_to_len(v);

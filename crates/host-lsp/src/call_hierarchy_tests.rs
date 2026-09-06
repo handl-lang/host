@@ -59,12 +59,24 @@ fn prepare_call_hierarchy_returns_item_for_named_arrow() {
 
     let item = &items[0];
     assert_eq!(item["name"].as_str().unwrap(), "reduce");
-    assert_eq!(item["kind"].as_u64().unwrap(), 12, "kind should be Function (12)");
+    assert_eq!(
+        item["kind"].as_u64().unwrap(),
+        12,
+        "kind should be Function (12)"
+    );
     assert_eq!(item["detail"].as_str().unwrap(), "arrow");
     // selectionRange should cover the `reduce` identifier (offsets 0..6).
     assert_eq!(item["selectionRange"]["start"]["line"].as_u64().unwrap(), 0);
-    assert_eq!(item["selectionRange"]["start"]["character"].as_u64().unwrap(), 0);
-    assert_eq!(item["selectionRange"]["end"]["character"].as_u64().unwrap(), 6);
+    assert_eq!(
+        item["selectionRange"]["start"]["character"]
+            .as_u64()
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        item["selectionRange"]["end"]["character"].as_u64().unwrap(),
+        6
+    );
 }
 
 #[test]
@@ -117,22 +129,27 @@ fn outgoing_calls_finds_referenced_arrows() {
     let arrows_root = dir.join("handl-packages");
 
     // `insert.hnl` is a separate arrow file under the same root.
-    write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
+    write_arrow(
+        &arrows_root,
+        "collection",
+        "insert",
+        "-- insert arrow\nloop(id)\n",
+    );
 
     // The current file `sort.hnl` is an unnamed arrow whose body references
     // `insert` as an identifier.
-    let sort_path = write_arrow(
-        &arrows_root,
-        "collection",
-        "sort",
-        "loop(insert >>> id)\n",
-    );
+    let sort_path = write_arrow(&arrows_root, "collection", "sort", "loop(insert >>> id)\n");
     let sort_str = sort_path.to_string_lossy().to_string();
 
     // Outgoing calls for the `sort` arrow (named by its file stem).
     let calls = outgoing_calls("sort", Some(&sort_str));
 
-    assert_eq!(calls.len(), 1, "expected one outgoing call to insert, got {:?}", calls);
+    assert_eq!(
+        calls.len(),
+        1,
+        "expected one outgoing call to insert, got {:?}",
+        calls
+    );
     let call = &calls[0];
     assert_eq!(call["to"]["name"].as_str().unwrap(), "insert");
     assert_eq!(call["to"]["kind"].as_u64().unwrap(), 12);
@@ -168,7 +185,12 @@ fn outgoing_calls_finds_string_literal_references() {
     // Outgoing calls for the named `reduce` arrow.
     let calls = outgoing_calls("reduce", Some(&reduce_str));
 
-    assert_eq!(calls.len(), 1, "expected one outgoing call to fold_step, got {:?}", calls);
+    assert_eq!(
+        calls.len(),
+        1,
+        "expected one outgoing call to fold_step, got {:?}",
+        calls
+    );
     assert_eq!(calls[0]["to"]["name"].as_str().unwrap(), "fold_step");
 }
 
@@ -178,13 +200,22 @@ fn outgoing_calls_no_references_returns_empty() {
     let arrows_root = dir.join("handl-packages");
 
     // `insert.hnl` exists but is not referenced by `sort.hnl`.
-    write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
+    write_arrow(
+        &arrows_root,
+        "collection",
+        "insert",
+        "-- insert arrow\nloop(id)\n",
+    );
     let sort_path = write_arrow(&arrows_root, "collection", "sort", "loop(id)\n");
     let sort_str = sort_path.to_string_lossy().to_string();
 
     // `sort` references no other arrow → empty.
     let calls = outgoing_calls("sort", Some(&sort_str));
-    assert!(calls.is_empty(), "expected no outgoing calls, got {:?}", calls);
+    assert!(
+        calls.is_empty(),
+        "expected no outgoing calls, got {:?}",
+        calls
+    );
 }
 
 #[test]
@@ -203,7 +234,11 @@ fn outgoing_calls_excludes_self_reference() {
 
     // `insert` references only itself → no outgoing calls to *other* arrows.
     let calls = outgoing_calls("insert", Some(&insert_str));
-    assert!(calls.is_empty(), "self-references should be excluded, got {:?}", calls);
+    assert!(
+        calls.is_empty(),
+        "self-references should be excluded, got {:?}",
+        calls
+    );
 }
 
 #[test]
@@ -223,15 +258,15 @@ fn incoming_calls_finds_callers() {
     let arrows_root = dir.join("handl-packages");
 
     // `insert.hnl` is the target arrow.
-    write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
-
-    // `sort.hnl` references `insert` in its body — it is a caller.
-    let sort_path = write_arrow(
+    write_arrow(
         &arrows_root,
         "collection",
-        "sort",
-        "loop(insert >>> id)\n",
+        "insert",
+        "-- insert arrow\nloop(id)\n",
     );
+
+    // `sort.hnl` references `insert` in its body — it is a caller.
+    let sort_path = write_arrow(&arrows_root, "collection", "sort", "loop(insert >>> id)\n");
     let sort_str = sort_path.to_string_lossy().to_string();
 
     // Find callers of `insert`; `sort` should be the only one.
@@ -271,7 +306,11 @@ fn incoming_calls_excludes_target_itself() {
     let insert_str = insert_path.to_string_lossy().to_string();
 
     let calls = incoming_calls("insert", Some(&insert_str));
-    assert!(calls.is_empty(), "target should not be its own caller, got {:?}", calls);
+    assert!(
+        calls.is_empty(),
+        "target should not be its own caller, got {:?}",
+        calls
+    );
 }
 
 #[test]
@@ -285,7 +324,11 @@ fn incoming_calls_no_callers_returns_empty() {
     let sort_str = sort_path.to_string_lossy().to_string();
 
     let calls = incoming_calls("insert", Some(&sort_str));
-    assert!(calls.is_empty(), "expected no incoming callers, got {:?}", calls);
+    assert!(
+        calls.is_empty(),
+        "expected no incoming callers, got {:?}",
+        calls
+    );
 }
 
 #[test]

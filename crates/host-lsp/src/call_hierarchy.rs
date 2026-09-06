@@ -91,11 +91,7 @@ struct ArrowDef {
 /// * the file stem of an unnamed arrow file (the whole file is one arrow).
 ///
 /// [item]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_prepareCallHierarchy
-pub fn prepare_call_hierarchy(
-    source: &str,
-    offset: usize,
-    file_path: Option<&str>,
-) -> Vec<Value> {
+pub fn prepare_call_hierarchy(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Value> {
     let defs = find_arrow_definitions(source, file_path);
     if defs.is_empty() {
         return Vec::new();
@@ -261,7 +257,11 @@ pub fn outgoing_calls(arrow_name: &str, file_path: Option<&str>) -> Vec<Value> {
             continue;
         }
 
-        let range = range_from_span(&source, body_offset + t.span.start, body_offset + t.span.end);
+        let range = range_from_span(
+            &source,
+            body_offset + t.span.start,
+            body_offset + t.span.end,
+        );
         if let Some(&idx) = seen.get(&ref_name) {
             calls[idx].1.push(range);
         } else {
@@ -461,7 +461,11 @@ fn find_references_in_body(source: &str, def: &ArrowDef, name: &str) -> Vec<Valu
 /// arrows, `selectionRange` is a zero-width range at the start of the file.
 fn build_call_hierarchy_item(source: &str, def: &ArrowDef, file_path: Option<&str>) -> Value {
     let uri = file_path_to_uri(file_path);
-    let range = range_from_span(source, def.body_start.min(def.name_start), def.body_end.max(def.name_end));
+    let range = range_from_span(
+        source,
+        def.body_start.min(def.name_start),
+        def.body_end.max(def.name_end),
+    );
     let selection_range = if def.name_end > def.name_start {
         range_from_span(source, def.name_start, def.name_end)
     } else {
@@ -488,13 +492,19 @@ fn build_call_hierarchy_item(source: &str, def: &ArrowDef, file_path: Option<&st
 fn build_target_call_hierarchy_item(name: &str, uri: &str) -> Value {
     let disk_path = uri_to_path(uri);
     let contents = fs::read_to_string(&disk_path).ok();
-    let def = contents
-        .as_deref()
-        .and_then(|c| find_arrow_definitions(c, Some(&disk_path)).into_iter().find(|d| d.name == name));
+    let def = contents.as_deref().and_then(|c| {
+        find_arrow_definitions(c, Some(&disk_path))
+            .into_iter()
+            .find(|d| d.name == name)
+    });
 
     let (range, selection_range) = match (&contents, &def) {
         (Some(c), Some(d)) => {
-            let r = range_from_span(c, d.body_start.min(d.name_start), d.body_end.max(d.name_end));
+            let r = range_from_span(
+                c,
+                d.body_start.min(d.name_start),
+                d.body_end.max(d.name_end),
+            );
             let sr = if d.name_end > d.name_start {
                 range_from_span(c, d.name_start, d.name_end)
             } else {

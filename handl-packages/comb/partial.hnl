@@ -1,0 +1,7 @@
+--- Partially apply the first argument(s) of a function
+export partial :: [f, bound] ~> match bound {
+  [a]: x ~> f(a, x),
+  [a, b]: x ~> f(a, b, x),
+  [a, b, c]: x ~> f(a, b, c, x),
+  _: f
+}

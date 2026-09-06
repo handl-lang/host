@@ -20,8 +20,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
     match name {
         "arr" => Some(CombinatorInfo {
             label: "arr(\"op\", args…)",
-            documentation:
-                "Lift a named pure function into the arrow. The function runs on the arrow's \
+            documentation: "Lift a named pure function into the arrow. The function runs on the arrow's \
                  input; `arr` wraps it as a pure step. In v0.1 surface, named arrows are used \
                  directly (e.g. `parse.consume` instead of `arr(\"parse.consume\")`).",
             parameters: &[
@@ -31,26 +30,29 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
         }),
         "comp" => Some(CombinatorInfo {
             label: "comp(a, b)",
-            documentation:
-                "Compose two arrows: the output of `a` feeds the input of `b`. Written as \
+            documentation: "Compose two arrows: the output of `a` feeds the input of `b`. Written as \
                  `a >>> b` in v0.1 surface syntax.",
             parameters: &[
                 ("a (first arrow)", "the first arrow to run"),
-                ("b (second arrow)", "the second arrow, fed by the output of the first"),
+                (
+                    "b (second arrow)",
+                    "the second arrow, fed by the output of the first",
+                ),
             ],
         }),
         "first" => Some(CombinatorInfo {
             label: "first(inner)",
-            documentation:
-                "Run `inner` on the first component of a pair, passing the second through \
+            documentation: "Run `inner` on the first component of a pair, passing the second through \
                  unchanged. Fan-out / parallel wiring. A kernel concept that may appear in \
                  arrow-graph files but is not commonly used in v0.1 surface.",
-            parameters: &[("inner", "the arrow to apply to the first component of the pair")],
+            parameters: &[(
+                "inner",
+                "the arrow to apply to the first component of the pair",
+            )],
         }),
         "choice" => Some(CombinatorInfo {
             label: "choice(l, r)",
-            documentation:
-                "Route on `Either`: `l` handles `Left`, `r` handles `Right`. ArrowChoice — \
+            documentation: "Route on `Either`: `l` handles `Left`, `r` handles `Right`. ArrowChoice — \
                  conditional branching. Written as `l ||| r` in v0.1 surface syntax.",
             parameters: &[
                 ("l (Left case)", "arrow handling the Left case"),
@@ -59,8 +61,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
         }),
         "app" => Some(CombinatorInfo {
             label: "app(\"name\", args…)",
-            documentation:
-                "Dynamic / higher-order arrow application. Given `f : A ~> B` and `x : A`, \
+            documentation: "Dynamic / higher-order arrow application. Given `f : A ~> B` and `x : A`, \
                  `app(f, x)` invokes `f` on `x`. In v0.1 surface, application is \
                  juxtaposition: `f x`.",
             parameters: &[
@@ -70,8 +71,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
         }),
         "rec" => Some(CombinatorInfo {
             label: "rec { state, body }",
-            documentation:
-                "Feedback loop (replaces `loop`). The body sees state wires as bindings; use \
+            documentation: "Feedback loop (replaces `loop`). The body sees state wires as bindings; use \
                  `return` to exit or update state wires to continue.",
             parameters: &[
                 ("state", "initial state bindings"),
@@ -80,8 +80,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
         }),
         "insert" => Some(CombinatorInfo {
             label: "insert({ elem, acc })",
-            documentation:
-                "Insert an element into a sorted list, maintaining sorted order. Used as a \
+            documentation: "Insert an element into a sorted list, maintaining sorted order. Used as a \
                  building block for `sort`.",
             parameters: &[(
                 "{ elem, acc }",
@@ -251,9 +250,5 @@ fn count_args(tokens: &[SpannedToken], lparen_idx: usize) -> usize {
         }
         j += 1;
     }
-    if has_content {
-        commas + 1
-    } else {
-        0
-    }
+    if has_content { commas + 1 } else { 0 }
 }

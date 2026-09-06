@@ -130,9 +130,7 @@ fn bracket_pairs(tokens: &[SpannedToken]) -> Vec<Pair> {
             continue;
         }
 
-        let is_close = kind == "token.rbrace"
-            || kind == "token.rparen"
-            || kind == "token.rbracket";
+        let is_close = kind == "token.rbrace" || kind == "token.rparen" || kind == "token.rbracket";
         if is_close {
             // Pop until we find the matching opener; discard mismatched ones.
             while let Some(&(bracket, open_start, open_end)) = stack.last() {

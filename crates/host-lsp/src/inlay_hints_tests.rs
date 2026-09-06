@@ -17,8 +17,8 @@ const MAP_ARROW: &str = r#"rec {
   state ~> match state.remaining {
     []: return state.acc,
 
-    [h, ...t]:
-      y = state.f(h) in
+    [h, ...t]: {
+      y = state.f(h)
       {
         state: {
           remaining: t,
@@ -26,6 +26,7 @@ const MAP_ARROW: &str = r#"rec {
           acc:       [y, ...state.acc]
         }
       }
+    }
   }
 )
 "#;
@@ -92,13 +93,20 @@ fn inlay_hints_returns_valid_json() {
     let hints = inlay_hints(MAP_ARROW, &engine, None);
     assert!(!hints.is_empty(), "expected inlay hints for arrow file");
     for hint in &hints {
-        assert!(hint.get("position").is_some(), "hint missing position: {:?}", hint);
-        assert!(hint.get("label").is_some(), "hint missing label: {:?}", hint);
+        assert!(
+            hint.get("position").is_some(),
+            "hint missing position: {:?}",
+            hint
+        );
+        assert!(
+            hint.get("label").is_some(),
+            "hint missing label: {:?}",
+            hint
+        );
         assert!(hint.get("kind").is_some(), "hint missing kind: {:?}", hint);
         // position should have line + character.
         assert!(
-            hint["position"].get("line").is_some()
-                && hint["position"].get("character").is_some(),
+            hint["position"].get("line").is_some() && hint["position"].get("character").is_some(),
             "hint position missing line/character: {:?}",
             hint
         );

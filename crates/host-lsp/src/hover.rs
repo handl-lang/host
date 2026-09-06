@@ -205,14 +205,13 @@ pub fn cross_arrow_hover(
         md.push_str("### Inferred Contract\n\n");
         md.push_str(&format!("**Input**  `{}`\n\n", result.input.pretty()));
         md.push_str(&format!("**Output** `{}`\n\n", result.output.pretty()));
-        md.push_str(&format!("**Guarantee** `{}`\n", result.guarantee.simplify().pretty()));
+        md.push_str(&format!(
+            "**Guarantee** `{}`\n",
+            result.guarantee.simplify().pretty()
+        ));
     }
 
-    if md.is_empty() {
-        None
-    } else {
-        Some(md)
-    }
+    if md.is_empty() { None } else { Some(md) }
 }
 
 /// Recursively search for `name.hnl` under `root`.
@@ -302,9 +301,8 @@ fn arrow_combinator_hover(
     index: usize,
     token: &SpannedToken,
 ) -> Option<String> {
-    let is_kind = |i: usize, k: &str| -> bool {
-        tokens.get(i).map(|t| t.kind == k).unwrap_or(false)
-    };
+    let is_kind =
+        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
 
     // Must be a call: followed by `(`. Exception: `id` is used without parens.
     let is_call = is_kind(index + 1, "token.lparen");
@@ -408,7 +406,9 @@ fn count_bracket_contents(
             depth += 1;
         } else if k == close_kind {
             depth -= 1;
-            if depth == 0 { break; }
+            if depth == 0 {
+                break;
+            }
         } else if depth == 1 && k == "token.comma" {
             commas += 1;
         } else if depth == 1 && !is_comment_kind(k) {
@@ -430,10 +430,17 @@ fn count_bracket_contents(
 /// Hover for the spread/rest operator `...`.
 fn spread_hover(tokens: &[SpannedToken], _index: usize, _token: &SpannedToken) -> String {
     // Check context: inside brackets → spread, inside pattern → rest
-    let in_brackets = tokens.iter().take(_index).rev().take_while(|t| {
-        t.kind != "token.lbracket" && t.kind != "token.rbracket"
-            && t.kind != "token.lbrace" && t.kind != "token.rbrace"
-    }).any(|t| t.kind == "token.lbracket" || t.kind == "token.lbrace");
+    let in_brackets = tokens
+        .iter()
+        .take(_index)
+        .rev()
+        .take_while(|t| {
+            t.kind != "token.lbracket"
+                && t.kind != "token.rbracket"
+                && t.kind != "token.lbrace"
+                && t.kind != "token.rbrace"
+        })
+        .any(|t| t.kind == "token.lbracket" || t.kind == "token.lbrace");
 
     if in_brackets {
         "**Spread / rest** `...`\n\nSpreads elements into an array, or collects remaining elements in a pattern.".to_string()
@@ -470,10 +477,7 @@ fn keyword_hover(kind: &str, text: &str) -> String {
             "Pattern-match on a value",
             "match `expr` { `pat` { `body` }, … }",
         ),
-        "token.keyword.if" => (
-            "Conditional expression",
-            "if `cond` { `a` } else { `b` }",
-        ),
+        "token.keyword.if" => ("Conditional expression", "if `cond` { `a` } else { `b` }"),
         "token.keyword.else" => ("Else-branch of `if`", "else { `expr` }"),
         "token.keyword.rec" => (
             "Feedback loop — arrow `Loop` combinator in surface syntax",
@@ -487,34 +491,16 @@ fn keyword_hover(kind: &str, text: &str) -> String {
             "For loop — iterate over a collection",
             "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.do" => (
-            "Do-while loop body",
-            "do { `body` } while `cond`",
-        ),
+        "token.keyword.do" => ("Do-while loop body", "do { `body` } while `cond`"),
         "token.keyword.in" => (
             "Iterator binding — used with `for`",
             "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.return" => (
-            "Return a value from an arrow",
-            "return `expr`",
-        ),
-        "token.keyword.import" => (
-            "Import a module / arrow",
-            "import `name` from `module`",
-        ),
-        "token.keyword.from" => (
-            "Module source for an import",
-            "import `name` from `module`",
-        ),
-        "token.keyword.infer" => (
-            "Infer a type or contract",
-            "infer `name` : `signature`",
-        ),
-        "token.keyword.type" => (
-            "Type declaration",
-            "type `Name` = `definition`",
-        ),
+        "token.keyword.return" => ("Return a value from an arrow", "return `expr`"),
+        "token.keyword.import" => ("Import a module / arrow", "import `name` from `module`"),
+        "token.keyword.from" => ("Module source for an import", "import `name` from `module`"),
+        "token.keyword.infer" => ("Infer a type or contract", "infer `name` : `signature`"),
+        "token.keyword.type" => ("Type declaration", "type `Name` = `definition`"),
         "token.keyword.trait" => (
             "Trait declaration — a set of laws / operations",
             "trait `Name` { `members` }",
@@ -559,8 +545,9 @@ fn identifier_hover(tokens: &[SpannedToken], index: usize, token: &SpannedToken)
 /// Produce a hover for an operator, with its name.
 fn operator_hover(text: &str) -> String {
     let name = match text {
-        "=" => "assignment",
+        "=" => "equality",
         "==" => "equality",
+        "::" => "binding",
         "!=" => "inequality",
         "<" => "less-than",
         ">" => "greater-than",
@@ -599,9 +586,8 @@ struct IdentifierRole {
 }
 
 fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> IdentifierRole {
-    let is_kind = |i: usize, k: &str| -> bool {
-        tokens.get(i).map(|t| t.kind == k).unwrap_or(false)
-    };
+    let is_kind =
+        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
 
     let ident = tokens[index].text.as_str();
 
@@ -660,7 +646,10 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
             .unwrap_or(false)
         && is_kind(index + 3, "token.lparen")
     {
-        let callee = tokens.get(index + 2).map(|t| t.text.as_str()).unwrap_or("?");
+        let callee = tokens
+            .get(index + 2)
+            .map(|t| t.text.as_str())
+            .unwrap_or("?");
         return IdentifierRole {
             label: "function (qualified)",
             detail: Some(format!("Module for `{}.{}(…)`", ident, callee)),
@@ -685,11 +674,11 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
         };
     }
 
-    // Binding declaration: followed by `=`
-    if is_kind(index + 1, "token.equal") {
+    // Binding declaration: followed by `::`
+    if is_kind(index + 1, "token.bind") {
         return IdentifierRole {
             label: "binding",
-            detail: Some("Followed by `=` — a binding declaration".to_string()),
+            detail: Some("Followed by `::` — a binding declaration".to_string()),
         };
     }
 

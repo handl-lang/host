@@ -53,7 +53,12 @@ pub fn prepare_rename(source: &str, offset: usize) -> Option<Value> {
 /// (e.g. `insert`), all `.hnl` files under the arrows root are searched for
 /// references, and a `RenameFile` resource is appended to rename the arrow
 /// file (e.g. `insert.hnl` → `newname.hnl`).
-pub fn rename(source: &str, offset: usize, new_name: &str, file_path: Option<&str>) -> Option<Value> {
+pub fn rename(
+    source: &str,
+    offset: usize,
+    new_name: &str,
+    file_path: Option<&str>,
+) -> Option<Value> {
     let (name, _) = identifier_at_offset_renameable(source, offset)?;
 
     // Collect text edits for the current file (covers both binding
@@ -156,10 +161,9 @@ fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(Strin
     let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
-    let (index, token) = tokens
-        .iter()
-        .enumerate()
-        .find(|(_, t)| is_identifier_kind(t.kind.as_str()) && t.span.start <= offset && offset < t.span.end)?;
+    let (index, token) = tokens.iter().enumerate().find(|(_, t)| {
+        is_identifier_kind(t.kind.as_str()) && t.span.start <= offset && offset < t.span.end
+    })?;
 
     // Not a property access (preceded by `.`).
     if index > 0 && tokens[index - 1].kind == "token.dot" {

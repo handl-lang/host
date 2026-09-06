@@ -2,19 +2,19 @@ use crate::document_symbols::document_symbols;
 
 /// Helper: does the symbol list contain an entry with the given name and kind?
 fn has_symbol(symbols: &[serde_json::Value], name: &str, kind: u64) -> bool {
-    symbols.iter().any(|s| {
-        s["name"].as_str() == Some(name) && s["kind"].as_u64() == Some(kind)
-    })
+    symbols
+        .iter()
+        .any(|s| s["name"].as_str() == Some(name) && s["kind"].as_u64() == Some(kind))
 }
 
 #[test]
 fn document_symbols_for_arrow_file_has_rec() {
     let src = "\
 rec {
-  acc = []
+  acc : []
 } {
   match state.acc {
-    []: { out = state.acc }
+    []: { out :: state.acc }
   }
 }
 ";
@@ -29,16 +29,16 @@ rec {
 fn document_symbols_for_arrow_file_has_match_arms() {
     let src = "\
 rec {
-  remaining = input,
-  acc       = []
+  remaining : input,
+  acc       : []
 } {
   match state.remaining {
     []: {
-      out = state.acc
+      out :: state.acc
     },
 
     [h, ...t]: {
-      state = { remaining = t, acc = state.acc }
+      state :: { remaining : t, acc : state.acc }
     }
   }
 }
@@ -58,12 +58,12 @@ rec {
 fn document_symbols_for_arrow_file_has_object_keys() {
     let src = "\
 rec {
-  elem = input.0,
-  acc  = input.1
+  elem : input.0,
+  acc  : input.1
 } {
   match state.acc {
     [h, ...t]:
-      { state = { elem = state.elem, acc = t } }
+      { state :: { elem : state.elem, acc : t } }
   }
 }
 ";
@@ -115,9 +115,9 @@ law fn.apply : (a x a) ~> a
 #[test]
 fn document_symbols_for_binding_file_has_variables() {
     let src = "\
-server: type.any = http_server.new()
-route: type.null = http_server.route(server, \"GET\", \"/hello\", \"Hello\")
-start: type.null = http_server.start(server, \"127.0.0.1:8081\")
+server: type.any :: http_server.new()
+route: type.null :: http_server.route(server, \"GET\", \"/hello\", \"Hello\")
+start: type.null :: http_server.start(server, \"127.0.0.1:8081\")
 ";
     let symbols = document_symbols(src);
     assert!(
@@ -143,7 +143,7 @@ fn document_symbols_empty_source_returns_empty() {
 #[test]
 fn document_symbols_match_expression_has_symbol() {
     let src = "\
-result = match input {
+result :: match input {
   []: 0,
   [h, ...t]: 1
 }
@@ -162,7 +162,7 @@ result = match input {
 
 #[test]
 fn document_symbols_if_expression_has_symbol() {
-    let src = "value = if cond { 1 } else { 2 }";
+    let src = "value :: if cond { 1 } else { 2 }";
     let symbols = document_symbols(src);
     assert!(
         has_symbol(&symbols, "if", 23),
@@ -175,11 +175,11 @@ fn document_symbols_if_expression_has_symbol() {
 fn document_symbols_performance_on_large_file() {
     let mut src = String::from("--- Large benchmark file\n");
     for i in 0..500 {
-        src.push_str(&format!("arrow_{} = arr(\"op_{}\") >>> first(id)\n", i, i));
+        src.push_str(&format!("arrow_{} :: arr(\"op_{}\") >>> first(id)\n", i, i));
     }
     src.push_str("\nwhile {\n  remaining: input,\n  acc: []\n} (\n");
     for i in 0..200 {
-        src.push_str(&format!("  [h, ...t]:\n    r{} = arrow_{}({{ elem: h, acc: state.acc }}) in\n    {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n", i, i % 500, i));
+        src.push_str(&format!("  [h, ...t]:\n    r{} :: arrow_{}({{ elem: h, acc: state.acc }})\n    {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n", i, i % 500, i));
     }
     src.push_str(")\n");
 
@@ -194,4 +194,3 @@ fn document_symbols_performance_on_large_file() {
     }
     assert!(best.as_millis() < 50, "symbols too slow: {:?}", best);
 }
-

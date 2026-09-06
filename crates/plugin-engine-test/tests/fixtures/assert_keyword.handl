@@ -1,0 +1,4 @@
+-- Keyword assertion tests.
+test keyword_pass = assert 1 + 1 = 2
+test keyword_truthy = assert "hello"
+test keyword_fail = assert 1 + 1 = 3

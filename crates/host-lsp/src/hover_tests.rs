@@ -24,7 +24,7 @@ fn contents_value(value: &serde_json::Value) -> &serde_json::Value {
 
 #[test]
 fn hover_identifier_shows_role() {
-    let value = hover_at("x = 42", 0).unwrap();
+    let value = hover_at("x :: 42", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     // x is followed by `=`, so it should be classified as a binding
     assert!(contents.contains("binding"), "contents: {contents}");
@@ -33,7 +33,7 @@ fn hover_identifier_shows_role() {
 
 #[test]
 fn hover_number_at_value() {
-    let value = hover_at("x = 42", 4).unwrap();
+    let value = hover_at("x :: 42", 5).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(contents.contains("number"), "contents: {contents}");
     assert!(contents.contains("42"), "contents: {contents}");
@@ -54,7 +54,10 @@ fn hover_if_keyword_shows_conditional_syntax() {
     let value = hover_at("if x { 1 } else { 2 }", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(contents.contains("Conditional"), "contents: {contents}");
-    assert!(contents.contains("if `cond` { `a` } else { `b` }"), "contents: {contents}");
+    assert!(
+        contents.contains("if `cond` { `a` } else { `b` }"),
+        "contents: {contents}"
+    );
 }
 
 #[test]
@@ -98,14 +101,14 @@ fn hover_pascalcase_classified_as_type() {
 
 #[test]
 fn hover_operator_shows_name() {
-    let value = hover_at("x = 42", 2).unwrap(); // hover on "="
+    let value = hover_at("x :: 42", 2).unwrap(); // hover on "::"
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("assignment"), "contents: {contents}");
+    assert!(contents.contains("binding"), "contents: {contents}");
 }
 
 #[test]
 fn hover_whitespace_returns_none() {
-    assert!(hover_at("x = 42", 1).is_none());
+    assert!(hover_at("x :: 42", 1).is_none());
 }
 
 #[test]
@@ -115,7 +118,7 @@ fn hover_empty_source_returns_none() {
 
 #[test]
 fn hover_shows_occurrence_count_for_repeated_identifier() {
-    let value = hover_at("x = 1; y = x; z = x", 0).unwrap();
+    let value = hover_at("x :: 1; y :: x; z :: x", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(contents.contains("3 occurrences"), "contents: {contents}");
 }
@@ -124,7 +127,7 @@ fn hover_shows_occurrence_count_for_repeated_identifier() {
 fn handle_hover_writes_response_with_contents() {
     let engine = RefinementEngine::new();
     let mut store = DocumentStore::new();
-    store.open("file:///test.hnl", "x = 42");
+    store.open("file:///test.hnl", "x :: 42");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -148,7 +151,7 @@ fn handle_hover_writes_response_with_contents() {
 fn handle_hover_returns_null_in_whitespace() {
     let engine = RefinementEngine::new();
     let mut store = DocumentStore::new();
-    store.open("file:///test.hnl", "x = 42");
+    store.open("file:///test.hnl", "x :: 42");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -246,15 +249,24 @@ fn hover_paren_shows_group_or_call() {
 fn hover_arr_combinator() {
     let value = hover_at("arr(\"id\")", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("Arrow combinator: `arr`"), "contents: {contents}");
-    assert!(contents.contains("Lift a named pure function"), "contents: {contents}");
+    assert!(
+        contents.contains("Arrow combinator: `arr`"),
+        "contents: {contents}"
+    );
+    assert!(
+        contents.contains("Lift a named pure function"),
+        "contents: {contents}"
+    );
 }
 
 #[test]
 fn hover_comp_combinator() {
     let value = hover_at("comp(a, b)", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("sequential composition"), "contents: {contents}");
+    assert!(
+        contents.contains("sequential composition"),
+        "contents: {contents}"
+    );
     assert!(contents.contains("a >>> b"), "contents: {contents}");
 }
 
@@ -262,7 +274,10 @@ fn hover_comp_combinator() {
 fn hover_first_combinator() {
     let value = hover_at("first(id)", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("Arrow combinator: `first`"), "contents: {contents}");
+    assert!(
+        contents.contains("Arrow combinator: `first`"),
+        "contents: {contents}"
+    );
     assert!(contents.contains("fan-out"), "contents: {contents}");
 }
 
@@ -270,7 +285,10 @@ fn hover_first_combinator() {
 fn hover_choice_combinator() {
     let value = hover_at("choice(l, r)", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("Arrow combinator: `choice`"), "contents: {contents}");
+    assert!(
+        contents.contains("Arrow combinator: `choice`"),
+        "contents: {contents}"
+    );
     assert!(contents.contains("Either"), "contents: {contents}");
 }
 
@@ -278,7 +296,10 @@ fn hover_choice_combinator() {
 fn hover_app_combinator() {
     let value = hover_at("app(\"f\", x)", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("Arrow combinator: `app`"), "contents: {contents}");
+    assert!(
+        contents.contains("Arrow combinator: `app`"),
+        "contents: {contents}"
+    );
     assert!(contents.contains("higher-order"), "contents: {contents}");
 }
 
@@ -286,7 +307,10 @@ fn hover_app_combinator() {
 fn hover_id_combinator() {
     let value = hover_at("id", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
-    assert!(contents.contains("Arrow combinator: `id`"), "contents: {contents}");
+    assert!(
+        contents.contains("Arrow combinator: `id`"),
+        "contents: {contents}"
+    );
     assert!(contents.contains("Identity"), "contents: {contents}");
 }
 
@@ -303,14 +327,18 @@ fn hover_non_combinator_function_still_shows_function_role() {
     let value = hover_at("myFunc(1, 2)", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(contents.contains("function"), "contents: {contents}");
-    assert!(!contents.contains("Arrow combinator"), "should not be combinator: {contents}");
+    assert!(
+        !contents.contains("Arrow combinator"),
+        "should not be combinator: {contents}"
+    );
 }
 
 // --- Doc comment hover tests ---
 
 #[test]
 fn extract_doc_comments_from_arrow_file() {
-    let source = "--- sort: insertion sort over a list.\n---\n--- Written as an arrow graph.\nrec { } (id)";
+    let source =
+        "--- sort: insertion sort over a list.\n---\n--- Written as an arrow graph.\nrec { } (id)";
     let docs = extract_doc_comments(source).unwrap();
     assert!(docs.contains("sort: insertion sort"), "docs: {docs}");
     assert!(docs.contains("Written as an arrow graph"), "docs: {docs}");
@@ -360,7 +388,10 @@ fn hover_rec_keyword_without_doc_comments_falls_back() {
     // Should fall back to identifier hover (rec is not a keyword in the old
     // lexer), not doc comment hover.
     assert!(contents.contains("rec"), "contents: {contents}");
-    assert!(!contents.contains("---"), "should not have doc separator: {contents}");
+    assert!(
+        !contents.contains("---"),
+        "should not have doc separator: {contents}"
+    );
 }
 
 /// Monotonic counter for unique temp directories in hover tests.
@@ -373,7 +404,11 @@ fn hover_arrow_reference_shows_cross_file_docs() {
     let temp = std::env::temp_dir().join(format!("handl_hover_doc_test_{}", n));
     std::fs::create_dir_all(temp.join("handl-packages").join("fn")).unwrap();
     let target = temp.join("handl-packages").join("fn").join("myarrow.hnl");
-    std::fs::write(&target, "--- myarrow: a test arrow.\n---\n--- It does things.\nrec { } (id)").unwrap();
+    std::fs::write(
+        &target,
+        "--- myarrow: a test arrow.\n---\n--- It does things.\nrec { } (id)",
+    )
+    .unwrap();
 
     // The current file references `myarrow` — hover over it.
     let source = "myarrow(state)";

@@ -19,8 +19,9 @@ use handl_platform::{EvalContext, EvalError, Function};
 // ---------------------------------------------------------------------------
 
 fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
-    arg.as_str()
-        .ok_or(EvalError::TypeMismatch("expected string, got non-string".into()))
+    arg.as_str().ok_or(EvalError::TypeMismatch(
+        "expected string, got non-string".into(),
+    ))
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
@@ -34,7 +35,9 @@ fn require_int(arg: &serde_json::Value, what: &str) -> Result<usize, EvalError> 
     arg.as_f64()
         .filter(|n| *n >= 0.0 && n.fract() == 0.0)
         .map(|n| n as usize)
-        .ok_or(EvalError::TypeMismatch(format!("expected {what}, got non-integer")))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {what}, got non-integer"
+        )))
 }
 
 fn require_char_index(args: &[serde_json::Value], pos: usize) -> Result<usize, EvalError> {
@@ -154,9 +157,7 @@ impl Function for FromCodePoint {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args
-            .first()
-            .ok_or_else(|| type_mismatch("1 args", "0"))?;
+        let arg = args.first().ok_or_else(|| type_mismatch("1 args", "0"))?;
         let n = arg
             .as_f64()
             .filter(|n| *n >= 0.0 && n.fract() == 0.0)
@@ -206,7 +207,11 @@ impl Function for Slice {
         let input = require_one_string(args)?;
         let start = require_char_index(args, 1)?;
         let end = require_char_index(args, 2)?;
-        Ok(s(input.chars().skip(start).take(end.saturating_sub(start)).collect::<String>()))
+        Ok(s(input
+            .chars()
+            .skip(start)
+            .take(end.saturating_sub(start))
+            .collect::<String>()))
     }
 }
 
@@ -295,9 +300,7 @@ impl Function for FromChars {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args
-            .first()
-            .ok_or_else(|| type_mismatch("1 args", "0"))?;
+        let arg = args.first().ok_or_else(|| type_mismatch("1 args", "0"))?;
         let arr = arg
             .as_array()
             .ok_or_else(|| type_mismatch("array", "non-array"))?;

@@ -12,9 +12,9 @@
 //! - `RGraph::Arr(name)`    -> `Scheme::Arr { op: name, source: Native, args: vec![], lit: None }`
 
 use crate::contracts::ContractRegistry;
-use crate::loop_invariant::{discover_invariant_fixpoint_real, FIXPOINT_MAX_ITERATIONS};
+use crate::loop_invariant::{FIXPOINT_MAX_ITERATIONS, discover_invariant_fixpoint_real};
 use crate::termination::analyze_termination;
-use crate::types::{BaseTy, LoopInvariant, Pred, RefinementResult, RefTy};
+use crate::types::{BaseTy, LoopInvariant, Pred, RefTy, RefinementResult};
 use handl_language::Scheme;
 
 /// Infer refinement properties from a `Scheme`, without annotations.
@@ -78,11 +78,7 @@ pub fn infer_r(
     match scheme {
         // arr(id) or arr(op): look up contract in registry.
         // RGraph::Id maps to Scheme::Arr { op: "id", ... }.
-        Scheme::Arr {
-            op,
-            source,
-            ..
-        } => {
+        Scheme::Arr { op, source, .. } => {
             if op == "id" {
                 // Identity preserves everything.
                 return Ok((
@@ -91,9 +87,9 @@ pub fn infer_r(
                     Pred::True,
                 ));
             }
-            let contract = registry.lookup(op, source).ok_or_else(|| {
-                format!("Unknown base arrow: {} (source: {:?})", op, source)
-            })?;
+            let contract = registry
+                .lookup(op, source)
+                .ok_or_else(|| format!("Unknown base arrow: {} (source: {:?})", op, source))?;
 
             // Conditional contracts: the guarantee only applies when the
             // precondition holds on the input. Full bidirectional refinement
@@ -107,11 +103,7 @@ pub fn infer_r(
             // through inference instead of being dropped to True.
             let guarantee = contract.guarantee.clone();
 
-            Ok((
-                contract.input.clone(),
-                contract.output.clone(),
-                guarantee,
-            ))
+            Ok((contract.input.clone(), contract.output.clone(), guarantee))
         }
 
         // seq(g, h) = comp(g, h): compose refinements (cut rule).

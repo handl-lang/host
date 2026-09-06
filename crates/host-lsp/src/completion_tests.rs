@@ -38,7 +38,7 @@ fn completions_empty_source_returns_only_keywords() {
 
 #[test]
 fn completions_includes_identifiers_classified_by_role() {
-    let items = completions("x = 42; y = x; foo(a: 1)");
+    let items = completions("x :: 42; y :: x; foo(a: 1)");
     // keywords + identifiers (x, y, foo, a)
     let x = items.iter().find(|i| i["label"] == "x").expect("x present");
     // x is followed by `=`, so it's a binding (VARIABLE=6)
@@ -60,7 +60,7 @@ fn completions_includes_identifiers_classified_by_role() {
 
 #[test]
 fn completions_lex_error_still_returns_keywords() {
-    let items = completions("x = \"unterminated");
+    let items = completions("x :: \"unterminated");
     // Lex error → no identifiers; not an arrow file → no arrow snippets.
     // Keywords + snippet templates are still returned.
     assert_eq!(items.len(), KEYWORD_COUNT + SNIPPET_COUNT);
@@ -81,7 +81,7 @@ fn completions_arrow_file_includes_arrow_snippets() {
 
 #[test]
 fn completions_non_arrow_file_no_arrow_snippets() {
-    let items = completions("x = 42");
+    let items = completions("x :: 42");
     // The `>>>` combinator snippet is only offered in arrow-graph context, so
     // it is absent for a plain binding. (The `~>` template is now an
     // always-available snippet per ADR 0002, Step 2, so it IS present here.)
@@ -115,7 +115,7 @@ fn completions_boolean_literals_are_constant_kind() {
 #[test]
 fn handle_completion_writes_response_with_array() {
     let mut store = DocumentStore::new();
-    store.open("file:///test.hnl", "x = 42");
+    store.open("file:///test.hnl", "x :: 42");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -195,7 +195,7 @@ fn completion_after_return_suggests_expr() {
 #[test]
 fn completion_after_state_dot_suggests_rec_fields() {
     // A rec state declares `remaining` and `acc`; cursor after `state.`.
-    let src = "rec { remaining = input, acc = [] } match state.";
+    let src = "rec { remaining : input, acc : [] } match state.";
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
@@ -223,22 +223,26 @@ fn completion_after_rec_brace_suggests_fields() {
 
     // A second rec block reuses fields declared in the first one: cursor
     // after the second `rec {` suggests the in-scope field names.
-    let src2 = "rec { remaining = input, acc = [] } rec { ";
+    let src2 = "rec { remaining : input, acc : [] } rec { ";
     let result2 = completion(src2, src2.len());
     let items2 = result2.as_array().expect("array");
-    assert!(items2
-        .iter()
-        .any(|i| i["label"] == "remaining" && i["detail"] == "rec state field"));
-    assert!(items2
-        .iter()
-        .any(|i| i["label"] == "acc" && i["detail"] == "rec state field"));
+    assert!(
+        items2
+            .iter()
+            .any(|i| i["label"] == "remaining" && i["detail"] == "rec state field")
+    );
+    assert!(
+        items2
+            .iter()
+            .any(|i| i["label"] == "acc" && i["detail"] == "rec state field")
+    );
 }
 
 #[test]
 fn completion_after_equal_in_do_suggests_all_combinators() {
     // In v0.1, arrow bindings use `=` instead of `<-`. Inside a `do {}` block,
     // an `=` triggers the ArrowExpr context, offering v0.1 combinators.
-    let src = "do {\n  y = ";
+    let src = "do {\n  y :: ";
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
@@ -253,16 +257,12 @@ fn completion_after_equal_in_do_suggests_all_combinators() {
 
 #[test]
 fn completion_after_equal_in_do_suggests_combinators() {
-    let src = "do {\n  x = ";
+    let src = "do {\n  x :: ";
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
-    assert!(items
-        .iter()
-        .any(|i| i["label"] == ">>>" && i["kind"] == 15));
-    assert!(items
-        .iter()
-        .any(|i| i["label"] == "id" && i["kind"] == 15));
+    assert!(items.iter().any(|i| i["label"] == ">>>" && i["kind"] == 15));
+    assert!(items.iter().any(|i| i["label"] == "id" && i["kind"] == 15));
 }
 
 #[test]
@@ -272,16 +272,14 @@ fn completion_at_do_line_start_suggests_combinators() {
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
-    assert!(items
-        .iter()
-        .any(|i| i["label"] == ">>>" && i["kind"] == 15));
+    assert!(items.iter().any(|i| i["label"] == ">>>" && i["kind"] == 15));
 }
 
 #[test]
 fn completion_after_equal_in_plain_binding_no_combinators() {
     // A plain `x = ` binding (not an arrow context) should NOT add combinator
     // snippets beyond the base set.
-    let src = "x = ";
+    let src = "x :: ";
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
@@ -292,22 +290,32 @@ fn completion_after_equal_in_plain_binding_no_combinators() {
 
 #[test]
 fn completion_after_match_pattern_colon_suggests_patterns() {
-    let src = "rec { remaining = input, acc = [] } match state.remaining {\n  []: ";
+    let src = "rec { remaining : input, acc : [] } match state.remaining {\n  []: ";
     let offset = src.len();
     let result = completion(src, offset);
     let items = result.as_array().expect("array");
     let empty = find_item(items, "[]").expect("[] pattern suggested");
     assert_eq!(empty["kind"], 15);
-    assert!(empty["insertText"].as_str().unwrap().contains("[]: ${1:body}"));
+    assert!(
+        empty["insertText"]
+            .as_str()
+            .unwrap()
+            .contains("[]: ${1:body}")
+    );
     let nonempty = find_item(items, "[h, ...t]").expect("[h, ...t] pattern suggested");
     assert_eq!(nonempty["kind"], 15);
-    assert!(nonempty["insertText"].as_str().unwrap().contains("[h, ...t]: ${1:body}"));
+    assert!(
+        nonempty["insertText"]
+            .as_str()
+            .unwrap()
+            .contains("[h, ...t]: ${1:body}")
+    );
 }
 
 #[test]
 fn completion_no_context_returns_full_set() {
     // Cursor at the very start: no preceding token → full completion set.
-    let src = "x = 42";
+    let src = "x :: 42";
     let result = completion(src, 0);
     let items = result.as_array().expect("array");
     assert!(items.iter().any(|i| i["label"] == "match"));
@@ -316,7 +324,7 @@ fn completion_no_context_returns_full_set() {
 
 #[test]
 fn completion_lex_error_falls_back_to_full_set() {
-    let src = "x = \"unterminated";
+    let src = "x :: \"unterminated";
     let result = completion(src, src.len());
     let items = result.as_array().expect("array");
     assert!(items.iter().any(|i| i["label"] == "match"));
@@ -366,7 +374,8 @@ fn snippet_completions_have_snippet_kind() {
     assert!(!items.is_empty());
     for item in &items {
         assert_eq!(
-            item["kind"], 15,
+            item["kind"],
+            15,
             "snippet `{}` should have kind 15 (Snippet)",
             item["label"].as_str().unwrap_or("?"),
         );
@@ -379,7 +388,8 @@ fn snippet_completions_have_insert_text_format_2() {
     assert!(!items.is_empty());
     for item in &items {
         assert_eq!(
-            item["insertTextFormat"], 2,
+            item["insertTextFormat"],
+            2,
             "snippet `{}` should have insertTextFormat 2 (Snippet)",
             item["label"].as_str().unwrap_or("?"),
         );
@@ -395,10 +405,7 @@ fn snippet_completions_have_insert_text_format_2() {
 #[test]
 fn snippet_completions_have_labels() {
     let items = snippet_completions();
-    let labels: Vec<&str> = items
-        .iter()
-        .map(|i| i["label"].as_str().unwrap())
-        .collect();
+    let labels: Vec<&str> = items.iter().map(|i| i["label"].as_str().unwrap()).collect();
     assert_eq!(labels, SNIPPET_LABELS);
     // Each label is unique.
     let mut sorted = labels.clone();
@@ -419,6 +426,10 @@ fn completions_include_snippets() {
             .find(|i| i["label"] == label)
             .unwrap_or_else(|| panic!("snippet `{}` should appear in completions()", label));
         assert_eq!(item["kind"], 15, "snippet `{}` should have kind 15", label);
-        assert_eq!(item["insertTextFormat"], 2, "snippet `{}` should have insertTextFormat 2", label);
+        assert_eq!(
+            item["insertTextFormat"], 2,
+            "snippet `{}` should have insertTextFormat 2",
+            label
+        );
     }
 }

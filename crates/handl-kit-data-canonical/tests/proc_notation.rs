@@ -169,11 +169,18 @@ fn arrow_multi_param_parses_as_function_with_array_params() {
     // Child 0 is an `array` node containing the param vars.
     let param_idx = children[0].as_u64().unwrap() as usize;
     let param_node = &ast.nodes()[param_idx];
-    assert_eq!(param_node.kind, "array", "param child should be an 'array' node");
+    assert_eq!(
+        param_node.kind, "array",
+        "param child should be an 'array' node"
+    );
     let array_children = param_node
         .payload
         .get("children")
         .and_then(|c| c.as_array())
         .expect("array node should have children");
-    assert_eq!(array_children.len(), 2, "array should have 2 param children");
+    assert_eq!(
+        array_children.len(),
+        2,
+        "array should have 2 param children"
+    );
 }

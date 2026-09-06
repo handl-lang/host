@@ -28,8 +28,14 @@ fn watched_files_changed_for_finds_referencing_documents() {
     let main_src = "result = sort ~> map";
     let other_src = "result = filter ~> reduce";
     let docs = vec![
-        OpenDocument { uri: "file:///repo/handl-packages/main.hnl", source: main_src },
-        OpenDocument { uri: "file:///repo/handl-packages/other.hnl", source: other_src },
+        OpenDocument {
+            uri: "file:///repo/handl-packages/main.hnl",
+            source: main_src,
+        },
+        OpenDocument {
+            uri: "file:///repo/handl-packages/other.hnl",
+            source: other_src,
+        },
     ];
     let affected = watched_files_changed_for(&changed, &docs);
     assert_eq!(
@@ -69,7 +75,10 @@ fn register_watched_files_builds_glob_pattern() {
         pattern.ends_with("/**/*.hnl"),
         "glob pattern should cover all .hnl files: {pattern}"
     );
-    assert!(pattern.starts_with("/repo/handl-packages"), "pattern should be rooted at arrows root: {pattern}");
+    assert!(
+        pattern.starts_with("/repo/handl-packages"),
+        "pattern should be rooted at arrows root: {pattern}"
+    );
 }
 
 #[test]

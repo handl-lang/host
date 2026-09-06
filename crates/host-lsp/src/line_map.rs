@@ -50,11 +50,7 @@ impl LineMap {
             Ok(i) => i,
             Err(i) => {
                 // i is the insertion point; the line we want is i-1.
-                if i == 0 {
-                    0
-                } else {
-                    i - 1
-                }
+                if i == 0 { 0 } else { i - 1 }
             }
         };
 

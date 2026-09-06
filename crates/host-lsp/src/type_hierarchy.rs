@@ -106,11 +106,7 @@ fn subtypes_of(name: &str) -> Vec<&'static str> {
 ///   represents that guarantee predicate).
 ///
 /// [item]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_prepareTypeHierarchy
-pub fn prepare_type_hierarchy(
-    source: &str,
-    offset: usize,
-    file_path: Option<&str>,
-) -> Vec<Value> {
+pub fn prepare_type_hierarchy(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Value> {
     let (name, start, end) = match identifier_at_offset(source, offset) {
         Some(id) => id,
         None => return Vec::new(),
@@ -163,11 +159,7 @@ pub fn prepare_type_hierarchy(
 /// have no supertypes and produce an empty list.
 ///
 /// [item]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#typeHierarchy_supertypes
-pub fn supertypes(
-    source: &str,
-    offset: usize,
-    file_path: Option<&str>,
-) -> Vec<Value> {
+pub fn supertypes(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Value> {
     let (name, _start, _end) = match identifier_at_offset(source, offset) {
         Some(id) => id,
         None => return Vec::new(),
@@ -201,11 +193,7 @@ pub fn supertypes(
 /// concrete implementation satisfying the predicate).
 ///
 /// [item]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#typeHierarchy_subtypes
-pub fn subtypes(
-    source: &str,
-    offset: usize,
-    file_path: Option<&str>,
-) -> Vec<Value> {
+pub fn subtypes(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Value> {
     let (name, _start, _end) = match identifier_at_offset(source, offset) {
         Some(id) => id,
         None => return Vec::new(),

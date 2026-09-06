@@ -4,12 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-kit-cli = { workspace = true }
-handl-kit-hello = { workspace = true }
-handl-kit-stdlib = { workspace = true }
-handl-kit-config = { workspace = true }
-handl-kit-server = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-kit-cli = {path = "../kit-cli" }
+handl-kit-hello = {path = "../kit-hello" }
+handl-kit-stdlib = {path = "../kit-stdlib" }
+handl-kit-config = {path = "../kit-config" }
+handl-kit-server = {path = "../kit-server" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

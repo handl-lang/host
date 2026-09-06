@@ -1,8 +1,8 @@
 use handl_kit_cli::CliKit;
 use handl_kit_config::ConfigKit;
 use handl_kit_hello::HelloKit;
-use handl_kit_stdlib::StdlibKit;
 use handl_kit_server::ServerKit;
+use handl_kit_stdlib::StdlibKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,

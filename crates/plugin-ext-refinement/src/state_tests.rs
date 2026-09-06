@@ -13,18 +13,15 @@
 use handl_language::{ArrSource, Scheme};
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
-use crate::arrow_parser::{parse_arrow_file, ParsedFile};
+use crate::arrow_parser::{ParsedFile, parse_arrow_file};
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
-const COUNTER_HNL: &str =
-    include_str!("../../../handl-packages/state/counter.hnl");
-const BUFFER_HNL: &str =
-    include_str!("../../../handl-packages/state/buffer.hnl");
-const PROTOCOL_HNL: &str =
-    include_str!("../../../handl-packages/state/protocol.hnl");
+const COUNTER_HNL: &str = include_str!("../../../handl-packages/state/counter.hnl");
+const BUFFER_HNL: &str = include_str!("../../../handl-packages/state/buffer.hnl");
+const PROTOCOL_HNL: &str = include_str!("../../../handl-packages/state/protocol.hnl");
 
 // ============================================================================
 // Hand-built state machine graphs (matching the .hnl files)
@@ -47,7 +44,9 @@ fn counter_graph() -> Scheme {
         }),
     };
 
-    Loop { body: Box::new(body) }
+    Loop {
+        body: Box::new(body),
+    }
 }
 
 /// Build the buffer state machine arrow graph:
@@ -67,7 +66,9 @@ fn buffer_graph() -> Scheme {
         }),
     };
 
-    Loop { body: Box::new(body) }
+    Loop {
+        body: Box::new(body),
+    }
 }
 
 /// Build the protocol state machine arrow graph:
@@ -87,7 +88,9 @@ fn protocol_graph() -> Scheme {
         }),
     };
 
-    Loop { body: Box::new(body) }
+    Loop {
+        body: Box::new(body),
+    }
 }
 
 // ============================================================================
@@ -284,8 +287,7 @@ fn test_counter_inference_from_hnl() {
 
     if let ParsedFile::Single(scheme) = parsed {
         let parsed_result = infer_refinement(&scheme, &registry).expect("infer parsed");
-        let handbuilt_result =
-            infer_refinement(&handbuilt, &registry).expect("infer handbuilt");
+        let handbuilt_result = infer_refinement(&handbuilt, &registry).expect("infer handbuilt");
 
         assert_eq!(
             parsed_result.guarantee, handbuilt_result.guarantee,
@@ -528,10 +530,7 @@ fn test_counter_termination_constant() {
     let result = infer_refinement(&graph, &registry).expect("counter inference");
 
     let term = result.termination.as_ref();
-    assert!(
-        term.is_some(),
-        "counter should have a termination measure"
-    );
+    assert!(term.is_some(), "counter should have a termination measure");
     let term = term.unwrap();
     println!("counter termination: {:?}", term);
     // Side-channel loop: C unchanged -> Constant measure.
@@ -639,7 +638,10 @@ fn test_infer_protocol_from_disk() {
     let registry = ContractRegistry::minimal();
 
     let result = infer_file(&protocol_path, &registry).expect("infer protocol from disk");
-    println!("protocol (from disk) guarantee: {}", result.guarantee.pretty());
+    println!(
+        "protocol (from disk) guarantee: {}",
+        result.guarantee.pretty()
+    );
 }
 
 // ============================================================================

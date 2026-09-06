@@ -60,7 +60,15 @@ fn apply_range_edits(source: &str, edits: &[Value]) -> String {
 fn apply_doc_edits(source: &str, edits: &[crate::formatting::TextEdit]) -> String {
     let raw: Vec<(usize, usize, usize, usize, String)> = edits
         .iter()
-        .map(|e| (e.start_line, e.start_char, e.end_line, e.end_char, e.new_text.clone()))
+        .map(|e| {
+            (
+                e.start_line,
+                e.start_char,
+                e.end_line,
+                e.end_char,
+                e.new_text.clone(),
+            )
+        })
         .collect();
     apply_edits(source, raw)
 }
@@ -68,7 +76,9 @@ fn apply_doc_edits(source: &str, edits: &[crate::formatting::TextEdit]) -> Strin
 /// Extract the `newText` of the single edit returned by `range_format`, or
 /// `None` when no edits were produced.
 fn range_new_text(edits: &[Value]) -> Option<String> {
-    edits.first().map(|e| e["newText"].as_str().unwrap().to_string())
+    edits
+        .first()
+        .map(|e| e["newText"].as_str().unwrap().to_string())
 }
 
 // --- tests -----------------------------------------------------------------
@@ -89,7 +99,12 @@ fn range_format_formats_selected_lines() {
     // 1 inside `loop {`) and leave the closing `}` flush-left (depth 0).
     let source = "header: 1\nloop {\nfoo: 1\nbar: 2\nbaz: 3\n}\ntrailer: 0\n";
     let edits = range_format(source, 2, 5);
-    assert_eq!(edits.len(), 1, "expected exactly one range edit: {:?}", edits);
+    assert_eq!(
+        edits.len(),
+        1,
+        "expected exactly one range edit: {:?}",
+        edits
+    );
     let new_text = range_new_text(&edits).unwrap();
     let lines: Vec<&str> = new_text.trim_end_matches('\n').split('\n').collect();
     assert_eq!(lines.len(), 4, "expected 4 formatted lines: {:?}", new_text);
@@ -102,7 +117,11 @@ fn range_format_formats_selected_lines() {
         );
     }
     // The closing brace should be flush-left.
-    assert_eq!(lines[3], "}", "expected closing brace at indent 0: {:?}", lines[3]);
+    assert_eq!(
+        lines[3], "}",
+        "expected closing brace at indent 0: {:?}",
+        lines[3]
+    );
     // Lines outside the range are untouched.
     let result = apply_range_edits(source, &edits);
     assert!(result.starts_with("header: 1\nloop {\n"));
@@ -138,7 +157,11 @@ fn range_format_strips_trailing_whitespace() {
         new_text
     );
     let line = new_text.trim_end_matches('\n');
-    assert_eq!(line, "  foo: 1", "expected trimmed + indented line: {:?}", line);
+    assert_eq!(
+        line, "  foo: 1",
+        "expected trimmed + indented line: {:?}",
+        line
+    );
 }
 
 #[test]
@@ -153,7 +176,11 @@ fn range_format_single_line() {
     let edits = range_format(source, 1, 1);
     assert_eq!(edits.len(), 1, "expected exactly one edit: {:?}", edits);
     let new_text = range_new_text(&edits).unwrap();
-    assert_eq!(new_text, "  foo: 1\n", "expected single indented line: {:?}", new_text);
+    assert_eq!(
+        new_text, "  foo: 1\n",
+        "expected single indented line: {:?}",
+        new_text
+    );
 }
 
 #[test]

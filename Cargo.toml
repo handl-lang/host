@@ -69,7 +69,7 @@ members = [
   "crates/plugin-ext-typecheck",
   "crates/plugin-ffi",
   "crates/plugin-lib-char-native",
-  ".ref-crates/plugin-lib-handl",
+  "crates/plugin-lib-handl",
   "crates/plugin-lib-predicate",
   "crates/plugin-lib-prim",
   "crates/plugin-lib-rand-native",
@@ -206,7 +206,7 @@ handl-plugin-lib-crypto = { path = ".ref-crates/plugin-lib-crypto" }
 handl-plugin-lib-datetime = { path = ".ref-crates/plugin-lib-datetime" }
 handl-plugin-lib-encoding = { path = ".ref-crates/plugin-lib-encoding" }
 handl-plugin-lib-hello = { path = ".ref-crates/plugin-lib-hello" }
-handl-plugin-lib-handl = { path = ".ref-crates/plugin-lib-handl" }
+handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-hex = { path = ".ref-crates/plugin-lib-hex" }
 handl-plugin-lib-http-client = { path = ".ref-crates/plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = ".ref-crates/plugin-lib-http-client-std" }

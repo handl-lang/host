@@ -16,9 +16,9 @@ fn code_actions_add_return_for_object_literal() {
     // The object-literal `{` is at byte offset 16.
     let actions = code_actions(src, 16, 16, &[]);
     assert!(
-        actions.iter().any(|a| {
-            a.get("title").and_then(|t| t.as_str()) == Some("Add missing return")
-        }),
+        actions
+            .iter()
+            .any(|a| { a.get("title").and_then(|t| t.as_str()) == Some("Add missing return") }),
         "expected an 'Add missing return' action, got: {:?}",
         actions,
     );
@@ -31,9 +31,9 @@ fn code_actions_no_return_needed_when_already_present() {
     // The object-literal `{` is at byte offset 25.
     let actions = code_actions(src, 25, 25, &[]);
     assert!(
-        actions.iter().all(|a| {
-            a.get("title").and_then(|t| t.as_str()) != Some("Add missing return")
-        }),
+        actions
+            .iter()
+            .all(|a| { a.get("title").and_then(|t| t.as_str()) != Some("Add missing return") }),
         "should not offer return fix when already present, got: {:?}",
         actions,
     );
@@ -50,8 +50,7 @@ fn code_actions_convert_comment_to_doc_comment() {
     let actions = code_actions(src, 0, 0, &[]);
     assert!(
         actions.iter().any(|a| {
-            a.get("title").and_then(|t| t.as_str())
-                == Some("Convert `--` to `---` doc comment")
+            a.get("title").and_then(|t| t.as_str()) == Some("Convert `--` to `---` doc comment")
         }),
         "expected a comment-conversion action, got: {:?}",
         actions,
@@ -66,8 +65,7 @@ fn code_actions_no_comment_conversion_for_inline_comments() {
     let actions = code_actions(src, 7, 7, &[]);
     assert!(
         actions.iter().all(|a| {
-            a.get("title").and_then(|t| t.as_str())
-                != Some("Convert `--` to `---` doc comment")
+            a.get("title").and_then(|t| t.as_str()) != Some("Convert `--` to `---` doc comment")
         }),
         "should not convert inline comments, got: {:?}",
         actions,
@@ -85,9 +83,9 @@ fn code_actions_wrap_in_do_for_binding() {
     // Cursor on the binding line (byte offset 4 = the `<` of `<-`).
     let actions = code_actions(src, 4, 4, &[]);
     assert!(
-        actions.iter().any(|a| {
-            a.get("title").and_then(|t| t.as_str()) == Some("Wrap in `do` block")
-        }),
+        actions
+            .iter()
+            .any(|a| { a.get("title").and_then(|t| t.as_str()) == Some("Wrap in `do` block") }),
         "expected a 'Wrap in `do` block' action, got: {:?}",
         actions,
     );
@@ -100,9 +98,9 @@ fn code_actions_no_wrap_when_already_in_do() {
     // Cursor on the binding line (byte offset 9 = the `<` of `<-`).
     let actions = code_actions(src, 9, 9, &[]);
     assert!(
-        actions.iter().all(|a| {
-            a.get("title").and_then(|t| t.as_str()) != Some("Wrap in `do` block")
-        }),
+        actions
+            .iter()
+            .all(|a| { a.get("title").and_then(|t| t.as_str()) != Some("Wrap in `do` block") }),
         "should not wrap when already inside do, got: {:?}",
         actions,
     );
@@ -134,12 +132,8 @@ fn code_actions_returns_valid_json() {
             a,
         );
         assert_eq!(a["kind"], "quickfix", "kind must be quickfix: {:?}", a);
-        let edit = a
-            .get("edit")
-            .expect("each action must have an edit");
-        let changes = edit
-            .get("changes")
-            .expect("edit must have changes");
+        let edit = a.get("edit").expect("each action must have an edit");
+        let changes = edit.get("changes").expect("edit must have changes");
         assert!(
             changes.get("file:///untitled.hnl").is_some(),
             "changes must target the untitled URI: {:?}",
@@ -159,9 +153,9 @@ fn code_actions_extract_to_named_arrow_for_complex_selection() {
     // Select the substring `id >>> id` (offsets 4..13).
     let actions = code_actions(src, 4, 13, &[]);
     assert!(
-        actions.iter().any(|a| {
-            a.get("title").and_then(|t| t.as_str()) == Some("Extract to named arrow")
-        }),
+        actions
+            .iter()
+            .any(|a| { a.get("title").and_then(|t| t.as_str()) == Some("Extract to named arrow") }),
         "expected an 'Extract to named arrow' action, got: {:?}",
         actions,
     );
@@ -173,9 +167,9 @@ fn code_actions_no_extract_for_simple_selection() {
     let src = "x = 42";
     let actions = code_actions(src, 4, 6, &[]);
     assert!(
-        actions.iter().all(|a| {
-            a.get("title").and_then(|t| t.as_str()) != Some("Extract to named arrow")
-        }),
+        actions
+            .iter()
+            .all(|a| { a.get("title").and_then(|t| t.as_str()) != Some("Extract to named arrow") }),
         "should not extract simple selection, got: {:?}",
         actions,
     );

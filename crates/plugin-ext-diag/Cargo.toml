@@ -10,11 +10,11 @@ edition.workspace = true
 lang-span = ["dep:handl-language"]
 
 [dependencies]
-handl-platform = { workspace = true }
+handl-platform = {path = "../platform" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-handl-language = { workspace = true, optional = true }
+handl-language = {path = "../handl-language", optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

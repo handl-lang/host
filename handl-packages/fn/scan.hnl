@@ -10,4 +10,4 @@
 --   - cons the intermediate accumulator value onto the output list
 --   - repeat until input is exhausted
 
-scan = rec { arr("fold_step") >>> first(arr("list.cons")) }
+scan :: rec { arr("fold_step") >>> first(arr("list.cons")) }

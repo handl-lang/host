@@ -153,7 +153,10 @@ fn named_color_infos(source: &str) -> Vec<Value> {
     // every `#` with a space (preserving byte offsets) so the lexer succeeds;
     // spans still map back to the original `source` because positions are
     // unchanged.
-    let stripped: String = source.chars().map(|c| if c == '#' { ' ' } else { c }).collect();
+    let stripped: String = source
+        .chars()
+        .map(|c| if c == '#' { ' ' } else { c })
+        .collect();
     let tokens = match kit.lex_with_spans(&stripped) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
@@ -174,7 +177,9 @@ fn named_color_infos(source: &str) -> Vec<Value> {
                             if let Some(close_idx) = next_significant(&tokens, str_idx + 1) {
                                 if tokens[close_idx].text == ")" {
                                     let inner = string_inner(&tokens[str_idx]);
-                                    if let Some((r, g, b)) = named_color(&inner.to_ascii_lowercase()) {
+                                    if let Some((r, g, b)) =
+                                        named_color(&inner.to_ascii_lowercase())
+                                    {
                                         out.push(color_info(
                                             source,
                                             tokens[str_idx].span.start,
@@ -221,15 +226,7 @@ fn string_inner(token: &SpannedToken) -> String {
 }
 
 /// Build a single `ColorInformation` JSON object.
-fn color_info(
-    source: &str,
-    start: usize,
-    end: usize,
-    r: u8,
-    g: u8,
-    b: u8,
-    alpha: f64,
-) -> Value {
+fn color_info(source: &str, start: usize, end: usize, r: u8, g: u8, b: u8, alpha: f64) -> Value {
     let (start_line, start_char) = offset_to_position(source, start);
     let (end_line, end_char) = offset_to_position(source, end);
     json!({

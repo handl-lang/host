@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-language = { workspace = true }
-handl-plugin-engine-lint = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-language = {path = "../handl-language" }
+handl-plugin-engine-lint = {path = "../plugin-engine-lint" }
 serde_json = { workspace = true }

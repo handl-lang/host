@@ -55,8 +55,7 @@ fn runtime_with_eval(eval: &str) -> handl_runtime::Runtime {
     registry.register_eval("bytecode", Box::new(BytecodeEngine::new()));
     registry.register_eval("cranelift", Box::new(CraneliftEngine::new()));
     let registry = Rc::new(registry);
-    let kit = DataKit::assemble(&manifest_with_eval(eval), &reg)
-        .expect("canonical kit assembles");
+    let kit = DataKit::assemble(&manifest_with_eval(eval), &reg).expect("canonical kit assembles");
     kit.into_runtime(&registry, None)
         .expect("runtime binds engines")
 }
@@ -83,10 +82,7 @@ fn cases() -> Vec<(&'static str, serde_json::Value)> {
             json!(5050),
         ),
         // gcd.hnl — Euclidean GCD with destructured params.
-        (
-            include_str!("../../../examples/handl/gcd.hnl"),
-            json!(12),
-        ),
+        (include_str!("../../../examples/handl/gcd.hnl"), json!(12)),
         // power.hnl — while with 3 destructured vars, 2^10.
         (
             include_str!("../../../examples/handl/power.hnl"),

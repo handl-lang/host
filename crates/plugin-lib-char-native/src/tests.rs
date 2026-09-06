@@ -87,17 +87,29 @@ fn char_indexed_access() {
     assert_eq!(call("at", &[json!("abc"), json!(2.0)]), json!("c"));
     assert!(call_err("at", &[json!("abc"), json!(3.0)]).contains("out of bounds"));
 
-    assert_eq!(call("slice", &[json!("héllo"), json!(1.0), json!(3.0)]), json!("él"));
-    assert_eq!(call("slice", &[json!("abc"), json!(0.0), json!(0.0)]), json!(""));
+    assert_eq!(
+        call("slice", &[json!("héllo"), json!(1.0), json!(3.0)]),
+        json!("él")
+    );
+    assert_eq!(
+        call("slice", &[json!("abc"), json!(0.0), json!(0.0)]),
+        json!("")
+    );
     // Out-of-range end clamps to char count.
-    assert_eq!(call("slice", &[json!("abc"), json!(1.0), json!(99.0)]), json!("bc"));
+    assert_eq!(
+        call("slice", &[json!("abc"), json!(1.0), json!(99.0)]),
+        json!("bc")
+    );
 
     assert_eq!(call("length", &[json!("héllo")]), json!(5.0));
     assert_eq!(call("length", &[json!("")]), json!(0.0));
 
     assert_eq!(call("concat", &[json!("ab"), json!("çd")]), json!("abçd"));
 
-    assert_eq!(call("code_point_at", &[json!("héllo"), json!(1.0)]), json!(233.0));
+    assert_eq!(
+        call("code_point_at", &[json!("héllo"), json!(1.0)]),
+        json!(233.0)
+    );
     assert!(call_err("code_point_at", &[json!("abc"), json!(3.0)]).contains("out of bounds"));
 }
 
@@ -108,10 +120,7 @@ fn chars_and_from_chars_round_trip() {
         json!(["h", "é", "l", "l", "o"])
     );
     assert_eq!(call("chars", &[json!("")]), json!([]));
-    assert_eq!(
-        call("from_chars", &[json!(["a", "b", "ç"])]),
-        json!("abç")
-    );
+    assert_eq!(call("from_chars", &[json!(["a", "b", "ç"])]), json!("abç"));
     assert_eq!(call("from_chars", &[json!([])]), json!(""));
 
     // Round-trip: from_chars(chars(s)) == s.

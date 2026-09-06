@@ -141,15 +141,18 @@ fn format_document_json_returns_valid_json() {
         .expect("format_document_json should return a JSON array");
     assert!(!arr.is_empty(), "expected at least one edit");
     for edit in arr {
-        assert!(edit.get("range").is_some(), "edit missing range: {:?}", edit);
+        assert!(
+            edit.get("range").is_some(),
+            "edit missing range: {:?}",
+            edit
+        );
         assert!(
             edit.get("newText").is_some(),
             "edit missing newText: {:?}",
             edit
         );
         assert!(
-            edit["range"].get("start").is_some()
-                && edit["range"].get("end").is_some(),
+            edit["range"].get("start").is_some() && edit["range"].get("end").is_some(),
             "edit range missing start/end: {:?}",
             edit
         );

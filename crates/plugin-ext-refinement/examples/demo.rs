@@ -7,8 +7,7 @@
 //!   `.hnl` file → `arrow_parser` → `Scheme` IR → `infer_refinement`
 
 use handl_plugin_ext_refinement::{
-    infer_file, load_all_arrows, load_arrow_file, resolve_apps, ContractRegistry,
-    infer_refinement,
+    ContractRegistry, infer_file, infer_refinement, load_all_arrows, load_arrow_file, resolve_apps,
 };
 
 fn main() {
@@ -58,12 +57,13 @@ fn main() {
             Ok(r) => {
                 println!("{} (from {}):", name, rel_path);
                 println!("  guarantee:     {}", r.guarantee.pretty());
-                println!(
-                    "  invariants:    {} discovered",
-                    r.loop_invariants.len()
-                );
+                println!("  invariants:    {} discovered", r.loop_invariants.len());
                 for inv in &r.loop_invariants {
-                    println!("    - {} (via {})", inv.invariant.pretty(), inv.how_discovered);
+                    println!(
+                        "    - {} (via {})",
+                        inv.invariant.pretty(),
+                        inv.how_discovered
+                    );
                 }
                 println!(
                     "  termination:   {}",
@@ -84,7 +84,10 @@ fn main() {
     let sort_path = format!("{}/collection/sort.hnl", arrows_dir);
     match infer_file(&sort_path, &registry) {
         Ok(r) => {
-            println!("sort (via infer_file): guarantee = {}", r.guarantee.pretty());
+            println!(
+                "sort (via infer_file): guarantee = {}",
+                r.guarantee.pretty()
+            );
         }
         Err(e) => println!("sort (via infer_file): ERROR: {}", e),
     }

@@ -1,1 +1,1 @@
-main = match x { a: b, c: d }
+main :: match x { a: b, c: d }

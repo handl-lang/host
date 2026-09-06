@@ -62,6 +62,22 @@ describe("resolveServerPath", () => {
     });
     expect(resolveServerPath(deps)).toBe("/explicit/path");
   });
+
+  it("finds the binary under a platform/ subdirectory", () => {
+    const deps = makeDeps({
+      getWorkspaceFolders: () => [{ uri: { fsPath: "/repo" } }],
+      exists: (p) => p === path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
+    });
+    expect(resolveServerPath(deps)).toBe(path.join("/repo", "platform", "target", "debug", "handl-host-lsp"));
+  });
+
+  it("finds the binary in a parent directory when workspace is nested", () => {
+    const deps = makeDeps({
+      getWorkspaceFolders: () => [{ uri: { fsPath: "/repo/platform/crates/host-lsp" } }],
+      exists: (p) => p === path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
+    });
+    expect(resolveServerPath(deps)).toBe(path.join("/repo", "platform", "target", "debug", "handl-host-lsp"));
+  });
 });
 
 describe("buildServerOptions", () => {

@@ -1405,7 +1405,6 @@ dependencies = [
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
- "handl-plugin-lib-handl",
  "handl-plugin-lib-predicate",
  "handl-plugin-lib-scheduler",
  "handl-plugin-module",
@@ -1725,7 +1724,6 @@ name = "handl-plugin-lib-char-native"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-lib-handl",
  "serde_json",
 ]
 
@@ -1833,7 +1831,6 @@ dependencies = [
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
- "handl-plugin-lib-utils",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",

@@ -35,7 +35,10 @@ pub fn inlay_hints(
     // Loop state field hints + loop signature hint.
     if let Some(fields) = parse_loop_state_fields_with_spans(source) {
         for (name, end_offset) in &fields {
-            if let Some(component) = extract_product_component(&result.input, fields.iter().position(|(n, _)| n == name).unwrap_or(0)) {
+            if let Some(component) = extract_product_component(
+                &result.input,
+                fields.iter().position(|(n, _)| n == name).unwrap_or(0),
+            ) {
                 let (line, character) = offset_to_position(source, *end_offset);
                 hints.push(json!({
                     "position": { "line": line, "character": character },
@@ -179,4 +182,3 @@ fn extract_component_helper(ty: &RefTy, pos: usize) -> Option<(RefTy, usize)> {
         }
     }
 }
-

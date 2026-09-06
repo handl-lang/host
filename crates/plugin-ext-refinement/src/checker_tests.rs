@@ -11,9 +11,9 @@ use std::sync::Arc;
 use handl_language::ArrSource;
 use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_handl::{OpFunction, OpRegistry, RuntimePredicateChecker};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::checker::{register_contract_checkers, ContractChecker};
+use crate::checker::{ContractChecker, register_contract_checkers};
 use crate::contracts::ContractRegistry;
 use crate::types::{BaseTy, Contract, Pred, RefTy};
 
@@ -87,59 +87,80 @@ fn pred_eval_and_or_implies() {
 #[test]
 fn pred_eval_length_eq() {
     // Object with two array fields.
-    assert!(Pred::LengthEq("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [3, 4]})));
-    assert!(!Pred::LengthEq("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [3]})));
+    assert!(
+        Pred::LengthEq("a".to_string(), "b".to_string()).eval(&json!({"a": [1, 2], "b": [3, 4]}))
+    );
+    assert!(
+        !Pred::LengthEq("a".to_string(), "b".to_string()).eval(&json!({"a": [1, 2], "b": [3]}))
+    );
     // Non-array → false.
-    assert!(!Pred::LengthEq("a".to_string(), "b".to_string())
-        .eval(&json!({"a": 1, "b": 2})));
+    assert!(!Pred::LengthEq("a".to_string(), "b".to_string()).eval(&json!({"a": 1, "b": 2})));
 }
 
 #[test]
 fn pred_eval_length_le() {
-    assert!(Pred::LengthLe("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1], "b": [3, 4]})));
-    assert!(Pred::LengthLe("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [3, 4]})));
-    assert!(!Pred::LengthLe("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2, 3], "b": [3, 4]})));
+    assert!(Pred::LengthLe("a".to_string(), "b".to_string()).eval(&json!({"a": [1], "b": [3, 4]})));
+    assert!(
+        Pred::LengthLe("a".to_string(), "b".to_string()).eval(&json!({"a": [1, 2], "b": [3, 4]}))
+    );
+    assert!(
+        !Pred::LengthLe("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2, 3], "b": [3, 4]}))
+    );
 }
 
 #[test]
 fn pred_eval_length_plus_one_sub_one() {
     // LengthPlusOne: |a| = |b| + 1.
-    assert!(Pred::LengthPlusOne("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2, 3], "b": [4, 5]})));
-    assert!(!Pred::LengthPlusOne("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [4, 5]})));
+    assert!(
+        Pred::LengthPlusOne("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2, 3], "b": [4, 5]}))
+    );
+    assert!(
+        !Pred::LengthPlusOne("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2], "b": [4, 5]}))
+    );
     // LengthSubOne: |a| = |b| - 1 (i.e. |a| + 1 = |b|).
-    assert!(Pred::LengthSubOne("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [4, 5, 6]})));
-    assert!(!Pred::LengthSubOne("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [4, 5]})));
+    assert!(
+        Pred::LengthSubOne("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2], "b": [4, 5, 6]}))
+    );
+    assert!(
+        !Pred::LengthSubOne("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2], "b": [4, 5]}))
+    );
 }
 
 #[test]
 fn pred_eval_is_perm() {
-    assert!(Pred::IsPerm("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2, 3], "b": [3, 1, 2]})));
-    assert!(!Pred::IsPerm("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2, 3], "b": [1, 2, 4]})));
-    assert!(!Pred::IsPerm("a".to_string(), "b".to_string())
-        .eval(&json!({"a": [1, 2], "b": [1, 2, 3]})));
+    assert!(
+        Pred::IsPerm("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2, 3], "b": [3, 1, 2]}))
+    );
+    assert!(
+        !Pred::IsPerm("a".to_string(), "b".to_string())
+            .eval(&json!({"a": [1, 2, 3], "b": [1, 2, 4]}))
+    );
+    assert!(
+        !Pred::IsPerm("a".to_string(), "b".to_string()).eval(&json!({"a": [1, 2], "b": [1, 2, 3]}))
+    );
 }
 
 #[test]
 fn pred_eval_head_of() {
     // elem is the first element of list.
-    assert!(Pred::HeadOf("elem".to_string(), "list".to_string())
-        .eval(&json!({"elem": 1, "list": [1, 2, 3]})));
-    assert!(!Pred::HeadOf("elem".to_string(), "list".to_string())
-        .eval(&json!({"elem": 2, "list": [1, 2, 3]})));
+    assert!(
+        Pred::HeadOf("elem".to_string(), "list".to_string())
+            .eval(&json!({"elem": 1, "list": [1, 2, 3]}))
+    );
+    assert!(
+        !Pred::HeadOf("elem".to_string(), "list".to_string())
+            .eval(&json!({"elem": 2, "list": [1, 2, 3]}))
+    );
     // Empty list → false.
-    assert!(!Pred::HeadOf("elem".to_string(), "list".to_string())
-        .eval(&json!({"elem": 1, "list": []})));
+    assert!(
+        !Pred::HeadOf("elem".to_string(), "list".to_string()).eval(&json!({"elem": 1, "list": []}))
+    );
 }
 
 #[test]
@@ -163,37 +184,50 @@ fn pred_eval_is_success_is_error() {
 #[test]
 fn pred_eval_all_satisfy() {
     // All elements satisfy "Sorted" (each element is a sorted sub-array).
-    assert!(Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": [[1, 2], [3, 4]]})));
-    assert!(!Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": [[1, 2], [4, 3]]})));
+    assert!(
+        Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
+            .eval(&json!({"list": [[1, 2], [3, 4]]}))
+    );
+    assert!(
+        !Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
+            .eval(&json!({"list": [[1, 2], [4, 3]]}))
+    );
     // "True" predicate → always holds.
-    assert!(Pred::AllSatisfy("list".to_string(), "True".to_string())
-        .eval(&json!({"list": [1, 2, 3]})));
+    assert!(
+        Pred::AllSatisfy("list".to_string(), "True".to_string()).eval(&json!({"list": [1, 2, 3]}))
+    );
     // "False" predicate → never holds (unless empty).
-    assert!(!Pred::AllSatisfy("list".to_string(), "False".to_string())
-        .eval(&json!({"list": [1, 2, 3]})));
+    assert!(
+        !Pred::AllSatisfy("list".to_string(), "False".to_string())
+            .eval(&json!({"list": [1, 2, 3]}))
+    );
     // Empty list → vacuously true.
-    assert!(Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": []})));
+    assert!(Pred::AllSatisfy("list".to_string(), "Sorted".to_string()).eval(&json!({"list": []})));
     // Non-array → false.
-    assert!(!Pred::AllSatisfy("list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": 42})));
+    assert!(!Pred::AllSatisfy("list".to_string(), "Sorted".to_string()).eval(&json!({"list": 42})));
     // Unknown predicate name → fail-closed (false).
-    assert!(!Pred::AllSatisfy("list".to_string(), "UnknownPred".to_string())
-        .eval(&json!({"list": [1, 2, 3]})));
+    assert!(
+        !Pred::AllSatisfy("list".to_string(), "UnknownPred".to_string())
+            .eval(&json!({"list": [1, 2, 3]}))
+    );
 }
 
 #[test]
 fn pred_eval_forall() {
     // Forall behaves like AllSatisfy.
-    assert!(Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": [[1, 2], [3, 4]]})));
-    assert!(!Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": [[1, 2], [4, 3]]})));
+    assert!(
+        Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
+            .eval(&json!({"list": [[1, 2], [3, 4]]}))
+    );
+    assert!(
+        !Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
+            .eval(&json!({"list": [[1, 2], [4, 3]]}))
+    );
     // Non-array → false.
-    assert!(!Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
-        .eval(&json!({"list": 42})));
+    assert!(
+        !Pred::Forall("x".to_string(), "list".to_string(), "Sorted".to_string())
+            .eval(&json!({"list": 42}))
+    );
 }
 
 #[test]
@@ -229,7 +263,9 @@ fn contract_checker_requires_rejects_violating_input() {
     // Single-arg: the arg is an object {a, b}. a=1 <= b=2 → ok.
     checker.check_requires(&[json!({"a": 1, "b": 2})]).unwrap();
     // a=3 > b=2 → violation.
-    let err = checker.check_requires(&[json!({"a": 3, "b": 2})]).unwrap_err();
+    let err = checker
+        .check_requires(&[json!({"a": 3, "b": 2})])
+        .unwrap_err();
     assert!(err.contains("requires predicate"), "got: {err}");
     assert!(err.contains("test.op"));
 }
@@ -315,10 +351,7 @@ impl Function for SortFn {
         let arr = args[0]
             .as_array()
             .ok_or_else(|| EvalError::TypeMismatch("expected array".to_string()))?;
-        let mut nums: Vec<f64> = arr
-            .iter()
-            .map(|v| v.as_f64().unwrap_or(0.0))
-            .collect();
+        let mut nums: Vec<f64> = arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect();
         nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         Ok(json!(nums))
     }
@@ -494,7 +527,9 @@ fn register_contract_checkers_requires_enforced_via_op_call() {
     assert_eq!(result, json!(3.0));
 
     // a=5 > b=2 → requires violated.
-    let err = op_func.call(&[json!({"a": 5, "b": 2})], &mut ctx).unwrap_err();
+    let err = op_func
+        .call(&[json!({"a": 5, "b": 2})], &mut ctx)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(
         msg.contains("requires predicate violated"),

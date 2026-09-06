@@ -11,14 +11,13 @@
 use handl_language::{ArrSource, Scheme};
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
-use crate::arrow_parser::{parse_arrow_file, ParsedFile};
+use crate::arrow_parser::{ParsedFile, parse_arrow_file};
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
-const PRATT_HNL: &str =
-    include_str!("../../../handl-packages/parse-pratt/pratt.hnl");
+const PRATT_HNL: &str = include_str!("../../../handl-packages/parse-pratt/pratt.hnl");
 
 // ============================================================================
 // Hand-built Pratt parser graph (matching the .hnl file)
@@ -168,7 +167,10 @@ fn test_parse_pratt_hnl() {
         ParsedFile::Single(scheme) => {
             // Should be: loop((parse.consume >>> parse.atom_value) >>>
             //                  loop(parse.peek >>> ((parse.consume >>> parse.make_node) ||| id)))
-            assert!(matches!(scheme, Scheme::Loop { .. }), "top-level should be Loop");
+            assert!(
+                matches!(scheme, Scheme::Loop { .. }),
+                "top-level should be Loop"
+            );
         }
         other => panic!("expected Single, got {:?}", other),
     }
@@ -212,8 +214,7 @@ fn test_pratt_inference_from_hnl() {
 
     if let ParsedFile::Single(scheme) = parsed {
         let parsed_result = infer_refinement(&scheme, &registry).expect("infer parsed");
-        let handbuilt_result =
-            infer_refinement(&handbuilt, &registry).expect("infer handbuilt");
+        let handbuilt_result = infer_refinement(&handbuilt, &registry).expect("infer handbuilt");
 
         // Same guarantee
         assert_eq!(
@@ -268,10 +269,7 @@ fn test_pratt_termination_list_length() {
     let result = infer_refinement(&graph, &registry).expect("pratt inference");
 
     let term = result.termination.as_ref();
-    assert!(
-        term.is_some(),
-        "pratt should have a termination measure"
-    );
+    assert!(term.is_some(), "pratt should have a termination measure");
     let term = term.unwrap();
     println!("pratt termination: {:?}", term);
 
@@ -391,7 +389,10 @@ fn test_parse_ops_inner_loop_inference() {
     );
 
     let result = result.unwrap();
-    println!("parse_ops inferred guarantee: {}", result.guarantee.pretty());
+    println!(
+        "parse_ops inferred guarantee: {}",
+        result.guarantee.pretty()
+    );
 
     // The inner loop should also derive LengthSubOne from parse.consume.
     let pretty = result.guarantee.pretty();

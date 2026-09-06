@@ -330,7 +330,10 @@ fn try_tag_pattern(
     })? as usize;
     let callee_node = ast.at(AstRef::new(callee_idx))?;
     let tag_name = callee_node.payload.as_str().ok_or_else(|| {
-        LangError::engine_node("tag pattern: callee is not a var".to_string(), &pattern_node)
+        LangError::engine_node(
+            "tag pattern: callee is not a var".to_string(),
+            &pattern_node,
+        )
     })?;
     // Check scrutinee is a tagged value with matching tag name.
     let scrut_obj = match scrut.as_object() {
@@ -355,10 +358,7 @@ fn try_tag_pattern(
         .skip(1)
         .map(|c| -> Result<usize, LangError> {
             let idx = c.as_u64().ok_or_else(|| {
-                LangError::engine_node(
-                    "tag pattern: bad binder index".to_string(),
-                    &pattern_node,
-                )
+                LangError::engine_node("tag pattern: bad binder index".to_string(), &pattern_node)
             })?;
             Ok(idx as usize)
         })

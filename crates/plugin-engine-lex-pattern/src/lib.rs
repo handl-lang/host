@@ -129,9 +129,14 @@ fn try_rule<'r>(rule: &'r LexerRuleDef, src: &str, pos: usize) -> Option<(&'r st
                 // identifier-continue character, the match is rejected so the
                 // identifier CharClass rule can consume the whole token
                 // (e.g. `if_true` lexes as one identifier, not `if` + `_true`).
+                //
+                // A `.` immediately after a word is also a boundary: it lets
+                // contextual keywords that double as module/record names
+                // (e.g. `assert.true`) lex as an identifier rather than as
+                // the keyword followed by a dot.
                 if is_word_literal(text) {
                     if let Some(following) = peek_char(src, next) {
-                        if char_matches(following, "a-zA-Z0-9_α-ωΑ-Ω") {
+                        if char_matches(following, "a-zA-Z0-9_α-ωΑ-Ω.") {
                             return None;
                         }
                     }
@@ -348,6 +353,16 @@ mod tests {
     use super::*;
     use handl_language::{Language, LexerPattern, LexerRuleDef};
 
+    #[test]
+    fn debug_lex_colon() {
+        let lang = handl_kit_data_canonical::language_from_yaml().unwrap();
+        let src = "data Nat :: Zero | Succ(Nat)";
+        let toks = crate::lex(&lang, src).unwrap();
+        for t in &toks.0 {
+            eprintln!("  {} : '{}'", t.kind, t.text);
+        }
+    }
+
     /// Build a small language with the rules needed for the unit tests.
     fn test_lang() -> Language {
         let mut lang = Language::new();
@@ -471,10 +486,7 @@ mod tests {
         let toks = lex(&lang, "foo bar").unwrap();
         assert_eq!(
             kinds_texts(&toks.0),
-            vec![
-                ("token.identifier", "foo"),
-                ("token.identifier", "bar"),
-            ]
+            vec![("token.identifier", "foo"), ("token.identifier", "bar"),]
         );
     }
 
@@ -489,10 +501,7 @@ mod tests {
     fn lex_string_with_escaped_quote() {
         let lang = test_lang();
         let toks = lex(&lang, r#""he\"llo""#).unwrap();
-        assert_eq!(
-            kinds_texts(&toks.0),
-            vec![("token.string", r#""he\"llo""#)]
-        );
+        assert_eq!(kinds_texts(&toks.0), vec![("token.string", r#""he\"llo""#)]);
     }
 
     #[test]
@@ -501,10 +510,7 @@ mod tests {
         let toks = lex(&lang, "let x").unwrap();
         assert_eq!(
             kinds_texts(&toks.0),
-            vec![
-                ("token.keyword.let", "let"),
-                ("token.identifier", "x"),
-            ]
+            vec![("token.keyword.let", "let"), ("token.identifier", "x"),]
         );
     }
 

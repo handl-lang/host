@@ -1,0 +1,2 @@
+--- Call a function with an array of arguments
+export apply :: [f, args] ~> f(args)

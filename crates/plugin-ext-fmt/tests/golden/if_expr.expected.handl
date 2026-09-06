@@ -1,1 +1,1 @@
-main = if x { y } else { z }
+main :: if x { y } else { z }

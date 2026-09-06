@@ -10,4 +10,4 @@
 --   - choice: cons it onto the output, or pass through (id) when done
 --   - repeat until n elements are taken or input is exhausted
 
-take = rec { arr("list.head") >>> (arr("cons") ||| arr("id")) }
+take :: rec { arr("list.head") >>> (arr("cons") ||| arr("id")) }

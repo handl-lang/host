@@ -354,8 +354,8 @@ fn context_classifier_identifies_binding_declaration_with_colon() {
 }
 
 #[test]
-fn context_classifier_identifies_binding_declaration_with_equal() {
-    let (ty, mods) = classify_first_identifier("x = 42");
+fn context_classifier_identifies_binding_declaration_with_bind() {
+    let (ty, mods) = classify_first_identifier("x :: 42");
     let legend = SemanticTokenLegend::default();
     assert_eq!(ty, legend.token_type_index("variable").unwrap());
     assert_eq!(mods, legend.modifier_bit("declaration").unwrap());
@@ -414,9 +414,9 @@ fn context_classifier_default_identifier_is_variable() {
 
 #[test]
 fn context_classifier_function_definition_binding() {
-    // make_flag = (name: type.string, short: type.string): Flag ~>
+    // make_flag :: (name: type.string, short: type.string): Flag ~>
     //   { name: name, short: short };
-    let source = "make_flag = (name: type.string, short: type.string): Flag ~>\n  { name: name, short: short };";
+    let source = "make_flag :: (name: type.string, short: type.string): Flag ~>\n  { name: name, short: short };";
     let all = classify_all_identifiers(source);
     let legend = SemanticTokenLegend::default();
     let var_idx = legend.token_type_index("variable").unwrap();

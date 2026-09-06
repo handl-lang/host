@@ -1,8 +1,8 @@
-mod code_action_resolve;
-mod code_lens_resolve;
 mod call_hierarchy;
-mod color_provider;
+mod code_action_resolve;
 mod code_actions;
+mod code_lens_resolve;
+mod color_provider;
 mod completion;
 mod completion_resolve;
 mod cross_file_def;
@@ -17,15 +17,15 @@ mod file_watcher;
 mod folding_ranges;
 mod formatting;
 mod handlers;
-mod on_type_formatting;
 mod hover;
 mod implementation;
-mod inlay_hints;
 mod inlay_hint_resolve;
+mod inlay_hints;
 mod kit_resolver;
 mod line_map;
 mod linked_editing;
 mod moniker;
+mod on_type_formatting;
 mod protocol;
 mod range_formatting;
 mod refinement;
@@ -43,11 +43,11 @@ mod cancellation_tests;
 #[cfg(test)]
 mod code_action_resolve_tests;
 #[cfg(test)]
-mod color_provider_tests;
-#[cfg(test)]
 mod code_actions_tests;
 #[cfg(test)]
 mod code_lens_resolve_tests;
+#[cfg(test)]
+mod color_provider_tests;
 #[cfg(test)]
 mod completion_resolve_tests;
 #[cfg(test)]
@@ -59,11 +59,13 @@ mod cross_file_rename_tests;
 #[cfg(test)]
 mod diagnostics_tests;
 #[cfg(test)]
-mod document_tests;
-#[cfg(test)]
 mod document_highlight_tests;
 #[cfg(test)]
 mod document_link_tests;
+#[cfg(test)]
+mod document_symbols_tests;
+#[cfg(test)]
+mod document_tests;
 #[cfg(test)]
 mod execute_command_tests;
 #[cfg(test)]
@@ -75,21 +77,21 @@ mod formatting_tests;
 #[cfg(test)]
 mod handlers_tests;
 #[cfg(test)]
-mod on_type_formatting_tests;
-#[cfg(test)]
 mod hover_tests;
-#[cfg(test)]
-mod inlay_hints_tests;
 #[cfg(test)]
 mod implementation_tests;
 #[cfg(test)]
 mod inlay_hint_resolve_tests;
+#[cfg(test)]
+mod inlay_hints_tests;
 #[cfg(test)]
 mod kit_resolver_tests;
 #[cfg(test)]
 mod linked_editing_tests;
 #[cfg(test)]
 mod moniker_tests;
+#[cfg(test)]
+mod on_type_formatting_tests;
 #[cfg(test)]
 mod protocol_tests;
 #[cfg(test)]
@@ -107,8 +109,6 @@ mod type_definition_tests;
 #[cfg(test)]
 mod type_hierarchy_tests;
 #[cfg(test)]
-mod document_symbols_tests;
-#[cfg(test)]
 mod workspace_symbols_tests;
 
 use std::collections::HashSet;
@@ -117,22 +117,20 @@ use std::io::{self, BufRead};
 use handl_host_tooling::{SemanticTokensPlugin, TextContentChange, canonical_semantic_tokens};
 
 use document::DocumentStore;
-use kit_resolver::KitResolver;
 use handlers::{
-    handle_code_actions, handle_code_lens, handle_completion, handle_completion_resolve,
-    handle_definition, handle_document_highlight, handle_document_symbols,
-    handle_execute_command, handle_folding_ranges, handle_formatting, handle_hover,
-    handle_implementation, handle_inlay_hints, handle_inlay_hint_resolve,
-    handle_initialize, handle_linked_editing, handle_moniker, handle_on_type_formatting,
-    handle_prepare_call_hierarchy, handle_call_hierarchy_incoming,
-    handle_call_hierarchy_outgoing, handle_document_link, handle_prepare_rename,
-    handle_prepare_type_hierarchy, handle_publish_diagnostics, handle_range_formatting,
-    handle_references, handle_rename, handle_selection_ranges, handle_semantic_tokens_full,
-    handle_semantic_tokens_range, handle_signature_help, handle_shutdown, handle_type_definition,
-    handle_type_hierarchy_subtypes, handle_type_hierarchy_supertypes,
-    handle_document_color, handle_color_presentation, handle_unknown,
-    handle_workspace_symbols,
+    handle_call_hierarchy_incoming, handle_call_hierarchy_outgoing, handle_code_actions,
+    handle_code_lens, handle_color_presentation, handle_completion, handle_completion_resolve,
+    handle_definition, handle_document_color, handle_document_highlight, handle_document_link,
+    handle_document_symbols, handle_execute_command, handle_folding_ranges, handle_formatting,
+    handle_hover, handle_implementation, handle_initialize, handle_inlay_hint_resolve,
+    handle_inlay_hints, handle_linked_editing, handle_moniker, handle_on_type_formatting,
+    handle_prepare_call_hierarchy, handle_prepare_rename, handle_prepare_type_hierarchy,
+    handle_publish_diagnostics, handle_range_formatting, handle_references, handle_rename,
+    handle_selection_ranges, handle_semantic_tokens_full, handle_semantic_tokens_range,
+    handle_shutdown, handle_signature_help, handle_type_definition, handle_type_hierarchy_subtypes,
+    handle_type_hierarchy_supertypes, handle_unknown, handle_workspace_symbols,
 };
+use kit_resolver::KitResolver;
 use protocol::{Message, send_log_message};
 use refinement::RefinementEngine;
 
@@ -323,12 +321,7 @@ fn main() {
                     ) {
                         store.open(uri, text);
                         let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
-                        handle_publish_diagnostics(
-                            &mut writer,
-                            uri,
-                            &text,
-                            &refinement_engine,
-                        );
+                        handle_publish_diagnostics(&mut writer, uri, &text, &refinement_engine);
                         send_log_message(&mut writer, 4, &format!("opened: {}", uri));
                     }
                 }
@@ -404,12 +397,7 @@ fn main() {
                             .unwrap_or_default();
                         store.update_full(uri, &text);
                         let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
-                        handle_publish_diagnostics(
-                            &mut writer,
-                            uri,
-                            &text,
-                            &refinement_engine,
-                        );
+                        handle_publish_diagnostics(&mut writer, uri, &text, &refinement_engine);
                     }
                 }
             }

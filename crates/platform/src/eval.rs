@@ -148,11 +148,7 @@ pub trait ExprEvaluator: 'static {
 pub trait ValueCallable: 'static {
     /// Call a callable value (e.g. arrow-value `{__arrow__: true, ...}`) with
     /// the given arguments. Returns the result value.
-    fn call_value(
-        &self,
-        callee: &Value,
-        args: &[Value],
-    ) -> Result<Value, EvalError>;
+    fn call_value(&self, callee: &Value, args: &[Value]) -> Result<Value, EvalError>;
 }
 
 /// Concrete `EvaluatorCallback` backed by cloned rule and exec-control lists.

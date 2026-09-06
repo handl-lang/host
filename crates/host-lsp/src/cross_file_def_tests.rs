@@ -47,7 +47,11 @@ fn find_cross_file_definition_finds_arrow_file() {
     let found = find_cross_file_definition("insert", &current_str);
     assert!(found.is_some(), "expected to find insert.hnl");
     let uri = found.unwrap();
-    assert!(uri.starts_with("file://"), "uri should be a file URI: {}", uri);
+    assert!(
+        uri.starts_with("file://"),
+        "uri should be a file URI: {}",
+        uri
+    );
     assert!(
         uri.ends_with("insert.hnl"),
         "uri should point at insert.hnl: {}",
@@ -87,13 +91,16 @@ fn find_cross_file_definition_uri_returns_location_json() {
     let map_path = arrows_dir.join("map.hnl");
     fs::write(&map_path, "-- map arrow\n").expect("write map.hnl");
 
-    let current_file = dir.join("handl-packages").join("collection").join("each.hnl");
+    let current_file = dir
+        .join("handl-packages")
+        .join("collection")
+        .join("each.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
     fs::write(&current_file, "-- each arrow\n").expect("write each.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
-    let loc = find_cross_file_definition_uri("map", &current_str)
-        .expect("should find map.hnl location");
+    let loc =
+        find_cross_file_definition_uri("map", &current_str).expect("should find map.hnl location");
 
     assert_eq!(loc["uri"].as_str().unwrap().ends_with("map.hnl"), true);
     assert_eq!(loc["range"]["start"]["line"].as_u64().unwrap(), 0);
@@ -112,7 +119,10 @@ fn resolve_definition_falls_back_to_cross_file() {
 
     // The current file references `insert` but does not define it locally,
     // so resolve_definition should fall back to cross-file resolution.
-    let current_file = dir.join("handl-packages").join("collection").join("sort.hnl");
+    let current_file = dir
+        .join("handl-packages")
+        .join("collection")
+        .join("sort.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
     let source = "insert(input)";
     fs::write(&current_file, source).expect("write sort.hnl");
@@ -120,8 +130,8 @@ fn resolve_definition_falls_back_to_cross_file() {
     let current_str = current_file.to_string_lossy().to_string();
 
     // Offset pointing at the `insert` identifier (offset 0).
-    let loc = resolve_definition(source, 0, &current_str)
-        .expect("should resolve insert cross-file");
+    let loc =
+        resolve_definition(source, 0, &current_str).expect("should resolve insert cross-file");
 
     let uri = loc["uri"].as_str().unwrap();
     assert!(
@@ -180,7 +190,10 @@ fn find_cross_file_definition_finds_axiom_in_contracts() {
 
     let current_str = current_file.to_string_lossy().to_string();
     let found = find_cross_file_definition("prim.add", &current_str);
-    assert!(found.is_some(), "expected to find axiom prim.add in contracts");
+    assert!(
+        found.is_some(),
+        "expected to find axiom prim.add in contracts"
+    );
     let uri = found.unwrap();
     assert!(
         uri.ends_with("prim.hnl"),

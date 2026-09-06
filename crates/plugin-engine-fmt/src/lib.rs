@@ -158,9 +158,7 @@ impl<'a> FormatCtx<'a> {
         let shape = &row.child_shape;
 
         match row.position {
-            GrammarPosition::Infix => {
-                self.format_infix(node, row, label, &children, indent)
-            }
+            GrammarPosition::Infix => self.format_infix(node, row, label, &children, indent),
             GrammarPosition::Prefix => {
                 if shape.delimited.is_some() {
                     self.format_prefix_delimited(row, label, &children, indent)

@@ -222,8 +222,8 @@ impl Plugin for RefinementCore {
 
         // The payload is expected to contain a serialized Scheme.
         // We deserialize it and run inference.
-        let scheme: handl_language::Scheme =
-            serde_json::from_value(request.payload.clone()).map_err(|e| {
+        let scheme: handl_language::Scheme = serde_json::from_value(request.payload.clone())
+            .map_err(|e| {
                 PlatformError::InvalidMetadata(format!("invalid scheme payload: {}", e))
             })?;
 

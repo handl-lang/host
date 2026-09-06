@@ -207,12 +207,12 @@ impl<K: Plugin> ToolingHost<K> {
     /// Returns [`PlatformError::Plugin`] if lexing, parsing, or formatting
     /// fails.
     pub fn format(&self, lang: &Language, source: &str) -> Result<String, PlatformError> {
-        use handl_plugin_engine_parse::ParserEngine;
-        use handl_plugin_engine_parse_pratt::PrattEngine;
-        use handl_plugin_engine_lex_pattern::lex;
-        use handl_plugin_engine_fmt::FormatEngine;
         use handl_language::AstRef;
+        use handl_plugin_engine_fmt::FormatEngine;
+        use handl_plugin_engine_lex_pattern::lex;
+        use handl_plugin_engine_parse::ParserEngine;
         use handl_plugin_engine_parse::ParserRequest;
+        use handl_plugin_engine_parse_pratt::PrattEngine;
 
         let tokens = lex(lang, source).map_err(|e| PlatformError::Plugin(e.to_string()))?;
         if tokens.as_slice().is_empty() {

@@ -23,9 +23,7 @@ fn resolve_code_action_adds_edit() {
     let edit = resolved
         .get("edit")
         .expect("edit should be filled in by resolve");
-    let changes = edit
-        .get("changes")
-        .expect("edit should contain changes");
+    let changes = edit.get("changes").expect("edit should contain changes");
     // The "Add missing return" action inserts `return ` before the `{`.
     let any_new_text = changes
         .as_object()

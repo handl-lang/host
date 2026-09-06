@@ -2,7 +2,8 @@ use crate::signature_help::signature_help;
 
 /// Helper: find the byte offset of the first occurrence of `needle` in `hay`.
 fn offset_of(hay: &str, needle: &str) -> usize {
-    hay.find(needle).unwrap_or_else(|| panic!("needle not found: {needle}"))
+    hay.find(needle)
+        .unwrap_or_else(|| panic!("needle not found: {needle}"))
 }
 
 /// Helper: offset pointing just past the first occurrence of `needle`.
@@ -43,12 +44,20 @@ fn signature_help_counts_active_parameter_correctly() {
     // Cursor before `r` (after the comma) → second parameter, index 1.
     let offset = offset_of(src, "r");
     let value = signature_help(src, offset).expect("expected signature help");
-    assert_eq!(value["activeParameter"].as_i64(), Some(1), "activeParameter for second arg");
+    assert_eq!(
+        value["activeParameter"].as_i64(),
+        Some(1),
+        "activeParameter for second arg"
+    );
 
     // Cursor before `l` (right after `(`) → first parameter, index 0.
     let offset = offset_after(src, "(");
     let value = signature_help(src, offset).expect("expected signature help");
-    assert_eq!(value["activeParameter"].as_i64(), Some(0), "activeParameter for first arg");
+    assert_eq!(
+        value["activeParameter"].as_i64(),
+        Some(0),
+        "activeParameter for first arg"
+    );
 }
 
 #[test]
@@ -117,7 +126,10 @@ fn signature_help_nested_calls_finds_innermost() {
     let sigs = value["signatures"].as_array().unwrap();
     let label = sigs[0]["label"].as_str().unwrap();
     // The innermost enclosing call is `choice`, not `comp`.
-    assert!(label.starts_with("choice("), "should pick innermost call: {label}");
+    assert!(
+        label.starts_with("choice("),
+        "should pick innermost call: {label}"
+    );
     // `r` is the second parameter of choice → index 1.
     assert_eq!(value["activeParameter"].as_i64(), Some(1));
 }

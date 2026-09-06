@@ -450,13 +450,17 @@ fn data_recursor_base_case_zero() {
 
     // Build step function: (pred, rec_pred) -> rec_pred
     let body = desugared.push(var_node("rec_pred")).index();
-    let step = desugared.push(function_node(&["pred", "rec_pred"], body)).index();
+    let step = desugared
+        .push(function_node(&["pred", "rec_pred"], body))
+        .index();
 
     // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
     let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
+    let rec_call = desugared
+        .push(call_node(&[rec_var, motive, base_lit, step]))
+        .index();
 
     // rec_call(Zero)
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -469,7 +473,11 @@ fn data_recursor_base_case_zero() {
         .runtime()
         .eval(&desugared)
         .expect("Nat.rec(null, 0, step)(Zero) must eval");
-    assert_eq!(result, json!(0), "base case: Nat.rec(null, 0, step)(Zero) == 0");
+    assert_eq!(
+        result,
+        json!(0),
+        "base case: Nat.rec(null, 0, step)(Zero) == 0"
+    );
 }
 
 /// Bug 0.2 + 0.3: `Nat.rec(0, step)(Succ(Zero))` must return `step(Zero, 0)`.
@@ -492,16 +500,22 @@ fn data_recursor_step_case_one() {
     // step = (pred, rec_pred) -> rec_pred + 1
     let rec_pred_var = desugared.push(var_node("rec_pred")).index();
     let one = desugared.push(lit_node(json!(1))).index();
-    let add = desugared.push(AstNode::new("binary.add").with_payload(json!({
-        "children": [rec_pred_var, one]
-    }))).index();
-    let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
+    let add = desugared
+        .push(AstNode::new("binary.add").with_payload(json!({
+            "children": [rec_pred_var, one]
+        })))
+        .index();
+    let step = desugared
+        .push(function_node(&["pred", "rec_pred"], add))
+        .index();
 
     // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
     let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
+    let rec_call = desugared
+        .push(call_node(&[rec_var, motive, base_lit, step]))
+        .index();
 
     // Succ(Zero)
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -519,7 +533,11 @@ fn data_recursor_step_case_one() {
         .eval(&desugared)
         .expect("Nat.rec(null, 0, step)(Succ(Zero)) must eval");
     // Nat.rec(null, 0, step)(Succ(Zero)) = step(Zero, Nat.rec(null, 0, step)(Zero)) = 0 + 1 = 1
-    assert_eq!(result, json!(1), "step case: Nat.rec(null, 0, step)(Succ(Zero)) == 1");
+    assert_eq!(
+        result,
+        json!(1),
+        "step case: Nat.rec(null, 0, step)(Succ(Zero)) == 1"
+    );
 }
 
 /// Bug 0.3: `Nat.rec` can recurse to depth 2.
@@ -542,16 +560,22 @@ fn data_recursor_recurse_depth_two() {
     // step = (pred, rec_pred) -> rec_pred + 1
     let rec_pred_var = desugared.push(var_node("rec_pred")).index();
     let one = desugared.push(lit_node(json!(1))).index();
-    let add = desugared.push(AstNode::new("binary.add").with_payload(json!({
-        "children": [rec_pred_var, one]
-    }))).index();
-    let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
+    let add = desugared
+        .push(AstNode::new("binary.add").with_payload(json!({
+            "children": [rec_pred_var, one]
+        })))
+        .index();
+    let step = desugared
+        .push(function_node(&["pred", "rec_pred"], add))
+        .index();
 
     // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
     let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
+    let rec_call = desugared
+        .push(call_node(&[rec_var, motive, base_lit, step]))
+        .index();
 
     // Succ(Succ(Zero))
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -560,7 +584,9 @@ fn data_recursor_recurse_depth_two() {
     let succ_succ_zero = desugared.push(call_node(&[succ_var, succ_zero])).index();
 
     // rec_call(Succ(Succ(Zero)))
-    let app = desugared.push(call_node(&[rec_call, succ_succ_zero])).index();
+    let app = desugared
+        .push(call_node(&[rec_call, succ_succ_zero]))
+        .index();
 
     // Append the expression to the data block so it evals in the same scope.
     append_child_to_block(&mut desugared, data_block_idx, app);
@@ -571,7 +597,11 @@ fn data_recursor_recurse_depth_two() {
         .expect("Nat.rec(null, 0, step)(Succ(Succ(Zero))) must eval");
     // Nat.rec(null, 0, step)(Succ(Succ(Zero))) = step(Succ(Zero), Nat.rec(null, 0, step)(Succ(Zero)))
     // = step(Succ(Zero), 1) = 1 + 1 = 2
-    assert_eq!(result, json!(2), "recurse: Nat.rec(null, 0, step)(Succ(Succ(Zero))) == 2");
+    assert_eq!(
+        result,
+        json!(2),
+        "recurse: Nat.rec(null, 0, step)(Succ(Succ(Zero))) == 2"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -618,7 +648,9 @@ fn data_strict_positivity_violation_raises_error() {
 #[test]
 fn data_parses_from_source_to_data_node() {
     let kit = kit();
-    let tokens = kit.lex("data Nat = Zero | Succ(Nat)").expect("lex must succeed");
+    let tokens = kit
+        .lex("data Nat = Zero | Succ(Nat)")
+        .expect("lex must succeed");
 
     // Parse WITHOUT desugar by calling the Pratt engine directly.
     let pratt = handl_plugin_engine_parse_pratt::PrattEngine::new();
@@ -631,7 +663,11 @@ fn data_parses_from_source_to_data_node() {
     let root = ast.nodes().last().expect("ast must have a root");
     assert_eq!(root.kind, "data");
     // payload.name should be "Nat".
-    let name = root.payload.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let name = root
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     assert_eq!(name, "Nat", "data node payload.name should be 'Nat'");
     // payload.children should have 2 children: [type_expr, constructors_expr].
     let children = root
@@ -639,7 +675,11 @@ fn data_parses_from_source_to_data_node() {
         .get("children")
         .and_then(|c| c.as_array())
         .expect("data node must have children");
-    assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
+    assert_eq!(
+        children.len(),
+        2,
+        "data node should have 2 children [type, constructors]"
+    );
 
     // Child 0 is the type expression: var("Nat").
     let type_idx = children[0].as_u64().unwrap() as usize;
@@ -661,12 +701,16 @@ fn data_parses_from_source_to_data_node() {
     assert_eq!(alt_children.len(), 2);
 
     // Left: var("Zero")
-    let left = ast.get(AstRef::new(alt_children[0].as_u64().unwrap() as usize)).unwrap();
+    let left = ast
+        .get(AstRef::new(alt_children[0].as_u64().unwrap() as usize))
+        .unwrap();
     assert_eq!(left.kind, "var");
     assert_eq!(left.payload, json!("Zero"));
 
     // Right: call(var("Succ"), var("Nat"))
-    let right = ast.get(AstRef::new(alt_children[1].as_u64().unwrap() as usize)).unwrap();
+    let right = ast
+        .get(AstRef::new(alt_children[1].as_u64().unwrap() as usize))
+        .unwrap();
     assert_eq!(right.kind, "call");
     let call_children = right
         .payload
@@ -674,10 +718,14 @@ fn data_parses_from_source_to_data_node() {
         .and_then(|c| c.as_array())
         .unwrap();
     assert_eq!(call_children.len(), 2);
-    let callee = ast.get(AstRef::new(call_children[0].as_u64().unwrap() as usize)).unwrap();
+    let callee = ast
+        .get(AstRef::new(call_children[0].as_u64().unwrap() as usize))
+        .unwrap();
     assert_eq!(callee.kind, "var");
     assert_eq!(callee.payload, json!("Succ"));
-    let arg = ast.get(AstRef::new(call_children[1].as_u64().unwrap() as usize)).unwrap();
+    let arg = ast
+        .get(AstRef::new(call_children[1].as_u64().unwrap() as usize))
+        .unwrap();
     assert_eq!(arg.kind, "var");
     assert_eq!(arg.payload, json!("Nat"));
 }
@@ -724,10 +772,7 @@ fn data_end_to_end_succ_zero() {
     let call = ast.push(call_node(&[succ, zero])).index();
     append_child_to_block(&mut ast, block_idx, call);
 
-    let result = kit
-        .runtime()
-        .eval(&ast)
-        .expect("Succ(Zero) must eval");
+    let result = kit.runtime().eval(&ast).expect("Succ(Zero) must eval");
     assert_eq!(
         result,
         json!({"tag": "Succ", "pred": {"tag": "Zero"}}),
@@ -776,7 +821,8 @@ fn data_explicit_arg_names_from_source() {
     let params = just_fn.payload.get("params").unwrap().as_array().unwrap();
     assert_eq!(params.len(), 1);
     assert_eq!(
-        params[0], json!("value"),
+        params[0],
+        json!("value"),
         "explicit arg name 'value' should be used, not a placeholder"
     );
 }
@@ -828,7 +874,9 @@ fn data_typecheck_sees_desugared_block() {
 fn data_vec_parses_and_desugars_from_source() {
     let kit = kit();
     let src = "data Vec(n : Nat, a : Type) = Nil | Cons(a, Vec(n - 1, a))";
-    let ast = kit.parse(src).expect("Vec declaration must parse and desugar");
+    let ast = kit
+        .parse(src)
+        .expect("Vec declaration must parse and desugar");
 
     // Root should be the desugared `block` of assignments.
     let root = ast.nodes().last().expect("ast must have a root");
@@ -846,7 +894,11 @@ fn data_vec_parses_and_desugars_from_source() {
             .get(AstRef::new(children[idx].as_u64().unwrap() as usize))
             .unwrap();
         assert_eq!(assign.kind, "assign");
-        let ac = assign.payload.get("children").and_then(|c| c.as_array()).unwrap();
+        let ac = assign
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .unwrap();
         ast.get(AstRef::new(ac[1].as_u64().unwrap() as usize))
             .unwrap()
     };
@@ -854,7 +906,11 @@ fn data_vec_parses_and_desugars_from_source() {
     // Vec predicate is a function with parameters [n, a, v].
     let pred = assign_value(0);
     assert_eq!(pred.kind, "function");
-    let pred_params = pred.payload.get("params").and_then(|p| p.as_array()).unwrap();
+    let pred_params = pred
+        .payload
+        .get("params")
+        .and_then(|p| p.as_array())
+        .unwrap();
     assert_eq!(pred_params, json!(["n", "a", "v"]).as_array().unwrap());
 
     // Nil is a nullary constructor (literal object).
@@ -864,7 +920,11 @@ fn data_vec_parses_and_desugars_from_source() {
     // Cons is a function with two arguments.
     let cons = assign_value(2);
     assert_eq!(cons.kind, "function");
-    let cons_params = cons.payload.get("params").and_then(|p| p.as_array()).unwrap();
+    let cons_params = cons
+        .payload
+        .get("params")
+        .and_then(|p| p.as_array())
+        .unwrap();
     assert_eq!(cons_params.len(), 2);
 
     // The recursor assignment exists.
@@ -891,7 +951,11 @@ fn match_motive_parses_to_three_children() {
         .get("children")
         .and_then(|c| c.as_array())
         .expect("match must have children");
-    assert_eq!(children.len(), 3, "match with motive should have 3 children");
+    assert_eq!(
+        children.len(),
+        3,
+        "match with motive should have 3 children"
+    );
 
     // Scrutinee is child 0: var("v").
     let scrutinee = ast
@@ -915,7 +979,11 @@ fn match_motive_parses_to_three_children() {
         .get(AstRef::new(motive_children[0].as_u64().unwrap() as usize))
         .unwrap();
     assert_eq!(param.kind, "paren");
-    let param_children = param.payload.get("children").and_then(|c| c.as_array()).unwrap();
+    let param_children = param
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .unwrap();
     assert_eq!(param_children.len(), 1);
     let inner = ast
         .get(AstRef::new(param_children[0].as_u64().unwrap() as usize))

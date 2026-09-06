@@ -78,7 +78,9 @@ fn prepare_type_hierarchy_for_predicate_returns_item() {
     // selectionRange should cover the `Sorted` identifier (offsets 0..6).
     assert_eq!(item["selectionRange"]["start"]["line"].as_u64().unwrap(), 0);
     assert_eq!(
-        item["selectionRange"]["start"]["character"].as_u64().unwrap(),
+        item["selectionRange"]["start"]["character"]
+            .as_u64()
+            .unwrap(),
         0
     );
     assert_eq!(

@@ -4,17 +4,17 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = { workspace = true }
-handl-platform = { workspace = true }
-handl-plugin-engine-eval = { workspace = true }
-handl-plugin-engine-typecheck = { workspace = true }
-handl-plugin-lib-tag = { workspace = true }
+handl-language = {path = "../handl-language" }
+handl-platform = {path = "../platform" }
+handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
+handl-plugin-lib-tag = {path = "../../.ref-crates/plugin-lib-tag" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-plugin-engine-eval-tree-walk = { workspace = true }
-handl-plugin-engine-lex-pattern = { workspace = true }
-handl-plugin-engine-parse = { workspace = true }
-handl-plugin-engine-parse-pratt = { workspace = true }
-handl-plugin-module = { workspace = true }
-handl-kit-data-canonical = { workspace = true }
+handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-plugin-module = {path = "../plugin-module" }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }

@@ -123,10 +123,7 @@ impl Law {
 
     /// Whether this law applies to the `left` (coproduct functor) combinator.
     pub fn is_coproduct_law(&self) -> bool {
-        matches!(
-            self,
-            Law::CoproductIdentity | Law::CoproductComposition
-        )
+        matches!(self, Law::CoproductIdentity | Law::CoproductComposition)
     }
 }
 
@@ -209,9 +206,7 @@ pub fn uses_first(scheme: &Scheme) -> bool {
         Scheme::Seq { fst, snd } => uses_first(fst) || uses_first(snd),
         Scheme::Loop { body } => uses_first(body),
         Scheme::Choice { l, r } => uses_first(l) || uses_first(r),
-        Scheme::App { callee, args } => {
-            uses_first(callee) || args.iter().any(uses_first)
-        }
+        Scheme::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
         Scheme::Arr { args, .. } => args.iter().any(uses_first),
         Scheme::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
     }
@@ -263,9 +258,7 @@ pub fn uses_left(scheme: &Scheme) -> bool {
         Scheme::Seq { fst, snd } => uses_left(fst) || uses_left(snd),
         Scheme::Loop { body } => uses_left(body),
         Scheme::First { inner } => uses_left(inner),
-        Scheme::App { callee, args } => {
-            uses_left(callee) || args.iter().any(uses_left)
-        }
+        Scheme::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
         Scheme::Arr { args, .. } => args.iter().any(uses_left),
         Scheme::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
     }
@@ -433,8 +426,7 @@ pub fn infer_law_annotations(scheme: &Scheme) -> Vec<LawAnnotation> {
 fn law_strengthening(law: Law) -> String {
     match law {
         Law::FunctorIdentity => {
-            "first(id) ≡ id(A×D): side channel preserved exactly (identity functor)"
-                .to_string()
+            "first(id) ≡ id(A×D): side channel preserved exactly (identity functor)".to_string()
         }
         Law::FunctorComposition => {
             "first(comp G H) ≡ comp(first G)(first H): First distributes over Seq (fusion)"
@@ -445,8 +437,7 @@ fn law_strengthening(law: Law) -> String {
                 .to_string()
         }
         Law::CoproductComposition => {
-            "left(comp G H) ≡ comp(left G)(left H): left distributes over Seq (fusion)"
-                .to_string()
+            "left(comp G H) ≡ comp(left G)(left H): left distributes over Seq (fusion)".to_string()
         }
     }
 }

@@ -4,9 +4,7 @@
 //! spec. Each test parses a small handl module and asserts on the
 //! diagnostics in the [`TypecheckReport`].
 
-use handl_plugin_engine_typecheck::{
-    check_module, CheckError, TypecheckReport,
-};
+use handl_plugin_engine_typecheck::{CheckError, TypecheckReport, check_module};
 use handl_plugin_ext_diag::Severity;
 
 /// Assert that the report contains a diagnostic with the given rule and
@@ -170,7 +168,8 @@ fn clean_module_with_import_and_call() {
 
 #[test]
 fn all_imports_used() {
-    let src = "import sort from \"collection\"; import map from \"fn/map\"; main = sort(map([3, 1, 2]))";
+    let src =
+        "import sort from \"collection\"; import map from \"fn/map\"; main = sort(map([3, 1, 2]))";
     let report = check_module(src).unwrap();
     assert!(
         !has_diag(&report, "unused-import", Severity::Warning),

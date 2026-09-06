@@ -32,7 +32,10 @@ fn prepare_rename_on_identifier_returns_name() {
     let result = prepare_rename(source, 0);
     let result = result.expect("expected a prepareRename result for `x`");
     assert_eq!(result["placeholder"].as_str().unwrap(), "x");
-    assert!(result.get("range").is_some(), "result should include a range");
+    assert!(
+        result.get("range").is_some(),
+        "result should include a range"
+    );
 }
 
 #[test]
@@ -94,8 +97,8 @@ fn rename_updates_references_across_files() {
     fs::write(&each_path, "insert(input)").expect("write each.hnl");
 
     let file_path = sort_path.to_string_lossy().to_string();
-    let result = rename(sort_source, 0, "newinsert", Some(&file_path))
-        .expect("expected a rename result");
+    let result =
+        rename(sort_source, 0, "newinsert", Some(&file_path)).expect("expected a rename result");
 
     let changes = result["documentChanges"]
         .as_array()

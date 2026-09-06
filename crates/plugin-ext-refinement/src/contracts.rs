@@ -57,8 +57,7 @@ impl ContractRegistry {
 
     /// Look up the contract for a given `(op, source)` pair.
     pub fn lookup(&self, op: &str, source: &ArrSource) -> Option<&Contract> {
-        self.contracts
-            .get(&(op.to_string(), source_key(source)))
+        self.contracts.get(&(op.to_string(), source_key(source)))
     }
 
     /// Returns `true` if a contract is registered for the given `(op, source)`.
@@ -231,7 +230,10 @@ impl ContractRegistry {
                 Pred::And(
                     Box::new(Pred::And(
                         Box::new(Pred::Sorted("output".to_string())),
-                        Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                        Box::new(Pred::LengthPlusOne(
+                            "output".to_string(),
+                            "tail".to_string(),
+                        )),
                     )),
                     Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
@@ -265,7 +267,10 @@ impl ContractRegistry {
                 Pred::And(
                     Box::new(Pred::And(
                         Box::new(Pred::Sorted("output".to_string())),
-                        Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                        Box::new(Pred::LengthSubOne(
+                            "output".to_string(),
+                            "input".to_string(),
+                        )),
                     )),
                     Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
@@ -370,7 +375,10 @@ impl ContractRegistry {
                 Pred::And(
                     Box::new(Pred::And(
                         Box::new(Pred::Sorted("output".to_string())),
-                        Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                        Box::new(Pred::LengthPlusOne(
+                            "output".to_string(),
+                            "tail".to_string(),
+                        )),
                     )),
                     Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
@@ -403,7 +411,10 @@ impl ContractRegistry {
                 output: list_alpha(),
                 precondition: Pred::True,
                 guarantee: Pred::And(
-                    Box::new(Pred::AllSatisfy("output".to_string(), "predicate".to_string())),
+                    Box::new(Pred::AllSatisfy(
+                        "output".to_string(),
+                        "predicate".to_string(),
+                    )),
                     Box::new(Pred::LengthLe("output".to_string(), "input".to_string())),
                 ),
                 termination_effect: None,
@@ -596,7 +607,10 @@ impl ContractRegistry {
                 list_alpha(),
                 Pred::Le("0".to_string(), "input".to_string()),
                 Pred::And(
-                    Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                    Box::new(Pred::LengthSubOne(
+                        "output".to_string(),
+                        "input".to_string(),
+                    )),
                     Box::new(Pred::Le("0".to_string(), "output".to_string())),
                 ),
                 Some("constant".to_string()),
@@ -785,10 +799,12 @@ impl ContractRegistry {
         let list_a = || RefTy::List(Box::new(alpha()));
         let list_b = || RefTy::List(Box::new(beta()));
         let prod_aa = || RefTy::Prod(Box::new(alpha()), Box::new(list_a()));
-        let prod_int_int = || RefTy::Prod(
-            Box::new(RefTy::Plain(BaseTy::Int)),
-            Box::new(RefTy::Plain(BaseTy::Int)),
-        );
+        let prod_int_int = || {
+            RefTy::Prod(
+                Box::new(RefTy::Plain(BaseTy::Int)),
+                Box::new(RefTy::Plain(BaseTy::Int)),
+            )
+        };
 
         // head_and_tail : List a -> (a * List a) -- split list into head and tail
         reg.register(
@@ -1028,14 +1044,8 @@ impl ContractRegistry {
             "step",
             ArrSource::Native,
             Contract {
-                input: RefTy::Prod(
-                    Box::new(alpha()),
-                    Box::new(RefTy::Plain(BaseTy::Int)),
-                ),
-                output: RefTy::Prod(
-                    Box::new(beta()),
-                    Box::new(RefTy::Plain(BaseTy::Int)),
-                ),
+                input: RefTy::Prod(Box::new(alpha()), Box::new(RefTy::Plain(BaseTy::Int))),
+                output: RefTy::Prod(Box::new(beta()), Box::new(RefTy::Plain(BaseTy::Int))),
                 precondition: Pred::True,
                 guarantee: Pred::True,
                 termination_effect: Some("none".to_string()),
@@ -1047,10 +1057,7 @@ impl ContractRegistry {
             "process_one",
             ArrSource::Native,
             Contract {
-                input: RefTy::Prod(
-                    Box::new(alpha()),
-                    Box::new(RefTy::List(Box::new(beta()))),
-                ),
+                input: RefTy::Prod(Box::new(alpha()), Box::new(RefTy::List(Box::new(beta())))),
                 output: RefTy::Prod(
                     Box::new(RefTy::Plain(BaseTy::Var("c".to_string()))),
                     Box::new(RefTy::List(Box::new(beta()))),

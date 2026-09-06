@@ -80,7 +80,9 @@
     node_kind: field-access
     arity: 2
 - id: grammar.eq.infix
-  token: token.eqeq
+  # `=` is equality (a lone `=` yields a bool). `==` lexes to the same
+  # token, so `a == b` and `a = b` are both equality.
+  token: token.equal
   position: Infix
   binding_power:
     - 50
@@ -98,7 +100,9 @@
     node_kind: rest
     arity: 1
 - id: grammar.assign.infix
-  token: token.equal
+  # `::` is the binding/definition operator (was `=`). Produces an `assign`
+  # node: `x :: expr`.
+  token: token.bind
   position: Infix
   binding_power:
     - 5
@@ -239,6 +243,18 @@
     arity: 1
 - id: grammar.stmt-import.prefix
   token: token.keyword.import
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: stmt.import
+    arity: 1
+# `from` is not fully expressible in a single grammar row because the path
+# is a child expression and `import * as alias` is a trailing clause, so the
+# parser handles this form contextually (like `match` and `data`).
+- id: grammar.stmt-from.prefix
+  token: token.keyword.from
   position: Prefix
   binding_power:
     - 0
@@ -389,9 +405,9 @@
   child_shape:
     node_kind: infer
     arity: 1
-# `data Name = <constructors>` — inductive type declaration (ADR-0082).
+# `data Name :: <constructors>` — inductive type declaration (ADR-0082).
 # The `data` keyword is followed by the type name (identifier), optional
-# parenthesised type parameters/indices, `=`, and one child expression: the
+# parenthesised type parameters/indices, `::`, and one child expression: the
 # constructor list. Constructors are separated by `|` (pipe), which creates
 # `alt` nodes. The desugar pass (`desugar_data`) reads the first child to
 # obtain the type name and parameters, then walks the second child (`alt`
@@ -403,15 +419,15 @@
   position: Prefix
   binding_power:
     # Left binding power is passed to the type-expression child; it must be
-    # higher than `=` (assign) so `data Vec(n : Nat, a : Type) = ...` stops
-    # parsing the type expression before the separating `=`.
+    # higher than `::` (bind) so `data Vec(n : Nat, a : Type) :: ...` stops
+    # parsing the type expression before the separating `::`.
     - 6
     - 0
   child_shape:
     node_kind: data
     arity: 2
     child_separators:
-      - !Required token.equal
+      - !Required token.bind
 # `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.
 # namespace"). `type` is a keyword, but it is used as a namespace identifier
 # in type expressions (`type.number`, `type.bool`, `type.string`, ...). It is

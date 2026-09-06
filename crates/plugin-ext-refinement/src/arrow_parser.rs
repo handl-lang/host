@@ -499,7 +499,10 @@ pub fn rewrite_imports(file: &mut ParsedFile, imports: &[ImportDecl]) {
     let mut import_map: HashMap<String, (String, String)> = HashMap::new();
     for import in imports {
         for (remote_name, local_name) in &import.names {
-            import_map.insert(local_name.clone(), (import.path.clone(), remote_name.clone()));
+            import_map.insert(
+                local_name.clone(),
+                (import.path.clone(), remote_name.clone()),
+            );
         }
     }
 
@@ -536,7 +539,12 @@ fn rewrite_scheme(
     local_names: &HashSet<String>,
 ) -> Scheme {
     match scheme {
-        Scheme::Arr { op, args, source, lit } => {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } => {
             // Recurse into args first (bottom-up).
             let new_args: Vec<Scheme> = args
                 .iter()
@@ -901,11 +909,11 @@ fn find_keyword(s: &str, keyword: &str) -> Option<usize> {
     let mut search_start = 0;
     while let Some(idx) = s[search_start..].find(keyword) {
         let abs_idx = search_start + idx;
-        let before_ok = abs_idx == 0
-            || !s[..abs_idx].chars().next_back().unwrap().is_alphanumeric();
+        let before_ok =
+            abs_idx == 0 || !s[..abs_idx].chars().next_back().unwrap().is_alphanumeric();
         let after_idx = abs_idx + keyword.len();
-        let after_ok = after_idx >= s.len()
-            || !s[after_idx..].chars().next().unwrap().is_alphanumeric();
+        let after_ok =
+            after_idx >= s.len() || !s[after_idx..].chars().next().unwrap().is_alphanumeric();
         if before_ok && after_ok {
             return Some(abs_idx);
         }
@@ -966,7 +974,11 @@ fn is_rich_loop(src: &str) -> bool {
             // Ensure the keyword is word-complete (not a prefix of a longer
             // identifier like `looped` or `record`).
             let after = rest.chars().next();
-            if after.is_none() || !after.unwrap().is_alphanumeric() && after.unwrap() != '_' && after.unwrap() != '.' {
+            if after.is_none()
+                || !after.unwrap().is_alphanumeric()
+                    && after.unwrap() != '_'
+                    && after.unwrap() != '.'
+            {
                 if rest.trim_start().starts_with('{') {
                     return true;
                 }
@@ -1039,8 +1051,8 @@ fn try_parse_simple_rec(src: &str) -> Option<Scheme> {
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
 fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Scheme, String> {
-    let tokens = handl_plugin_engine_lex_pattern::lex(lang, src)
-        .map_err(|e| format!("lex error: {}", e))?;
+    let tokens =
+        handl_plugin_engine_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
 
     if tokens.0.is_empty() {
         return Err("no tokens produced by lexer".to_string());
@@ -1074,10 +1086,10 @@ fn parse_named_arrows_data_driven(
             continue;
         }
 
-        // Find ` = ` (top-level assignment)
-        if let Some(eq_idx) = trimmed.find(" = ") {
+        // Find ` :: ` (top-level binding)
+        if let Some(eq_idx) = trimmed.find(" :: ") {
             let name = trimmed[..eq_idx].trim().to_string();
-            let expr_str = trimmed[eq_idx + 3..].trim();
+            let expr_str = trimmed[eq_idx + 4..].trim();
             let scheme = parse_arrow_expr_data_driven(expr_str, lang)?;
             map.insert(name, scheme);
         }
@@ -1141,7 +1153,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     // scheme uses `extend_env`/`assign` for runtime evaluation, but for
     // static materialization we just materialize the expression (child 1).
     // The name binding is handled at the file level.
-    if lang.child_role_index(kind, "target").ok().flatten().is_some()
+    if lang
+        .child_role_index(kind, "target")
+        .ok()
+        .flatten()
+        .is_some()
         || kind == "named_arrow"
         || kind == "assign"
     {
@@ -1276,7 +1292,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     let arg_idx = children
                         .get(1)
                         .and_then(|v| v.as_u64())
-                        .ok_or("arr: missing string arg")? as usize;
+                        .ok_or("arr: missing string arg")?
+                        as usize;
                     let arg_node = ast
                         .nodes()
                         .get(arg_idx)
@@ -1290,7 +1307,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     for i in 2..children.len() {
                         let idx = children[i]
                             .as_u64()
-                            .ok_or("arr: child index not a number")? as usize;
+                            .ok_or("arr: child index not a number")?
+                            as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
                     return Ok(Scheme::arr_native(op_name, args));
@@ -1304,7 +1322,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     let b_idx = children
                         .get(2)
                         .and_then(|v| v.as_u64())
-                        .ok_or("comp: missing second arg")? as usize;
+                        .ok_or("comp: missing second arg")?
+                        as usize;
                     return Ok(Scheme::Seq {
                         fst: Box::new(materialize_node(ast, a_idx, lang)?),
                         snd: Box::new(materialize_node(ast, b_idx, lang)?),
@@ -1325,11 +1344,13 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     let a_idx = children
                         .get(1)
                         .and_then(|v| v.as_u64())
-                        .ok_or("choice: missing first arg")? as usize;
+                        .ok_or("choice: missing first arg")?
+                        as usize;
                     let b_idx = children
                         .get(2)
                         .and_then(|v| v.as_u64())
-                        .ok_or("choice: missing second arg")? as usize;
+                        .ok_or("choice: missing second arg")?
+                        as usize;
                     return Ok(Scheme::Choice {
                         l: Box::new(materialize_node(ast, a_idx, lang)?),
                         r: Box::new(materialize_node(ast, b_idx, lang)?),
@@ -1340,7 +1361,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     let body_idx = children
                         .get(1)
                         .and_then(|v| v.as_u64())
-                        .ok_or("loop: missing body arg")? as usize;
+                        .ok_or("loop: missing body arg")?
+                        as usize;
                     return Ok(Scheme::Loop {
                         body: Box::new(materialize_node(ast, body_idx, lang)?),
                     });
@@ -1350,7 +1372,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     let arg_idx = children
                         .get(1)
                         .and_then(|v| v.as_u64())
-                        .ok_or("app: missing string arg")? as usize;
+                        .ok_or("app: missing string arg")?
+                        as usize;
                     let arg_node = ast
                         .nodes()
                         .get(arg_idx)
@@ -1364,7 +1387,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     for i in 2..children.len() {
                         let idx = children[i]
                             .as_u64()
-                            .ok_or("app: child index not a number")? as usize;
+                            .ok_or("app: child index not a number")?
+                            as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
                     return Ok(Scheme::App {
@@ -1379,7 +1403,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     for i in 1..children.len() {
                         let idx = children[i]
                             .as_u64()
-                            .ok_or("call: child index not a number")? as usize;
+                            .ok_or("call: child index not a number")?
+                            as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
                     return Ok(Scheme::App {
@@ -1427,7 +1452,8 @@ fn walk_scheme(
                 let child_arena_idx = children
                     .get(idx)
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| format!("proj_child: child {} not found", idx))? as usize;
+                    .ok_or_else(|| format!("proj_child: child {} not found", idx))?
+                    as usize;
                 materialize_node(ast, child_arena_idx, lang)
             }
             "$str_child0" => {
@@ -1436,7 +1462,8 @@ fn walk_scheme(
                 let child0_idx = children
                     .first()
                     .and_then(|v| v.as_u64())
-                    .ok_or("$str_child0: missing child 0")? as usize;
+                    .ok_or("$str_child0: missing child 0")?
+                    as usize;
                 let child0 = ast
                     .nodes()
                     .get(child0_idx)
@@ -1540,7 +1567,8 @@ fn walk_args(
                 for i in 1..children.len() {
                     let child_idx = children[i]
                         .as_u64()
-                        .ok_or("proj_rest: child index not a number")? as usize;
+                        .ok_or("proj_rest: child index not a number")?
+                        as usize;
                     result.push(materialize_node(ast, child_idx, lang)?);
                 }
                 continue;
@@ -1695,8 +1723,7 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
         }
     }
 
-    let body_idx = recursive_body_idx
-        .ok_or("loop_rich: no recursive case arm found")?;
+    let body_idx = recursive_body_idx.ok_or("loop_rich: no recursive case arm found")?;
 
     // Analyze the recursive body AST to determine the Scheme graph.
     // The base case body is also collected to detect projection patterns
@@ -1770,9 +1797,8 @@ fn analyze_branch_ast(
 
     // Helper: check if any name in a set ends with the given suffix.
     // This allows matching `state.f`, `inner_state.f`, etc.
-    let has_suffix = |set: &HashSet<String>, suffix: &str| {
-        set.iter().any(|name| name.ends_with(suffix))
-    };
+    let has_suffix =
+        |set: &HashSet<String>, suffix: &str| set.iter().any(|name| name.ends_with(suffix));
 
     // 1. prim.compare → insert pattern
     if collector.var_names.contains("prim.compare") {
@@ -1999,22 +2025,29 @@ impl PatternCollector {
                         if let Some(expr_node) = ast.nodes().get(expr_idx as usize) {
                             if expr_node.kind == "arrow_call" || expr_node.kind == "call" {
                                 if let Ok(expr_children) = get_children(&expr_node.payload) {
-                                    if let Some(callee_idx) = expr_children.first().and_then(|v| v.as_u64()) {
-                                        if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
+                                    if let Some(callee_idx) =
+                                        expr_children.first().and_then(|v| v.as_u64())
+                                    {
+                                        if let Some(callee_node) =
+                                            ast.nodes().get(callee_idx as usize)
+                                        {
                                             // Extract callee name from var,
                                             // field-access, or arrow_id.
-                                            let callee_name = extract_dotted_name(ast, callee_idx as usize)
-                                                .or_else(|| {
-                                                    if callee_node.kind == "arrow_id" {
-                                                        Some("id".to_string())
-                                                    } else if callee_node.kind == "value" {
-                                                        callee_node.payload.as_str()
-                                                            .filter(|s| *s == "id")
-                                                            .map(|s| s.to_string())
-                                                    } else {
-                                                        None
-                                                    }
-                                                });
+                                            let callee_name =
+                                                extract_dotted_name(ast, callee_idx as usize)
+                                                    .or_else(|| {
+                                                        if callee_node.kind == "arrow_id" {
+                                                            Some("id".to_string())
+                                                        } else if callee_node.kind == "value" {
+                                                            callee_node
+                                                                .payload
+                                                                .as_str()
+                                                                .filter(|s| *s == "id")
+                                                                .map(|s| s.to_string())
+                                                        } else {
+                                                            None
+                                                        }
+                                                    });
                                             if let Some(name) = callee_name {
                                                 self.let_bound_callees.insert(name);
                                             }
@@ -2064,7 +2097,9 @@ impl PatternCollector {
                                     } else if callee_node.kind == "value" {
                                         // v0.1: `id` may parse as a `value` node with
                                         // payload "id" (keyword-as-identifier fallback).
-                                        callee_node.payload.as_str()
+                                        callee_node
+                                            .payload
+                                            .as_str()
                                             .filter(|s| *s == "id")
                                             .map(|s| s.to_string())
                                     } else {
@@ -2083,9 +2118,7 @@ impl PatternCollector {
                                 let mut all_var_args = HashSet::new();
                                 for i in 1..children.len() {
                                     if let Some(arg_idx) = children[i].as_u64() {
-                                        if let Some(_arg_node) =
-                                            ast.nodes().get(arg_idx as usize)
-                                        {
+                                        if let Some(_arg_node) = ast.nodes().get(arg_idx as usize) {
                                             // Direct argument: extract dotted
                                             // name from var or field-access.
                                             if let Some(arg_name) =
@@ -2095,14 +2128,12 @@ impl PatternCollector {
                                             }
                                             // Recursively collect all var names
                                             // from this argument subtree.
-                                            let vars =
-                                                collect_var_names(ast, arg_idx as usize);
+                                            let vars = collect_var_names(ast, arg_idx as usize);
                                             all_var_args.extend(vars);
                                         }
                                     }
                                 }
-                                self.call_callee_args
-                                    .insert(callee_name.clone(), arg_names);
+                                self.call_callee_args.insert(callee_name.clone(), arg_names);
                                 self.app_left_args
                                     .entry(callee_name)
                                     .or_default()
@@ -2287,7 +2318,7 @@ fn strip_comments(src: &str) -> String {
 // Named arrow detection and parsing (legacy)
 // ============================================================================
 
-/// Check if the source contains named arrow definitions (`name = expr`).
+/// Check if the source contains named arrow definitions (`name :: expr`).
 fn has_named_arrows(src: &str) -> bool {
     src.lines().any(|line| {
         let trimmed = line.trim();
@@ -2297,7 +2328,7 @@ fn has_named_arrows(src: &str) -> bool {
         if line.starts_with(char::is_whitespace) {
             return false;
         }
-        trimmed.contains(" = ") && !trimmed.starts_with("==")
+        trimmed.contains(" :: ")
     })
 }
 

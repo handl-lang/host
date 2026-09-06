@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true, optional = true }
+handl-platform = {path = "../platform", optional = true }
 handl-plugin-lib-handl = { workspace = true, optional = true }
-handl-plugin-typecheck-nbe = { workspace = true }
-handl-kit-type-schema-json = { workspace = true }
+handl-plugin-typecheck-nbe = {path = "../plugin-typecheck-nbe" }
+handl-kit-type-schema-json = {path = "../kit-type-schema-json" }
 serde_json = { workspace = true }
 
 [features]

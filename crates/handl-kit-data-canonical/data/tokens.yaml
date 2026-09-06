@@ -32,7 +32,12 @@
 - id: token.eof
   label: eof
 - id: token.eqeq
+  # Retained: `==` is lexed to the equality token (`token.equal`) so existing
+  # `a == b` sources keep working while `=` is now also equality. No grammar
+  # row references `token.eqeq` anymore.
   label: ==
+- id: token.bind
+  label: "::"
 - id: token.equal
   label: =
 - id: token.fanout

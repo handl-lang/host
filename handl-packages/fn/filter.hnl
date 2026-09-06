@@ -21,7 +21,7 @@ rec {
     []: return state.acc,
 
     [h, ...t]: {
-      keep = state.p(h)
+      keep :: state.p(h)
       if keep
         {
           state: {

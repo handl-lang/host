@@ -141,9 +141,9 @@ struct ParsedAxiom {
 
 impl ParsedAxiom {
     fn to_contract(self) -> Result<Contract, String> {
-        let guarantee = self.guarantee.ok_or_else(|| {
-            format!("axiom `{}` is missing a `guarantee:` clause", self.name)
-        })?;
+        let guarantee = self
+            .guarantee
+            .ok_or_else(|| format!("axiom `{}` is missing a `guarantee:` clause", self.name))?;
         Ok(Contract::conditional(
             self.input,
             self.output,
@@ -226,7 +226,12 @@ impl<'a> Iterator for AxiomIter<'a> {
                 continue;
             }
             // A clause line must be indented (leading whitespace present).
-            if raw.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
+            if raw
+                .chars()
+                .next()
+                .map(|c| c.is_whitespace())
+                .unwrap_or(false)
+            {
                 self.idx += 1;
                 if let Err(e) = apply_clause(&mut axiom, trimmed) {
                     return Some(Err(e));
@@ -432,11 +437,16 @@ fn parse_paren_type(p: &mut Parser) -> Result<RefTy, String> {
     let lhs = parse_type_inner(p)?;
     p.skip_ws();
     // Look for the separator: `*` (product) or `+` (sum).
-    let sep = p.peek().ok_or("expected `*` or `+` in parenthesized type")?;
+    let sep = p
+        .peek()
+        .ok_or("expected `*` or `+` in parenthesized type")?;
     let is_prod = sep == '*';
     let is_sum = sep == '+';
     if !is_prod && !is_sum {
-        return Err(format!("expected `*` or `+` in parenthesized type: {}", p.tail()));
+        return Err(format!(
+            "expected `*` or `+` in parenthesized type: {}",
+            p.tail()
+        ));
     }
     p.next();
     p.skip_ws();
@@ -634,7 +644,11 @@ fn parse_pred_atom(p: &mut Parser) -> Result<Pred, String> {
                 other => parse_named_pred(p, other),
             }
         }
-        Some(c) => Err(format!("unexpected char `{}` in predicate: {}", c, p.tail())),
+        Some(c) => Err(format!(
+            "unexpected char `{}` in predicate: {}",
+            c,
+            p.tail()
+        )),
         None => Err("unexpected end of predicate".to_string()),
     }
 }
@@ -773,7 +787,11 @@ fn one_arg(name: &str, args: &[String]) -> Result<(), String> {
 
 fn two_args(name: &str, args: &[String]) -> Result<(), String> {
     if args.len() != 2 {
-        return Err(format!("`{}` expects 2 arguments, got {}", name, args.len()));
+        return Err(format!(
+            "`{}` expects 2 arguments, got {}",
+            name,
+            args.len()
+        ));
     }
     Ok(())
 }

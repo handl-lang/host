@@ -240,4 +240,3 @@ fn folding_ranges_performance_on_large_file() {
     }
     assert!(best.as_millis() < 50, "fold too slow: {:?}", best);
 }
-

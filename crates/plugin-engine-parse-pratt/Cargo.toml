@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = { workspace = true }
-handl-plugin-engine-parse = { workspace = true }
+handl-language = {path = "../handl-language" }
+handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-test-utils = { workspace = true }
+handl-test-utils = {path = "../handl-test-utils" }
 serde_json = { workspace = true }

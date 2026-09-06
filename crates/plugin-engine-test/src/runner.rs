@@ -2,9 +2,10 @@
 //!
 //! Discovers, runs, and reports tests written in handl. The runner parses
 //! modules with the canonical kit's Pratt parser, extracts test declarations
-//! (bindings whose name starts with `test_`), and evaluates each test body
-//! with the tree-walk eval engine. Failures surface as raised errors, which
-//! the runner catches and records.
+//! (bindings whose name starts with `test_` or test-language `test`/`property`
+//! etc. forms), and evaluates each test body with the tree-walk eval engine.
+//! Failures surface as `result.err(...)` values from the keyword `assert`
+//! form; the runner catches those and records structured failure detail.
 //!
 //! # Test declaration convention
 //!
@@ -15,11 +16,11 @@
 //!
 //! ```handl
 //! test_addition = 1 + 1
-//! test_failure = assert.true(false)
+//! test_failure = assert false
 //! ```
 //!
 //! The first test passes (the expression evaluates without error); the second
-//! fails (the assertion raises an error). If the grammar later gains a `test`
+//! fails (the assertion returns a `result.err` value). If the grammar later gains a `test`
 //! keyword, the runner also checks for node kinds containing `"test"` (see
 //! [`discover_tests_in_module`]).
 //!
@@ -42,15 +43,15 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use handl_language::{
-    language_value, Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow, Language,
-    LexerRuleDef, Source, TokenKindDef, Value,
+    as_tag, language_value, tag_value, Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow,
+    Language, LexerRuleDef, Source, TokenKindDef, Value,
 };
 
-use handl_platform::{Function, Module, ModuleLookup};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_platform::{Function, ModuleLookup};
+use handl_plugin_engine_eval_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -60,13 +61,38 @@ use handl_plugin_lib_predicate::{glob_matches, Predicate};
 use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
 
-use crate::framework::AssertModule;
-
 use crate::events::TestEvent;
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
+
+/// Handler that turns a failed `assert` keyword evaluation into a
+/// `result.err(...)` value and a [`FailureDetail`] stored on the worker
+/// thread.
+#[derive(Debug, Clone, Copy)]
+struct TestAssertHandler;
+
+impl AssertHandler for TestAssertHandler {
+    fn on_failure(&self, failure: AssertFailure) -> Value {
+        crate::framework::set_last_assert_failure(FailureDetail {
+            assertion: Some(failure.assertion.clone()),
+            expected: failure.expected.clone(),
+            actual: failure.actual.clone(),
+            diff: failure.diff.clone(),
+            cause: None,
+        });
+        let payload = serde_json::json!({
+            "message": failure.message,
+            "assertion": failure.assertion,
+            "expected": failure.expected,
+            "actual": failure.actual,
+            "diff": failure.diff,
+        });
+        tag_value("err", &serde_json::json!({"value": payload}))
+            .expect("err tag value must not contain __tag__")
+    }
+}
 
 /// A discovered test case.
 #[derive(Debug, Clone)]
@@ -79,6 +105,8 @@ pub struct TestCase {
     pub body_source: String,
     /// Source span of the test declaration.
     pub span: Span,
+    /// Tags extracted from leading `-- tags: ...` doc-comment lines.
+    pub tags: Vec<String>,
 }
 
 /// A test plan: all discovered tests, grouped by module.
@@ -113,7 +141,7 @@ impl std::fmt::Display for DiscoverError {
 impl std::error::Error for DiscoverError {}
 
 /// Result of running a single test.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TestResult {
     /// Test passed.
     Pass,
@@ -134,12 +162,12 @@ pub enum TestResult {
 /// [`TestOutcome::case`] and the error message on
 /// [`TestResult::Fail::message`]; `duration` lives on [`TestOutcome`].
 ///
-/// Assertion primitives in `plugin-engine-test::framework` store these
-/// fields in a thread-local side-channel when they fail; `eval_test_body`
-/// consumes the channel on failure and returns it alongside the result.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// The `assert` keyword handler stores these fields in a thread-local
+/// side-channel when the assertion fails; `eval_test_body` consumes the
+/// channel on failure and returns it alongside the result.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FailureDetail {
-    /// The assertion that failed (e.g. `assert.equal`), when known.
+    /// The assertion that failed (e.g. `assert`), when known.
     pub assertion: Option<String>,
     /// The expected value, rendered, when known.
     pub expected: Option<String>,
@@ -339,6 +367,43 @@ fn push_chunk(src: &str, chunks: &mut Vec<Chunk>, start: usize, end: usize) {
     });
 }
 
+/// Extract tags declared in `-- tags: ...` doc-comment lines immediately
+/// preceding a statement.
+///
+/// Tags are declared on comment lines above a declaration, e.g.
+/// `-- tags: slow,net`. Multiple `-- tags:` lines accumulate top-down. A
+/// blank line, non-comment line, or non-tag comment line stops the scan so
+/// unrelated comments are not attached.
+fn extract_doc_tags(src: &str, stmt_offset: usize) -> Vec<String> {
+    let prefix = &src[..stmt_offset.min(src.len())];
+    let lines: Vec<&str> = prefix.split('\n').collect();
+    let mut tag_lines: Vec<Vec<String>> = Vec::new();
+    // Scan bottom-up, skipping the partial line the statement starts on.
+    for line in lines.into_iter().rev().skip(1) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            break;
+        }
+        let Some(body) = trimmed.strip_prefix("--") else {
+            break;
+        };
+        let body = body.trim_start();
+        let Some(rest) = body.strip_prefix("tags:").or_else(|| body.strip_prefix("@tags:")) else {
+            break;
+        };
+        let mut tags = Vec::new();
+        for raw in rest.split(|c: char| c == ',' || c.is_whitespace()) {
+            let t = raw.trim();
+            if !t.is_empty() {
+                tags.push(t.to_string());
+            }
+        }
+        tag_lines.push(tags);
+    }
+    // Return tags in source order (top-down), preserving within-line order.
+    tag_lines.into_iter().rev().flatten().collect()
+}
+
 // ---------------------------------------------------------------------------
 // AST helpers (data-driven child resolution, ADR-0081)
 // ---------------------------------------------------------------------------
@@ -529,11 +594,13 @@ fn discover_tests_in_module(
                             chunk.offset + chunk.text.len(),
                             src,
                         );
+                        let tags = extract_doc_tags(src, chunk.offset);
                         tests.push(TestCase {
                             module: module.to_path_buf(),
                             name,
                             body_source,
                             span,
+                            tags,
                         });
                     }
                 }
@@ -566,11 +633,13 @@ fn discover_tests_in_module(
                                 chunk.offset + chunk.text.len(),
                                 src,
                             );
+                            let tags = extract_doc_tags(src, chunk.offset);
                             tests.push(TestCase {
                                 module: module.to_path_buf(),
                                 name,
                                 body_source,
                                 span,
+                                tags,
                             });
                         }
                     }
@@ -720,30 +789,18 @@ pub(crate) fn discover_inner(
 // Test execution
 // ---------------------------------------------------------------------------
 
-/// A [`ModuleLookup`] wrapper that adds the `assert` module on top of a
-/// delegate chain (typically the Kit's stdlib module chain). This lets the
-/// test runner evaluate expressions that use `assert.true(false)` etc.
+/// A [`ModuleLookup`] wrapper around the Kit's stdlib module chain.
+///
+/// The test runtime needs a stable `Rc<dyn ModuleLookup>` for the eval
+/// engine; this wrapper preserves the optional delegate from
+/// `kit.runtime().modules()` while remaining a concrete type.
 struct TestModuleLookup {
-    /// The assert module (assertion primitives).
-    assert: AssertModule,
-    /// Delegate for all other function lookups (stdlib, fp, meta, etc.).
+    /// Delegate for all function lookups (stdlib, fp, meta, etc.).
     delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl ModuleLookup for TestModuleLookup {
     fn lookup(&self, name: &str) -> Option<&dyn Function> {
-        // Try the assert module first (split qualified name: "assert.true").
-        if let Some((module, func)) = name.split_once('.') {
-            if module == "assert" {
-                if let Some(f) = self.assert.function(func) {
-                    return Some(f);
-                }
-            }
-        }
-        // Also try the full qualified name against the assert module.
-        if let Some(f) = self.assert.function(name) {
-            return Some(f);
-        }
         // Delegate to the Kit's module chain.
         self.delegate.as_ref().and_then(|d| d.lookup(name))
     }
@@ -757,11 +814,11 @@ impl ModuleLookup for TestModuleLookup {
 
 /// Build a test runtime: a [`Runtime`] with the canonical language, the
 /// data lexer, Pratt parser, and tree-walk eval engine, wired with the
-/// assert module on top of the Kit's stdlib module chain.
+/// Kit's stdlib module chain and a keyword-assertion failure handler.
 ///
-/// This gives test expressions access to both the stdlib (`fn.*`, `math.*`,
-/// `str.*`, etc.) and the assertion primitives (`assert.true`,
-/// `assert.equal`, etc.).
+/// This gives test expressions access to the stdlib (`fn.*`, `math.*`,
+/// `str.*`, etc.); `assert` is a keyword handled natively by the
+/// tree-walk engine and is not a module lookup.
 fn build_test_runtime() -> Result<Runtime, String> {
     let kit = handl_kit_canonical::Kit::new()
         .map_err(|e| format!("failed to assemble canonical kit: {e}"))?;
@@ -772,17 +829,18 @@ fn build_test_runtime() -> Result<Runtime, String> {
     // Get the Kit's module chain (stdlib + fp + meta + hello).
     let kit_modules = kit.runtime().modules().cloned();
 
-    // Build a module lookup that adds assert on top of the Kit's chain.
+    // Wrap the Kit's module chain for the eval engine.
     let test_modules: Rc<dyn ModuleLookup> = Rc::new(TestModuleLookup {
-        assert: AssertModule,
         delegate: kit_modules,
     });
 
-    // Build the eval engine with the test module chain + `self` global.
+    // Build the eval engine with the test module chain + `self` global +
+    // the keyword-assertion failure handler.
     let self_val = language_value(&lang);
     let eval_engine = TreeWalkEngine::new()
         .with_modules(test_modules)
-        .with_global("self", self_val);
+        .with_global("self", self_val)
+        .with_assert_handler(Rc::new(TestAssertHandler));
 
     // Build the runtime with lex, parse, and eval engines.
     let runtime = Runtime::new(lang)
@@ -845,6 +903,48 @@ pub fn filter_predicate(pattern: &str) -> Predicate<TestCase> {
     })
 }
 
+/// Build a [`Predicate<TestCase>`] that selects tests tagged with `tag`.
+///
+/// Tags are discovered from `-- tags: ...` doc-comment lines above a test
+/// declaration. An empty `tag` selects all tests.
+pub fn tag_predicate(tag: &str) -> Predicate<TestCase> {
+    if tag.is_empty() {
+        return Predicate::True;
+    }
+    let tag = tag.to_string();
+    Predicate::atom(move |case: &TestCase| case.tags.iter().any(|t| t == &tag))
+}
+
+/// Build a [`Predicate<TestCase>`] from a tag expression.
+///
+/// Grammar (per `--tag` flag value):
+///
+/// ```text
+/// expr := term ("," term)*     — comma separates alternatives (OR)
+/// term := "!"? name            — `!` negates the tag (NOT)
+/// ```
+///
+/// So `"slow,net"` selects tests tagged `slow` OR `net`, `"!slow"` selects
+/// tests NOT tagged `slow`, and `"a,!b"` selects tests tagged `a` OR not
+/// tagged `b`. Repeated `--tag` flags are combined with AND by the caller.
+/// An empty expression (or one with only empty terms) selects all tests.
+///
+/// Composition uses the generic [`Predicate`] combinators (`atom`, `or`,
+/// `not`) rather than hand-rolled boolean logic.
+pub fn tag_expr_predicate(expr: &str) -> Predicate<TestCase> {
+    let mut predicate = Predicate::False;
+    let mut any = false;
+    for term in expr.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        any = true;
+        let p = match term.strip_prefix('!') {
+            Some(name) => tag_predicate(name.trim()).not(),
+            None => tag_predicate(term),
+        };
+        predicate = predicate.or(p);
+    }
+    if any { predicate } else { Predicate::True }
+}
+
 // ---------------------------------------------------------------------------
 // Scheduled execution (generic bounded-job scheduler, ADR-0089)
 // ---------------------------------------------------------------------------
@@ -859,6 +959,62 @@ thread_local! {
     static TEST_RUNTIME: RefCell<Option<Rc<Runtime>>> = RefCell::new(None);
 }
 
+/// Whether a test-body value is an `err`-tagged result (the `assert`
+/// keyword returns `result.err(...)` on failure; ADR-0077, ADR-0089).
+fn is_err_result(value: &Value) -> bool {
+    as_tag(value) == Some("err")
+}
+
+/// Extract the human-readable message from an `err`-tagged result value.
+fn extract_err_message(value: &Value) -> Option<String> {
+    let payload = err_payload(value)?;
+    payload
+        .get("message")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+}
+
+/// Extract a [`FailureDetail`] from an `err`-tagged result value as a
+/// fallback when no side-channel failure detail was recorded.
+fn failure_detail_from_value(value: &Value) -> FailureDetail {
+    if let Some(payload) = err_payload(value) {
+        FailureDetail {
+            assertion: payload
+                .get("assertion")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            expected: payload
+                .get("expected")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            actual: payload
+                .get("actual")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            diff: payload
+                .get("diff")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            cause: None,
+        }
+    } else {
+        FailureDetail::default()
+    }
+}
+
+/// Return the structured payload object inside an `err`-tagged result.
+///
+/// For `result.err({...})` this is `value["value"]`; if the value is a
+/// tagged object with fields merged directly it is the object itself.
+fn err_payload<'v>(value: &'v Value) -> Option<&'v serde_json::Map<String, Value>> {
+    let obj = value.as_object()?;
+    if obj.contains_key(handl_language::TAG_VALUE_KEY) {
+        obj.get("value").and_then(|v| v.as_object())
+    } else {
+        Some(obj)
+    }
+}
+
 /// Evaluate a single test body on the calling thread's cached runtime.
 ///
 /// Returns the [`TestResult`], measured duration, and any structured
@@ -868,31 +1024,40 @@ thread_local! {
 fn eval_test_body(body_source: &str) -> (TestResult, Duration, FailureDetail) {
     crate::framework::clear_last_assert_failure();
     let start = Instant::now();
-    let result = TEST_RUNTIME.with(|cell| {
+    let (result, failure) = TEST_RUNTIME.with(|cell| {
         let mut borrow = cell.borrow_mut();
         if borrow.is_none() {
             match build_test_runtime() {
                 Ok(rt) => *borrow = Some(Rc::new(rt)),
                 Err(msg) => {
-                    return TestResult::Fail {
-                        message: format!("runtime setup error: {msg}"),
-                    };
+                    return (
+                        TestResult::Fail {
+                            message: format!("runtime setup error: {msg}"),
+                        },
+                        FailureDetail::default(),
+                    );
                 }
             }
         }
         let rt = borrow.as_ref().expect("runtime initialized above");
         match rt.run(&Source::new(body_source)) {
-            Ok(_) => TestResult::Pass,
-            Err(e) => TestResult::Fail {
-                message: e.to_string(),
-            },
+            Ok(value) => {
+                if is_err_result(&value) {
+                    let failure = crate::framework::take_last_assert_failure()
+                        .unwrap_or_else(|| failure_detail_from_value(&value));
+                    let message = extract_err_message(&value)
+                        .unwrap_or_else(|| "assertion failed".to_string());
+                    (TestResult::Fail { message }, failure)
+                } else {
+                    (TestResult::Pass, FailureDetail::default())
+                }
+            }
+            Err(e) => {
+                let failure = crate::framework::take_last_assert_failure().unwrap_or_default();
+                (TestResult::Fail { message: e.to_string() }, failure)
+            }
         }
     });
-    let failure = if matches!(result, TestResult::Fail { .. }) {
-        crate::framework::take_last_assert_failure().unwrap_or_default()
-    } else {
-        FailureDetail::default()
-    };
     (result, start.elapsed(), failure)
 }
 
@@ -1146,7 +1311,8 @@ pub(crate) fn run_selected_impl(
 // Test-result cache (opt-in `--cache`, ADR-0089 §"Cache domains")
 // ---------------------------------------------------------------------------
 
-/// Opt-in, in-memory test-result cache (`ExecutionCache` in ADR-0089).
+/// Opt-in, in-memory and disk-persisted test-result cache
+/// (`ExecutionCache` in ADR-0089).
 ///
 /// The generic eval-result memoisation concern lives in
 /// `plugin-exec-cache`; this is the thin **test-domain layer** over it. Keys
@@ -1161,7 +1327,8 @@ pub(crate) fn run_selected_impl(
 ///
 /// The handle is caller-provided and reusable across runs; it is **not**
 /// used unless passed to [`run_selected_cached`]. Result caching is opt-in
-/// per the ADR-0089 `--cache` flag.
+/// per the ADR-0089 `--cache` flag. Disk persistence is provided by
+/// [`TestRunCache::load`] and [`TestRunCache::save`].
 #[derive(Debug, Default)]
 pub struct TestRunCache {
     /// Recorded results keyed by test identity fingerprint.
@@ -1170,6 +1337,24 @@ pub struct TestRunCache {
     hits: usize,
     /// Number of lookups that had to execute.
     misses: usize,
+}
+
+/// On-disk cache file layout.
+///
+/// Versioned so future changes can reject stale caches.
+#[derive(Debug, Serialize, Deserialize)]
+struct CacheFile {
+    version: u32,
+    entries: Vec<CacheEntry>,
+}
+
+/// A single persisted cache entry.
+#[derive(Debug, Serialize, Deserialize)]
+struct CacheEntry {
+    kind: String,
+    payload_json: String,
+    result: TestResult,
+    failure: FailureDetail,
 }
 
 impl TestRunCache {
@@ -1196,6 +1381,58 @@ impl TestRunCache {
     /// The number of cache misses recorded since creation (or [`Self::clear`]).
     pub fn misses(&self) -> usize {
         self.misses
+    }
+
+    /// Load a cache from a JSON file.
+    ///
+    /// Returns an error if the file cannot be read or parsed, or if the
+    /// on-disk version is not supported. Callers typically fall back to an
+    /// empty cache.
+    pub fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
+        let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+        let file: CacheFile = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        if file.version != 1 {
+            return Err("unsupported cache version".to_string());
+        }
+        let mut entries = HashMap::new();
+        for entry in file.entries {
+            entries.insert(
+                AstKey {
+                    kind: entry.kind,
+                    payload_json: entry.payload_json,
+                },
+                (entry.result, entry.failure),
+            );
+        }
+        Ok(Self {
+            entries,
+            hits: 0,
+            misses: 0,
+        })
+    }
+
+    /// Save the cache to a JSON file, creating parent directories as needed.
+    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
+        let entries: Vec<CacheEntry> = self
+            .entries
+            .iter()
+            .map(|(key, (result, failure))| CacheEntry {
+                kind: key.kind.clone(),
+                payload_json: key.payload_json.clone(),
+                result: result.clone(),
+                failure: failure.clone(),
+            })
+            .collect();
+        let file = CacheFile {
+            version: 1,
+            entries,
+        };
+        let json = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
+        if let Some(parent) = path.as_ref().parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(path, json).map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     /// Clear all entries and statistics.
@@ -1365,6 +1602,7 @@ mod tests {
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Pass,
                     duration: Duration::ZERO,
@@ -1376,6 +1614,7 @@ mod tests {
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Fail {
                         message: "oops".to_string(),
@@ -1389,6 +1628,7 @@ mod tests {
                         name: "test_c".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Skip,
                     duration: Duration::ZERO,
@@ -1478,6 +1718,7 @@ mod tests {
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Pass,
                     duration: Duration::ZERO,
@@ -1489,6 +1730,7 @@ mod tests {
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Fail {
                         message: "expected true".to_string(),
@@ -1502,6 +1744,7 @@ mod tests {
                         name: "test_c".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Skip,
                     duration: Duration::ZERO,
@@ -1526,6 +1769,7 @@ mod tests {
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Pass,
                     duration: Duration::ZERO,
@@ -1537,6 +1781,7 @@ mod tests {
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
                         span: Span::default(),
+                        tags: Vec::new(),
                     },
                     result: TestResult::Fail {
                         message: "oops".to_string(),
@@ -1567,5 +1812,91 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
         assert!(parsed["tests"].as_array().unwrap().is_empty());
         assert_eq!(parsed["summary"]["total"], 0);
+    }
+
+    #[test]
+    fn extract_doc_tags_basic() {
+        let src = r#"-- tags: slow
+-- tags: net, flaky
+test tagged_slow = 1 + 1
+test tagged_fast = 1 + 1
+"#;
+        let offset = src.find("test tagged_slow").unwrap();
+        let tags = super::extract_doc_tags(src, offset);
+        assert_eq!(tags, vec!["slow", "net", "flaky"]);
+
+        let offset_fast = src.find("test tagged_fast").unwrap();
+        let tags_fast = super::extract_doc_tags(src, offset_fast);
+        assert!(tags_fast.is_empty());
+    }
+
+    // --- tag expressions (`--tag` values: OR via `,`, NOT via `!`) ---------
+
+    fn tagged_case(tags: &[&str]) -> TestCase {
+        TestCase {
+            module: PathBuf::from("m.hnl"),
+            name: "t".to_string(),
+            body_source: "1".to_string(),
+            span: Span::default(),
+            tags: tags.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn tag_expr_single() {
+        let p = super::tag_expr_predicate("slow");
+        assert!(p.eval(&tagged_case(&["slow"])));
+        assert!(!p.eval(&tagged_case(&["net"])));
+        assert!(!p.eval(&tagged_case(&[])));
+    }
+
+    #[test]
+    fn tag_expr_or() {
+        // `slow,net` selects tests tagged slow OR net.
+        let p = super::tag_expr_predicate("slow,net");
+        assert!(p.eval(&tagged_case(&["slow"])));
+        assert!(p.eval(&tagged_case(&["net"])));
+        assert!(p.eval(&tagged_case(&["slow", "net"])));
+        assert!(!p.eval(&tagged_case(&["flaky"])));
+        assert!(!p.eval(&tagged_case(&[])));
+    }
+
+    #[test]
+    fn tag_expr_negation() {
+        // `!slow` excludes tests tagged slow.
+        let p = super::tag_expr_predicate("!slow");
+        assert!(!p.eval(&tagged_case(&["slow"])));
+        assert!(p.eval(&tagged_case(&["net"])));
+        assert!(p.eval(&tagged_case(&[])));
+    }
+
+    #[test]
+    fn tag_expr_or_with_negation() {
+        // `a,!b` selects tests tagged a OR not tagged b.
+        let p = super::tag_expr_predicate("a,!b");
+        assert!(p.eval(&tagged_case(&["a", "b"])));
+        assert!(p.eval(&tagged_case(&["c"])));
+        assert!(!p.eval(&tagged_case(&["b"])));
+    }
+
+    #[test]
+    fn tag_expr_and_across_flags() {
+        // Repeated `--tag` flags AND together: `a` AND NOT `b`.
+        let p = super::tag_expr_predicate("a").and(super::tag_expr_predicate("!b"));
+        assert!(p.eval(&tagged_case(&["a"])));
+        assert!(p.eval(&tagged_case(&["a", "c"])));
+        assert!(!p.eval(&tagged_case(&["a", "b"])));
+        assert!(!p.eval(&tagged_case(&["b"])));
+        assert!(!p.eval(&tagged_case(&[])));
+    }
+
+    #[test]
+    fn tag_expr_empty_selects_all() {
+        let p = super::tag_expr_predicate("");
+        assert!(p.eval(&tagged_case(&["slow"])));
+        assert!(p.eval(&tagged_case(&[])));
+        // Whitespace-only terms are ignored.
+        let p = super::tag_expr_predicate(" , ");
+        assert!(p.eval(&tagged_case(&[])));
     }
 }

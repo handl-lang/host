@@ -12,7 +12,12 @@ fn document_links_finds_hnl_file_references() {
     );
     let sort_link = links
         .iter()
-        .find(|l| l["target"].as_str().map(|t| t.ends_with("sort.hnl")).unwrap_or(false))
+        .find(|l| {
+            l["target"]
+                .as_str()
+                .map(|t| t.ends_with("sort.hnl"))
+                .unwrap_or(false)
+        })
         .expect("should have a link targeting sort.hnl");
     assert_eq!(
         sort_link["target"].as_str(),
@@ -53,11 +58,16 @@ fn document_links_finds_multiple_links_in_one_comment() {
         "expected at least two links (file + url), got {links:?}"
     );
     assert!(
-        links.iter().any(|l| l["target"].as_str().map(|t| t.ends_with("sort.hnl")).unwrap_or(false)),
+        links.iter().any(|l| l["target"]
+            .as_str()
+            .map(|t| t.ends_with("sort.hnl"))
+            .unwrap_or(false)),
         "should include a file reference link: {links:?}"
     );
     assert!(
-        links.iter().any(|l| l["target"].as_str() == Some("https://example.com")),
+        links
+            .iter()
+            .any(|l| l["target"].as_str() == Some("https://example.com")),
         "should include a URL link: {links:?}"
     );
 }
@@ -88,7 +98,12 @@ fn document_links_resolves_relative_to_arrows_root() {
     let links = document_links(source, Some("file:///tmp/handl-packages/sort.hnl"));
     let target = links
         .iter()
-        .find(|l| l["target"].as_str().map(|t| t.contains("insert.hnl")).unwrap_or(false))
+        .find(|l| {
+            l["target"]
+                .as_str()
+                .map(|t| t.contains("insert.hnl"))
+                .unwrap_or(false)
+        })
         .expect("should have a link for collection/insert.hnl");
     assert_eq!(
         target["target"].as_str(),
@@ -149,7 +164,10 @@ fn document_links_scans_doc_comments() {
     let source = "--- See: sort.hnl for the sorting arrow\n";
     let links = document_links(source, Some("file:///tmp/handl-packages/test.hnl"));
     assert!(
-        links.iter().any(|l| l["target"].as_str().map(|t| t.ends_with("sort.hnl")).unwrap_or(false)),
+        links.iter().any(|l| l["target"]
+            .as_str()
+            .map(|t| t.ends_with("sort.hnl"))
+            .unwrap_or(false)),
         "doc comments should yield file reference links: {links:?}"
     );
 }

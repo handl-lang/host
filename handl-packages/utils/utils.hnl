@@ -1,11 +1,12 @@
 --- utils — standard library utility modules for the handl runtime.
 ---
 --- This is an aggregator crate: it bundles many small modules (bool, fn,
---- math, mood, option, parse, serialize, str, typeof, encoding)
+--- math, mood, option, parse, serialize, typeof, encoding)
 --- and re-exports modules from other crates (base64, hex, json, toml,
---- yaml, url-rfc, url-whatwg). The Rust Module/Function impls live in
---- plugin-lib-utils; this .hnl file declares the aggregated interface
---- surface (capabilities) for the plugin system.
+--- yaml, url-rfc, url-whatwg). The `str` contract is implemented by
+--- `str-handl` and registered separately. The Rust Module/Function impls
+--- live in plugin-lib-utils; this .hnl file declares the aggregated
+--- interface surface (capabilities) for the plugin system.
 ---
 --- The re-exported crates (base64, hex, json, toml, yaml, url-rfc,
 --- url-whatwg) each have their own .hnl files declaring their own op
@@ -137,53 +138,6 @@
 --- ## serialize module
 --- serialize.serialize — serialize a value to a string with a named format.
 --- serialize.deserialize — deserialize a string to a value with a named format.
----
---- ## str module
---- str.upper — convert a string to uppercase.
---- str.lower — convert a string to lowercase.
---- str.trim — trim whitespace from both ends of a string.
---- str.trim_start — trim whitespace from the start of a string.
---- str.trim_end — trim whitespace from the end of a string.
---- str.trim_matches — trim characters matching a pattern from both ends.
---- str.reverse — reverse the characters of a string.
---- str.length — return the character length of a string.
---- str.concat — concatenate two or more strings.
---- str.is_empty — test whether a string is empty.
---- str.equals — test whether two strings are equal.
---- str.is_alpha — test whether a string is all alphabetic.
---- str.is_numeric — test whether a string is all numeric.
---- str.is_alphanumeric — test whether a string is all alphanumeric.
---- str.contains — test whether a string contains a substring.
---- str.starts_with — test whether a string starts with a prefix.
---- str.ends_with — test whether a string ends with a suffix.
---- str.count — count non-overlapping occurrences of a substring.
---- str.find — find the byte index of the first occurrence of a substring.
---- str.rfind — find the byte index of the last occurrence of a substring.
---- str.levenshtein — compute the Levenshtein edit distance between two strings.
---- str.similarity — compute a normalized similarity ratio (0..1) between two strings.
---- str.split — split a string by a separator into an array.
---- str.join — join an array of strings with a separator.
---- str.replace — replace all occurrences of a pattern in a string.
---- str.replace_first — replace the first occurrence of a pattern in a string.
---- str.repeat — repeat a string n times.
---- str.char_at — return the character at a given index.
---- str.slice — slice a string by start and end indices.
---- str.pad_left — pad a string on the left to a target width.
---- str.pad_right — pad a string on the right to a target width.
---- str.strip_prefix — remove a leading prefix if present.
---- str.strip_suffix — remove a trailing suffix if present.
---- str.lines — split a string into lines (array).
---- str.split_at — split a string at a byte index into two parts.
---- str.split_whitespace — split a string on whitespace into an array.
---- str.truncate — truncate a string to at most n characters.
---- str.slugify — convert a string to a URL-safe slug.
---- str.word_wrap — wrap a string to a maximum line width.
---- str.capitalize — capitalize the first character of a string.
---- str.title_case — convert a string to Title Case.
---- str.snake_case — convert a string to snake_case.
---- str.camel_case — convert a string to camelCase.
---- str.pascal_case — convert a string to PascalCase.
---- str.kebab_case — convert a string to kebab-case.
 ---
 --- ## typeof module (type)
 --- typeof.string — type tag for strings.
@@ -336,51 +290,6 @@ cap "option.xor"
 cap "parse.parse"
 cap "serialize.serialize"
 cap "serialize.deserialize"
-cap "str.upper"
-cap "str.lower"
-cap "str.trim"
-cap "str.trim_start"
-cap "str.trim_end"
-cap "str.trim_matches"
-cap "str.reverse"
-cap "str.length"
-cap "str.concat"
-cap "str.is_empty"
-cap "str.equals"
-cap "str.is_alpha"
-cap "str.is_numeric"
-cap "str.is_alphanumeric"
-cap "str.contains"
-cap "str.starts_with"
-cap "str.ends_with"
-cap "str.count"
-cap "str.find"
-cap "str.rfind"
-cap "str.levenshtein"
-cap "str.similarity"
-cap "str.split"
-cap "str.join"
-cap "str.replace"
-cap "str.replace_first"
-cap "str.repeat"
-cap "str.char_at"
-cap "str.slice"
-cap "str.pad_left"
-cap "str.pad_right"
-cap "str.strip_prefix"
-cap "str.strip_suffix"
-cap "str.lines"
-cap "str.split_at"
-cap "str.split_whitespace"
-cap "str.truncate"
-cap "str.slugify"
-cap "str.word_wrap"
-cap "str.capitalize"
-cap "str.title_case"
-cap "str.snake_case"
-cap "str.camel_case"
-cap "str.pascal_case"
-cap "str.kebab_case"
 cap "typeof.string"
 cap "typeof.str"
 cap "typeof.number"

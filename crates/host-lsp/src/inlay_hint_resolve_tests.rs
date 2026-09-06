@@ -27,21 +27,13 @@ fn resolve_inlay_hint_adds_tooltip_and_label() {
         .get("value")
         .and_then(|v| v.as_str())
         .expect("tooltip should have a markdown value");
-    assert!(
-        !value.is_empty(),
-        "tooltip should not be empty: {}",
-        value
-    );
+    assert!(!value.is_empty(), "tooltip should not be empty: {}", value);
     // A label should be set.
     let label = resolved
         .get("label")
         .and_then(|l| l.as_str())
         .expect("label should be set by resolve");
-    assert!(
-        !label.is_empty(),
-        "label should not be empty: {}",
-        label
-    );
+    assert!(!label.is_empty(), "label should not be empty: {}", label);
 }
 
 #[test]
@@ -65,7 +57,11 @@ fn resolve_inlay_hint_non_arrow_source_sets_placeholder() {
         .get("label")
         .and_then(|l| l.as_str())
         .expect("label should be set");
-    assert!(label.contains("x"), "label should mention the property: {}", label);
+    assert!(
+        label.contains("x"),
+        "label should mention the property: {}",
+        label
+    );
 }
 
 #[test]

@@ -121,26 +121,22 @@ fn file_stem_from_uri(uri: &str) -> Option<String> {
 
 /// Whether `source` contains an identifier token matching any of `stems`,
 /// excluding the document's own stem (so a file doesn't flag itself).
-fn references_any_stem(
-    source: &str,
-    stems: &HashSet<String>,
-    own_stem: Option<&str>,
-) -> bool {
+fn references_any_stem(source: &str, stems: &HashSet<String>, own_stem: Option<&str>) -> bool {
     let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => {
             // Fall back to a substring scan if lexing fails.
-            return stems.iter().any(|s| {
-                Some(s.as_str()) != own_stem && source.contains(s)
-            });
+            return stems
+                .iter()
+                .any(|s| Some(s.as_str()) != own_stem && source.contains(s));
         }
     };
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => {
-            return stems.iter().any(|s| {
-                Some(s.as_str()) != own_stem && source.contains(s)
-            });
+            return stems
+                .iter()
+                .any(|s| Some(s.as_str()) != own_stem && source.contains(s));
         }
     };
 

@@ -68,7 +68,7 @@ use cranelift::codegen::ir::{FuncRef, UserFuncName};
 use cranelift::codegen::isa::TargetIsa;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{default_libcall_names, FuncId, Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use handl_language::Value as JsonValue;
 use handl_language::{ArrSource, Ast, LangError, Language, Scheme, SchemeVersion};
@@ -853,14 +853,7 @@ fn compile_scheme(
                 ffi_ops,
             )?;
             let (snd_val, snd_pushed) = compile_scheme(
-                builder,
-                snd,
-                ctx_param,
-                fst_val,
-                helpers,
-                pools,
-                ptr_type,
-                ffi_ops,
+                builder, snd, ctx_param, fst_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if fst_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -884,14 +877,7 @@ fn compile_scheme(
             // Now that both components are extracted, drop the original pair.
             builder.ins().call(helpers.drop_value, &[incoming_val]);
             let (inner_result, inner_pushed) = compile_scheme(
-                builder,
-                inner,
-                ctx_param,
-                fst,
-                helpers,
-                pools,
-                ptr_type,
-                ffi_ops,
+                builder, inner, ctx_param, fst, helpers, pools, ptr_type, ffi_ops,
             )?;
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -928,14 +914,7 @@ fn compile_scheme(
                 builder.inst_results(call)[0]
             };
             let (l_result, l_pushed) = compile_scheme(
-                builder,
-                l,
-                ctx_param,
-                left_val,
-                helpers,
-                pools,
-                ptr_type,
-                ffi_ops,
+                builder, l, ctx_param, left_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if l_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -952,14 +931,7 @@ fn compile_scheme(
                 builder.inst_results(call)[0]
             };
             let (r_result, r_pushed) = compile_scheme(
-                builder,
-                r,
-                ctx_param,
-                right_val,
-                helpers,
-                pools,
-                ptr_type,
-                ffi_ops,
+                builder, r, ctx_param, right_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if r_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -1459,10 +1431,7 @@ fn compile_arr(
                 // ordering here to find the correct index.
                 let mut sorted_names: Vec<&String> = ffi_ops.keys().collect();
                 sorted_names.sort();
-                let ffi_idx = sorted_names
-                    .iter()
-                    .position(|k| *k == name)
-                    .unwrap_or(0);
+                let ffi_idx = sorted_names.iter().position(|k| *k == name).unwrap_or(0);
 
                 let ffi_idx_val = builder.ins().iconst(types::I64, ffi_idx as i64);
                 let call = builder.ins().call(

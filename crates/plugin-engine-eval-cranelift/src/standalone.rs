@@ -30,7 +30,7 @@ use handl_language::{Ast, LangError, Value};
 use handl_value::TaggedValue;
 
 use crate::compile::CompiledFn;
-use crate::{take_value, EvalCtx};
+use crate::{EvalCtx, take_value};
 
 /// Opaque standalone context.
 ///

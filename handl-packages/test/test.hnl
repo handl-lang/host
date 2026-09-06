@@ -1,51 +1,29 @@
 --- Test framework contract (ADR-0092).
 ---
 --- This file is the stable op/cap contract for the handl test framework:
---- `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`,
---- `snapshot.*`, `test.run`. `handl-plugin-lib-test` is deleted; the
---- `handl "..." = rust_*` bindings below resolve to the temporary Rust
---- handls hosted in `handl-plugin-engine-test` (`src/framework/`) until the
---- stdlib primitives the pure-handl implementations need land:
---- error raise/capture (assert.*, snapshot.match, test.run), a seeded RNG
---- reachable from handl (property/fuzz), and a clock (benchmark).
+--- `test.run`, `property.for_all`, `benchmark.run`, `fuzz.run`,
+--- `snapshot.*`. `assert` is a keyword, not a library op, and is handled
+--- directly by the eval engine.
+--- `handl-plugin-lib-test` is deleted; the `handl "..." = rust_*` bindings
+--- below resolve to the temporary Rust handls hosted in
+--- `plugin-engine-test::framework` (`src/framework/`) until the stdlib
+--- primitives the pure-handl implementations need land:
+--- error raise/capture (snapshot.match, test.run), a seeded RNG reachable
+--- from handl (property/fuzz), and a clock (benchmark).
 ---
 --- test.run — run a test suite (array of test cases) and return a report.
---- assert.equal — assert that two values are deeply equal.
---- assert.not_equal — assert that two values are not equal.
---- assert.true — assert that a value is true.
---- assert.false — assert that a value is false.
---- assert.contains — assert that a container (array, object, or string) contains a value.
---- assert.throws — assert that a function throws an error when called.
 --- property.for_all — run a property-based test with seeded RNG for count iterations.
 --- benchmark.run — benchmark a function for a number of iterations and return a timing report.
 --- fuzz.run — run a function with random inputs for count iterations and report failures.
 --- snapshot.format — serialize a value to a pretty-printed JSON string.
 --- snapshot.match — assert that an actual value matches an expected snapshot.
 cap "test.run"
-cap "assert.equal"
-cap "assert.not_equal"
-cap "assert.true"
-cap "assert.false"
-cap "assert.contains"
-cap "assert.throws"
 cap "property.for_all"
 cap "benchmark.run"
 cap "fuzz.run"
 cap "snapshot.format"
 cap "snapshot.match"
 op "test.run" : Array -> Value
-  guarantee: True
-op "assert.equal" : (Value, Value) -> Bool
-  guarantee: True
-op "assert.not_equal" : (Value, Value) -> Bool
-  guarantee: True
-op "assert.true" : Bool -> Bool
-  guarantee: True
-op "assert.false" : Bool -> Bool
-  guarantee: True
-op "assert.contains" : (Value, Value) -> Bool
-  guarantee: True
-op "assert.throws" : Function -> Bool
   guarantee: True
 op "property.for_all" : (Function, Number) -> Bool
   guarantee: True
@@ -59,12 +37,6 @@ op "snapshot.match" : (String, Value, Value) -> Bool
   guarantee: True
 
 handl "test.run" = rust_test_run
-handl "assert.equal" = rust_assert_equal
-handl "assert.not_equal" = rust_assert_not_equal
-handl "assert.true" = rust_assert_true
-handl "assert.false" = rust_assert_false
-handl "assert.contains" = rust_assert_contains
-handl "assert.throws" = rust_assert_throws
 handl "property.for_all" = rust_property_for_all
 handl "benchmark.run" = rust_benchmark_run
 handl "fuzz.run" = rust_fuzz_run

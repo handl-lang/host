@@ -4,18 +4,18 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = { workspace = true }
-handl-emitters = { workspace = true }
-handl-kit-data = { workspace = true }
-handl-runtime = { workspace = true }
+handl-language = {path = "../handl-language" }
+handl-emitters = {path = "../handl-emitters" }
+handl-kit-data = {path = "../handl-kit-data" }
+handl-runtime = {path = "../handl-runtime" }
 serde = { workspace = true }
 serde_yaml = "0.9"
 
 [dev-dependencies]
 serde_json = { workspace = true }
-handl-plugin-engine-lex-pattern = { workspace = true }
-handl-plugin-engine-parse-pratt = { workspace = true }
-handl-plugin-engine-eval-tree-walk = { workspace = true }
-handl-plugin-engine-eval-bytecode = { workspace = true }
-handl-plugin-engine-eval-cranelift = { workspace = true }
-handl-plugin-engine-eval = { workspace = true }
+handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
+handl-plugin-engine-eval-cranelift = {path = "../plugin-engine-eval-cranelift" }
+handl-plugin-engine-eval = {path = "../plugin-engine-eval" }

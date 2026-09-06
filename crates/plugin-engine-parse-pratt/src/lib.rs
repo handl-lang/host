@@ -110,11 +110,7 @@ impl PrattEngine {
                 let stripped = if text.starts_with(&prefix) && text.ends_with(&suffix) {
                     let start = prefix.len();
                     let end = text.len().saturating_sub(suffix.len());
-                    if start <= end {
-                        &text[start..end]
-                    } else {
-                        ""
-                    }
+                    if start <= end { &text[start..end] } else { "" }
                 } else {
                     text
                 };
@@ -278,8 +274,8 @@ impl PrattEngine {
         let token = cursor.advance()?;
 
         // 1. Look up the prefix row for this token.
-        let prefix_row = Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix)
-            .ok_or_else(|| {
+        let prefix_row =
+            Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix).ok_or_else(|| {
                 LangError::engine_at(
                     format!("unexpected token: {}", token.kind),
                     token.span(),
@@ -349,9 +345,9 @@ impl PrattEngine {
             let type_rbp = 6;
             let type_expr = self.expression_inner(lang, cursor, type_rbp)?;
             let eq = cursor.advance()?;
-            if eq.kind.as_str() != "token.equal" {
+            if eq.kind.as_str() != "token.bind" {
                 return Err(LangError::engine_at(
-                    format!("expected '=' in data declaration, got {}", eq.kind),
+                    format!("expected '::' in data declaration, got {}", eq.kind),
                     eq.span(),
                     Some("token".to_string()),
                 ));
@@ -370,6 +366,72 @@ impl PrattEngine {
             );
             let payload = Value::Object(payload_fields);
             let node = AstNode::new("data").with_payload(payload);
+            self.ast.borrow_mut().push(node)
+        } else if token.kind.as_str() == "token.keyword.from" {
+            // `from "path" import * as alias` — not expressible as a single
+            // grammar row (path is a child expression, `import * as alias` is a
+            // trailing clause), so it is parsed contextually.
+            let path_ref = self.expression_inner(lang, cursor, 0)?;
+            let import_tok = cursor.advance()?;
+            if import_tok.kind.as_str() != "token.keyword.import" {
+                return Err(LangError::engine_at(
+                    format!("expected 'import' after from path, got {}", import_tok.kind),
+                    import_tok.span(),
+                    Some("token".to_string()),
+                ));
+            }
+            let star = cursor.advance()?;
+            if star.kind.as_str() != "token.star" {
+                return Err(LangError::engine_at(
+                    format!("expected '*' in from-import, got {}", star.kind),
+                    star.span(),
+                    Some("token".to_string()),
+                ));
+            }
+            let as_tok = cursor.advance()?;
+            if as_tok.kind.as_str() != "token.keyword.as" {
+                return Err(LangError::engine_at(
+                    format!("expected 'as' in from-import, got {}", as_tok.kind),
+                    as_tok.span(),
+                    Some("token".to_string()),
+                ));
+            }
+            let alias_tok = cursor.advance()?;
+            let alias = if alias_tok.kind.as_str() == "token.identifier"
+                || alias_tok.kind.as_str() == "token.string"
+            {
+                alias_tok.text.as_str()
+            } else {
+                return Err(LangError::engine_at(
+                    format!("expected alias in from-import, got {}", alias_tok.kind),
+                    alias_tok.span(),
+                    Some("token".to_string()),
+                ));
+            };
+            let path_text = {
+                let ast_guard = self.ast.borrow();
+                let path_node = ast_guard.at(path_ref)?;
+                path_node
+                    .payload
+                    .as_str()
+                    .map(String::from)
+                    .ok_or_else(|| {
+                        LangError::engine_at(
+                            "from-import: expected a string literal path".to_string(),
+                            path_node.span,
+                            Some("token".to_string()),
+                        )
+                    })?
+            };
+            let mut payload_fields = serde_json::Map::new();
+            payload_fields.insert(
+                "children".to_string(),
+                Value::Array(vec![Value::from(path_ref.index())]),
+            );
+            payload_fields.insert("path".to_string(), Value::from(path_text));
+            payload_fields.insert("alias".to_string(), Value::from(alias.to_string()));
+            let payload = Value::Object(payload_fields);
+            let node = AstNode::new("stmt.import").with_payload(payload);
             self.ast.borrow_mut().push(node)
         } else if arity == 0 && delim.is_none() && shape.payload_tokens.is_empty() {
             // Atom: payload is the token's interpreted value (dispatches on
@@ -651,7 +713,10 @@ impl PrattEngine {
             let open = cursor.advance()?;
             if open.kind != delim.open {
                 return Err(LangError::engine_at(
-                    format!("expected opening delimiter {}, got {}", delim.open, open.kind),
+                    format!(
+                        "expected opening delimiter {}, got {}",
+                        delim.open, open.kind
+                    ),
                     open.span(),
                     Some("token".to_string()),
                 ));
@@ -737,7 +802,7 @@ impl PrattEngine {
             match next {
                 Some(t) if delim.separator.as_deref() == Some(t.kind.as_str()) => {
                     let _ = cursor.advance()?; // consume separator
-                                               // Tolerate a trailing separator immediately before close.
+                    // Tolerate a trailing separator immediately before close.
                     if let Some(t2) = cursor.peek() {
                         if t2.kind == delim.close {
                             break;
@@ -791,7 +856,10 @@ impl PrattEngine {
         let close = cursor.advance()?;
         if close.kind != delim.close {
             return Err(LangError::engine_at(
-                format!("expected closing delimiter {}, got {}", delim.close, close.kind),
+                format!(
+                    "expected closing delimiter {}, got {}",
+                    delim.close, close.kind
+                ),
                 close.span(),
                 Some("token".to_string()),
             ));

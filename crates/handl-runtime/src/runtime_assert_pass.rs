@@ -84,17 +84,11 @@ pub fn apply_runtime_asserts(lang: &Language, ast: &mut Ast) {
                 Some(arr) => arr,
                 None => continue,
             };
-            let s = match children
-                .get(subject_idx)
-                .and_then(|v| v.as_u64())
-            {
+            let s = match children.get(subject_idx).and_then(|v| v.as_u64()) {
                 Some(v) => v as usize,
                 None => continue,
             };
-            let a = match children
-                .get(annot_idx)
-                .and_then(|v| v.as_u64())
-            {
+            let a = match children.get(annot_idx).and_then(|v| v.as_u64()) {
                 Some(v) => v as usize,
                 None => continue,
             };
@@ -112,18 +106,13 @@ pub fn apply_runtime_asserts(lang: &Language, ast: &mut Ast) {
         if let Some(node) = ast.get_mut(node_ref) {
             node.kind = "runtime-assert".to_string();
             if let Some(obj) = node.payload.as_object_mut() {
-                obj.insert(
-                    "children".to_string(),
-                    Value::Array(new_children),
-                );
+                obj.insert("children".to_string(), Value::Array(new_children));
             } else {
                 // payload is not an object — replace it entirely.
-                node.payload = Value::Object(serde_json::Map::from_iter(
-                    std::iter::once((
-                        "children".to_string(),
-                        Value::Array(new_children),
-                    )),
-                ));
+                node.payload = Value::Object(serde_json::Map::from_iter(std::iter::once((
+                    "children".to_string(),
+                    Value::Array(new_children),
+                ))));
             }
         }
     }
@@ -161,9 +150,7 @@ mod tests {
                 Value::from(1u64), // annot at index 1
             ]),
         );
-        ast.push(
-            AstNode::new("type-annot").with_payload(Value::Object(payload)),
-        );
+        ast.push(AstNode::new("type-annot").with_payload(Value::Object(payload)));
 
         let lang = make_lang();
         apply_runtime_asserts(&lang, &mut ast);

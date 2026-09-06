@@ -20,8 +20,8 @@ use handl_defining_handl::{corpus, language, proc_corpus};
 use handl_language::{AstRef, LangError, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_cranelift::CraneliftEngineV2;
-use handl_plugin_engine_eval_tree_walk::v2::V2Interpreter;
 use handl_plugin_engine_eval_tree_walk::ScopeStack;
+use handl_plugin_engine_eval_tree_walk::v2::V2Interpreter;
 
 /// Evaluate a corpus case under the v2 tree-walk handler (`V2Interpreter`).
 ///

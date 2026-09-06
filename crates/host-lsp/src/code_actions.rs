@@ -43,7 +43,11 @@ pub fn code_actions(
     let mut actions = Vec::new();
 
     // The extract action is purely string-based and needs no lexing.
-    actions.extend(extract_to_named_arrow_actions(source, range_start, range_end));
+    actions.extend(extract_to_named_arrow_actions(
+        source,
+        range_start,
+        range_end,
+    ));
 
     // Lex the source for token-based actions.
     let kit = match kit_for_file(None) {
@@ -58,7 +62,12 @@ pub fn code_actions(
     // Range-based actions for the user's selection / cursor position.
     actions.extend(wrap_in_do_actions(source, &tokens, range_start, range_end));
     actions.extend(add_return_actions(source, &tokens, range_start, range_end));
-    actions.extend(convert_comment_actions(source, &tokens, range_start, range_end));
+    actions.extend(convert_comment_actions(
+        source,
+        &tokens,
+        range_start,
+        range_end,
+    ));
 
     // Diagnostic-based actions: if a diagnostic message mentions "return",
     // offer the corresponding fix at the diagnostic's location.
@@ -205,8 +214,7 @@ fn wrap_in_do_actions(
     for i in 0..tokens.len() {
         // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
         let t = &tokens[i];
-        if !(t.kind == "token.lt" && i + 1 < tokens.len() && tokens[i + 1].kind == "token.minus")
-        {
+        if !(t.kind == "token.lt" && i + 1 < tokens.len() && tokens[i + 1].kind == "token.minus") {
             continue;
         }
         // The binding must be on the cursor / selection's line.
@@ -266,9 +274,8 @@ fn add_return_actions(
         let prev1 = if i > 0 { tokens.get(i - 1) } else { None };
 
         // Already has `return` prefix → skip.
-        let has_return = prev1
-            .map(|p| is_keyword_kind(p.kind.as_str()) && p.text == "return")
-            == Some(true);
+        let has_return =
+            prev1.map(|p| is_keyword_kind(p.kind.as_str()) && p.text == "return") == Some(true);
         if has_return {
             continue;
         }

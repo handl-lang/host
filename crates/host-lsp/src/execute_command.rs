@@ -121,10 +121,7 @@ fn extract_source(arguments: &[Value]) -> Option<(String, Option<String>)> {
     let arg = arguments.first()?;
     // Direct source text takes precedence.
     if let Some(source) = arg.get("source").and_then(|s| s.as_str()) {
-        let file_path = arg
-            .get("uri")
-            .and_then(|u| u.as_str())
-            .map(uri_to_path);
+        let file_path = arg.get("uri").and_then(|u| u.as_str()).map(uri_to_path);
         return Some((source.to_string(), file_path));
     }
     // Otherwise read from the URI.

@@ -58,7 +58,10 @@ fn on_close_bracket(source: &str, position: (u32, u32), close_ch: char) -> Vec<V
     // Only dedent when the closing bracket is the first non-whitespace on its
     // line (i.e. everything before it is whitespace). Inline closers are left
     // alone.
-    let ws_before = chars[..col].iter().take_while(|c| c.is_whitespace()).count();
+    let ws_before = chars[..col]
+        .iter()
+        .take_while(|c| c.is_whitespace())
+        .count();
     if ws_before != col {
         return Vec::new();
     }
@@ -86,12 +89,7 @@ fn on_close_bracket(source: &str, position: (u32, u32), close_ch: char) -> Vec<V
         return Vec::new();
     }
 
-    vec![text_edit(
-        line,
-        0,
-        current_indent as u32,
-        &target_indent,
-    )]
+    vec![text_edit(line, 0, current_indent as u32, &target_indent)]
 }
 
 /// Scan backwards from `close_offset` (which must point at `close_ch`) to find
@@ -180,10 +178,7 @@ fn on_newline(source: &str, position: (u32, u32)) -> Vec<Value> {
         return Vec::new();
     }
     let new_line = lines[new_idx];
-    let existing_ws = new_line
-        .chars()
-        .take_while(|c| c.is_whitespace())
-        .count();
+    let existing_ws = new_line.chars().take_while(|c| c.is_whitespace()).count();
 
     if existing_ws == new_indent.chars().count() {
         return Vec::new();

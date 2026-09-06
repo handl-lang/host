@@ -28,11 +28,38 @@ export interface ResolveDeps {
   exists: (p: string) => boolean;
 }
 
+const SERVER_BINARY_NAME = "handl-host-lsp";
+
+/**
+ * Build a list of candidate server binary paths for a workspace root.
+ *
+ * Tries the workspace root, a common `platform/` Cargo subdirectory,
+ * and every parent directory up to the filesystem root. This covers
+ * monorepos where the Rust workspace lives under a subdirectory.
+ */
+function serverPathCandidates(workspaceRoot: string): string[] {
+  const candidates: string[] = [];
+  const add = (base: string) => {
+    candidates.push(path.join(base, "target", "debug", SERVER_BINARY_NAME));
+  };
+
+  add(workspaceRoot);
+  add(path.join(workspaceRoot, "platform"));
+
+  let current = workspaceRoot;
+  while (current !== path.dirname(current)) {
+    current = path.dirname(current);
+    add(current);
+  }
+
+  return candidates;
+}
+
 /**
  * Resolves the path to the `handl-host-lsp` binary.
  *
- * Priority: explicit `handl.server.path` setting, then
- * `<first-workspace>/target/debug/handl-host-lsp`.
+ * Priority: explicit `handl.server.path` setting, then a list of candidate
+ * paths derived from the first workspace folder.
  * Returns `null` if no candidate is found.
  */
 export function resolveServerPath(deps: ResolveDeps): string | null {
@@ -42,8 +69,9 @@ export function resolveServerPath(deps: ResolveDeps): string | null {
   const folders = deps.getWorkspaceFolders();
   if (!folders || folders.length === 0) return null;
 
-  const candidate = path.join(folders[0].uri.fsPath, "target", "debug", "handl-host-lsp");
-  if (deps.exists(candidate)) return candidate;
+  for (const candidate of serverPathCandidates(folders[0].uri.fsPath)) {
+    if (deps.exists(candidate)) return candidate;
+  }
 
   return null;
 }

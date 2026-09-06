@@ -131,7 +131,7 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
     let provider = canonical_semantic_tokens();
 
     let temp = tempfile::NamedTempFile::new().unwrap();
-    std::fs::write(temp.path(), "x = 42").unwrap();
+    std::fs::write(temp.path(), "x :: 42").unwrap();
     let uri = format!("file://{}", temp.path().display());
 
     let mut buf = Vec::new();
@@ -154,7 +154,7 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
     );
 
     // First token should be "x" (identifier/variable, type 6, length 1,
-    // declaration modifier bit set because `x = 42` is a binding).
+    // declaration modifier bit set because `x :: 42` is a binding).
     assert_eq!(data[0], 0); // delta_line
     assert_eq!(data[1], 0); // delta_start
     assert_eq!(data[2], 1); // length
@@ -167,11 +167,11 @@ fn semantic_tokens_range_filters_to_requested_line() {
     let provider = canonical_semantic_tokens();
 
     let temp = tempfile::NamedTempFile::new().unwrap();
-    std::fs::write(temp.path(), "x = 42\ny = 10").unwrap();
+    std::fs::write(temp.path(), "x :: 42\ny :: 10").unwrap();
     let uri = format!("file://{}", temp.path().display());
 
     let mut store = DocumentStore::new();
-    store.open(&uri, "x = 42\ny = 10");
+    store.open(&uri, "x :: 42\ny :: 10");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -200,7 +200,7 @@ fn semantic_tokens_range_whole_document_matches_full() {
     let provider = canonical_semantic_tokens();
 
     let temp = tempfile::NamedTempFile::new().unwrap();
-    std::fs::write(temp.path(), "x = 42").unwrap();
+    std::fs::write(temp.path(), "x :: 42").unwrap();
     let uri = format!("file://{}", temp.path().display());
 
     let store = DocumentStore::new();
@@ -239,7 +239,7 @@ fn semantic_tokens_range_empty_range_returns_empty_data() {
     let provider = canonical_semantic_tokens();
 
     let temp = tempfile::NamedTempFile::new().unwrap();
-    std::fs::write(temp.path(), "x = 42").unwrap();
+    std::fs::write(temp.path(), "x :: 42").unwrap();
     let uri = format!("file://{}", temp.path().display());
 
     let store = DocumentStore::new();

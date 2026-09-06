@@ -5,11 +5,11 @@ edition.workspace = true
 description = "Native `unicode` module — Rust/ICU4X backend for the `unicode` contract"
 
 [dependencies]
-handl-platform = { workspace = true }
+handl-platform = {path = "../platform" }
 handl-plugin-lib-handl = { workspace = true }
-handl-plugin-lib-char-native = { workspace = true }
-handl-plugin-lib-unicode = { workspace = true }
-handl-plugin-module = { workspace = true }
+handl-plugin-lib-char-native = {path = "../plugin-lib-char-native" }
+handl-plugin-lib-unicode = {path = "../../.ref-crates/plugin-lib-unicode" }
+handl-plugin-module = {path = "../plugin-module" }
 serde_json = { workspace = true }
 icu_casemap = { version = "2", features = ["compiled_data"] }
 icu_normalizer = { version = "2", features = ["compiled_data"] }

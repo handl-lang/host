@@ -9,12 +9,12 @@
 --   get  = arr("list.nth") >>> first(id)
 
 -- push : (α × List α) → List α — prepend an element (cons).
-push = arr("list.cons")
+push :: arr("list.cons")
 
 -- pop : List α → α — get the first element (head).
-pop = arr("list.head")
+pop :: arr("list.head")
 
 -- get : (List α × Int) → α — element at index.
 -- arr("list.nth") >>> first(id) — nth on the first component,
 -- the index (second component) passes through as a side channel.
-get = arr("list.nth") >>> first(id)
+get :: arr("list.nth") >>> first(id)

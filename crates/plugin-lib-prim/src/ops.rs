@@ -76,9 +76,7 @@ fn require_two(
     Ok((&args[0], &args[1]))
 }
 
-fn require_one(
-    args: &[serde_json::Value],
-) -> Result<&serde_json::Value, EvalError> {
+fn require_one(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
     if args.is_empty() {
         return Err(EvalError::TypeMismatch(format!(
             "expected {} args, got {}",

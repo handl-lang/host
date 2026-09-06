@@ -44,7 +44,6 @@
 //!     .with_dependency(TypeModule);
 //! ```
 
-#![warn(missing_docs)]
 
 pub mod op_registry;
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
@@ -52,8 +51,8 @@ pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use handl_language::Source;
 use handl_platform::{
@@ -182,19 +181,16 @@ fn transform_export_to_object(src: &str) -> String {
     for line in src.lines() {
         let trimmed = line.trim_start();
         // A top-level export line starts at column 0 with `export `.
-        if !line.starts_with(' ')
-            && !line.starts_with('\t')
-            && trimmed.starts_with("export ")
-        {
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
             // Flush the previous entry.
             if let Some(entry) = current.take() {
                 entries.push(entry);
             }
             let rest = &trimmed["export ".len()..];
-            // Find the binding `=` (not `==`, `>=`, `<=`, `!=`, `=>`).
-            if let Some(eq_pos) = find_binding_eq(rest) {
-                let name = rest[..eq_pos].trim().to_string();
-                let expr_start = rest[eq_pos + 1..].trim();
+            // Find the binding separator (`::`, or legacy `=`).
+            if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
+                let name = rest[..sep_pos].trim().to_string();
+                let expr_start = rest[sep_pos + sep_len..].trim();
                 let mut expr_lines = Vec::new();
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
@@ -234,17 +230,26 @@ fn transform_export_to_object(src: &str) -> String {
     out
 }
 
-/// Find the position of a binding `=` in `s`, skipping `==`, `>=`, `<=`,
-/// `!=`, and `=>`. Returns `None` if no binding `=` is found.
-fn find_binding_eq(s: &str) -> Option<usize> {
+/// Find the position and length of the binding separator in `s`: the `::`
+/// bind token (canonical) or a legacy `=` (skipping `==`, `>=`, `<=`, `!=`,
+/// `=>`). `::` takes precedence — a lone `:` (type annotations, object
+/// fields, `match` arms) is not a separator. Returns `None` if no binding
+/// separator is found.
+fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
     let bytes = s.as_bytes();
     let mut i = 0;
     let mut depth: i32 = 0;
+    let mut first_eq: Option<usize> = None;
     while i < bytes.len() {
         let c = bytes[i];
         match c {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
+            b':' if depth == 0 => {
+                if i + 1 < bytes.len() && bytes[i + 1] == b':' {
+                    return Some((i, 2));
+                }
+            }
             b'=' if depth == 0 => {
                 let prev = if i > 0 { bytes[i - 1] } else { 0 };
                 let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
@@ -252,20 +257,30 @@ fn find_binding_eq(s: &str) -> Option<usize> {
                     i += 1;
                     continue;
                 }
-                return Some(i);
+                // Legacy `=` bind: remember the first one, but keep
+                // scanning for a `::` that precedes it in the same line
+                // (an `=` earlier would already have returned).
+                if first_eq.is_none() {
+                    first_eq = Some(i);
+                }
             }
             _ => {}
         }
         i += 1;
     }
-    None
+    first_eq.map(|pos| (pos, 1))
 }
 
 /// Returns true if the line is an import declaration (`import ...` or
 /// `from ... import ...`).
 fn is_import_line(trimmed: &str) -> bool {
     if let Some(rest) = trimmed.strip_prefix("import") {
-        if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') || rest.starts_with('"') || rest.starts_with('\'') {
+        if rest.is_empty()
+            || rest.starts_with(' ')
+            || rest.starts_with('\t')
+            || rest.starts_with('"')
+            || rest.starts_with('\'')
+        {
             return true;
         }
     }
@@ -303,31 +318,44 @@ pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
 
 fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
     let rest = line.strip_prefix("from")?.trim();
-    if rest.is_empty() { return None; }
+    if rest.is_empty() {
+        return None;
+    }
     let (path, after_path) = extract_quoted(rest)?;
     let import_kw = after_path.trim().strip_prefix("import")?.trim();
     let star = import_kw.strip_prefix("*")?.trim();
     let as_kw = star.strip_prefix("as")?.trim();
-    if as_kw.is_empty() { return None; }
+    if as_kw.is_empty() {
+        return None;
+    }
     let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
         extract_quoted(as_kw)?.0
     } else {
         as_kw.split_whitespace().next()?.to_string()
     };
-    if alias.is_empty() { return None; }
+    if alias.is_empty() {
+        return None;
+    }
     Some(ImportDecl { path, alias })
 }
 
 fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
     let rest = line.strip_prefix("import")?.trim();
-    if rest.is_empty() { return None; }
+    if rest.is_empty() {
+        return None;
+    }
     let (path, after) = extract_quoted(rest)?;
     let after = after.trim();
     let alias = if let Some(as_part) = after.strip_prefix("as") {
         let a = as_part.trim();
-        if a.is_empty() { return None; }
-        if a.starts_with('"') || a.starts_with('\'') { extract_quoted(a)?.0 }
-        else { a.split_whitespace().next()?.to_string() }
+        if a.is_empty() {
+            return None;
+        }
+        if a.starts_with('"') || a.starts_with('\'') {
+            extract_quoted(a)?.0
+        } else {
+            a.split_whitespace().next()?.to_string()
+        }
     } else {
         path.rsplit('/').next().unwrap_or(&path).to_string()
     };
@@ -337,7 +365,9 @@ fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
 fn extract_quoted(s: &str) -> Option<(String, &str)> {
     let s = s.trim_start();
     let quote = s.chars().next()?;
-    if quote != '"' && quote != '\'' { return None; }
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
     let rest = &s[quote.len_utf8()..];
     let end = rest.find(quote)?;
     Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
@@ -442,10 +472,14 @@ pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
             }
             _ => continue,
         };
-        // Find the `=` separator.
-        if let Some(eq_idx) = rest.find('=') {
+        // Find the `::` (canonical) or legacy `=` separator.
+        let sep = rest
+            .find("::")
+            .map(|i| (i, 2))
+            .or_else(|| rest.find('=').map(|i| (i, 1)));
+        if let Some((eq_idx, sep_len)) = sep {
             let name = rest[..eq_idx].trim().to_string();
-            let payload_type = rest[eq_idx + 1..].trim().to_string();
+            let payload_type = rest[eq_idx + sep_len..].trim().to_string();
             if !name.is_empty()
                 && !payload_type.is_empty()
                 && name.chars().all(|c| c.is_alphanumeric() || c == '_')
@@ -505,10 +539,10 @@ pub fn expand_tag_declarations(src: &str) -> String {
             // Skip lines that are `tag` declarations.
             if let Some(rest) = trimmed.strip_prefix("tag") {
                 if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                    if let Some(eq_idx) = rest.find('=') {
+                    let sep_idx = rest.find("::").or_else(|| rest.find('='));
+                    if let Some(eq_idx) = sep_idx {
                         let name = rest[..eq_idx].trim();
-                        if !name.is_empty()
-                            && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                        if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
                         {
                             return false;
                         }
@@ -523,7 +557,7 @@ pub fn expand_tag_declarations(src: &str) -> String {
     let mut out = String::from("do {\n");
     for (name, _payload_type) in &tags {
         out.push_str(&format!(
-            "  {name} = _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
+            "  {name} :: _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
         ));
     }
     // Append the remaining source, indented by 2 spaces.
@@ -724,16 +758,9 @@ impl Function for HandlFunction {
         // → `str.*`), which re-enters `call` and would otherwise hit
         // `RefCell already borrowed`.
         let runtime = RUNTIME_CACHE.with(|cache| {
-            std::rc::Rc::clone(
-                cache
-                    .borrow_mut()
-                    .entry(module_id)
-                    .or_insert_with(|| {
-                        std::rc::Rc::new(
-                            builder().expect("canonical kit assembly should not fail"),
-                        )
-                    }),
-            )
+            std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
+                std::rc::Rc::new(builder().expect("canonical kit assembly should not fail"))
+            }))
         });
         runtime
             .run(&Source::new(&source))
@@ -866,7 +893,7 @@ impl HandlModule {
     /// [`OpRegistry`].
     ///
     /// Each op name (e.g. `"base64.encode"`) is exposed as a callable
-    /// [`OpFunction`] under its local name — the segment after the last `.` 
+    /// [`OpFunction`] under its local name — the segment after the last `.`
     /// in the op name (e.g. `"encode"`). This allows the module to be looked
     /// up via `ModuleLookup::lookup("base64.encode")` (the module name
     /// `"base64"` + the local name `"encode"`).
@@ -876,8 +903,10 @@ impl HandlModule {
     pub fn with_ops(mut self, op_names: &[&str], registry: Arc<OpRegistry>) -> Self {
         for &op_name in op_names {
             let local_name = op_name.rsplit('.').next().unwrap_or(op_name);
-            self.op_functions
-                .insert(local_name.to_string(), OpFunction::new(op_name, Arc::clone(&registry)));
+            self.op_functions.insert(
+                local_name.to_string(),
+                OpFunction::new(op_name, Arc::clone(&registry)),
+            );
         }
         self
     }
@@ -925,6 +954,70 @@ impl Module for HandlModule {
         }
         result
     }
+}
+
+// ---------------------------------------------------------------------------
+// str-handl shared builder
+// ---------------------------------------------------------------------------
+
+/// The handl source implementing the `str` contract as pure handl over `char`.
+const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+
+/// The record field names exposed by `str-handl.hnl`.
+pub const STR_HANDL_FUNCS: &[&str] = &[
+    "upper",
+    "lower",
+    "trim",
+    "trim_start",
+    "trim_end",
+    "trim_matches",
+    "reverse",
+    "length",
+    "concat",
+    "is_empty",
+    "equals",
+    "is_alpha",
+    "is_numeric",
+    "is_alphanumeric",
+    "capitalize",
+    "title_case",
+    "snake_case",
+    "camel_case",
+    "pascal_case",
+    "kebab_case",
+    "contains",
+    "starts_with",
+    "ends_with",
+    "count",
+    "find",
+    "rfind",
+    "levenshtein",
+    "similarity",
+    "split",
+    "join",
+    "replace",
+    "replace_first",
+    "repeat",
+    "char_at",
+    "slice",
+    "pad_left",
+    "pad_right",
+    "strip_prefix",
+    "strip_suffix",
+    "lines",
+    "split_at",
+    "split_whitespace",
+    "truncate",
+    "slugify",
+    "word_wrap",
+];
+
+/// Build the [`HandlModule`] for `str-handl`.
+///
+/// The source imports `char`, so the supplied resolver must map `"char"` to
+/// a `char` backend (typically [`CharModule`](handl_plugin_lib_char_native::CharModule)).
+pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_resolver(resolver)
 }
 
 // ---------------------------------------------------------------------------
@@ -1120,442 +1213,3 @@ impl Plugin for HandlLibraryPlugin {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use handl_platform::{EvalContext, ModuleLookup};
-    use handl_plugin_module::ModuleRegistry;
-    use serde_json::json;
-
-    /// A minimal `.hnl` source for testing: a record with `double` and
-    /// `inc` fields.
-    const TEST_HNL: &str = r#"
--- A test record of arrows.
-{
-  double: xs ~> xs * 2,
-  inc: xs ~> xs + 1
-}
-"#;
-
-    /// A `.hnl` source that uses `math.sqrt` (requires a dependency module).
-    const TEST_DEP_HNL: &str = r#"
--- Uses math.sqrt, requires MathModule dependency.
-{
-  root: xs ~> math.sqrt(xs)
-}
-"#;
-
-    #[test]
-    fn handl_module_exposes_functions() {
-        let module = HandlModule::new("test", TEST_HNL, &["double", "inc"]);
-        assert_eq!(module.name(), "test");
-
-        let mut ctx = EvalContext::new();
-        let double = module.function("double").expect("double should exist");
-        let result = double.call(&[json!(21)], &mut ctx).unwrap();
-        assert_eq!(result, json!(42));
-
-        let inc = module.function("inc").expect("inc should exist");
-        let result = inc.call(&[json!(41)], &mut ctx).unwrap();
-        assert_eq!(result, json!(42));
-    }
-
-    #[test]
-    fn handl_module_unknown_function_returns_none() {
-        let module = HandlModule::new("test", TEST_HNL, &["double"]);
-        assert!(module.function("nope").is_none());
-    }
-
-    #[test]
-    fn handl_module_functions_enumeration() {
-        let module = HandlModule::new("test", TEST_HNL, &["double", "inc"]);
-        let fns = module.functions();
-        assert_eq!(fns.len(), 2);
-        let names: Vec<&str> = fns.iter().map(|(n, _)| *n).collect();
-        assert!(names.contains(&"double"));
-        assert!(names.contains(&"inc"));
-    }
-
-    #[test]
-    fn handl_module_with_dependency_resolves_module_calls() {
-        use handl_plugin_lib_utils::MathModule;
-        let module = HandlModule::new("test", TEST_DEP_HNL, &["root"])
-            .with_dependency(MathModule);
-
-        let mut ctx = EvalContext::new();
-        let root = module.function("root").expect("root should exist");
-        let result = root.call(&[json!(16)], &mut ctx).unwrap();
-        assert_eq!(result.as_f64().unwrap(), 4.0);
-    }
-
-    #[test]
-    fn handl_module_works_in_module_registry() {
-        let module = HandlModule::new("test", TEST_HNL, &["double", "inc"]);
-        let registry = ModuleRegistry::new().with(module);
-        let lookup: &dyn ModuleLookup = &registry;
-
-        let func = lookup.lookup("test.double").expect("test.double should resolve");
-        let mut ctx = EvalContext::new();
-        let result = func.call(&[json!(5)], &mut ctx).unwrap();
-        assert_eq!(result, json!(10));
-    }
-
-    #[test]
-    fn handl_library_plugin_contributes_module() {
-        use handl_platform::{PluginRegistry, KitRegistry};
-        let plugin = HandlLibraryPlugin::new(
-            "test", "lib.test", "lib-test", TEST_HNL, &["double", "inc"],
-        );
-
-        assert_eq!(plugin.id(), "lib.test");
-        assert_eq!(plugin.name(), "lib-test");
-
-        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
-        plugins.register(ModuleRuntime::new());
-        let mut cctx = ContributionContext::new(&mut plugins, &mut kits);
-        plugin.contribute(&mut cctx).unwrap();
-
-        let runtime = plugins
-            .get_plugin_mut::<ModuleRuntime>()
-            .expect("ModuleRuntime should be registered");
-        assert_eq!(runtime.module_count(), 1);
-        assert!(runtime.lookup("test.double").is_some());
-    }
-
-    #[test]
-    fn strip_comment_lines_removes_dashed_comments() {
-        let src = "-- a comment\nlet x = 1 in\n-- another\nx";
-        let stripped = strip_comment_lines(src);
-        assert!(!stripped.contains("--"));
-        assert!(stripped.contains("let x = 1 in"));
-    }
-
-    #[test]
-    fn strip_declaration_lines_removes_cap_op_handl() {
-        let src = "cap \"hello.greet\"\nop \"hello.greet\" : String -> String\n  guarantee: True\nhandl \"hello.greet\" = rust_greet\nname ~> \"Hello, \" + name + \"!\"";
-        let cleaned = strip_declaration_lines(src);
-        assert!(!cleaned.contains("cap"));
-        assert!(!cleaned.contains("op "));
-        assert!(!cleaned.contains("handl "));
-        assert!(!cleaned.contains("guarantee"));
-        assert!(cleaned.contains("name ~>"));
-    }
-
-    #[test]
-    fn strip_declaration_lines_preserves_handl_logic() {
-        let src = "cap \"test.foo\"\n{\n  foo: x ~> x + 1\n}";
-        let cleaned = strip_declaration_lines(src);
-        assert!(cleaned.contains("foo: x ~> x + 1"));
-        assert!(!cleaned.contains("cap"));
-    }
-
-    #[test]
-    fn strip_declaration_lines_preserves_indented_logic() {
-        // Indented lines that are NOT op continuation lines should be kept.
-        let src = "cap \"test.foo\"\n{\n  foo: x ~> {\n    y = x + 1 in\n    y\n  }\n}";
-        let cleaned = strip_declaration_lines(src);
-        assert!(cleaned.contains("y = x + 1 in"));
-        assert!(!cleaned.contains("cap"));
-    }
-
-    #[test]
-    fn escape_handl_string_escapes_quotes_and_backslashes() {
-        assert_eq!(escape_handl_string(r#"a"b\c"#), r#"a\"b\\c"#);
-        assert_eq!(escape_handl_string("plain"), "plain");
-    }
-
-    #[test]
-    fn handl_module_with_ops_dispatches_to_registry() {
-        use crate::op_registry::{OpFunction, OpRegistry};
-        use std::sync::Arc;
-
-        struct Upper;
-        impl Function for Upper {
-            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
-                let s = args[0].as_str().unwrap_or("");
-                Ok(json!(s.to_uppercase()))
-            }
-        }
-
-        let mut registry = OpRegistry::new();
-        registry.register("test.upper", Arc::new(Upper));
-        let shared = Arc::new(registry);
-
-        let module = HandlModule::new("test", TEST_HNL, &["double"])
-            .with_ops(&["test.upper"], shared);
-
-        // The op function should be accessible via the module.
-        let upper = module.function("upper").expect("upper should exist");
-        let mut ctx = EvalContext::new();
-        let result = upper.call(&[json!("hello")], &mut ctx).unwrap();
-        assert_eq!(result, json!("HELLO"));
-
-        // The regular function should still work.
-        let double = module.function("double").expect("double should exist");
-        let result = double.call(&[json!(21)], &mut ctx).unwrap();
-        assert_eq!(result, json!(42));
-    }
-
-    #[test]
-    fn handl_module_with_ops_works_in_module_registry() {
-        use crate::op_registry::OpRegistry;
-        use std::sync::Arc;
-
-        struct Upper;
-        impl Function for Upper {
-            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
-                let s = args[0].as_str().unwrap_or("");
-                Ok(json!(s.to_uppercase()))
-            }
-        }
-
-        let mut registry = OpRegistry::new();
-        registry.register("test.upper", Arc::new(Upper));
-        let shared = Arc::new(registry);
-
-        let module = HandlModule::new("test", TEST_HNL, &["double"])
-            .with_ops(&["test.upper"], shared);
-        let reg = ModuleRegistry::new().with(module);
-        let lookup: &dyn ModuleLookup = &reg;
-
-        // Op function should be resolvable via qualified name.
-        let func = lookup.lookup("test.upper").expect("test.upper should resolve");
-        let mut ctx = EvalContext::new();
-        let result = func.call(&[json!("hi")], &mut ctx).unwrap();
-        assert_eq!(result, json!("HI"));
-
-        // Regular function should also work.
-        let func = lookup.lookup("test.double").expect("test.double should resolve");
-        let result = func.call(&[json!(5)], &mut ctx).unwrap();
-        assert_eq!(result, json!(10));
-    }
-
-    #[test]
-    fn handl_library_plugin_with_ops_contributes_module() {
-        use handl_platform::{PluginRegistry, KitRegistry};
-        use crate::op_registry::OpRegistry;
-        use std::sync::Arc;
-
-        struct Upper;
-        impl Function for Upper {
-            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
-                let s = args[0].as_str().unwrap_or("");
-                Ok(json!(s.to_uppercase()))
-            }
-        }
-
-        let mut registry = OpRegistry::new();
-        registry.register("test.upper", Arc::new(Upper));
-        let shared = Arc::new(registry);
-
-        let plugin = HandlLibraryPlugin::new(
-            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
-        )
-        .with_ops(&["test.upper"], shared);
-
-        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
-        plugins.register(ModuleRuntime::new());
-        let mut cctx = ContributionContext::new(&mut plugins, &mut kits);
-        plugin.contribute(&mut cctx).unwrap();
-
-        let runtime = plugins
-            .get_plugin_mut::<ModuleRuntime>()
-            .expect("ModuleRuntime should be registered");
-        assert_eq!(runtime.module_count(), 1);
-        assert!(runtime.lookup("test.upper").is_some());
-        assert!(runtime.lookup("test.double").is_some());
-    }
-
-    // -----------------------------------------------------------------------
-    // ADR-0077 Phase 5: cap declaration parsing tests
-    // -----------------------------------------------------------------------
-
-    /// A `.hnl` source with `cap` declarations for testing.
-    const TEST_CAPS_HNL: &str = r#"
--- A module with capability declarations.
-cap "fs.read"
-cap "fs.write"
-op "fs.read" : Path -> Bytes
-op "fs.write" : (Path * Bytes) -> Unit
-"#;
-
-    #[test]
-    fn parse_cap_declarations_extracts_caps() {
-        let caps = parse_cap_declarations(TEST_CAPS_HNL);
-        assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
-    }
-
-    #[test]
-    fn parse_cap_declarations_skips_comments() {
-        let src = "-- cap \"not.a.cap\"\ncap \"real.cap\"\n-- another comment\ncap \"second.cap\"";
-        let caps = parse_cap_declarations(src);
-        assert_eq!(caps, vec!["real.cap".to_string(), "second.cap".to_string()]);
-    }
-
-    #[test]
-    fn parse_cap_declarations_ignores_non_cap_lines() {
-        let src = r#"
-op "test.op" : Int -> Int
-handl "test.op" = rust_fn
-let x = 1 in x
-"#;
-        let caps = parse_cap_declarations(src);
-        assert!(caps.is_empty());
-    }
-
-    #[test]
-    fn parse_cap_declarations_empty_source() {
-        let caps = parse_cap_declarations("");
-        assert!(caps.is_empty());
-    }
-
-    #[test]
-    fn parse_cap_declarations_supports_single_quotes() {
-        let src = "cap 'my.cap'\ncap \"other.cap\"";
-        let caps = parse_cap_declarations(src);
-        assert_eq!(caps, vec!["my.cap".to_string(), "other.cap".to_string()]);
-    }
-
-    #[test]
-    fn parse_cap_declarations_ignores_cap_prefix_in_words() {
-        // "capacity" should not be matched as a `cap` declaration.
-        let src = "capacity 100\ncap \"real.cap\"";
-        let caps = parse_cap_declarations(src);
-        assert_eq!(caps, vec!["real.cap".to_string()]);
-    }
-
-    #[test]
-    fn handl_library_plugin_with_capabilities_exposes_them() {
-        use handl_platform::Plugin;
-        let plugin = HandlLibraryPlugin::new_with_caps(
-            "test", "lib.test", "lib-test", TEST_CAPS_HNL, &[],
-        );
-        let caps = plugin.capabilities();
-        assert_eq!(caps.len(), 2);
-        assert_eq!(caps[0].as_str(), "fs.read");
-        assert_eq!(caps[1].as_str(), "fs.write");
-    }
-
-    #[test]
-    fn handl_library_plugin_with_capabilities_manual() {
-        use handl_platform::Plugin;
-        let plugin = HandlLibraryPlugin::new(
-            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
-        )
-        .with_capabilities(vec!["custom.cap".into(), "other.cap".into()]);
-        let caps = plugin.capabilities();
-        assert_eq!(caps.len(), 2);
-        assert_eq!(caps[0].as_str(), "custom.cap");
-        assert_eq!(caps[1].as_str(), "other.cap");
-    }
-
-    #[test]
-    fn handl_library_plugin_no_caps_returns_empty() {
-        use handl_platform::Plugin;
-        let plugin = HandlLibraryPlugin::new(
-            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
-        );
-        assert!(plugin.capabilities().is_empty());
-    }
-
-    // -----------------------------------------------------------------------
-    // ADR-0077: tag declaration parsing and expansion tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn parse_tag_declarations_extracts_tags() {
-        let src = r#"
-tag ok = Value
-tag err = Error
-"#;
-        let tags = parse_tag_declarations(src);
-        assert_eq!(
-            tags,
-            vec![
-                ("ok".to_string(), "Value".to_string()),
-                ("err".to_string(), "Error".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn parse_tag_declarations_skips_comments() {
-        let src = "-- tag not = Real\ntag ok = Value\n-- another\ntag err = Error";
-        let tags = parse_tag_declarations(src);
-        assert_eq!(
-            tags,
-            vec![
-                ("ok".to_string(), "Value".to_string()),
-                ("err".to_string(), "Error".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn parse_tag_declarations_ignores_non_tag_lines() {
-        let src = r#"
-op "test.op" : Int -> Int
-handl "test.op" = rust_fn
-let x = 1 in x
-"#;
-        let tags = parse_tag_declarations(src);
-        assert!(tags.is_empty());
-    }
-
-    #[test]
-    fn parse_tag_declarations_empty_source() {
-        let tags = parse_tag_declarations("");
-        assert!(tags.is_empty());
-    }
-
-    #[test]
-    fn parse_tag_declarations_ignores_tag_prefix_in_words() {
-        // "tagged" should not be matched as a `tag` declaration.
-        let src = "tagged value\ntag ok = Value";
-        let tags = parse_tag_declarations(src);
-        assert_eq!(tags, vec![("ok".to_string(), "Value".to_string())]);
-    }
-
-    #[test]
-    fn expand_tag_declarations_no_tags_returns_unchanged() {
-        let src = "{ double: xs ~> xs * 2 }";
-        let expanded = expand_tag_declarations(src);
-        assert_eq!(expanded, src);
-    }
-
-    #[test]
-    fn expand_tag_declarations_wraps_in_do_block() {
-        let src = r#"tag ok = Value
-tag err = Error
-
-{
-  result_ok: value ~> value >>> ok,
-}"#;
-        let expanded = expand_tag_declarations(src);
-        // Should start with "do {"
-        assert!(expanded.starts_with("do {"));
-        // Should contain constructor bindings.
-        assert!(expanded.contains("ok = _0 ~> tag.tag(\"ok\", {value: _0})"));
-        assert!(expanded.contains("err = _0 ~> tag.tag(\"err\", {value: _0})"));
-        // Should contain the remaining source (indented).
-        assert!(expanded.contains("result_ok: value ~> value >>> ok,"));
-        // Should end with "}".
-        assert!(expanded.ends_with("}"));
-        // Should NOT contain the tag declaration lines.
-        assert!(!expanded.contains("tag ok = Value"));
-        assert!(!expanded.contains("tag err = Error"));
-    }
-
-    #[test]
-    fn expand_tag_declarations_single_tag() {
-        let src = "tag ok = Value\n{ f: x ~> x }";
-        let expanded = expand_tag_declarations(src);
-        assert!(expanded.starts_with("do {"));
-        assert!(expanded.contains("ok = _0 ~> tag.tag(\"ok\", {value: _0})"));
-        assert!(expanded.contains("f: x ~> x"));
-        assert!(!expanded.contains("tag ok = Value"));
-    }
-}

@@ -84,28 +84,60 @@ enum SymExpr {
 }
 
 impl SymExpr {
-    fn int(v: i64) -> Self { SymExpr::Int(v) }
-    fn boolean(v: bool) -> Self { SymExpr::Bool(v) }
-    fn var(s: impl Into<String>) -> Self { SymExpr::Var(s.into()) }
-    fn add(a: SymExpr, b: SymExpr) -> Self { SymExpr::Add(Box::new(a), Box::new(b)) }
-    fn sub(a: SymExpr, b: SymExpr) -> Self { SymExpr::Sub(Box::new(a), Box::new(b)) }
-    fn mul(a: SymExpr, b: SymExpr) -> Self { SymExpr::Mul(Box::new(a), Box::new(b)) }
-    fn mod_(a: SymExpr, b: SymExpr) -> Self { SymExpr::Mod(Box::new(a), Box::new(b)) }
-    fn eq(a: SymExpr, b: SymExpr) -> Self { SymExpr::Eq(Box::new(a), Box::new(b)) }
-    fn neq(a: SymExpr, b: SymExpr) -> Self { SymExpr::Neq(Box::new(a), Box::new(b)) }
-    fn lt(a: SymExpr, b: SymExpr) -> Self { SymExpr::Lt(Box::new(a), Box::new(b)) }
-    fn gt(a: SymExpr, b: SymExpr) -> Self { SymExpr::Gt(Box::new(a), Box::new(b)) }
-    fn lte(a: SymExpr, b: SymExpr) -> Self { SymExpr::Lte(Box::new(a), Box::new(b)) }
-    fn gte(a: SymExpr, b: SymExpr) -> Self { SymExpr::Gte(Box::new(a), Box::new(b)) }
-    fn and(a: SymExpr, b: SymExpr) -> Self { SymExpr::And(Box::new(a), Box::new(b)) }
-    fn or(a: SymExpr, b: SymExpr) -> Self { SymExpr::Or(Box::new(a), Box::new(b)) }
+    fn int(v: i64) -> Self {
+        SymExpr::Int(v)
+    }
+    fn boolean(v: bool) -> Self {
+        SymExpr::Bool(v)
+    }
+    fn var(s: impl Into<String>) -> Self {
+        SymExpr::Var(s.into())
+    }
+    fn add(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Add(Box::new(a), Box::new(b))
+    }
+    fn sub(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Sub(Box::new(a), Box::new(b))
+    }
+    fn mul(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Mul(Box::new(a), Box::new(b))
+    }
+    fn mod_(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Mod(Box::new(a), Box::new(b))
+    }
+    fn eq(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Eq(Box::new(a), Box::new(b))
+    }
+    fn neq(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Neq(Box::new(a), Box::new(b))
+    }
+    fn lt(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Lt(Box::new(a), Box::new(b))
+    }
+    fn gt(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Gt(Box::new(a), Box::new(b))
+    }
+    fn lte(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Lte(Box::new(a), Box::new(b))
+    }
+    fn gte(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Gte(Box::new(a), Box::new(b))
+    }
+    fn and(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::And(Box::new(a), Box::new(b))
+    }
+    fn or(a: SymExpr, b: SymExpr) -> Self {
+        SymExpr::Or(Box::new(a), Box::new(b))
+    }
     fn if_(c: SymExpr, t: SymExpr, e: SymExpr) -> Self {
         SymExpr::If(Box::new(c), Box::new(t), Box::new(e))
     }
     fn call(callee: SymExpr, args: Vec<SymExpr>) -> Self {
         SymExpr::Call(Box::new(callee), args)
     }
-    fn stuck(msg: impl Into<String>) -> Self { SymExpr::Stuck(msg.into()) }
+    fn stuck(msg: impl Into<String>) -> Self {
+        SymExpr::Stuck(msg.into())
+    }
 }
 
 /// If either operand is [`SymExpr::Stuck`], propagate the stuck reason.
@@ -389,7 +421,9 @@ fn normalize_step(e: &SymExpr) -> Option<SymExpr> {
                     return Some(SymExpr::stuck(msg.clone()));
                 }
             }
-            let nc = normalize_step(callee).map(Box::new).unwrap_or_else(|| callee.clone());
+            let nc = normalize_step(callee)
+                .map(Box::new)
+                .unwrap_or_else(|| callee.clone());
             let nargs: Vec<SymExpr> = args
                 .iter()
                 .map(|a| normalize_step(a).unwrap_or_else(|| a.clone()))
@@ -453,62 +487,98 @@ fn sym_var(_ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
 
 fn sym_binary_add(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::add(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::add(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_sub(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::sub(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::sub(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_mul(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::mul(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::mul(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_mod(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::mod_(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::mod_(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_eq(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::eq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::eq(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_neq(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::neq(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::neq(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_lt(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::lt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::lt(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_gt(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::gt(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::gt(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_lte(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::lte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::lte(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_gte(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::gte(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::gte(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_and(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::and(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::and(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_binary_or(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
     let (a, b) = binary_children(node);
-    Some(SymExpr::or(ast_to_sym(ast, AstRef::new(a), env), ast_to_sym(ast, AstRef::new(b), env)))
+    Some(SymExpr::or(
+        ast_to_sym(ast, AstRef::new(a), env),
+        ast_to_sym(ast, AstRef::new(b), env),
+    ))
 }
 
 fn sym_if(ast: &Ast, node: &AstNode, env: &SymEnv) -> Option<SymExpr> {
@@ -639,7 +709,11 @@ fn call_children(node: &AstNode) -> (usize, Vec<usize>) {
 ///   payload is the param name.
 ///
 /// Returns `(param_names, body_idx)`.
-fn function_param_body(ast: &Ast, node: &AstNode, _lang: &Language) -> Option<(Vec<String>, usize)> {
+fn function_param_body(
+    ast: &Ast,
+    node: &AstNode,
+    _lang: &Language,
+) -> Option<(Vec<String>, usize)> {
     // Rich format: {params: ["name", ...], body: idx}
     if let (Some(params), Some(body)) = (
         node.payload.get("params").and_then(|v| v.as_array()),
@@ -669,7 +743,10 @@ fn function_param_body(ast: &Ast, node: &AstNode, _lang: &Language) -> Option<(V
     let names = if param_node.kind == "var" {
         vec![param_node.payload.as_str()?.to_string()]
     } else {
-        let param_children = param_node.payload.get("children").and_then(|c| c.as_array())?;
+        let param_children = param_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())?;
         param_children
             .iter()
             .filter_map(|pc| {
@@ -717,10 +794,9 @@ impl super::NbeTypecheckEngine {
         match self.eval_engine.eval(lang, &req) {
             Ok(Value::Bool(true)) => Proof::ok("predicate evaluated to true"),
             Ok(Value::Bool(false)) => Proof::no("predicate evaluated to false"),
-            Ok(other) => Proof::blocked(format!(
-                "predicate did not reduce to bool, got: {}",
-                other
-            )),
+            Ok(other) => {
+                Proof::blocked(format!("predicate did not reduce to bool, got: {}", other))
+            }
             Err(e) => Proof::blocked(format!("predicate evaluation error: {}", e)),
         }
     }
@@ -773,59 +849,55 @@ impl super::NbeTypecheckEngine {
         // Case 2: any other shape (e.g. `call`) — evaluate the type expression
         //         to get the closure value, then use its body index (valid in
         //         the subtree) and captured env.
-        let (body_ast, body_idx, param_name, captured_env): (
-            Ast,
-            usize,
-            String,
-            Option<Value>,
-        ) = if let Some((param_names, body_idx)) = function_param_body(ast, pred_node, lang) {
-            // Phase 3.2: handle both children-array and params/body shapes.
-            let param_name = param_names.into_iter().next().unwrap_or_else(|| "_".to_string());
-            (ast.clone(), body_idx, param_name, None)
-        } else {
-            // Phase 3.1: evaluate the type expression to get the closure.
-            if self.pure {
-                if let Err(_) = super::check_pure(lang, ast, predicate_ref) {
-                    return Proof::blocked(
-                        "impure type expression in symbolic predicate check",
-                    );
+        let (body_ast, body_idx, param_name, captured_env): (Ast, usize, String, Option<Value>) =
+            if let Some((param_names, body_idx)) = function_param_body(ast, pred_node, lang) {
+                // Phase 3.2: handle both children-array and params/body shapes.
+                let param_name = param_names
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| "_".to_string());
+                (ast.clone(), body_idx, param_name, None)
+            } else {
+                // Phase 3.1: evaluate the type expression to get the closure.
+                if self.pure {
+                    if let Err(_) = super::check_pure(lang, ast, predicate_ref) {
+                        return Proof::blocked(
+                            "impure type expression in symbolic predicate check",
+                        );
+                    }
                 }
-            }
-            let sub = match ast.subtree(predicate_ref) {
-                Ok(s) => s,
-                Err(e) => return Proof::blocked(format!("subtree error: {}", e)),
+                let sub = match ast.subtree(predicate_ref) {
+                    Ok(s) => s,
+                    Err(e) => return Proof::blocked(format!("subtree error: {}", e)),
+                };
+                let req = EvalRequest::new(sub.clone());
+                match self.eval_engine.eval(lang, &req) {
+                    Ok(type_val) if Self::is_closure_value(&type_val) => {
+                        let params: Vec<String> = type_val
+                            .get("params")
+                            .and_then(|p| p.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| v.as_str().map(String::from))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        let body_idx =
+                            type_val.get("body").and_then(|b| b.as_u64()).unwrap_or(0) as usize;
+                        let param_name =
+                            params.into_iter().next().unwrap_or_else(|| "_".to_string());
+                        let env = type_val.get("env").cloned();
+                        (sub, body_idx, param_name, env)
+                    }
+                    Ok(other) => {
+                        return Proof::blocked(format!(
+                            "type expression did not evaluate to closure, got: {}",
+                            other
+                        ));
+                    }
+                    Err(e) => return Proof::blocked(format!("type expression eval error: {}", e)),
+                }
             };
-            let req = EvalRequest::new(sub.clone());
-            match self.eval_engine.eval(lang, &req) {
-                Ok(type_val) if Self::is_closure_value(&type_val) => {
-                    let params: Vec<String> = type_val
-                        .get("params")
-                        .and_then(|p| p.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| v.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    let body_idx = type_val
-                        .get("body")
-                        .and_then(|b| b.as_u64())
-                        .unwrap_or(0) as usize;
-                    let param_name = params.into_iter().next().unwrap_or_else(|| "_".to_string());
-                    let env = type_val.get("env").cloned();
-                    (sub, body_idx, param_name, env)
-                }
-                Ok(other) => {
-                    return Proof::blocked(format!(
-                        "type expression did not evaluate to closure, got: {}",
-                        other
-                    ))
-                }
-                Err(e) => {
-                    return Proof::blocked(format!("type expression eval error: {}", e))
-                }
-            }
-        };
 
         // Build the symbolic representation of the annotated expression.
         // This is computed from the *original* AST (the expression lives
@@ -882,8 +954,7 @@ impl super::NbeTypecheckEngine {
     /// determine purity of a non-function).
     pub(crate) fn check_purity(&self, expr_type: &Value) -> Proof {
         // Check if it's a type.function.
-        let is_function = self
-            .registry_id_check(expr_type);
+        let is_function = self.registry_id_check(expr_type);
         if !is_function {
             return Proof::blocked(format!(
                 "purity: expression type is not a function, cannot check purity"
@@ -897,18 +968,13 @@ impl super::NbeTypecheckEngine {
                 // Check if the effects value is a type.effects with ops.
                 let ops = eff.get("ops").and_then(|o| o.as_array());
                 match ops {
-                    Some(ops_arr) if ops_arr.is_empty() => {
-                        Proof::ok("function has no effects")
-                    }
+                    Some(ops_arr) if ops_arr.is_empty() => Proof::ok("function has no effects"),
                     Some(ops_arr) => {
                         let effect_names: Vec<String> = ops_arr
                             .iter()
                             .filter_map(|v| v.as_str().map(String::from))
                             .collect();
-                        Proof::no(format!(
-                            "function has effects: {}",
-                            effect_names.join(", ")
-                        ))
+                        Proof::no(format!("function has effects: {}", effect_names.join(", ")))
                     }
                     None => {
                         // effects field present but no ops array — treat as

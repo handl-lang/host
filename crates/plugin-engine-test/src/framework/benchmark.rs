@@ -2,7 +2,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use handl_plugin_lib_handl::HandlModule;
+use handl_kit_canonical::handl_module::HandlModule;
 use serde_json::Value;
 use serde_json::json;
 

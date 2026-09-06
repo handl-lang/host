@@ -10,10 +10,8 @@
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Value, json};
 
-use crate::marshal::{
-    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, unmarshal_return,
-};
 use crate::FfiOpFunction;
+use crate::marshal::{CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, unmarshal_return};
 
 /// Call an [`FfiOpFunction`] with a fresh [`EvalContext`].
 fn call(func: &FfiOpFunction, args: &[Value]) -> Result<Value, EvalError> {
@@ -29,9 +27,7 @@ fn call(func: &FfiOpFunction, args: &[Value]) -> Result<Value, EvalError> {
 fn getpid_returns_current_pid() {
     let func = FfiOpFunction::new("libc.so.6", "getpid", vec![], "i32", false);
     let result = call(&func, &[]).expect("getpid call should succeed");
-    let pid = result
-        .as_i64()
-        .expect("getpid should return an integer") as u32;
+    let pid = result.as_i64().expect("getpid should return an integer") as u32;
     assert_eq!(pid, std::process::id());
 }
 
@@ -42,13 +38,7 @@ fn getpid_returns_current_pid() {
 #[test]
 fn marshal_i32_roundtrip() {
     // abs(-42) = 42
-    let func = FfiOpFunction::new(
-        "libc.so.6",
-        "abs",
-        vec!["i32".to_string()],
-        "i32",
-        false,
-    );
+    let func = FfiOpFunction::new("libc.so.6", "abs", vec!["i32".to_string()], "i32", false);
     let result = call(&func, &[json!(-42)]).expect("abs call should succeed");
     assert_eq!(result.as_i64(), Some(42));
 }
@@ -57,13 +47,7 @@ fn marshal_i32_roundtrip() {
 fn marshal_i64_roundtrip() {
     // labs(long) on 64-bit Linux: long is 64-bit.
     let val: i64 = -9_223_372_036_854_775_807; // i64::MIN + 1
-    let func = FfiOpFunction::new(
-        "libc.so.6",
-        "labs",
-        vec!["i64".to_string()],
-        "i64",
-        false,
-    );
+    let func = FfiOpFunction::new("libc.so.6", "labs", vec!["i64".to_string()], "i64", false);
     let result = call(&func, &[json!(val)]).expect("labs call should succeed");
     assert_eq!(result.as_i64(), Some(val.abs()));
 }
@@ -71,17 +55,9 @@ fn marshal_i64_roundtrip() {
 #[test]
 fn marshal_f64_roundtrip() {
     // fabs(-42.5) = 42.5 — fabs lives in libm, not libc.
-    let func = FfiOpFunction::new(
-        "libm.so.6",
-        "fabs",
-        vec!["f64".to_string()],
-        "f64",
-        false,
-    );
+    let func = FfiOpFunction::new("libm.so.6", "fabs", vec!["f64".to_string()], "f64", false);
     let result = call(&func, &[json!(-42.5)]).expect("fabs call should succeed");
-    let f = result
-        .as_f64()
-        .expect("fabs should return a number");
+    let f = result.as_f64().expect("fabs should return a number");
     assert!((f - 42.5).abs() < f64::EPSILON);
 }
 
@@ -122,13 +98,7 @@ fn marshal_cstr_return_unmarshal() {
 #[test]
 fn error_on_i32_overflow() {
     // 2^31 exceeds i32 range — marshal should fail before the call.
-    let func = FfiOpFunction::new(
-        "libc.so.6",
-        "abs",
-        vec!["i32".to_string()],
-        "i32",
-        false,
-    );
+    let func = FfiOpFunction::new("libc.so.6", "abs", vec!["i32".to_string()], "i32", false);
     let result = call(&func, &[json!(2_147_483_648_i64)]); // 2^31
     assert!(
         matches!(result, Err(EvalError::TypeMismatch(_))),
@@ -166,7 +136,10 @@ fn error_clause_open_nonexistent_extracts_errno() {
         "i32",
         true, // error_on_lt_zero
     );
-    let result = call(&func, &[json!("/nonexistent/handl-ffi-test-path"), json!(0)]);
+    let result = call(
+        &func,
+        &[json!("/nonexistent/handl-ffi-test-path"), json!(0)],
+    );
     match result {
         Err(EvalError::Other(msg)) => {
             assert!(
@@ -188,8 +161,11 @@ fn error_clause_disabled_returns_raw_negative() {
         "i32",
         false,
     );
-    let result = call(&func, &[json!("/nonexistent/handl-ffi-test-path"), json!(0)])
-        .expect("open should succeed (return -1)");
+    let result = call(
+        &func,
+        &[json!("/nonexistent/handl-ffi-test-path"), json!(0)],
+    )
+    .expect("open should succeed (return -1)");
     assert_eq!(result.as_i64(), Some(-1));
 }
 
@@ -291,13 +267,7 @@ fn memfd() -> i32 {
 
 /// Close a raw fd, panicking on failure.
 fn close_fd(fd: i32) {
-    let close_fn = FfiOpFunction::new(
-        "libc.so.6",
-        "close",
-        vec!["i32".to_string()],
-        "i32",
-        true,
-    );
+    let close_fn = FfiOpFunction::new("libc.so.6", "close", vec!["i32".to_string()], "i32", true);
     call(&close_fn, &[json!(fd)]).expect("close should succeed");
 }
 
@@ -314,8 +284,7 @@ fn in_buf_write_roundtrips_bytes_to_memfd() {
         "i64",
         true,
     );
-    let written = call(&write_fn, &[json!(fd), payload])
-        .expect("write should succeed");
+    let written = call(&write_fn, &[json!(fd), payload]).expect("write should succeed");
     assert_eq!(written.as_i64(), Some(4));
 
     close_fd(fd);
@@ -442,7 +411,10 @@ fn cbytes_passes_ptr_len_pair_to_write() {
         .and_then(|v| v.get("__bytes__"))
         .and_then(|v| v.as_array())
         .expect("buf bytes array");
-    let got: Vec<u8> = bytes_arr.iter().map(|v| v.as_i64().unwrap() as u8).collect();
+    let got: Vec<u8> = bytes_arr
+        .iter()
+        .map(|v| v.as_i64().unwrap() as u8)
+        .collect();
     assert_eq!(got, vec![0x00, 0x01, 0x02, 0xFF]);
 
     close_fd(fd);
@@ -507,10 +479,13 @@ fn handle_return_wraps_pointer_in_resource_json() {
         "handle",
         true,
     );
-    let result = call(&open_fn, &[
-        json!(path.to_str().unwrap()),
-        json!(0), // O_RDONLY
-    ])
+    let result = call(
+        &open_fn,
+        &[
+            json!(path.to_str().unwrap()),
+            json!(0), // O_RDONLY
+        ],
+    )
     .expect("open should succeed");
     let obj = result
         .as_object()
@@ -548,10 +523,13 @@ fn handle_return_decodes_to_tagged_value_resource() {
         "handle",
         true,
     );
-    let result = call(&open_fn, &[
-        json!(path.to_str().unwrap()),
-        json!(0), // O_RDONLY
-    ])
+    let result = call(
+        &open_fn,
+        &[
+            json!(path.to_str().unwrap()),
+            json!(0), // O_RDONLY
+        ],
+    )
     .expect("open should succeed");
 
     // Convert the JSON return to a TaggedValue — it should be a Resource.
@@ -589,10 +567,13 @@ fn handle_arg_accepts_resource_json() {
         "handle",
         true,
     );
-    let handle_val = call(&open_fn, &[
-        json!(path.to_str().unwrap()),
-        json!(0), // O_RDONLY
-    ])
+    let handle_val = call(
+        &open_fn,
+        &[
+            json!(path.to_str().unwrap()),
+            json!(0), // O_RDONLY
+        ],
+    )
     .expect("open should succeed");
     let ptr = handle_val
         .get("__resource__")
@@ -631,10 +612,13 @@ fn handle_arg_accepts_bare_number() {
         "i32",
         true,
     );
-    let fd_val = call(&open_fn, &[
-        json!(path.to_str().unwrap()),
-        json!(0), // O_RDONLY
-    ])
+    let fd_val = call(
+        &open_fn,
+        &[
+            json!(path.to_str().unwrap()),
+            json!(0), // O_RDONLY
+        ],
+    )
     .expect("open should succeed");
     let fd = fd_val.as_i64().expect("fd should be a number") as i32;
     assert!(fd >= 0);
@@ -670,8 +654,8 @@ fn with_finalizer_attaches_finalizer() {
 fn handle_return_unmarshal_unit() {
     // Direct unit test: unmarshal a CRet::Int as "handle" produces the
     // {"__resource__":{"ptr":N}} JSON form.
-    use crate::marshal::unmarshal_return;
     use crate::marshal::CRet;
+    use crate::marshal::unmarshal_return;
     let ret = CRet::Int(0x1234);
     let v = unmarshal_return("handle", &ret).expect("handle unmarshal");
     let obj = v.as_object().expect("object form");
@@ -694,7 +678,14 @@ fn handle_return_unmarshal_unit() {
 /// An 8-argument integer C function (exceeds the old 6-arg ceiling).
 #[unsafe(no_mangle)]
 pub extern "C" fn ffi_test_sum8(
-    a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64,
+    a: i64,
+    b: i64,
+    c: i64,
+    d: i64,
+    e: i64,
+    f: i64,
+    g: i64,
+    h: i64,
 ) -> i64 {
     a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8
 }
@@ -704,7 +695,15 @@ pub extern "C" fn ffi_test_sum8(
 /// and floating-point sides.
 #[unsafe(no_mangle)]
 pub extern "C" fn ffi_test_mixed9(
-    a: i64, x: f64, b: i64, y: f64, c: i64, z: f64, d: i64, w: f64, e: i64,
+    a: i64,
+    x: f64,
+    b: i64,
+    y: f64,
+    c: i64,
+    z: f64,
+    d: i64,
+    w: f64,
+    e: i64,
 ) -> i64 {
     a + b + c + d + e + (x + y + z + w) as i64
 }
@@ -715,8 +714,14 @@ fn ffi_call_with_eight_args_exceeds_old_ceiling() {
         "self",
         "ffi_test_sum8",
         vec![
-            "i64".to_string(), "i64".to_string(), "i64".to_string(), "i64".to_string(),
-            "i64".to_string(), "i64".to_string(), "i64".to_string(), "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
+            "i64".to_string(),
         ],
         "i64",
         false,
@@ -725,8 +730,14 @@ fn ffi_call_with_eight_args_exceeds_old_ceiling() {
     let result = call(
         &func,
         &[
-            json!(1), json!(2), json!(3), json!(4),
-            json!(5), json!(6), json!(7), json!(8),
+            json!(1),
+            json!(2),
+            json!(3),
+            json!(4),
+            json!(5),
+            json!(6),
+            json!(7),
+            json!(8),
         ],
     )
     .expect("8-arg FFI call should succeed");
@@ -739,9 +750,15 @@ fn ffi_call_with_nine_mixed_args() {
         "self",
         "ffi_test_mixed9",
         vec![
-            "i64".to_string(), "f64".to_string(), "i64".to_string(),
-            "f64".to_string(), "i64".to_string(), "f64".to_string(),
-            "i64".to_string(), "f64".to_string(), "i64".to_string(),
+            "i64".to_string(),
+            "f64".to_string(),
+            "i64".to_string(),
+            "f64".to_string(),
+            "i64".to_string(),
+            "f64".to_string(),
+            "i64".to_string(),
+            "f64".to_string(),
+            "i64".to_string(),
         ],
         "i64",
         false,
@@ -750,8 +767,15 @@ fn ffi_call_with_nine_mixed_args() {
     let result = call(
         &func,
         &[
-            json!(1), json!(0.5), json!(3), json!(1.5), json!(5),
-            json!(2.5), json!(7), json!(3.5), json!(9),
+            json!(1),
+            json!(0.5),
+            json!(3),
+            json!(1.5),
+            json!(5),
+            json!(2.5),
+            json!(7),
+            json!(3.5),
+            json!(9),
         ],
     )
     .expect("9-arg mixed FFI call should succeed");
@@ -766,7 +790,12 @@ fn cranelift_shim_is_cached_per_signature() {
     // A distinctive signature unlikely to collide with other tests.
     // (Note: the shim cache is process-global and shared with the parallel
     // tests above, so we assert on Arc identity, not global cache counts.)
-    let args = vec![CArg::Int(1), CArg::Float(2.0), CArg::Int(3), CArg::Float(4.0)];
+    let args = vec![
+        CArg::Int(1),
+        CArg::Float(2.0),
+        CArg::Int(3),
+        CArg::Float(4.0),
+    ];
     let s1 = resolve_shim(CRetKind::Int64, &args).expect("shim compile");
     let s2 = resolve_shim(CRetKind::Int64, &args).expect("shim reuse");
     assert!(

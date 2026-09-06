@@ -16,7 +16,7 @@ use handl_plugin_lib_predicate::Predicate;
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
 use crate::events::TestEvent;
-use crate::runner::{self, filter_predicate, RunReport, TestCase, TestPlan, TestRunCache};
+use crate::runner::{self, filter_predicate, tag_predicate, RunReport, TestCase, TestPlan, TestRunCache};
 
 /// Configuration for a single test run.
 ///
@@ -64,6 +64,15 @@ impl RunConfig {
     /// (substring or glob — see [`filter_predicate`]).
     pub fn with_filter(mut self, pattern: &str) -> Self {
         self.predicate = filter_predicate(pattern);
+        self
+    }
+
+    /// Add a tag predicate to the selection (AND with the existing predicate).
+    ///
+    /// Tags are discovered from `-- tags: ...` doc-comment lines above a
+    /// test declaration. Repeated calls are combined with AND.
+    pub fn with_tag(mut self, tag: &str) -> Self {
+        self.predicate = self.predicate.and(tag_predicate(tag));
         self
     }
 

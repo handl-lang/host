@@ -143,11 +143,13 @@ fn grammar_rules_from_language_keywords_include_required() {
         .iter()
         .find(|r| r.name == "keywords")
         .expect("keywords rule exists");
-    let pattern = kw_rule.r#match.as_ref().expect("keywords has a match pattern");
+    let pattern = kw_rule
+        .r#match
+        .as_ref()
+        .expect("keywords has a match pattern");
     for required in [
-        "if", "then", "else", "match", "in", "import",
-        "export", "axiom", "rec", "while", "for", "return",
-        "law", "trait", "impl", "infer", "type",
+        "if", "then", "else", "match", "in", "import", "export", "axiom", "rec", "while", "for",
+        "return", "law", "trait", "impl", "infer", "type",
     ] {
         assert!(
             pattern.contains(required),

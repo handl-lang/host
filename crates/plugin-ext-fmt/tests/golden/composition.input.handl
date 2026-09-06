@@ -5,4 +5,4 @@ import sort from "data/sort"
 import double from "fn/double"
 import is_even from "fn/is_even"
 
-main = map(double) >>> filter(is_even) >>> sort
+main :: map(double) >>> filter(is_even) >>> sort

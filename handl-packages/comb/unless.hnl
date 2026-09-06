@@ -1,0 +1,2 @@
+--- Apply a transform unless a predicate holds
+export unless :: [value, pred, fn] ~> if pred(value) { value } else { fn(value) }

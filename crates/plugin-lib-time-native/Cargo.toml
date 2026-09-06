@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lib-time-native"
+version.workspace = true
+edition.workspace = true
+description = "Native `time` module — the Rust `std::time` backend for the `time` contract"
+
+[dependencies]
+handl-platform = {path = "../platform" }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }

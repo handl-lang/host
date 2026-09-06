@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-plugin-module = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-plugin-module = {path = "../plugin-module" }
 handl-plugin-lib-os-std.workspace = true
 handl-plugin-lib-utils.workspace = true
 handl-plugin-lib-cmp.workspace = true

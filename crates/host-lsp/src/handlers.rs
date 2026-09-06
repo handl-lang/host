@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 
 use handl_host_tooling::{SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest};
 
-use crate::code_actions;
 use crate::call_hierarchy;
+use crate::code_actions;
 use crate::color_provider;
 use crate::completion;
 use crate::completion_resolve;
@@ -20,8 +20,8 @@ use crate::folding_ranges;
 use crate::formatting;
 use crate::hover;
 use crate::implementation;
-use crate::inlay_hints;
 use crate::inlay_hint_resolve;
+use crate::inlay_hints;
 use crate::linked_editing;
 use crate::moniker;
 use crate::on_type_formatting;
@@ -330,11 +330,7 @@ pub fn handle_moniker(
     send_response(writer, id, json!(monikers));
 }
 
-pub fn handle_completion_resolve(
-    writer: &mut impl Write,
-    id: serde_json::Value,
-    msg: &Message,
-) {
+pub fn handle_completion_resolve(writer: &mut impl Write, id: serde_json::Value, msg: &Message) {
     let item = msg
         .params
         .as_ref()
@@ -344,11 +340,7 @@ pub fn handle_completion_resolve(
     send_response(writer, id, resolved);
 }
 
-pub fn handle_inlay_hint_resolve(
-    writer: &mut impl Write,
-    id: serde_json::Value,
-    msg: &Message,
-) {
+pub fn handle_inlay_hint_resolve(writer: &mut impl Write, id: serde_json::Value, msg: &Message) {
     let item = msg
         .params
         .as_ref()
@@ -358,11 +350,7 @@ pub fn handle_inlay_hint_resolve(
     send_response(writer, id, resolved);
 }
 
-pub fn handle_execute_command(
-    writer: &mut impl Write,
-    id: serde_json::Value,
-    msg: &Message,
-) {
+pub fn handle_execute_command(writer: &mut impl Write, id: serde_json::Value, msg: &Message) {
     let command = msg
         .params
         .as_ref()
@@ -422,10 +410,7 @@ pub fn handle_call_hierarchy_incoming(
     id: serde_json::Value,
     msg: &Message,
 ) {
-    let item = msg
-        .params
-        .as_ref()
-        .and_then(|p| p.get("item"));
+    let item = msg.params.as_ref().and_then(|p| p.get("item"));
     let name = item
         .and_then(|i| i.get("name"))
         .and_then(|n| n.as_str())
@@ -443,10 +428,7 @@ pub fn handle_call_hierarchy_outgoing(
     id: serde_json::Value,
     msg: &Message,
 ) {
-    let item = msg
-        .params
-        .as_ref()
-        .and_then(|p| p.get("item"));
+    let item = msg.params.as_ref().and_then(|p| p.get("item"));
     let name = item
         .and_then(|i| i.get("name"))
         .and_then(|n| n.as_str())
@@ -534,11 +516,7 @@ pub fn handle_document_color(
     send_response(writer, id, json!(colors));
 }
 
-pub fn handle_color_presentation(
-    writer: &mut impl Write,
-    id: serde_json::Value,
-    msg: &Message,
-) {
+pub fn handle_color_presentation(writer: &mut impl Write, id: serde_json::Value, msg: &Message) {
     let color = msg
         .params
         .as_ref()
@@ -743,11 +721,7 @@ pub fn handle_code_actions(
     send_response(writer, id, json!(actions));
 }
 
-pub fn handle_workspace_symbols(
-    writer: &mut impl Write,
-    id: serde_json::Value,
-    msg: &Message,
-) {
+pub fn handle_workspace_symbols(writer: &mut impl Write, id: serde_json::Value, msg: &Message) {
     let query = msg
         .params
         .as_ref()
@@ -755,7 +729,9 @@ pub fn handle_workspace_symbols(
         .and_then(|q| q.as_str())
         .unwrap_or("");
     // Try to find workspace root from the first open document.
-    let root = std::env::current_dir().ok().map(|p| p.to_string_lossy().to_string());
+    let root = std::env::current_dir()
+        .ok()
+        .map(|p| p.to_string_lossy().to_string());
     let symbols = workspace_symbols::workspace_symbols(query, root.as_deref());
     send_response(writer, id, json!(symbols));
 }

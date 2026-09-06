@@ -61,7 +61,39 @@
 /// Backward-compatibility re-exports for consumers that still reference
 /// the `v2` module path and `V2Interpreter` type name (ADR-0052 cutover).
 pub mod v2 {
-    pub use crate::{ScopeStack, TreeWalkEngine as V2Interpreter};
+    pub use crate::{AssertFailure, AssertHandler, ScopeStack, TreeWalkEngine as V2Interpreter};
+}
+
+/// The structured payload returned when an `assert` native op fails.
+///
+/// Host test runners can register a handler via
+/// [`TreeWalkEngine::with_assert_handler`] to turn this into a
+/// `FailureDetail` for the reporter (ADR-0089, ADR-0092).
+#[derive(Debug, Clone)]
+pub struct AssertFailure {
+    /// The assertion label. For keyword `assert` this is `"assert"`.
+    pub assertion: String,
+    /// The expected value rendered as JSON, when meaningful.
+    pub expected: Option<String>,
+    /// The actual value rendered as JSON, when meaningful.
+    pub actual: Option<String>,
+    /// An optional line-oriented diff between expected and actual.
+    pub diff: Option<String>,
+    /// A short human-readable message explaining the failure.
+    pub message: String,
+}
+
+/// Callback that converts a failed keyword assertion into a host-provided
+/// failure value.
+///
+/// The engine calls `on_failure` from the `assert` native op when the
+/// assertion does not hold. The returned [`Value`] becomes the result of
+/// the `assert` expression; a typical handler returns a `result.err(...)`
+/// tagged value. A host runner can side-channel the [`AssertFailure`] into
+/// its reporter state.
+pub trait AssertHandler: std::fmt::Debug {
+    /// Return the value that a failed keyword assertion should evaluate to.
+    fn on_failure(&self, failure: AssertFailure) -> Value;
 }
 
 use std::cell::RefCell;
@@ -70,11 +102,11 @@ use std::rc::Rc;
 
 use rustc_hash::FxHashMap;
 
-use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
+use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value, tag_value};
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
-use handl_value::{tagged_to_value, TaggedValue};
+use handl_value::{TaggedValue, tagged_to_value};
 
 // Thread-local storage for the current AST and Language, so the
 // ValueCallable impl can access them when host functions (e.g. fn.map)
@@ -262,6 +294,9 @@ pub struct TreeWalkEngine {
     /// Avoids re-running `eliminate_and_check` on every eval of the same
     /// node kind.
     eliminated_cache: RefCell<HashMap<String, Scheme>>,
+    /// Optional handler for the `assert` native op to raise structured
+    /// failure details into the host runner.
+    assert_handler: Option<Rc<dyn AssertHandler>>,
 }
 
 impl TreeWalkEngine {
@@ -272,12 +307,24 @@ impl TreeWalkEngine {
             globals: HashMap::new(),
             import_resolver: None,
             eliminated_cache: RefCell::new(HashMap::new()),
+            assert_handler: None,
         }
     }
 
     /// Attach a module registry (builder style).
     pub fn with_modules(mut self, modules: Rc<dyn ModuleLookup>) -> Self {
         self.modules = Some(modules);
+        self
+    }
+
+    /// Register a handler for `assert` failures (builder style).
+    ///
+    /// When the `assert` native op fails, it calls `handler.on_failure`
+    /// and returns the resulting [`Value`] as the `assert` expression's
+    /// result. If no handler is registered, the op falls back to a generic
+    /// `result.err(...)` tagged value instead of raising.
+    pub fn with_assert_handler(mut self, handler: Rc<dyn AssertHandler>) -> Self {
+        self.assert_handler = Some(handler);
         self
     }
 
@@ -1229,38 +1276,39 @@ impl TreeWalkEngine {
                     // (ADR-0081): a shape declaring a variadic role (e.g.
                     // `params`) is a param list; the legacy `paren`/`array`
                     // kinds remain only as the role-less fallback.
-                    let param_names: Vec<String> = if shape_has_variadic_role(lang, &param_node.kind) {
-                        let param_children = param_node
-                            .payload
-                            .get("children")
-                            .and_then(|c| c.as_array())
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "closure: params missing children".to_string(),
-                                    current_node,
-                                )
-                            })?;
-                        let mut names = Vec::with_capacity(param_children.len());
-                        for pc in param_children {
-                            let pidx = pc.as_u64().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "closure: param index must be a number".to_string(),
-                                    current_node,
-                                )
-                            })? as usize;
-                            let pnode = ast.at(AstRef::new(pidx))?;
+                    let param_names: Vec<String> =
+                        if shape_has_variadic_role(lang, &param_node.kind) {
+                            let param_children = param_node
+                                .payload
+                                .get("children")
+                                .and_then(|c| c.as_array())
+                                .ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "closure: params missing children".to_string(),
+                                        current_node,
+                                    )
+                                })?;
+                            let mut names = Vec::with_capacity(param_children.len());
+                            for pc in param_children {
+                                let pidx = pc.as_u64().ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "closure: param index must be a number".to_string(),
+                                        current_node,
+                                    )
+                                })? as usize;
+                                let pnode = ast.at(AstRef::new(pidx))?;
+                                let pname = lang.param_name(ast, pnode).map_err(|e| {
+                                    LangError::engine_node(e.to_string(), current_node)
+                                })?;
+                                names.push(pname);
+                            }
+                            names
+                        } else {
                             let pname = lang
-                                .param_name(ast, pnode)
+                                .param_name(ast, param_node)
                                 .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                            names.push(pname);
-                        }
-                        names
-                    } else {
-                        let pname = lang
-                            .param_name(ast, param_node)
-                            .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                        vec![pname]
-                    };
+                            vec![pname]
+                        };
                     (param_names, body_idx)
                 } else {
                     return Err(LangError::engine_node(
@@ -1509,17 +1557,16 @@ impl TreeWalkEngine {
                             )
                         })
                     }
-                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
-                        map.get(key.as_ref())
-                            .cloned()
-                            .map(|v| (v, false))
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    format!("index: key '{}' not found", key),
-                                    current_node,
-                                )
-                            })
-                    }
+                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => map
+                        .get(key.as_ref())
+                        .cloned()
+                        .map(|v| (v, false))
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                format!("index: key '{}' not found", key),
+                                current_node,
+                            )
+                        }),
                     (target, index) => Err(LangError::engine_node(
                         format!(
                             "index: target must be array/object and index must be number/string; got {} and {}",
@@ -2054,10 +2101,7 @@ impl TreeWalkEngine {
                 let field = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                 match (target, field) {
                     (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
-                        let v = map
-                            .get(key.as_ref())
-                            .cloned()
-                            .unwrap_or(TaggedValue::Null);
+                        let v = map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null);
                         Ok((v, false))
                     }
                     (TaggedValue::Arr(arr), field) => {
@@ -2074,7 +2118,10 @@ impl TreeWalkEngine {
                             })?;
                         arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
                             LangError::engine_node(
-                                format!("field_access: index {i} out of bounds (len {})", arr.len()),
+                                format!(
+                                    "field_access: index {i} out of bounds (len {})",
+                                    arr.len()
+                                ),
                                 current_node,
                             )
                         })
@@ -2127,6 +2174,98 @@ impl TreeWalkEngine {
                     ))
                 }
             }
+            "assert" => {
+                // ADR-0089 / ADR-0092 keyword assertion. The `assert`
+                // node's single `expr` child is evaluated. If the child is
+                // an assignment/equality-shaped node (its AST shape declares
+                // both `target` and `value` roles), both sides are evaluated
+                // and compared; otherwise the child is evaluated as a truthy
+                // test. Child positions are resolved by named role
+                // (engine-genericity rule, ADR-0081).
+                //
+                // On success the op returns `result.ok(true)`; on failure it
+                // returns `result.err({message, expected, actual, diff})`
+                // (ADR-0077, ADR-0089).
+                let expr_idx = role_child_arena(lang, current_node, "expr").ok_or_else(|| {
+                    LangError::engine_node(
+                        "assert: missing expr child".to_string(),
+                        current_node,
+                    )
+                })?;
+                let expr_node = ast.at(AstRef::new(expr_idx)).map_err(|e| {
+                    LangError::engine_node(
+                        format!("assert: cannot resolve expr child: {}", e),
+                        current_node,
+                    )
+                })?;
+                let handler = self.assert_handler.clone();
+                let ok_value = || -> TaggedValue {
+                    TaggedValue::from(
+                        tag_value("ok", &Value::Bool(true))
+                            .expect("ok tag value must not contain __tag__"),
+                    )
+                };
+                let err_value = |failure: AssertFailure| -> TaggedValue {
+                    let value = if let Some(ref handler) = handler {
+                        handler.on_failure(failure)
+                    } else {
+                        let payload = serde_json::json!({
+                            "message": failure.message,
+                            "assertion": failure.assertion,
+                            "expected": failure.expected,
+                            "actual": failure.actual,
+                            "diff": failure.diff,
+                        });
+                        tag_value("err", &serde_json::json!({"value": payload}))
+                            .expect("err tag value must not contain __tag__")
+                    };
+                    TaggedValue::from(value)
+                };
+                if let (Some(target_idx), Some(value_idx)) = (
+                    role_child_arena(lang, expr_node, "target"),
+                    role_child_arena(lang, expr_node, "value"),
+                ) {
+                    let target_val = self.eval_node_inner(ast, AstRef::new(target_idx), lang, env)?;
+                    let value_val = self.eval_node_inner(ast, AstRef::new(value_idx), lang, env)?;
+                    if target_val == value_val {
+                        Ok((ok_value(), false))
+                    } else {
+                        let expected = tagged_to_value(&value_val);
+                        let actual = tagged_to_value(&target_val);
+                        let expected_json = serde_json::to_string(&expected).ok();
+                        let actual_json = serde_json::to_string(&actual).ok();
+                        let diff = if let (Some(e), Some(a)) = (&expected_json, &actual_json) {
+                            Some(format!("expected:\\n  {}\\nactual:\\n  {}", e, a))
+                        } else {
+                            None
+                        };
+                        let failure = AssertFailure {
+                            assertion: "assert".to_string(),
+                            expected: expected_json,
+                            actual: actual_json,
+                            diff: diff,
+                            message: format!("assertion failed: {:?} != {:?}", target_val, value_val),
+                        };
+                        Ok((err_value(failure), false))
+                    }
+                } else {
+                    let val = self.eval_node_inner(ast, AstRef::new(expr_idx), lang, env)?;
+                    if is_truthy(&val) {
+                        Ok((ok_value(), false))
+                    } else {
+                        let actual = tagged_to_value(&val);
+                        let actual_json = serde_json::to_string(&actual).ok();
+                        let failure = AssertFailure {
+                            assertion: "assert".to_string(),
+                            expected: Some("truthy value".to_string()),
+                            actual: actual_json,
+                            diff: None,
+                            message: format!("assertion failed: {:?} is falsy", val),
+                        };
+                        Ok((err_value(failure), false))
+                    }
+                }
+            }
             "runtime_assert" => {
                 // ADR-0068 graduated guarantees: runtime backstop for
                 // predicate annotations the typechecker could not normalize
@@ -2151,40 +2290,32 @@ impl TreeWalkEngine {
                             current_node,
                         )
                     })?;
-                let pred_idx = role_index_of(lang, "runtime-assert", "predicate")
-                    .unwrap_or(0);
-                let expr_idx = role_index_of(lang, "runtime-assert", "expr")
-                    .unwrap_or(1);
-                let pred_arena = children
-                    .get(pred_idx)
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            format!(
-                                "runtime_assert: predicate child {} not found",
-                                pred_idx
-                            ),
-                            current_node,
-                        )
-                    })? as usize;
-                let expr_arena = children
-                    .get(expr_idx)
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            format!(
-                                "runtime_assert: expr child {} not found",
-                                expr_idx
-                            ),
-                            current_node,
-                        )
-                    })? as usize;
+                let pred_idx = role_index_of(lang, "runtime-assert", "predicate").unwrap_or(0);
+                let expr_idx = role_index_of(lang, "runtime-assert", "expr").unwrap_or(1);
+                let pred_arena =
+                    children
+                        .get(pred_idx)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                format!("runtime_assert: predicate child {} not found", pred_idx),
+                                current_node,
+                            )
+                        })? as usize;
+                let expr_arena =
+                    children
+                        .get(expr_idx)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                format!("runtime_assert: expr child {} not found", expr_idx),
+                                current_node,
+                            )
+                        })? as usize;
                 // 1. Evaluate the predicate child → closure.
-                let pred_val =
-                    self.eval_node_inner(ast, AstRef::new(pred_arena), lang, env)?;
+                let pred_val = self.eval_node_inner(ast, AstRef::new(pred_arena), lang, env)?;
                 // 2. Evaluate the expr child → value.
-                let expr_val =
-                    self.eval_node_inner(ast, AstRef::new(expr_arena), lang, env)?;
+                let expr_val = self.eval_node_inner(ast, AstRef::new(expr_arena), lang, env)?;
                 // 3. If the predicate is not a closure (e.g. a plain type
                 //    tag from a non-predicate annotation that was wrapped
                 //    by the over-eager lowering pass), pass through without
@@ -2194,13 +2325,8 @@ impl TreeWalkEngine {
                     return Ok((expr_val, false));
                 }
                 // 4. Apply the closure to the value → bool.
-                let check_result = self.apply_app(
-                    &pred_val,
-                    &[expr_val.clone()],
-                    ast,
-                    lang,
-                    env,
-                )?;
+                let check_result =
+                    self.apply_app(&pred_val, &[expr_val.clone()], ast, lang, env)?;
                 // 5. If true → return the value (pass-through).
                 //    If false → raise LangError.
                 if is_truthy(&check_result) {
@@ -2231,10 +2357,7 @@ impl TreeWalkEngine {
         current_node: &AstNode,
     ) -> Result<TaggedValue, LangError> {
         let modules = self.modules.as_ref().ok_or_else(|| {
-            LangError::engine_node(
-                "call_host: no module registry".to_string(),
-                current_node,
-            )
+            LangError::engine_node("call_host: no module registry".to_string(), current_node)
         })?;
         let func = modules.lookup(name).ok_or_else(|| {
             LangError::engine_node(
@@ -2277,14 +2400,12 @@ impl TreeWalkEngine {
         // ADR-0074: if the arrow expects multiple params but receives a
         // single `Pair` (product `***`), destructure it into individual
         // args. `(a, b) ~> body` applied to `Pair(x, y)` binds `a=x, b=y`.
-        let actual_args: Vec<TaggedValue> = if params.len() > 1
-            && args.len() == 1
-            && matches!(args[0], TaggedValue::Pair(_))
-        {
-            flatten_pair(&args[0])
-        } else {
-            args.to_vec()
-        };
+        let actual_args: Vec<TaggedValue> =
+            if params.len() > 1 && args.len() == 1 && matches!(args[0], TaggedValue::Pair(_)) {
+                flatten_pair(&args[0])
+            } else {
+                args.to_vec()
+            };
         if params.len() != actual_args.len() {
             return Err(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
@@ -2484,9 +2605,12 @@ impl TreeWalkEngine {
             // is a bare engine error.
             LangError::engine_node(format!("import \"{}\": {}", path, e), current_node)
         })?;
-        // Bind each entry into the current scope. The resolver returns a
-        // Value::Object; non-object results bind nothing (bootstrap).
-        if let Value::Object(map) = bindings {
+        // If an alias is present (`from "path" import * as alias`), bind the
+        // whole module object to that name. Otherwise bind each top-level
+        // export into the current scope.
+        if let Some(alias) = current_node.payload.get("alias").and_then(|v| v.as_str()) {
+            env.define(alias, TaggedValue::from(bindings.clone()));
+        } else if let Value::Object(map) = bindings {
             for (name, val) in map {
                 env.define(&name, TaggedValue::from(val));
             }
@@ -2991,8 +3115,7 @@ impl TreeWalkEngine {
                                 .or_else(|| ac[1].as_u64().map(|i| i as usize))
                                 .ok_or_else(|| {
                                     LangError::engine_node(
-                                        "eval_rec: assign value index must be a number"
-                                            .to_string(),
+                                        "eval_rec: assign value index must be a number".to_string(),
                                         current_node,
                                     )
                                 })?;
@@ -3042,8 +3165,7 @@ impl TreeWalkEngine {
         if !converged {
             env.pop_scope();
             return Err(LangError::engine_node(
-                "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint"
-                    .to_string(),
+                "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint".to_string(),
                 current_node,
             ));
         }
@@ -3180,9 +3302,7 @@ impl ValueCallable for TreeWalkCallable {
         // ADR-0074: destructure a single Pair (product) arg for multi-param
         // arrows. Host functions like fn.map may pass a Pair to a multi-param
         // arrow-value.
-        let actual_args: Vec<Value> = if params.len() > 1
-            && args.len() == 1
-        {
+        let actual_args: Vec<Value> = if params.len() > 1 && args.len() == 1 {
             // Try to flatten if the single arg is a Pair (serialized as
             // {"__pair__": [a, b]}).
             if let Some(pair) = args[0].get("__pair__").and_then(|v| v.as_array()) {
@@ -3386,7 +3506,8 @@ fn bin_add(args: &[TaggedValue]) -> Result<(TaggedValue, bool), LangError> {
         }
         (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => Err(LangError::engine(format!(
             "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
-            tagged_to_value(a), tagged_to_value(b)
+            tagged_to_value(a),
+            tagged_to_value(b)
         ))),
         _ => bin_num(args, |x, y| x + y),
     }
@@ -3610,13 +3731,17 @@ fn is_return_node(lang: &Language, node: &AstNode) -> bool {
 fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
     match (a, b) {
         (
-            TaggedValue::Arrow { params: p1, body: b1, .. },
-            TaggedValue::Arrow { params: p2, body: b2, .. },
-        ) => {
-            p1.len() == p2.len()
-                && p1.iter().zip(p2.iter()).all(|(a, b)| a == b)
-                && b1 == b2
-        }
+            TaggedValue::Arrow {
+                params: p1,
+                body: b1,
+                ..
+            },
+            TaggedValue::Arrow {
+                params: p2,
+                body: b2,
+                ..
+            },
+        ) => p1.len() == p2.len() && p1.iter().zip(p2.iter()).all(|(a, b)| a == b) && b1 == b2,
         _ => handl_value::eq(a, b),
     }
 }
@@ -5206,7 +5331,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"body": 0}))
+            AstNode::new("function").with_payload(json!({"body": 0})),
         ]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
@@ -5226,7 +5351,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"params": ["x"]}))
+            AstNode::new("function").with_payload(json!({"params": ["x"]})),
         ]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
@@ -5591,14 +5716,20 @@ mod tests {
             .unwrap();
         // AST shape roles for collection-like nodes (ADR-0081).
         lang.ast
-            .merge(AstShapeDef::new("ast.paren", "paren").with_children(vec![
-                ChildRoleSpec { role: "body".into(), variadic: true },
-            ]))
+            .merge(
+                AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
+                    role: "body".into(),
+                    variadic: true,
+                }]),
+            )
             .unwrap();
         lang.ast
-            .merge(AstShapeDef::new("ast.array", "array").with_children(vec![
-                ChildRoleSpec { role: "elements".into(), variadic: true },
-            ]))
+            .merge(
+                AstShapeDef::new("ast.array", "array").with_children(vec![ChildRoleSpec {
+                    role: "elements".into(),
+                    variadic: true,
+                }]),
+            )
             .unwrap();
         lang
     }
@@ -5623,7 +5754,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let lang = literal_eval_lang();
         let ast = make_ast(vec![
-            AstNode::new("array").with_payload(json!({"children": []}))
+            AstNode::new("array").with_payload(json!({"children": []})),
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!([]));
@@ -5985,15 +6116,15 @@ mod tests {
         let lang = match_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!({"__tag__": "ok", "value": 42})), // 0: scrutinee
-            AstNode::new("var").with_payload(json!("ok")),  // 1: callee (tag name)
-            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("var").with_payload(json!("ok")), // 1: callee (tag name)
+            AstNode::new("var").with_payload(json!("v")),  // 2: binder
             AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
-            AstNode::new("var").with_payload(json!("v")),   // 4: body (returns v)
+            AstNode::new("var").with_payload(json!("v")),  // 4: body (returns v)
             AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
             AstNode::new("var").with_payload(json!("err")), // 6: callee (tag name)
-            AstNode::new("var").with_payload(json!("e")),   // 7: binder
+            AstNode::new("var").with_payload(json!("e")),  // 7: binder
             AstNode::new("call").with_payload(json!({"children": [6, 7]})), // 8: pattern err(e)
-            AstNode::new("value").with_payload(json!(0)),   // 9: body (returns 0)
+            AstNode::new("value").with_payload(json!(0)),  // 9: body (returns 0)
             AstNode::new("arm").with_payload(json!({"children": [8, 9]})), // 10
             AstNode::new("block").with_payload(json!({"children": [5, 10]})), // 11
             AstNode::new("match").with_payload(json!({"children": [0, 11]})), // 12: root
@@ -6010,16 +6141,16 @@ mod tests {
         let lang = match_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!({"__tag__": "err", "value": 99})), // 0: scrutinee
-            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
-            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("var").with_payload(json!("ok")),                              // 1: callee
+            AstNode::new("var").with_payload(json!("v")),                               // 2: binder
             AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
-            AstNode::new("var").with_payload(json!("v")),   // 4: body
-            AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
-            AstNode::new("var").with_payload(json!("err")), // 6: callee
-            AstNode::new("var").with_payload(json!("e")),   // 7: binder
+            AstNode::new("var").with_payload(json!("v")),                   // 4: body
+            AstNode::new("arm").with_payload(json!({"children": [3, 4]})),  // 5
+            AstNode::new("var").with_payload(json!("err")),                 // 6: callee
+            AstNode::new("var").with_payload(json!("e")),                   // 7: binder
             AstNode::new("call").with_payload(json!({"children": [6, 7]})), // 8: pattern err(e)
-            AstNode::new("var").with_payload(json!("e")),   // 9: body (returns e)
-            AstNode::new("arm").with_payload(json!({"children": [8, 9]})), // 10
+            AstNode::new("var").with_payload(json!("e")),                   // 9: body (returns e)
+            AstNode::new("arm").with_payload(json!({"children": [8, 9]})),  // 10
             AstNode::new("block").with_payload(json!({"children": [5, 10]})), // 11
             AstNode::new("match").with_payload(json!({"children": [0, 11]})), // 12: root
         ]);
@@ -6035,10 +6166,10 @@ mod tests {
         let lang = match_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!({"__tag__": "ok", "value": 42})), // 0: scrutinee
-            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
-            AstNode::new("var").with_payload(json!("_")),   // 2: wildcard binder
+            AstNode::new("var").with_payload(json!("ok")),                             // 1: callee
+            AstNode::new("var").with_payload(json!("_")), // 2: wildcard binder
             AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(_)
-            AstNode::new("value").with_payload(json!(1)),   // 4: body
+            AstNode::new("value").with_payload(json!(1)), // 4: body
             AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
             AstNode::new("block").with_payload(json!({"children": [5]})), // 6
             AstNode::new("match").with_payload(json!({"children": [0, 6]})), // 7: root
@@ -6054,10 +6185,10 @@ mod tests {
         let lang = match_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!(42)), // 0: scrutinee (not tagged)
-            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
-            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("var").with_payload(json!("ok")), // 1: callee
+            AstNode::new("var").with_payload(json!("v")),  // 2: binder
             AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
-            AstNode::new("var").with_payload(json!("v")),   // 4: body
+            AstNode::new("var").with_payload(json!("v")),  // 4: body
             AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
             AstNode::new("block").with_payload(json!({"children": [5]})), // 6
             AstNode::new("match").with_payload(json!({"children": [0, 6]})), // 7: root
@@ -6151,14 +6282,23 @@ mod tests {
         // AST shape roles for assign/return (ADR-0081).
         lang.ast
             .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
-                ChildRoleSpec { role: "target".into(), variadic: false },
-                ChildRoleSpec { role: "value".into(), variadic: false },
+                ChildRoleSpec {
+                    role: "target".into(),
+                    variadic: false,
+                },
+                ChildRoleSpec {
+                    role: "value".into(),
+                    variadic: false,
+                },
             ]))
             .unwrap();
         lang.ast
-            .merge(AstShapeDef::new("ast.return", "return").with_children(vec![
-                ChildRoleSpec { role: "value".into(), variadic: false },
-            ]))
+            .merge(
+                AstShapeDef::new("ast.return", "return").with_children(vec![ChildRoleSpec {
+                    role: "value".into(),
+                    variadic: false,
+                }]),
+            )
             .unwrap();
         lang
     }

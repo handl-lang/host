@@ -58,7 +58,10 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
             let reason = if terminates {
                 format!("composition terminates ({} && {})", tg.reason, th.reason)
             } else {
-                format!("composition may not terminate ({} || {})", tg.reason, th.reason)
+                format!(
+                    "composition may not terminate ({} || {})",
+                    tg.reason, th.reason
+                )
             };
             TerminationResult {
                 terminates,
@@ -97,10 +100,7 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
                 reason: if known {
                     format!("base arrow {} -- direct termination (no loop)", op)
                 } else {
-                    format!(
-                        "base arrow {} (unknown) -- assumed direct termination",
-                        op
-                    )
+                    format!("base arrow {} (unknown) -- assumed direct termination", op)
                 },
             }
         }
@@ -292,8 +292,7 @@ fn analyze_comp_loop_termination(
             } else {
                 Measure::Constant
             };
-            let terminates =
-                (left_loop.terminates || fallback.is_some()) && left_result.terminates;
+            let terminates = (left_loop.terminates || fallback.is_some()) && left_result.terminates;
             TerminationResult {
                 terminates,
                 measure,
@@ -429,11 +428,17 @@ fn find_decreasing_measure_in(
             match effect.as_str() {
                 "decrements_length" => Some((
                     Measure::ListLength("c".to_string()),
-                    format!("{} decrements |C| by 1 each iteration, bounded below by 0", op),
+                    format!(
+                        "{} decrements |C| by 1 each iteration, bounded below by 0",
+                        op
+                    ),
                 )),
                 "decrements_counter" => Some((
                     Measure::Counter("c".to_string(), 1),
-                    format!("{} decrements C by 1 each iteration, bounded below by 0", op),
+                    format!(
+                        "{} decrements C by 1 each iteration, bounded below by 0",
+                        op
+                    ),
                 )),
                 _ => None,
             }

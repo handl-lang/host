@@ -1,0 +1,17 @@
+--- Apply several functions to one value and collect results
+export fanout :: args ~> match args {
+  [value, ...fs]: do {
+    rev :: xs ~> while { xs: xs, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+      }
+    }
+    while { xs: fs, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: rev(acc) },
+        [h, ...t]: { state: { xs: t, acc: [h(value), ...acc] } }
+      }
+    }
+  }
+}

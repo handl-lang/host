@@ -113,9 +113,7 @@ fn bracket_ranges(lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
         // On a closing bracket, pop the nearest matching opener. If the top
         // of the stack does not match we simply drop it (the source is
         // malformed); well-formed input is the common case.
-        let is_close = kind == "token.rbrace"
-            || kind == "token.rparen"
-            || kind == "token.rbracket";
+        let is_close = kind == "token.rbrace" || kind == "token.rparen" || kind == "token.rbracket";
         if is_close {
             while let Some(&(bracket, open_offset)) = stack.last() {
                 if bracket.matches_close(kind) {
@@ -181,7 +179,9 @@ fn comment_ranges(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec
         // pair's `endLine` lands on the line of the closing bracket).
         let bytes = source.as_bytes();
         while run_end > run_start
-            && bytes.get(run_end - 1).map_or(false, |&b| b == b'\n' || b == b'\r')
+            && bytes
+                .get(run_end - 1)
+                .map_or(false, |&b| b == b'\n' || b == b'\r')
         {
             run_end -= 1;
         }

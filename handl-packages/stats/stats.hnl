@@ -59,7 +59,7 @@ op "stats.stddev" : Array -> Number
   guarantee: NonNeg(output)
 
 do {
-  filter_nums = xs ~> {
+  filter_nums :: xs ~> {
     while { xs: xs, acc: [] } {
       [xs, acc] ~> match xs {
         []: { out: acc },
@@ -71,19 +71,19 @@ do {
       }
     }
   }
-  insert = [self, elem, sorted] ~> {
+  insert :: [self, elem, sorted] ~> {
     match sorted {
       []: [elem],
       [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
     }
   }
-  sort = [self, xs] ~> {
+  sort :: [self, xs] ~> {
     match xs {
       []: [],
       [h, ...t]: insert(insert, h, self(self, t))
     }
   }
-  length = xs ~> {
+  length :: xs ~> {
     while { xs: xs, n: 0 } {
       [xs, n] ~> match xs {
         []: { out: n },
@@ -91,7 +91,7 @@ do {
       }
     }
   }
-  nth = [xs, i] ~> {
+  nth :: [xs, i] ~> {
     while { xs: xs, i: i } {
       [xs, i] ~> match xs {
         []: { out: null },
@@ -174,9 +174,9 @@ do {
     },
 
     median: xs ~> {
-      nums = filter_nums(xs)
-      sorted = sort(sort, nums)
-      n = length(sorted)
+      nums :: filter_nums(xs)
+      sorted :: sort(sort, nums)
+      n :: length(sorted)
       if n == 0 { 0 } else {
         if n % 2 == 1 {
           nth(sorted, n / 2)
@@ -187,23 +187,23 @@ do {
     },
 
     stddev: xs ~> {
-      nums = filter_nums(xs)
-      n = length(nums)
+      nums :: filter_nums(xs)
+      n :: length(nums)
       if n < 2 { 0 } else {
-        total = while { xs: nums, acc: 0 } {
+        total :: while { xs: nums, acc: 0 } {
           [xs, acc] ~> match xs {
             []: { out: acc },
             [h, ...t]: { state: { xs: t, acc: acc + h } }
           }
         }
-        mean = total / (n + 0.0)
-        sq_sum = while { xs: nums, acc: 0 } {
+        mean :: total / (n + 0.0)
+        sq_sum :: while { xs: nums, acc: 0 } {
           [xs, acc] ~> match xs {
             []: { out: acc },
             [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
           }
         }
-        variance = sq_sum / (n + 0.0)
+        variance :: sq_sum / (n + 0.0)
         math.sqrt(variance)
       }
     }

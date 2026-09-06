@@ -6,13 +6,20 @@ fn linked_editing_on_open_brace_returns_matching_close() {
     let source = "foo = { a: 1 }";
     let offset = source.find('{').unwrap();
     let result = linked_editing_ranges(source, offset).expect("should link braces");
-    let ranges = result.get("ranges").and_then(|r| r.as_array()).expect("ranges array");
+    let ranges = result
+        .get("ranges")
+        .and_then(|r| r.as_array())
+        .expect("ranges array");
     assert_eq!(ranges.len(), 2, "expected two linked ranges: {result:?}");
 
     // The second range should be the closing brace at the end of the source.
     let close = &ranges[1];
     let end_char = close["end"]["character"].as_u64().unwrap();
-    assert_eq!(end_char, source.len() as u64, "close brace range end should be source end");
+    assert_eq!(
+        end_char,
+        source.len() as u64,
+        "close brace range end should be source end"
+    );
 }
 
 #[test]
@@ -35,7 +42,11 @@ fn linked_editing_on_identifier_returns_all_occurrences() {
     let offset = source.find("sort").unwrap();
     let result = linked_editing_ranges(source, offset).expect("should link identifier");
     let ranges = result.get("ranges").and_then(|r| r.as_array()).unwrap();
-    assert_eq!(ranges.len(), 2, "expected two occurrences of `sort`: {result:?}");
+    assert_eq!(
+        ranges.len(),
+        2,
+        "expected two occurrences of `sort`: {result:?}"
+    );
 }
 
 #[test]
@@ -52,5 +63,9 @@ fn linked_editing_unmatched_bracket_links_only_itself() {
     let offset = source.find('[').unwrap();
     let result = linked_editing_ranges(source, offset).expect("should still return a range");
     let ranges = result.get("ranges").and_then(|r| r.as_array()).unwrap();
-    assert_eq!(ranges.len(), 1, "unmatched bracket links only itself: {result:?}");
+    assert_eq!(
+        ranges.len(),
+        1,
+        "unmatched bracket links only itself: {result:?}"
+    );
 }

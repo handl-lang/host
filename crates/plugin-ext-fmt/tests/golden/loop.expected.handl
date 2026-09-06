@@ -2,4 +2,4 @@
 import insert from "data/insert"
 import id from "data/atoms"
 
-sort = loop(insert >>> first(id))
+sort :: loop(insert >>> first(id))

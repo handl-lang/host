@@ -19,7 +19,7 @@
 //!
 //! ## What's excluded
 //!
-//! - [`handl-lib-rand`] — non-deterministic RNG
+//! - [`handl-lib-rand-native`] — non-deterministic RNG
 //! - [`handl-lib-os`] / [`handl-lib-os-std`] — filesystem, env,
 //!   process spawning, system clock
 //! - [`handl-lib-http-client`] / [`handl-lib-http-client-std`] — HTTP client

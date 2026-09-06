@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock};
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use handl_plugin_lib_handl::HandlModule;
+use handl_kit_canonical::handl_module::HandlModule;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;

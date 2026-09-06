@@ -18,8 +18,7 @@ use crate::inference::infer_refinement;
 use crate::types::Pred;
 
 // Embed the actual .hnl stdlib files for testing.
-const BACKTRACK_HNL: &str =
-    include_str!("../../../handl-packages/parse-backtrack/backtrack.hnl");
+const BACKTRACK_HNL: &str = include_str!("../../../handl-packages/parse-backtrack/backtrack.hnl");
 
 // ============================================================================
 // Hand-built backtracking parser graph (matching the .hnl file)
@@ -103,7 +102,9 @@ fn test_backtrack_atoms_registered_from_axioms() {
 #[test]
 fn test_try_atom_guarantee_is_success_or_error() {
     let registry = ContractRegistry::minimal();
-    let contract = registry.lookup("parse.try_atom", &ArrSource::Native).unwrap();
+    let contract = registry
+        .lookup("parse.try_atom", &ArrSource::Native)
+        .unwrap();
     // Guarantee should be Or(IsSuccess(output), IsError(output))
     match &contract.guarantee {
         Pred::Or(l, r) => {
@@ -125,7 +126,9 @@ fn test_try_atom_guarantee_is_success_or_error() {
 #[test]
 fn test_succeed_guarantee_is_success() {
     let registry = ContractRegistry::minimal();
-    let contract = registry.lookup("parse.succeed", &ArrSource::Native).unwrap();
+    let contract = registry
+        .lookup("parse.succeed", &ArrSource::Native)
+        .unwrap();
     assert_eq!(
         contract.guarantee,
         Pred::IsSuccess("output".to_string()),
@@ -241,7 +244,10 @@ fn test_choice_conjoins_backtrack_arms() {
 fn test_backtrack_e2e_load_and_infer() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let path = format!("{}/../../handl-packages/parse-backtrack/backtrack.hnl", manifest_dir);
+    let path = format!(
+        "{}/../../handl-packages/parse-backtrack/backtrack.hnl",
+        manifest_dir
+    );
     let graph = load_arrow_file(&path).unwrap();
     let result = infer_refinement(&graph, &registry).unwrap();
     let pretty = result.guarantee.pretty();
@@ -257,7 +263,10 @@ fn test_backtrack_e2e_load_and_infer() {
 fn test_backtrack_e2e_infer_file() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let path = format!("{}/../../handl-packages/parse-backtrack/backtrack.hnl", manifest_dir);
+    let path = format!(
+        "{}/../../handl-packages/parse-backtrack/backtrack.hnl",
+        manifest_dir
+    );
     let result = infer_file(&path, &registry).unwrap();
     let pretty = result.guarantee.pretty();
     println!("backtrack e2e (infer_file) guarantee: {}", pretty);

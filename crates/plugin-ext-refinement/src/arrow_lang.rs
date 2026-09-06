@@ -79,20 +79,19 @@ pub fn arrow_language() -> &'static Language {
                     "grammar.block.prefix.arrow",
                     "token.lbrace",
                     GrammarPosition::Prefix,
-                    AstShapeRef::new("block", 1)
-                        .with_delimited(DelimitedShape {
-                            open: "token.lbrace".into(),
-                            close: "token.rbrace".into(),
-                            separator: None,
-                            container_kind: "block".into(),
-                            pair: Some(PairShape {
-                                separator: "token.colon".into(),
-                                node_kind: "entry".into(),
-                            }),
-                            open_is_operator_token: true,
-                            flatten: true,
-                            rest_token: None,
+                    AstShapeRef::new("block", 1).with_delimited(DelimitedShape {
+                        open: "token.lbrace".into(),
+                        close: "token.rbrace".into(),
+                        separator: None,
+                        container_kind: "block".into(),
+                        pair: Some(PairShape {
+                            separator: "token.colon".into(),
+                            node_kind: "entry".into(),
                         }),
+                        open_is_operator_token: true,
+                        flatten: true,
+                        rest_token: None,
+                    }),
                 )
                 .with_binding_power(0, 0)
                 .with_replaces(vec!["grammar.object.prefix".to_string()]),

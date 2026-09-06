@@ -1,0 +1,8 @@
+-- tags: slow
+-- tags: net, flaky
+test tagged_slow = assert 1 + 1 = 2
+
+test tagged_fast = assert 1 + 1 = 2
+
+-- tags: net
+test tagged_net = assert 1 + 1 = 2

@@ -16,8 +16,8 @@ use handl_language::{AstRef, LangError, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_bytecode::{BytecodeEngine, BytecodeEngineV2};
 use handl_plugin_engine_eval_cranelift::{CraneliftEngine, CraneliftEngineV2};
-use handl_plugin_engine_eval_tree_walk::{ScopeStack, TreeWalkEngine};
 use handl_plugin_engine_eval_tree_walk::v2::V2Interpreter;
+use handl_plugin_engine_eval_tree_walk::{ScopeStack, TreeWalkEngine};
 
 /// Evaluate a corpus case under the v2 tree-walk handler (`V2Interpreter`).
 ///
@@ -66,15 +66,33 @@ fn run_case(
     let v2_tw_res = eval_v2_tree_walk(v2_tw, lang, &req);
 
     let mut out = vec![
-        EngineResult { name: "v1-tree-walk", result: v1_tw_res },
-        EngineResult { name: "v2-tree-walk", result: v2_tw_res },
+        EngineResult {
+            name: "v1-tree-walk",
+            result: v1_tw_res,
+        },
+        EngineResult {
+            name: "v2-tree-walk",
+            result: v2_tw_res,
+        },
     ];
 
     if !tree_walk_only {
-        out.push(EngineResult { name: "v1-bytecode", result: v1_bc.eval(lang, &req) });
-        out.push(EngineResult { name: "v1-cranelift", result: v1_cl.eval(lang, &req) });
-        out.push(EngineResult { name: "v2-bytecode", result: v2_bc.eval(lang, &req) });
-        out.push(EngineResult { name: "v2-cranelift", result: v2_cl.eval(lang, &req) });
+        out.push(EngineResult {
+            name: "v1-bytecode",
+            result: v1_bc.eval(lang, &req),
+        });
+        out.push(EngineResult {
+            name: "v1-cranelift",
+            result: v1_cl.eval(lang, &req),
+        });
+        out.push(EngineResult {
+            name: "v2-bytecode",
+            result: v2_bc.eval(lang, &req),
+        });
+        out.push(EngineResult {
+            name: "v2-cranelift",
+            result: v2_cl.eval(lang, &req),
+        });
     }
 
     out

@@ -1,1 +1,1 @@
-main = { key: value, other: 2 }
+main :: { key: value, other: 2 }

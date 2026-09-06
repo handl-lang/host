@@ -27,6 +27,21 @@
 --- rand.seeded_shuffle — shuffle an array with a seeded RNG. Deterministic.
 --- rand.seeded_string — generate a seeded random string. Deterministic.
 --- rand.seeded_gauss — generate a seeded random float from a Gaussian distribution. Deterministic.
+---
+--- Laws use the `Pred` vocabulary of `plugin-ext-refinement`
+--- (True/False/Sorted/LengthEq/LengthLe/AllSatisfy/Le/HeadOf/
+--- LengthPlusOne/LengthSubOne/IsPerm/IsSuccess/IsError, &&, ||, ==>,
+--- forall). Two recurring properties are NOT expressible in that
+--- vocabulary yet and are stated as `-- LAW:` comments:
+---
+---   IsString(output)   output is a string          (no type predicate)
+---   Deterministic      same seed + same args ⇒ same output, for every
+---                      `rand.seeded_*` op           (needs a `data Pred`
+---                      refactor — tracked in project/BACKLOG.md)
+---
+--- All unseeded ops are effectful (each call draws fresh entropy), so every
+--- op sits behind a `cap` declaration (ADR-0055). Seeded ops are pure
+--- functions of (seed, args) but share the same capability boundary.
 cap "rand.int"
 cap "rand.float"
 cap "rand.bool"
@@ -59,60 +74,101 @@ cap "rand.seeded_gauss"
 op "rand.int" : Value... -> Number
   guarantee: True
 op "rand.float" : Value... -> Number
+-- LAW: Le(0, output) for the nullary form (output in [0, 1)); the
+-- ranged forms may legitimately return negatives, so the weakest uniform
+-- bound is True.
   guarantee: True
 op "rand.bool" : () -> Bool
   guarantee: True
 op "rand.pick" : Array -> Value
+-- LAW: output is an element of input (IsElem not in the Pred vocabulary).
   guarantee: True
 op "rand.choice" : (Array, Number) -> Array
+-- LAW: LengthEq(output, input.1) — count elements drawn. Not expressible:
+-- input.1 is a count, not a list, and LengthEq compares list lengths.
   guarantee: True
 op "rand.sample" : (Array, Number) -> Array
-  guarantee: True
+-- LAW: output contains distinct elements of input.0; LengthLe(output, input.0)
+-- (cannot sample more than the population without replacement).
+  guarantee: LengthLe(output, input.0)
 op "rand.shuffle" : Array -> Array
-  guarantee: True
+-- LAW: IsPerm(output, input) && LengthEq(output, input)
+  guarantee: LengthEq(output, input) && IsPerm(output, input)
 op "rand.weighted_pick" : (Array, Array) -> Value
+-- LAW: output is an element of input.0 (IsElem not in the Pred vocabulary).
   guarantee: True
 op "rand.string" : Value... -> String
-  guarantee: IsString(output)
+-- LAW: IsString(output) — no type predicate in the Pred vocabulary.
+  guarantee: True
 op "rand.bytes" : Number -> Array
+-- LAW: every element of output is an integer in [0, 255]
+-- (AllSatisfy needs a named element predicate not in the vocabulary).
   guarantee: True
 op "rand.uuid" : () -> String
-  guarantee: IsString(output)
+-- LAW: IsString(output) && IsUuidV4(output) — neither is in the Pred vocabulary.
+  guarantee: True
 op "rand.gauss" : (Number, Number) -> Number
   guarantee: True
 op "rand.exponential" : Number -> Number
-  guarantee: True
+-- LAW: output >= 0 for lambda > 0.
+  guarantee: Le(0, output)
 op "rand.poisson" : Number -> Number
-  guarantee: NonNeg(output)
+  guarantee: Le(0, output)
 op "rand.binomial" : (Number, Number) -> Number
-  guarantee: NonNeg(output)
+-- LAW: output <= input.0 (at most n successes in n trials).
+  guarantee: Le(0, output)
 op "rand.perlin_1d" : Number -> Number
+-- LAW: Deterministic — same input ⇒ same output (fixed permutation table).
+-- LAW: -1 <= output && output <= 1 — range bound not expressible (Le is
+-- only defined over variable names, and a two-sided bound needs Ge).
   guarantee: True
 op "rand.perlin_2d" : (Number, Number) -> Number
+-- LAW: Deterministic — same input ⇒ same output (fixed permutation table).
+-- LAW: -1 <= output && output <= 1 (see perlin_1d).
   guarantee: True
 op "rand.perlin_3d" : (Number, Number, Number) -> Number
+-- LAW: Deterministic — same input ⇒ same output (fixed permutation table).
+-- LAW: -1 <= output && output <= 1 (see perlin_1d).
   guarantee: True
 op "rand.simplex_2d" : (Number, Number) -> Number
+-- LAW: Deterministic — same input ⇒ same output (fixed permutation table).
+-- LAW: -1 <= output && output <= 1 (see perlin_1d).
   guarantee: True
 op "rand.simplex_3d" : (Number, Number, Number) -> Number
+-- LAW: Deterministic — same input ⇒ same output (fixed permutation table).
+-- LAW: -1 <= output && output <= 1 (see perlin_1d).
   guarantee: True
 op "rand.seeded_int" : (Number, Number, Number) -> Number
+-- LAW: Deterministic — same seed + args ⇒ same output.
+-- LAW: output is in [input.1, input.2] — interval membership not expressible.
   guarantee: True
 op "rand.seeded_float" : (Number, Number, Number) -> Number
+-- LAW: Deterministic — same seed + args ⇒ same output.
+-- LAW: output is in [input.1, input.2) — interval membership not expressible.
   guarantee: True
 op "rand.seeded_bool" : Number -> Bool
+-- LAW: Deterministic — same seed ⇒ same output.
   guarantee: True
 op "rand.seeded_pick" : (Number, Array) -> Value
+-- LAW: Deterministic — same seed + args ⇒ same output.
+-- LAW: output is an element of input.1 (IsElem not in the Pred vocabulary).
   guarantee: True
 op "rand.seeded_choice" : (Number, Array, Number) -> Array
+-- LAW: Deterministic — same seed + args ⇒ same output.
+-- LAW: LengthEq(output, input.2) — see rand.choice (count arg, not a list).
   guarantee: True
 op "rand.seeded_sample" : (Number, Array, Number) -> Array
-  guarantee: True
+-- LAW: Deterministic — same seed + args ⇒ same output.
+  guarantee: LengthLe(output, input.1)
 op "rand.seeded_shuffle" : (Number, Array) -> Array
-  guarantee: True
+-- LAW: Deterministic — same seed + args ⇒ same output.
+  guarantee: LengthEq(output, input.1) && IsPerm(output, input.1)
 op "rand.seeded_string" : (Number, Number) -> String
-  guarantee: IsString(output)
+-- LAW: Deterministic — same seed + args ⇒ same output.
+-- LAW: IsString(output) — no type predicate in the Pred vocabulary.
+  guarantee: True
 op "rand.seeded_gauss" : (Number, Number, Number) -> Number
+-- LAW: Deterministic — same seed + args ⇒ same output.
   guarantee: True
 
 handl "rand.int" = rust_rand_int

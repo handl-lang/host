@@ -4,9 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-kit-config = { workspace = true }
-handl-plugin-lib-rand.workspace = true
+handl-platform = {path = "../platform" }
+handl-kit-config = {path = "../kit-config" }
+handl-plugin-lib-rand-native.workspace = true
 handl-plugin-lib-os-std.workspace = true
 handl-plugin-lib-http-client-std.workspace = true
 handl-plugin-lib-otlp-std.workspace = true

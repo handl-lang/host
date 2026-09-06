@@ -8,13 +8,13 @@ default = []
 native-z3 = ["dep:z3"]
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-language = { workspace = true }
-handl-kit-data-canonical = { workspace = true }
-handl-plugin-engine-lex = { workspace = true }
-handl-plugin-engine-lex-pattern = { workspace = true }
-handl-plugin-engine-parse = { workspace = true }
-handl-plugin-engine-parse-pratt = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-language = {path = "../handl-language" }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-plugin-engine-lex = {path = "../plugin-engine-lex" }
+handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
 handl-plugin-lib-handl = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

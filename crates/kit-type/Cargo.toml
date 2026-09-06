@@ -4,5 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = { workspace = true }
-handl-plugin-typecheck-nbe = { workspace = true }
+handl-platform = {path = "../platform" }
+handl-plugin-typecheck-nbe = {path = "../plugin-typecheck-nbe" }

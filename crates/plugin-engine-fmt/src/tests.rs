@@ -9,10 +9,7 @@ use serde_json::Value;
 fn arith_lang() -> Language {
     let mut lang = Language::new();
     lang.tokens
-        .merge(
-            TokenKindDef::new("token.number")
-                .with_literal(LiteralKind::Number),
-        )
+        .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
         .unwrap();
     lang.tokens
         .merge(TokenKindDef::new("token.identifier"))
@@ -119,17 +116,16 @@ fn arith_lang() -> Language {
                 "g.let",
                 "token.keyword.let",
                 GrammarPosition::Prefix,
-                AstShapeRef::new("let", 1)
-                    .with_payload_tokens(vec![
-                        PayloadTokenSpec {
-                            token: "token.identifier".into(),
-                            field: Some("name".into()),
-                        },
-                        PayloadTokenSpec {
-                            token: "token.equals".into(),
-                            field: None,
-                        },
-                    ]),
+                AstShapeRef::new("let", 1).with_payload_tokens(vec![
+                    PayloadTokenSpec {
+                        token: "token.identifier".into(),
+                        field: Some("name".into()),
+                    },
+                    PayloadTokenSpec {
+                        token: "token.equals".into(),
+                        field: None,
+                    },
+                ]),
             )
             .with_binding_power(0, 0),
         )
@@ -156,49 +152,42 @@ fn arith_lang() -> Language {
         .unwrap();
 
     // AST shapes.
-    lang.ast
-        .merge(AstShapeDef::new("ast.lit", "lit"))
-        .unwrap();
-    lang.ast
-        .merge(AstShapeDef::new("ast.var", "var"))
-        .unwrap();
+    lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+    lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
     lang.ast
         .merge(
-            AstShapeDef::new("ast.binary.add", "binary.add")
-                .with_children(vec![
-                    ChildRoleSpec {
-                        role: "lhs".into(),
-                        variadic: false,
-                    },
-                    ChildRoleSpec {
-                        role: "rhs".into(),
-                        variadic: false,
-                    },
-                ]),
-        )
-        .unwrap();
-    lang.ast
-        .merge(
-            AstShapeDef::new("ast.binary.mul", "binary.mul")
-                .with_children(vec![
-                    ChildRoleSpec {
-                        role: "lhs".into(),
-                        variadic: false,
-                    },
-                    ChildRoleSpec {
-                        role: "rhs".into(),
-                        variadic: false,
-                    },
-                ]),
-        )
-        .unwrap();
-    lang.ast
-        .merge(
-            AstShapeDef::new("ast.unary.neg", "unary.neg")
-                .with_children(vec![ChildRoleSpec {
-                    role: "operand".into(),
+            AstShapeDef::new("ast.binary.add", "binary.add").with_children(vec![
+                ChildRoleSpec {
+                    role: "lhs".into(),
                     variadic: false,
-                }]),
+                },
+                ChildRoleSpec {
+                    role: "rhs".into(),
+                    variadic: false,
+                },
+            ]),
+        )
+        .unwrap();
+    lang.ast
+        .merge(
+            AstShapeDef::new("ast.binary.mul", "binary.mul").with_children(vec![
+                ChildRoleSpec {
+                    role: "lhs".into(),
+                    variadic: false,
+                },
+                ChildRoleSpec {
+                    role: "rhs".into(),
+                    variadic: false,
+                },
+            ]),
+        )
+        .unwrap();
+    lang.ast
+        .merge(
+            AstShapeDef::new("ast.unary.neg", "unary.neg").with_children(vec![ChildRoleSpec {
+                role: "operand".into(),
+                variadic: false,
+            }]),
         )
         .unwrap();
     lang.ast
@@ -248,9 +237,8 @@ fn format_infix_add() {
     let mut ast = Ast::new();
     ast.push(lit(1));
     ast.push(lit(2));
-    let r = ast.push(
-        AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})),
-    );
+    let r =
+        ast.push(AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})));
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "1 + 2");
@@ -264,12 +252,10 @@ fn format_precedence_no_extra_parens() {
     ast.push(lit(1));
     ast.push(lit(2));
     ast.push(lit(3));
-    let mul = ast.push(
-        AstNode::new("binary.mul").with_payload(serde_json::json!({"children": [1, 2]})),
-    );
+    let mul =
+        ast.push(AstNode::new("binary.mul").with_payload(serde_json::json!({"children": [1, 2]})));
     let add = ast.push(
-        AstNode::new("binary.add")
-            .with_payload(serde_json::json!({"children": [0, mul.index()]})),
+        AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, mul.index()]})),
     );
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, add).unwrap();
@@ -285,12 +271,10 @@ fn format_precedence_parens_for_grouping() {
     ast.push(lit(1));
     ast.push(lit(2));
     ast.push(lit(3));
-    let add = ast.push(
-        AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})),
-    );
+    let add =
+        ast.push(AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})));
     let mul = ast.push(
-        AstNode::new("binary.mul")
-            .with_payload(serde_json::json!({"children": [add.index(), 2]})),
+        AstNode::new("binary.mul").with_payload(serde_json::json!({"children": [add.index(), 2]})),
     );
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, mul).unwrap();
@@ -302,9 +286,8 @@ fn format_unary_neg() {
     let lang = arith_lang();
     let mut ast = Ast::new();
     let v = ast.push(var("x"));
-    let r = ast.push(
-        AstNode::new("unary.neg").with_payload(serde_json::json!({"children": [v.index()]})),
-    );
+    let r = ast
+        .push(AstNode::new("unary.neg").with_payload(serde_json::json!({"children": [v.index()]})));
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "-x");
@@ -327,10 +310,8 @@ fn format_let_with_payload_tokens() {
     let lang = arith_lang();
     let mut ast = Ast::new();
     ast.push(lit(42));
-    let r = ast.push(
-        AstNode::new("let")
-            .with_payload(serde_json::json!({"name": "x", "children": [0]})),
-    );
+    let r = ast
+        .push(AstNode::new("let").with_payload(serde_json::json!({"name": "x", "children": [0]})));
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "let x = 42");
@@ -344,9 +325,8 @@ fn format_block_indentation() {
     ast.push(lit(1));
     ast.push(lit(2));
     ast.push(lit(3));
-    let r = ast.push(
-        AstNode::new("block").with_payload(serde_json::json!({"children": [0, 1, 2]})),
-    );
+    let r =
+        ast.push(AstNode::new("block").with_payload(serde_json::json!({"children": [0, 1, 2]})));
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "{\n  1;\n  2;\n  3\n}");
@@ -359,13 +339,11 @@ fn format_nested_block_indentation() {
     let mut ast = Ast::new();
     ast.push(lit(1));
     ast.push(lit(2));
-    let inner = ast.push(
-        AstNode::new("block").with_payload(serde_json::json!({"children": [0, 1]})),
-    );
+    let inner =
+        ast.push(AstNode::new("block").with_payload(serde_json::json!({"children": [0, 1]})));
     ast.push(lit(3));
     let r = ast.push(
-        AstNode::new("block")
-            .with_payload(serde_json::json!({"children": [inner.index(), 3]})),
+        AstNode::new("block").with_payload(serde_json::json!({"children": [inner.index(), 3]})),
     );
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
@@ -392,12 +370,10 @@ fn format_paren_grouping() {
     let mut ast = Ast::new();
     ast.push(lit(1));
     ast.push(lit(2));
-    let add = ast.push(
-        AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})),
-    );
-    let r = ast.push(
-        AstNode::new("paren").with_payload(serde_json::json!({"children": [add.index()]})),
-    );
+    let add =
+        ast.push(AstNode::new("binary.add").with_payload(serde_json::json!({"children": [0, 1]})));
+    let r = ast
+        .push(AstNode::new("paren").with_payload(serde_json::json!({"children": [add.index()]})));
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "( 1 + 2 )");
@@ -440,32 +416,28 @@ fn format_match_arms_with_pairs() {
         )
         .unwrap();
     lang.ast
-        .merge(
-            AstShapeDef::new("ast.match", "match").with_children(vec![
-                ChildRoleSpec {
-                    role: "scrutinee".into(),
-                    variadic: false,
-                },
-                ChildRoleSpec {
-                    role: "arms".into(),
-                    variadic: false,
-                },
-            ]),
-        )
+        .merge(AstShapeDef::new("ast.match", "match").with_children(vec![
+            ChildRoleSpec {
+                role: "scrutinee".into(),
+                variadic: false,
+            },
+            ChildRoleSpec {
+                role: "arms".into(),
+                variadic: false,
+            },
+        ]))
         .unwrap();
     lang.ast
-        .merge(
-            AstShapeDef::new("ast.arm", "arm").with_children(vec![
-                ChildRoleSpec {
-                    role: "pattern".into(),
-                    variadic: false,
-                },
-                ChildRoleSpec {
-                    role: "body".into(),
-                    variadic: false,
-                },
-            ]),
-        )
+        .merge(AstShapeDef::new("ast.arm", "arm").with_children(vec![
+            ChildRoleSpec {
+                role: "pattern".into(),
+                variadic: false,
+            },
+            ChildRoleSpec {
+                role: "body".into(),
+                variadic: false,
+            },
+        ]))
         .unwrap();
 
     // match x { 1 : 2, 3 : 4 }

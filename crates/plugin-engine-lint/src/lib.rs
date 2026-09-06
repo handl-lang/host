@@ -94,8 +94,7 @@ impl LintEngine {
         // Rule: unused bindings — report bindings whose name is never
         // referenced anywhere in the tree. This is a conservative global
         // check (avoids false positives from scope-tracking complexity).
-        let used: std::collections::HashSet<&str> =
-            references.iter().map(|s| s.as_str()).collect();
+        let used: std::collections::HashSet<&str> = references.iter().map(|s| s.as_str()).collect();
         for (name, span) in &bindings {
             if !used.contains(name.as_str()) {
                 diags.push(LintDiagnostic::warning(
@@ -342,10 +341,7 @@ impl NodeClassifier {
 
 /// Read a boolean flag from a JSON `payload_schema` object property.
 fn schema_flag(schema: &serde_json::Value, key: &str) -> bool {
-    schema
-        .get(key)
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+    schema.get(key).and_then(|v| v.as_bool()).unwrap_or(false)
 }
 
 /// A scope stack for tracking bindings during the tree walk (used for the
@@ -380,9 +376,7 @@ impl ScopeStack {
     /// Whether `name` is already bound in any scope on the stack (including
     /// the current scope — checked before recording this binding).
     fn shadows(&self, name: &str) -> bool {
-        self.scopes
-            .iter()
-            .any(|s| s.contains(&name.to_string()))
+        self.scopes.iter().any(|s| s.contains(&name.to_string()))
     }
 }
 
@@ -431,8 +425,7 @@ mod tests {
         // var: reference shape (payload_schema reference: true), arity 0.
         lang.ast
             .merge(
-                AstShapeDef::new("ast.var", "var")
-                    .with_payload_schema(json!({"reference": true})),
+                AstShapeDef::new("ast.var", "var").with_payload_schema(json!({"reference": true})),
             )
             .unwrap();
 
@@ -453,11 +446,10 @@ mod tests {
                 "grammar.let",
                 "token.keyword.let",
                 GrammarPosition::Prefix,
-                AstShapeRef::new("let", 2)
-                    .with_payload_tokens(vec![PayloadTokenSpec {
-                        token: "token.identifier".into(),
-                        field: Some("name".into()),
-                    }]),
+                AstShapeRef::new("let", 2).with_payload_tokens(vec![PayloadTokenSpec {
+                    token: "token.identifier".into(),
+                    field: Some("name".into()),
+                }]),
             ))
             .unwrap();
 
@@ -522,10 +514,7 @@ mod tests {
         // 1: lit(1) — let body (never references x)
         ast.push(AstNode::new("lit").with_payload(json!(1)));
         // 2: let {name: "x", children: [0, 1]}
-        ast.push(
-            AstNode::new("let")
-                .with_payload(json!({"name": "x", "children": [0, 1]})),
-        );
+        ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
         let root = AstRef::new(2);
         let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
         let unused: Vec<_> = diags
@@ -547,15 +536,9 @@ mod tests {
         // 2: var(x)  — inner body references x
         ast.push(AstNode::new("var").with_payload(json!({"value": "x"})));
         // 3: inner let {name: "x", children: [1, 2]}
-        ast.push(
-            AstNode::new("let")
-                .with_payload(json!({"name": "x", "children": [1, 2]})),
-        );
+        ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [1, 2]})));
         // 4: outer let {name: "x", children: [0, 3]}
-        ast.push(
-            AstNode::new("let")
-                .with_payload(json!({"name": "x", "children": [0, 3]})),
-        );
+        ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 3]})));
         let root = AstRef::new(4);
         let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
         let shadow: Vec<_> = diags
@@ -575,10 +558,7 @@ mod tests {
         // 1: var(x) — references x
         ast.push(AstNode::new("var").with_payload(json!({"value": "x"})));
         // 2: let {name: "x", children: [0, 1]}
-        ast.push(
-            AstNode::new("let")
-                .with_payload(json!({"name": "x", "children": [0, 1]})),
-        );
+        ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
         // 3: block {children: [2]}
         ast.push(AstNode::new("block").with_payload(json!({"children": [2]})));
         let root = AstRef::new(3);

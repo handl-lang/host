@@ -1,0 +1,15 @@
+--- Lazy fanout — returns an arrow that splits input across branches
+export fanout_fn :: fs ~> x ~> do {
+  rev :: xs ~> while { xs: xs, acc: [] } {
+    [xs, acc] ~> match xs {
+      []: { out: acc },
+      [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+    }
+  }
+  while { xs: fs, acc: [] } {
+    [xs, acc] ~> match xs {
+      []: { out: rev(acc) },
+      [h, ...t]: { state: { xs: t, acc: [h(x), ...acc] } }
+    }
+  }
+}

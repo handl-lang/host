@@ -28,34 +28,122 @@ struct KeywordEntry {
 
 /// All handl keywords, with optional snippet bodies for structural forms.
 const KEYWORDS: &[KeywordEntry] = &[
-    KeywordEntry { text: "match", detail: "keyword: match expression", snippet: Some("match ${1:expr} {\n  ${2:pat}: ${3:body}\n}") },
-    KeywordEntry { text: "if", detail: "keyword: conditional", snippet: Some("if ${1:cond} {\n  ${2:then}\n} else {\n  ${3:else}\n}") },
-    KeywordEntry { text: "else", detail: "keyword: else-branch of if", snippet: None },
-    KeywordEntry { text: "rec", detail: "keyword: rec block (feedback loop)", snippet: Some("rec {\n  ${1:// state bindings}\n  ${2:// body}\n}") },
-    KeywordEntry { text: "while", detail: "keyword: while loop", snippet: Some("while ${1:cond} {\n  ${2:// body}\n}") },
-    KeywordEntry { text: "do", detail: "keyword: do-while loop", snippet: Some("do {\n  ${1:// body}\n} while ${2:cond}") },
-    KeywordEntry { text: "for", detail: "keyword: for loop", snippet: Some("for ${1:x} in ${2:xs} {\n  ${3:// body}\n}") },
-    KeywordEntry { text: "in", detail: "keyword: for-in iterator", snippet: None },
-    KeywordEntry { text: "return", detail: "keyword: return from rec block", snippet: Some("return ${1:expr}") },
-    KeywordEntry { text: "import", detail: "keyword: module import", snippet: Some("import ${1:name} from \"${2:path}\"") },
-    KeywordEntry { text: "from", detail: "keyword: import source", snippet: None },
-    KeywordEntry { text: "infer", detail: "keyword: type inference directive", snippet: Some("infer ${1:name}") },
-    KeywordEntry { text: "type", detail: "keyword: type namespace", snippet: None },
-    KeywordEntry { text: "trait", detail: "keyword: trait declaration", snippet: Some("trait ${1:name} {\n  ${2:// laws}\n}") },
-    KeywordEntry { text: "impl", detail: "keyword: trait implementation", snippet: Some("impl ${1:trait} {\n  ${2:// methods}\n}") },
-    KeywordEntry { text: "law", detail: "keyword: law declaration (replaces axiom)", snippet: Some("law ${1:name} : ${2:Type}\n  guarantee: ${3:True}") },
-    KeywordEntry { text: "true", detail: "boolean literal", snippet: None },
-    KeywordEntry { text: "false", detail: "boolean literal", snippet: None },
-    KeywordEntry { text: "null", detail: "null literal", snippet: None },
+    KeywordEntry {
+        text: "match",
+        detail: "keyword: match expression",
+        snippet: Some("match ${1:expr} {\n  ${2:pat}: ${3:body}\n}"),
+    },
+    KeywordEntry {
+        text: "if",
+        detail: "keyword: conditional",
+        snippet: Some("if ${1:cond} {\n  ${2:then}\n} else {\n  ${3:else}\n}"),
+    },
+    KeywordEntry {
+        text: "else",
+        detail: "keyword: else-branch of if",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "rec",
+        detail: "keyword: rec block (feedback loop)",
+        snippet: Some("rec {\n  ${1:// state bindings}\n  ${2:// body}\n}"),
+    },
+    KeywordEntry {
+        text: "while",
+        detail: "keyword: while loop",
+        snippet: Some("while ${1:cond} {\n  ${2:// body}\n}"),
+    },
+    KeywordEntry {
+        text: "do",
+        detail: "keyword: do-while loop",
+        snippet: Some("do {\n  ${1:// body}\n} while ${2:cond}"),
+    },
+    KeywordEntry {
+        text: "for",
+        detail: "keyword: for loop",
+        snippet: Some("for ${1:x} in ${2:xs} {\n  ${3:// body}\n}"),
+    },
+    KeywordEntry {
+        text: "in",
+        detail: "keyword: for-in iterator",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "return",
+        detail: "keyword: return from rec block",
+        snippet: Some("return ${1:expr}"),
+    },
+    KeywordEntry {
+        text: "import",
+        detail: "keyword: module import",
+        snippet: Some("import ${1:name} from \"${2:path}\""),
+    },
+    KeywordEntry {
+        text: "from",
+        detail: "keyword: import source",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "infer",
+        detail: "keyword: type inference directive",
+        snippet: Some("infer ${1:name}"),
+    },
+    KeywordEntry {
+        text: "type",
+        detail: "keyword: type namespace",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "trait",
+        detail: "keyword: trait declaration",
+        snippet: Some("trait ${1:name} {\n  ${2:// laws}\n}"),
+    },
+    KeywordEntry {
+        text: "impl",
+        detail: "keyword: trait implementation",
+        snippet: Some("impl ${1:trait} {\n  ${2:// methods}\n}"),
+    },
+    KeywordEntry {
+        text: "law",
+        detail: "keyword: law declaration (replaces axiom)",
+        snippet: Some("law ${1:name} : ${2:Type}\n  guarantee: ${3:True}"),
+    },
+    KeywordEntry {
+        text: "true",
+        detail: "boolean literal",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "false",
+        detail: "boolean literal",
+        snippet: None,
+    },
+    KeywordEntry {
+        text: "null",
+        detail: "null literal",
+        snippet: None,
+    },
 ];
 
 /// Arrow combinator snippets — useful inside arrow-graph expressions.
 const ARROW_SNIPPETS: &[(&str, &str, &str)] = &[
-    (">>>", "arrow: a >>> b — sequential composition", "${1:a} >>> ${2:b}"),
-    ("***", "arrow: a *** b — parallel product", "${1:a} *** ${2:b}"),
+    (
+        ">>>",
+        "arrow: a >>> b — sequential composition",
+        "${1:a} >>> ${2:b}",
+    ),
+    (
+        "***",
+        "arrow: a *** b — parallel product",
+        "${1:a} *** ${2:b}",
+    ),
     ("&&&", "arrow: a &&& b — fan-out", "${1:a} &&& ${2:b}"),
     ("|||", "arrow: a ||| b — choice", "${1:a} ||| ${2:b}"),
-    ("~>", "arrow: pat ~> body — arrow definition", "${1:pat} ~> ${2:body}"),
+    (
+        "~>",
+        "arrow: pat ~> body — arrow definition",
+        "${1:pat} ~> ${2:body}",
+    ),
 ];
 
 /// Snippet templates moved from the VS Code extension's static snippets file
@@ -73,24 +161,76 @@ const ARROW_SNIPPETS: &[(&str, &str, &str)] = &[
 /// duplicated here. This keeps the full set of trigger names from the original
 /// static file available while avoiding duplicate completion items.
 const SNIPPETS: &[(&str, &str, &str)] = &[
-    ("~>", "An arrow: pattern ~> body", "${1:pattern} ~> ${2:body}"),
-    ("~>args", "A multi-arg arrow: [args] ~> body (no currying, ID.2)", "[${1:args}] ~> ${2:body}"),
-    ("rec-match", "A rec block with match on a list (common fold pattern)", "rec {\n  remaining = ${1:input},\n  acc = ${2:[]},\n  match remaining {\n    []: return acc,\n    [h, ...t]: {\n      ${3:// process h}\n      remaining = t,\n      acc = ${4:// update acc}\n    }\n  }\n}"),
-    ("do-while", "A do-while loop: do { body } while cond", "do {\n  ${1:// body}\n} while ${2:cond}"),
-    ("for-fold", "A for fold: for x in xs, acc = init { body }", "for ${1:x} in ${2:xs}, ${3:acc} = ${4:init} {\n  ${5:// body}\n}"),
-    ("match-list", "A match on a list with empty and cons patterns", "match ${1:xs} {\n  []: ${2:// base case},\n  [h, ...t]: ${3:// recursive case}\n}"),
-    ("seq", "Sequential composition: a >>> b", "${1:first} >>> ${2:second}"),
-    ("prod", "Parallel product: a *** b", "${1:left} *** ${2:right}"),
+    (
+        "~>",
+        "An arrow: pattern ~> body",
+        "${1:pattern} ~> ${2:body}",
+    ),
+    (
+        "~>args",
+        "A multi-arg arrow: [args] ~> body (no currying, ID.2)",
+        "[${1:args}] ~> ${2:body}",
+    ),
+    (
+        "rec-match",
+        "A rec block with match on a list (common fold pattern)",
+        "rec {\n  remaining = ${1:input},\n  acc = ${2:[]},\n  match remaining {\n    []: return acc,\n    [h, ...t]: {\n      ${3:// process h}\n      remaining = t,\n      acc = ${4:// update acc}\n    }\n  }\n}",
+    ),
+    (
+        "do-while",
+        "A do-while loop: do { body } while cond",
+        "do {\n  ${1:// body}\n} while ${2:cond}",
+    ),
+    (
+        "for-fold",
+        "A for fold: for x in xs, acc = init { body }",
+        "for ${1:x} in ${2:xs}, ${3:acc} = ${4:init} {\n  ${5:// body}\n}",
+    ),
+    (
+        "match-list",
+        "A match on a list with empty and cons patterns",
+        "match ${1:xs} {\n  []: ${2:// base case},\n  [h, ...t]: ${3:// recursive case}\n}",
+    ),
+    (
+        "seq",
+        "Sequential composition: a >>> b",
+        "${1:first} >>> ${2:second}",
+    ),
+    (
+        "prod",
+        "Parallel product: a *** b",
+        "${1:left} *** ${2:right}",
+    ),
     ("fan", "Fan-out: a &&& b", "${1:left} &&& ${2:right}"),
     ("choice", "Choice: a ||| b", "${1:left} ||| ${2:right}"),
-    ("nullish", "Nullish coalescing: expr ?? default", "${1:expr} ?? ${2:default}"),
-    ("opt-chain", "Optional chaining: expr?.field", "${1:expr}?.${2:field}"),
+    (
+        "nullish",
+        "Nullish coalescing: expr ?? default",
+        "${1:expr} ?? ${2:default}",
+    ),
+    (
+        "opt-chain",
+        "Optional chaining: expr?.field",
+        "${1:expr}?.${2:field}",
+    ),
     ("spread", "Spread: ...expr", "...${1:expr}"),
-    ("record", "A record literal: { field: value }", "{\n  ${1:field}: ${2:value}\n}"),
+    (
+        "record",
+        "A record literal: { field: value }",
+        "{\n  ${1:field}: ${2:value}\n}",
+    ),
     ("tuple", "A tuple/positional: [items]", "[${1:items}]"),
     ("binding", "A binding: name = expr", "${1:name} = ${2:expr}"),
-    ("binding-typed", "A typed binding: name: Type = expr", "${1:name}: ${2:Type} = ${3:expr}"),
-    ("doc", "A doc comment block", "/// ${1:name}: ${2:description}\n///\n/// ${3:details}"),
+    (
+        "binding-typed",
+        "A typed binding: name: Type = expr",
+        "${1:name}: ${2:Type} = ${3:expr}",
+    ),
+    (
+        "doc",
+        "A doc comment block",
+        "/// ${1:name}: ${2:description}\n///\n/// ${3:details}",
+    ),
 ];
 
 /// Return all snippet completion items (ADR 0002, Step 2).
@@ -120,20 +260,31 @@ pub fn snippet_completions() -> Vec<Value> {
 /// `~>` and composed with `>>>`, `***`, `&&&`, `|||`; `rec` is the feedback
 /// loop combinator.
 const COMBINATORS: &[(&str, &str, &str)] = &[
-    (">>>", "arrow: a >>> b — sequential composition", "${1:a} >>> ${2:b}"),
-    ("***", "arrow: a *** b — parallel product", "${1:a} *** ${2:b}"),
+    (
+        ">>>",
+        "arrow: a >>> b — sequential composition",
+        "${1:a} >>> ${2:b}",
+    ),
+    (
+        "***",
+        "arrow: a *** b — parallel product",
+        "${1:a} *** ${2:b}",
+    ),
     ("&&&", "arrow: a &&& b — fan-out", "${1:a} &&& ${2:b}"),
     ("|||", "arrow: a ||| b — choice", "${1:a} ||| ${2:b}"),
-    ("rec", "arrow: rec block — feedback loop", "rec {\n  ${1:// state}\n}"),
+    (
+        "rec",
+        "arrow: rec block — feedback loop",
+        "rec {\n  ${1:// state}\n}",
+    ),
     ("id", "arrow: identity", "id"),
 ];
 
 /// Classify an identifier token by its syntactic role, returning
 /// `(kind, detail)` for the completion item.
 fn classify_identifier(tokens: &[SpannedToken], index: usize) -> (i64, &'static str) {
-    let is_kind = |i: usize, k: &str| -> bool {
-        tokens.get(i).map(|t| t.kind == k).unwrap_or(false)
-    };
+    let is_kind =
+        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
 
     // Property access: preceded by `.` → property or method
     if index > 0 && is_kind(index - 1, "token.dot") {
@@ -186,8 +337,8 @@ fn classify_identifier(tokens: &[SpannedToken], index: usize) -> (i64, &'static 
         };
     }
 
-    // Binding declaration: at line start, followed by `:` or `=`
-    if is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.equal") {
+    // Binding declaration: at line start, followed by `:` or `::`
+    if is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.bind") {
         return (KIND_VARIABLE, "binding");
     }
 
@@ -402,9 +553,7 @@ fn keyword_before_brace(tokens: &[SpannedToken], brace_idx: usize, kw: &str) -> 
 /// Whether the cursor sits inside a `do { … }` or `rec { … }` block.
 fn inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
     enclosing_lbrace_index_before(tokens, offset)
-        .map(|lb| {
-            keyword_before_brace(tokens, lb, "do") || keyword_before_brace(tokens, lb, "rec")
-        })
+        .map(|lb| keyword_before_brace(tokens, lb, "do") || keyword_before_brace(tokens, lb, "rec"))
         .unwrap_or(false)
 }
 
@@ -433,7 +582,10 @@ fn rec_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
     let mut i = 0;
     while i < tokens.len() {
         let is_rec = is_keyword_kind(&tokens[i].kind) && tokens[i].text == "rec";
-        let next_is_brace = tokens.get(i + 1).map(|t| t.kind == "token.lbrace").unwrap_or(false);
+        let next_is_brace = tokens
+            .get(i + 1)
+            .map(|t| t.kind == "token.lbrace")
+            .unwrap_or(false);
         if is_rec && next_is_brace {
             let mut j = i + 2;
             let mut depth: i32 = 1;
@@ -444,11 +596,13 @@ fn rec_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
                     _ => {}
                 }
                 if depth > 0 && is_identifier_kind(&tokens[j].kind) {
-                    let followed_by_equal = tokens
+                    // Rec state fields are `name : init` entries (`token.colon`);
+                    // `token.bind` (`::`) is also accepted for resilience.
+                    let followed_by_field_sep = tokens
                         .get(j + 1)
-                        .map(|t| t.kind == "token.equal")
+                        .map(|t| t.kind == "token.colon" || t.kind == "token.bind")
                         .unwrap_or(false);
-                    if followed_by_equal {
+                    if followed_by_field_sep {
                         let name = tokens[j].text.clone();
                         if !fields.contains(&name) {
                             fields.push(name);
@@ -515,13 +669,12 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
     }
 
     // 4. Arrow expression position: after `<-` (always arrow-specific) or
-    //    after `=` when in an arrow context.
+    //    after `::` when in a binding context.
     // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
     if kind == "token.minus" && idx > 0 && tokens[idx - 1].kind == "token.lt" {
         return Context::ArrowExpr;
     }
-    if kind == "token.equal" && (looks_like_arrow_file(source) || inside_do_block(tokens, offset))
-    {
+    if kind == "token.bind" && (looks_like_arrow_file(source) || inside_do_block(tokens, offset)) {
         return Context::ArrowExpr;
     }
 

@@ -7,12 +7,7 @@ use crate::on_type_formatting::on_type_formatting;
 /// Helper: extract the single edit's `newText` from the returned array, or
 /// panic if there isn't exactly one.
 fn single_new_text(edits: &[Value]) -> String {
-    assert_eq!(
-        edits.len(),
-        1,
-        "expected exactly one edit, got {:?}",
-        edits
-    );
+    assert_eq!(edits.len(), 1, "expected exactly one edit, got {:?}", edits);
     edits[0]
         .get("newText")
         .and_then(|t| t.as_str())
@@ -69,8 +64,7 @@ fn on_type_formatting_indents_after_open_brace() {
     let edits = on_type_formatting(source, (0, 6), "\n");
     let new_text = single_new_text(&edits);
     assert_eq!(
-        new_text,
-        "  ",
+        new_text, "  ",
         "new line after `{{` should be indented 2 spaces"
     );
     let range = &edits[0]["range"];
@@ -88,8 +82,7 @@ fn on_type_formatting_indents_after_colon() {
     let edits = on_type_formatting(source, (1, 6), "\n");
     let new_text = single_new_text(&edits);
     assert_eq!(
-        new_text,
-        "    ",
+        new_text, "    ",
         "new line after `:` should be indented one level deeper than the key"
     );
 }
@@ -128,8 +121,7 @@ fn on_type_formatting_nested_brackets() {
     let edits = on_type_formatting(source, (3, 4), "}");
     let new_text = single_new_text(&edits);
     assert_eq!(
-        new_text,
-        "  ",
+        new_text, "  ",
         "inner `}}` should dedent to match the `if x {{` line indent"
     );
     let range = &edits[0]["range"];

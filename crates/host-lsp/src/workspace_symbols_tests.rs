@@ -4,8 +4,8 @@
 //! mimic the `handl-packages` and `handl-packages/contracts` layout,
 //! then exercise `workspace_symbols` against them.
 
-use std::fs;
 use std::env::temp_dir;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -35,22 +35,21 @@ fn write_file(dir: &PathBuf, rel: &str, contents: &str) {
 
 /// Find a result whose `name` equals `name`.
 fn find_named<'a>(results: &'a [serde_json::Value], name: &str) -> Option<&'a serde_json::Value> {
-    results.iter().find(|v| {
-        v.get("name").and_then(|n| n.as_str()) == Some(name)
-    })
+    results
+        .iter()
+        .find(|v| v.get("name").and_then(|n| n.as_str()) == Some(name))
 }
 
 #[test]
 fn workspace_symbols_finds_arrow_by_name() {
     let dir = unique_temp_dir("arrow-by-name");
     // A general .hnl file whose top-level binding is named `insert`.
-    write_file(
-        &dir,
-        "handl-packages/collection/insert.hnl",
-        "insert = 1\n",
-    );
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
 
-    let results = workspace_symbols("insert", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "insert",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+    );
 
     assert!(
         find_named(&results, "insert").is_some(),
@@ -68,7 +67,10 @@ fn workspace_symbols_finds_law_in_contracts() {
         "law prim.add : a ~> b\n",
     );
 
-    let results = workspace_symbols("prim.add", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "prim.add",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+    );
 
     assert!(
         find_named(&results, "prim.add").is_some(),
@@ -80,8 +82,8 @@ fn workspace_symbols_finds_law_in_contracts() {
 #[test]
 fn workspace_symbols_empty_query_returns_all() {
     let dir = unique_temp_dir("empty-query");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert = 1\n");
-    write_file(&dir, "handl-packages/fn/map.hnl", "map = 1\n");
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
 
@@ -101,19 +103,29 @@ fn workspace_symbols_empty_query_returns_all() {
 #[test]
 fn workspace_symbols_no_match_returns_empty() {
     let dir = unique_temp_dir("no-match");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert = 1\n");
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
 
-    let results = workspace_symbols("does-not-exist", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "does-not-exist",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+    );
 
-    assert!(results.is_empty(), "expected no results, got: {:?}", results);
+    assert!(
+        results.is_empty(),
+        "expected no results, got: {:?}",
+        results
+    );
 }
 
 #[test]
 fn workspace_symbols_case_insensitive() {
     let dir = unique_temp_dir("case-insensitive");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert = 1\n");
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
 
-    let results = workspace_symbols("INSERT", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "INSERT",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+    );
 
     assert!(
         find_named(&results, "insert").is_some(),
@@ -125,8 +137,8 @@ fn workspace_symbols_case_insensitive() {
 #[test]
 fn workspace_symbols_includes_container_name() {
     let dir = unique_temp_dir("container-name");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert = 1\n");
-    write_file(&dir, "handl-packages/fn/map.hnl", "map = 1\n");
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
 
@@ -156,14 +168,25 @@ fn workspace_symbols_includes_container_name() {
 #[test]
 fn workspace_symbols_returns_valid_json() {
     let dir = unique_temp_dir("valid-json");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert = 1\n");
+    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
 
-    let results = workspace_symbols("insert", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "insert",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+    );
 
     assert!(!results.is_empty(), "expected at least one result");
     for r in &results {
-        assert!(r.get("name").and_then(|n| n.as_str()).is_some(), "missing name: {:?}", r);
-        assert!(r.get("kind").and_then(|k| k.as_u64()).is_some(), "missing kind: {:?}", r);
+        assert!(
+            r.get("name").and_then(|n| n.as_str()).is_some(),
+            "missing name: {:?}",
+            r
+        );
+        assert!(
+            r.get("kind").and_then(|k| k.as_u64()).is_some(),
+            "missing kind: {:?}",
+            r
+        );
         let location = r.get("location").expect("missing location");
         assert!(
             location.get("uri").and_then(|u| u.as_str()).is_some(),

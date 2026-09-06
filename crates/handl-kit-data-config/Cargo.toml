@@ -4,11 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = { workspace = true }
-handl-emitters = { workspace = true }
-handl-kit-data = { workspace = true }
-handl-kit-data-canonical = { workspace = true }
-handl-runtime = { workspace = true }
+handl-language = {path = "../handl-language" }
+handl-emitters = {path = "../handl-emitters" }
+handl-kit-data = {path = "../handl-kit-data" }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-runtime = {path = "../handl-runtime" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

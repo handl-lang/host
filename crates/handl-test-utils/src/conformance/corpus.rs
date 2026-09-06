@@ -6,8 +6,8 @@
 //! extend this corpus.
 
 use handl_language::{
-    Ast, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language,
-    LiteralKind, Scheme, Token, TokenKindDef, Tokens, Value,
+    Ast, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, LiteralKind,
+    Scheme, Token, TokenKindDef, Tokens, Value,
 };
 
 /// `arr(proj_child, lit: i)` — reference the i-th child node.
@@ -255,10 +255,7 @@ pub fn parse_corpus() -> Vec<ParseCase> {
     fn arith_lang() -> Language {
         let mut lang = Language::new();
         lang.tokens
-            .merge(
-                TokenKindDef::new("token.number")
-                    .with_literal(LiteralKind::Number),
-            )
+            .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
             .unwrap();
         lang.tokens.merge(TokenKindDef::new("token.plus")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.star")).unwrap();

@@ -1,8 +1,6 @@
 //! Tests for the kit resolver (ADR 0003).
 
-use super::kit_resolver::{
-    KitResolver, ResolvedKit, TomlManifest, DEFAULT_KIT_NAME, parse_toml,
-};
+use super::kit_resolver::{DEFAULT_KIT_NAME, KitResolver, ResolvedKit, TomlManifest, parse_toml};
 
 use std::fs;
 use std::path::PathBuf;
@@ -43,7 +41,11 @@ kit = "./data"
 
     assert!(!resolved.is_default());
     assert_eq!(resolved.version, None);
-    assert!(resolved.kit_path.ends_with("data"), "got {:?}", resolved.kit_path);
+    assert!(
+        resolved.kit_path.ends_with("data"),
+        "got {:?}",
+        resolved.kit_path
+    );
     assert_eq!(resolved.manifest_dir.as_deref(), Some(dir.as_path()));
 }
 
@@ -191,7 +193,11 @@ kit = "handl-kit-data-canonical"
     let resolved = resolver.resolve(file.to_str().unwrap());
 
     assert!(!resolved.is_default());
-    assert!(resolved.kit_path.ends_with("crates/handl-kit-data-canonical/data"));
+    assert!(
+        resolved
+            .kit_path
+            .ends_with("crates/handl-kit-data-canonical/data")
+    );
 }
 
 #[test]

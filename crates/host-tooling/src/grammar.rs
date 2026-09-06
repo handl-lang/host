@@ -41,14 +41,20 @@ enum TokenCategory {
 fn classify_token(kind: &str, pattern: &LexerPattern) -> TokenCategory {
     match kind {
         "token.comment" => {
-            if let LexerPattern::Delimited { close_at_eof: true, .. } = pattern {
+            if let LexerPattern::Delimited {
+                close_at_eof: true, ..
+            } = pattern
+            {
                 TokenCategory::LineComment
             } else {
                 TokenCategory::BlockComment
             }
         }
         "token.doc_comment" => {
-            if let LexerPattern::Delimited { close_at_eof: true, .. } = pattern {
+            if let LexerPattern::Delimited {
+                close_at_eof: true, ..
+            } = pattern
+            {
                 TokenCategory::DocComment
             } else {
                 TokenCategory::BlockComment
@@ -71,9 +77,7 @@ fn classify_token(kind: &str, pattern: &LexerPattern) -> TokenCategory {
             // Literal patterns with identifier-like text are keywords
             // (e.g. `token.let` → "let", `token.vau` → "vau").
             if let LexerPattern::Literal { text } = pattern {
-                if text
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                if text.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
                     && text
                         .chars()
                         .next()

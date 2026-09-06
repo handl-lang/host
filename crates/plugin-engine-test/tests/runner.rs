@@ -9,7 +9,8 @@ use handl_plugin_engine_test::provider::{discover_with, FileSystemProvider, Test
 use handl_plugin_engine_test::report::{summarize, HumanReporter, JsonReporter, Reporter};
 use handl_plugin_engine_test::runner::{
     discover, filter_predicate, format_report_human, format_report_json, run, run_selected,
-    run_selected_cached, run_with_filter, DiscoverError, TestPlan, TestResult, TestRunCache,
+    run_selected_cached, run_with_filter, tag_predicate, DiscoverError, TestPlan, TestResult,
+    TestRunCache,
 };
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
@@ -66,7 +67,7 @@ fn discover_test_language_decls() {
     );
     // Body source is the expression after `=`.
     assert_eq!(plan.tests[0].body_source, "1 + 1");
-    assert_eq!(plan.tests[1].body_source, "assert.true(false)");
+    assert_eq!(plan.tests[1].body_source, "assert false");
 }
 
 #[test]
@@ -223,6 +224,38 @@ fn run_mixed() {
     assert!(matches!(report.outcomes[0].result, TestResult::Pass));
     assert!(matches!(report.outcomes[1].result, TestResult::Fail { .. }));
     assert!(matches!(report.outcomes[2].result, TestResult::Pass));
+}
+
+#[test]
+fn run_assert_keyword() {
+    let plan = discover(&[fixture("assert_keyword.handl")]).unwrap();
+    let report = run(&plan);
+    assert_eq!(report.total(), 3);
+    assert_eq!(report.passed(), 2);
+    assert_eq!(report.failed(), 1);
+
+    // First two keyword assertions pass; the third fails.
+    assert!(matches!(report.outcomes[0].result, TestResult::Pass));
+    assert!(matches!(report.outcomes[1].result, TestResult::Pass));
+    assert!(matches!(report.outcomes[2].result, TestResult::Fail { .. }));
+
+    // The failing equality assertion should carry structured failure detail.
+    let failure = &report.outcomes[2].failure;
+    assert_eq!(failure.assertion, Some("assert".to_string()));
+    assert_eq!(failure.expected, Some("3".to_string()));
+    assert_eq!(failure.actual, Some("2".to_string()));
+    assert!(failure.diff.is_some());
+    assert!(failure.cause.is_none());
+}
+
+#[test]
+fn assert_keyword_truthy_failure_carries_detail() {
+    // A standalone failing truthy assertion should record expected/actual.
+    let plan = discover(&[fixture("assert_keyword.handl")]).unwrap();
+    // Select only the truthy pass (assert "hello"), which passes.
+    let report = run_with_filter(&plan, "keyword_truthy");
+    assert_eq!(report.passed(), 1);
+    assert_eq!(report.failed(), 0);
 }
 
 #[test]
@@ -702,10 +735,11 @@ fn duration_is_populated_for_executed_tests() {
             outcome.case.name
         );
     }
-    // Structured failure fields are present but unset for unstructured
-    // assertion errors.
-    assert!(report.outcomes[1].failure.expected.is_none());
-    assert!(report.outcomes[1].failure.actual.is_none());
+    // The keyword `assert false` records structured failure detail.
+    let failure = &report.outcomes[1].failure;
+    assert_eq!(failure.assertion.as_deref(), Some("assert"));
+    assert_eq!(failure.expected.as_deref(), Some("truthy value"));
+    assert_eq!(failure.actual.as_deref(), Some("false"));
 }
 
 #[test]
@@ -716,7 +750,7 @@ fn structured_failure_detail_for_assert_equal() {
     assert_eq!(report.failed(), 1);
 
     let failure = &report.outcomes[0].failure;
-    assert_eq!(failure.assertion.as_deref(), Some("assert.equal"));
+    assert_eq!(failure.assertion.as_deref(), Some("assert"));
     assert_eq!(failure.actual.as_deref(), Some("1"));
     assert_eq!(failure.expected.as_deref(), Some("2"));
 }
@@ -782,4 +816,65 @@ fn reporters_via_trait_match_legacy_formatters() {
         serde_json::from_str(&JsonReporter.format(&report, &summary)).unwrap();
     assert!(parsed["tests"][0]["duration_ms"].is_number());
     assert!(parsed["summary"]["duration_ms"].is_number());
+}
+
+// ---------------------------------------------------------------------------
+// Tag filtering (ADR-0089 §"Tags")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn discover_tagged_tests() {
+    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    assert_eq!(plan.tests.len(), 3);
+    assert!(plan.tests.iter().any(|t| t.name == "tagged_slow" && t.tags == vec!["slow", "net", "flaky"]));
+    assert!(plan.tests.iter().any(|t| t.name == "tagged_fast" && t.tags.is_empty()));
+    assert!(plan.tests.iter().any(|t| t.name == "tagged_net" && t.tags == vec!["net"]));
+}
+
+#[test]
+fn tag_filter_selects_matching_tests() {
+    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    let predicate = filter_predicate("").and(tag_predicate("slow"));
+    let report = run_selected(&plan, &predicate, &SchedulePolicy::sequential());
+    assert_eq!(report.total(), 3);
+    assert_eq!(report.passed(), 1);
+    assert_eq!(report.skipped(), 2);
+}
+
+#[test]
+fn tag_filter_composes_with_name_filter() {
+    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    let predicate = filter_predicate("*_net").and(tag_predicate("net"));
+    let report = run_selected(&plan, &predicate, &SchedulePolicy::sequential());
+    assert_eq!(report.total(), 3);
+    assert_eq!(report.passed(), 1);
+    assert_eq!(report.skipped(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Disk-persisted cache (ADR-0089 §"Cache domains")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_run_cache_save_and_load_round_trip() {
+    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let mut config = RunConfig::new().with_cache(TestRunCache::new());
+    run_with_config(&plan, &mut config);
+
+    let cache = config.cache.unwrap();
+    assert!(!cache.is_empty());
+
+    let tmp = std::env::temp_dir().join(format!(
+        "handl-test-cache-{}",
+        std::process::id()
+    ));
+    if tmp.exists() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    cache.save(&tmp).unwrap();
+
+    let loaded = TestRunCache::load(&tmp).unwrap();
+    assert_eq!(loaded.len(), cache.len());
+
+    let _ = std::fs::remove_file(&tmp);
 }

@@ -37,16 +37,6 @@ pub(crate) fn require_integer(value: &Value) -> Result<i64, EvalError> {
     Ok(n as i64)
 }
 
-pub(crate) fn require_bool(value: &Value) -> Result<bool, EvalError> {
-    value.as_bool().ok_or_else(|| {
-        TestError::TypeMismatch {
-            expected: "boolean",
-            got: type_name(value),
-        }
-        .into()
-    })
-}
-
 pub(crate) fn require_string(value: &Value) -> Result<&str, EvalError> {
     value.as_str().ok_or_else(|| {
         TestError::TypeMismatch {

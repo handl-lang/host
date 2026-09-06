@@ -272,7 +272,7 @@ impl Pev {
             },
         }
     }
-/// Partially evaluate an expression, applying the array-recursion rewrite
+    /// Partially evaluate an expression, applying the array-recursion rewrite
     /// rules (the definitions of `append`, `map`, and `length`) until no more
     /// progress can be made or the budget is exhausted.
     ///
@@ -283,7 +283,8 @@ impl Pev {
     /// genuinely symbolic arrays (e.g. `length(rest)` where `rest` is a free
     /// variable) are left stuck for the caller to extract as atoms.
     pub fn reduce(&mut self, e: &Arr) -> Result<Arr, String> {
-        self.tick().ok_or_else(|| "termination guard: budget exhausted".to_string())?;
+        self.tick()
+            .ok_or_else(|| "termination guard: budget exhausted".to_string())?;
         match e {
             Arr::Var(_) | Arr::Empty | Arr::Num(_) | Arr::Bool(_) => Ok(e.clone()),
 
@@ -363,7 +364,8 @@ impl Pev {
     /// Returns `Err(reason)` if the expression is not normalizable to a sum
     /// (the source of [`Blocked`](Verdict::Blocked)).
     pub fn to_sum(&mut self, e: &Arr) -> Result<Sum, String> {
-        self.tick().ok_or_else(|| "termination guard: budget exhausted".to_string())?;
+        self.tick()
+            .ok_or_else(|| "termination guard: budget exhausted".to_string())?;
         let r = self.reduce(e)?;
         match r {
             Arr::Num(n) => Ok(add_atom(Sum::new(), "#", n)),
@@ -386,9 +388,10 @@ impl Pev {
             Arr::Rec { .. } => Err("array.rec region used as a number".to_string()),
         }
     }
-/// Convert a reduced array expression into length-atom summands.
+    /// Convert a reduced array expression into length-atom summands.
     fn len_sum(&mut self, a: &Arr) -> Result<Sum, String> {
-        self.tick().ok_or_else(|| "termination guard: budget exhausted".to_string())?;
+        self.tick()
+            .ok_or_else(|| "termination guard: budget exhausted".to_string())?;
         let a = self.reduce(a)?;
         match &a {
             // |[]| = 0
@@ -407,7 +410,8 @@ impl Pev {
     /// Check an equality by normalization, optionally applying an induction
     /// hypothesis as a rewrite.
     fn check(&mut self, lhs: &Arr, rhs: &Arr, ih: Option<&Arr>) -> Result<Verdict, String> {
-        self.tick().ok_or_else(|| "termination guard: budget exhausted".to_string())?;
+        self.tick()
+            .ok_or_else(|| "termination guard: budget exhausted".to_string())?;
         let l = self.to_sum(lhs)?;
         let r = self.to_sum(rhs)?;
         if l == r {
@@ -429,7 +433,8 @@ impl Pev {
     /// rule `atom_key -> replacement_sum`, when the hypothesis has the shape
     /// of a single length atom (e.g. `|append(rest, b)| == |rest| + |b|`).
     fn ih_rewrite(&mut self, ih: &Arr) -> Result<Option<(String, Sum)>, String> {
-        self.tick().ok_or_else(|| "termination guard: budget exhausted".to_string())?;
+        self.tick()
+            .ok_or_else(|| "termination guard: budget exhausted".to_string())?;
         let ir = self.reduce(ih)?;
         // The IH must be an equality; otherwise there is nothing to derive
         // (an honest "no rewrite available", not a failure).
@@ -439,10 +444,8 @@ impl Pev {
         let il = self.to_sum(&il)?;
         // The IH's left side must be exactly one length atom (no constant,
         // no mixture) so we can use it as a targeted rewrite.
-        let non_const: Vec<(&String, &i64)> = il
-            .iter()
-            .filter(|(k, _)| k.as_str() != "#")
-            .collect();
+        let non_const: Vec<(&String, &i64)> =
+            il.iter().filter(|(k, _)| k.as_str() != "#").collect();
         if non_const.len() != 1 {
             return Ok(None);
         }
@@ -604,22 +607,26 @@ pub fn prove_array_rec(spec: &ArrayRecSpec, budget: u32) -> Proof {
         pev.subst(&spec.lhs, &spec.scrutinee, &rest),
         pev.subst(&spec.rhs, &spec.scrutinee, &rest),
     );
-    let step_lhs = pev.subst(&spec.lhs, &spec.scrutinee, &Arr::cons(x.clone(), rest.clone()));
+    let step_lhs = pev.subst(
+        &spec.lhs,
+        &spec.scrutinee,
+        &Arr::cons(x.clone(), rest.clone()),
+    );
     let step_rhs = pev.subst(&spec.rhs, &spec.scrutinee, &Arr::cons(x, rest));
     let step = check_proposition(&step_lhs, &step_rhs, spec.step, Some(&ih), pev.budget);
     if step.verdict == Verdict::Disproved {
         return Proof::no(format!("step case refuted: {}", step.reason));
     }
     if step.verdict == Verdict::Blocked {
-        return Proof::blocked(format!("step case could not be normalized: {}", step.reason));
+        return Proof::blocked(format!(
+            "step case could not be normalized: {}",
+            step.reason
+        ));
     }
 
     Proof::ok(format!(
         "array.rec base ({}) proven by {}; step (x :: rest) proven by {} with ih == {}",
-        spec.scrutinee,
-        spec.base,
-        spec.step,
-        ih
+        spec.scrutinee, spec.base, spec.step, ih
     ))
 }
 // ============================================================================
@@ -689,7 +696,11 @@ mod tests {
         // Without the IH, by_eval cannot close the step -> disproved.
         let by_eval = check_proposition(&lhs, &rhs, Directive::ByEval, None, 1000);
         let by_norm = check_proposition(&lhs, &rhs, Directive::ByNorm, Some(&ih), 1000);
-        assert_eq!(by_eval.verdict, Verdict::Disproved, "by_eval should be too weak");
+        assert_eq!(
+            by_eval.verdict,
+            Verdict::Disproved,
+            "by_eval should be too weak"
+        );
         assert_eq!(by_norm.verdict, Verdict::Proven, "{}", by_norm.reason);
     }
 
@@ -703,7 +714,13 @@ mod tests {
     fn test_non_normalizable_blocks_not_crashes() {
         // A boolean in numeric position must yield Blocked (err -> Blocked),
         // never a panic.
-        let p = check_proposition(&Arr::Bool(true), &Arr::num(1), Directive::ByEval, None, 1000);
+        let p = check_proposition(
+            &Arr::Bool(true),
+            &Arr::num(1),
+            Directive::ByEval,
+            None,
+            1000,
+        );
         assert_eq!(p.verdict, Verdict::Blocked, "{}", p.reason);
     }
 

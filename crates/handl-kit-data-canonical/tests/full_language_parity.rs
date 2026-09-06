@@ -167,6 +167,7 @@ fn language_has_token_kinds_for_all_major_tokens() {
     let token_ids: &[&str] = &[
         // Operators.
         "token.arrow",
+        "token.bind",
         "token.equal",
         "token.plus",
         "token.minus",

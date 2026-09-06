@@ -1,6 +1,4 @@
-use crate::refinement::{
-    find_arrows_root, format_refinement_summary, RefinementEngine,
-};
+use crate::refinement::{RefinementEngine, find_arrows_root, format_refinement_summary};
 
 const INSERT_HNL: &str = r#"
 -- insert: insert an element into a sorted list, maintaining sorted order.
@@ -11,18 +9,21 @@ rec {
   state ~> match state.acc {
     []: return [state.elem],
 
-    [h, ...t]:
-      cmp = prim.compare(state.elem, h) in
+    [h, ...t]: {
+      cmp = prim.compare(state.elem, h)
       if cmp <= 0
         { out: [state.elem, ...state.acc] }
       else
-        rest_inserted = insert({ elem: state.elem, acc: t }) in
         {
-          state: {
-            elem: state.elem,
-            acc:  [h, ...rest_inserted]
+          rest_inserted = insert({ elem: state.elem, acc: t })
+          {
+            state: {
+              elem: state.elem,
+              acc:  [h, ...rest_inserted]
+            }
           }
         }
+    }
   }
 )
 "#;
@@ -64,11 +65,7 @@ fn hover_markdown_for_arrow_file_contains_refinement_header() {
     let md = engine
         .hover_markdown(SIMPLE_COMP, None)
         .expect("hover markdown for arrow file");
-    assert!(
-        md.contains("Inferred Contract"),
-        "missing header: {}",
-        md
-    );
+    assert!(md.contains("Inferred Contract"), "missing header: {}", md);
     assert!(md.contains("Guarantee"), "missing guarantee: {}", md);
 }
 
@@ -131,10 +128,7 @@ fn find_arrows_root_returns_none_for_non_arrows_path() {
 #[test]
 fn format_refinement_summary_contains_guarantee_and_termination() {
     let engine = RefinementEngine::new();
-    let result = engine
-        .infer_document(SIMPLE_COMP, None)
-        .unwrap()
-        .unwrap();
+    let result = engine.infer_document(SIMPLE_COMP, None).unwrap().unwrap();
     let summary = format_refinement_summary(&result);
     assert!(summary.starts_with("guarantee:"));
     assert!(summary.contains("terminates"));
@@ -144,7 +138,10 @@ fn format_refinement_summary_contains_guarantee_and_termination() {
 fn rich_loop_insert_file_parses_and_infers() {
     let engine = RefinementEngine::new();
     let result = engine.infer_document(INSERT_HNL, None);
-    assert!(result.is_some(), "rich loop syntax should parse as arrow file");
+    assert!(
+        result.is_some(),
+        "rich loop syntax should parse as arrow file"
+    );
     // Inference may succeed or fail depending on registry coverage, but it
     // should at least parse and attempt inference.
 }

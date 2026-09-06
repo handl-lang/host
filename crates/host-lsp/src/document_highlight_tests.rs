@@ -6,7 +6,11 @@ fn document_highlight_finds_all_occurrences() {
     let source = "x = 42; y = x";
     let offset = source.find('x').unwrap();
     let result = document_highlight(source, offset).expect("should find highlights");
-    assert_eq!(result.len(), 2, "expected 2 occurrences of x, got {result:?}");
+    assert_eq!(
+        result.len(),
+        2,
+        "expected 2 occurrences of x, got {result:?}"
+    );
 }
 
 #[test]
@@ -19,7 +23,11 @@ fn document_highlight_marks_declaration_as_write() {
         .iter()
         .find(|h| h["range"]["start"]["character"].as_u64() == Some(0))
         .expect("should have a highlight at character 0");
-    assert_eq!(decl["kind"].as_u64(), Some(2), "declaration should be Write (2)");
+    assert_eq!(
+        decl["kind"].as_u64(),
+        Some(2),
+        "declaration should be Write (2)"
+    );
 }
 
 #[test]
@@ -29,10 +37,7 @@ fn document_highlight_marks_usage_as_read() {
     let usage_offset = source.rfind('x').unwrap();
     let result = document_highlight(source, usage_offset).expect("should find highlights");
     // Find the highlight whose start character matches the usage offset.
-    let (start_line, start_char) = (
-        0u64,
-        usage_offset as u64,
-    );
+    let (start_line, start_char) = (0u64, usage_offset as u64);
     let usage = result
         .iter()
         .find(|h| {
@@ -70,7 +75,11 @@ fn document_highlight_no_matches_returns_empty() {
     let offset = source.find('z').unwrap();
     let result = document_highlight(source, offset).expect("should resolve identifier");
     // Only one occurrence exists, so no other matches to highlight.
-    assert_eq!(result.len(), 1, "single occurrence yields one highlight: {result:?}");
+    assert_eq!(
+        result.len(),
+        1,
+        "single occurrence yields one highlight: {result:?}"
+    );
 }
 
 #[test]
@@ -80,7 +89,10 @@ fn document_highlight_returns_valid_json() {
     let result = document_highlight(source, offset).expect("should find highlights");
     assert!(!result.is_empty(), "should have highlights");
     for h in &result {
-        assert!(h.get("range").is_some(), "each highlight must have a range: {h:?}");
+        assert!(
+            h.get("range").is_some(),
+            "each highlight must have a range: {h:?}"
+        );
         assert!(
             h["range"].get("start").is_some() && h["range"].get("end").is_some(),
             "range must have start and end: {h:?}"
@@ -91,8 +103,7 @@ fn document_highlight_returns_valid_json() {
             "start must have line and character: {h:?}"
         );
         assert!(
-            h["range"]["end"].get("line").is_some()
-                && h["range"]["end"].get("character").is_some(),
+            h["range"]["end"].get("line").is_some() && h["range"]["end"].get("character").is_some(),
             "end must have line and character: {h:?}"
         );
         let kind = h["kind"].as_u64();

@@ -21,12 +21,12 @@ rec {
     []: return [state.elem],
 
     [h, ...t]: {
-      cmp = prim.compare(state.elem, h)
+      cmp :: prim.compare(state.elem, h)
       if cmp <= 0
         { out: [state.elem, ...state.acc] }
       else
         {
-          rest_inserted = insert({ elem: state.elem, acc: t })
+          rest_inserted :: insert({ elem: state.elem, acc: t })
           {
             state: {
               elem: state.elem,

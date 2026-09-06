@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::color_provider::{document_colors, color_presentations};
+use super::color_provider::{color_presentations, document_colors};
 
 #[test]
 fn document_colors_finds_hex_6_digit() {

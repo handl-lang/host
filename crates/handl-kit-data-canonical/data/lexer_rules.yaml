@@ -47,14 +47,7 @@
   token_kind: token.comment
   pattern: !Delimited
     open: --
-    close: |2+
-
-
-
-
-
-
-
+    close: "\n"
     escape: false
     interpolation: false
     close_at_eof: true
@@ -63,14 +56,7 @@
   token_kind: token.doc_comment
   pattern: !Delimited
     open: ---
-    close: |2+
-
-
-
-
-
-
-
+    close: "\n"
     escape: false
     interpolation: false
     close_at_eof: true
@@ -86,7 +72,9 @@
     text: "..."
   priority: 10
 - id: lex.eqeq
-  token_kind: token.eqeq
+  # `==` still lexes to the equality token (`token.equal`) for backward
+  # compatibility; the single `=` is now also equality (`token.equal`).
+  token_kind: token.equal
   pattern: !Literal
     text: ==
   priority: 10
@@ -94,6 +82,13 @@
   token_kind: token.equal
   pattern: !Literal
     text: =
+  priority: 20
+- id: lex.bind
+  # `::` is the binding token (was `=`). Priority 20 (< lex.colon's 30) so the
+  # two-character `::` win over the single `:` (longest match within priority).
+  token_kind: token.bind
+  pattern: !Literal
+    text: "::"
   priority: 20
 - id: lex.fanout
   token_kind: token.fanout

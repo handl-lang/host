@@ -6,9 +6,7 @@ use serde_json::json;
 
 use crate::framework::function_value::FunctionValue;
 use crate::framework::test_helpers::{ErrorEval, TrueEval};
-use crate::framework::{
-    AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
-};
+use crate::framework::{BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule};
 
 fn ctx() -> EvalContext {
     let mut context = EvalContext::new();
@@ -69,47 +67,6 @@ fn call_err(
         .call(args, context)
 }
 
-#[test]
-fn assert_equal_passes_for_same_value() {
-    let result = call(&AssertModule, "equal", &[n(3.0), n(3.0)]);
-    assert_eq!(result, b(true));
-}
-
-#[test]
-fn assert_equal_fails_for_different_value() {
-    assert!(call_err(&AssertModule, "equal", &[n(3.0), n(4.0)], &mut ctx()).is_err());
-}
-
-#[test]
-fn assert_not_equal_passes_for_different_value() {
-    let result = call(&AssertModule, "not_equal", &[n(3.0), n(4.0)]);
-    assert_eq!(result, b(true));
-}
-
-#[test]
-fn assert_true_passes_for_true() {
-    let result = call(&AssertModule, "true", &[b(true)]);
-    assert_eq!(result, b(true));
-}
-
-#[test]
-fn assert_false_passes_for_false() {
-    let result = call(&AssertModule, "false", &[b(false)]);
-    assert_eq!(result, b(true));
-}
-
-#[test]
-fn assert_contains_finds_substring() {
-    let result = call(&AssertModule, "contains", &[s("hello world"), s("world")]);
-    assert_eq!(result, b(true));
-}
-
-#[test]
-fn assert_throws_passes_when_function_errors() {
-    let func = fn_value("error", &[]);
-    let result = call_err(&AssertModule, "throws", &[func], &mut err_ctx());
-    assert_eq!(result.unwrap(), b(true));
-}
 
 #[test]
 fn test_run_reports_passing_cases() {

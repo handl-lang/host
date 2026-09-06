@@ -140,7 +140,12 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     /// Create a new diagnostic with no fix.
-    pub fn new(rule: &'static str, severity: Severity, span: Span, message: impl Into<String>) -> Self {
+    pub fn new(
+        rule: &'static str,
+        severity: Severity,
+        span: Span,
+        message: impl Into<String>,
+    ) -> Self {
         Diagnostic {
             rule,
             severity,
@@ -170,7 +175,11 @@ pub enum FixError {
     },
     /// A fix span is out of bounds for the source.
     #[error("fix span {start}..{end} out of bounds for source of length {len}")]
-    OutOfBounds { start: usize, end: usize, len: usize },
+    OutOfBounds {
+        start: usize,
+        end: usize,
+        len: usize,
+    },
     /// The fixpoint loop did not converge within the iteration budget.
     #[error("fixpoint did not converge within {max_iterations} iterations")]
     NotConverged { max_iterations: usize },
@@ -275,7 +284,7 @@ pub fn apply_fixes_to_fixpoint(
 
 #[cfg(feature = "lang-span")]
 mod lang_span {
-    use super::{compute_line_col, Span};
+    use super::{Span, compute_line_col};
 
     impl Span {
         /// Construct a span from a `handl_language::Span` (byte offsets only),
@@ -409,7 +418,12 @@ mod tests {
     #[test]
     fn diagnostic_new_and_with_fix() {
         let s = Span::default();
-        let d = Diagnostic::new("unused-import", Severity::Warning, s, "import never referenced");
+        let d = Diagnostic::new(
+            "unused-import",
+            Severity::Warning,
+            s,
+            "import never referenced",
+        );
         assert_eq!(d.rule, "unused-import");
         assert_eq!(d.severity, Severity::Warning);
         assert_eq!(d.message, "import never referenced");
@@ -427,7 +441,12 @@ mod tests {
     fn render_diagnostic_format() {
         let src = "import x\n";
         let s = span(0, 8, src);
-        let d = Diagnostic::new("unused-import", Severity::Warning, s, "import projection never referenced");
+        let d = Diagnostic::new(
+            "unused-import",
+            Severity::Warning,
+            s,
+            "import projection never referenced",
+        );
         let rendered = render_diagnostic(&d, "src/main.hnl");
         assert_eq!(
             rendered,
@@ -441,7 +460,10 @@ mod tests {
         let d1 = Diagnostic::new("r1", Severity::Error, span(0, 1, src), "first");
         let d2 = Diagnostic::new("r2", Severity::Info, span(3, 4, src), "second");
         let out = render_diagnostics(&[d1, d2], "f.hnl");
-        assert_eq!(out, "f.hnl:1:1: error [r1]: first\nf.hnl:2:1: info [r2]: second");
+        assert_eq!(
+            out,
+            "f.hnl:1:1: error [r1]: first\nf.hnl:2:1: info [r2]: second"
+        );
     }
 
     #[test]
@@ -461,8 +483,14 @@ mod tests {
     #[test]
     fn apply_fixes_non_overlapping_descending() {
         let src = "abcdef";
-        let f1 = Fix { span: span(0, 1, src), replacement: "X".into() };
-        let f2 = Fix { span: span(4, 6, src), replacement: "YZ".into() };
+        let f1 = Fix {
+            span: span(0, 1, src),
+            replacement: "X".into(),
+        };
+        let f2 = Fix {
+            span: span(4, 6, src),
+            replacement: "YZ".into(),
+        };
         let out = apply_fixes(src, &[f1, f2]).unwrap();
         assert_eq!(out, "XbcdYZ");
     }
@@ -476,8 +504,14 @@ mod tests {
     #[test]
     fn apply_fixes_rejects_overlapping() {
         let src = "abcdef";
-        let f1 = Fix { span: span(0, 3, src), replacement: "X".into() };
-        let f2 = Fix { span: span(2, 4, src), replacement: "Y".into() };
+        let f1 = Fix {
+            span: span(0, 3, src),
+            replacement: "X".into(),
+        };
+        let f2 = Fix {
+            span: span(2, 4, src),
+            replacement: "Y".into(),
+        };
         let err = apply_fixes(src, &[f1, f2]).unwrap_err();
         assert!(matches!(err, FixError::Overlapping { .. }));
     }
@@ -485,8 +519,14 @@ mod tests {
     #[test]
     fn apply_fixes_adjacent_not_overlapping() {
         let src = "abcdef";
-        let f1 = Fix { span: span(0, 2, src), replacement: "XY".into() };
-        let f2 = Fix { span: span(2, 4, src), replacement: "ZW".into() };
+        let f1 = Fix {
+            span: span(0, 2, src),
+            replacement: "XY".into(),
+        };
+        let f2 = Fix {
+            span: span(2, 4, src),
+            replacement: "ZW".into(),
+        };
         let out = apply_fixes(src, &[f1, f2]).unwrap();
         assert_eq!(out, "XYZWef");
     }
@@ -494,7 +534,10 @@ mod tests {
     #[test]
     fn apply_fixes_out_of_bounds() {
         let src = "abc";
-        let f = Fix { span: span(1, 10, src), replacement: "X".into() };
+        let f = Fix {
+            span: span(1, 10, src),
+            replacement: "X".into(),
+        };
         let err = apply_fixes(src, &[f]).unwrap_err();
         assert!(matches!(err, FixError::OutOfBounds { .. }));
     }

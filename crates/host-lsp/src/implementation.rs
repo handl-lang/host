@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 
 use crate::kit_resolver::kit_for_file;
-use crate::refinement::{find_arrows_root, RefinementEngine};
+use crate::refinement::{RefinementEngine, find_arrows_root};
 
 /// Return LSP `Location` objects for the arrow files that implement the
 /// axiom/trait at the cursor position.

@@ -280,7 +280,6 @@ pub enum Instr {
     // stack and push the result. Emitted by the compiler for the
     // corresponding `Arr { op, source: Native, .. }` ops. They produce
     // results identical to the `NativeOp` path.
-
     /// Pop two values, push their sum (`add`).
     Add,
     /// Pop two values, push their difference (`sub`).
@@ -305,7 +304,6 @@ pub enum Instr {
     Gte,
 
     // --- Object construction bytecode (hot-path optimization) ---
-
     /// Evaluate the AST node at the given absolute arena index and push the
     /// result.
     ///
@@ -334,7 +332,6 @@ pub enum Instr {
     },
 
     // --- Closure construction bytecode (hot-path optimization) ---
-
     /// Capture the current environment and push a `TaggedValue::Arrow`
     /// representing a closure (`closure` native op).
     ///

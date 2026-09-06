@@ -86,8 +86,7 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
 
     // Locate the kit root. `find_arrows_root` looks for
     // `/handl-packages/<pkg>/` within the path string.
-    let arrows_root: Option<PathBuf> = find_arrows_root(root)
-        .map(PathBuf::from);
+    let arrows_root: Option<PathBuf> = find_arrows_root(root).map(PathBuf::from);
 
     // Locate the contracts directory. It is a child of the kit root
     // (`.../handl-packages/contracts/`).
@@ -134,10 +133,7 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
                 continue;
             }
 
-            let kind = symbol
-                .get("kind")
-                .and_then(|k| k.as_u64())
-                .unwrap_or(13) as u32;
+            let kind = symbol.get("kind").and_then(|k| k.as_u64()).unwrap_or(13) as u32;
 
             let range = range_from_symbol(&symbol);
 

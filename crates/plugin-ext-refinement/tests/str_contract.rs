@@ -47,7 +47,11 @@ fn char_contract_parses_all_axioms() {
     let src = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("failed to read {}: {}", path.display(), e));
     let reg = parse_contracts(&src).expect("char.hnl must parse");
-    assert_eq!(reg.len(), 18, "char contract must declare exactly 18 axioms");
+    assert_eq!(
+        reg.len(),
+        18,
+        "char contract must declare exactly 18 axioms"
+    );
 
     let names: Vec<String> = reg.iter().map(|(n, _, _)| n.clone()).collect();
     for required in [

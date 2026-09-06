@@ -6,7 +6,7 @@
 //! not interfere with rule-specific checks.
 
 use handl_plugin_ext_diag::Severity;
-use handl_plugin_ext_lint::{check_source, fix_source, lint_source, LintError};
+use handl_plugin_ext_lint::{LintError, check_source, fix_source, lint_source};
 
 /// Collect diagnostics whose `rule` matches `name`.
 fn for_rule<'a>(
@@ -18,9 +18,7 @@ fn for_rule<'a>(
 
 /// Whether any diagnostic has the given rule and severity.
 fn has(diags: &[handl_plugin_ext_diag::Diagnostic], name: &str, sev: Severity) -> bool {
-    diags
-        .iter()
-        .any(|d| d.rule == name && d.severity == sev)
+    diags.iter().any(|d| d.rule == name && d.severity == sev)
 }
 
 // ---------------------------------------------------------------------------
@@ -307,10 +305,7 @@ fn fix_source_converges() {
     let src = "-- doc\nimport unused from \"mod\"\nMyFunc = 42\n";
     let fixed = fix_source(src).unwrap();
     let diags = lint_source(&fixed).unwrap();
-    let fixable: Vec<_> = diags
-        .iter()
-        .filter(|d| d.fix.is_some())
-        .collect();
+    let fixable: Vec<_> = diags.iter().filter(|d| d.fix.is_some()).collect();
     assert!(
         fixable.is_empty(),
         "expected no remaining fixable diagnostics, got {:?}",

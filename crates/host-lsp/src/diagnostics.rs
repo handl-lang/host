@@ -133,8 +133,7 @@ fn strip_comments(source: &str) -> String {
                     result.push(' ');
                 }
             }
-        }
-        else {
+        } else {
             result.push(ch);
         }
     }

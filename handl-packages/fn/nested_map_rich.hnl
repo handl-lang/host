@@ -19,7 +19,7 @@ rec {
     []: return state.acc,
 
     [h, ...t]: {
-      mapped = rec {
+      mapped :: rec {
         remaining: h,
         f:         state.f,
         acc:       []
@@ -28,7 +28,7 @@ rec {
           []: return inner_state.acc,
 
           [h2, ...t2]: {
-            y = inner_state.f(h2)
+            y :: inner_state.f(h2)
             {
               state: {
                 remaining: t2,

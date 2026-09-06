@@ -505,7 +505,12 @@ impl Contract {
     ///
     /// This is the common case and is backward compatible with the original
     /// 4-field `Contract` construction.
-    pub fn new(input: RefTy, output: RefTy, guarantee: Pred, termination_effect: Option<String>) -> Self {
+    pub fn new(
+        input: RefTy,
+        output: RefTy,
+        guarantee: Pred,
+        termination_effect: Option<String>,
+    ) -> Self {
         Self {
             input,
             output,
@@ -565,7 +570,10 @@ impl Measure {
                 format!("ListLength({}) -- |{}| decreases by 1 each iteration", v, v)
             }
             Measure::Counter(v, d) => {
-                format!("Counter({}, -{}) -- {} decreases by {} each iteration", v, d, v, d)
+                format!(
+                    "Counter({}, -{}) -- {} decreases by {} each iteration",
+                    v, d, v, d
+                )
             }
             Measure::Constant => "Constant (C unchanged)".to_string(),
             Measure::Nested(inner) => format!("Nested({})", inner.pretty()),

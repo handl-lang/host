@@ -37,10 +37,7 @@ fn arith_lang() -> Language {
     let mut lang = Language::new();
     // Token kinds
     lang.tokens
-        .merge(
-            handl_language::TokenKindDef::new("token.number")
-                .with_literal(LiteralKind::Number),
-        )
+        .merge(handl_language::TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
         .unwrap();
     lang.tokens
         .merge(handl_language::TokenKindDef::new("token.plus"))
@@ -88,20 +85,26 @@ fn arith_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::arr_native("add", vec![
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-            ]),
+            Scheme::arr_native(
+                "add",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            ),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.mul",
             "binary.mul",
-            Scheme::arr_native("mul", vec![
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-            ]),
+            Scheme::arr_native(
+                "mul",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            ),
         ))
         .unwrap();
 

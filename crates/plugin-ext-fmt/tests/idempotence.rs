@@ -24,8 +24,8 @@ fn find_hnl_files(dir: &PathBuf, out: &mut Vec<PathBuf>) {
 
 #[test]
 fn idempotence_over_repo_examples() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../research/arrow-calculus-kernel-poc");
+    let root =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../research/arrow-calculus-kernel-poc");
     let mut files = Vec::new();
     find_hnl_files(&root, &mut files);
     assert!(
@@ -48,13 +48,11 @@ fn idempotence_over_repo_examples() {
         };
         let twice = match format_source(&once) {
             Ok(s) => s,
-            Err(e) => panic!(
-                "second format_source failed for {}: {e}",
-                file.display()
-            ),
+            Err(e) => panic!("second format_source failed for {}: {e}", file.display()),
         };
         assert_eq!(
-            once, twice,
+            once,
+            twice,
             "idempotence violated for {}:\n--- once ---\n{once}\n--- twice ---\n{twice}",
             file.display()
         );

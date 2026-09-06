@@ -1022,7 +1022,11 @@ mod tests {
         let c = proc_corpus();
         assert!(!c.is_empty(), "arrow corpus should have at least one case");
         for case in &c {
-            assert!(!case.ast.is_empty(), "arrow case '{}' has empty ast", case.name);
+            assert!(
+                !case.ast.is_empty(),
+                "arrow case '{}' has empty ast",
+                case.name
+            );
         }
     }
 }

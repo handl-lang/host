@@ -23,18 +23,21 @@ rec {
   state ~> match state.acc {
     []: return [state.elem],
 
-    [h, ...t]:
-      cmp = prim.compare(state.elem, h) in
+    [h, ...t]: {
+      cmp = prim.compare(state.elem, h)
       if cmp <= 0
         { out: [state.elem, ...state.acc] }
       else
-        rest_inserted = insert({ elem: state.elem, acc: t }) in
         {
-          state: {
-            elem: state.elem,
-            acc:  [h, ...rest_inserted]
+          rest_inserted = insert({ elem: state.elem, acc: t })
+          {
+            state: {
+              elem: state.elem,
+              acc:  [h, ...rest_inserted]
+            }
           }
         }
+    }
   }
 )
 "#;

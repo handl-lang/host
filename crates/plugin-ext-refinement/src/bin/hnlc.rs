@@ -23,12 +23,12 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use handl_plugin_ext_refinement::{
-    contains_module_ref, contains_project, flatten_program, has_unresolved_apps,
-    normalize_compile_time, ContractRegistry, FileResolver, ModuleLoader, RefinementResult,
-    infer_refinement,
-};
 use handl_language::Scheme;
+use handl_plugin_ext_refinement::{
+    ContractRegistry, FileResolver, ModuleLoader, RefinementResult, contains_module_ref,
+    contains_project, flatten_program, has_unresolved_apps, infer_refinement,
+    normalize_compile_time,
+};
 
 /// CLI configuration parsed from argv.
 struct Config {
@@ -52,7 +52,10 @@ impl std::str::FromStr for Strategy {
         match s.to_ascii_lowercase().as_str() {
             "a" => Ok(Strategy::A),
             "b" => Ok(Strategy::B),
-            other => Err(format!("unknown strategy '{}' (expected 'a' or 'b')", other)),
+            other => Err(format!(
+                "unknown strategy '{}' (expected 'a' or 'b')",
+                other
+            )),
         }
     }
 }
@@ -93,9 +96,7 @@ fn parse_args() -> Config {
                 std::process::exit(0);
             }
             "--strategy" => {
-                let val = args
-                    .next()
-                    .unwrap_or_else(|| missing_value("--strategy"));
+                let val = args.next().unwrap_or_else(|| missing_value("--strategy"));
                 strategy = val.parse().unwrap_or_else(|e| {
                     eprintln!("error: {}", e);
                     std::process::exit(1);
@@ -173,7 +174,12 @@ fn pretty_scheme(scheme: &Scheme) -> String {
 fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
     let indent = "  ".repeat(depth);
     match scheme {
-        Scheme::Arr { op, args, source, lit } => {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } => {
             let lit_str = lit
                 .as_ref()
                 .map(|v| format!(" lit={}", v))
@@ -181,7 +187,13 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             if args.is_empty() {
                 format!("{}arr({}{}){}", indent, op, lit_str, source_tag(source))
             } else {
-                let mut out = format!("{}arr({}{}){} {{\n", indent, op, lit_str, source_tag(source));
+                let mut out = format!(
+                    "{}arr({}{}){} {{\n",
+                    indent,
+                    op,
+                    lit_str,
+                    source_tag(source)
+                );
                 for a in args {
                     out.push_str(&pretty_scheme_inner(a, depth + 1));
                     out.push('\n');
@@ -239,7 +251,11 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::Handle { body, target, impl_ } => {
+        Scheme::Handle {
+            body,
+            target,
+            impl_,
+        } => {
             let mut out = format!("{}handle({}) {{\n", indent, target);
             out.push_str(&pretty_scheme_inner(body, depth + 1));
             out.push('\n');

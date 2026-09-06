@@ -224,7 +224,8 @@ fn classify_token(kind: &str) -> TokenCat {
         "token.dot" => TokenCat::Dot,
         "token.comment" | "token.doc_comment" => TokenCat::Comment,
         // Binary operators (ADR-0074 precedence table).
-        "token.equal"
+        "token.bind"
+        | "token.equal"
         | "token.arrow"
         | "token.flow"
         | "token.plus"
@@ -524,18 +525,13 @@ fn decl_type(line: &str) -> Option<DeclType> {
     {
         return Some(DeclType::Export);
     }
-    // Binding: `identifier =` at the start of the line (indent 0).
+    // Binding: `identifier ::` at the start of the line (indent 0).
     if !line.starts_with(' ') && !line.starts_with('\t') {
-        if let Some(eq_pos) = trimmed.find('=') {
-            // Ensure it's a single `=`, not `==` or `=>`.
-            if trimmed[eq_pos..].starts_with('=')
-                && !trimmed[eq_pos + 1..].starts_with('=')
-            {
-                let name = trimmed[..eq_pos].trim();
-                // The name must be a simple identifier (all word chars).
-                if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                    return Some(DeclType::Binding);
-                }
+        if let Some(bind_pos) = trimmed.find("::") {
+            let name = trimmed[..bind_pos].trim();
+            // The name must be a simple identifier (all word chars).
+            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Some(DeclType::Binding);
             }
         }
     }
@@ -583,14 +579,14 @@ mod tests {
 
     #[test]
     fn format_simple_binding() {
-        let result = format_source("double = x ~> x * 2\n").unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n");
+        let result = format_source("double :: x ~> x * 2\n").unwrap();
+        assert_eq!(result, "double :: x ~> x * 2\n");
     }
 
     #[test]
     fn format_binding_no_trailing_newline() {
-        let result = format_source("double = x ~> x * 2").unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n");
+        let result = format_source("double :: x ~> x * 2").unwrap();
+        assert_eq!(result, "double :: x ~> x * 2\n");
     }
 
     #[test]
@@ -607,41 +603,41 @@ mod tests {
 
     #[test]
     fn format_composition() {
-        let result = format_source("main = map(double) >>> filter(is_even) >>> sort\n").unwrap();
+        let result = format_source("main :: map(double) >>> filter(is_even) >>> sort\n").unwrap();
         assert_eq!(
             result,
-            "main = map(double) >>> filter(is_even) >>> sort\n"
+            "main :: map(double) >>> filter(is_even) >>> sort\n"
         );
     }
 
     #[test]
     fn format_loop() {
-        let result = format_source("sort = loop(insert >>> first(id))\n").unwrap();
-        assert_eq!(result, "sort = loop(insert >>> first(id))\n");
+        let result = format_source("sort :: loop(insert >>> first(id))\n").unwrap();
+        assert_eq!(result, "sort :: loop(insert >>> first(id))\n");
     }
 
     #[test]
     fn format_list() {
-        let result = format_source("main = [1, 2, 3]\n").unwrap();
-        assert_eq!(result, "main = [1, 2, 3]\n");
+        let result = format_source("main :: [1, 2, 3]\n").unwrap();
+        assert_eq!(result, "main :: [1, 2, 3]\n");
     }
 
     #[test]
     fn format_record() {
-        let result = format_source("main = { key: value, other: 2 }\n").unwrap();
-        assert_eq!(result, "main = { key: value, other: 2 }\n");
+        let result = format_source("main :: { key: value, other: 2 }\n").unwrap();
+        assert_eq!(result, "main :: { key: value, other: 2 }\n");
     }
 
     #[test]
     fn format_if_expr() {
-        let result = format_source("main = if x { y } else { z }\n").unwrap();
-        assert_eq!(result, "main = if x { y } else { z }\n");
+        let result = format_source("main :: if x { y } else { z }\n").unwrap();
+        assert_eq!(result, "main :: if x { y } else { z }\n");
     }
 
     #[test]
     fn format_field_access() {
-        let result = format_source("main = c.sort\n").unwrap();
-        assert_eq!(result, "main = c.sort\n");
+        let result = format_source("main :: c.sort\n").unwrap();
+        assert_eq!(result, "main :: c.sort\n");
     }
 
     #[test]
@@ -660,91 +656,91 @@ mod tests {
 
     #[test]
     fn removes_trailing_whitespace() {
-        let result = format_source("double = x ~> x * 2   \n").unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n");
+        let result = format_source("double :: x ~> x * 2   \n").unwrap();
+        assert_eq!(result, "double :: x ~> x * 2\n");
     }
 
     #[test]
     fn collapses_multiple_blank_lines() {
-        let src = "import sort from \"c\"\n\n\n\nmain = sort([1])\n";
+        let src = "import sort from \"c\"\n\n\n\nmain :: sort([1])\n";
         let result = format_source(src).unwrap();
-        assert_eq!(result, "import sort from \"c\"\n\nmain = sort([1])\n");
+        assert_eq!(result, "import sort from \"c\"\n\nmain :: sort([1])\n");
     }
 
     #[test]
     fn enforces_single_trailing_newline() {
-        let src = "double = x ~> x * 2\n\n\n";
+        let src = "double :: x ~> x * 2\n\n\n";
         let result = format_source(src).unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n");
+        assert_eq!(result, "double :: x ~> x * 2\n");
     }
 
     #[test]
     fn adds_blank_line_between_imports_and_binding() {
-        let src = "import sort from \"c\"\nmain = sort([1])\n";
+        let src = "import sort from \"c\"\nmain :: sort([1])\n";
         let result = format_source(src).unwrap();
-        assert_eq!(result, "import sort from \"c\"\n\nmain = sort([1])\n");
+        assert_eq!(result, "import sort from \"c\"\n\nmain :: sort([1])\n");
     }
 
     #[test]
     fn no_blank_line_between_consecutive_imports() {
-        let src = "import sort from \"c\"\nimport map from \"c\"\n\nmain = sort([1])\n";
+        let src = "import sort from \"c\"\nimport map from \"c\"\n\nmain :: sort([1])\n";
         let result = format_source(src).unwrap();
         assert_eq!(
             result,
-            "import sort from \"c\"\nimport map from \"c\"\n\nmain = sort([1])\n"
+            "import sort from \"c\"\nimport map from \"c\"\n\nmain :: sort([1])\n"
         );
     }
 
     #[test]
     fn adds_blank_line_between_bindings() {
-        let src = "double = x ~> x * 2\ntriple = x ~> x * 3\n";
+        let src = "double :: x ~> x * 2\ntriple :: x ~> x * 3\n";
         let result = format_source(src).unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n\ntriple = x ~> x * 3\n");
+        assert_eq!(result, "double :: x ~> x * 2\n\ntriple :: x ~> x * 3\n");
     }
 
     #[test]
     fn comment_preserved() {
-        let src = "-- double: multiply the input by two.\ndouble = x ~> x * 2\n";
+        let src = "-- double: multiply the input by two.\ndouble :: x ~> x * 2\n";
         let result = format_source(src).unwrap();
         assert_eq!(
             result,
-            "-- double: multiply the input by two.\ndouble = x ~> x * 2\n"
+            "-- double: multiply the input by two.\ndouble :: x ~> x * 2\n"
         );
     }
 
     #[test]
     fn comment_with_blank_line_to_binding() {
-        let src = "-- comment\nimport sort from \"c\"\n\nmain = sort([1])\n";
+        let src = "-- comment\nimport sort from \"c\"\n\nmain :: sort([1])\n";
         let result = format_source(src).unwrap();
         assert_eq!(
             result,
-            "-- comment\nimport sort from \"c\"\n\nmain = sort([1])\n"
+            "-- comment\nimport sort from \"c\"\n\nmain :: sort([1])\n"
         );
     }
 
     #[test]
     fn fixes_extra_spaces_around_operator() {
-        let result = format_source("double =  x  ~>  x  *  2\n").unwrap();
-        assert_eq!(result, "double = x ~> x * 2\n");
+        let result = format_source("double ::  x  ~>  x  *  2\n").unwrap();
+        assert_eq!(result, "double :: x ~> x * 2\n");
     }
 
     #[test]
     fn removes_space_inside_brackets() {
-        let result = format_source("main = [ 1, 2, 3 ]\n").unwrap();
-        assert_eq!(result, "main = [1, 2, 3]\n");
+        let result = format_source("main :: [ 1, 2, 3 ]\n").unwrap();
+        assert_eq!(result, "main :: [1, 2, 3]\n");
     }
 
     #[test]
     fn removes_space_inside_parens() {
-        let result = format_source("main = sort( [3, 1, 2] )\n").unwrap();
-        assert_eq!(result, "main = sort([3, 1, 2])\n");
+        let result = format_source("main :: sort( [3, 1, 2] )\n").unwrap();
+        assert_eq!(result, "main :: sort([3, 1, 2])\n");
     }
 
     // --- Idempotence tests ---
 
     #[test]
     fn idempotent_simple_binding() {
-        let src = "double = x ~> x * 2\n";
+        let src = "double :: x ~> x * 2\n";
         let once = format_source(src).unwrap();
         let twice = format_source(&once).unwrap();
         assert_eq!(once, twice);
@@ -752,7 +748,7 @@ mod tests {
 
     #[test]
     fn idempotent_module() {
-        let src = "-- comment\nimport sort from \"c\"\nimport map from \"c\"\n\nmain = sort([1])\nother = map >>> sort\n";
+        let src = "-- comment\nimport sort from \"c\"\nimport map from \"c\"\n\nmain :: sort([1])\nother :: map >>> sort\n";
         let once = format_source(src).unwrap();
         let twice = format_source(&once).unwrap();
         assert_eq!(once, twice);
@@ -760,7 +756,7 @@ mod tests {
 
     #[test]
     fn idempotent_non_canonical_input() {
-        let src = "double=  x~>x*2  \n\n\ntriple   =   x ~> x*3\n";
+        let src = "double=  x~>x*2  \n\n\ntriple   ::   x ~> x*3\n";
         let once = format_source(src).unwrap();
         let twice = format_source(&once).unwrap();
         assert_eq!(once, twice);
@@ -770,25 +766,25 @@ mod tests {
 
     #[test]
     fn check_source_true_for_canonical() {
-        let src = "double = x ~> x * 2\n";
+        let src = "double :: x ~> x * 2\n";
         assert!(check_source(src).unwrap());
     }
 
     #[test]
     fn check_source_true_for_canonical_no_trailing_newline() {
-        let src = "double = x ~> x * 2";
+        let src = "double :: x ~> x * 2";
         assert!(check_source(src).unwrap());
     }
 
     #[test]
     fn check_source_false_for_extra_spaces() {
-        let src = "double =  x ~> x * 2\n";
+        let src = "double ::  x ~> x * 2\n";
         assert!(!check_source(src).unwrap());
     }
 
     #[test]
     fn check_source_false_for_missing_blank_line() {
-        let src = "import sort from \"c\"\nmain = sort([1])\n";
+        let src = "import sort from \"c\"\nmain :: sort([1])\n";
         assert!(!check_source(src).unwrap());
     }
 
@@ -810,7 +806,7 @@ mod tests {
     #[test]
     fn format_error_to_diagnostic_parse() {
         let err = FormatError::Parse("unexpected token".to_string());
-        let src = "double = x\n";
+        let src = "double :: x\n";
         let diag = format_error_to_diagnostic(&err, src);
         assert_eq!(diag.rule, "fmt-parse");
         assert_eq!(diag.severity, handl_plugin_ext_diag::Severity::Error);
@@ -820,7 +816,7 @@ mod tests {
     #[test]
     fn format_error_to_diagnostic_ast() {
         let err = FormatError::Ast("malformed".to_string());
-        let src = "double = x\n";
+        let src = "double :: x\n";
         let diag = format_error_to_diagnostic(&err, src);
         assert_eq!(diag.rule, "fmt-ast");
         assert_eq!(diag.severity, handl_plugin_ext_diag::Severity::Error);

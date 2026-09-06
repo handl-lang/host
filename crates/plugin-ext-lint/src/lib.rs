@@ -29,13 +29,11 @@ pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAccep
 
 use std::collections::HashSet;
 
-use handl_language::{Ast, AstNode, AstRef, Language, LangError};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language};
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_plugin_ext_diag::{
-    apply_fixes_to_fixpoint, Diagnostic, Fix, Severity, Span,
-};
+use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 use handl_plugin_ext_fmt::{check_source as fmt_check_source, format_source as fmt_format_source};
 
 // ---------------------------------------------------------------------------
@@ -478,10 +476,10 @@ fn analyze_chunk(
     // Zip var slots with identifier positions (walk order == source order).
     let mut occs: Vec<VarOcc> = Vec::with_capacity(slots.len());
     for (i, slot) in slots.iter().enumerate() {
-        let pos = idents.get(i).copied().unwrap_or(TokenPos {
-            start: 0,
-            end: 0,
-        });
+        let pos = idents
+            .get(i)
+            .copied()
+            .unwrap_or(TokenPos { start: 0, end: 0 });
         occs.push(VarOcc {
             name: slot.name.clone(),
             role: slot.role,
@@ -564,7 +562,16 @@ fn walk(
             });
         }
         if let Some(&vref) = children.get(vi) {
-            walk(lang, info, ast, AstRef::new(vref), slots, dead_diags, bool_cursor, bools);
+            walk(
+                lang,
+                info,
+                ast,
+                AstRef::new(vref),
+                slots,
+                dead_diags,
+                bool_cursor,
+                bools,
+            );
         }
         return;
     }
@@ -583,7 +590,16 @@ fn walk(
             });
         }
         if let Some(&bref) = children.get(bi) {
-            walk(lang, info, ast, AstRef::new(bref), slots, dead_diags, bool_cursor, bools);
+            walk(
+                lang,
+                info,
+                ast,
+                AstRef::new(bref),
+                slots,
+                dead_diags,
+                bool_cursor,
+                bools,
+            );
         }
         return;
     }
@@ -596,10 +612,10 @@ fn walk(
             && let Some(val) = cond.payload.as_bool()
         {
             // Constant guard — emit a dead-branch diagnostic.
-            let pos = bools.get(*bool_cursor).copied().unwrap_or(TokenPos {
-                start: 0,
-                end: 0,
-            });
+            let pos = bools
+                .get(*bool_cursor)
+                .copied()
+                .unwrap_or(TokenPos { start: 0, end: 0 });
             *bool_cursor += 1;
             let span = Span::from_byte_range(pos.start, pos.end, "");
             let (msg, dead_idx) = if val {
@@ -611,30 +627,40 @@ fn walk(
                 )
             } else {
                 // `false` guard: this arm (the then branch, child 1) is dead.
-                (
-                    "branch guarded by constant `false` is never taken",
-                    1,
-                )
+                ("branch guarded by constant `false` is never taken", 1)
             };
             if children.len() > dead_idx {
                 let _ = ast.at(AstRef::new(children[dead_idx]));
             }
-            dead_diags.push(Diagnostic::new(
-                "dead-branch",
-                Severity::Warning,
-                span,
-                msg,
-            ));
+            dead_diags.push(Diagnostic::new("dead-branch", Severity::Warning, span, msg));
             // Do not recurse into the constant condition (no vars).
         } else if let Some(&cond_ref) = children.first() {
-            walk(lang, info, ast, AstRef::new(cond_ref), slots, dead_diags, bool_cursor, bools);
+            walk(
+                lang,
+                info,
+                ast,
+                AstRef::new(cond_ref),
+                slots,
+                dead_diags,
+                bool_cursor,
+                bools,
+            );
         }
         // Recurse into the branches.
         for (i, &c) in children.iter().enumerate() {
             if i == 0 {
                 continue; // condition already handled
             }
-            walk(lang, info, ast, AstRef::new(c), slots, dead_diags, bool_cursor, bools);
+            walk(
+                lang,
+                info,
+                ast,
+                AstRef::new(c),
+                slots,
+                dead_diags,
+                bool_cursor,
+                bools,
+            );
         }
         return;
     }
@@ -650,7 +676,16 @@ fn walk(
 
     // Default: recurse into all children.
     for &c in &child_indices(node) {
-        walk(lang, info, ast, AstRef::new(c), slots, dead_diags, bool_cursor, bools);
+        walk(
+            lang,
+            info,
+            ast,
+            AstRef::new(c),
+            slots,
+            dead_diags,
+            bool_cursor,
+            bools,
+        );
     }
 }
 
@@ -775,10 +810,7 @@ fn rule_fmt(src: &str) -> Vec<Diagnostic> {
                 span,
                 "file is not in canonical format",
             )
-            .with_fix(Fix {
-                span,
-                replacement,
-            });
+            .with_fix(Fix { span, replacement });
             vec![diag]
         }
         // Parse errors are reported by the parse stage; don't double-report.

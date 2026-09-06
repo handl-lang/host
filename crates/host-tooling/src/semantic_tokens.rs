@@ -189,9 +189,12 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Non-identifier tokens use the simple, context-unaware mapping.
         if !is_identifier_kind(kind) {
             // Classify brackets/braces/parens as punctuation (not operator).
-            if kind == "token.lbrace" || kind == "token.rbrace"
-                || kind == "token.lbracket" || kind == "token.rbracket"
-                || kind == "token.lparen" || kind == "token.rparen"
+            if kind == "token.lbrace"
+                || kind == "token.rbrace"
+                || kind == "token.lbracket"
+                || kind == "token.rbracket"
+                || kind == "token.lparen"
+                || kind == "token.rparen"
             {
                 let ty = legend.token_type_index("punctuation")?;
                 return Some((ty, 0));
@@ -280,10 +283,10 @@ impl ContextClassifier for CanonicalTokenClassifier {
             }
         }
 
-        // Binding declaration: at the start of a line and followed by `:` or `=`
+        // Binding declaration: at the start of a line and followed by `:` or `::`
         // (and not inside a paren/brace list, which is handled above).
         if is_at_line_start(tokens, index, source)
-            && (is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.equal"))
+            && (is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.bind"))
         {
             let ty = legend.token_type_index("variable")?;
             let mods = legend.modifier_bit("declaration").unwrap_or(0);

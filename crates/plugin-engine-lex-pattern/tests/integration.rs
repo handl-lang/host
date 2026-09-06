@@ -55,6 +55,31 @@ fn lex_simple_expression() {
 }
 
 #[test]
+fn lex_bind_token_is_double_colon() {
+    let toks = lex("x :: 42");
+    assert_eq!(
+        toks,
+        vec![
+            Token {
+                kind: "token.identifier".into(),
+                text: "x".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.bind".into(),
+                text: "::".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.number".into(),
+                text: "42".into(),
+                ..Default::default()
+            },
+        ]
+    );
+}
+
+#[test]
 fn lex_let_binding() {
     let toks = lex("let x = 42");
     assert_eq!(
@@ -169,7 +194,7 @@ fn lex_longest_match_operators() {
                 ..Default::default()
             },
             Token {
-                kind: "token.eqeq".into(),
+                kind: "token.equal".into(),
                 text: "==".into(),
                 ..Default::default()
             },

@@ -214,7 +214,10 @@ fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)
     let names = if let Some(name) = param_node.payload.as_str() {
         vec![name.to_string()]
     } else {
-        let param_children = param_node.payload.get("children").and_then(|c| c.as_array())?;
+        let param_children = param_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())?;
         param_children
             .iter()
             .filter_map(|pc| {

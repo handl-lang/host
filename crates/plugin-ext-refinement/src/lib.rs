@@ -55,35 +55,55 @@ pub mod types;
 
 // Re-export the most commonly used items at the crate root.
 pub use arrow_loader::{
-    infer_file, load_all_arrows, load_arrow_file, load_arrow_file_named, resolve_apps,
     // Module system (ADR-0069):
-    CachingResolver, ChainResolver, FileResolver, LoadError, LoadedModule, MemoryResolver,
-    ModuleLoader, ModuleResolver, ResolvedModule, ResolveError, ResolveErrorKind,
-    contains_module_ref, contains_project, flatten_program, has_unresolved_apps,
+    CachingResolver,
+    ChainResolver,
+    FileResolver,
+    LoadError,
+    LoadedModule,
+    MemoryResolver,
+    ModuleLoader,
+    ModuleResolver,
+    ResolveError,
+    ResolveErrorKind,
+    ResolvedModule,
+    contains_module_ref,
+    contains_project,
+    flatten_program,
+    has_unresolved_apps,
+    infer_file,
+    load_all_arrows,
+    load_arrow_file,
+    load_arrow_file_named,
     normalize_compile_time,
+    resolve_apps,
 };
 pub use arrow_parser::{
-    parse_arrow_expr, parse_arrow_file, parse_arrow_module, parse_arrow_module_no_rewrite,
-    ExportDecl, ImportDecl, ParsedFile, ParsedModule,
+    ExportDecl, ImportDecl, ParsedFile, ParsedModule, parse_arrow_expr, parse_arrow_file,
+    parse_arrow_module, parse_arrow_module_no_rewrite,
 };
-pub use contracts::ContractRegistry;
 pub use checker::{ContractChecker, register_contract_checkers};
+pub use contracts::ContractRegistry;
 pub use inference::{format_scheme, infer_r, infer_refinement};
 pub use loader::{load_dir, load_standard_axioms, parse_contracts};
 pub use loop_invariant::{
     discover_invariant_fixpoint, discover_invariant_fixpoint_real, weakest_precondition,
 };
 pub use partial_eval::{
-    ArrayRecSpec, Arr, Directive, Pev, Proof, Verdict, check_proposition, prove_array_rec,
+    Arr, ArrayRecSpec, Directive, Pev, Proof, Verdict, check_proposition, prove_array_rec,
     prove_length_append, prove_length_map, recognize_array_rec,
 };
-pub use plugin::{BasicRefiner, Refine, RefineRequest, RefineResult, RefinementBehavior, RefinementCore};
-pub use smt::{implies, implies_with_report, pred_to_smt, toy_implies, z3_implies, z3_verdict, Z3Verdict};
-pub use termination::{analyze_termination, TerminationResult};
-pub use trait_inference::{
-    infer_law_annotations, inferred_trait, satisfies_law, uses_first, uses_left, Law, LawAnnotation,
+pub use plugin::{
+    BasicRefiner, Refine, RefineRequest, RefineResult, RefinementBehavior, RefinementCore,
 };
-pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefinementResult, RefTy};
+pub use smt::{
+    Z3Verdict, implies, implies_with_report, pred_to_smt, toy_implies, z3_implies, z3_verdict,
+};
+pub use termination::{TerminationResult, analyze_termination};
+pub use trait_inference::{
+    Law, LawAnnotation, infer_law_annotations, inferred_trait, satisfies_law, uses_first, uses_left,
+};
+pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefTy, RefinementResult};
 
 #[cfg(test)]
 mod tests;

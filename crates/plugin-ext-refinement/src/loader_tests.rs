@@ -46,10 +46,13 @@ fn test_parse_simple_axiom() {
     let c = reg
         .lookup("prim.add", &ArrSource::Native)
         .expect("prim.add registered");
-    assert_eq!(c.input, RefTy::Prod(
-        Box::new(RefTy::Plain(BaseTy::Int)),
-        Box::new(RefTy::Plain(BaseTy::Int)),
-    ));
+    assert_eq!(
+        c.input,
+        RefTy::Prod(
+            Box::new(RefTy::Plain(BaseTy::Int)),
+            Box::new(RefTy::Plain(BaseTy::Int)),
+        )
+    );
     assert_eq!(c.output, RefTy::Plain(BaseTy::Int));
     assert_eq!(c.precondition, Pred::True);
     assert_eq!(c.guarantee, Pred::True);
@@ -72,8 +75,7 @@ fn test_parse_axiom_with_list_type() {
 
 #[test]
 fn test_parse_axiom_with_lengtheq_guarantee() {
-    let src =
-        "axiom prim.alloc : Int -> List a\n  guarantee: LengthEq(output, 0)\n";
+    let src = "axiom prim.alloc : Int -> List a\n  guarantee: LengthEq(output, 0)\n";
     let reg = parse_contracts(src).expect("must parse");
     let c = reg
         .lookup("prim.alloc", &ArrSource::Native)
@@ -176,7 +178,10 @@ axiom filter : List a -> List a
     let reg = parse_contracts(src).expect("must parse");
     let c = reg.lookup("filter", &ArrSource::Native).unwrap();
     let expected = Pred::And(
-        Box::new(Pred::AllSatisfy("output".to_string(), "predicate".to_string())),
+        Box::new(Pred::AllSatisfy(
+            "output".to_string(),
+            "predicate".to_string(),
+        )),
         Box::new(Pred::LengthLe("output".to_string(), "input".to_string())),
     );
     assert_eq!(c.guarantee, expected);
@@ -212,10 +217,7 @@ axiom consume_one : List a -> List a
 ";
     let reg = parse_contracts(src).expect("must parse");
     let c = reg.lookup("consume_one", &ArrSource::Native).unwrap();
-    assert_eq!(
-        c.termination_effect.as_deref(),
-        Some("decrements_length")
-    );
+    assert_eq!(c.termination_effect.as_deref(), Some("decrements_length"));
 }
 
 #[test]
@@ -227,10 +229,7 @@ axiom decrement : Int -> Int
 ";
     let reg = parse_contracts(src).expect("must parse");
     let c = reg.lookup("decrement", &ArrSource::Native).unwrap();
-    assert_eq!(
-        c.termination_effect.as_deref(),
-        Some("decrements_counter")
-    );
+    assert_eq!(c.termination_effect.as_deref(), Some("decrements_counter"));
 }
 
 #[test]
@@ -329,10 +328,7 @@ fn test_load_standard_axioms_prim_compare_guarantee() {
         .lookup("prim.compare", &ArrSource::Native)
         .expect("prim.compare present");
     // Enriched: prim.compare guarantees Le(output, 1).
-    assert_eq!(
-        c.guarantee,
-        Pred::Le("output".to_string(), "1".to_string())
-    );
+    assert_eq!(c.guarantee, Pred::Le("output".to_string(), "1".to_string()));
     assert_eq!(c.precondition, Pred::True);
 }
 
@@ -358,7 +354,10 @@ fn test_load_standard_axioms_cons_conditional_contract() {
         Pred::And(
             Box::new(Pred::And(
                 Box::new(Pred::Sorted("output".to_string())),
-                Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                Box::new(Pred::LengthPlusOne(
+                    "output".to_string(),
+                    "tail".to_string()
+                )),
             )),
             Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
@@ -385,7 +384,10 @@ fn test_load_standard_axioms_list_cons_conditional_contract() {
         Pred::And(
             Box::new(Pred::And(
                 Box::new(Pred::Sorted("output".to_string())),
-                Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                Box::new(Pred::LengthPlusOne(
+                    "output".to_string(),
+                    "tail".to_string()
+                )),
             )),
             Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
@@ -408,7 +410,10 @@ fn test_load_standard_axioms_list_tail_conditional_contract() {
         Pred::And(
             Box::new(Pred::And(
                 Box::new(Pred::Sorted("output".to_string())),
-                Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                Box::new(Pred::LengthSubOne(
+                    "output".to_string(),
+                    "input".to_string()
+                )),
             )),
             Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
@@ -425,7 +430,10 @@ fn test_load_standard_axioms_filter_step_guarantee() {
     assert_eq!(
         c.guarantee,
         Pred::And(
-            Box::new(Pred::AllSatisfy("output".to_string(), "predicate".to_string())),
+            Box::new(Pred::AllSatisfy(
+                "output".to_string(),
+                "predicate".to_string()
+            )),
             Box::new(Pred::LengthLe("output".to_string(), "input".to_string())),
         )
     );
@@ -441,10 +449,7 @@ fn test_parse_le_predicate() {
     let src = "axiom cmp : (Int * Int) -> Int\n  guarantee: Le(output, 1)\n";
     let reg = parse_contracts(src).expect("must parse");
     let c = reg.lookup("cmp", &ArrSource::Native).unwrap();
-    assert_eq!(
-        c.guarantee,
-        Pred::Le("output".to_string(), "1".to_string())
-    );
+    assert_eq!(c.guarantee, Pred::Le("output".to_string(), "1".to_string()));
 }
 
 #[test]
@@ -500,7 +505,10 @@ axiom cons : (a * List a) -> List a
         c.guarantee,
         Pred::And(
             Box::new(Pred::Sorted("output".to_string())),
-            Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+            Box::new(Pred::LengthPlusOne(
+                "output".to_string(),
+                "tail".to_string()
+            )),
         )
     );
 }
@@ -699,7 +707,7 @@ use crate::arrow_loader::{
     ModuleLoader, ModuleResolver, ResolveErrorKind, flatten_program, has_unresolved_apps,
     normalize_compile_time,
 };
-use crate::arrow_parser::{parse_arrow_module, ExportDecl, ImportDecl};
+use crate::arrow_parser::{ExportDecl, ImportDecl, parse_arrow_module};
 
 // --- CountingResolver (for cache-hit verification) ---
 
@@ -730,7 +738,10 @@ impl CountingResolver {
 }
 
 impl ModuleResolver for CountingResolver {
-    fn resolve(&self, path: &str) -> Result<crate::arrow_loader::ResolvedModule, crate::arrow_loader::ResolveError> {
+    fn resolve(
+        &self,
+        path: &str,
+    ) -> Result<crate::arrow_loader::ResolvedModule, crate::arrow_loader::ResolveError> {
         self.count.set(self.count.get() + 1);
         self.inner.resolve(path)
     }
@@ -746,10 +757,7 @@ impl ModuleResolver for CountingResolver {
 fn build_test_memory_resolver() -> MemoryResolver {
     let mut m = MemoryResolver::new();
     // collection/insert — a single named arrow.
-    m.insert(
-        "collection/insert",
-        "insert = arr(\"compare\")",
-    );
+    m.insert("collection/insert", "insert = arr(\"compare\")");
     // collection/sort — imports insert, defines sort.
     m.insert(
         "collection/sort",
@@ -761,10 +769,7 @@ fn build_test_memory_resolver() -> MemoryResolver {
         "cons = arr(\"list.cons\")\nhead = arr(\"list.head\")\nsort = arr(\"sort\")",
     );
     // main — imports sort, uses it.
-    m.insert(
-        "main",
-        "import sort from \"collection/sort\"\nmain = sort",
-    );
+    m.insert("main", "import sort from \"collection/sort\"\nmain = sort");
     // reexport — export * from "collection".
     m.insert("reexport", "export * from \"collection\"");
     // cycle modules.
@@ -829,8 +834,7 @@ fn test_chain_resolver_finds_memory() {
 fn test_caching_resolver_caches() {
     let mut mem = MemoryResolver::new();
     mem.insert("collection/sort", "sort = arr(\"id\")");
-    let (counting, counter) =
-        CountingResolver::new_with_counter(Box::new(mem));
+    let (counting, counter) = CountingResolver::new_with_counter(Box::new(mem));
     let cache = CachingResolver::new(Box::new(counting));
 
     let r1 = cache.resolve("collection/sort");
@@ -875,8 +879,7 @@ fn test_module_loader_load() {
 #[test]
 fn test_module_loader_cache_hit() {
     let mem = build_test_memory_resolver();
-    let (counting, counter) =
-        CountingResolver::new_with_counter(Box::new(mem));
+    let (counting, counter) = CountingResolver::new_with_counter(Box::new(mem));
     let loader = ModuleLoader::new(Box::new(counting));
 
     // First load.
@@ -1024,9 +1027,10 @@ fn test_flatten_program_no_unresolved_apps() {
         Ok(flat) => {
             // After flattening, there should be no unresolved App nodes.
             // All known names: the entry's arrows + all transitive imports.
-            let known: HashSet<String> = vec!["main".to_string(), "sort".to_string(), "insert".to_string()]
-                .into_iter()
-                .collect();
+            let known: HashSet<String> =
+                vec!["main".to_string(), "sort".to_string(), "insert".to_string()]
+                    .into_iter()
+                    .collect();
             assert!(
                 !has_unresolved_apps(&flat, &known),
                 "flatten_program: no unresolved App nodes should remain"
@@ -1101,7 +1105,10 @@ fn test_parse_arrow_module_simple_import() {
     assert_eq!(parsed.imports.len(), 1, "should have 1 import");
     assert_eq!(parsed.imports[0].path, "collection/sort");
     assert_eq!(parsed.imports[0].names.len(), 1);
-    assert_eq!(parsed.imports[0].names[0], ("sort".to_string(), "sort".to_string()));
+    assert_eq!(
+        parsed.imports[0].names[0],
+        ("sort".to_string(), "sort".to_string())
+    );
 }
 
 #[test]
@@ -1111,8 +1118,16 @@ fn test_parse_arrow_module_multi_import() {
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection");
     assert_eq!(parsed.imports[0].names.len(), 2);
-    assert!(parsed.imports[0].names.contains(&("sort".to_string(), "sort".to_string())));
-    assert!(parsed.imports[0].names.contains(&("insert".to_string(), "insert".to_string())));
+    assert!(
+        parsed.imports[0]
+            .names
+            .contains(&("sort".to_string(), "sort".to_string()))
+    );
+    assert!(
+        parsed.imports[0]
+            .names
+            .contains(&("insert".to_string(), "insert".to_string()))
+    );
 }
 
 #[test]
@@ -1120,7 +1135,10 @@ fn test_parse_arrow_module_import_as() {
     let src = "import sort as s from \"collection/sort\"\nmain = arr(\"id\")";
     let parsed = parse_arrow_module(src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
-    assert_eq!(parsed.imports[0].names[0], ("sort".to_string(), "s".to_string()));
+    assert_eq!(
+        parsed.imports[0].names[0],
+        ("sort".to_string(), "s".to_string())
+    );
 }
 
 #[test]
@@ -1129,7 +1147,10 @@ fn test_parse_arrow_module_import_whole_module() {
     let parsed = parse_arrow_module(src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection/sort");
-    assert_eq!(parsed.imports[0].names[0], ("*".to_string(), "sortmod".to_string()));
+    assert_eq!(
+        parsed.imports[0].names[0],
+        ("*".to_string(), "sortmod".to_string())
+    );
 }
 
 #[test]
@@ -1340,8 +1361,14 @@ result_ok = value ~> value >>> ok
     match &parsed.arrows {
         crate::arrow_parser::ParsedFile::Named(map) => {
             assert!(map.contains_key("ok"), "ok constructor should be generated");
-            assert!(map.contains_key("err"), "err constructor should be generated");
-            assert!(map.contains_key("result_ok"), "result_ok arrow should be parsed");
+            assert!(
+                map.contains_key("err"),
+                "err constructor should be generated"
+            );
+            assert!(
+                map.contains_key("result_ok"),
+                "result_ok arrow should be parsed"
+            );
         }
         _ => panic!("expected Named map with tag constructors and arrows"),
     }
@@ -1501,9 +1528,7 @@ fn test_rewrite_imports_named_import_produces_project_module_ref() {
     let parsed = parse_arrow_module(src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
-            let main = map
-                .get("main")
-                .expect("should have 'main' arrow");
+            let main = map.get("main").expect("should have 'main' arrow");
             let (path, field) = is_project_of_module_ref(main)
                 .expect("main should be project(module_ref(path), \"sort\")");
             assert_eq!(path, "collection/sort");
@@ -1575,8 +1600,7 @@ fn test_rewrite_imports_whole_module_produces_module_ref() {
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
-            let path = is_module_ref(main)
-                .expect("main should be module_ref(\"collection/sort\")");
+            let path = is_module_ref(main).expect("main should be module_ref(\"collection/sort\")");
             assert_eq!(path, "collection/sort");
         }
         _ => panic!("expected ParsedFile::Named"),
@@ -1596,8 +1620,8 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
             let main = map.get("main").expect("should have 'main' arrow");
             // main should be Seq { App(module_ref("collection/sort")), arr("id") }
             if let Scheme::Seq { fst, snd } = main {
-                let path = is_module_ref(fst)
-                    .expect("fst should be module_ref(\"collection/sort\")");
+                let path =
+                    is_module_ref(fst).expect("fst should be module_ref(\"collection/sort\")");
                 assert_eq!(path, "collection/sort");
                 if let Scheme::Arr { op, .. } = snd.as_ref() {
                     assert_eq!(op, "id");
@@ -1621,9 +1645,13 @@ fn test_rewrite_imports_no_unresolved_apps_for_imported_names() {
     // (they are native ops, not named-arrow references).
     let src = "import sort from \"collection/sort\"\nmain = sort";
     let parsed = parse_arrow_module(src).expect("must parse");
-    let known: HashSet<String> = vec!["main".to_string(), "project".to_string(), "module_ref".to_string()]
-        .into_iter()
-        .collect();
+    let known: HashSet<String> = vec![
+        "main".to_string(),
+        "project".to_string(),
+        "module_ref".to_string(),
+    ]
+    .into_iter()
+    .collect();
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1737,10 +1765,7 @@ fn test_e2e_flatten_program_whole_module_import() {
     // Test a whole-module import end-to-end through flatten_program.
     let mut mem = MemoryResolver::new();
     mem.insert("util", "id = arr(\"id\")\nconst = arr(\"const\")");
-    mem.insert(
-        "main_whole",
-        "import \"util\" as u\nmain = u",
-    );
+    mem.insert("main_whole", "import \"util\" as u\nmain = u");
     let loader = ModuleLoader::new(Box::new(mem));
     match flatten_program("main_whole", &loader) {
         Ok(flat) => {
@@ -1856,7 +1881,10 @@ fn test_flatten_program_unresolvable_bare_name_skipped() {
                 "flatten_program: unresolvable bare-name App should remain unresolved"
             );
         }
-        Err(e) => panic!("flatten_program(main) should succeed even with unresolvable callee: {}", e),
+        Err(e) => panic!(
+            "flatten_program(main) should succeed even with unresolvable callee: {}",
+            e
+        ),
     }
 }
 
@@ -1920,7 +1948,9 @@ fn test_phase6_basic_import() {
     let loader = ModuleLoader::new(Box::new(mem));
 
     // Load sort — should succeed and parse the import declaration.
-    let _loaded = loader.load("collection/sort").expect("load collection/sort");
+    let _loaded = loader
+        .load("collection/sort")
+        .expect("load collection/sort");
     // The import should be recorded.
     let imports = loader.get_imports("collection/sort").expect("get imports");
     assert!(
@@ -2015,7 +2045,9 @@ fn test_phase6_export_declaration() {
     let loader = ModuleLoader::new(Box::new(mem));
 
     // insert.hnl has `export insert` — public_names should include "insert".
-    let names = loader.public_names("collection/insert").expect("public names");
+    let names = loader
+        .public_names("collection/insert")
+        .expect("public names");
     assert!(
         names.contains(&"insert".to_string()),
         "insert.hnl should export 'insert': {:?}",
@@ -2041,6 +2073,9 @@ fn test_phase6_normalize_compile_time() {
                 "Strategy A: no module_ref should remain after normalization"
             );
         }
-        Err(e) => panic!("normalize_compile_time(collection/sort) should succeed: {}", e),
+        Err(e) => panic!(
+            "normalize_compile_time(collection/sort) should succeed: {}",
+            e
+        ),
     }
 }

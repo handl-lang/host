@@ -4,16 +4,19 @@
 # the `test`, `property`, `integration_test`, and `bench` declaration forms
 # without amending the core grammar (ADR-0044 language-as-data model).
 #
-# Surface syntax (shared by all four forms):
+# Surface syntax:
 #
 #   test name = body
 #   property name = body
 #   integration_test name = body
 #   bench name = body
+#   assert expr = expr       -- keyword assertion
 #
-# Each declaration parses to a node with two named children: `name` and `body`.
-# The eval scheme returns the `body` child so the node behaves like an
-# expression when evaluated directly.
+# Each declaration parses to a node with named children (`name`/`body` for
+# the test kinds, `expr` for `assert`). The eval scheme returns the `body`
+# child for test kinds; `assert` returns `result.ok(true)` on success and
+# `result.err({message, expected, actual, diff})` on failure (ADR-0077,
+# ADR-0089).
 
 ---
 tokens:
@@ -25,6 +28,8 @@ tokens:
     label: integration_test
   - id: token.keyword.bench
     label: bench
+  - id: token.keyword.assert
+    label: assert
 
 lexer_rules:
   - id: lex.keyword.test
@@ -46,6 +51,11 @@ lexer_rules:
     token_kind: token.keyword.bench
     pattern: !Literal
       text: bench
+    priority: 15
+  - id: lex.keyword.assert
+    token_kind: token.keyword.assert
+    pattern: !Literal
+      text: assert
     priority: 15
 
 grammar:
@@ -101,6 +111,17 @@ grammar:
       arity: 2
       child_separators:
         - !Required token.equal
+  - id: grammar.assert.prefix
+    token: token.keyword.assert
+    position: Prefix
+    binding_power:
+      # 0 < assign's lbp (5) so the child can consume an `=` separator
+      # (e.g. `assert 1 + 1 = 2`).
+      - 0
+      - 0
+    child_shape:
+      node_kind: assert
+      arity: 1
 
 ast:
   - id: ast.test
@@ -167,6 +188,21 @@ ast:
       required:
         - children
       type: object
+  - id: ast.assert
+    node_kind: assert
+    children:
+      - role: expr
+    payload_schema:
+      properties:
+        children:
+          items:
+            type: integer
+          maxItems: 1
+          minItems: 1
+          type: array
+      required:
+        - children
+      type: object
 
 eval:
   - id: eval.test
@@ -197,3 +233,9 @@ eval:
       args: []
       source: Native
       lit: 1
+  - id: eval.assert
+    node_kind: assert
+    scheme: !Arr
+      op: assert
+      args: []
+      source: Native

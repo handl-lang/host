@@ -1,0 +1,2 @@
+--- Choose a branch based on a predicate
+export choice :: [value, pred, true_fn, false_fn] ~> if pred(value) { true_fn(value) } else { false_fn(value) }

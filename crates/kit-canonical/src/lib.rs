@@ -11,33 +11,58 @@
 
 #![warn(missing_docs)]
 
+/// Re-export of the canonical `.hnl` module loader.
+///
+/// The loader itself lives in `handl-plugin-lib-handl`
+/// (`crates/plugin-lib-handl`); downstream crates may use either
+/// `handl_plugin_lib_handl::*` directly or `handl_kit_canonical::
+/// handl_module::*` via this shim.
+pub mod handl_module {
+    pub use handl_plugin_lib_handl::*;
+}
+
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
-use handl_platform::{EvalContext, EvalError, Function, ModuleLookup, TypeSignature};
-use handl_plugin_lib_tag::TypeRegistry;
+use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
+use handl_plugin_engine_eval::ImportResolver;
+use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver, build_str_handl_module};
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
-use handl_plugin_lib_tag::TagModule;
-use handl_plugin_lib_char_native::CharModule;
-use handl_plugin_lib_utils::{
-    BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
-    ParseModule as UtilsParseModule, SerializeModule, TypeModule,
-};
-use handl_plugin_lib_result::result_module;
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_module::ModuleRegistry;
-use handl_plugin_engine_eval::ImportResolver;
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+// ---------------------------------------------------------------------------
+// Import resolver
+// ---------------------------------------------------------------------------
+
+/// Import resolver that first checks the built-in module registry. A built-in
+/// module is imported as its name string; `field_access` then turns `str.split`
+/// into the qualified host-function path the module registry recognizes.
+struct BuiltinImportResolver {
+    /// The built-in module registry (e.g. `str`, `math`, `char`, ...).
+    modules: Rc<ModuleRegistry>,
+    /// Fallback resolver for non-built-in paths (file-based `.hnl` modules).
+    file: Rc<dyn ImportResolver>,
+}
+
+impl ImportResolver for BuiltinImportResolver {
+    fn resolve_import(&self, path: &str) -> Result<Value, LangError> {
+        if self.modules.module(path).is_some() {
+            return Ok(Value::String(path.to_string()));
+        }
+        self.file.resolve_import(path)
+    }
+}
 
 // ---------------------------------------------------------------------------
 // hello.greet host function + registry
@@ -57,54 +82,14 @@ use std::rc::Rc;
 const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 
 // ---------------------------------------------------------------------------
-// dedent module (pure Handl — loaded via generic HandlModule)
+// unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
 // ---------------------------------------------------------------------------
-
-const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
-const DEDENT_FUNCS: &[&str] = &["dedent"];
-
-// ---------------------------------------------------------------------------
-// str-handl module (pure Handl over the `char` floor — the `str` impl)
-// ---------------------------------------------------------------------------
-
-/// The handl source implementing the `str` contract
-/// (`handl-packages/str/str.hnl`) as pure handl algorithms over `char.*`
-/// atoms. Loaded via the generic [`HandlModule`], resolving `char` through
-/// [`StdlibResolver`].
-const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
-
-/// The record field names exposed by `str-handl.hnl` — each becomes a
-/// callable [`Function`](handl_platform::Function) on the `"str"` module.
-const STR_HANDL_FUNCS: &[&str] = &[
-    "upper", "lower", "trim", "trim_start", "trim_end", "trim_matches",
-    "reverse", "length", "concat", "is_empty", "equals", "is_alpha",
-    "is_numeric", "is_alphanumeric", "capitalize", "title_case",
-    "snake_case", "camel_case", "pascal_case", "kebab_case", "contains",
-    "starts_with", "ends_with", "count", "find", "rfind", "levenshtein",
-    "similarity", "split", "join", "replace", "replace_first", "repeat",
-    "char_at", "slice", "pad_left", "pad_right", "strip_prefix",
-    "strip_suffix", "lines", "split_at", "split_whitespace", "truncate",
-    "slugify", "word_wrap",
-];
-
-// ---------------------------------------------------------------------------
-// unicode-handl module (pure Handl over the `char` floor — the `unicode` impl)
-// ---------------------------------------------------------------------------
-
-/// The handl source implementing the `unicode` contract
-/// (`handl-packages/unicode/unicode.hnl`) as pure handl over `char.*`
-/// atoms. `unicode-handl` provides the code-point-level subset; table-
-/// dependent ops (`nfc`/`nfd`) are backend-required and intentionally
-/// omitted. Resolves `char` through [`StdlibResolver`].
-const UNICODE_HANDL_HNL: &str =
-    include_str!("../../../handl-packages/unicode-handl/unicode-handl.hnl");
-
-/// The record field names exposed by `unicode-handl.hnl` — each becomes a
-/// callable [`Function`](handl_platform::Function) on the `"unicode"` module.
-const UNICODE_HANDL_FUNCS: &[&str] = &[
-    "code_points", "from_code_points", "is_ascii", "code_point_at",
-    "graphemes", "grapheme_count", "width", "casefold",
-];
+//
+// The native `unicode` implementation lives in `handl-plugin-lib-unicode-native`.
+// It is composed with the pure-Handl `unicode-handl` record: native `op`s win,
+// and the handl record supplies fallback behavior for anything not implemented
+// natively. `char.*` calls inside `unicode-handl.hnl` are resolved by the
+// built-in `CharModule` dependency.
 
 /// Resolver that maps stdlib module names to their [`Module`] impls,
 /// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
@@ -112,49 +97,194 @@ const UNICODE_HANDL_FUNCS: &[&str] = &[
 struct StdlibResolver;
 
 impl ModuleResolver for StdlibResolver {
-    fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
+    fn resolve(
+        &self,
+        name: &str,
+    ) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
-            "str" => Some(std::sync::Arc::new(build_str_handl_module())),
+            "str" => Some(std::sync::Arc::new(build_str_handl_module(&StdlibResolver))),
             "char" => Some(std::sync::Arc::new(CharModule)),
-            "unicode" => Some(std::sync::Arc::new(build_unicode_handl_module())),
-            "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
-            "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
-            "math" => Some(std::sync::Arc::new(MathModule)),
-            "bool" => Some(std::sync::Arc::new(BoolModule)),
-            "option" => Some(std::sync::Arc::new(OptionModule)),
-            "type" => Some(std::sync::Arc::new(TypeModule)),
+            "comb" => Some(std::sync::Arc::new(CombModule::new())),
             _ => None,
         }
     }
 }
 
-fn build_dedent_module() -> HandlModule {
-    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS)
-        .with_resolver(&StdlibResolver)
+// ---------------------------------------------------------------------------
+// comb — pure-Handl function combinators (one .hnl file per arrow)
+// ---------------------------------------------------------------------------
+
+/// Handl-style truthiness used by `comb.filter`.
+fn comb_is_truthy(v: &Value) -> bool {
+    match v {
+        Value::Null | Value::Bool(false) => false,
+        Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(true),
+        Value::String(s) => !s.is_empty(),
+        Value::Array(a) => !a.is_empty(),
+        Value::Object(_) => true,
+        Value::Bool(true) => true,
+    }
 }
 
-/// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
-/// implementation over the `char` floor.
-///
-/// `str-handl.hnl` evaluates to a record of 45 arrows; each name in
-/// [`STR_HANDL_FUNCS`] becomes a callable `Function`. `char.*` calls
-/// resolve through [`StdlibResolver`] to the registered `char` backend
-/// (`char-native` by default).
-fn build_str_handl_module() -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
-        .with_resolver(&StdlibResolver)
+/// `comb.map(xs, f)` — host-side implementation that calls the arrow `f`
+/// through the current `EvalContext` (`ctx.try_call_value`).
+#[derive(Clone, Copy, Debug)]
+pub struct CombMap;
+
+impl Function for CombMap {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::Other(format!(
+                "comb.map: expected 2 arguments, got {}",
+                args.len()
+            )));
+        }
+        let xs = args[0].as_array().ok_or_else(|| {
+            EvalError::Other("comb.map: first argument must be an array".to_string())
+        })?;
+        let f = &args[1];
+        let mut out = Vec::with_capacity(xs.len());
+        for x in xs {
+            let mapped = ctx
+                .try_call_value(f, std::slice::from_ref(x))
+                .ok_or_else(|| {
+                    EvalError::Other("comb.map: no value callable in context".to_string())
+                })??;
+            out.push(mapped);
+        }
+        Ok(Value::Array(out))
+    }
 }
 
-/// Build the [`HandlModule`] for `unicode-handl` — the pure-handl `unicode`
-/// implementation over the `char` floor.
-///
-/// `unicode-handl.hnl` evaluates to a record of the code-point-level
-/// functions; each name in [`UNICODE_HANDL_FUNCS`] becomes a callable
-/// `Function`. `char.*` calls resolve through [`StdlibResolver`] to the
-/// registered `char` backend (`char-native` by default).
-fn build_unicode_handl_module() -> HandlModule {
-    HandlModule::new("unicode", UNICODE_HANDL_HNL, UNICODE_HANDL_FUNCS)
-        .with_resolver(&StdlibResolver)
+/// `comb.filter(xs, p)` — host-side implementation that calls the predicate.
+#[derive(Clone, Copy, Debug)]
+pub struct CombFilter;
+
+impl Function for CombFilter {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::Other(format!(
+                "comb.filter: expected 2 arguments, got {}",
+                args.len()
+            )));
+        }
+        let xs = args[0].as_array().ok_or_else(|| {
+            EvalError::Other("comb.filter: first argument must be an array".to_string())
+        })?;
+        let p = &args[1];
+        let mut out = Vec::new();
+        for x in xs {
+            let keep = ctx
+                .try_call_value(p, std::slice::from_ref(x))
+                .ok_or_else(|| {
+                    EvalError::Other("comb.filter: no value callable in context".to_string())
+                })??;
+            if comb_is_truthy(&keep) {
+                out.push(x.clone());
+            }
+        }
+        Ok(Value::Array(out))
+    }
+}
+
+/// `comb.reduce(xs, init, f)` — host-side implementation.
+#[derive(Clone, Copy, Debug)]
+pub struct CombReduce;
+
+impl Function for CombReduce {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        if args.len() != 3 {
+            return Err(EvalError::Other(format!(
+                "comb.reduce: expected 3 arguments, got {}",
+                args.len()
+            )));
+        }
+        let xs = args[0].as_array().ok_or_else(|| {
+            EvalError::Other("comb.reduce: first argument must be an array".to_string())
+        })?;
+        let mut acc = args[1].clone();
+        let f = &args[2];
+        for x in xs {
+            let call_args = [acc, x.clone()];
+            acc = ctx
+                .try_call_value(f, &call_args)
+                .ok_or_else(|| {
+                    EvalError::Other("comb.reduce: no value callable in context".to_string())
+                })??;
+        }
+        Ok(acc)
+    }
+}
+
+/// `CombModule` exposes `handl-packages/comb/*.hnl` as the `comb.*` host
+/// function namespace. Each arrow lives in its own `.hnl` file and is loaded
+/// by a one-function `HandlModule`. For combinators that the tree-walk host-
+/// call path cannot yet pass arrow values through (map/filter/reduce), a
+/// small native `Function` override is wired in front of the `.hnl` source.
+pub struct CombModule {
+    functions: std::collections::HashMap<String, HandlModule>,
+    overrides: std::collections::HashMap<String, std::sync::Arc<dyn Function + Send + Sync>>,
+}
+
+impl CombModule {
+    /// Load all `handl-packages/comb/*.hnl` files as one-function
+    /// `HandlModule`s, and register host-side overrides for map/filter/reduce.
+    pub fn new() -> Self {
+        let mut functions = std::collections::HashMap::new();
+        let mut overrides: std::collections::HashMap<
+            String,
+            std::sync::Arc<dyn Function + Send + Sync>,
+        > = std::collections::HashMap::new();
+
+        overrides.insert("map".to_string(), std::sync::Arc::new(CombMap));
+        overrides.insert("filter".to_string(), std::sync::Arc::new(CombFilter));
+        overrides.insert("reduce".to_string(), std::sync::Arc::new(CombReduce));
+
+        functions.insert("map".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/map.hnl"), &["map"]));
+        functions.insert("filter".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/filter.hnl"), &["filter"]));
+        functions.insert("reduce".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/reduce.hnl"), &["reduce"]));
+        functions.insert("fanout".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout.hnl"), &["fanout"]));
+        functions.insert("fanout_fn".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout_fn.hnl"), &["fanout_fn"]));
+        functions.insert("flow".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flow.hnl"), &["flow"]));
+        functions.insert("compose".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/compose.hnl"), &["compose"]));
+        functions.insert("pipe".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/pipe.hnl"), &["pipe"]));
+        functions.insert("apply".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/apply.hnl"), &["apply"]));
+        functions.insert("tap".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/tap.hnl"), &["tap"]));
+        functions.insert("constantly".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/constantly.hnl"), &["constantly"]));
+        functions.insert("flip".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flip.hnl"), &["flip"]));
+        functions.insert("partial".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/partial.hnl"), &["partial"]));
+        functions.insert("choice".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/choice.hnl"), &["choice"]));
+        functions.insert("when".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/when.hnl"), &["when"]));
+        functions.insert("unless".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/unless.hnl"), &["unless"]));
+        functions.insert("converge".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/converge.hnl"), &["converge"]));
+        Self { functions, overrides }
+    }
+}
+
+impl Module for CombModule {
+    fn name(&self) -> &str {
+        "comb"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        if let Some(arc) = self.overrides.get(name) {
+            return Some(&**arc);
+        }
+        self.functions.get(name).and_then(|m| m.function(name))
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        let mut out = Vec::new();
+        for (name, arc) in &self.overrides {
+            out.push((name.as_str(), &**arc as &dyn Function));
+        }
+        for (name, m) in &self.functions {
+            if let Some(f) = m.function(name.as_str()) {
+                out.push((name.as_str(), f));
+            }
+        }
+        out
+    }
 }
 
 thread_local! {
@@ -219,9 +349,7 @@ fn strip_comment_lines(src: &str) -> String {
     src.lines()
         .filter(|line| {
             let trimmed = line.trim();
-            !trimmed.is_empty()
-                && !trimmed.starts_with("--")
-                && !trimmed.starts_with("cap ")
+            !trimmed.is_empty() && !trimmed.starts_with("--") && !trimmed.starts_with("cap ")
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -286,16 +414,19 @@ impl Function for HelloGreetHostFn {
 
 impl TypeSignature for HelloGreetHostFn {
     fn type_signature(&self) -> Value {
-        // `hello.greet : String -> String`
-        static REGISTRY: std::sync::OnceLock<TypeRegistry> = std::sync::OnceLock::new();
-        let registry = REGISTRY.get_or_init(|| TypeRegistry::new("handl.canonical"));
-        let string = registry
-            .construct("type.string", &Value::Null)
-            .expect("type.string should construct");
-        let function = registry
-            .construct("type.function", &serde_json::json!({"param": string, "body": string}))
-            .expect("type.function should construct");
-        function
+        // `hello.greet : String -> String` — a tagged type.function whose
+        // param/body are tagged type.string values so `check_json_value`
+        // can inspect them via `TypeRegistry::as_type_tag`.
+        let type_string = serde_json::json!({
+            "__tag__": "type.string",
+            "__registry__": "handl.canonical"
+        });
+        serde_json::json!({
+            "__tag__": "type.function",
+            "__registry__": "handl.canonical",
+            "param": type_string,
+            "body": type_string
+        })
     }
 }
 
@@ -381,6 +512,15 @@ impl std::fmt::Debug for Kit {
             .field("runtime", &self.runtime)
             .finish()
     }
+}
+
+/// Remove a trailing `\n` or `\r\n` from a token's matched text so that
+/// line-comment tokens do not span a line terminator. This keeps source spans
+/// and LSP semantic token ranges inside a single line.
+fn trim_trailing_line_terminator(text: &str) -> &str {
+    text.strip_suffix("\r\n")
+        .or_else(|| text.strip_suffix('\n'))
+        .unwrap_or(text)
 }
 
 impl Kit {
@@ -495,32 +635,18 @@ impl Kit {
         //   meta (lex/parse/eval/typecheck/compile/run_compiled) → hello (hello.greet)
         //   → fp (fn.fanout_fn, field_access) → stdlib (fn.*, collections.*,
         //   math.*, str.*, bool.*, type.*, option.*, result.*, mood.*,
-        //   encoding.*, parse.*, serialize.*) → None
+        //   encoding.*, parse.*, serialize.*, tag.*, time.*, rand.*) → None
         // Meta is outermost so its names win; hello and fp are delegates so
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
         let mut stdlib_registry = ModuleRegistry::new();
-        stdlib_registry.register(CombinatorsModule);
-        stdlib_registry.register(MathModule);
-        // `str-handl` is the pure-handl `str` impl over the `char` floor;
-        // it satisfies the `str` contract. Registered under `"str"` in
-        // place of the former all-FFI `StrModule`, so `str.*` lookups and
-        // `from "str" import` callers resolve to the handl impl.
-        stdlib_registry.register(build_str_handl_module());
+        // Minimal stdlib for the playground: pure-handl `str` over the native
+        // `char` floor. `str-handl` is loaded by `build_str_handl_module`.
+        stdlib_registry.register(build_str_handl_module(&StdlibResolver));
         stdlib_registry.register(CharModule);
-        stdlib_registry.register(build_unicode_handl_module());
-        stdlib_registry.register(BoolModule);
-        stdlib_registry.register(TypeModule);
-        stdlib_registry.register(OptionModule);
-        stdlib_registry.register(result_module());
-        stdlib_registry.register(MoodModule);
-        stdlib_registry.register(EncodingModule::new());
-        stdlib_registry.register(UtilsParseModule::new());
-        stdlib_registry.register(SerializeModule::new());
-        stdlib_registry.register(CollectionsModule);
-        stdlib_registry.register(TagModule);
-        stdlib_registry.register(build_dedent_module());
+        stdlib_registry.register(CombModule::new());
+        let stdlib_imports = Rc::new(stdlib_registry.clone());
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
@@ -608,9 +734,7 @@ impl Kit {
                 .box_clone(),
             registry
                 .parse_engine("pratt")
-                .ok_or_else(|| {
-                    LangError::engine("missing parse engine 'pratt' for module loader")
-                })?
+                .ok_or_else(|| LangError::engine("missing parse engine 'pratt' for module loader"))?
                 .box_clone(),
             module_root.clone(),
         ));
@@ -619,8 +743,12 @@ impl Kit {
             .with_global("self", handl_language::language_value(&lang))
             .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
         loader.set_eval_engine(Box::new(loader_eval_engine));
+        let file_resolver: Rc<dyn ImportResolver> = Rc::<ModuleLoader>::clone(&loader);
         let import_resolver: Rc<dyn ImportResolver> =
-            Rc::clone(&loader) as Rc<dyn ImportResolver>;
+            Rc::new(BuiltinImportResolver {
+                modules: stdlib_imports,
+                file: file_resolver,
+            });
 
         let runtime = Runtime::from_registry_with_resolver(
             lang,
@@ -753,11 +881,13 @@ impl Kit {
                 }
             }
             let start = pos;
+            let text = trim_trailing_line_terminator(&token.text);
+            let end = start + text.len();
             pos += token.text.len();
             result.push(SpannedToken {
                 kind: token.kind.clone(),
-                text: token.text.clone(),
-                span: Span { start, end: pos },
+                text: text.to_string(),
+                span: Span { start, end },
             });
         }
         Ok(result)
@@ -1036,7 +1166,8 @@ pub fn is_doc_comment_kind(kind: &str) -> bool {
 pub fn is_operator_kind(kind: &str) -> bool {
     matches!(
         kind,
-        "token.equal"
+        "token.bind"
+            | "token.equal"
             | "token.plus"
             | "token.minus"
             | "token.star"
@@ -1459,9 +1590,9 @@ mod tests {
 
     #[test]
     fn typecheck_let_binds_var_and_returns_body_type() {
-        // ADR-0079: `let ... in` removed. Use `do { x = 1; x }` graph block.
+        // ADR-0079: `let ... in` removed. Use `do { x :: 1; x }` graph block.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x = 1; x }").unwrap();
+        let typ = kit.typecheck("do { x :: 1; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1514,9 +1645,9 @@ mod tests {
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type
-        // annotations yet — use untyped `do { x = 2; x }`.
+        // annotations yet — use untyped `do { x :: 2; x }`.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x = 2; x }").unwrap();
+        let typ = kit.typecheck("do { x :: 2; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1624,7 +1755,7 @@ mod tests {
     #[test]
     fn data_nat_parses_to_data_node_with_alt_tree() {
         let kit = Kit::new().unwrap();
-        let ast = parse_raw(&kit, "data Nat = Zero | Succ(Nat)");
+        let ast = parse_raw(&kit, "data Nat :: Zero | Succ(Nat)");
 
         // The last node should be a `data` node.
         let root = ast.nodes().last().unwrap();
@@ -1634,7 +1765,11 @@ mod tests {
         assert_eq!(name, "Nat");
         // Two children: [type_expr, constructors_expr].
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
+        assert_eq!(
+            children.len(),
+            2,
+            "data node should have 2 children [type, constructors]"
+        );
         // Child 0 is the type expression: var("Nat").
         let type_idx = children[0].as_u64().unwrap() as usize;
         let type_node = ast.get(handl_language::AstRef::new(type_idx)).unwrap();
@@ -1648,11 +1783,19 @@ mod tests {
         let alt_children = child.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(alt_children.len(), 2);
         // Left child: var("Zero")
-        let left = ast.get(handl_language::AstRef::new(alt_children[0].as_u64().unwrap() as usize)).unwrap();
+        let left = ast
+            .get(handl_language::AstRef::new(
+                alt_children[0].as_u64().unwrap() as usize,
+            ))
+            .unwrap();
         assert_eq!(left.kind, "var");
         assert_eq!(left.payload, serde_json::json!("Zero"));
         // Right child: call(Succ, Nat)
-        let right = ast.get(handl_language::AstRef::new(alt_children[1].as_u64().unwrap() as usize)).unwrap();
+        let right = ast
+            .get(handl_language::AstRef::new(
+                alt_children[1].as_u64().unwrap() as usize,
+            ))
+            .unwrap();
         assert_eq!(right.kind, "call");
     }
 
@@ -1660,18 +1803,24 @@ mod tests {
     fn data_nat_desugars_to_block_from_source() {
         let kit = Kit::new().unwrap();
         // kit.parse applies the desugar pass.
-        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
 
         // The root should be a `block` with 4 statements (predicate + 2
         // constructors + recursor).
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
         // Each statement should be an `assign`.
         for (i, child_idx) in children.iter().enumerate() {
             let node = ast
-                .get(handl_language::AstRef::new(child_idx.as_u64().unwrap() as usize))
+                .get(handl_language::AstRef::new(
+                    child_idx.as_u64().unwrap() as usize
+                ))
                 .unwrap();
             assert_eq!(
                 node.kind, "assign",
@@ -1684,7 +1833,7 @@ mod tests {
     #[test]
     fn data_bool_desugars_from_source() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Bool = True | False").unwrap();
+        let ast = kit.parse("data Bool :: True | False").unwrap();
 
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
@@ -1695,7 +1844,7 @@ mod tests {
 
     #[test]
     fn data_nat_eval_succ_zero() {
-        // End-to-end: parse `data Nat = Zero | Succ(Nat)` and `Succ(Zero)`,
+        // End-to-end: parse `data Nat :: Zero | Succ(Nat)` and `Succ(Zero)`,
         // desugar, and eval to get a tagged value.
         //
         // The Pratt parser parses one statement per call, so we parse the
@@ -1707,7 +1856,7 @@ mod tests {
         let kit = Kit::new().unwrap();
 
         // Parse and desugar the data declaration.
-        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
         // The root is a block with 4 assign children.
         let data_root = data_ast.nodes().last().unwrap();
         assert_eq!(data_root.kind, "block");
@@ -1775,10 +1924,10 @@ mod tests {
 
     #[test]
     fn data_nat_eval_zero() {
-        // Eval `Zero` after declaring `data Nat = Zero | Succ(Nat)`.
+        // Eval `Zero` after declaring `data Nat :: Zero | Succ(Nat)`.
         // Same combining approach as data_nat_eval_succ_zero.
         let kit = Kit::new().unwrap();
-        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
         let data_root = data_ast.nodes().last().unwrap();
         let data_children: Vec<usize> = data_root
             .payload
@@ -1835,10 +1984,7 @@ mod tests {
 
         let kit = Kit::new().unwrap();
         let mut ast = Ast::new();
-        ast.push(
-            AstNode::new("data")
-                .with_payload(json!({"name": "Nat", "children": []})),
-        );
+        ast.push(AstNode::new("data").with_payload(json!({"name": "Nat", "children": []})));
         let result = kit.runtime().eval(&ast);
         assert!(result.is_err(), "expected error for undesugared data node");
         let err_msg = format!("{:?}", result.unwrap_err());
@@ -1859,7 +2005,7 @@ mod tests {
 
     #[test]
     fn data_desugar_visible_to_typechecker() {
-        // Parse `data Nat = Zero | Succ(Nat)` from source. The desugar pass
+        // Parse `data Nat :: Zero | Succ(Nat)` from source. The desugar pass
         // runs at parse time (Runtime::parse), so the typechecker should see
         // the desugared `Nat` predicate. We verify by typechecking a module
         // that includes the data declaration — the typechecker input is the
@@ -1870,7 +2016,7 @@ mod tests {
         // to the typechecker input (i.e., no `data` nodes remain in the
         // typechecked AST — they are all desugared to `block`/`assign`).
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
 
         // Verify no `data` nodes remain in the desugared AST.
         for node in ast.nodes() {
@@ -1944,7 +2090,7 @@ mod tests {
         // a runtime-assert node. At runtime with a valid value (5), the
         // assert passes and returns 5.
         let kit = Kit::new().unwrap();
-        let val = kit.run("do { y = 5; (y : (n ~> n > 0)) }").unwrap();
+        let val = kit.run("do { y :: 5; (y : (n ~> n > 0)) }").unwrap();
         assert_eq!(val, serde_json::json!(5));
     }
 
@@ -1953,7 +2099,7 @@ mod tests {
         // Same as above but with an invalid value (-1): the runtime assert
         // fails and raises a LangError.
         let kit = Kit::new().unwrap();
-        let err = kit.run("do { y = -1; (y : (n ~> n > 0)) }").unwrap_err();
+        let err = kit.run("do { y :: -1; (y : (n ~> n > 0)) }").unwrap_err();
         assert!(
             err.to_string().contains("assertion failed"),
             "expected assertion failure, got: {err}"

@@ -226,9 +226,12 @@ impl Function for OpFunction {
 
         // `requires` — checked BEFORE the op executes.
         if let Some(ref checker) = checker {
-            checker
-                .check_requires(args)
-                .map_err(|msg| EvalError::Other(format!("op {}: requires predicate violated: {msg}", self.op_name)))?;
+            checker.check_requires(args).map_err(|msg| {
+                EvalError::Other(format!(
+                    "op {}: requires predicate violated: {msg}",
+                    self.op_name
+                ))
+            })?;
         }
 
         let output = func.call(args, ctx)?;
@@ -236,9 +239,12 @@ impl Function for OpFunction {
         // `guarantee` — checked AFTER the op executes, against the return
         // value.
         if let Some(ref checker) = checker {
-            checker
-                .check_guarantee(&output)
-                .map_err(|msg| EvalError::Other(format!("op {}: guarantee predicate violated: {msg}", self.op_name)))?;
+            checker.check_guarantee(&output).map_err(|msg| {
+                EvalError::Other(format!(
+                    "op {}: guarantee predicate violated: {msg}",
+                    self.op_name
+                ))
+            })?;
         }
 
         Ok(output)
@@ -257,9 +263,9 @@ mod tests {
     struct Double;
     impl Function for Double {
         fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-            let n = args[0].as_f64().ok_or_else(|| {
-                EvalError::TypeMismatch("expected number".to_string())
-            })?;
+            let n = args[0]
+                .as_f64()
+                .ok_or_else(|| EvalError::TypeMismatch("expected number".to_string()))?;
             Ok(json!(n * 2.0))
         }
     }
@@ -481,7 +487,10 @@ mod tests {
         struct BothChecker;
         impl RuntimePredicateChecker for BothChecker {
             fn check_requires(&self, args: &[Value]) -> Result<(), String> {
-                let n = args.get(0).and_then(Value::as_f64).ok_or("expected number")?;
+                let n = args
+                    .get(0)
+                    .and_then(Value::as_f64)
+                    .ok_or("expected number")?;
                 if n > 0.0 {
                     Ok(())
                 } else {

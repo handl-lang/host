@@ -101,8 +101,8 @@ mod compile;
 mod standalone;
 
 pub use compile::{
-    compile_all_nodes, compile_all_nodes_jit, compile_all_nodes_object, CompileMode,
-    CompiledBackend, CompiledFn, CompiledResult, ObjectResult,
+    CompileMode, CompiledBackend, CompiledFn, CompiledResult, ObjectResult, compile_all_nodes,
+    compile_all_nodes_jit, compile_all_nodes_object,
 };
 
 use rustc_hash::FxHashMap;
@@ -131,8 +131,8 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_value::{tagged_to_value, TaggedValue};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
+use handl_value::{TaggedValue, tagged_to_value};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -150,6 +150,8 @@ use handl_value::{tagged_to_value, TaggedValue};
 pub struct CraneliftEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// The import resolver for `import "path"` statements (Phase 9.5).
+    import_resolver: Option<Rc<dyn ImportResolver>>,
     /// FFI bindings for direct C ABI dispatch (ADR-0083 §4).
     ///
     /// Maps Foreign op names to FFI bindings. When a `Foreign` op name
@@ -164,6 +166,7 @@ impl CraneliftEngine {
     pub fn new() -> Self {
         Self {
             modules: None,
+            import_resolver: None,
             ffi_ops: HashMap::new(),
         }
     }
@@ -172,6 +175,7 @@ impl CraneliftEngine {
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
             modules: Some(modules),
+            import_resolver: None,
             ffi_ops: HashMap::new(),
         }
     }
@@ -190,10 +194,7 @@ impl CraneliftEngine {
     }
 
     /// Attach FFI ops (builder style).
-    pub fn with_ffi_ops(
-        mut self,
-        ops: HashMap<String, handl_plugin_ffi::FfiOpFunction>,
-    ) -> Self {
+    pub fn with_ffi_ops(mut self, ops: HashMap<String, handl_plugin_ffi::FfiOpFunction>) -> Self {
         self.ffi_ops = ops;
         self
     }
@@ -291,6 +292,7 @@ impl CraneliftEngine {
             &result.literals,
             &result.names,
             self.modules.as_ref(),
+            self.import_resolver.clone(),
             &self.ffi_ops,
         )
     }
@@ -328,6 +330,7 @@ impl EvalEngine for CraneliftEngine {
             &compile_result.literals,
             &compile_result.names,
             self.modules.as_ref(),
+            self.import_resolver.clone(),
             &self.ffi_ops,
         )
     }
@@ -338,6 +341,12 @@ impl EvalEngine for CraneliftEngine {
 
     fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
         Box::new(CraneliftEngine::with_modules(modules))
+    }
+
+    fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
+        let mut engine = self.clone();
+        engine.import_resolver = Some(resolver);
+        Box::new(engine)
     }
 }
 
@@ -363,6 +372,7 @@ fn run_native(
     literals: &[Value],
     names: &[String],
     modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
+    import_resolver: Option<Rc<dyn ImportResolver>>,
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
@@ -382,6 +392,7 @@ fn run_native(
         env: ScopeStack::new(),
         current_ref: ast.len() - 1,
         modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
+        import_resolver,
         compiled: compiled.clone(),
         literals,
         names: names.to_vec(),
@@ -464,6 +475,8 @@ pub struct EvalCtx {
     current_ref: usize,
     /// The module registry (raw trait-object pointer; may be null).
     modules: Option<*const dyn handl_platform::ModuleLookup>,
+    /// The import resolver for `import "path"` statements (Phase 9.5).
+    import_resolver: Option<Rc<dyn ImportResolver>>,
     /// Per-node compiled function pointers, keyed by arena index.
     /// Used by helpers ([`helper_v2_eval_child`], [`helper_v2_apply_closure`]).
     compiled: HashMap<usize, CompiledFn>,
@@ -505,6 +518,28 @@ impl EvalCtx {
         std::ptr::null_mut()
     }
 
+    /// Resolve a child arena index for the named role on `node`, using the
+    /// language's declared child roles. Returns `Ok(None)` when the role is
+    /// not declared or the payload is malformed.
+    fn role_child_arena(&self, node: &AstNode, role: &str) -> Result<Option<usize>, LangError> {
+        if self.lang.is_null() {
+            return Ok(None);
+        }
+        // SAFETY: self.lang is a valid pointer for the duration of run_native.
+        let idx = unsafe { (*self.lang).child_role_index(&node.kind, role)? };
+        let Some(idx) = idx else {
+            return Ok(None);
+        };
+        let arena = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.get(idx))
+            .and_then(|v| v.as_u64())
+            .map(|i| i as usize);
+        Ok(arena)
+    }
+
     /// Construct an [`EvalCtx`] for standalone execution.
     ///
     /// This is the entry point used by the standalone bootstrap driver
@@ -540,6 +575,7 @@ impl EvalCtx {
             env: ScopeStack::new(),
             current_ref: if ast.is_empty() { 0 } else { ast.len() - 1 },
             modules: None,
+            import_resolver: None,
             compiled,
 
             literals,
@@ -919,11 +955,7 @@ pub unsafe extern "C" fn helper_is_truthy(val: *const TaggedValue) -> u8 {
             return 0;
         }
         let v = &*val;
-        if is_truthy(v) {
-            1
-        } else {
-            0
-        }
+        if is_truthy(v) { 1 } else { 0 }
     }
 }
 
@@ -968,7 +1000,7 @@ pub unsafe extern "C" fn helper_apply_closure(
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
-                ))
+                ));
             }
         };
 
@@ -1160,7 +1192,7 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
             return Err(LangError::engine(format!(
                 "no compiled function for node {}",
                 arena_idx
-            )))
+            )));
         }
     };
     let saved_ref = ctx.current_ref;
@@ -1199,7 +1231,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "match: missing children in payload".to_string(),
-            ))
+            ));
         }
     };
     let scrut_idx = match children.get(0).and_then(|v| v.as_u64()) {
@@ -1207,7 +1239,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "match: missing scrutinee child".to_string(),
-            ))
+            ));
         }
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
@@ -1216,7 +1248,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             return ctx.set_error(LangError::engine_node(
                 "match: missing block child".to_string(),
                 node,
-            ))
+            ));
         }
     };
     let scrut_val = match eval_child_node(ctx, scrut_idx) {
@@ -1237,7 +1269,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "match: block node missing children".to_string(),
-            ))
+            ));
         }
     };
     for arm_entry in arm_indices {
@@ -1246,7 +1278,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm index must be a number".to_string(),
-                ))
+                ));
             }
         };
         let arm_node = match ast.at(AstRef::new(arm_idx)) {
@@ -1258,7 +1290,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm node missing children".to_string(),
-                ))
+                ));
             }
         };
         let pattern_idx = match arm_children.get(0).and_then(|v| v.as_u64()) {
@@ -1266,7 +1298,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm missing pattern child".to_string(),
-                ))
+                ));
             }
         };
         let body_idx = match arm_children.get(1).and_then(|v| v.as_u64()) {
@@ -1274,7 +1306,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm missing body child".to_string(),
-                ))
+                ));
             }
         };
         ctx.env.push_scope();
@@ -1318,7 +1350,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "handle: missing children in payload".to_string(),
-            ))
+            ));
         }
     };
     let body_idx = match children.get(0).and_then(|v| v.as_u64()) {
@@ -1327,7 +1359,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             return ctx.set_error(LangError::engine_node(
                 "handle: missing body child".to_string(),
                 node,
-            ))
+            ));
         }
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
@@ -1336,7 +1368,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             return ctx.set_error(LangError::engine_node(
                 "handle: missing block child".to_string(),
                 node,
-            ))
+            ));
         }
     };
     let body_val = match eval_child_node(ctx, body_idx) {
@@ -1359,7 +1391,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "handle: block node missing children".to_string(),
-            ))
+            ));
         }
     };
     for clause_entry in clause_indices {
@@ -1368,7 +1400,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause index must be a number".to_string(),
-                ))
+                ));
             }
         };
         let clause_node = match ast.at(AstRef::new(clause_idx)) {
@@ -1384,7 +1416,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause node missing children".to_string(),
-                ))
+                ));
             }
         };
         let pattern_idx = match clause_children.get(0).and_then(|v| v.as_u64()) {
@@ -1392,7 +1424,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause missing pattern child".to_string(),
-                ))
+                ));
             }
         };
         let handler_idx = match clause_children.get(1).and_then(|v| v.as_u64()) {
@@ -1400,7 +1432,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause missing handler child".to_string(),
-                ))
+                ));
             }
         };
         ctx.env.push_scope();
@@ -1448,7 +1480,6 @@ fn type_tag(v: &TaggedValue) -> &'static str {
         TaggedValue::Resource(_) => "resource",
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // CompileEngine / CompiledArtifact impls (ADR-0047 §3)
@@ -1836,7 +1867,7 @@ fn apply_closure_value(
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
-                ))
+                ));
             }
         };
 
@@ -1940,6 +1971,174 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Ok(v) => unsafe { box_value(v) },
         Err(e) => ctx.set_error(e),
     }
+}
+
+/// `import` native op (Phase 9.5): load a module via the configured
+/// [`ImportResolver`] and bind its top-level exports into the current
+/// scope. Mirrors the v2 tree-walk's `prim_import` and the bytecode VM's
+/// `prim_v2_import`.
+fn prim_v2_import(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
+    let node = match ctx.current_node() {
+        Ok(n) => n.clone(),
+        Err(e) => return ctx.set_error(e),
+    };
+
+    let path: String = match args
+        .first()
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| {
+            node.payload
+                .get("path")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        }) {
+        Some(p) => p,
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "import: missing module path (expected string argument or 'path' payload)"
+                    .to_string(),
+                &node,
+            ));
+        }
+    };
+
+    let resolver = match ctx.import_resolver.as_ref() {
+        Some(r) => r,
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "import: no import resolver configured".to_string(),
+                &node,
+            ));
+        }
+    };
+
+    let bindings = match resolver.resolve_import(&path) {
+        Ok(v) => TaggedValue::from(v),
+        Err(e) => {
+            return ctx.set_error(LangError::engine_node(
+                format!("import \"{}\": {}", path, e),
+                &node,
+            ));
+        }
+    };
+
+    if let Some(alias) = node.payload.get("alias").and_then(|v| v.as_str()) {
+        ctx.env.define(alias, bindings);
+    } else if let Some(map) = bindings.as_object() {
+        for (name, val) in map.iter() {
+            ctx.env.define(name.as_ref(), val.clone());
+        }
+    }
+
+    unsafe { box_value(TaggedValue::Null) }
+}
+
+/// `eval_block` native op: evaluate the children of a `block` node in
+/// sequence in a new scope, returning the last child's value. `assign`
+/// children (shapes declaring `target`/`value` roles) are bound into the
+/// block scope. Mirrors the v2 tree-walk's `prim_v2_eval_block`.
+fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
+    let node = match ctx.current_node() {
+        Ok(n) => n.clone(),
+        Err(e) => return ctx.set_error(e),
+    };
+
+    let children = match node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .cloned()
+    {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "eval_block: expected children array in payload".to_string(),
+                &node,
+            ));
+        }
+    };
+    if children.is_empty() {
+        return unsafe { box_value(TaggedValue::Null) };
+    }
+
+    ctx.env.push_scope();
+    let mut result = TaggedValue::Null;
+    for entry in children {
+        let idx = match entry.as_u64() {
+            Some(i) => i as usize,
+            None => {
+                ctx.env.pop_scope();
+                return ctx.set_error(LangError::engine_node(
+                    "eval_block: child index must be a number".to_string(),
+                    &node,
+                ));
+            }
+        };
+
+        let child_node = match ctx.ast_at(AstRef::new(idx)) {
+            Ok(n) => n.clone(),
+            Err(e) => {
+                ctx.env.pop_scope();
+                return ctx.set_error(e);
+            }
+        };
+
+        let target_arena = match ctx.role_child_arena(&child_node, "target") {
+            Ok(o) => o,
+            Err(e) => {
+                ctx.env.pop_scope();
+                return ctx.set_error(e);
+            }
+        };
+        let value_arena = match ctx.role_child_arena(&child_node, "value") {
+            Ok(o) => o,
+            Err(e) => {
+                ctx.env.pop_scope();
+                return ctx.set_error(e);
+            }
+        };
+
+        if let (Some(target_idx), Some(value_idx)) = (target_arena, value_arena) {
+            let name = match ctx.ast_at(AstRef::new(target_idx)) {
+                Ok(target_node) => match target_node.payload.as_str() {
+                    Some(s) => s.to_string(),
+                    None => {
+                        ctx.env.pop_scope();
+                        return ctx.set_error(LangError::engine_node(
+                            "eval_block: binding target must be an identifier"
+                                .to_string(),
+                            &node,
+                        ));
+                    }
+                },
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            };
+
+            let value = match eval_child_node(ctx, value_idx) {
+                Ok(v) => v,
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            };
+            ctx.env.define(&name, value.clone());
+            result = value;
+        } else {
+            match eval_child_node(ctx, idx) {
+                Ok(v) => result = v,
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            }
+        }
+    }
+    ctx.env.pop_scope();
+    unsafe { box_value(result) }
 }
 
 /// `loop_step` derived step op (ADR-0052 §"Derived forms"): the ergonomic
@@ -2592,7 +2791,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "array: missing elements/children in payload".to_string(),
-            ))
+            ));
         }
     };
     // Collect indices first to release the immutable borrow of `ctx` before
@@ -2606,7 +2805,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "array: element index must be a number".to_string(),
-            ))
+            ));
         }
     };
     let mut result = Vec::with_capacity(indices.len());
@@ -2639,7 +2838,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                     return ctx.set_error(LangError::engine_node(
                         "object: entry missing key".to_string(),
                         node,
-                    ))
+                    ));
                 }
             };
             let value = match entry.get("value") {
@@ -2648,7 +2847,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                     return ctx.set_error(LangError::engine_node(
                         "object: entry missing value".to_string(),
                         node,
-                    ))
+                    ));
                 }
             };
             if handl_language::is_reserved_value_key(&key) {
@@ -2666,7 +2865,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "object: missing entries/children in payload".to_string(),
-            ))
+            ));
         }
     };
     // Collect entry indices, then for each entry collect (key_idx, val_idx),
@@ -2680,7 +2879,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "object: entry index must be a number".to_string(),
-            ))
+            ));
         }
     };
     let ast = unsafe { &*ctx.ast };
@@ -2701,7 +2900,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "object: entry node missing children".to_string(),
-                ))
+                ));
             }
         };
         let key_idx = match entry_children.first().and_then(|v| v.as_u64()) {
@@ -2709,7 +2908,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "object: entry missing key child".to_string(),
-                ))
+                ));
             }
         };
         let val_idx = match entry_children.get(1).and_then(|v| v.as_u64()) {
@@ -2717,7 +2916,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             None => {
                 return ctx.set_error(LangError::engine(
                     "object: entry missing value child".to_string(),
-                ))
+                ));
             }
         };
         // Object key: if the key node is a `var` (bare identifier) or
@@ -2783,7 +2982,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "index: missing target in payload".to_string(),
-            ))
+            ));
         }
     };
     let index = match node.payload.get("index") {
@@ -2791,7 +2990,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         None => {
             return ctx.set_error(LangError::engine(
                 "index: missing index in payload".to_string(),
-            ))
+            ));
         }
     };
     let target_t = TaggedValue::from(target.clone());
@@ -3013,7 +3212,7 @@ fn apply_native_v2(
                         None => {
                             return ctx.set_error(LangError::engine(
                                 "json: child index must be a number".to_string(),
-                            ))
+                            ));
                         }
                     };
                     let template_node = match ctx.ast_at(AstRef::new(template_idx)) {
@@ -3025,7 +3224,7 @@ fn apply_native_v2(
                         None => {
                             return ctx.set_error(LangError::engine(
                                 "json: template payload must be a string".to_string(),
-                            ))
+                            ));
                         }
                     };
                     let mut s = template;
@@ -3037,7 +3236,7 @@ fn apply_native_v2(
                                 ctx.current_ref = saved_ref;
                                 return ctx.set_error(LangError::engine(
                                     "json: child index must be a number".to_string(),
-                                ))
+                                ));
                             }
                         };
                         let func = match ctx.compiled.get(&idx).copied() {
@@ -3047,7 +3246,7 @@ fn apply_native_v2(
                                 return ctx.set_error(LangError::engine(format!(
                                     "json: no compiled function for node {}",
                                     idx
-                                )))
+                                )));
                             }
                         };
                         ctx.current_ref = idx;
@@ -3073,7 +3272,7 @@ fn apply_native_v2(
                             Ok(r) => r,
                             Err(e) => {
                                 ctx.current_ref = saved_ref;
-                                return ctx.set_error(LangError::engine(format!("json: {}", e)))
+                                return ctx.set_error(LangError::engine(format!("json: {}", e)));
                             }
                         };
                         s = s.replace(&format!("${}", i), &replacement);
@@ -3100,6 +3299,12 @@ fn apply_native_v2(
                 )),
             }
         }
+        // Phase 9.5: `import "path"` loads a module via the configured
+        // resolver and binds its top-level exports into the current scope.
+        "import" => return prim_v2_import(ctx, args),
+        // ADR-0054 / ADR-0079: `do { stmt; expr }` evaluates children in
+        // sequence in a new scope and returns the last child's value.
+        "eval_block" => return prim_v2_eval_block(ctx),
         "add" => bin_num_v2(args, |a, b| a + b),
         "sub" => bin_num_v2(args, |a, b| a - b),
         "mul" => bin_num_v2(args, |a, b| a * b),
@@ -3198,7 +3403,7 @@ fn apply_native_v2(
                 _ => {
                     return ctx.set_error(LangError::engine(
                         "call_host: callee must be a string".to_string(),
-                    ))
+                    ));
                 }
             };
             let modules_ptr = match ctx.modules {
@@ -3206,7 +3411,7 @@ fn apply_native_v2(
                 None => {
                     return ctx.set_error(LangError::engine(
                         "call_host: no module registry".to_string(),
-                    ))
+                    ));
                 }
             };
             let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
@@ -3216,7 +3421,7 @@ fn apply_native_v2(
                     return ctx.set_error(LangError::engine(format!(
                         "call_host: function '{}' not found",
                         callee
-                    )))
+                    )));
                 }
             };
             let call_args: Vec<Value> = match args.get(1) {
@@ -3238,7 +3443,7 @@ fn apply_native_v2(
                     None => {
                         return ctx.set_error(LangError::engine(
                             "proj_rest: expected children array in payload".to_string(),
-                        ))
+                        ));
                     }
                 },
                 Err(e) => return ctx.set_error(e),
@@ -3252,7 +3457,7 @@ fn apply_native_v2(
                         ctx.current_ref = saved_ref;
                         return ctx.set_error(LangError::engine(
                             "proj_rest: child index must be a number".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let func = match ctx.compiled.get(&idx).copied() {
@@ -3262,7 +3467,7 @@ fn apply_native_v2(
                         return ctx.set_error(LangError::engine(format!(
                             "proj_rest: no compiled function for node {}",
                             idx
-                        )))
+                        )));
                     }
                 };
                 ctx.current_ref = idx;
@@ -3433,7 +3638,7 @@ fn apply_native_v2(
                 _ => {
                     return ctx.set_error(LangError::engine(
                         "opt_chain: field name must be a string".to_string(),
-                    ))
+                    ));
                 }
             };
             if matches!(input, TaggedValue::Null) {
@@ -5524,7 +5729,8 @@ mod tests {
             AstNode::new("lit").with_payload(json!(3)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let compile_result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new()).unwrap();
+        let compile_result =
+            compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new()).unwrap();
         let engine = CraneliftEngineV2::new();
         let result = engine.run_compiled(&lang, &ast, &compile_result).unwrap();
         assert_eq!(result, json!(5));
@@ -5557,11 +5763,14 @@ mod tests {
         let mode = CompileMode::Object {
             output_path: tmp.clone(),
         };
-        let result = compile_all_nodes(&lang, &ast, &mode, &std::collections::HashMap::new()).unwrap();
+        let result =
+            compile_all_nodes(&lang, &ast, &mode, &std::collections::HashMap::new()).unwrap();
         assert!(tmp.exists());
-        assert!(std::fs::metadata(&tmp)
-            .map(|m| m.len() > 0)
-            .unwrap_or(false));
+        assert!(
+            std::fs::metadata(&tmp)
+                .map(|m| m.len() > 0)
+                .unwrap_or(false)
+        );
         // compiled map is empty for Object mode.
         assert!(result.compiled.is_empty());
         let _ = std::fs::remove_file(&tmp);
@@ -5747,7 +5956,13 @@ mod tests {
         let mut ffi_ops = HashMap::new();
         ffi_ops.insert(
             "ffi.double".to_string(),
-            FfiOpFunction::new("self", "ffi_cranelift_test_double_i32", vec!["i32".to_string()], "i32", false),
+            FfiOpFunction::new(
+                "self",
+                "ffi_cranelift_test_double_i32",
+                vec!["i32".to_string()],
+                "i32",
+                false,
+            ),
         );
 
         let engine = CraneliftEngine::new().with_ffi_ops(ffi_ops);
@@ -5784,7 +5999,13 @@ mod tests {
         let mut ffi_ops = HashMap::new();
         ffi_ops.insert(
             "ffi.other".to_string(),
-            FfiOpFunction::new("self", "ffi_cranelift_test_double_i32", vec!["i32".to_string()], "i32", false),
+            FfiOpFunction::new(
+                "self",
+                "ffi_cranelift_test_double_i32",
+                vec!["i32".to_string()],
+                "i32",
+                false,
+            ),
         );
 
         // Set up the module registry with "double".
@@ -5795,5 +6016,87 @@ mod tests {
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));
+    }
+
+    // --- Phase 9.5 import / eval_block ---
+
+    struct StubImportResolver;
+    impl ImportResolver for StubImportResolver {
+        fn resolve_import(&self, _path: &str) -> Result<Value, LangError> {
+            Ok(json!({"x": 42}))
+        }
+    }
+
+    fn import_lang() -> Language {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.import",
+                "stmt.import",
+                Scheme::arr_native(
+                    "import",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(0u64))],
+                ),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.block",
+                "block",
+                Scheme::arr_native("eval_block", vec![]),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn import_binds_exports_into_scope() {
+        let lang = import_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!("m")), // 0
+            AstNode::new("var").with_payload(json!("x")),     // 1
+            AstNode::new("stmt.import").with_payload(json!({"children": [0]})), // 2
+            AstNode::new("block").with_payload(json!({"children": [2, 1]})), // 3
+        ]);
+        let engine: Box<dyn EvalEngine> =
+            CraneliftEngine::new().with_import_resolver(Rc::new(StubImportResolver));
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn import_binds_alias_as_module_object() {
+        let lang = import_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!("m")), // 0
+            AstNode::new("var").with_payload(json!("m")),     // 1
+            AstNode::new("stmt.import")
+                .with_payload(json!({"children": [0], "alias": "m"})), // 2
+            AstNode::new("block").with_payload(json!({"children": [2, 1]})), // 3
+        ]);
+        let engine: Box<dyn EvalEngine> =
+            CraneliftEngine::new().with_import_resolver(Rc::new(StubImportResolver));
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!({"x": 42}));
+    }
+
+    #[test]
+    fn import_errors_without_resolver() {
+        let lang = import_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!("m")), // 0
+            AstNode::new("stmt.import").with_payload(json!({"children": [0]})), // 1
+        ]);
+        let engine = CraneliftEngine::new();
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(err.to_string().contains("no import resolver configured"));
     }
 }

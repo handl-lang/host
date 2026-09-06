@@ -37,15 +37,23 @@ fn renamed_language() -> Language {
 
     // `set` (renamed `assign`) — same eval scheme: `assign` native op
     lang.eval
-        .merge(EvalSchemeDef::new("e.set", "set", Scheme::arr_native("assign", vec![])))
+        .merge(EvalSchemeDef::new(
+            "e.set",
+            "set",
+            Scheme::arr_native("assign", vec![]),
+        ))
         .unwrap();
     lang.ast
-        .merge(
-            AstShapeDef::new("ast.set", "set").with_children(vec![
-                ChildRoleSpec { role: "target".into(), variadic: false },
-                ChildRoleSpec { role: "value".into(), variadic: false },
-            ]),
-        )
+        .merge(AstShapeDef::new("ast.set", "set").with_children(vec![
+            ChildRoleSpec {
+                role: "target".into(),
+                variadic: false,
+            },
+            ChildRoleSpec {
+                role: "value".into(),
+                variadic: false,
+            },
+        ]))
         .unwrap();
 
     // `block2` (renamed `block`) — same eval scheme: `eval_block` native op
@@ -108,12 +116,16 @@ fn renamed_language() -> Language {
         ))
         .unwrap();
     lang.ast
-        .merge(
-            AstShapeDef::new("ast.func2", "func2").with_children(vec![
-                ChildRoleSpec { role: "params".into(), variadic: false },
-                ChildRoleSpec { role: "body".into(), variadic: false },
-            ]),
-        )
+        .merge(AstShapeDef::new("ast.func2", "func2").with_children(vec![
+            ChildRoleSpec {
+                role: "params".into(),
+                variadic: false,
+            },
+            ChildRoleSpec {
+                role: "body".into(),
+                variadic: false,
+            },
+        ]))
         .unwrap();
 
     // `call` — same as canonical: proj_child(0) >>> route_on_type("string")
@@ -151,10 +163,10 @@ fn renamed_language() -> Language {
 /// `block2 { set x = 42; ret x }` → expected: `42`
 fn block_with_binding_ast() -> Ast {
     let mut a = Ast::new();
-    a.push(AstNode::new("lit").with_payload(Value::from(42)));          // 0
-    a.push(AstNode::new("var").with_payload(Value::from("x")));         // 1
+    a.push(AstNode::new("lit").with_payload(Value::from(42))); // 0
+    a.push(AstNode::new("var").with_payload(Value::from("x"))); // 1
     a.push(AstNode::new("set").with_payload(json!({"children": [1, 0]}))); // 2
-    a.push(AstNode::new("var").with_payload(Value::from("x")));         // 3
+    a.push(AstNode::new("var").with_payload(Value::from("x"))); // 3
     a.push(AstNode::new("ret").with_payload(json!({"children": [3]}))); // 4
     a.push(AstNode::new("block2").with_payload(json!({"children": [2, 4]}))); // 5
     a
@@ -163,11 +175,11 @@ fn block_with_binding_ast() -> Ast {
 /// `func2 (params2 (x)) => x` applied to 99 → expected: `99`
 fn closure_ast() -> Ast {
     let mut a = Ast::new();
-    a.push(AstNode::new("var").with_payload(Value::from("x")));          // 0
+    a.push(AstNode::new("var").with_payload(Value::from("x"))); // 0
     a.push(AstNode::new("params2").with_payload(json!({"children": [0]}))); // 1
-    a.push(AstNode::new("var").with_payload(Value::from("x")));         // 2
+    a.push(AstNode::new("var").with_payload(Value::from("x"))); // 2
     a.push(AstNode::new("func2").with_payload(json!({"children": [1, 2]}))); // 3
-    a.push(AstNode::new("lit").with_payload(Value::from(99)));          // 4
+    a.push(AstNode::new("lit").with_payload(Value::from(99))); // 4
     a.push(AstNode::new("call").with_payload(json!({"children": [3, 4]}))); // 5
     a
 }

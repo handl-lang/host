@@ -39,8 +39,11 @@ fn type_definition_for_arrow_name_returns_location() {
 
     // Write a contract file containing `axiom id`.
     let list_path = contracts_dir.join("list.hnl");
-    fs::write(&list_path, "-- contracts\naxiom id : a -> a\n  guarantee: True\n")
-        .expect("write list.hnl");
+    fs::write(
+        &list_path,
+        "-- contracts\naxiom id : a -> a\n  guarantee: True\n",
+    )
+    .expect("write list.hnl");
 
     // The current file lives under arrows/ so find_arrows_root can locate
     // the root and the sibling contracts/ directory.
@@ -85,8 +88,11 @@ fn type_definition_for_type_predicate_finds_axiom() {
 
     // Write a contract file containing `axiom Sorted`.
     let list_path = contracts_dir.join("list.hnl");
-    fs::write(&list_path, "-- list contracts\naxiom Sorted : List a -> Bool\n  guarantee: True\n")
-        .expect("write list.hnl");
+    fs::write(
+        &list_path,
+        "-- list contracts\naxiom Sorted : List a -> Bool\n  guarantee: True\n",
+    )
+    .expect("write list.hnl");
 
     // The current file lives under arrows/ so the contracts directory can
     // be located. The source is just the predicate name `Sorted`.

@@ -32,8 +32,7 @@ fn read_golden(stem: &str, suffix: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/golden")
         .join(format!("{stem}.{suffix}"));
-    fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()))
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()))
 }
 
 #[test]

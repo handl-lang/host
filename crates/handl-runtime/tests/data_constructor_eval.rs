@@ -11,7 +11,7 @@
 
 use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Scheme, Value};
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
-use handl_runtime::{desugar_pass::apply_desugar, Runtime};
+use handl_runtime::{Runtime, desugar_pass::apply_desugar};
 use serde_json::json;
 
 /// A `Language` with just the eval schemes needed for this regression: `var`
@@ -27,10 +27,18 @@ fn eval_lang() -> Language {
         ))
         .unwrap();
     lang.eval
-        .merge(EvalSchemeDef::new("e.assign", "assign", Scheme::arr_native("assign", vec![])))
+        .merge(EvalSchemeDef::new(
+            "e.assign",
+            "assign",
+            Scheme::arr_native("assign", vec![]),
+        ))
         .unwrap();
     lang.eval
-        .merge(EvalSchemeDef::new("e.json", "json", Scheme::arr_native("json", vec![])))
+        .merge(EvalSchemeDef::new(
+            "e.json",
+            "json",
+            Scheme::arr_native("json", vec![]),
+        ))
         .unwrap();
     lang
 }
@@ -54,8 +62,7 @@ fn data_node(name: &str, constructors: &[(&str, &[(&str, &str)])]) -> AstNode {
 #[test]
 fn succ_constructor_evaluates_arg_value_not_arg_name() {
     let lang = eval_lang();
-    let rt = Runtime::new(lang.clone())
-        .with_eval_engine(Box::new(TreeWalkEngine::new()));
+    let rt = Runtime::new(lang.clone()).with_eval_engine(Box::new(TreeWalkEngine::new()));
 
     // Build and desugar `data Nat = Zero | Succ(Nat)`.
     let mut ast = Ast::new();

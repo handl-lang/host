@@ -56,7 +56,10 @@ fn moniker_on_non_identifier_returns_empty() {
     let source = "x = 42";
     let offset = source.find('4').unwrap();
     let result = moniker(source, offset, Some("/repo/handl-packages/x.hnl"));
-    assert!(result.is_empty(), "cursor on a number yields no moniker: {result:?}");
+    assert!(
+        result.is_empty(),
+        "cursor on a number yields no moniker: {result:?}"
+    );
 }
 
 #[test]
