@@ -10,4 +10,4 @@
 --- `[[x, y] ~> x + y, [1, 2]] >>> comb.apply`
 --- -- => 3
 ---
-export apply :: [f, args] ~> f(args)
+export apply :: [f, args] ~> (args >>> f)
