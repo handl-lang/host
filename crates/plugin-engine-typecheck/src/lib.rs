@@ -18,6 +18,7 @@
 
 #![warn(missing_docs)]
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{Ast, LangError, Language, Span, Value};
@@ -85,6 +86,11 @@ pub struct TypecheckResult {
     pub typ: Value,
     /// Diagnostics (warnings, notes — empty on a clean success).
     pub diagnostics: Vec<TypecheckDiagnostic>,
+    /// Per-node synthesized/checked types (ADR-0032 proof erasure).
+    ///
+    /// Keys are `AstRef::index()` values; values are the type `Value`
+    /// computed for that node. Empty if the engine does not record them.
+    pub node_types: HashMap<usize, Value>,
 }
 
 /// The trait a typecheck engine implements.

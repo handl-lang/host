@@ -94,6 +94,40 @@ fn typecheck_lit_synth_type_number() {
 }
 
 // ---------------------------------------------------------------------------
+// c'. node_types populated for root and child nodes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn node_types_populated_after_typecheck() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.lit",
+            "lit",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.wrap",
+            "wrap",
+            Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 0
+    ast.push(
+        AstNode::new("wrap").with_payload(json!({"children": [0]})), // 1
+    );
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+    assert_eq!(result.node_types.get(&0), Some(&type_number()));
+    assert_eq!(result.node_types.get(&1), Some(&type_number()));
+}
+
+// ---------------------------------------------------------------------------
 // d. var lookup from Γ
 // ---------------------------------------------------------------------------
 

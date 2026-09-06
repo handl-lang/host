@@ -1496,6 +1496,7 @@ mod tests {
             Ok(TypecheckResult {
                 typ: self.typ.clone(),
                 diagnostics: Vec::new(),
+                node_types: Default::default(),
             })
         }
 
@@ -2233,6 +2234,7 @@ mod tests {
                         message: "predicate failure".to_string(),
                         span: None,
                     }],
+                    node_types: Default::default(),
                 })
             }
             fn box_clone(&self) -> Box<dyn TypecheckEngine> {

@@ -274,7 +274,9 @@ impl NbeTypecheckEngine {
                 node,
             )
         })?;
-        self.eval_type_scheme(lang, ast, node_ref, &rule.synth, ctx, None)
+        let typ = self.eval_type_scheme(lang, ast, node_ref, &rule.synth, ctx, None)?;
+        ctx.node_types.insert(node_ref.index(), typ.clone());
+        Ok(typ)
     }
 
     /// Check a node against an expected type by interpreting the `check`
@@ -308,10 +310,12 @@ impl NbeTypecheckEngine {
                 ctx,
                 Some(expected.clone()),
             )?;
+            ctx.node_types.insert(node_ref.index(), expected.clone());
             Ok(())
         } else {
             let ty = self.synth_node(lang, ast, node_ref, ctx)?;
             self.unify(&ty, expected, ctx)?;
+            ctx.node_types.insert(node_ref.index(), ty);
             Ok(())
         }
     }
@@ -3919,6 +3923,7 @@ impl TypecheckEngine for NbeTypecheckEngine {
         Ok(TypecheckResult {
             typ,
             diagnostics: ctx.diagnostics,
+            node_types: ctx.node_types,
         })
     }
 
@@ -3982,6 +3987,8 @@ struct TypecheckContext {
     diagnostics: Vec<TypecheckDiagnostic>,
     /// Globals injected at the root (e.g. `hello`, `self`).
     globals: HashMap<String, Value>,
+    /// Per-node synthesized/checked types (ADR-0032 proof erasure).
+    node_types: HashMap<usize, Value>,
 }
 
 impl TypecheckContext {
@@ -3994,6 +4001,7 @@ impl TypecheckContext {
             registry: TypeRegistry::new(registry_id),
             diagnostics: Vec::new(),
             globals,
+            node_types: HashMap::new(),
         }
     }
 
