@@ -8,6 +8,15 @@
   pattern: !Literal
     text: "&&"
   priority: 10
+# `and` — word form of `&&` (binary.and). Keyword-band priority with
+# word-boundary rejection (see try_rule): `and`/`or` followed by an
+# identifier-continue char, `.`, or `:` — or preceded by `.` — lex as
+# identifiers, so `x.and`, `{and: f}`, `candy`, etc. are unaffected.
+- id: lex.and.word
+  token_kind: token.and
+  pattern: !Literal
+    text: "and"
+  priority: 15
 - id: lex.arrow
   token_kind: token.arrow
   pattern: !Literal
@@ -312,6 +321,13 @@
   pattern: !Literal
     text: "||"
   priority: 10
+# `or` — word form of `||` (binary.or). Same boundary rules as
+# `lex.and.word`: `x.or`, `{or: f}`, `or_`, `forest`, … stay identifiers.
+- id: lex.or.word
+  token_kind: token.or
+  pattern: !Literal
+    text: "or"
+  priority: 15
 - id: lex.pipe
   token_kind: token.pipe
   pattern: !Literal

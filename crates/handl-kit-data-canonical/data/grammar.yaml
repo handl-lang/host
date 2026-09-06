@@ -530,9 +530,12 @@
       open_is_operator_token: false
       flatten: true
 # `do { body } while cond` — post-test loop (ADR-0074 A.6).
-# `do` prefix produces a block; `while` in infix position (after an expression)
-# produces a do-while node. The parser distinguishes infix `while` (after an
-# expression) from prefix `while` (start of expression) by position.
+# `do` prefix produces a block; `while` in infix position produces a
+# do-while node — but ONLY when the left operand is a `block` node (the
+# `do {..}` form). `left_kinds` declares that left-context sensitivity:
+# without it the infix would fire after ANY expression and swallow a
+# following `while` statement (`x :: f() <nl> while {s} {step}` parsed the
+# `{s}` state object as the do-while condition — gap #8 / comb.fanout).
 - id: grammar.do-while.infix
   token: token.keyword.while
   position: Infix
@@ -542,6 +545,8 @@
   child_shape:
     node_kind: do-while
     arity: 2
+    left_kinds:
+      - block
 - id: grammar.call.infix
   token: token.lparen
   position: Infix

@@ -1981,6 +1981,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-stdlib",
  "handl-plugin-module",
  "serde",
  "serde_json",

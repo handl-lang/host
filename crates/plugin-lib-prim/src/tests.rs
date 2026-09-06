@@ -148,16 +148,20 @@ fn or_all_bits() {
     assert_eq!(call(&PrimModule, "or", &[n(-1), n(0)]).as_i64(), Some(-1));
 }
 
+// `prim.or` is now pure handl (`prim-handl` over `math.bit_or`); arity
+// failures surface as eval errors (`EvalError::Other`) rather than the
+// native `TypeMismatch`. Non-integer args still surface a `TypeMismatch`
+// raised by `math.bit_or` through the eval boundary.
 #[test]
 fn or_missing_args_errors() {
     let result = call_err(&PrimModule, "or", &[n(1)]);
-    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+    assert!(result.is_err());
 }
 
 #[test]
 fn or_non_integer_errors() {
     let result = call_err(&PrimModule, "or", &[s("a"), n(1)]);
-    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+    assert!(result.is_err());
 }
 
 // -----------------------------------------------------------------------
@@ -166,14 +170,14 @@ fn or_non_integer_errors() {
 
 #[test]
 fn op_registry_registers_native_ops() {
-    // `prim.add`/`prim.alloc` are pure handl (prim-handl record) — only the
-    // genuinely-native atoms (`prim.compare`, `prim.or`) are in the registry.
+    // `prim.add`/`prim.alloc`/`prim.or` are pure handl (prim-handl record) —
+    // only the one genuinely-native atom (`prim.compare`) is in the registry.
     let registry = prim_op_registry();
     assert!(!registry.contains("prim.add"));
     assert!(registry.contains("prim.compare"));
     assert!(!registry.contains("prim.alloc"));
-    assert!(registry.contains("prim.or"));
-    assert_eq!(registry.len(), 2);
+    assert!(!registry.contains("prim.or"));
+    assert_eq!(registry.len(), 1);
 }
 
 #[test]
@@ -186,22 +190,10 @@ fn op_registry_compare_dispatches() {
 }
 
 #[test]
-fn op_registry_or_dispatches() {
-    let registry = std::sync::Arc::new(prim_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("prim.or", registry);
-    let mut ctx = EvalContext::new();
-    let result = op_func
-        .call(&[json!(0b0011), json!(0b0101)], &mut ctx)
-        .unwrap();
-    assert_eq!(result, json!(0b0111));
-}
-
-#[test]
 fn prim_ops_have_no_checkers_trusted() {
     // The prim atoms are trusted — no runtime checkers attached.
     let registry = prim_op_registry();
     assert!(registry.get_checker("prim.compare").is_none());
-    assert!(registry.get_checker("prim.or").is_none());
 }
 
 #[test]

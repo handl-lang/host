@@ -548,10 +548,26 @@ impl PrattEngine {
                 break;
             }
 
+            // Left-kind constraint (`AstShapeRef::left_kinds`): when the row
+            // declares one, the infix only applies when the left operand's
+            // node kind is listed — e.g. `while` infix (do-while) only after
+            // a `block` left operand, so a `while` statement following an
+            // expression is not swallowed (gap #8).
+            let shape = &infix_row.child_shape;
+            if !shape.left_kinds.is_empty() {
+                let left_kind = {
+                    let ast = self.ast.borrow();
+                    ast.get(left).map(|n| n.kind.clone())
+                };
+                match left_kind {
+                    Some(k) if shape.left_kinds.iter().any(|kk| kk == &k) => {}
+                    _ => break,
+                }
+            }
+
             // Consume the operator token.
             let _op = cursor.advance()?;
 
-            let shape = &infix_row.child_shape;
             let infix_kind = &shape.node_kind;
             let infix_arity = shape.arity;
             let delim = shape.delimited.as_ref();

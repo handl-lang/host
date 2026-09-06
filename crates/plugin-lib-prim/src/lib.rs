@@ -8,11 +8,13 @@
 //! - `prim.add(a: Int, b: Int) -> Int` — integer addition (**pure handl**:
 //!   `prim-handl` over the builtin `+`)
 //! - `prim.compare(a, b) -> Int` — deep total order over arbitrary values;
-//!   returns -1, 0, or 1 (**native `op`** — the language has no runtime
-//!   kind introspection, string ordering, or object-key enumeration)
+//!   returns -1, 0, or 1 (**native `op`** — a handl encoding is unblocked
+//!   by `type.of`/`obj.keys` but deferred to avoid ordering-semantics
+//!   drift)
 //! - `prim.alloc(n: Int) -> List` — creates an empty array (**pure handl**)
 //! - `prim.or(a: Int, b: Int) -> Int` — bitwise OR, flag composition
-//!   (**native `op`** — the eval vocabulary has no bitwise primitive)
+//!   (**pure handl** — `[a, b] ~> math.bit_or(a, b)` over the `math`
+//!   module's integer bitwise op)
 //!
 //! Everything else in the stdlib is built atop these via handl arrow graphs.
 //!
@@ -34,7 +36,7 @@ use std::sync::Arc;
 
 use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry, parse_cap_declarations};
 
-use ops::{Compare, Or};
+use ops::Compare;
 
 /// The handl source declaring the prim `op` interface — the single source
 /// of truth for the prim API surface and its `cap` capability
@@ -49,11 +51,17 @@ const PRIM_HANDL_HNL: &str =
 
 /// Record fields exposed by `prim-handl.hnl` — these become callable
 /// [`HandlFunction`](handl_plugin_lib_handl::HandlFunction)s.
-const PRIM_HANDL_FUNCS: &[&str] = &["add", "alloc"];
+const PRIM_HANDL_FUNCS: &[&str] = &["add", "alloc", "or"];
 
 /// The `prim` op names that remain native — each maps to a Rust
 /// `Function` impl registered in the [`OpRegistry`].
-const PRIM_OPS: &[&str] = &["prim.compare", "prim.or"];
+const PRIM_OPS: &[&str] = &["prim.compare"];
+
+/// The `math` table module — a dependency of `prim-handl`'s `or`
+/// (`math.bit_or`).
+fn math_module() -> handl_plugin_lib_handl::HandlModule {
+    handl_plugin_lib_stdlib::module("math").expect("math table module")
+}
 
 /// The capability ids declared by the `prim` contract (`prim.hnl`).
 fn prim_capabilities() -> Vec<handl_platform::CapabilityId> {
@@ -77,10 +85,9 @@ pub use module::PrimModule;
 ///
 /// This registry maps:
 /// - `"prim.compare"` → [`Compare`] (no runtime checker; atom is trusted)
-/// - `"prim.or"` → [`Or`] (no runtime checker; atom is trusted)
 ///
-/// `prim.add` and `prim.alloc` have no entries here — they are pure handl,
-/// provided by the `prim-handl` record.
+/// `prim.add`, `prim.alloc`, and `prim.or` have no entries here — they are
+/// pure handl, provided by the `prim-handl` record.
 ///
 /// No guarantee checkers are attached — the prim atoms are trusted. Their
 /// guarantees are structural and handled by the inference engine's
@@ -88,7 +95,6 @@ pub use module::PrimModule;
 pub fn prim_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
     registry.register("prim.compare", Arc::new(Compare));
-    registry.register("prim.or", Arc::new(Or));
     registry
 }
 
@@ -120,6 +126,7 @@ impl PrimLibraryPlugin {
                 PRIM_HANDL_FUNCS,
             )
             .with_capabilities(prim_capabilities())
+            .with_dependency(math_module())
             .with_ops(PRIM_OPS, registry),
         }
     }
@@ -175,6 +182,7 @@ pub fn prim_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(prim_op_registry());
     HandlLibraryPlugin::new("prim", "lib.prim", "lib-prim", PRIM_HANDL_HNL, PRIM_HANDL_FUNCS)
         .with_capabilities(prim_capabilities())
+        .with_dependency(math_module())
         .with_ops(PRIM_OPS, registry)
 }
 

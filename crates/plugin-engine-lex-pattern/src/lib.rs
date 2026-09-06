@@ -59,6 +59,17 @@ pub fn lex(lang: &Language, src: &str) -> Result<Tokens, LangError> {
     //    by text length descending within the same priority (longest match
     //    first).
     let mut rules: Vec<&LexerRuleDef> = lang.lexer_rules.iter().collect();
+    // Token kinds that carry a `literal` interpretation in `lang.tokens`
+    // (`token.bool` → Bool, `token.null` → Null, `token.string`/`token.json`
+    // → String/StripAffix, …) are *value* literals, not contextual names:
+    // the extended name-position boundary (`:` after, `.` before) does not
+    // apply to them, so `true: type.bool` still lexes `true` as a bool.
+    let literal_kinds: std::collections::HashSet<&str> = lang
+        .tokens
+        .iter()
+        .filter(|t| t.literal.is_some())
+        .map(|t| t.id.as_str())
+        .collect();
     rules.sort_by(|a, b| {
         a.priority
             .cmp(&b.priority)
@@ -81,7 +92,7 @@ pub fn lex(lang: &Language, src: &str) -> Result<Tokens, LangError> {
         // 2b. Try each rule in priority order; first match wins.
         let mut matched = false;
         for rule in &rules {
-            if let Some((kind, text, next)) = try_rule(rule, src, pos) {
+            if let Some((kind, text, next)) = try_rule(rule, src, pos, &literal_kinds) {
                 tokens.push(Token {
                     kind: kind.to_string(),
                     text,
@@ -119,24 +130,54 @@ fn literal_len(rule: &LexerRuleDef) -> usize {
 
 /// Try a single rule at `pos`. Returns `(token_kind, consumed_text, next_pos)`
 /// on match.
-fn try_rule<'r>(rule: &'r LexerRuleDef, src: &str, pos: usize) -> Option<(&'r str, String, usize)> {
+fn try_rule<'r>(
+    rule: &'r LexerRuleDef,
+    src: &str,
+    pos: usize,
+    literal_kinds: &std::collections::HashSet<&str>,
+) -> Option<(&'r str, String, usize)> {
     match &rule.pattern {
         LexerPattern::Literal { text } => {
             if src[pos..].starts_with(text.as_str()) {
                 let next = pos + text.len();
                 // Word-like literals (keywords such as `let`, `if`, `true`)
-                // must be followed by a word boundary: if the next char is an
-                // identifier-continue character, the match is rejected so the
-                // identifier CharClass rule can consume the whole token
-                // (e.g. `if_true` lexes as one identifier, not `if` + `_true`).
+                // must be surrounded by word boundaries:
                 //
-                // A `.` immediately after a word is also a boundary: it lets
-                // contextual keywords that double as module/record names
-                // (e.g. `assert.true`) lex as an identifier rather than as
-                // the keyword followed by a dot.
+                // - If the next char is an identifier-continue character, the
+                //   match is rejected so the identifier CharClass rule can
+                //   consume the whole token (e.g. `if_true` lexes as one
+                //   identifier, not `if` + `_true`).
+                // - A `.` immediately after a word is also a boundary: it lets
+                //   contextual keywords that double as module/record names
+                //   (e.g. `assert.true`) lex as an identifier rather than as
+                //   the keyword followed by a dot.
+                // - A `.` immediately BEFORE the word is likewise a boundary:
+                //   field names after `.` are always identifiers, so `x.from`,
+                //   `x.match`, `bool.or`, … lex as `identifier` field names
+                //   rather than keyword tokens the grammar cannot place in
+                //   field position (gap #6).
+                // - A `:` immediately after a word is a boundary too: record
+                //   fields / match-arm patterns / type-annotation subjects are
+                //   names, so `{from: v}` / `{or: f}` / `name: Type` lex the
+                //   word as an identifier key (gap #6). No keyword form is
+                //   ever followed by a bare `:` (`else`/`then` take `{` or
+                //   whitespace; `data`/`from` heads take spaces). The two
+                //   name-position boundaries do not apply to value literals
+                //   (token kinds with a `literal` interpretation — `true`,
+                //   `false`, `null`), which are never field names.
                 if is_word_literal(text) {
                     if let Some(following) = peek_char(src, next) {
                         if char_matches(following, "a-zA-Z0-9_α-ωΑ-Ω.") {
+                            return None;
+                        }
+                    }
+                    if !literal_kinds.contains(rule.token_kind.as_str()) {
+                        if let Some(following) = peek_char(src, next) {
+                            if following == ':' {
+                                return None;
+                            }
+                        }
+                        if pos > 0 && src.as_bytes()[pos - 1] == b'.' {
                             return None;
                         }
                     }

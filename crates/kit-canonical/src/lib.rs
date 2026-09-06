@@ -900,8 +900,9 @@ impl Kit {
         stdlib_registry.register(build_dedent_module());
         stdlib_registry.register(TransformModule::new());
         stdlib_registry.register(CombModule::new());
-        // `prim` — the atom layer: `add`/`alloc` are pure handl
-        // (`prim-handl` record), `compare`/`or` are native ops.
+        // `prim` — the atom layer: `add`/`alloc`/`or` are pure handl
+        // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`),
+        // `compare` is the remaining native op.
         stdlib_registry.register(PrimModule);
         // `time`/`rand` — native backends (clock reads, deterministic
         // seeded RNG for `property`/`fuzz`, ADR-0092).
