@@ -29,6 +29,7 @@ members = [
   "crates/kit-type",
   "crates/kit-type-schema-json",
   "crates/platform",
+  "crates/plugin-applier",
   "crates/plugin-applier-bootstrap",
   "crates/plugin-applier-default",
   "crates/plugin-diag-expression",
@@ -173,6 +174,7 @@ handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
 handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
 handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
+handl-plugin-applier = { path = "crates/plugin-applier" }
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
 handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }

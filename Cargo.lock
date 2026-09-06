@@ -1236,10 +1236,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-applier"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+]
+
+[[package]]
 name = "handl-plugin-applier-bootstrap"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-applier",
  "handl-plugin-applier-default",
 ]
 
@@ -1248,6 +1256,7 @@ name = "handl-plugin-applier-default"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-applier",
  "handl-plugin-ext-kit",
  "handl-plugin-load",
  "serde_json",
