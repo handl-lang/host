@@ -18,9 +18,20 @@
 --- (`plugin-lib-stdlib::ops::error`). Inside `.hnl` sources it is called
 --- as `error.raise(msg)` — the unbound `error` var falls back to the
 --- `"error"` module path, exactly like `type.of`/`tag.tag`.
+---
+--- `error.try(f)` calls a thunk and captures raised errors as a `result`
+--- value: `{"__tag__":"ok","value":v}` on success or
+--- `{"__tag__":"err","value":msg}` on failure. This closes ADR-0092
+--- gap (b) and makes `assert.throws`/`test.run` expressible in handl.
+
+cap "error.raise"
+cap "error.try"
 
 --- error.raise — fail the current evaluation with the given payload.
-cap "error.raise"
 op "error.raise" : Value -> a
 
+--- error.try — call a thunk and return a `result` tag.
+op "error.try" : Fn -> Value
+
 handl "error.raise" = rust_error_raise
+handl "error.try" = rust_error_try
