@@ -428,6 +428,17 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
         deps: &[],
     },
+    // ── prim (former plugin-lib-prim) ──────────────────────────────────
+    // Pure-handl record: `add`/`alloc`/`or` over builtins/`math`,
+    // `compare` over `cmp.compare` to preserve exact total-ordering.
+    ModuleSpec {
+        name: "prim",
+        hnl: include_str!("../../../handl-packages/prim-handl/prim-handl.hnl"),
+        funcs: &["add", "alloc", "or", "compare"],
+        ops: &[],
+        registry: None,
+        deps: &["math", "cmp"],
+    },
 ];
 
 /// The modules contributed by the `utils` aggregate package (matches the
@@ -583,6 +594,13 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.arrow-iter",
         plugin_name: "lib-arrow-iter",
         hnl: include_str!("../../../handl-packages/arrow_iter/arrow_iter.hnl"),
+        modules: &[],
+    },
+    PackageSpec {
+        lib_name: "prim",
+        plugin_id: "lib.prim",
+        plugin_name: "lib-prim",
+        hnl: include_str!("../../../handl-packages/prim/prim.hnl"),
         modules: &[],
     },
 ];
