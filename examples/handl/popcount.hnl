@@ -1,6 +1,0 @@
-while { n: 255, bits: 0 } {
-  [n, bits] ~> if n == 0
-    return bits
-  else
-    { state: { n: n / 2, bits: bits + (n % 2) } }
-}
