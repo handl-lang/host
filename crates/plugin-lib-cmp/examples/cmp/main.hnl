@@ -1,0 +1,22 @@
+eq: type.bool = cmp.eq(1, 1);
+min: type.num = cmp.min(3, 1, 2);
+clamp: type.num = cmp.clamp(10, 0, 5);
+sorted: type.arr = cmp.sort([3, 1, 2]);
+
+# Comparison sugars — desugared to cmp.* calls at parse time.
+sugar_eq: type.bool = 1 == 1;
+sugar_ne: type.bool = 1 != 2;
+sugar_lt: type.bool = 1 < 2;
+sugar_le: type.bool = 2 <= 2;
+sugar_gt: type.bool = 2 > 1;
+sugar_ge: type.bool = 2 >= 2;
+spaceship: type.num = 1 <=> 2;
+
+# Arithmetic sugars — desugared to math.* calls at parse time.
+add: type.num = 1 + 2;
+sub: type.num = 5 - 3;
+mul: type.num = 4 * 3;
+div: type.num = 12 / 3;
+pow: type.num = 2 ** 3;
+
+{ eq: eq, min: min, clamp: clamp, sorted: sorted, sugar_eq: sugar_eq, sugar_ne: sugar_ne, sugar_lt: sugar_lt, sugar_le: sugar_le, sugar_gt: sugar_gt, sugar_ge: sugar_ge, spaceship: spaceship, add: add, sub: sub, mul: mul, div: div, pow: pow }

@@ -4,8 +4,9 @@
 //! `unicode-handl` record as a fallback. The `op` functions take precedence,
 //! so the table-dependent ops (`nfc`, `nfd`, `graphemes`, `grapheme_count`,
 //! `width`, `casefold`, `decode`, `is_valid_identifier`, `is_xid_start`,
-//! `is_xid_continue`) are evaluated natively; the `unicode-handl` record
-//! supplies fallback behavior for any names not implemented natively.
+//! `is_xid_continue`) are evaluated natively, while `code_points`,
+//! `from_code_points`, `is_ascii`, and `code_point_at` fall back to the
+//! handl implementation unless native overrides are registered.
 
 use std::sync::{Arc, OnceLock};
 

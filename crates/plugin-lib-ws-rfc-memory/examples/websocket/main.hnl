@@ -1,0 +1,5 @@
+client: type.any = ws_rfc.client();
+connected: type.null = ws_rfc.connect(client, "wss://echo.websocket.org/");
+sent: type.null = ws_rfc.send(client, "hello from handl");
+reply: type.str = ws_rfc.recv(client);
+reply

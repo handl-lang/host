@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lib-ws-rfc"
+version.workspace = true
+edition.workspace = true
+description = "WebSocket frame and message codec for the handl runtime."
+
+[dependencies]
+handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-platform = { workspace = true }
+serde_json.workspace = true
+base64 = "0.22"

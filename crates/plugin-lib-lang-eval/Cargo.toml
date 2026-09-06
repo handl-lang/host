@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lib-lang-eval"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-runtime = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-module = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }

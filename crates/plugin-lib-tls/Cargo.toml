@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lib-tls"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-platform = { workspace = true }
+serde_json.workspace = true
+
+[dev-dependencies]

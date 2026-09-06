@@ -798,11 +798,11 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(5),
             tree_walk_only: false,
         },
-        // 42. Assign: x = 42 → 42
+        // 42. Assign: x :: 42 → 42
         //     The `assign` prim reads `value` from the payload and returns it.
         CorpusCase {
             name: "assign_value",
-            source: "x = 42",
+            source: "x :: 42",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("assign").with_payload(json!({"target": "x", "value": 42})));

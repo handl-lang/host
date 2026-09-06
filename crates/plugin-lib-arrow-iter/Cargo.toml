@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-lib-arrow-iter"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+serde_json = { workspace = true }

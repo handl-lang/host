@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-lib-compress"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-lib-handl = { workspace = true }
+handl-platform = { workspace = true }
+thiserror.workspace = true

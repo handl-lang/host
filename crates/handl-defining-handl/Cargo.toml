@@ -19,10 +19,10 @@ handl-plugin-engine-eval-cranelift = {path = "../plugin-engine-eval-cranelift" }
 handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-lib-lang-lex = {path = "../../.ref-crates/plugin-lib-lang-lex" }
-handl-plugin-lib-lang-parse = {path = "../../.ref-crates/plugin-lib-lang-parse" }
-handl-plugin-lib-lang-eval = {path = "../../.ref-crates/plugin-lib-lang-eval" }
-handl-plugin-lib-lang-compile = {path = "../../.ref-crates/plugin-lib-lang-compile" }
-handl-plugin-lib-lang-run-compiled = {path = "../../.ref-crates/plugin-lib-lang-run-compiled" }
+handl-plugin-lib-lang-lex = { workspace = true }
+handl-plugin-lib-lang-parse = { workspace = true }
+handl-plugin-lib-lang-eval = { workspace = true }
+handl-plugin-lib-lang-compile = { workspace = true }
+handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-kit-canonical = {path = "../kit-canonical" }
 handl-test-utils = {path = "../handl-test-utils" }

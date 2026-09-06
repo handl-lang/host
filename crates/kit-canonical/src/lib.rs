@@ -24,45 +24,31 @@ pub mod handl_module {
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
-use handl_plugin_engine_eval::ImportResolver;
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_lib_tag::TypeRegistry;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
-use handl_plugin_lib_char_native::CharModule;
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver, build_str_handl_module};
+use handl_plugin_lib_collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
+use handl_plugin_lib_tag::TagModule;
+use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_unicode_native::UnicodeModule;
+use handl_plugin_lib_utils::{
+    BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
+    ParseModule as UtilsParseModule, SerializeModule, TypeModule,
+};
+use handl_plugin_lib_result::result_module;
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_module::ModuleRegistry;
+use handl_plugin_engine_eval::ImportResolver;
+use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-
-// ---------------------------------------------------------------------------
-// Import resolver
-// ---------------------------------------------------------------------------
-
-/// Import resolver that first checks the built-in module registry. A built-in
-/// module is imported as its name string; `field_access` then turns `str.split`
-/// into the qualified host-function path the module registry recognizes.
-struct BuiltinImportResolver {
-    /// The built-in module registry (e.g. `str`, `math`, `char`, ...).
-    modules: Rc<ModuleRegistry>,
-    /// Fallback resolver for non-built-in paths (file-based `.hnl` modules).
-    file: Rc<dyn ImportResolver>,
-}
-
-impl ImportResolver for BuiltinImportResolver {
-    fn resolve_import(&self, path: &str) -> Result<Value, LangError> {
-        if self.modules.module(path).is_some() {
-            return Ok(Value::String(path.to_string()));
-        }
-        self.file.resolve_import(path)
-    }
-}
 
 // ---------------------------------------------------------------------------
 // hello.greet host function + registry
@@ -85,15 +71,32 @@ const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 // dedent module (pure Handl — loaded via generic HandlModule)
 // ---------------------------------------------------------------------------
 
-/// The handl source defining `dedent`. Its `from "str" import` and
-/// `from "transform" import` dependencies are wired via [`StdlibResolver`].
 const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 const DEDENT_FUNCS: &[&str] = &["dedent"];
 
-/// Build the [`HandlModule`] for `dedent`.
-fn build_dedent_module(resolver: &dyn ModuleResolver) -> HandlModule {
-    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_resolver(resolver)
-}
+// ---------------------------------------------------------------------------
+// str-handl module (pure Handl over the `char` floor — the `str` impl)
+// ---------------------------------------------------------------------------
+
+/// The handl source implementing the `str` contract
+/// (`handl-packages/str/str.hnl`) as pure handl algorithms over `char.*`
+/// atoms. Loaded via the generic [`HandlModule`], resolving `char` through
+/// [`StdlibResolver`].
+const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+
+/// The record field names exposed by `str-handl.hnl` — each becomes a
+/// callable [`Function`](handl_platform::Function) on the `"str"` module.
+const STR_HANDL_FUNCS: &[&str] = &[
+    "upper", "lower", "trim", "trim_start", "trim_end", "trim_matches",
+    "reverse", "length", "concat", "is_empty", "equals", "is_alpha",
+    "is_numeric", "is_alphanumeric", "capitalize", "title_case",
+    "snake_case", "camel_case", "pascal_case", "kebab_case", "contains",
+    "starts_with", "ends_with", "count", "find", "rfind", "levenshtein",
+    "similarity", "split", "join", "replace", "replace_first", "repeat",
+    "char_at", "slice", "pad_left", "pad_right", "strip_prefix",
+    "strip_suffix", "lines", "split_at", "split_whitespace", "truncate",
+    "slugify", "word_wrap",
+];
 
 // ---------------------------------------------------------------------------
 // unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
@@ -111,20 +114,43 @@ fn build_dedent_module(resolver: &dyn ModuleResolver) -> HandlModule {
 struct StdlibResolver;
 
 impl ModuleResolver for StdlibResolver {
-    fn resolve(
-        &self,
-        name: &str,
-    ) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
+    fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
-            "str" => Some(std::sync::Arc::new(build_str_handl_module(&StdlibResolver))),
+            "str" => Some(std::sync::Arc::new(build_str_handl_module())),
             "char" => Some(std::sync::Arc::new(CharModule)),
-            "dedent" => Some(std::sync::Arc::new(build_dedent_module(&StdlibResolver))),
-            "comb" => Some(std::sync::Arc::new(CombModule::new())),
+            "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "transform" => Some(std::sync::Arc::new(TransformModule::new())),
+            "comb" => Some(std::sync::Arc::new(CombModule::new())),
+            "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
+            "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
+            "math" => Some(std::sync::Arc::new(MathModule)),
+            "bool" => Some(std::sync::Arc::new(BoolModule)),
+            "option" => Some(std::sync::Arc::new(OptionModule)),
+            "type" => Some(std::sync::Arc::new(TypeModule)),
             _ => None,
         }
     }
 }
+
+fn build_dedent_module() -> HandlModule {
+    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS)
+        .with_resolver(&StdlibResolver)
+}
+
+/// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
+/// implementation over the `char` floor.
+///
+/// `str-handl.hnl` evaluates to a record of 45 arrows; each name in
+/// [`STR_HANDL_FUNCS`] becomes a callable `Function`. `char.*` calls
+/// resolve through [`StdlibResolver`] to the registered `char` backend
+/// (`char-native` by default).
+fn build_str_handl_module() -> HandlModule {
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
+        .with_resolver(&StdlibResolver)
+}
+
+
+
 
 // ---------------------------------------------------------------------------
 // transform — pure-Handl list transforms (one .hnl file per arrow), with
@@ -343,6 +369,7 @@ impl Module for CombModule {
     }
 }
 
+
 thread_local! {
     /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached
     /// per-thread because the tree-walk engine stores the active AST /
@@ -405,7 +432,9 @@ fn strip_comment_lines(src: &str) -> String {
     src.lines()
         .filter(|line| {
             let trimmed = line.trim();
-            !trimmed.is_empty() && !trimmed.starts_with("--") && !trimmed.starts_with("cap ")
+            !trimmed.is_empty()
+                && !trimmed.starts_with("--")
+                && !trimmed.starts_with("cap ")
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -470,19 +499,16 @@ impl Function for HelloGreetHostFn {
 
 impl TypeSignature for HelloGreetHostFn {
     fn type_signature(&self) -> Value {
-        // `hello.greet : String -> String` — a tagged type.function whose
-        // param/body are tagged type.string values so `check_json_value`
-        // can inspect them via `TypeRegistry::as_type_tag`.
-        let type_string = serde_json::json!({
-            "__tag__": "type.string",
-            "__registry__": "handl.canonical"
-        });
-        serde_json::json!({
-            "__tag__": "type.function",
-            "__registry__": "handl.canonical",
-            "param": type_string,
-            "body": type_string
-        })
+        // `hello.greet : String -> String`
+        static REGISTRY: std::sync::OnceLock<TypeRegistry> = std::sync::OnceLock::new();
+        let registry = REGISTRY.get_or_init(|| TypeRegistry::new("handl.canonical"));
+        let string = registry
+            .construct("type.string", &Value::Null)
+            .expect("type.string should construct");
+        let function = registry
+            .construct("type.function", &serde_json::json!({"param": string, "body": string}))
+            .expect("type.function should construct");
+        function
     }
 }
 
@@ -568,15 +594,6 @@ impl std::fmt::Debug for Kit {
             .field("runtime", &self.runtime)
             .finish()
     }
-}
-
-/// Remove a trailing `\n` or `\r\n` from a token's matched text so that
-/// line-comment tokens do not span a line terminator. This keeps source spans
-/// and LSP semantic token ranges inside a single line.
-fn trim_trailing_line_terminator(text: &str) -> &str {
-    text.strip_suffix("\r\n")
-        .or_else(|| text.strip_suffix('\n'))
-        .unwrap_or(text)
 }
 
 impl Kit {
@@ -691,20 +708,34 @@ impl Kit {
         //   meta (lex/parse/eval/typecheck/compile/run_compiled) → hello (hello.greet)
         //   → fp (fn.fanout_fn, field_access) → stdlib (fn.*, collections.*,
         //   math.*, str.*, bool.*, type.*, option.*, result.*, mood.*,
-        //   encoding.*, parse.*, serialize.*, tag.*, time.*, rand.*) → None
+        //   encoding.*, parse.*, serialize.*) → None
         // Meta is outermost so its names win; hello and fp are delegates so
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
         let mut stdlib_registry = ModuleRegistry::new();
-        // Minimal stdlib for the playground: pure-handl `str` over the native
-        // `char` floor. `str-handl` is loaded by `build_str_handl_module`.
-        stdlib_registry.register(build_str_handl_module(&StdlibResolver));
+        stdlib_registry.register(CombinatorsModule);
+        stdlib_registry.register(MathModule);
+        // `str-handl` is the pure-handl `str` impl over the `char` floor;
+        // it satisfies the `str` contract. Registered under `"str"` in
+        // place of the former all-FFI `StrModule`, so `str.*` lookups and
+        // `from "str" import` callers resolve to the handl impl.
+        stdlib_registry.register(build_str_handl_module());
         stdlib_registry.register(CharModule);
-        stdlib_registry.register(build_dedent_module(&StdlibResolver));
-        stdlib_registry.register(CombModule::new());
+        stdlib_registry.register(UnicodeModule);
+        stdlib_registry.register(BoolModule);
+        stdlib_registry.register(TypeModule);
+        stdlib_registry.register(OptionModule);
+        stdlib_registry.register(result_module());
+        stdlib_registry.register(MoodModule);
+        stdlib_registry.register(EncodingModule::new());
+        stdlib_registry.register(UtilsParseModule::new());
+        stdlib_registry.register(SerializeModule::new());
+        stdlib_registry.register(CollectionsModule);
+        stdlib_registry.register(TagModule);
+        stdlib_registry.register(build_dedent_module());
         stdlib_registry.register(TransformModule::new());
-        let stdlib_imports = Rc::new(stdlib_registry.clone());
+        stdlib_registry.register(CombModule::new());
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
@@ -792,7 +823,9 @@ impl Kit {
                 .box_clone(),
             registry
                 .parse_engine("pratt")
-                .ok_or_else(|| LangError::engine("missing parse engine 'pratt' for module loader"))?
+                .ok_or_else(|| {
+                    LangError::engine("missing parse engine 'pratt' for module loader")
+                })?
                 .box_clone(),
             module_root.clone(),
         ));
@@ -801,12 +834,8 @@ impl Kit {
             .with_global("self", handl_language::language_value(&lang))
             .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
         loader.set_eval_engine(Box::new(loader_eval_engine));
-        let file_resolver: Rc<dyn ImportResolver> = Rc::<ModuleLoader>::clone(&loader);
         let import_resolver: Rc<dyn ImportResolver> =
-            Rc::new(BuiltinImportResolver {
-                modules: stdlib_imports,
-                file: file_resolver,
-            });
+            Rc::clone(&loader) as Rc<dyn ImportResolver>;
 
         let runtime = Runtime::from_registry_with_resolver(
             lang,
@@ -939,13 +968,11 @@ impl Kit {
                 }
             }
             let start = pos;
-            let text = trim_trailing_line_terminator(&token.text);
-            let end = start + text.len();
             pos += token.text.len();
             result.push(SpannedToken {
                 kind: token.kind.clone(),
-                text: text.to_string(),
-                span: Span { start, end },
+                text: token.text.clone(),
+                span: Span { start, end: pos },
             });
         }
         Ok(result)
@@ -1224,8 +1251,7 @@ pub fn is_doc_comment_kind(kind: &str) -> bool {
 pub fn is_operator_kind(kind: &str) -> bool {
     matches!(
         kind,
-        "token.bind"
-            | "token.equal"
+        "token.equal"
             | "token.plus"
             | "token.minus"
             | "token.star"
@@ -1648,9 +1674,9 @@ mod tests {
 
     #[test]
     fn typecheck_let_binds_var_and_returns_body_type() {
-        // ADR-0079: `let ... in` removed. Use `do { x :: 1; x }` graph block.
+        // ADR-0079: `let ... in` removed. Use `do { x = 1; x }` graph block.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x :: 1; x }").unwrap();
+        let typ = kit.typecheck("do { x = 1; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1703,9 +1729,9 @@ mod tests {
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type
-        // annotations yet — use untyped `do { x :: 2; x }`.
+        // annotations yet — use untyped `do { x = 2; x }`.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x :: 2; x }").unwrap();
+        let typ = kit.typecheck("do { x = 2; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1813,7 +1839,7 @@ mod tests {
     #[test]
     fn data_nat_parses_to_data_node_with_alt_tree() {
         let kit = Kit::new().unwrap();
-        let ast = parse_raw(&kit, "data Nat :: Zero | Succ(Nat)");
+        let ast = parse_raw(&kit, "data Nat = Zero | Succ(Nat)");
 
         // The last node should be a `data` node.
         let root = ast.nodes().last().unwrap();
@@ -1823,11 +1849,7 @@ mod tests {
         assert_eq!(name, "Nat");
         // Two children: [type_expr, constructors_expr].
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(
-            children.len(),
-            2,
-            "data node should have 2 children [type, constructors]"
-        );
+        assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
         // Child 0 is the type expression: var("Nat").
         let type_idx = children[0].as_u64().unwrap() as usize;
         let type_node = ast.get(handl_language::AstRef::new(type_idx)).unwrap();
@@ -1841,19 +1863,11 @@ mod tests {
         let alt_children = child.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(alt_children.len(), 2);
         // Left child: var("Zero")
-        let left = ast
-            .get(handl_language::AstRef::new(
-                alt_children[0].as_u64().unwrap() as usize,
-            ))
-            .unwrap();
+        let left = ast.get(handl_language::AstRef::new(alt_children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(left.kind, "var");
         assert_eq!(left.payload, serde_json::json!("Zero"));
         // Right child: call(Succ, Nat)
-        let right = ast
-            .get(handl_language::AstRef::new(
-                alt_children[1].as_u64().unwrap() as usize,
-            ))
-            .unwrap();
+        let right = ast.get(handl_language::AstRef::new(alt_children[1].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(right.kind, "call");
     }
 
@@ -1861,24 +1875,18 @@ mod tests {
     fn data_nat_desugars_to_block_from_source() {
         let kit = Kit::new().unwrap();
         // kit.parse applies the desugar pass.
-        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
 
         // The root should be a `block` with 4 statements (predicate + 2
         // constructors + recursor).
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(
-            children.len(),
-            4,
-            "expected 4 statements (pred + 2 cons + rec)"
-        );
+        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
         // Each statement should be an `assign`.
         for (i, child_idx) in children.iter().enumerate() {
             let node = ast
-                .get(handl_language::AstRef::new(
-                    child_idx.as_u64().unwrap() as usize
-                ))
+                .get(handl_language::AstRef::new(child_idx.as_u64().unwrap() as usize))
                 .unwrap();
             assert_eq!(
                 node.kind, "assign",
@@ -1891,7 +1899,7 @@ mod tests {
     #[test]
     fn data_bool_desugars_from_source() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Bool :: True | False").unwrap();
+        let ast = kit.parse("data Bool = True | False").unwrap();
 
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
@@ -1902,7 +1910,7 @@ mod tests {
 
     #[test]
     fn data_nat_eval_succ_zero() {
-        // End-to-end: parse `data Nat :: Zero | Succ(Nat)` and `Succ(Zero)`,
+        // End-to-end: parse `data Nat = Zero | Succ(Nat)` and `Succ(Zero)`,
         // desugar, and eval to get a tagged value.
         //
         // The Pratt parser parses one statement per call, so we parse the
@@ -1914,7 +1922,7 @@ mod tests {
         let kit = Kit::new().unwrap();
 
         // Parse and desugar the data declaration.
-        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
         // The root is a block with 4 assign children.
         let data_root = data_ast.nodes().last().unwrap();
         assert_eq!(data_root.kind, "block");
@@ -1982,10 +1990,10 @@ mod tests {
 
     #[test]
     fn data_nat_eval_zero() {
-        // Eval `Zero` after declaring `data Nat :: Zero | Succ(Nat)`.
+        // Eval `Zero` after declaring `data Nat = Zero | Succ(Nat)`.
         // Same combining approach as data_nat_eval_succ_zero.
         let kit = Kit::new().unwrap();
-        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
         let data_root = data_ast.nodes().last().unwrap();
         let data_children: Vec<usize> = data_root
             .payload
@@ -2042,7 +2050,10 @@ mod tests {
 
         let kit = Kit::new().unwrap();
         let mut ast = Ast::new();
-        ast.push(AstNode::new("data").with_payload(json!({"name": "Nat", "children": []})));
+        ast.push(
+            AstNode::new("data")
+                .with_payload(json!({"name": "Nat", "children": []})),
+        );
         let result = kit.runtime().eval(&ast);
         assert!(result.is_err(), "expected error for undesugared data node");
         let err_msg = format!("{:?}", result.unwrap_err());
@@ -2063,7 +2074,7 @@ mod tests {
 
     #[test]
     fn data_desugar_visible_to_typechecker() {
-        // Parse `data Nat :: Zero | Succ(Nat)` from source. The desugar pass
+        // Parse `data Nat = Zero | Succ(Nat)` from source. The desugar pass
         // runs at parse time (Runtime::parse), so the typechecker should see
         // the desugared `Nat` predicate. We verify by typechecking a module
         // that includes the data declaration — the typechecker input is the
@@ -2074,7 +2085,7 @@ mod tests {
         // to the typechecker input (i.e., no `data` nodes remain in the
         // typechecked AST — they are all desugared to `block`/`assign`).
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
 
         // Verify no `data` nodes remain in the desugared AST.
         for node in ast.nodes() {
@@ -2148,7 +2159,7 @@ mod tests {
         // a runtime-assert node. At runtime with a valid value (5), the
         // assert passes and returns 5.
         let kit = Kit::new().unwrap();
-        let val = kit.run("do { y :: 5; (y : (n ~> n > 0)) }").unwrap();
+        let val = kit.run("do { y = 5; (y : (n ~> n > 0)) }").unwrap();
         assert_eq!(val, serde_json::json!(5));
     }
 
@@ -2157,7 +2168,7 @@ mod tests {
         // Same as above but with an invalid value (-1): the runtime assert
         // fails and raises a LangError.
         let kit = Kit::new().unwrap();
-        let err = kit.run("do { y :: -1; (y : (n ~> n > 0)) }").unwrap_err();
+        let err = kit.run("do { y = -1; (y : (n ~> n > 0)) }").unwrap_err();
         assert!(
             err.to_string().contains("assertion failed"),
             "expected assertion failure, got: {err}"

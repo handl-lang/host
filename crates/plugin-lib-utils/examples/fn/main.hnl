@@ -1,0 +1,5 @@
+addOne = (n: type.number): type.number -> n + 1;
+tap: type.number = fn.tap((x: type.number) -> add(x, 1), 5);
+pipe: type.number = fn.pipe(5, (x: type.number) -> add(x, 1), (x: type.number) -> mul(x, 2));
+add_one: type.number = addOne(5);
+{ tap: tap, pipe: pipe, add_one: add_one }

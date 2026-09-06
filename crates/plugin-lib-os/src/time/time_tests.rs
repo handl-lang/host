@@ -1,0 +1,35 @@
+use handl_platform::EvalContext;
+use handl_platform::Module;
+
+use super::time::TimeModule;
+use super::time_stub::StubTime;
+
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    let func = module.function(name).expect("function exists");
+    let mut ctx = EvalContext::new();
+    func.call(args, &mut ctx).expect("call succeeds")
+}
+
+#[test]
+fn module_name() {
+    let module = TimeModule::new(StubTime::default());
+    assert_eq!(module.name(), "time");
+}
+
+#[test]
+fn now() {
+    let module = TimeModule::new(StubTime::new(1_000, 1));
+    assert_eq!(call(&module, "now", &[]).as_f64(), Some(1000.0));
+}
+
+#[test]
+fn epoch() {
+    let module = TimeModule::new(StubTime::new(1_000, 42));
+    assert_eq!(call(&module, "epoch", &[]).as_f64(), Some(42.0));
+}
+
+#[test]
+fn unknown_function() {
+    let module = TimeModule::new(StubTime::default());
+    assert!(module.function("nope").is_none());
+}

@@ -1,0 +1,8 @@
+Package: type.object = { name: type.string, version: type.number, sum: type.number };
+Adult = (p: type.object) -> p.age is type.number and p.age >= 18;
+name: type.string = "handl";
+version: type.number = 1;
+sum: type.number = add(40, 2);
+project: Package = { name: name, version: version, sum: sum };
+adult: Adult = { name: "Alice", age: 30 };
+{ project: project, adult: adult }

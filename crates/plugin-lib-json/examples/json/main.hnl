@@ -1,0 +1,8 @@
+value: type.obj = {
+  hello: "world",
+  count: 42,
+  list: [1, 2, 3]
+};
+text: type.str = json.encode(value);
+decoded: type.obj = json.decode(text);
+{ value: value, text: text, decoded: decoded }

@@ -1,0 +1,13 @@
+[package]
+name = "handl-plugin-lib-unicode"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-module = { path = "../plugin-module" }
+handl-platform = { workspace = true }
+unicode-ident = "1"
+serde_json = "1"
+
+[dev-dependencies]
