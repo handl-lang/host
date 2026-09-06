@@ -1,2 +1,16 @@
---- Swap the first two arguments of a function
+--- Returns an arrow that calls `f` with its first two arguments swapped.
+---
+--- @details
+--- `flip` adapts a two-argument function to the opposite argument
+--- order. It is most useful for feeding a non-commutative function
+--- into a pipeline or fold that supplies arguments in a fixed order.
+---
+--- Only the first two arguments are swapped; the result takes
+--- exactly two arguments.
+---
+--- @example
+--- `sub :: [a, b] ~> a - b`
+--- `[10, 3] >>> (sub >>> comb.flip) >>> comb.apply`
+--- -- => -7
+---
 export flip :: f ~> x ~> y ~> f(y, x)

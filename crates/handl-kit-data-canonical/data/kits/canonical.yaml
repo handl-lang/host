@@ -1,0 +1,15 @@
+# The canonical language kit.
+#
+# Mirrors `handl_kit_data_canonical::manifest()`: a single `canonical-yaml`
+# fragment source (the embedded YAML data files) plus the Pratt parse engine
+# and tree-walk eval engine. No library modules — the canonical kit is the
+# language only.
+fragments:
+  - name: canonical-yaml
+    source: !Emitter canonical-yaml
+runtime:
+  lex: data
+  parse: pratt
+  eval: tree-walk
+  typecheck: ""
+modules: []

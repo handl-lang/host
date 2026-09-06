@@ -13,8 +13,8 @@
 //! (side-effect-free) library plugins; this data-driven equivalent declares
 //! those capabilities as data fragments.
 //!
-//! The existing `kit-config` crate is **not** modified or deleted — it remains
-//! as the pre-migration reference.
+//! The legacy `kit-config` crate has been **deleted** — this data manifest
+//! replaces it as the config kit's composition source.
 
 #![warn(missing_docs)]
 

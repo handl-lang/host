@@ -95,6 +95,65 @@ pub trait Plugin: Send + Sync + Any {
     }
 }
 
+/// `Box<dyn Plugin>` delegates every method to the inner plugin, so
+/// type-erased plugins (for example library modules resolved from a
+/// `LibraryRegistry` of zero-argument constructors) can be registered through
+/// the same `register`/`register_plugin` paths as concrete plugin types.
+///
+/// Note: the concrete type stored in the registry is the `Box` itself, so
+/// `get_plugin_mut::<P>` downcasts to the *boxed* plugin's concrete type will
+/// not find it. Rule-acceptor plugins that must be resolved by concrete type
+/// (e.g. `ModuleRuntime`) should still be registered concretely.
+impl Plugin for Box<dyn Plugin + Send + Sync> {
+    fn id(&self) -> &str {
+        (**self).id()
+    }
+
+    fn name(&self) -> &str {
+        (**self).name()
+    }
+
+    fn version(&self) -> &str {
+        (**self).version()
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        (**self).capabilities()
+    }
+
+    fn requires(&self) -> &[CapabilityId] {
+        (**self).requires()
+    }
+
+    fn optional(&self) -> &[CapabilityId] {
+        (**self).optional()
+    }
+
+    fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        (**self).metadata(capability)
+    }
+
+    fn manifest(&self) -> Option<&crate::manifest::PluginManifest> {
+        (**self).manifest()
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        (**self).contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &CapabilityRequest,
+        ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        (**self).run(request, ctx)
+    }
+
+    fn module_lookup(&self) -> Option<std::rc::Rc<dyn crate::eval::ModuleLookup>> {
+        (**self).module_lookup()
+    }
+}
+
 /// A registry of loaded plugins indexed by capability.
 #[derive(Default)]
 pub struct PluginRegistry {

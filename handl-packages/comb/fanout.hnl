@@ -1,4 +1,16 @@
---- Apply several functions to one value and collect results
+--- Applies several functions to one value and collects the results.
+---
+--- @details
+--- `fanout` takes `[value, ...fs]` and returns `[f1(value), f2(value), ...]`,
+--- preserving the order of `fs`. It is the eager counterpart of
+--- `comb.fanout_fn`, which returns an arrow you can apply later.
+---
+--- An empty `fs` yields `[]`.
+---
+--- @example
+--- `[3, x ~> x + 1, x ~> x * 2] >>> comb.fanout`
+--- -- => [4, 6]
+---
 export fanout :: args ~> match args {
   [value, ...fs]: do {
     rev :: xs ~> while { xs: xs, acc: [] } {

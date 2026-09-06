@@ -5,11 +5,31 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = {path = "../platform" }
-handl-kit-cli = {path = "../kit-cli" }
-handl-kit-hello = {path = "../kit-hello" }
-handl-kit-stdlib = {path = "../kit-stdlib" }
-handl-kit-config = {path = "../kit-config" }
-handl-kit-server = {path = "../kit-server" }
+handl-kit-data = { workspace = true }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-plugin-module = { workspace = true }
+handl-plugin-lib-hello = { workspace = true }
+handl-plugin-lib-os-std = { workspace = true }
+handl-plugin-lib-utils = { workspace = true }
+handl-plugin-lib-cmp = { workspace = true }
+handl-plugin-lib-collections = { workspace = true }
+handl-plugin-lib-json = { workspace = true }
+handl-plugin-lib-toml = { workspace = true }
+handl-plugin-lib-yaml = { workspace = true }
+handl-plugin-lib-crypto = { workspace = true }
+handl-plugin-lib-datetime = { workspace = true }
+handl-plugin-lib-intl = { workspace = true }
+handl-plugin-lib-kv-hashmap = { workspace = true }
+handl-plugin-lib-unicode = { workspace = true }
+handl-plugin-lib-stats = { workspace = true }
+handl-plugin-lib-ws-rfc-memory = { workspace = true }
+handl-plugin-lib-ws-whatwg-native = { workspace = true }
+handl-plugin-lib-ip = { workspace = true }
+handl-plugin-lib-compress-gzip = { workspace = true }
+handl-plugin-lib-archive-tar = { workspace = true }
+handl-plugin-lib-rand-native = { workspace = true }
+handl-plugin-lib-http-client-std = { workspace = true }
+handl-plugin-lib-otlp-std = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

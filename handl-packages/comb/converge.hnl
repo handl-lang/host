@@ -1,4 +1,20 @@
---- Apply branches to a value and reduce with a combiner
+--- Applies several branches to one value and folds the results with a combiner.
+---
+--- @details
+--- `converge` takes `[value, combiner, ...branches]`. Each branch is
+--- applied to `value`; the results are folded left with
+--- `combiner(acc, branch_result)`. The first branch's result seeds the
+--- fold, so `combiner` is never called on an empty accumulator.
+---
+--- With no branches the result is `null`.
+---
+--- Related: `comb.fanout` collects the branch results into a list
+--- instead of folding them.
+---
+--- @example
+--- `[6, [a, b] ~> a + b, x ~> x * 2, x ~> x * 3] >>> comb.converge`
+--- -- => 30
+---
 export converge :: [value, combiner, ...branches] ~> {
   while { xs: branches, acc: null, first: true } {
     [xs, acc, first] ~> match xs {

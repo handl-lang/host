@@ -649,7 +649,7 @@ fn data_strict_positivity_violation_raises_error() {
 fn data_parses_from_source_to_data_node() {
     let kit = kit();
     let tokens = kit
-        .lex("data Nat = Zero | Succ(Nat)")
+        .lex("data Nat :: Zero | Succ(Nat)")
         .expect("lex must succeed");
 
     // Parse WITHOUT desugar by calling the Pratt engine directly.
@@ -746,7 +746,7 @@ fn data_end_to_end_succ_zero() {
     // Parse (lex + parse + desugar) the data declaration from source.
     // Runtime::parse applies the desugar pass automatically.
     let mut ast = kit
-        .parse("data Nat = Zero | Succ(pred : Nat)")
+        .parse("data Nat :: Zero | Succ(pred : Nat)")
         .expect("parse must succeed");
 
     // The root should be a `block` (desugared from `data`).
@@ -790,7 +790,7 @@ fn data_explicit_arg_names_from_source() {
 
     // Parse with explicit arg name: Just(value : Nat)
     let ast = kit
-        .parse("data Maybe = Nothing | Just(value : Nat)")
+        .parse("data Maybe :: Nothing | Just(value : Nat)")
         .expect("parse must succeed");
 
     // The root should be a `block` (desugared from `data`).
@@ -843,7 +843,7 @@ fn data_typecheck_sees_desugared_block() {
     // Parse+desugar the data declaration. The desugar pass runs at parse
     // time (Runtime::parse), producing a `block` of assignments.
     let ast = kit
-        .parse("data Nat = Zero | Succ(pred : Nat)")
+        .parse("data Nat :: Zero | Succ(pred : Nat)")
         .expect("parse must succeed");
 
     // Verify the root is a `block` (desugared), not a `data` node.
@@ -873,7 +873,7 @@ fn data_typecheck_sees_desugared_block() {
 #[test]
 fn data_vec_parses_and_desugars_from_source() {
     let kit = kit();
-    let src = "data Vec(n : Nat, a : Type) = Nil | Cons(a, Vec(n - 1, a))";
+    let src = "data Vec(n : Nat, a : Type) :: Nil | Cons(a, Vec(n - 1, a))";
     let ast = kit
         .parse(src)
         .expect("Vec declaration must parse and desugar");

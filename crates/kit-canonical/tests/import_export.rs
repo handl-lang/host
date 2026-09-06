@@ -26,7 +26,7 @@ fn write_module(dir: &std::path::Path, name: &str, contents: &str) -> PathBuf {
 #[test]
 fn import_loads_module_bindings() {
     let dir = tempfile::tempdir().expect("tempdir");
-    write_module(dir.path(), "module.hnl", "x = 42");
+    write_module(dir.path(), "module.hnl", "x :: 42");
     let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
 
     // `do { import "module.hnl"; x }` — import binds `x` into the block
@@ -62,7 +62,7 @@ fn import_missing_file_errors() {
 #[test]
 fn import_caches_modules() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let module_path = write_module(dir.path(), "cached.hnl", "x = 7");
+    let module_path = write_module(dir.path(), "cached.hnl", "x :: 7");
     let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
 
     // First import loads + caches the module.

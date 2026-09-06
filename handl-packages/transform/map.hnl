@@ -1,4 +1,14 @@
---- Map a function over a list, preserving order
+--- Maps a function over a list, preserving order.
+---
+--- @details
+--- `map` takes `[xs, f]` and returns `[f(x) for x in xs]`. This is the
+--- standard list transform used throughout the handl packages; combine
+--- it with `transform.filter` for map-then-select pipelines.
+---
+--- @example
+--- `[[1, 2, 3], x ~> x * 2] >>> transform.map`
+--- -- => [2, 4, 6]
+---
 export map :: do {
   rev :: xs ~> {
     while { xs: xs, acc: [] } {

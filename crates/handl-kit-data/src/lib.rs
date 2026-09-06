@@ -35,12 +35,16 @@
 //! fragments merge on top. Phase 5 supports one level of `extends`
 //! (parent → child); deeper chains are a straightforward recursive extension.
 //!
-//! The existing `kit-canonical` / `kit-config` / `kit-server` / `kit-cli`
-//! Rust-monolith kits are **not** modified or deleted — they remain as the
-//! pre-migration reference. This crate builds the new data-driven path that
-//! runs alongside them.
+//! The legacy `kit-config` / `kit-server` / `kit-cli` / `kit-hello` /
+//! `kit-stdlib` Rust-monolith kits have been **deleted** — kit composition is
+//! now data-driven via the `data/kits/*.yaml` manifests in
+//! `handl-kit-data-canonical` (resolved through [`LibraryRegistry`] into
+//! `ModuleKit`s). `kit-canonical` remains as the canonical runtime assembly.
 
 #![warn(missing_docs)]
+
+pub mod library_registry;
+pub use library_registry::{LibraryPlugin, LibraryRegistry};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -134,6 +138,7 @@ impl FragmentSourceEntry {
 pub struct DataKitManifest {
     /// Ordered fragment sources — merged in declared order. Later fragments
     /// may `replaces` earlier ones (ADR §5).
+    #[serde(default)]
     pub fragments: Vec<FragmentSourceEntry>,
     /// Fragment ids to include. If empty, all fragments are included.
     #[serde(default)]
@@ -148,6 +153,12 @@ pub struct DataKitManifest {
     /// Runtime engine selection (ADR §7).
     #[serde(default)]
     pub runtime: RuntimeConfig,
+    /// Ordered library module plugin names, resolved at load time via a
+    /// [`LibraryRegistry`] populated by the host (e.g. `handl-plugin-ext-kit`).
+    /// When `extends` is set, the parent's module list comes first and this
+    /// list appends to it, preserving contribution order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<String>,
 }
 
 impl DataKitManifest {
@@ -160,6 +171,7 @@ impl DataKitManifest {
             exclude: Vec::new(),
             extends: None,
             runtime: RuntimeConfig::new(),
+            modules: Vec::new(),
         }
     }
 
@@ -190,6 +202,12 @@ impl DataKitManifest {
     /// Set the runtime config (builder style).
     pub fn with_runtime(mut self, config: RuntimeConfig) -> Self {
         self.runtime = config;
+        self
+    }
+
+    /// Set the ordered library module plugin names (builder style).
+    pub fn with_modules(mut self, modules: Vec<String>) -> Self {
+        self.modules = modules;
         self
     }
 }

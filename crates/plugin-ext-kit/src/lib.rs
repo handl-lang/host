@@ -1,12 +1,13 @@
-use handl_kit_cli::CliKit;
-use handl_kit_config::ConfigKit;
-use handl_kit_hello::HelloKit;
-use handl_kit_server::ServerKit;
-use handl_kit_stdlib::StdlibKit;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use handl_kit_data::{LibraryPlugin, LibraryRegistry};
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,
 };
+
+pub mod library_registry;
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -199,47 +200,109 @@ impl Plugin for ManifestKit {
     }
 }
 
-/// A concrete kit plugin that wraps the built-in hello, cli, config, and server kits.
-pub enum BasicKit {
-    /// The CLI kit.
-    Cli(CliKit),
-    /// The hello kit.
-    Hello(HelloKit),
-    /// The stdlib kit (hello + fn + collections).
-    Stdlib(StdlibKit),
-    /// The config kit.
-    Config(ConfigKit),
-    /// The server kit.
-    Server(ServerKit),
-    /// A kit loaded from a manifest path.
-    Manifest(ManifestKit),
+/// A kit plugin assembled from a data manifest: the `module-runtime` host
+/// plus an ordered set of library module plugins resolved from a
+/// [`LibraryRegistry`].
+///
+/// `ModuleRuntime` is registered **concretely** (not boxed) because rule
+/// contribution resolves acceptors by concrete type via
+/// `get_plugin_mut::<ModuleRuntime>`; the remaining library modules are
+/// registered as boxed plugins in manifest order, so the host's fixed-point
+/// load calls their `contribute` exactly as the hand-written kits did.
+pub struct ModuleKit {
+    id: String,
+    display_name: String,
+    registers_module_runtime: bool,
+    modules: Mutex<Vec<LibraryPlugin>>,
+    contributed: AtomicBool,
 }
 
-impl Default for BasicKit {
-    fn default() -> Self {
-        Self::Hello(HelloKit::new())
+impl ModuleKit {
+    /// Create a `ModuleKit` for the kit named `name` from already-resolved
+    /// `(module-name, plugin)` pairs in contribution order.
+    pub fn new(name: &str, modules: Vec<(String, LibraryPlugin)>) -> Self {
+        let registers_module_runtime = modules.iter().any(|(n, _)| n == "module-runtime");
+        Self {
+            id: format!("kit.{name}"),
+            display_name: format!("kit-{name}"),
+            registers_module_runtime,
+            modules: Mutex::new(
+                modules
+                    .into_iter()
+                    .filter(|(n, _)| n != "module-runtime")
+                    .map(|(_, p)| p)
+                    .collect(),
+            ),
+            contributed: AtomicBool::new(false),
+        }
     }
+}
+
+impl Plugin for ModuleKit {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.display_name
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.contributed.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.contributed.store(true, Ordering::SeqCst);
+        // Register `ModuleRuntime` first so library plugins can contribute
+        // their `ModuleRule`s into it (mirrors the built-in kits, which list
+        // `module-runtime` first).
+        if self.registers_module_runtime {
+            ctx.register_plugin(handl_plugin_module::ModuleRuntime::default())?;
+        }
+        let modules = std::mem::take(&mut *self.modules.lock().map_err(|_| {
+            PlatformError::Plugin("module kit lock poisoned".into())
+        })?);
+        for plugin in modules {
+            ctx.register_plugin(plugin)?;
+        }
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+/// A concrete kit plugin assembled from data manifests.
+pub enum BasicKit {
+    /// A kit assembled from an embedded data manifest (`data/kits/*.yaml`).
+    Modules(ModuleKit),
+    /// A kit loaded from a manifest path.
+    Manifest(ManifestKit),
 }
 
 impl Plugin for BasicKit {
     fn id(&self) -> &str {
         match self {
-            Self::Cli(k) => k.id(),
-            Self::Hello(k) => k.id(),
-            Self::Stdlib(k) => k.id(),
-            Self::Config(k) => k.id(),
-            Self::Server(k) => k.id(),
+            Self::Modules(k) => k.id(),
             Self::Manifest(k) => k.id(),
         }
     }
 
     fn name(&self) -> &str {
         match self {
-            Self::Cli(k) => k.name(),
-            Self::Hello(k) => k.name(),
-            Self::Stdlib(k) => k.name(),
-            Self::Config(k) => k.name(),
-            Self::Server(k) => k.name(),
+            Self::Modules(k) => k.name(),
             Self::Manifest(k) => k.name(),
         }
     }
@@ -254,11 +317,7 @@ impl Plugin for BasicKit {
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         match self {
-            Self::Cli(k) => k.contribute(ctx),
-            Self::Hello(k) => k.contribute(ctx),
-            Self::Stdlib(k) => k.contribute(ctx),
-            Self::Config(k) => k.contribute(ctx),
-            Self::Server(k) => k.contribute(ctx),
+            Self::Modules(k) => k.contribute(ctx),
             Self::Manifest(k) => k.contribute(ctx),
         }
     }
@@ -269,11 +328,7 @@ impl Plugin for BasicKit {
         ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
         match self {
-            Self::Cli(k) => k.run(request, ctx),
-            Self::Hello(k) => k.run(request, ctx),
-            Self::Stdlib(k) => k.run(request, ctx),
-            Self::Config(k) => k.run(request, ctx),
-            Self::Server(k) => k.run(request, ctx),
+            Self::Modules(k) => k.run(request, ctx),
             Self::Manifest(k) => k.run(request, ctx),
         }
     }
@@ -298,16 +353,22 @@ impl BasicKitLoaderPlugin {
             return Ok(BasicKit::Manifest(ManifestKit::new(manifest)));
         }
 
-        match name_or_path {
-            "cli" => Ok(BasicKit::Cli(CliKit::new())),
-            "hello" => Ok(BasicKit::Hello(HelloKit::new())),
-            "stdlib" => Ok(BasicKit::Stdlib(StdlibKit::new())),
-            "config" => Ok(BasicKit::Config(ConfigKit::new())),
-            "server" => Ok(BasicKit::Server(ServerKit::new())),
-            _ => Err(PlatformError::InvalidMetadata(format!(
-                "unknown kit: {name_or_path}"
-            ))),
+        // Kit composition is data: load the embedded manifest for the kit
+        // name (`handl-kit-data-canonical/data/kits/<name>.yaml`), then
+        // resolve each listed library module through the populated
+        // `LibraryRegistry`.
+        let module_names = handl_kit_data_canonical::kit_module_names(name_or_path)
+            .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+        let mut registry = LibraryRegistry::new();
+        library_registry::populate(&mut registry);
+        let mut modules = Vec::with_capacity(module_names.len());
+        for name in module_names {
+            let plugin = registry.resolve(&name).ok_or_else(|| {
+                PlatformError::InvalidMetadata(format!("unknown library plugin: {name}"))
+            })?;
+            modules.push((name, plugin));
         }
+        Ok(BasicKit::Modules(ModuleKit::new(name_or_path, modules)))
     }
 }
 

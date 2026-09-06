@@ -1,0 +1,8 @@
+# The hello kit: canonical language plus the `hello` demo library.
+#
+# `module-runtime` is the shared module host every kit registers first so
+# library plugins can contribute their `ModuleRule`s into it.
+extends: canonical
+modules:
+  - module-runtime
+  - hello

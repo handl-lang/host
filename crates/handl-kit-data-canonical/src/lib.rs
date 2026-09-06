@@ -291,6 +291,66 @@ pub fn registry() -> EmitterRegistry {
     reg
 }
 
+// ---------------------------------------------------------------------------
+// Kit manifest data files (`data/kits/*.yaml`)
+// ---------------------------------------------------------------------------
+
+/// The kit manifests embedded at compile time, keyed by kit name.
+///
+/// Each entry is `data/kits/<name>.yaml` — a [`DataKitManifest`] whose
+/// `modules` list names the library plugins the kit contributes, in
+/// contribution order. The `extends` chain composes kits: a child's modules
+/// append to its parent's (e.g. `server` extends `config`).
+const KIT_MANIFESTS: &[(&str, &str)] = &[
+    ("canonical", include_str!("../data/kits/canonical.yaml")),
+    ("hello", include_str!("../data/kits/hello.yaml")),
+    ("stdlib", include_str!("../data/kits/stdlib.yaml")),
+    ("cli", include_str!("../data/kits/cli.yaml")),
+    ("config", include_str!("../data/kits/config.yaml")),
+    ("server", include_str!("../data/kits/server.yaml")),
+];
+
+/// Load a kit manifest by name from the embedded `data/kits/` files.
+///
+/// The returned [`DataKitManifest`] carries the kit's `modules` list (and, for
+/// `canonical`, the fragment sources and runtime selection mirroring
+/// [`manifest`]). Unknown names surface as [`LangError::Engine`].
+///
+/// # Errors
+///
+/// Returns [`LangError::Engine`] if `name` is not a known kit or the embedded
+/// YAML fails to deserialize.
+pub fn load_kit(name: &str) -> Result<DataKitManifest, LangError> {
+    let yaml = KIT_MANIFESTS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, y)| *y)
+        .ok_or_else(|| LangError::engine(format!("unknown kit: {}", name)))?;
+    serde_yaml::from_str(yaml)
+        .map_err(|e| LangError::engine(format!("kits/{}.yaml: {}", name, e)))
+}
+
+/// Resolve a kit name to its flattened, ordered list of library module plugin
+/// names, following the manifest's `extends` chain.
+///
+/// The parent's modules come first, then the child's, preserving the
+/// contribution order the kit's `contribute` method used to express in Rust.
+///
+/// # Errors
+///
+/// Returns [`LangError::Engine`] if `name` (or any kit in its `extends`
+/// chain) is not a known kit or fails to parse.
+pub fn kit_module_names(name: &str) -> Result<Vec<String>, LangError> {
+    let manifest = load_kit(name)?;
+    let mut modules = if let Some(parent) = &manifest.extends {
+        kit_module_names(parent)?
+    } else {
+        Vec::new()
+    };
+    modules.extend(manifest.modules.iter().cloned());
+    Ok(modules)
+}
+
 /// Assemble the data-driven canonical kit: load the YAML data files, build a
 /// [`DataKit`] with the Pratt + tree-walk runtime config.
 ///
@@ -362,6 +422,37 @@ mod tests {
         assert!(lang.types.get_by_identity("binary.add").is_some());
         assert!(lang.types.get_by_identity("unary.neg").is_some());
         assert!(lang.types.get_by_identity("paren").is_some());
+    }
+
+    #[test]
+    fn load_kit_parses_embedded_manifests() {
+        let canonical = load_kit("canonical").unwrap();
+        assert_eq!(canonical.fragments.len(), 1);
+        assert_eq!(canonical.runtime.eval, "tree-walk");
+        assert!(canonical.modules.is_empty());
+
+        let hello = load_kit("hello").unwrap();
+        assert_eq!(hello.extends.as_deref(), Some("canonical"));
+        assert_eq!(hello.modules, vec!["module-runtime", "hello"]);
+    }
+
+    #[test]
+    fn load_kit_unknown_name_errors() {
+        assert!(load_kit("bogus").is_err());
+    }
+
+    #[test]
+    fn kit_module_names_flattens_extends() {
+        // `stdlib` extends `hello` which extends `canonical`.
+        assert_eq!(
+            kit_module_names("stdlib").unwrap(),
+            vec!["module-runtime", "hello", "utils", "collections"]
+        );
+        // `server` extends `config`: parent's modules first.
+        let server = kit_module_names("server").unwrap();
+        assert_eq!(server.first().unwrap(), "module-runtime");
+        assert_eq!(server.last().unwrap(), "otlp-std");
+        assert_eq!(server.len(), 19);
     }
 
     #[test]

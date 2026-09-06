@@ -1,0 +1,18 @@
+# The config kit: canonical language plus the configuration/edge module set.
+extends: canonical
+modules:
+  - module-runtime
+  - utils
+  - cmp
+  - crypto
+  - datetime
+  - intl
+  - kv-hashmap
+  - collections
+  - unicode
+  - stats
+  - ws-rfc-memory
+  - ws-whatwg-native
+  - ip
+  - compress-gzip
+  - archive-tar
