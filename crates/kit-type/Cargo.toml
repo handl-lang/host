@@ -1,8 +1,0 @@
-[package]
-name = "handl-kit-type"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-platform = {path = "../platform" }
-handl-plugin-typecheck-nbe = {path = "../plugin-typecheck-nbe" }

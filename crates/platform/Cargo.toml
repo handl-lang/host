@@ -7,7 +7,6 @@ edition.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-handl-plugin-typecheck-nbe = {path = "../plugin-typecheck-nbe" }
 semver = "1"
 toml = "0.8"
 

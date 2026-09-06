@@ -37,10 +37,6 @@ pub mod plugin;
 pub mod plugin_model;
 /// Plugin composition resolution.
 pub mod resolve;
-/// Generic typecheck operation and rule acceptor.
-pub mod typecheck;
-/// Unified `Value`/`Term` space for the platform VM.
-pub mod value;
 /// Composable VM wrapper over the unified value space.
 pub mod vm;
 
@@ -61,10 +57,6 @@ pub use options::*;
 pub use plugin::*;
 pub use plugin_model::*;
 pub use resolve::*;
-pub use typecheck::*;
-
-/// Unified value space primitives re-exported from `handl_plugin_typecheck_nbe`.
-pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};
 /// Composable VM wrapper.
 pub use vm::Vm;
 

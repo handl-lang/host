@@ -16,7 +16,6 @@ members = [
   "crates/plugin-ext-lsp",
   "crates/plugin-ext-plugin",
   "crates/plugin-ext-refinement",
-  "crates/plugin-ext-typecheck",
   "crates/plugin-ffi",
   "crates/host-cli",
   "crates/host-lsp",
@@ -90,12 +89,8 @@ members = [
   "crates/plugin-exec-max-depth",
   "crates/plugin-exec-max-calls",
   "crates/plugin-module",
-  "crates/plugin-typecheck-core",
   "crates/plugin-source",
   "crates/host-tooling",
-  "crates/plugin-typecheck-nbe",
-  "crates/kit-type",
-  "crates/kit-type-schema-json",
   "crates/crate-ecma402-icu4x",
   "crates/crate-ecma402-traits",
   "crates/crate-icu4x-extra",
@@ -113,7 +108,7 @@ members = [
   "crates/plugin-engine-exec-bytecode",
   "crates/plugin-engine-exec-cranelift",
   "crates/plugin-engine-fmt",
-  "crates/plugin-engine-lint",
+    "crates/plugin-engine-lint",
   "crates/plugin-ffi",
   "crates/handl-runtime",
   "crates/handl-emitters",
@@ -163,7 +158,6 @@ handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
 handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
 handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
-handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
@@ -236,12 +230,8 @@ handl-plugin-exec-deny = { path = "crates/plugin-exec-deny" }
 handl-plugin-exec-max-depth = { path = "crates/plugin-exec-max-depth" }
 handl-plugin-exec-max-calls = { path = "crates/plugin-exec-max-calls" }
 handl-plugin-module = { path = "crates/plugin-module" }
-handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-host-tooling = { path = "crates/host-tooling" }
-handl-kit-type = { path = "crates/kit-type" }
-handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
-handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
 handl-language = { path = "crates/handl-language" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }

@@ -4,8 +4,6 @@
 //! concrete `DefaultHost` and `Env` are no longer hard-coded.  Any
 //! `CallableLookup` implementation can be supplied instead.
 
-pub use crate::value::*;
-
 /// A composable handl VM that pairs a host with a runtime environment.
 pub struct Vm<CallableLookup, Env> {
     host: CallableLookup,

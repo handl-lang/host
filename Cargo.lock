@@ -1134,23 +1134,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-kit-type"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-typecheck-nbe",
-]
-
-[[package]]
-name = "handl-kit-type-schema-json"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-typecheck-nbe",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-language"
 version = "0.1.0"
 dependencies = [
@@ -1163,7 +1146,6 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-typecheck-nbe",
  "semver",
  "serde",
  "serde_json",
@@ -1603,14 +1585,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-ext-typecheck"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-ffi"
 version = "0.1.0"
 dependencies = [
@@ -2029,6 +2003,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tar",
  "toml",
  "url",
 ]
@@ -2267,23 +2242,6 @@ name = "handl-plugin-source"
 version = "0.1.0"
 dependencies = [
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-typecheck-core"
-version = "0.1.0"
-dependencies = [
- "handl-kit-type-schema-json",
- "handl-platform",
- "handl-plugin-typecheck-nbe",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-typecheck-nbe"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.20",
 ]
 
 [[package]]

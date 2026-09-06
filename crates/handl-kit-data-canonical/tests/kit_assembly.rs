@@ -38,6 +38,7 @@ fn assemble_canonical_runtime_config_is_pratt_tree_walk() {
     let kit = handl_kit_data_canonical::assemble().unwrap();
     assert_eq!(kit.runtime_config().parse, "pratt");
     assert_eq!(kit.runtime_config().eval, "tree-walk");
+    assert_eq!(kit.runtime_config().typecheck, "nbe");
 }
 
 #[test]
@@ -45,7 +46,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
     use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
-    use handl_runtime::EngineRegistry;
+    use handl_runtime::{EngineRegistry, Runtime};
     use std::rc::Rc;
     let kit = handl_kit_data_canonical::assemble().unwrap();
     let mut reg = EngineRegistry::new();
@@ -53,8 +54,11 @@ fn assemble_canonical_into_runtime_binds_engines() {
     reg.register_parse("pratt", PrattEngine::new());
     reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
     let registry = Rc::new(reg);
-    let rt = kit
-        .into_runtime(&registry, None)
+    // Bind only the lex/parse/eval engines this test verifies; the typecheck
+    // engine is selected by `runtime.typecheck` and tested elsewhere.
+    let mut config = kit.runtime_config().clone();
+    config.typecheck.clear();
+    let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 73);

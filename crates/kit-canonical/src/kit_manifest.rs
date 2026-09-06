@@ -110,8 +110,6 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-stmt-import".to_string(),
             "plugin-grammar-stmt-export".to_string(),
             "plugin-grammar-stmt-module".to_string(),
-            // Typecheck behavior plugin
-            "plugin-typecheck-core".to_string(),
             // Lint behavior plugin
             "plugin-diag-expression".to_string(),
             // Build and compile behavior plugins (placeholders)

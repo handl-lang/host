@@ -26,7 +26,7 @@ use handl_language::{Language, Source};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_runtime::EngineRegistry;
+use handl_runtime::{EngineRegistry, Runtime};
 use std::rc::Rc;
 
 /// Assemble the full canonical kit and return its language.
@@ -43,8 +43,11 @@ fn full_runtime() -> handl_runtime::Runtime {
     reg.register_parse("pratt", PrattEngine::new());
     reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
     let registry = Rc::new(reg);
-    kit.into_runtime(&registry, None)
-        .expect("runtime binds engines")
+    // These tests only exercise lex/parse/eval; clear the manifest's typecheck
+    // selection so the runtime does not need the `nbe` engine impl.
+    let mut config = kit.runtime_config().clone();
+    config.typecheck.clear();
+    Runtime::from_registry(kit.lang().clone(), &registry, &config).expect("runtime binds engines")
 }
 
 // ---------------------------------------------------------------------------

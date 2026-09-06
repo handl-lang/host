@@ -44,12 +44,11 @@
 use std::path::Path;
 
 use handl_emitters::Emitter;
-use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
+use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry};
 use handl_language::{
     AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
     OptionSchema, TokenKindDef, TypeRuleDef,
 };
-use handl_runtime::RuntimeConfig;
 
 /// The kit name under which this kit registers itself (for `extends`
 /// resolution by child kits like `handl-kit-data-config`).
@@ -266,20 +265,11 @@ impl Emitter for YamlDataEmitter {
 /// Build the [`DataKitManifest`] for the data-driven canonical kit.
 ///
 /// The manifest references a single `canonical-yaml` fragment source (the
-/// embedded YAML files) and selects the Pratt parse engine + tree-walk eval
-/// engine.
+/// embedded YAML files) and runtime engine selection.
+///
+/// The `runtime.typecheck` field selects the `nbe` engine registered by the host.
 pub fn manifest() -> DataKitManifest {
-    DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter(
-            "canonical-yaml",
-            "canonical-yaml",
-        ))
-        .with_runtime(
-            RuntimeConfig::new()
-                .with_lex("data")
-                .with_parse("pratt")
-                .with_eval("tree-walk"),
-        )
+    load_kit("canonical").unwrap_or_else(|e| panic!("failed to load canonical manifest: {}", e))
 }
 
 /// Build an [`EmitterRegistry`] pre-populated with the canonical YAML data
@@ -326,8 +316,7 @@ pub fn load_kit(name: &str) -> Result<DataKitManifest, LangError> {
         .find(|(n, _)| *n == name)
         .map(|(_, y)| *y)
         .ok_or_else(|| LangError::engine(format!("unknown kit: {}", name)))?;
-    serde_yaml::from_str(yaml)
-        .map_err(|e| LangError::engine(format!("kits/{}.yaml: {}", name, e)))
+    serde_yaml::from_str(yaml).map_err(|e| LangError::engine(format!("kits/{}.yaml: {}", name, e)))
 }
 
 /// Resolve a kit name to its flattened, ordered list of library module plugin

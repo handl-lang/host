@@ -24,25 +24,25 @@ pub mod handl_module {
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
-use handl_plugin_lib_tag::TypeRegistry;
+use handl_plugin_engine_exec::ImportResolver;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
-use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
+use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
-use handl_plugin_lib_tag::TagModule;
-use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_rand_native::RandModule;
+use handl_plugin_lib_stdlib as stdlib;
+use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
+use handl_plugin_lib_tag::TagModule;
+use handl_plugin_lib_tag::TypeRegistry;
 use handl_plugin_lib_time_native::TimeModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
-use handl_plugin_lib_stdlib as stdlib;
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_module::ModuleRegistry;
-use handl_plugin_engine_exec::ImportResolver;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::path::{Path, PathBuf};
@@ -85,15 +85,51 @@ const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-
 /// The record field names exposed by `str-handl.hnl` — each becomes a
 /// callable [`Function`](handl_platform::Function) on the `"str"` module.
 const STR_HANDL_FUNCS: &[&str] = &[
-    "upper", "lower", "trim", "trim_start", "trim_end", "trim_matches",
-    "reverse", "length", "concat", "is_empty", "equals", "is_alpha",
-    "is_numeric", "is_alphanumeric", "capitalize", "title_case",
-    "snake_case", "camel_case", "pascal_case", "kebab_case", "contains",
-    "starts_with", "ends_with", "count", "find", "rfind", "levenshtein",
-    "similarity", "split", "join", "replace", "replace_first", "repeat",
-    "char_at", "slice", "pad_left", "pad_right", "strip_prefix",
-    "strip_suffix", "lines", "split_at", "split_whitespace", "truncate",
-    "slugify", "word_wrap",
+    "upper",
+    "lower",
+    "trim",
+    "trim_start",
+    "trim_end",
+    "trim_matches",
+    "reverse",
+    "length",
+    "concat",
+    "is_empty",
+    "equals",
+    "is_alpha",
+    "is_numeric",
+    "is_alphanumeric",
+    "capitalize",
+    "title_case",
+    "snake_case",
+    "camel_case",
+    "pascal_case",
+    "kebab_case",
+    "contains",
+    "starts_with",
+    "ends_with",
+    "count",
+    "find",
+    "rfind",
+    "levenshtein",
+    "similarity",
+    "split",
+    "join",
+    "replace",
+    "replace_first",
+    "repeat",
+    "char_at",
+    "slice",
+    "pad_left",
+    "pad_right",
+    "strip_prefix",
+    "strip_suffix",
+    "lines",
+    "split_at",
+    "split_whitespace",
+    "truncate",
+    "slugify",
+    "word_wrap",
 ];
 
 // ---------------------------------------------------------------------------
@@ -112,48 +148,59 @@ const STR_HANDL_FUNCS: &[&str] = &[
 struct StdlibResolver;
 
 impl ModuleResolver for StdlibResolver {
-    fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
+    fn resolve(
+        &self,
+        name: &str,
+    ) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
             "str" => Some(std::sync::Arc::new(build_str_handl_module())),
             "char" => Some(std::sync::Arc::new(CharModule)),
             "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "transform" => Some(std::sync::Arc::new(TransformModule::new())),
             "comb" => Some(std::sync::Arc::new(CombModule::new())),
-            "fn" | "combinators" => stdlib::module("combinators")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "math" => stdlib::module("math")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "prim" => stdlib::module("prim")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "bool" => stdlib::module("bool")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "option" => stdlib::module("option")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "fn" | "combinators" => stdlib::module("combinators").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
+            "math" => stdlib::module("math").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
+            "prim" => stdlib::module("prim").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
+            "bool" => stdlib::module("bool").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
+            "option" => stdlib::module("option").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
             "type" => Some(std::sync::Arc::new(build_type_module())),
             // `error` — the error-raising primitive (ADR-0092 gap (a));
             // a plain table module.
-            "error" => stdlib::module("error")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "error" => stdlib::module("error").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
             // `obj` — record introspection (gap #3); a plain table module.
-            "obj" => stdlib::module("obj")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "typeof" => stdlib::module("typeof")
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "obj" => stdlib::module("obj").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
+            "typeof" => stdlib::module("typeof").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
             // `result` is a table module whose `tag` dep is not in the
             // table (`tag` stays native in `plugin-lib-tag`), so it is
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
             "tag" => Some(std::sync::Arc::new(TagModule)),
-            "result" => stdlib::module_with("result", &StdlibResolver)
-                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "result" => stdlib::module_with("result", &StdlibResolver).map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
             _ => None,
         }
     }
 }
 
 fn build_dedent_module() -> HandlModule {
-    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS)
-        .with_resolver(&StdlibResolver)
+    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_resolver(&StdlibResolver)
 }
 
 /// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
@@ -164,8 +211,7 @@ fn build_dedent_module() -> HandlModule {
 /// resolve through [`StdlibResolver`] to the registered `char` backend
 /// (`char-native` by default).
 fn build_str_handl_module() -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
-        .with_resolver(&StdlibResolver)
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_resolver(&StdlibResolver)
 }
 
 // ---------------------------------------------------------------------------
@@ -188,17 +234,33 @@ fn build_str_handl_module() -> HandlModule {
 
 /// The handl source implementing the `type` contract
 /// (`handl-packages/type/type.hnl`) as pure handl over the `type.of` atom.
-const TYPE_HANDL_HNL: &str =
-    include_str!("../../../handl-packages/type-handl/type-handl.hnl");
+const TYPE_HANDL_HNL: &str = include_str!("../../../handl-packages/type-handl/type-handl.hnl");
 
 /// The record field names exposed by `type-handl.hnl` — each becomes a
 /// callable [`Function`] on the `"type"` module.
 const TYPE_HANDL_FUNCS: &[&str] = &[
-    "is_null", "is_bool", "is_number", "is_string", "is_array", "is_object",
-    "is_arrow", "is_function", "is_bytes", "is_resource",
-    "tag", "name", "type_of", "typeof",
-    "is", "must", "may", "not", "when",
-    "identity", "default", "to_bool",
+    "is_null",
+    "is_bool",
+    "is_number",
+    "is_string",
+    "is_array",
+    "is_object",
+    "is_arrow",
+    "is_function",
+    "is_bytes",
+    "is_resource",
+    "tag",
+    "name",
+    "type_of",
+    "typeof",
+    "is",
+    "must",
+    "may",
+    "not",
+    "when",
+    "identity",
+    "default",
+    "to_bool",
 ];
 
 /// The `type` op names that remain native — each maps to a Rust
@@ -281,10 +343,7 @@ fn type_op_registry() -> OpRegistry {
 /// `type-handl`: `type.of(v)` calls inside the `.hnl` source resolve
 /// through the bridge runtime's module chain to these native ops.
 fn type_ops_module() -> HandlModule {
-    HandlModule::new("type", "{}", &[]).with_ops(
-        TYPE_OPS,
-        std::sync::Arc::new(type_op_registry()),
-    )
+    HandlModule::new("type", "{}", &[]).with_ops(TYPE_OPS, std::sync::Arc::new(type_op_registry()))
 }
 
 /// Build the composed [`HandlModule`] for `type`: the `type-handl` record
@@ -294,7 +353,6 @@ fn build_type_module() -> HandlModule {
         .with_dependency(type_ops_module())
         .with_ops(TYPE_OPS, std::sync::Arc::new(type_op_registry()))
 }
-
 
 // ---------------------------------------------------------------------------
 // transform — pure-Handl list transforms (one .hnl file per arrow), with
@@ -394,11 +452,9 @@ impl Function for TransformReduce {
         let f = &args[2];
         for x in xs {
             let call_args = [acc, x.clone()];
-            acc = ctx
-                .try_call_value(f, &call_args)
-                .ok_or_else(|| {
-                    EvalError::Other("transform.reduce: no value callable in context".to_string())
-                })??;
+            acc = ctx.try_call_value(f, &call_args).ok_or_else(|| {
+                EvalError::Other("transform.reduce: no value callable in context".to_string())
+            })??;
         }
         Ok(acc)
     }
@@ -428,10 +484,34 @@ impl TransformModule {
         overrides.insert("filter".to_string(), std::sync::Arc::new(TransformFilter));
         overrides.insert("reduce".to_string(), std::sync::Arc::new(TransformReduce));
 
-        functions.insert("map".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/map.hnl"), &["map"]));
-        functions.insert("filter".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/filter.hnl"), &["filter"]));
-        functions.insert("reduce".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/reduce.hnl"), &["reduce"]));
-        Self { functions, overrides }
+        functions.insert(
+            "map".to_string(),
+            HandlModule::new(
+                "transform",
+                include_str!("../../../handl-packages/transform/map.hnl"),
+                &["map"],
+            ),
+        );
+        functions.insert(
+            "filter".to_string(),
+            HandlModule::new(
+                "transform",
+                include_str!("../../../handl-packages/transform/filter.hnl"),
+                &["filter"],
+            ),
+        );
+        functions.insert(
+            "reduce".to_string(),
+            HandlModule::new(
+                "transform",
+                include_str!("../../../handl-packages/transform/reduce.hnl"),
+                &["reduce"],
+            ),
+        );
+        Self {
+            functions,
+            overrides,
+        }
     }
 }
 
@@ -475,20 +555,118 @@ impl CombModule {
     pub fn new() -> Self {
         let mut functions = std::collections::HashMap::new();
 
-        functions.insert("fanout".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout.hnl"), &["fanout"]));
-        functions.insert("fanout_fn".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout_fn.hnl"), &["fanout_fn"]));
-        functions.insert("flow".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flow.hnl"), &["flow"]));
-        functions.insert("compose".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/compose.hnl"), &["compose"]));
-        functions.insert("pipe".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/pipe.hnl"), &["pipe"]));
-        functions.insert("apply".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/apply.hnl"), &["apply"]));
-        functions.insert("tap".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/tap.hnl"), &["tap"]));
-        functions.insert("constantly".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/constantly.hnl"), &["constantly"]));
-        functions.insert("flip".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flip.hnl"), &["flip"]));
-        functions.insert("partial".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/partial.hnl"), &["partial"]));
-        functions.insert("choice".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/choice.hnl"), &["choice"]));
-        functions.insert("when".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/when.hnl"), &["when"]));
-        functions.insert("unless".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/unless.hnl"), &["unless"]));
-        functions.insert("converge".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/converge.hnl"), &["converge"]));
+        functions.insert(
+            "fanout".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/fanout.hnl"),
+                &["fanout"],
+            ),
+        );
+        functions.insert(
+            "fanout_fn".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/fanout_fn.hnl"),
+                &["fanout_fn"],
+            ),
+        );
+        functions.insert(
+            "flow".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/flow.hnl"),
+                &["flow"],
+            ),
+        );
+        functions.insert(
+            "compose".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/compose.hnl"),
+                &["compose"],
+            ),
+        );
+        functions.insert(
+            "pipe".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/pipe.hnl"),
+                &["pipe"],
+            ),
+        );
+        functions.insert(
+            "apply".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/apply.hnl"),
+                &["apply"],
+            ),
+        );
+        functions.insert(
+            "tap".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/tap.hnl"),
+                &["tap"],
+            ),
+        );
+        functions.insert(
+            "constantly".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/constantly.hnl"),
+                &["constantly"],
+            ),
+        );
+        functions.insert(
+            "flip".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/flip.hnl"),
+                &["flip"],
+            ),
+        );
+        functions.insert(
+            "partial".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/partial.hnl"),
+                &["partial"],
+            ),
+        );
+        functions.insert(
+            "choice".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/choice.hnl"),
+                &["choice"],
+            ),
+        );
+        functions.insert(
+            "when".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/when.hnl"),
+                &["when"],
+            ),
+        );
+        functions.insert(
+            "unless".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/unless.hnl"),
+                &["unless"],
+            ),
+        );
+        functions.insert(
+            "converge".to_string(),
+            HandlModule::new(
+                "comb",
+                include_str!("../../../handl-packages/comb/converge.hnl"),
+                &["converge"],
+            ),
+        );
         Self { functions }
     }
 }
@@ -512,7 +690,6 @@ impl Module for CombModule {
         out
     }
 }
-
 
 thread_local! {
     /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached
@@ -576,9 +753,7 @@ fn strip_comment_lines(src: &str) -> String {
     src.lines()
         .filter(|line| {
             let trimmed = line.trim();
-            !trimmed.is_empty()
-                && !trimmed.starts_with("--")
-                && !trimmed.starts_with("cap ")
+            !trimmed.is_empty() && !trimmed.starts_with("--") && !trimmed.starts_with("cap ")
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -650,7 +825,10 @@ impl TypeSignature for HelloGreetHostFn {
             .construct("type.string", &Value::Null)
             .expect("type.string should construct");
         let function = registry
-            .construct("type.function", &serde_json::json!({"param": string, "body": string}))
+            .construct(
+                "type.function",
+                &serde_json::json!({"param": string, "body": string}),
+            )
             .expect("type.function should construct");
         function
     }
@@ -757,7 +935,7 @@ impl Kit {
     pub fn new() -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone().with_typecheck("nbe");
+        let config = kit.runtime_config().clone();
         Self::build_kit(lang, config, None)
     }
 
@@ -772,11 +950,7 @@ impl Kit {
     pub fn with_eval(eval_name: &str) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit
-            .runtime_config()
-            .clone()
-            .with_eval(eval_name)
-            .with_typecheck("nbe");
+        let config = kit.runtime_config().clone().with_eval(eval_name);
         Self::build_kit(lang, config, None)
     }
 
@@ -791,7 +965,7 @@ impl Kit {
     pub fn new_with_module_root(module_root: PathBuf) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone().with_typecheck("nbe");
+        let config = kit.runtime_config().clone();
         Self::build_kit(lang, config, Some(module_root))
     }
 
@@ -879,8 +1053,7 @@ impl Kit {
         // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
-        stdlib_registry
-            .register(stdlib::module_with("result", &StdlibResolver).expect("result"));
+        stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
         stdlib_registry.register(stdlib::module("mood").expect("mood"));
         stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
         stdlib_registry.register(stdlib::module("parse").expect("parse"));
@@ -994,9 +1167,7 @@ impl Kit {
                 .box_clone(),
             registry
                 .parse_engine("pratt")
-                .ok_or_else(|| {
-                    LangError::engine("missing parse engine 'pratt' for module loader")
-                })?
+                .ok_or_else(|| LangError::engine("missing parse engine 'pratt' for module loader"))?
                 .box_clone(),
             module_root.clone(),
         ));
@@ -1005,8 +1176,7 @@ impl Kit {
             .with_global("self", handl_language::language_value(&lang))
             .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
         loader.set_eval_engine(Box::new(loader_eval_engine));
-        let import_resolver: Rc<dyn ImportResolver> =
-            Rc::clone(&loader) as Rc<dyn ImportResolver>;
+        let import_resolver: Rc<dyn ImportResolver> = Rc::clone(&loader) as Rc<dyn ImportResolver>;
 
         let runtime = Runtime::from_registry_with_resolver(
             lang,
@@ -1059,11 +1229,7 @@ impl Kit {
 
         // Real directory -> load YAML files.
         if path.is_dir() {
-            let config = RuntimeConfig::new()
-                .with_lex("data")
-                .with_parse("pratt")
-                .with_eval("tree-walk")
-                .with_typecheck("nbe");
+            let config = handl_kit_data_canonical::manifest().runtime.clone();
             match handl_kit_data_canonical::language_from_yaml() {
                 Ok(lang) => return Self::build_kit(lang, config, None),
                 Err(e) => {
@@ -1267,11 +1433,7 @@ impl Default for Kit {
 ///
 /// Returns [`LangError`] if engine binding fails.
 pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangError> {
-    let config = RuntimeConfig::new()
-        .with_lex("data")
-        .with_parse("pratt")
-        .with_eval("tree-walk")
-        .with_typecheck("nbe");
+    let config = handl_kit_data_canonical::manifest().runtime.clone();
 
     // Build the engine registry with all available engine impls
     // (ADR-0047 §2).
@@ -2021,7 +2183,11 @@ mod tests {
         assert_eq!(name, "Nat");
         // Two children: [type_expr, constructors_expr].
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
+        assert_eq!(
+            children.len(),
+            2,
+            "data node should have 2 children [type, constructors]"
+        );
         // Child 0 is the type expression: var("Nat").
         let type_idx = children[0].as_u64().unwrap() as usize;
         let type_node = ast.get(handl_language::AstRef::new(type_idx)).unwrap();
@@ -2035,11 +2201,19 @@ mod tests {
         let alt_children = child.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(alt_children.len(), 2);
         // Left child: var("Zero")
-        let left = ast.get(handl_language::AstRef::new(alt_children[0].as_u64().unwrap() as usize)).unwrap();
+        let left = ast
+            .get(handl_language::AstRef::new(
+                alt_children[0].as_u64().unwrap() as usize,
+            ))
+            .unwrap();
         assert_eq!(left.kind, "var");
         assert_eq!(left.payload, serde_json::json!("Zero"));
         // Right child: call(Succ, Nat)
-        let right = ast.get(handl_language::AstRef::new(alt_children[1].as_u64().unwrap() as usize)).unwrap();
+        let right = ast
+            .get(handl_language::AstRef::new(
+                alt_children[1].as_u64().unwrap() as usize,
+            ))
+            .unwrap();
         assert_eq!(right.kind, "call");
     }
 
@@ -2054,11 +2228,17 @@ mod tests {
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
         // Each statement should be an `assign`.
         for (i, child_idx) in children.iter().enumerate() {
             let node = ast
-                .get(handl_language::AstRef::new(child_idx.as_u64().unwrap() as usize))
+                .get(handl_language::AstRef::new(
+                    child_idx.as_u64().unwrap() as usize
+                ))
                 .unwrap();
             assert_eq!(
                 node.kind, "assign",
@@ -2222,10 +2402,7 @@ mod tests {
 
         let kit = Kit::new().unwrap();
         let mut ast = Ast::new();
-        ast.push(
-            AstNode::new("data")
-                .with_payload(json!({"name": "Nat", "children": []})),
-        );
+        ast.push(AstNode::new("data").with_payload(json!({"name": "Nat", "children": []})));
         let result = kit.runtime().eval(&ast);
         assert!(result.is_err(), "expected error for undesugared data node");
         let err_msg = format!("{:?}", result.unwrap_err());
