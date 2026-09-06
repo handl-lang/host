@@ -82,6 +82,20 @@ impl ImportResolver for BuiltinImportResolver {
 const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 
 // ---------------------------------------------------------------------------
+// dedent module (pure Handl — loaded via generic HandlModule)
+// ---------------------------------------------------------------------------
+
+/// The handl source defining `dedent`. Its `from "str" import` and
+/// `from "transform" import` dependencies are wired via [`StdlibResolver`].
+const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
+const DEDENT_FUNCS: &[&str] = &["dedent"];
+
+/// Build the [`HandlModule`] for `dedent`.
+fn build_dedent_module(resolver: &dyn ModuleResolver) -> HandlModule {
+    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_resolver(resolver)
+}
+
+// ---------------------------------------------------------------------------
 // unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
 // ---------------------------------------------------------------------------
 //
@@ -104,18 +118,22 @@ impl ModuleResolver for StdlibResolver {
         match name {
             "str" => Some(std::sync::Arc::new(build_str_handl_module(&StdlibResolver))),
             "char" => Some(std::sync::Arc::new(CharModule)),
+            "dedent" => Some(std::sync::Arc::new(build_dedent_module(&StdlibResolver))),
             "comb" => Some(std::sync::Arc::new(CombModule::new())),
+            "transform" => Some(std::sync::Arc::new(TransformModule::new())),
             _ => None,
         }
     }
 }
 
 // ---------------------------------------------------------------------------
+// transform — pure-Handl list transforms (one .hnl file per arrow), with
+// native overrides for the arrow-argument call path
 // comb — pure-Handl function combinators (one .hnl file per arrow)
 // ---------------------------------------------------------------------------
 
-/// Handl-style truthiness used by `comb.filter`.
-fn comb_is_truthy(v: &Value) -> bool {
+/// Handl-style truthiness used by `transform.filter`.
+fn transform_is_truthy(v: &Value) -> bool {
     match v {
         Value::Null | Value::Bool(false) => false,
         Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(true),
@@ -126,21 +144,21 @@ fn comb_is_truthy(v: &Value) -> bool {
     }
 }
 
-/// `comb.map(xs, f)` — host-side implementation that calls the arrow `f`
+/// `transform.map(xs, f)` — host-side implementation that calls the arrow `f`
 /// through the current `EvalContext` (`ctx.try_call_value`).
 #[derive(Clone, Copy, Debug)]
-pub struct CombMap;
+pub struct TransformMap;
 
-impl Function for CombMap {
+impl Function for TransformMap {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
             return Err(EvalError::Other(format!(
-                "comb.map: expected 2 arguments, got {}",
+                "transform.map: expected 2 arguments, got {}",
                 args.len()
             )));
         }
         let xs = args[0].as_array().ok_or_else(|| {
-            EvalError::Other("comb.map: first argument must be an array".to_string())
+            EvalError::Other("transform.map: first argument must be an array".to_string())
         })?;
         let f = &args[1];
         let mut out = Vec::with_capacity(xs.len());
@@ -148,7 +166,7 @@ impl Function for CombMap {
             let mapped = ctx
                 .try_call_value(f, std::slice::from_ref(x))
                 .ok_or_else(|| {
-                    EvalError::Other("comb.map: no value callable in context".to_string())
+                    EvalError::Other("transform.map: no value callable in context".to_string())
                 })??;
             out.push(mapped);
         }
@@ -156,20 +174,20 @@ impl Function for CombMap {
     }
 }
 
-/// `comb.filter(xs, p)` — host-side implementation that calls the predicate.
+/// `transform.filter(xs, p)` — host-side implementation that calls the predicate.
 #[derive(Clone, Copy, Debug)]
-pub struct CombFilter;
+pub struct TransformFilter;
 
-impl Function for CombFilter {
+impl Function for TransformFilter {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
             return Err(EvalError::Other(format!(
-                "comb.filter: expected 2 arguments, got {}",
+                "transform.filter: expected 2 arguments, got {}",
                 args.len()
             )));
         }
         let xs = args[0].as_array().ok_or_else(|| {
-            EvalError::Other("comb.filter: first argument must be an array".to_string())
+            EvalError::Other("transform.filter: first argument must be an array".to_string())
         })?;
         let p = &args[1];
         let mut out = Vec::new();
@@ -177,9 +195,9 @@ impl Function for CombFilter {
             let keep = ctx
                 .try_call_value(p, std::slice::from_ref(x))
                 .ok_or_else(|| {
-                    EvalError::Other("comb.filter: no value callable in context".to_string())
+                    EvalError::Other("transform.filter: no value callable in context".to_string())
                 })??;
-            if comb_is_truthy(&keep) {
+            if transform_is_truthy(&keep) {
                 out.push(x.clone());
             }
         }
@@ -187,20 +205,20 @@ impl Function for CombFilter {
     }
 }
 
-/// `comb.reduce(xs, init, f)` — host-side implementation.
+/// `transform.reduce(xs, init, f)` — host-side implementation.
 #[derive(Clone, Copy, Debug)]
-pub struct CombReduce;
+pub struct TransformReduce;
 
-impl Function for CombReduce {
+impl Function for TransformReduce {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 3 {
             return Err(EvalError::Other(format!(
-                "comb.reduce: expected 3 arguments, got {}",
+                "transform.reduce: expected 3 arguments, got {}",
                 args.len()
             )));
         }
         let xs = args[0].as_array().ok_or_else(|| {
-            EvalError::Other("comb.reduce: first argument must be an array".to_string())
+            EvalError::Other("transform.reduce: first argument must be an array".to_string())
         })?;
         let mut acc = args[1].clone();
         let f = &args[2];
@@ -209,26 +227,26 @@ impl Function for CombReduce {
             acc = ctx
                 .try_call_value(f, &call_args)
                 .ok_or_else(|| {
-                    EvalError::Other("comb.reduce: no value callable in context".to_string())
+                    EvalError::Other("transform.reduce: no value callable in context".to_string())
                 })??;
         }
         Ok(acc)
     }
 }
 
-/// `CombModule` exposes `handl-packages/comb/*.hnl` as the `comb.*` host
-/// function namespace. Each arrow lives in its own `.hnl` file and is loaded
-/// by a one-function `HandlModule`. For combinators that the tree-walk host-
-/// call path cannot yet pass arrow values through (map/filter/reduce), a
-/// small native `Function` override is wired in front of the `.hnl` source.
-pub struct CombModule {
+/// `TransformModule` exposes `handl-packages/transform/*.hnl` as the
+/// `transform.*` host function namespace: list-to-list / fold operations
+/// (`map`, `filter`, `reduce`). Because the tree-walk host-call path cannot
+/// yet pass arrow values through, a small native `Function` override is
+/// wired in front of each `.hnl` source.
+pub struct TransformModule {
     functions: std::collections::HashMap<String, HandlModule>,
     overrides: std::collections::HashMap<String, std::sync::Arc<dyn Function + Send + Sync>>,
 }
 
-impl CombModule {
-    /// Load all `handl-packages/comb/*.hnl` files as one-function
-    /// `HandlModule`s, and register host-side overrides for map/filter/reduce.
+impl TransformModule {
+    /// Load all `handl-packages/transform/*.hnl` files as one-function
+    /// `HandlModule`s, and register the host-side overrides.
     pub fn new() -> Self {
         let mut functions = std::collections::HashMap::new();
         let mut overrides: std::collections::HashMap<
@@ -236,34 +254,20 @@ impl CombModule {
             std::sync::Arc<dyn Function + Send + Sync>,
         > = std::collections::HashMap::new();
 
-        overrides.insert("map".to_string(), std::sync::Arc::new(CombMap));
-        overrides.insert("filter".to_string(), std::sync::Arc::new(CombFilter));
-        overrides.insert("reduce".to_string(), std::sync::Arc::new(CombReduce));
+        overrides.insert("map".to_string(), std::sync::Arc::new(TransformMap));
+        overrides.insert("filter".to_string(), std::sync::Arc::new(TransformFilter));
+        overrides.insert("reduce".to_string(), std::sync::Arc::new(TransformReduce));
 
-        functions.insert("map".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/map.hnl"), &["map"]));
-        functions.insert("filter".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/filter.hnl"), &["filter"]));
-        functions.insert("reduce".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/reduce.hnl"), &["reduce"]));
-        functions.insert("fanout".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout.hnl"), &["fanout"]));
-        functions.insert("fanout_fn".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout_fn.hnl"), &["fanout_fn"]));
-        functions.insert("flow".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flow.hnl"), &["flow"]));
-        functions.insert("compose".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/compose.hnl"), &["compose"]));
-        functions.insert("pipe".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/pipe.hnl"), &["pipe"]));
-        functions.insert("apply".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/apply.hnl"), &["apply"]));
-        functions.insert("tap".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/tap.hnl"), &["tap"]));
-        functions.insert("constantly".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/constantly.hnl"), &["constantly"]));
-        functions.insert("flip".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flip.hnl"), &["flip"]));
-        functions.insert("partial".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/partial.hnl"), &["partial"]));
-        functions.insert("choice".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/choice.hnl"), &["choice"]));
-        functions.insert("when".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/when.hnl"), &["when"]));
-        functions.insert("unless".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/unless.hnl"), &["unless"]));
-        functions.insert("converge".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/converge.hnl"), &["converge"]));
+        functions.insert("map".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/map.hnl"), &["map"]));
+        functions.insert("filter".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/filter.hnl"), &["filter"]));
+        functions.insert("reduce".to_string(), HandlModule::new("transform", include_str!("../../../handl-packages/transform/reduce.hnl"), &["reduce"]));
         Self { functions, overrides }
     }
 }
 
-impl Module for CombModule {
+impl Module for TransformModule {
     fn name(&self) -> &str {
-        "comb"
+        "transform"
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
@@ -278,6 +282,58 @@ impl Module for CombModule {
         for (name, arc) in &self.overrides {
             out.push((name.as_str(), &**arc as &dyn Function));
         }
+        for (name, m) in &self.functions {
+            if let Some(f) = m.function(name.as_str()) {
+                out.push((name.as_str(), f));
+            }
+        }
+        out
+    }
+}
+
+/// `CombModule` exposes `handl-packages/comb/*.hnl` as the `comb.*` host
+/// function namespace: pure-Handl function combinators (one `.hnl` file per
+/// arrow, loaded by a one-function `HandlModule`). List transforms
+/// (`map`/`filter`/`reduce`) live in [`TransformModule`].
+pub struct CombModule {
+    functions: std::collections::HashMap<String, HandlModule>,
+}
+
+impl CombModule {
+    /// Load all `handl-packages/comb/*.hnl` files as one-function
+    /// `HandlModule`s.
+    pub fn new() -> Self {
+        let mut functions = std::collections::HashMap::new();
+
+        functions.insert("fanout".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout.hnl"), &["fanout"]));
+        functions.insert("fanout_fn".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/fanout_fn.hnl"), &["fanout_fn"]));
+        functions.insert("flow".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flow.hnl"), &["flow"]));
+        functions.insert("compose".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/compose.hnl"), &["compose"]));
+        functions.insert("pipe".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/pipe.hnl"), &["pipe"]));
+        functions.insert("apply".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/apply.hnl"), &["apply"]));
+        functions.insert("tap".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/tap.hnl"), &["tap"]));
+        functions.insert("constantly".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/constantly.hnl"), &["constantly"]));
+        functions.insert("flip".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/flip.hnl"), &["flip"]));
+        functions.insert("partial".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/partial.hnl"), &["partial"]));
+        functions.insert("choice".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/choice.hnl"), &["choice"]));
+        functions.insert("when".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/when.hnl"), &["when"]));
+        functions.insert("unless".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/unless.hnl"), &["unless"]));
+        functions.insert("converge".to_string(), HandlModule::new("comb", include_str!("../../../handl-packages/comb/converge.hnl"), &["converge"]));
+        Self { functions }
+    }
+}
+
+impl Module for CombModule {
+    fn name(&self) -> &str {
+        "comb"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        self.functions.get(name).and_then(|m| m.function(name))
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        let mut out = Vec::new();
         for (name, m) in &self.functions {
             if let Some(f) = m.function(name.as_str()) {
                 out.push((name.as_str(), f));
@@ -645,7 +701,9 @@ impl Kit {
         // `char` floor. `str-handl` is loaded by `build_str_handl_module`.
         stdlib_registry.register(build_str_handl_module(&StdlibResolver));
         stdlib_registry.register(CharModule);
+        stdlib_registry.register(build_dedent_module(&StdlibResolver));
         stdlib_registry.register(CombModule::new());
+        stdlib_registry.register(TransformModule::new());
         let stdlib_imports = Rc::new(stdlib_registry.clone());
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));

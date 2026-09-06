@@ -651,16 +651,52 @@ fn discover_tests_in_module(
     Ok(tests)
 }
 
-/// Extract the expression text from a binding statement like `test_foo = expr`.
+/// Extract the expression text from a binding statement like
+/// `test_foo :: expr` or a test declaration `test name = expr`.
 ///
-/// Returns the text after the first `=` sign (trimmed). If no `=` is found,
+/// Returns the text after the first binding separator — `::` (bind) or a
+/// bare `=` (test-decl separator), whichever comes first — scanned outside
+/// string literals and `--` comments (trimmed). If no separator is found,
 /// returns the whole text.
 fn extract_body_source(text: &str) -> String {
-    // Find the first `=` that is not `==`, `>=`, `<=`, `!=`, `=>`.
     let bytes = text.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'=' {
+        let b = bytes[i];
+
+        // String literal — skip to the closing quote (respecting escapes).
+        if b == b'"' {
+            i += 1;
+            while i < bytes.len() {
+                match bytes[i] {
+                    b'\\' => {
+                        i += 2;
+                        continue;
+                    }
+                    b'"' => {
+                        i += 1;
+                        break;
+                    }
+                    _ => i += 1,
+                }
+            }
+            continue;
+        }
+
+        // Comment: `--` to end of line.
+        if b == b'-' && i + 1 < bytes.len() && bytes[i + 1] == b'-' {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i += 1;
+            }
+            continue;
+        }
+
+        // `::` binding separator (ADR-0079).
+        if b == b':' && i + 1 < bytes.len() && bytes[i + 1] == b':' {
+            return text[i + 2..].trim().to_string();
+        }
+
+        if b == b'=' {
             let prev = if i > 0 { bytes[i - 1] } else { 0 };
             let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
             // Skip `==`, `>=`, `<=`, `!=`, `=>`
@@ -668,7 +704,7 @@ fn extract_body_source(text: &str) -> String {
                 i += 1;
                 continue;
             }
-            // Found the binding `=`.
+            // Found the `=` separator.
             return text[i + 1..].trim().to_string();
         }
         i += 1;
@@ -1706,6 +1742,51 @@ mod tests {
     fn extract_body_source_skips_comparison() {
         // `==` should not be treated as a binding `=`.
         assert_eq!(extract_body_source("test_eq = 1 == 1"), "1 == 1");
+    }
+
+    #[test]
+    fn extract_body_source_bind_operator() {
+        // `::` is the binding separator (ADR-0079); `=` inside the body is
+        // equality, not the separator. Regression: previously the first `=`
+        // was used, which truncated `assert a = b` bodies to just the
+        // expected literal — so every `assert` test passed vacuously.
+        assert_eq!(
+            extract_body_source("test_foo :: assert 1 = 2"),
+            "assert 1 = 2"
+        );
+    }
+
+    #[test]
+    fn extract_body_source_skips_equals_in_strings() {
+        // `=` inside a string literal is not the separator.
+        assert_eq!(
+            extract_body_source("test_foo :: \"x = y\" >>> f = \"z\""),
+            "\"x = y\" >>> f = \"z\""
+        );
+        // And `::` inside a string literal is not the separator either.
+        assert_eq!(
+            extract_body_source("test_foo = \"x :: y\""),
+            "\"x :: y\""
+        );
+    }
+
+    #[test]
+    fn eval_test_body_fails_on_false_equality() {
+        // Regression: `assert 1 = 2` must fail, not silently pass.
+        let (result, _dur, _detail) = eval_test_body("assert 1 = 2");
+        assert!(
+            matches!(result, TestResult::Fail { .. }),
+            "expected `assert 1 = 2` to fail, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn eval_test_body_passes_on_true_equality() {
+        let (result, _dur, _detail) = eval_test_body("assert 1 = 1");
+        assert!(
+            matches!(result, TestResult::Pass),
+            "expected `assert 1 = 1` to pass, got {result:?}"
+        );
     }
 
     #[test]

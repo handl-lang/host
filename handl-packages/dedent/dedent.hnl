@@ -1,9 +1,24 @@
---- Dedents a multi-line string by removing its common indentation.
+from "str" import * as str
+from "transform" import * as transform
+
+--- Dedents a multi-line string by removing its common leading-whitespace
+--- prefix.
 ---
 --- @details
---- CRLF line endings are normalized to LF. Leading and trailing newlines
---- are removed. Blank lines do not contribute to the common indentation.
---- Spaces and tabs are treated as leading whitespace.
+--- Line endings are normalized: `\r\n` and lone `\r` become `\n`. Leading
+--- and trailing newlines are removed. If the input contains no
+--- non-whitespace content, the result is `""`.
+---
+--- The common indentation is the longest leading-whitespace string shared
+--- by every non-blank line. Blank (whitespace-only) lines do not
+--- contribute to the common indentation and are emitted as empty lines.
+---
+--- Whitespace is any character `str.trim`/`str.trim_start` treats as
+--- whitespace — spaces, tabs, and Unicode whitespace such as U+00A0.
+--- Indentation is compared as a string prefix, not by visual columns:
+--- tabs and spaces are not interchangeable, so `"\t"` and `"    "` share
+--- no common indent. Mixing them reduces the common prefix to whatever
+--- leading characters literally match.
 ---
 --- The relative indentation between non-blank lines is preserved.
 ---
@@ -30,46 +45,57 @@
 --- `
 ---
 --- @example
---- "    Hello\r\n    World" >>> dedent
+--- dedent("    Hello\r\n    World")
 --- -- => "Hello\nWorld"
 ---
-from "str" import * as str
-from "comb" import * as comb
-
 export dedent :: (text: String) ~> {
   indent_of :: (line: String) ~> {
-    (line >>> str.length) - ((line >>> str.trim_start) >>> str.length)
+    str.length(line) - str.length(str.trim_start(line))
   }
 
-  is_blank :: (line: String) ~> (line >>> str.trim >>> str.is_empty)
+  is_blank :: (line: String) ~> str.is_empty(str.trim(line))
 
-  strip_indent :: (line: String, n: Number) ~> {
-    if (line >>> indent_of) >= n {
-      (line *** n *** (line >>> str.length)) >>> str.slice
-    } else {
-      line
+  prefix_of :: (line: String) ~> str.slice(line, 0, indent_of(line))
+
+  -- Shrink `p` until it is a prefix of `line` (always terminates: "" is a
+    -- prefix of every string).
+  shrink :: (p: String, line: String) ~> {
+    while { p: p, line: line } {
+      [p, line] ~> if str.starts_with(line, p) {
+        { out: p }
+      } else {
+        { state: { p: str.slice(p, 0, str.length(p) - 1), line: line } }
+      }
     }
   }
 
-  normalized :: (text *** "\r\n" *** "\n") >>> str.replace
-  trimmed :: (normalized *** "\n") >>> str.trim_matches
+  normalized :: str.replace(str.replace(text, "\r\n", "\n"), "\r", "\n")
+  trimmed :: str.trim_matches(normalized, "\n")
 
-  if (trimmed >>> str.is_empty) {
+  if str.is_empty(str.trim(trimmed)) {
     ""
   } else {
-    lines :: trimmed >>> str.lines;
+    lines :: str.lines(trimmed);
 
-    common :: while { lines: lines, min: 0, seen: false } {
-      [lines, min, seen] ~> match lines {
-        []: { out: min },
-        [h, ...t]: if (h >>> is_blank) {
-          { state: { lines: t, min: min, seen: seen } }
+    common :: while { lines: lines, p: "", seen: false } {
+      [lines, p, seen] ~> match lines {
+        []: { out: p },
+        [h, ...t]: if is_blank(h) {
+          { state: { lines: t, p: p, seen } }
         } else {
-          { state: { lines: t, min: if seen { if (h >>> indent_of) < min { h >>> indent_of } else { min } } else { h >>> indent_of }, seen: true } }
+          { state: { lines: t, p: if seen { shrink(p, h) } else { prefix_of(h) }, seen: true } }
         }
       }
     };
 
-    (((((line: String) ~> (line *** common) >>> strip_indent) *** lines) >>> comb.map) *** "\n") >>> str.join
+    strip_line :: (line: String) ~> {
+      if is_blank(line) {
+        ""
+      } else {
+        str.strip_prefix(line, common)
+      }
+    };
+
+    str.join(transform.map(lines, strip_line), "\n")
   }
 }
