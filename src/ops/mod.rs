@@ -11,6 +11,7 @@ pub mod cmp;
 pub mod collections;
 pub mod combinators;
 pub mod encoding;
+pub mod error;
 pub mod hex;
 pub mod json;
 pub mod math;
