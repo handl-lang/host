@@ -11,4 +11,4 @@
 --   - cons the pair onto the output
 --   - repeat until either list is exhausted
 
-zip = rec { first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")) }
+zip :: rec { first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")) }

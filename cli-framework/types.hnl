@@ -1,4 +1,4 @@
-Flag = {
+Flag :: {
   name: "",
   short: "",
   description: "",
@@ -6,7 +6,7 @@ Flag = {
   required: false
 };
 
-Command = {
+Command :: {
   name: "",
   description: "",
   flags: [],
@@ -14,13 +14,13 @@ Command = {
   handler: ""
 };
 
-ParsedArgs = {
+ParsedArgs :: {
   command: "",
   flags: {},
   positional: []
 };
 
-HelpText = {
+HelpText :: {
   usage: "",
   description: "",
   flags: [],

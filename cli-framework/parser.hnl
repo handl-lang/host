@@ -12,35 +12,35 @@ ParsedArgs: type.object = {
   positional: type.arr
 };
 
-make_flag = (name: type.string, short: type.string, desc: type.string, default: type.string): Flag ->
+make_flag :: (name: type.string, short: type.string, desc: type.string, default: type.string): Flag ->
   { name: name, short: short, description: desc, default: default, required: false };
 
-make_required = (flag: Flag): Flag ->
+make_required :: (flag: Flag): Flag ->
   { name: flag.name, short: flag.short, description: flag.description, default: flag.default, required: true };
 
-is_flag_token = (token: type.string): type.bool ->
+is_flag_token :: (token: type.string): type.bool ->
   str.starts_with(token, "--");
 
-is_short_flag_token = (token: type.string): type.bool ->
+is_short_flag_token :: (token: type.string): type.bool ->
   bool.and(str.starts_with(token, "-"), bool.not(str.starts_with(token, "--")));
 
-extract_flag_name = (token: type.string): type.string ->
+extract_flag_name :: (token: type.string): type.string ->
   str.replace_first(token, "--", "");
 
-extract_short_name = (token: type.string): type.string ->
+extract_short_name :: (token: type.string): type.string ->
   str.replace_first(token, "-", "");
 
-find_flag_by_name = (flags: type.arr, name: type.string): type.string ->
+find_flag_by_name :: (flags: type.arr, name: type.string): type.string ->
   name
   |> (n) -> array.find(flags, (f: type.object) -> cmp.eq(f.name, n))
   |> (f) -> option.unwrap_or(f, { default: "" });
 
-find_flag_by_short = (flags: type.arr, short: type.string): type.string ->
+find_flag_by_short :: (flags: type.arr, short: type.string): type.string ->
   short
   |> (s) -> array.find(flags, (f: type.object) -> cmp.eq(f.short, s))
   |> (f) -> option.unwrap_or(f, { default: "" });
 
-parse_flags = (args: type.arr, flag_defs: type.arr): type.object ->
+parse_flags :: (args: type.arr, flag_defs: type.arr): type.object ->
   args
   |> (a) -> array.filter(a, (token: type.string) -> is_flag_token(token))
   |> (a) -> array.map(a, (token: type.string) -> extract_flag_name(token))
@@ -48,7 +48,7 @@ parse_flags = (args: type.arr, flag_defs: type.arr): type.object ->
       acc
     );
 
-parse_positional = (args: type.arr): type.arr ->
+parse_positional :: (args: type.arr): type.arr ->
   array.filter(args, (token: type.string) ->
     bool.and(
       bool.not(str.starts_with(token, "--")),
@@ -56,7 +56,7 @@ parse_positional = (args: type.arr): type.arr ->
     )
   );
 
-parse_args = (args: type.arr, flag_defs: type.arr): ParsedArgs ->
+parse_args :: (args: type.arr, flag_defs: type.arr): ParsedArgs ->
   {
     command: option.unwrap_or(array.first(parse_positional(args)), ""),
     flags: parse_flags(args, flag_defs),

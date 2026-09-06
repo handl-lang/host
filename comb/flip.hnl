@@ -1,0 +1,2 @@
+--- Swap the first two arguments of a function
+export flip :: f ~> x ~> y ~> f(y, x)

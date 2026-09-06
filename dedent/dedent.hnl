@@ -34,16 +34,16 @@
 --- -- => "Hello\nWorld"
 ---
 from "str" import * as str
-from "combinators" import * as combinators
+from "comb" import * as comb
 
-export dedent = (text: String) ~> {
-  indent_of = (line: String) ~> {
+export dedent :: (text: String) ~> {
+  indent_of :: (line: String) ~> {
     (line >>> str.length) - ((line >>> str.trim_start) >>> str.length)
   }
 
-  is_blank = (line: String) ~> (line >>> str.trim >>> str.is_empty)
+  is_blank :: (line: String) ~> (line >>> str.trim >>> str.is_empty)
 
-  strip_indent = (line: String, n: Number) ~> {
+  strip_indent :: (line: String, n: Number) ~> {
     if (line >>> indent_of) >= n {
       (line *** n *** (line >>> str.length)) >>> str.slice
     } else {
@@ -51,15 +51,15 @@ export dedent = (text: String) ~> {
     }
   }
 
-  normalized = (text *** "\r\n" *** "\n") >>> str.replace
-  trimmed = (normalized *** "\n") >>> str.trim_matches
+  normalized :: (text *** "\r\n" *** "\n") >>> str.replace
+  trimmed :: (normalized *** "\n") >>> str.trim_matches
 
   if (trimmed >>> str.is_empty) {
     ""
   } else {
-    lines = trimmed >>> str.lines;
+    lines :: trimmed >>> str.lines;
 
-    common = while { lines: lines, min: 0, seen: false } {
+    common :: while { lines: lines, min: 0, seen: false } {
       [lines, min, seen] ~> match lines {
         []: { out: min },
         [h, ...t]: if (h >>> is_blank) {
@@ -70,6 +70,6 @@ export dedent = (text: String) ~> {
       }
     };
 
-    (((((line: String) ~> (line *** common) >>> strip_indent) *** lines) >>> combinators.map) *** "\n") >>> str.join
+    (((((line: String) ~> (line *** common) >>> strip_indent) *** lines) >>> comb.map) *** "\n") >>> str.join
   }
 }

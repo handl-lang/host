@@ -1,4 +1,4 @@
-verbose_flag = {
+verbose_flag :: {
   name: "verbose",
   short: "v",
   description: "Enable verbose output",
@@ -6,7 +6,7 @@ verbose_flag = {
   required: false
 };
 
-output_flag = {
+output_flag :: {
   name: "output",
   short: "o",
   description: "Output file path",
@@ -14,7 +14,7 @@ output_flag = {
   required: false
 };
 
-config_flag = {
+config_flag :: {
   name: "config",
   short: "c",
   description: "Path to config file",
@@ -22,7 +22,7 @@ config_flag = {
   required: false
 };
 
-build_cmd = {
+build_cmd :: {
   name: "build",
   description: "Build the project",
   flags: [verbose_flag, output_flag, config_flag],
@@ -30,7 +30,7 @@ build_cmd = {
   handler: "build"
 };
 
-init_cmd = {
+init_cmd :: {
   name: "init",
   description: "Initialize a new project",
   flags: [config_flag],
@@ -38,7 +38,7 @@ init_cmd = {
   handler: "init"
 };
 
-test_cmd = {
+test_cmd :: {
   name: "test",
   description: "Run tests",
   flags: [verbose_flag],
@@ -46,7 +46,7 @@ test_cmd = {
   handler: "test"
 };
 
-root_cmd = {
+root_cmd :: {
   name: "hnl",
   description: "handl language CLI tool",
   flags: [verbose_flag, config_flag],
@@ -54,7 +54,7 @@ root_cmd = {
   handler: ""
 };
 
-usage_text = str.concat("Usage: ", str.concat(root_cmd.name, " [options] <command>"));
+usage_text :: str.concat("Usage: ", str.concat(root_cmd.name, " [options] <command>"));
 
 help_text =
   usage_text

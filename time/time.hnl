@@ -1,0 +1,70 @@
+--- Axioms and laws for the time library.
+---
+--- This is the abstraction contract for `time`: the irreducible interface
+--- that every implementation (`time-native` on Rust `std::time`, or a
+--- future `time-js`/`time-wasm` backend) must satisfy.
+---
+--- `time.now_ms` reads the wall clock: milliseconds since the Unix epoch.
+--- `time.instant_ns` reads a monotonic clock: nanoseconds from an
+--- unspecified epoch, meaningful only as a difference between two readings
+--- (`benchmark` uses it for elapsed-time measurement). `time.elapsed_ns(t)`
+--- is shorthand for `instant_ns() - t`.
+---
+--- All three readings are *effectful* — each call may observe a different
+--- clock value — so the ops sit behind capabilities in the backend
+--- interface (`time-native/time-native.hnl`). The contract itself is
+--- pure axiom data.
+---
+--- Types are symbolic: `Unit` stands for the nullary input `()` — the
+--- contract parser has no unit literal, so (like `String`/`Float` in
+--- `str.hnl`) it is treated as a type variable. `Int` is a base type.
+---
+--- Predicate vocabulary available to the contract engine today
+--- (`plugin-ext-refinement`'s `Pred`):
+---   LengthEq(a, b)   |a| = |b|            LengthLe(a, b)   |a| <= |b|
+---   LengthPlusOne    |a| = |b| + 1        LengthSubOne      |a| = |b| - 1
+---   Le(a, b)         a <= b               IsPerm(a, b)      a permutes b
+---   AllSatisfy(l, p) forall x in l, p(x)  True / False
+---   IsSuccess(x) / IsError(x)             &&  ||  ==>
+---
+--- The ideal time-specific predicates (Monotonic, IsEpochMs,
+--- ElapsedEq(output, now - input)) are not expressible yet — they require
+--- extending `Pred` in `plugin-ext-refinement`. Each such law is written
+--- as a `-- LAW:` comment; the `guarantee:` line states the strongest
+--- *parseable* approximation.
+
+-- ---------------------------------------------------------------------------
+-- Clock reads (effectful — capability-gated in the backend interface)
+-- ---------------------------------------------------------------------------
+
+axiom time.now_ms : Unit -> Int
+-- LAW: output = wall-clock milliseconds since the Unix epoch at call time.
+-- LAW: Effectful — successive calls may differ; NOT a pure function.
+-- LAW: Non-decreasing only modulo wall-clock adjustments (NTP slew, leap
+--      smears, manual clock changes): a backend may observe `now_ms()` go
+--      backwards. Use `instant_ns` for elapsed-time measurement.
+  guarantee: Le(0, output)
+
+axiom time.instant_ns : Unit -> Int
+-- LAW: output = nanoseconds on a monotonic clock from an unspecified,
+--      backend-chosen epoch (e.g. process start). Absolute values are
+--      meaningless; only differences between readings are.
+-- LAW: Monotonic — successive calls are non-decreasing
+--      (`instant_ns() <= instant_ns()` in call order). Not expressible in
+--      the current `Pred` vocabulary (it is a property of the call
+--      sequence, not of a single output); tracked for the `data Pred`
+--      refactor in project/BACKLOG.md.
+-- LAW: Effectful — successive calls may differ.
+  guarantee: Le(0, output)
+
+axiom time.elapsed_ns : Int -> Int
+-- LAW: output = instant_ns() - input, i.e. nanoseconds elapsed since a
+--      prior `instant_ns` reading. Backends must saturate at 0 when the
+--      input lies in the future (bogus or cross-epoch readings must not
+--      produce a negative elapsed time).
+-- LAW: Effectful — depends on the current clock reading.
+  guarantee: Le(0, output)
+
+-- NOTE: `time.sleep_ms` is deliberately absent — it is tracked in
+-- project/BACKLOG.md (effectful suspension, not needed by
+-- `benchmark`/`property`/`fuzz`).

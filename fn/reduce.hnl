@@ -10,4 +10,4 @@
 --   - update accumulator with result
 --   - repeat until input is exhausted
 
-reduce = rec { arr("fold_step") >>> first(id) }
+reduce :: rec { arr("fold_step") >>> first(id) }

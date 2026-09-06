@@ -1,29 +1,33 @@
 from "./dedent" import { dedent }
 
 -- Basic behavior
-test_dedent_simple = assert.equal("    Hello,\n    World!" >>> dedent, "Hello,\nWorld!")
-test_dedent_preserves_relative_indent = assert.equal("    Hello,\n      World!" >>> dedent, "Hello,\n  World!")
-test_dedent_no_indent = assert.equal("Hello,\nWorld!" >>> dedent, "Hello,\nWorld!")
-test_dedent_empty = assert.equal("" >>> dedent, "")
-test_dedent_blank_lines_ignored = assert.equal("    Hello,\n\n    World!" >>> dedent, "Hello,\n\nWorld!")
-test_dedent_trims_leading_trailing_newlines = assert.equal("\n\n  Hello,\n  World!\n\n" >>> dedent, "Hello,\nWorld!")
-test_dedent_single_line = assert.equal("    Hello!" >>> dedent, "Hello!")
-test_dedent_uneven_indent = assert.equal("    Hello,\n  World!" >>> dedent, "  Hello,\nWorld!")
-test_dedent_single_trailing_newline = assert.equal("  Hello,\n  World!\n" >>> dedent, "Hello,\nWorld!")
-test_dedent_call_with_string = assert.equal("  hello\n  world" >>> dedent, "hello\nworld")
-test_dedent_call_empty_string = assert.equal("" >>> dedent, "")
+test_dedent_simple :: assert "    Hello,\n    World!" >>> dedent = "Hello,\nWorld!"
+test_dedent_preserves_relative_indent :: assert "    Hello,\n      World!" >>> dedent = "Hello,\n  World!"
+test_dedent_no_indent :: assert "Hello,\nWorld!" >>> dedent = "Hello,\nWorld!"
+test_dedent_empty :: assert "" >>> dedent = ""
+test_dedent_blank_lines_ignored :: assert "    Hello,\n\n    World!" >>> dedent = "Hello,\n\nWorld!"
+test_dedent_trims_leading_trailing_newlines :: assert "\n\n  Hello,\n  World!\n\n" >>> dedent = "Hello,\nWorld!"
+test_dedent_single_line :: assert "    Hello!" >>> dedent = "Hello!"
+test_dedent_uneven_indent :: assert "    Hello,\n  World!" >>> dedent = "  Hello,\nWorld!"
+test_dedent_single_trailing_newline :: assert "  Hello,\n  World!\n" >>> dedent = "Hello,\nWorld!"
+test_dedent_call_with_string :: assert "  hello\n  world" >>> dedent = "hello\nworld"
+test_dedent_call_empty_string :: assert "" >>> dedent = ""
 
 -- Tab handling
-test_dedent_tabs = assert.equal("\tHello,\n\tWorld!" >>> dedent, "Hello,\nWorld!")
-test_dedent_mixed_indent = assert.equal("  \tHello,\n  \tWorld!" >>> dedent, "Hello,\nWorld!")
+test_dedent_tabs :: assert "\tHello,\n\tWorld!" >>> dedent = "Hello,\nWorld!"
+test_dedent_mixed_indent :: assert "  \tHello,\n  \tWorld!" >>> dedent = "Hello,\nWorld!"
 
 -- Whitespace-only lines
-test_dedent_only_whitespace_lines = assert.equal("   \n  \n   " >>> dedent, "   \n  \n   ")
-test_dedent_trailing_whitespace_line = assert.equal("  Hello,\n  World!\n  " >>> dedent, "Hello,\nWorld!\n")
+test_dedent_only_whitespace_lines :: assert "   \n  \n   " >>> dedent = "   \n  \n   "
+test_dedent_trailing_whitespace_line :: assert "  Hello,\n  World!\n  " >>> dedent = "Hello,\nWorld!\n"
 
 -- CRLF normalization
-test_dedent_crlf_input = assert.equal("  Hello,\r\n  World!" >>> dedent, "Hello,\nWorld!")
+test_dedent_crlf_input :: assert "  Hello,\r\n  World!" >>> dedent = "Hello,\nWorld!"
 
--- Error cases: non-string input should error
-test_dedent_call_with_non_string_arg = assert.throws(x ~> 42 >>> dedent)
-test_dedent_call_with_bool_arg = assert.throws(x ~> true >>> dedent)
+-- Error cases: non-string input should error.
+-- BLOCKED: `assert.throws` was removed and the language has no
+-- error-capture primitive (see ADR-0092 notes in AGENTS.md), so these two
+-- tests cannot be expressed with the `assert` keyword and are commented
+-- out rather than weakened.
+-- test_dedent_call_with_non_string_arg = assert.throws(x ~> 42 >>> dedent)
+-- test_dedent_call_with_bool_arg = assert.throws(x ~> true >>> dedent)

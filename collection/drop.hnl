@@ -10,4 +10,4 @@
 --   - the counter (side channel) passes through unchanged via first(id)
 --   - repeat until n elements are dropped
 
-drop = rec { arr("list.tail") >>> first(id) }
+drop :: rec { arr("list.tail") >>> first(id) }
