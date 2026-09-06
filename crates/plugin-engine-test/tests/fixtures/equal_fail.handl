@@ -1,2 +1,0 @@
--- A module with a failing equality assertion.
-test_fail = assert 1 = 2

@@ -1,5 +1,0 @@
-category:
-  slug: platform
-  title: Platform
-  description: Core platform abstractions for the handl language — capabilities, plugins, manifests, composition resolution, language pipelines, hosts, and boundaries.
-sub_pages: []

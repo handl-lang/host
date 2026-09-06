@@ -1,6 +1,0 @@
-while { n: 3, moves: 0 } {
-  [n, moves] ~> if n == 0
-    return moves
-  else
-    { state: { n: n - 1, moves: moves * 2 + 1 } }
-}

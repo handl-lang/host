@@ -1,2 +1,0 @@
--- filter: keep elements satisfying predicate p.
-filter = p ~> arr("list.filter")
