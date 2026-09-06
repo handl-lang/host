@@ -825,3 +825,12 @@
     lit:
       kind: data-error
       reason: data declaration was not desugared before evaluation
+# `erased` — proof-erasure placeholder (ADR-0032). Always evaluates to
+# `null`: the `const` native op returns `Value::Null` when no `lit` is
+# provided, so erased proof terms carry no runtime cost.
+- id: eval.erased
+  node_kind: erased
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native

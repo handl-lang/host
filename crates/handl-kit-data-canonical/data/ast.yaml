@@ -867,3 +867,10 @@
       - kind
       - reason
     type: object
+# `erased` — proof-erasure placeholder (ADR-0032). The erase pass lowers
+# proof terms to this leaf node before evaluation; the eval scheme
+# (`eval.erased`) is a `const` with no literal, so it evaluates to `null`.
+- id: ast.erased
+  node_kind: erased
+  payload_schema:
+    type: "null"
