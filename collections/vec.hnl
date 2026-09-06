@@ -1,0 +1,26 @@
+--- vec — pure-handl implementation of the `vec` container ops.
+---
+--- A vec is a plain array; `len`/`is_empty`/`push` are
+--- expressible directly over array values. `new`/`from`/`to_array`/`pop`/`peek` stay
+--- native (see `ops/collections/seq.rs`): `new` is nullary, `from` is a
+--- reserved word (cannot be a record field), and `pop`/`peek` must raise `collection is empty` on an empty vec — the language has no
+--- error-raising primitive (same gap as ADR-0092).
+do {
+  len_ :: xs ~> {
+    while { xs: xs, n: 0 } {
+      [xs, n] ~> match xs {
+        []: { out: n },
+        [h, ...t]: { state: { xs: t, n: n + 1 } }
+      }
+    }
+  }
+
+  {
+    len: xs ~> len_(xs),
+    is_empty: xs ~> match xs {
+      []: true,
+      [h, ...t]: false
+    },
+    push: [c, v] ~> [...c, v]
+  }
+}
