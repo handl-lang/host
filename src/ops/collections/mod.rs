@@ -78,7 +78,8 @@ pub const STACK_OPS: &[&str] = &["stack.new", "stack.from", "stack.to_array"];
 /// `pop_*`/`peek_*` members are pure handl over `error.raise`.
 pub const DEQUE_OPS: &[&str] = &["deque.new", "deque.from", "deque.to_array"];
 
-/// `hash_map.*` op names (all native).
+/// `hash_map.*` op names (mostly native). `keys`/`values`/`entries` are
+/// now pure handl over `obj.*` and are no longer registered here.
 pub const HASH_MAP_OPS: &[&str] = &[
     "hash_map.new",
     "hash_map.from",
@@ -89,9 +90,6 @@ pub const HASH_MAP_OPS: &[&str] = &[
     "hash_map.set",
     "hash_map.remove",
     "hash_map.has",
-    "hash_map.keys",
-    "hash_map.values",
-    "hash_map.entries",
     "hash_map.size",
     "hash_map.get_or",
     "hash_map.deep_get",
@@ -223,9 +221,6 @@ pub fn collections_op_registry() -> OpRegistry {
     r.register("hash_map.set", Arc::new(hm::Set));
     r.register("hash_map.remove", Arc::new(hm::Remove));
     r.register("hash_map.has", Arc::new(hm::Has));
-    r.register("hash_map.keys", Arc::new(hm::Keys));
-    r.register("hash_map.values", Arc::new(hm::Values));
-    r.register("hash_map.entries", Arc::new(hm::Entries));
     r.register("hash_map.size", Arc::new(hm::Size));
     r.register("hash_map.get_or", Arc::new(hm::GetOr));
     r.register("hash_map.deep_get", Arc::new(hm::DeepGet));
