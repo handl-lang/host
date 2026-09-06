@@ -74,7 +74,7 @@ one crate per native lib, forever.
   already does `libloading::Library::new` + `extern "C" fn` symbol lookup.
   Today it loads one symbol per plugin (`handl_plugin_run`); this ADR
   generalizes it to N symbols per module with per-symbol marshalling.
-- **Cranelift JIT** (`plugin-engine-eval-cranelift`) — compiles
+- **Cranelift JIT** (`plugin-engine-exec-cranelift`) — compiles
   `ArrSource::Foreign(name)` to a native call into the module registry. The
   handl abstraction layer (arrow graph over FFI ops) JIT-compiles to native
   code; each `op` is one native call plus per-arg marshalling. For I/O-bound
@@ -589,9 +589,9 @@ a stdlib lib.
 | `plugin-module`                | `ModuleRuntime`, `ModuleRule`, `ModuleRegistry`                                          | No                       |
 | `plugin-engine-lex-pattern`    | Lexer engine                                                                             | No                       |
 | `plugin-engine-parse-pratt`    | Parser engine                                                                            | No                       |
-| `plugin-engine-eval-tree-walk` | Tree-walk interpreter                                                                    | No                       |
-| `plugin-engine-eval-cranelift` | JIT compiler                                                                             | No                       |
-| `plugin-engine-eval-bytecode`  | Bytecode VM                                                                              | No                       |
+| `plugin-engine-exec-tree-walk` | Tree-walk interpreter                                                                    | No                       |
+| `plugin-engine-exec-cranelift` | JIT compiler                                                                             | No                       |
+| `plugin-engine-exec-bytecode`  | Bytecode VM                                                                              | No                       |
 | `plugin-engine-typecheck-nbe`  | Typecheck engine                                                                         | No                       |
 | `plugin-lib-handl`             | Generic `.hnl` loader (`HandlModule`, `OpRegistry`)                                      | No                       |
 | `plugin-ffi`                   | FFI dispatcher (this ADR)                                                                | No                       |

@@ -663,8 +663,8 @@ bindings. The Rust surface is reduced to the kernel only.
 - **The `plugin-lib-handl` crate** — the generic loader itself.
 - **The `plugin-ffi` crate** (ADR-0083) — the FFI dispatcher.
 - **The engine crates** (`plugin-engine-lex-pattern`,
-  `plugin-engine-parse-pratt`, `plugin-engine-eval-tree-walk`,
-  `plugin-engine-eval-cranelift`, `plugin-engine-eval-bytecode`,
+  `plugin-engine-parse-pratt`, `plugin-engine-exec-tree-walk`,
+  `plugin-engine-exec-cranelift`, `plugin-engine-exec-bytecode`,
   `plugin-engine-typecheck-nbe`, …) — the language runtime.
 - **The `plugin-lib-lang-*` crates** (6 crates) — the self-hosting
   bridge: `eval`, `lex`, `parse`, `compile`, `typecheck`,

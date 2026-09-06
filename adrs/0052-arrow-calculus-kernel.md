@@ -584,15 +584,15 @@ on v1 is a compile-time error).
 
 **Phase B — Engines (one coordinated pass, all three).**
 
-- `plugin-engine-eval-tree-walk`: interpret `Arr`/`Seq`/`First`/`Choice`/
+- `plugin-engine-exec-tree-walk`: interpret `Arr`/`Seq`/`First`/`Choice`/
   `Loop`/`App`. The engine is a _handler_ (Sanada's model) — it interprets
   arrow descriptions, dispatching operations to their handler clauses. `App`
   is interpreted as dynamic invocation of a received arrow. `Loop` is
   feedback; the interpretation strategy (causal/strict vs lazy/fixpoint) is
   specified in §Feedback semantics.
-- `plugin-engine-eval-bytecode`: emit instructions for the six combinators.
+- `plugin-engine-exec-bytecode`: emit instructions for the six combinators.
   `Loop` → a back-edge / feedback instruction per §Feedback semantics.
-- `plugin-engine-eval-cranelift`: lower to native; `Loop` → a loop with a
+- `plugin-engine-exec-cranelift`: lower to native; `Loop` → a loop with a
   state slot per §Feedback semantics.
 - The closure representation (`{"__closure__": ...}`) is reconsidered:
   closures are now _arrows as values_ (descriptions, invokable via `app`).
@@ -848,9 +848,9 @@ authorable in it.
   `Scheme` combinator set this ADR replaces.
 - `crates/handl-kit-data-canonical/data/eval.yaml` — the ~50 eval schemes
   rewritten in Phase A.
-- `crates/plugin-engine-eval-tree-walk/src/lib.rs`,
-  `crates/plugin-engine-eval-bytecode/src/`,
-  `crates/plugin-engine-eval-cranelift/src/` — the three engines migrated in
+- `crates/plugin-engine-exec-tree-walk/src/lib.rs`,
+  `crates/plugin-engine-exec-bytecode/src/`,
+  `crates/plugin-engine-exec-cranelift/src/` — the three engines migrated in
   Phase B (become handlers under Sanada's model).
 - `crates/handl-defining-handl/` — the bootstrap rewritten in Phase D.
 - Sanada — _Algebraic Effects and Handlers for Arrows_ (2024) — the

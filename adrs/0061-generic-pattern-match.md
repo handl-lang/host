@@ -21,9 +21,9 @@ function and its helpers (`try_array_pattern`, `try_object_pattern`,
 `rest_binder_name`) are duplicated across all three engines with
 identical logic:
 
-- **Tree-walk**: `crates/plugin-engine-eval-tree-walk/src/lib.rs`
-- **Bytecode**: `crates/plugin-engine-eval-bytecode/src/vm.rs`
-- **Cranelift**: `crates/plugin-engine-eval-cranelift/src/lib.rs`
+- **Tree-walk**: `crates/plugin-engine-exec-tree-walk/src/lib.rs`
+- **Bytecode**: `crates/plugin-engine-exec-bytecode/src/vm.rs`
+- **Cranelift**: `crates/plugin-engine-exec-cranelift/src/lib.rs`
 
 Each engine's `match`/`handle` prim calls `try_pattern`, which
 interprets a pattern AST node structurally against a scrutinee value:
@@ -77,7 +77,7 @@ immediate problem.
 
 Extract `try_pattern`, `try_array_pattern`, `try_object_pattern`, and
 `rest_binder_name` into a shared module in
-`handl-plugin-engine-eval` (the abstraction crate all three engines
+`handl-plugin-engine-exec` (the abstraction crate all three engines
 already depend on). The shared module exposes a `PatternMatchCtx` trait
 that abstracts the two engine-specific operations pattern matching
 needs:
@@ -147,7 +147,7 @@ one module, not three engines.
 ## Consequences
 
 - **One implementation, not three.** `try_pattern` and its helpers live
-  in `handl-plugin-engine-eval::pattern_match`. Adding a new pattern
+  in `handl-plugin-engine-exec::pattern_match`. Adding a new pattern
   form (or-patters, type tests, ranges) is a one-place change.
 
 - **Engines converge further.** Each engine's `prim_match`/`prim_handle`

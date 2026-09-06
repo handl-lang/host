@@ -10,10 +10,10 @@ ADR-0058 (Accepted) migrated four primitives (`var`/`call`/`object`/pattern-matc
 
 | Engine                         | Site           | Hardcoded check                                     |
 | ------------------------------ | -------------- | --------------------------------------------------- |
-| `plugin-engine-eval-tree-walk` | `closure`      | `kind == "paren" \|\| "array"` (1053)               |
-| `plugin-engine-eval-tree-walk` | `closure` key  | `kind == "var" \|\| "string"` (1249, 1259)          |
-| `plugin-engine-eval-tree-walk` | `eval_block`   | `kind == "assign"` (1544, 2283, 2352)               |
-| `plugin-engine-eval-tree-walk` | `eval_block`   | `kind == "return"` (2323)                           |
+| `plugin-engine-exec-tree-walk` | `closure`      | `kind == "paren" \|\| "array"` (1053)               |
+| `plugin-engine-exec-tree-walk` | `closure` key  | `kind == "var" \|\| "string"` (1249, 1259)          |
+| `plugin-engine-exec-tree-walk` | `eval_block`   | `kind == "assign"` (1544, 2283, 2352)               |
+| `plugin-engine-exec-tree-walk` | `eval_block`   | `kind == "return"` (2323)                           |
 | `plugin-engine-typecheck-nbe`  | synth/check    | `kind == "type-annot"` (884, 1109)                  |
 | `plugin-engine-typecheck-nbe`  | block          | `kind == "block"` (1247)                            |
 | `plugin-engine-typecheck-nbe`  | params         | `kind == "paren" \|\| "var"` (1378, 1403, 3593)     |
@@ -94,17 +94,17 @@ Define a language with renamed kinds (`set`/`params`/`body`) but identical roles
 
 **Phase 3** (this change): Replaced the remaining `kind == "paren" || kind == "array"` shape heuristics in the eval engines with `Language::has_variadic_role(kind)`, which inspects `AstShapeDef` role metadata. Sites converted:
 
-- `plugin-engine-eval-cranelift` — two closure param-list sites (runtime + helper).
-- `plugin-engine-eval-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
+- `plugin-engine-exec-cranelift` — two closure param-list sites (runtime + helper).
+- `plugin-engine-exec-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
 - `handl-runtime/desugar_pass.rs` — `type-annot` detection now uses `child_role_index(kind, "annot")` first (threaded `&Language` through `try_rust_desugar`/`desugar_data`/`parse_data_payload`/`collect_constructors`/`desugar_match_to_recursor`).
 - `plugin-ext-refinement/arrow_parser.rs` — binding detection now uses `child_role_index(kind, "target")` first.
 - `data/ast.yaml` — added `variadic: true` to `paren`'s `body` role and a new `elements` variadic role to `array`, so collection-like shapes are detectable by role metadata alone.
 
 All legacy `kind ==` checks are retained only as fallbacks for role-less shapes (backward compatibility).
 
-**Phase 4** (this change): `crates/plugin-engine-eval-tree-walk/tests/adr0081_cross_language.rs` defines a language with renamed kinds (`set`/`block2`/`ret`/`params2`/`func2`) but identical roles and eval schemes, then runs it through the **unchanged** tree-walk and bytecode engines. Three tests cover block-with-binding and closure application. All pass — the engines handle renamed kinds without edits, satisfying the acceptance gate.
+**Phase 4** (this change): `crates/plugin-engine-exec-tree-walk/tests/adr0081_cross_language.rs` defines a language with renamed kinds (`set`/`block2`/`ret`/`params2`/`func2`) but identical roles and eval schemes, then runs it through the **unchanged** tree-walk and bytecode engines. Three tests cover block-with-binding and closure application. All pass — the engines handle renamed kinds without edits, satisfying the acceptance gate.
 
-**Test results:** `cargo test -p handl-plugin-engine-eval-tree-walk -p handl-plugin-engine-eval-bytecode -p handl-plugin-engine-eval-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
+**Test results:** `cargo test -p handl-plugin-engine-exec-tree-walk -p handl-plugin-engine-exec-bytecode -p handl-plugin-engine-exec-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
 
 ## References
 
