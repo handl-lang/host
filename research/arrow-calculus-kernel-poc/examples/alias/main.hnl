@@ -1,4 +1,0 @@
--- alias: whole-module alias import plus field access.
-import "collection" as c
-
-main = c.sort
