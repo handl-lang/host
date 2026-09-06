@@ -70,13 +70,16 @@ LSP → RFC-0006, CLI+plugin system → RFC-0007/0001.
 
 ## High priority — package manager
 
-`import` grammar and eval scheme exist (`grammar.stmt-import`, `eval.stmt-import`)
-but no engine implements the `import` op and there is no module loader in the
-runtime. `.handl.toml` has no dependency resolution. Without this, programs
-cannot import stdlib modules or split across files.
+`import` grammar and eval scheme exist (`grammar.stmt-import`, `eval.stmt-import`).
+The `import` op is implemented in the tree-walk and bytecode engines; the
+runtime has a `ModuleLoader` (`load_module`/`resolve_import`). `.handl.toml` has
+no dependency resolution yet. Without the remaining pieces, programs cannot
+import stdlib modules or split across files.
 
-- [ ] Implement `import` op in all three eval engines (tree-walk, bytecode, cranelift)
-- [ ] Add module loader to `handl-runtime` (`load_module`/`resolve_module`)
+- [x] Implement `import` op in tree-walk engine
+- [x] Implement `import` op in bytecode engine
+- [ ] Implement `import` op in cranelift engine
+- [x] Add module loader to `handl-runtime` (`load_module`/`resolve_import`)
 - [ ] Define module resolution semantics (path-based? registry-based?)
 - [ ] Add dependency resolution to `.handl.toml` (`[dependencies]` section)
 - [ ] Wire `import` through the desugar pass if needed

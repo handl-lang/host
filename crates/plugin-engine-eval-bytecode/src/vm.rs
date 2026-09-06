@@ -61,7 +61,7 @@ use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_value::{tagged_to_value, TaggedValue};
+use handl_value::{TaggedValue, tagged_to_value};
 use rustc_hash::FxHashMap;
 
 use crate::compile::compile;
@@ -270,7 +270,8 @@ fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
 ///
 /// Owns the scope stack and a per-node v2 compilation cache. The `ast` and
 /// `lang` references are immutable; `modules` is the optional module registry
-/// for `Foreign` dispatch.
+/// for `Foreign` dispatch and `import_resolver` is the optional resolver for
+/// `import "path"` statements.
 pub(crate) struct VmFrame<'a, 'h> {
     /// The AST being evaluated.
     ast: &'a Ast,
@@ -278,6 +279,8 @@ pub(crate) struct VmFrame<'a, 'h> {
     lang: &'a Language,
     /// The module registry (for `Foreign` dispatch).
     modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
+    /// The import resolver for `import "path"` statements (Phase 9.5).
+    import_resolver: Option<&'h Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
     /// Per-node v2 compilation cache: `AstRef index -> compiled instructions`.
     cache: FxHashMap<usize, Rc<[Instr]>>,
     /// The scope stack.
@@ -298,11 +301,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         ast: &'a Ast,
         lang: &'a Language,
         modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
+        import_resolver: Option<&'h Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
     ) -> Self {
         Self {
             ast,
             lang,
             modules,
+            import_resolver,
             cache: FxHashMap::default(),
             scopes: ScopeStack::new(),
             scratch_stack: Vec::new(),
@@ -976,7 +981,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // (ADR-0081): a shape declaring a variadic role (e.g.
                     // `params`) is a param list; the legacy `paren`/`array`
                     // kinds remain only as the role-less fallback.
-                    let param_names: Vec<String> = if self.lang.has_variadic_role(&param_node.kind) {
+                    let param_names: Vec<String> = if self.lang.has_variadic_role(&param_node.kind)
+                    {
                         let param_children = param_node
                             .payload
                             .get("children")
@@ -1666,6 +1672,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     Ok(handl_value::tval!({"_tag": "Some", "value": field_val}))
                 }
             }
+            // Phase 9.5: `import "path"` loads a module via the configured
+            // resolver and binds its top-level exports into the current scope.
+            "import" => self.prim_v2_import(args, node),
+            // ADR-0054 / ADR-0079: `do { stmt; expr }` evaluates children in
+            // sequence in a new scope and returns the last child's value. It
+            // also handles `assign` children as bindings.
+            "eval_block" => self.prim_v2_eval_block(node),
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
                 node,
@@ -1707,6 +1720,120 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         let result = self.exec_node_inner(AstRef::new(body_idx));
         self.scopes.pop_scope();
         result
+    }
+
+    /// `import` native op (Phase 9.5): load a module via the configured
+    /// [`ImportResolver`] and bind its top-level exports into the current
+    /// scope. Mirrors the v2 tree-walk's `prim_import`.
+    fn prim_v2_import(
+        &mut self,
+        args: &[TaggedValue],
+        node: &AstNode,
+    ) -> Result<TaggedValue, LangError> {
+        // Resolve the module path: prefer the evaluated child (`args[0]`),
+        // fall back to the node's `path` payload field.
+        let path: String = args
+            .first()
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .or_else(|| {
+                node.payload
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "import: missing module path (expected string argument or 'path' payload)"
+                        .to_string(),
+                    node,
+                )
+            })?;
+        let resolver = self.import_resolver.ok_or_else(|| {
+            LangError::engine_node("import: no import resolver configured".to_string(), node)
+        })?;
+        let bindings = resolver.resolve_import(&path).map_err(|e| {
+            LangError::engine_node(format!("import \"{}\": {}", path, e), node)
+        })?;
+        // If an alias is present (`from "path" import * as alias`), bind the
+        // whole module object to that name. Otherwise bind each top-level
+        // export into the current scope.
+        if let Some(alias) = node.payload.get("alias").and_then(|v| v.as_str()) {
+            self.scopes.define(alias, TaggedValue::from(bindings.clone()));
+        } else if let Value::Object(map) = bindings {
+            for (name, val) in map {
+                self.scopes.define(&name, TaggedValue::from(val.clone()));
+            }
+        }
+        // `import` is a statement; it produces no value.
+        Ok(TaggedValue::Null)
+    }
+
+    /// Resolve a child arena index by role from a node's payload children.
+    fn role_child_arena(&self, node: &AstNode, role: &str) -> Result<Option<usize>, LangError> {
+        let Some(idx) = self.lang.child_role_index(&node.kind, role)? else {
+            return Ok(None);
+        };
+        let arena = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.get(idx))
+            .and_then(|v| v.as_u64())
+            .map(|i| i as usize);
+        Ok(arena)
+    }
+
+    /// `eval_block` native op: evaluate the children of a `block` node in
+    /// sequence in a new scope, returning the last child's value. `assign`
+    /// children (shapes declaring `target`/`value` roles) are bound into the
+    /// block scope. Mirrors the v2 tree-walk's `eval_block`.
+    fn prim_v2_eval_block(&mut self, node: &AstNode) -> Result<TaggedValue, LangError> {
+        let children = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "eval_block: expected children array in payload".to_string(),
+                    node,
+                )
+            })?;
+        if children.is_empty() {
+            return Ok(TaggedValue::Null);
+        }
+
+        self.scopes.push_scope();
+        let mut result = TaggedValue::Null;
+        for entry in children.iter() {
+            let idx = entry.as_u64().ok_or_else(|| {
+                LangError::engine_node(
+                    "eval_block: child index must be a number".to_string(),
+                    node,
+                )
+            })? as usize;
+            let child_node = self.ast.at(AstRef::new(idx))?;
+
+            let target_arena = self.role_child_arena(&child_node, "target")?;
+            let value_arena = self.role_child_arena(&child_node, "value")?;
+            if let (Some(target_idx), Some(value_idx)) = (target_arena, value_arena) {
+                // Binding child: evaluate the value and bind the target name.
+                let target_node = self.ast.at(AstRef::new(target_idx))?;
+                let var_name = target_node.payload.as_str().ok_or_else(|| {
+                    LangError::engine_node(
+                        "eval_block: binding target must be an identifier".to_string(),
+                        node,
+                    )
+                })?;
+                let value = self.exec_node_inner(AstRef::new(value_idx))?;
+                self.scopes.define(var_name, value.clone());
+                result = value;
+            } else {
+                result = self.exec_node_inner(AstRef::new(idx))?;
+            }
+        }
+        self.scopes.pop_scope();
+        Ok(result)
     }
 
     /// `match` native op: pattern-match a scrutinee against a list of arms.
@@ -2090,6 +2217,7 @@ mod tests {
     use super::*;
     use handl_language::{Ast, AstNode, EvalSchemeDef, Language, Scheme, SchemeVersion};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_engine_eval::ImportResolver;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
     use std::rc::Rc;
@@ -2114,7 +2242,7 @@ mod tests {
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
         let instrs = compile(scheme, &lang, &ast, node)?;
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         frame.exec_instrs(&instrs, node, None)
     }
 
@@ -2159,7 +2287,7 @@ mod tests {
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
         let instrs = compile(&s, &lang, &ast, node).unwrap();
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         frame.define_global("x", TaggedValue::from(json!(7)));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(7));
@@ -2432,7 +2560,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(42)),  // 3
             AstNode::new("loop").with_payload(json!({"children": [3, 2]})), // 4
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(4)).unwrap();
         assert_eq!(result, json!(42));
     }
@@ -2485,7 +2613,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})), // 19
             AstNode::new("loop").with_payload(json!({"children": [19, 18]})), // 20
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(20)).unwrap();
         assert_eq!(result, json!(6));
     }
@@ -2515,7 +2643,7 @@ mod tests {
             AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
             AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(6)).unwrap();
         assert_eq!(result, json!({"a": 1, "b": 2}));
     }
@@ -2542,7 +2670,7 @@ mod tests {
             AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
             AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(6)).unwrap();
         assert_eq!(result, json!({"x": 10, "y": 20}));
     }
@@ -2564,7 +2692,7 @@ mod tests {
             AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
             AstNode::new("object").with_payload(json!({"children": [2]})), // 3
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(3)).unwrap();
         assert_eq!(result, json!({"dyn": 99}));
     }
@@ -2697,7 +2825,7 @@ mod tests {
         );
         let node = ast.at(AstRef::new(1)).unwrap();
         let instrs = compile(&s, &lang, &ast, node).unwrap();
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(41));
     }
@@ -2786,7 +2914,7 @@ mod tests {
         let node = ast.at(AstRef::new(0)).unwrap();
         let instrs = compile(&s, &lang, &ast, node).unwrap();
         let reg = double_registry();
-        let mut frame = VmFrame::new(&ast, &lang, Some(&reg));
+        let mut frame = VmFrame::new(&ast, &lang, Some(&reg), None);
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(42));
     }
@@ -2826,7 +2954,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(3)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(2)).unwrap();
         assert_eq!(result, json!(5));
     }
@@ -2856,7 +2984,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(3)).unwrap();
         assert_eq!(result, json!(1));
     }
@@ -2886,7 +3014,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
         ]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(3)).unwrap();
         assert_eq!(result, json!(2));
     }
@@ -2897,7 +3025,7 @@ mod tests {
     fn no_scheme_returns_payload() {
         let lang = Language::new();
         let ast = make_ast(vec![AstNode::new("custom").with_payload(json!("hello"))]);
-        let mut frame = VmFrame::new(&ast, &lang, None);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
         let result = frame.exec_node(AstRef::new(0)).unwrap();
         assert_eq!(result, json!("hello"));
     }
@@ -2907,5 +3035,129 @@ mod tests {
     #[test]
     fn v2_engine_accepts_v2_lang() {
         assert!(SchemeVersion::v2().supports(&SchemeVersion::v2()));
+    }
+
+    // 16. import op
+
+    #[test]
+    fn import_op_binds_module_bindings_into_scope() {
+        struct StubResolver {
+            bindings: Value,
+        }
+        impl ImportResolver for StubResolver {
+            fn resolve_import(&self, _path: &str) -> Result<Value, LangError> {
+                Ok(self.bindings.clone())
+            }
+        }
+
+        let resolver: Rc<dyn ImportResolver> =
+            Rc::new(StubResolver { bindings: json!({"x": 42, "y": "hi"}) });
+
+        let mut lang = Language::new();
+        // var -> proj_env $payload
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+            ))
+            .unwrap();
+        // stmt.import -> import(proj_child(0))
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.stmt.import",
+                "stmt.import",
+                Scheme::arr_native(
+                    "import",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))],
+                ),
+            ))
+            .unwrap();
+
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("m.hnl")),
+            AstNode::new("stmt.import").with_payload(json!({"children": [0]})),
+            AstNode::new("var").with_payload(json!("x")),
+        ]);
+
+        let mut frame = VmFrame::new(&ast, &lang, None, Some(&resolver));
+        // Execute the import; it produces no value.
+        let import_result = frame.exec_node(AstRef::new(1)).unwrap();
+        assert!(import_result.is_null());
+
+        // The imported binding `x` should now be in scope.
+        let result = frame.exec_node(AstRef::new(2)).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn import_op_errors_without_resolver() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.stmt.import",
+                "stmt.import",
+                Scheme::arr_native(
+                    "import",
+                    vec![Scheme::arr_native_lit("const", vec![], Value::from("m.hnl"))],
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("stmt.import").with_payload(json!({}))]);
+        let mut frame = VmFrame::new(&ast, &lang, None, None);
+        let err = frame.exec_node(AstRef::new(0)).unwrap_err();
+        assert!(format!("{}", err).contains("no import resolver"));
+    }
+
+    #[test]
+    fn eval_block_imports_and_returns_binding() {
+        struct StubResolver {
+            bindings: Value,
+        }
+        impl ImportResolver for StubResolver {
+            fn resolve_import(&self, _path: &str) -> Result<Value, LangError> {
+                Ok(self.bindings.clone())
+            }
+        }
+
+        let resolver: Rc<dyn ImportResolver> =
+            Rc::new(StubResolver { bindings: json!({"x": 42 }) });
+
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.block",
+                "block",
+                Scheme::arr_native("eval_block", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.stmt.import",
+                "stmt.import",
+                Scheme::arr_native(
+                    "import",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))],
+                ),
+            ))
+            .unwrap();
+
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("m.hnl")),
+            AstNode::new("stmt.import").with_payload(json!({"children": [0]})),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("block").with_payload(json!({"children": [1, 2]})),
+        ]);
+
+        let mut frame = VmFrame::new(&ast, &lang, None, Some(&resolver));
+        let result = frame.exec_node(AstRef::new(3)).unwrap();
+        assert_eq!(result, json!(42));
     }
 }

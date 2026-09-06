@@ -81,6 +81,8 @@ use vm::VmFrame;
 pub struct BytecodeEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// The import resolver for `import "path"` statements (Phase 9.5).
+    import_resolver: Option<Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
     /// Global variables injected by the host (e.g. `self` -> language value).
     globals: FxHashMap<Rc<str>, TaggedValue>,
 }
@@ -90,6 +92,7 @@ impl BytecodeEngine {
     pub fn new() -> Self {
         Self {
             modules: None,
+            import_resolver: None,
             globals: FxHashMap::default(),
         }
     }
@@ -102,6 +105,7 @@ impl BytecodeEngine {
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
             modules: Some(modules),
+            import_resolver: None,
             globals: FxHashMap::default(),
         }
     }
@@ -135,7 +139,12 @@ impl EvalEngine for BytecodeEngine {
             )));
         }
         let root_ref = AstRef::new(ast.len() - 1);
-        let mut frame = VmFrame::new(ast, lang, self.modules.as_ref());
+        let mut frame = VmFrame::new(
+            ast,
+            lang,
+            self.modules.as_ref(),
+            self.import_resolver.as_ref(),
+        );
         for (name, val) in &self.globals {
             frame.define_global(name, val.clone());
         }
@@ -154,6 +163,15 @@ impl EvalEngine for BytecodeEngine {
 
     fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_global(name, val))
+    }
+
+    fn with_import_resolver(
+        &self,
+        resolver: Rc<dyn handl_plugin_engine_eval::ImportResolver>,
+    ) -> Box<dyn EvalEngine> {
+        let mut engine = self.clone();
+        engine.import_resolver = Some(resolver);
+        Box::new(engine)
     }
 }
 
@@ -189,7 +207,10 @@ impl handl_runtime::CompiledArtifact for BytecodeArtifact {
             return Ok(Value::Null);
         }
         let root_ref = AstRef::new(self.ast.len() - 1);
-        let mut frame = VmFrame::new(&self.ast, &self.lang, modules.as_ref());
+        // Compiled artifacts do not yet carry an import resolver; if the
+        // compiled program uses `import`, the op will report "no import
+        // resolver configured".
+        let mut frame = VmFrame::new(&self.ast, &self.lang, modules.as_ref(), None);
         frame.exec_node(root_ref)
     }
 
