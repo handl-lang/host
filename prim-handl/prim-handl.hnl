@@ -3,35 +3,39 @@
 ---
 --- `prim` is the minimal FFI layer for handl's arrow-based stdlib: the
 --- smallest set of atoms that cannot be expressed as handl arrow graphs.
---- Of the four declared `prim.*` functions, two are expressible over the
---- eval vocabulary (`add`, `alloc`) and are implemented here as pure
---- handl; two remain native `op`s registered by `plugin-lib-prim`:
+--- Of the four declared `prim.*` functions, three are expressible over the
+--- eval vocabulary plus the `math` module's bitwise atoms
+--- (`add`, `alloc`, `or`) and are implemented here as pure handl; one
+--- remains a native `op` registered by `plugin-lib-prim`:
 ---
 ---   - `prim.add` — pure handl: `[a, b] ~> a + b` over the builtin `+`.
 ---   - `prim.alloc` — pure handl: `n ~> []`. The contract guarantees
 ---     `LengthEq(output, 0)` — an empty list — so no list-size primitive
 ---     is needed.
+---   - `prim.or` — pure handl: `[a, b] ~> math.bit_or(a, b)` over the
+---     `math` module's integer bitwise op (64-bit two's-complement).
 ---   - `prim.compare` — NATIVE: it is a deep total order over arbitrary
 ---     values (kind ordering null < bool < number < string < array <
----     object, with recursive array/object comparison). The language has
----     no runtime kind-introspection (`typeof` was removed from the
----     language surface), no string-ordering primitive (`lt`/`gt` are
----     numeric-only), and no object-key enumeration — so a handl
----     encoding is not possible without contorting the calculus.
----   - `prim.or` — NATIVE: bitwise OR for flag composition. The eval
----     vocabulary has no bitwise primitive (`or` is boolean truthiness),
----     and bitwise ops cannot be synthesized without a division/modulus
----     bit-extraction loop that would still lack a primitive shift.
+---     object, with recursive array/object comparison). A handl encoding
+---     is now unblocked — `type.of` (kind introspection) and `obj.keys`
+---     (object-key enumeration) exist — but the rewrite is deferred:
+---     matching the native ordering semantics exactly (cross-kind order,
+---     numeric total ordering, key-sorted object comparison) is subtle
+---     and ordering-semantics risk isn't worth taking here.
 ---
 --- Registered as the `"prim"` module by `plugin-lib-prim`
---- (`PrimModule`/`PrimLibraryPlugin`): the record fields `add`/`alloc`
---- become callables, and `with_ops` attaches the remaining native ops
---- (`prim.compare`, `prim.or`).
+--- (`PrimModule`/`PrimLibraryPlugin`): the record fields `add`/`alloc`/`or`
+--- become callables, and `with_ops` attaches the remaining native op
+--- (`prim.compare`). The `math` module is a dependency (wired via
+--- `with_dependency`) so `math.bit_or` resolves inside `or`.
 
 {
   -- prim.add — integer addition.
   add: [a, b] ~> a + b,
 
   -- prim.alloc — allocate an empty list (contract: LengthEq(output, 0)).
-  alloc: n ~> []
+  alloc: n ~> [],
+
+  -- prim.or — bitwise OR over `math.bit_or` (flag composition).
+  or: [a, b] ~> math.bit_or(a, b)
 }

@@ -12,6 +12,7 @@
 export unless :: [value, pred, fn] ~> {
   if pred(value) {
     value
+  } else {
+    fn(value)
   }
-  fn(value)
 }

@@ -1,13 +1,13 @@
 --- prim — the minimal atom layer for handl's arrow-based stdlib.
 ---
 --- This is the `prim` contract: the declared interface every `prim`
---- implementation must satisfy. `prim.add` and `prim.alloc` are
---- implemented in pure handl by the `prim-handl` record
---- (`handl-packages/prim-handl/prim-handl.hnl`); `prim.compare` and
---- `prim.or` remain native `op`s — the language lacks runtime kind
---- introspection, string ordering, and object-key enumeration (needed
---- for the deep total order) and bitwise primitives (needed for flag
---- composition).
+--- implementation must satisfy. `prim.add`, `prim.alloc`, and `prim.or`
+--- are implemented in pure handl by the `prim-handl` record
+--- (`handl-packages/prim-handl/prim-handl.hnl`) — `prim.or` sits over the
+--- `math` module's `math.bit_or` integer bitwise op; `prim.compare`
+--- remains a native `op` (a handl encoding is now unblocked by `type.of`
+--- and `obj.keys`, but the deep-total-order rewrite is deferred to avoid
+--- ordering-semantics drift).
 
 --- prim.add — integer addition.
 cap "prim.add"
@@ -21,12 +21,11 @@ op "prim.compare" : (a * b) -> Int
 cap "prim.alloc"
 op "prim.alloc" : Int -> List a
   guarantee: LengthEq(output, 0)
---- prim.or — bitwise OR on integers (irreducible atom, flag composition).
+--- prim.or — bitwise OR on integers (pure handl over `math.bit_or`).
 cap "prim.or"
 op "prim.or" : (Int * Int) -> Int
   guarantee: True
 
---- prim.add and prim.alloc are pure handl (prim-handl); only the two
---- genuinely-native atoms keep `handl` bindings to Rust impls.
+--- prim.add, prim.alloc, and prim.or are pure handl (prim-handl); only the
+--- one genuinely-native atom keeps a `handl` binding to a Rust impl.
 handl "prim.compare" = rust_prim_compare
-handl "prim.or" = rust_prim_or

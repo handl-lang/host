@@ -1,13 +1,13 @@
 --- math — numeric utility functions for the handl runtime.
 ---
---- Single source of truth for the `math` stdlib interface: 54 functions
---- covering arithmetic, constants, exponential/logarithmic, rounding,
---- trigonometry, and predicates. The Rust bridge in `plugin-lib-utils`
+--- Single source of truth for the `math` stdlib interface: 60 functions
+--- covering arithmetic, bitwise integer ops, constants, exponential/logarithmic,
+--- rounding, trigonometry, and predicates. The Rust bridge in `plugin-lib-utils`
 --- loads this file via `include_str!`, parses the `cap` declarations for
 --- the plugin capability surface, and registers the Rust handls (handlers)
 --- in an `OpRegistry` that dispatches each `op` to its native `f64` impl.
 ---
---- All 54 functions are FFI atoms (they call `f64` methods or Rust
+--- All 60 functions are FFI atoms (they call `f64` methods or Rust
 --- arithmetic that cannot be expressed as pure handl arrows without
 --- losing the exact `TypeMismatch` error messages the tests rely on).
 --- The `op`/`handl` declaration form (ADR-0077 Phase 2) declares the
@@ -28,6 +28,12 @@
 --- math.asinh — inverse hyperbolic sine.
 --- math.acosh — inverse hyperbolic cosine.
 --- math.atanh — inverse hyperbolic tangent.
+--- math.bit_and — bitwise AND on 64-bit integers.
+--- math.bit_not — bitwise NOT on a 64-bit integer.
+--- math.bit_or — bitwise OR on 64-bit integers.
+--- math.bit_xor — bitwise XOR on 64-bit integers.
+--- math.shl — shift left (amount must be in 0..64).
+--- math.shr — arithmetic shift right (amount must be in 0..64).
 --- math.degrees — convert radians to degrees.
 --- math.div — divide two numbers.
 --- math.e — Euler's number (e).
@@ -82,6 +88,12 @@ cap "math.atan2"
 cap "math.asinh"
 cap "math.acosh"
 cap "math.atanh"
+cap "math.bit_and"
+cap "math.bit_not"
+cap "math.bit_or"
+cap "math.bit_xor"
+cap "math.shl"
+cap "math.shr"
 cap "math.degrees"
 cap "math.div"
 cap "math.e"
@@ -149,6 +161,18 @@ op "math.asinh" : Float -> Float
 op "math.acosh" : Float -> Float
   guarantee: True
 op "math.atanh" : Float -> Float
+  guarantee: True
+op "math.bit_and" : (Int * Int) -> Int
+  guarantee: True
+op "math.bit_not" : Int -> Int
+  guarantee: True
+op "math.bit_or" : (Int * Int) -> Int
+  guarantee: True
+op "math.bit_xor" : (Int * Int) -> Int
+  guarantee: True
+op "math.shl" : (Int * Int) -> Int
+  guarantee: True
+op "math.shr" : (Int * Int) -> Int
   guarantee: True
 op "math.degrees" : Float -> Float
   guarantee: True
@@ -244,6 +268,12 @@ handl "math.atan2" = rust_math_atan2
 handl "math.asinh" = rust_math_asinh
 handl "math.acosh" = rust_math_acosh
 handl "math.atanh" = rust_math_atanh
+handl "math.bit_and" = rust_math_bit_and
+handl "math.bit_not" = rust_math_bit_not
+handl "math.bit_or" = rust_math_bit_or
+handl "math.bit_xor" = rust_math_bit_xor
+handl "math.shl" = rust_math_shl
+handl "math.shr" = rust_math_shr
 handl "math.degrees" = rust_math_degrees
 handl "math.div" = rust_math_div
 handl "math.e" = rust_math_e

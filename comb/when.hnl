@@ -13,6 +13,7 @@
 export when :: [value, pred, fn] ~> {
   if pred(value) {
     fn(value)
+  } else {
+    value
   }
-  value
 }
