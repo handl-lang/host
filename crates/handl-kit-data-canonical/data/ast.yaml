@@ -19,6 +19,7 @@
     type: object
 - id: ast.array
   node_kind: array
+  pattern_role: sequence
   children:
     - role: elements
       variadic: true
@@ -474,6 +475,7 @@
     type: object
 - id: ast.object
   node_kind: object
+  pattern_role: entries
   payload_schema:
     properties:
       entries:
@@ -493,6 +495,7 @@
     type: object
 - id: ast.entry
   node_kind: entry
+  pattern_role: entry
   # `key`/`value` child roles + literal-key declaration (ADR-0081): a `var`
   # or `string` key child is a literal key (its payload is the key string),
   # while any other kind (e.g. `paren`, desugared from `[expr]:`) is a
@@ -546,6 +549,9 @@
     type: object
 - id: ast.rest
   node_kind: rest
+  pattern_role: rest
+  children:
+    - role: subject
   payload_schema:
     properties:
       children:
@@ -639,6 +645,7 @@
     type: object
 - id: ast.var
   node_kind: var
+  pattern_role: leaf
   payload_schema:
     properties:
       name:

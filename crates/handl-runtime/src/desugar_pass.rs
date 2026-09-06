@@ -883,23 +883,32 @@ fn parse_type_expr(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String
 
 /// Parse a single type parameter node, which is either a bare `var` (name
 /// only, type unknown) or a `type-annot(var(name), type)`.
-fn parse_type_param(_lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, String)> {
-    match node.kind.as_str() {
-        "var" => {
-            let name = node.payload.as_str()?.to_string();
-            Some((name, "_".to_string()))
-        }
-        "type-annot" => {
-            let children = node.payload.get("children").and_then(|c| c.as_array())?;
-            let name_idx = children.first()?.as_u64()? as usize;
-            let name_node = ast.get(AstRef::new(name_idx))?;
-            let name = name_node.payload.as_str()?.to_string();
-            let type_idx = children.get(1)?.as_u64()? as usize;
-            let type_node = ast.get(AstRef::new(type_idx))?;
-            let typ = node_to_type_string(ast, type_node);
-            Some((name, typ))
-        }
-        _ => None,
+fn parse_type_param(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, String)> {
+    let has_subject = lang
+        .child_role_index(&node.kind, "subject")
+        .ok()
+        .flatten()
+        .is_some();
+    let has_annot = lang
+        .child_role_index(&node.kind, "annot")
+        .ok()
+        .flatten()
+        .is_some();
+    if has_subject && has_annot {
+        // `type-annot(subject, annot)`
+        let children = node.payload.get("children").and_then(|c| c.as_array())?;
+        let name_idx = children.first()?.as_u64()? as usize;
+        let name_node = ast.get(AstRef::new(name_idx))?;
+        let name = name_node.payload.as_str()?.to_string();
+        let type_idx = children.get(1)?.as_u64()? as usize;
+        let type_node = ast.get(AstRef::new(type_idx))?;
+        let typ = node_to_type_string(ast, type_node);
+        Some((name, typ))
+    } else if let Some(name) = node.payload.as_str() {
+        // bare `var`
+        Some((name.to_string(), "_".to_string()))
+    } else {
+        None
     }
 }
 
@@ -1067,7 +1076,6 @@ fn parse_constructor_arg(
         .ok()
         .flatten()
         .is_some()
-        || arg_node.kind == "type-annot"
     {
         let ta_children = arg_node.payload.get("children").and_then(|c| c.as_array());
         if let Some(ta_arr) = ta_children {
@@ -2083,38 +2091,36 @@ fn desugar_match_to_recursor(
         let mut current = scrutinee;
 
         // Unwrap a single-child `paren` if present.
+        // Data-driven: any node whose shape declares a `body` role and has
+        // exactly one child is treated as a transparent wrapper.
         if let Some(paren) = out.get(AstRef::new(current)) {
-            if paren.kind == "paren" {
-                let body_role = lang
-                    .child_role_index("paren", "body")
-                    .ok()
-                    .flatten()
-                    .unwrap_or(0);
-                let paren_children = paren
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())?;
-                current = paren_children
-                    .get(body_role)?
-                    .as_u64()? as usize;
+            let is_paren_like = lang
+                .child_role_index(&paren.kind, "body")
+                .ok()
+                .flatten()
+                .is_some();
+            let paren_children = paren.payload.get("children").and_then(|c| c.as_array())?;
+            if is_paren_like && paren_children.len() == 1 {
+                current = paren_children.first()?.as_u64()? as usize;
             }
         }
 
         let (value_idx, annot_idx) = {
             let annotated = out.get(AstRef::new(current))?;
-            if annotated.kind != "type-annot" {
-                return None;
-            }
+            // Data-driven: a type-annotation shape declares `subject` and
+            // `annot` child roles. Any shape with both roles is treated as a
+            // type annotation (ADR-0081).
             let subject_role = lang
-                .child_role_index("type-annot", "subject")
+                .child_role_index(&annotated.kind, "subject")
                 .ok()
-                .flatten()
-                .unwrap_or(0);
+                .flatten();
             let annot_role = lang
-                .child_role_index("type-annot", "annot")
+                .child_role_index(&annotated.kind, "annot")
                 .ok()
-                .flatten()
-                .unwrap_or(1);
+                .flatten();
+            let (Some(subject_role), Some(annot_role)) = (subject_role, annot_role) else {
+                return None;
+            };
             let children = annotated
                 .payload
                 .get("children")
@@ -2128,10 +2134,7 @@ fn desugar_match_to_recursor(
         if annot.kind != "call" {
             return None;
         }
-        let annot_children = annot
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())?;
+        let annot_children = annot.payload.get("children").and_then(|c| c.as_array())?;
         let callee_idx = annot_children.first()?.as_u64()? as usize;
         let callee = out.get(AstRef::new(callee_idx))?;
         if callee.kind != "var" || callee.payload.as_str()? != type_name.as_str() {

@@ -492,7 +492,7 @@ fn analyze_chunk(
 
     // Import name: the single child is a `var` carrying the name.
     let import_name = if is_import {
-        first_child_var_name(ast, root_node)
+        first_child_var_name(lang, ast, root_node)
     } else {
         None
     };
@@ -554,7 +554,7 @@ fn walk(
     if let (Some(ti), Some(vi)) = (target_idx, value_idx) {
         let children = child_indices(node);
         if let Some(&tref) = children.get(ti)
-            && let Some(name) = var_name_at(ast, AstRef::new(tref))
+            && let Some(name) = var_name_at(lang, ast, AstRef::new(tref))
         {
             slots.push(VarSlot {
                 name,
@@ -582,7 +582,7 @@ fn walk(
     if let (Some(pi), Some(bi)) = (params_idx, body_idx) {
         let children = child_indices(node);
         if let Some(&pref) = children.get(pi)
-            && let Some(name) = var_name_at(ast, AstRef::new(pref))
+            && let Some(name) = var_name_at(lang, ast, AstRef::new(pref))
         {
             slots.push(VarSlot {
                 name,
@@ -666,7 +666,7 @@ fn walk(
     }
 
     // Var: a name reference.
-    if let Some(name) = var_name_at(ast, node_ref) {
+    if let Some(name) = var_name_at(lang, ast, node_ref) {
         slots.push(VarSlot {
             name,
             role: VarRole::Reference,
@@ -702,20 +702,31 @@ fn child_indices(node: &AstNode) -> Vec<usize> {
         .unwrap_or_default()
 }
 
-/// The name carried by a `var` node (its payload is the identifier string).
-fn var_name_at(ast: &Ast, r: AstRef) -> Option<String> {
+/// The name carried by a parameter node: a bare `var` or a `type-annot`
+/// wrapping one. Resolved through `Language::param_name` using the
+/// `pattern_role: leaf` / `subject` role metadata (ADR-0081).
+fn var_name_at(lang: &Language, ast: &Ast, r: AstRef) -> Option<String> {
     let node = ast.at(r).ok()?;
-    if node.kind == "var" {
-        node.payload.as_str().map(String::from)
-    } else {
-        None
+    let is_name = lang
+        .ast
+        .get_by_identity(&node.kind)
+        .and_then(|s| s.pattern_role.as_deref())
+        == Some("leaf")
+        || lang
+            .child_role_index(&node.kind, "subject")
+            .ok()
+            .flatten()
+            .is_some();
+    if !is_name {
+        return None;
     }
+    lang.param_name(ast, node).ok()
 }
 
-/// The name of the first `var` child of a node (used for import/export names).
-fn first_child_var_name(ast: &Ast, node: &AstNode) -> Option<String> {
+/// The name of the first parameter child of a node (used for import/export names).
+fn first_child_var_name(lang: &Language, ast: &Ast, node: &AstNode) -> Option<String> {
     for &idx in &child_indices(node) {
-        if let Some(name) = var_name_at(ast, AstRef::new(idx)) {
+        if let Some(name) = var_name_at(lang, ast, AstRef::new(idx)) {
             return Some(name);
         }
     }

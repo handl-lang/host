@@ -47,10 +47,11 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use handl_language::{
-    as_tag, language_value, tag_value, Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow,
-    Language, LexerRuleDef, Source, TokenKindDef, Value,
+    Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow, Language, LexerRuleDef, Source,
+    TokenKindDef, Value, as_tag, language_value, tag_value,
 };
 
+use handl_kit_canonical::handl_module::{HandlModule, ModuleResolver};
 use handl_platform::{EvalContext, Function, Module, ModuleLookup};
 use handl_plugin_engine_exec_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
@@ -58,7 +59,6 @@ use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_exec_cache::AstKey;
 use handl_plugin_ext_diag::Span;
-use handl_kit_canonical::handl_module::{HandlModule, ModuleResolver};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
@@ -390,7 +390,10 @@ fn extract_doc_tags(src: &str, stmt_offset: usize) -> Vec<String> {
             break;
         };
         let body = body.trim_start();
-        let Some(rest) = body.strip_prefix("tags:").or_else(|| body.strip_prefix("@tags:")) else {
+        let Some(rest) = body
+            .strip_prefix("tags:")
+            .or_else(|| body.strip_prefix("@tags:"))
+        else {
             break;
         };
         let mut tags = Vec::new();
@@ -423,14 +426,24 @@ fn children_of(node: &AstNode) -> Vec<usize> {
         .unwrap_or_default()
 }
 
-/// The name carried by a `var` node (its payload is the identifier string).
-/// Returns `None` for non-`var` nodes.
-fn var_name(node: &AstNode) -> Option<String> {
-    if node.kind == "var" {
-        node.payload.as_str().map(String::from)
-    } else {
-        None
+/// The name carried by a parameter node: a bare `var` or a `type-annot`
+/// wrapping one. Resolved through `Language::param_name` using the
+/// `pattern_role: leaf` / `subject` role metadata (ADR-0081).
+fn var_name(lang: &Language, ast: &Ast, node: &AstNode) -> Option<String> {
+    let is_name = lang
+        .ast
+        .get_by_identity(&node.kind)
+        .and_then(|s| s.pattern_role.as_deref())
+        == Some("leaf")
+        || lang
+            .child_role_index(&node.kind, "subject")
+            .ok()
+            .flatten()
+            .is_some();
+    if !is_name {
+        return None;
     }
+    lang.param_name(ast, node).ok()
 }
 
 /// Resolve the binding's target (name) and value (expression) child indices
@@ -587,7 +600,7 @@ fn discover_tests_in_module(
             let children = children_of(root);
             if let Some(&name_raw) = children.get(name_idx) {
                 if let Ok(name_node) = ast.at(AstRef::new(name_raw)) {
-                    if let Some(name) = var_name(name_node) {
+                    if let Some(name) = var_name(lang, &ast, name_node) {
                         // The body expression is the text after the `=`
                         // separator in the declaration chunk.
                         let body_source = extract_body_source(&chunk.text);
@@ -623,7 +636,7 @@ fn discover_tests_in_module(
                     ast.at(AstRef::new(target_raw)),
                     ast.at(AstRef::new(value_raw)),
                 ) {
-                    if let Some(name) = var_name(target_node) {
+                    if let Some(name) = var_name(lang, &ast, target_node) {
                         // Test convention: name starts with `test_` or the
                         // node kind contains "test".
                         if name.starts_with("test_") || is_test_kind {
@@ -959,9 +972,8 @@ static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// The shared `pred` [`HandlModule`], built lazily on first use.
 fn pred_module() -> &'static HandlModule {
-    PRED_MODULE.get_or_init(|| {
-        HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_resolver(&PredResolver)
-    })
+    PRED_MODULE
+        .get_or_init(|| HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_resolver(&PredResolver))
 }
 
 /// A compiled case-selection filter — the host-side handle for the `pred`
@@ -1210,7 +1222,12 @@ fn eval_test_body(body_source: &str) -> (TestResult, Duration, FailureDetail) {
             }
             Err(e) => {
                 let failure = crate::framework::take_last_assert_failure().unwrap_or_default();
-                (TestResult::Fail { message: e.to_string() }, failure)
+                (
+                    TestResult::Fail {
+                        message: e.to_string(),
+                    },
+                    failure,
+                )
             }
         }
     });
@@ -1249,11 +1266,7 @@ fn job_error_result(err: JobError) -> (TestResult, Duration, FailureDetail) {
 ///
 /// Each worker thread reuses a lazily built [`Runtime`] (see
 /// [`TEST_RUNTIME`]); there is no shared state between tests.
-pub fn run_selected(
-    plan: &TestPlan,
-    predicate: &Filter,
-    policy: &SchedulePolicy,
-) -> RunReport {
+pub fn run_selected(plan: &TestPlan, predicate: &Filter, policy: &SchedulePolicy) -> RunReport {
     run_selected_impl(plan, predicate, policy, None, None)
 }
 
@@ -1663,7 +1676,7 @@ pub fn run_selected_cached(
 /// Thin wrapper over the reporting pipeline: `summarize` →
 /// [`crate::report::HumanReporter`] (ADR-0089 §"Reporting pipeline").
 pub fn format_report_human(report: &RunReport) -> String {
-    use crate::report::{summarize, HumanReporter, Reporter};
+    use crate::report::{HumanReporter, Reporter, summarize};
     HumanReporter.format(report, &summarize(report))
 }
 
@@ -1672,7 +1685,7 @@ pub fn format_report_human(report: &RunReport) -> String {
 /// Thin wrapper over the reporting pipeline: `summarize` →
 /// [`crate::report::JsonReporter`].
 pub fn format_report_json(report: &RunReport) -> String {
-    use crate::report::{summarize, JsonReporter, Reporter};
+    use crate::report::{JsonReporter, Reporter, summarize};
     JsonReporter.format(report, &summarize(report))
 }
 
@@ -1884,10 +1897,7 @@ mod tests {
             "\"x = y\" >>> f = \"z\""
         );
         // And `::` inside a string literal is not the separator either.
-        assert_eq!(
-            extract_body_source("test_foo = \"x :: y\""),
-            "\"x :: y\""
-        );
+        assert_eq!(extract_body_source("test_foo = \"x :: y\""), "\"x :: y\"");
     }
 
     #[test]
@@ -2051,10 +2061,7 @@ test tagged_fast = 1 + 1
         super::pred_module()
             .function("match_glob")
             .unwrap()
-            .call(
-                &[serde_json::json!(pat), serde_json::json!(s)],
-                &mut ctx,
-            )
+            .call(&[serde_json::json!(pat), serde_json::json!(s)], &mut ctx)
             .unwrap()
             .as_bool()
             .unwrap()

@@ -290,6 +290,18 @@ impl PrattEngine {
 
         // 2. Build the prefix (null-denotation) node.
         let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
+
+        // ADR-0081 engine-genericity note: `match` and `data` are the
+        // remaining contextual prefix forms that cannot (yet) be expressed with
+        // the current `GrammarRow`/`AstShapeRef` vocabulary.
+        // - `match` needs an optional keyword clause (`return ... with`) between
+        //   the first fixed child and the delimited block.
+        // - `data` needs per-child binding powers (the second child must parse
+        //   at rbp 0 to allow `|` infix, while the first child parses at rbp 6)
+        //   plus a way to extract a synthesized name from the first child into
+        //   the payload.
+        // Future generic fields (`optional_clauses`, `child_binding_powers`,
+        // `payload_extract`) could close these branches.
         let left = if kind == "match" {
             // Phase 6.3: `match` supports an optional return motive:
             //   match scrutinee return motive with { arms }

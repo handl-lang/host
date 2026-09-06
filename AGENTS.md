@@ -25,12 +25,12 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
-| CLI                    | `host-cli`                               | `hnl fmt/lint/check/test/run/eval` subcommands                                                                                                                                                                       |
+| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval` subcommands                                                                                                                                                                       |
 
 ### CLI exit codes
 
 - `0` — success
-- `1` — check/lint/test/fmt-check failure
+- `1` — typecheck/lint/test/fmt-check failure
 - `2` — usage or parse error
 
 ### Engine genericity (ADR-0081)

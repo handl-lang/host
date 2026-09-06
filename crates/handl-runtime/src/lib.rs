@@ -1375,7 +1375,7 @@ impl ModuleLoader {
         };
 
         // Collect the module's top-level bindings into a Value::Object.
-        let bindings = collect_module_bindings(&ast, value);
+        let bindings = collect_module_bindings(self.lang.as_ref(), &ast, value);
 
         // Remove from the loading set and cache the result.
         self.loading.borrow_mut().remove(&resolved);
@@ -1394,17 +1394,18 @@ impl ImportResolver for ModuleLoader {
 ///
 /// The Pratt parser currently parses one top-level statement per `parse`
 /// call, so a module AST has a single root node. This extracts the binding
-/// introduced by that statement:
+/// introduced by that statement using `Language::binding_target`:
 ///
-/// - `assign { children: [var, value] }` (`x = 42`) → `{ "x": <evaluated> }`.
-/// - `let { name, ... }` → `{ <name>: <evaluated> }` (if the payload carries
-///   a `name` field).
+/// - A node whose shape declares a `target` child role (`assign`,
+///   `let`) has that child's name used as the export key.
+/// - A node whose shape carries a `name` payload (e.g. `bind`) uses it
+///   directly.
 /// - Any other root → `{}` (no exported bindings; the module is evaluated
 ///   for effect only).
 ///
 /// The value is the result of evaluating the whole module AST (the root),
 /// which for an `assign` is its right-hand side.
-fn collect_module_bindings(ast: &Ast, value: Value) -> Value {
+fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
     use serde_json::Map;
     if ast.is_empty() {
         return Value::Object(Map::new());
@@ -1414,27 +1415,10 @@ fn collect_module_bindings(ast: &Ast, value: Value) -> Value {
         Ok(n) => n,
         Err(_) => return Value::Object(Map::new()),
     };
-    // `assign { children: [var_idx, value_idx] }` — read the var name.
-    if root.kind == "assign" {
-        if let Some(children) = root.payload.get("children").and_then(|c| c.as_array()) {
-            if let Some(var_idx) = children.first().and_then(|v| v.as_u64()) {
-                if let Ok(var_node) = ast.at(AstRef::new(var_idx as usize)) {
-                    if let Some(name) = var_node.payload.as_str() {
-                        let mut map = Map::new();
-                        map.insert(name.to_string(), value);
-                        return Value::Object(map);
-                    }
-                }
-            }
-        }
-    }
-    // `let { name }` — read the name from the payload (rich AST shape).
-    if root.kind == "let" {
-        if let Some(name) = root.payload.get("name").and_then(|v| v.as_str()) {
-            let mut map = Map::new();
-            map.insert(name.to_string(), value);
-            return Value::Object(map);
-        }
+    if let Some(name) = lang.binding_target(ast, root) {
+        let mut map = Map::new();
+        map.insert(name, value);
+        return Value::Object(map);
     }
     Value::Object(Map::new())
 }
@@ -1450,7 +1434,7 @@ mod tests {
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
     // Stub engines for independent dispatch testing

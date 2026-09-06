@@ -90,8 +90,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{
-    infer_effect_row, ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof,
-    Scheme, Value, Verdict,
+    ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof, Scheme, Value, Verdict,
+    infer_effect_row,
 };
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_typecheck::{
@@ -231,7 +231,10 @@ impl NbeTypecheckEngine {
                 .unwrap_or_else(|| Value::String(s.clone())),
             Value::Array(_) => self
                 .registry
-                .construct("type.array", &json!({"element": self.value_to_type(&Value::Null)}))
+                .construct(
+                    "type.array",
+                    &json!({"element": self.value_to_type(&Value::Null)}),
+                )
                 .unwrap_or(Value::Null),
             Value::Object(o) => {
                 // Tagged engine/runtime values (e.g. `self`) are not record
@@ -559,31 +562,30 @@ impl NbeTypecheckEngine {
                 // the type MUST come from `args[0]` (otherwise `incoming`
                 // would be used as both the name and the type). When the name
                 // comes from `lit`, `args` may be empty (type from `incoming`).
-                let (name, name_from_incoming) =
-                    match lit.and_then(|v| if v.is_null() { None } else { Some(v) }) {
-                        Some(v) => (
-                            v.as_str()
-                                .ok_or_else(|| {
-                                    LangError::engine(
-                                        "typecheck: extend: lit must be a string (name)",
-                                    )
-                                })?
-                                .to_string(),
-                            false,
-                        ),
-                        None => (
-                            incoming
-                                .as_ref()
-                                .and_then(|v| v.as_str())
-                                .ok_or_else(|| {
-                                    LangError::engine(
+                let (name, name_from_incoming) = match lit
+                    .and_then(|v| if v.is_null() { None } else { Some(v) })
+                {
+                    Some(v) => (
+                        v.as_str()
+                            .ok_or_else(|| {
+                                LangError::engine("typecheck: extend: lit must be a string (name)")
+                            })?
+                            .to_string(),
+                        false,
+                    ),
+                    None => (
+                        incoming
+                            .as_ref()
+                            .and_then(|v| v.as_str())
+                            .ok_or_else(|| {
+                                LangError::engine(
                                     "typecheck: extend: name must come from lit or incoming string",
                                 )
-                                })?
-                                .to_string(),
-                            true,
-                        ),
-                    };
+                            })?
+                            .to_string(),
+                        true,
+                    ),
+                };
                 let ty = if args.is_empty() {
                     if name_from_incoming {
                         return Err(LangError::engine(
@@ -624,11 +626,8 @@ impl NbeTypecheckEngine {
                         // fresh metas so `call` unification succeeds without
                         // knowing the op's signature. Genuinely unbound
                         // names still error.
-                        let is_host_fn = self
-                            .modules
-                            .as_ref()
-                            .and_then(|m| m.lookup(name))
-                            .is_some();
+                        let is_host_fn =
+                            self.modules.as_ref().and_then(|m| m.lookup(name)).is_some();
                         if is_host_fn {
                             let param = meta_value(ctx.fresh_meta());
                             let body = meta_value(ctx.fresh_meta());
@@ -1000,8 +999,8 @@ impl NbeTypecheckEngine {
                         // v0.1: name in payload, value is child 0.
                         if assign_children.is_empty() {
                             return Err(LangError::engine(
-                                    "typecheck: synth_block: assign with payload.name needs a value child",
-                                ));
+                                "typecheck: synth_block: assign with payload.name needs a value child",
+                            ));
                         }
                         let vidx = assign_children[0].as_u64().ok_or_else(|| {
                             LangError::engine(
@@ -1467,7 +1466,10 @@ impl NbeTypecheckEngine {
                     }
                 };
                 let scrutinee_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine_node("synth_match_arms: scrutinee child index is not a u64", node)
+                    LangError::engine_node(
+                        "synth_match_arms: scrutinee child index is not a u64",
+                        node,
+                    )
                 })? as usize;
                 let scrutinee_ref = AstRef::new(scrutinee_idx);
                 let scrutinee_type = self.synth_node(lang, ast, scrutinee_ref, ctx)?;
@@ -1709,8 +1711,7 @@ impl NbeTypecheckEngine {
 
                 // Try the existing type-syntax path first (handles
                 // `type.number`, `(type.number) -> type.bool`, etc.).
-                let annotation_result =
-                    interpret_type_expr(lang, ast, type_node, &ctx.registry);
+                let annotation_result = interpret_type_expr(lang, ast, type_node, &ctx.registry);
 
                 match annotation_result {
                     Ok(annotation_type) => {
@@ -1754,19 +1755,15 @@ impl NbeTypecheckEngine {
                                 let proof = match arg_type {
                                     Some(ty) => {
                                         if is_marshalable(&ctx.registry, ty) {
-                                            let tag = ctx
-                                                .registry
-                                                .as_type_tag(ty)
-                                                .unwrap_or("unknown");
+                                            let tag =
+                                                ctx.registry.as_type_tag(ty).unwrap_or("unknown");
                                             Proof::ok(format!(
                                                 "type '{}' is FFI-marshalable (ADR-0083)",
                                                 tag
                                             ))
                                         } else {
-                                            let tag = ctx
-                                                .registry
-                                                .as_type_tag(ty)
-                                                .unwrap_or("unknown");
+                                            let tag =
+                                                ctx.registry.as_type_tag(ty).unwrap_or("unknown");
                                             Proof::no(format!(
                                                 "type '{}' is not FFI-marshalable (ADR-0083)",
                                                 tag
@@ -1797,9 +1794,9 @@ impl NbeTypecheckEngine {
                             .get("body")
                             .map(|b| ctx.registry.as_type_tag(b) == Some("type.bool"))
                             .unwrap_or(false);
-                        let is_predicate =
-                            ctx.registry.as_type_tag(&annotation_type) == Some("type.function")
-                                && body_is_bool;
+                        let is_predicate = ctx.registry.as_type_tag(&annotation_type)
+                            == Some("type.function")
+                            && body_is_bool;
 
                         if is_predicate {
                             let proof = self.check_predicate_application(
@@ -1952,7 +1949,9 @@ impl NbeTypecheckEngine {
                     })?,
                 };
                 let field_name = field_value.as_str().map(|s| s.to_string());
-                let field_index = field_value.as_u64().or_else(|| field_name.as_ref().and_then(|s| s.parse::<u64>().ok()));
+                let field_index = field_value
+                    .as_u64()
+                    .or_else(|| field_name.as_ref().and_then(|s| s.parse::<u64>().ok()));
                 if args.is_empty() {
                     return Err(LangError::engine(
                         "record_field_type: requires args[0] (record type sub-scheme)",
@@ -2033,7 +2032,10 @@ impl NbeTypecheckEngine {
                             )
                         })?;
                         let value = entry.get("value").ok_or_else(|| {
-                            LangError::engine_node("synth_object_record: entry missing 'value'", node)
+                            LangError::engine_node(
+                                "synth_object_record: entry missing 'value'",
+                                node,
+                            )
                         })?;
                         let tag = match value {
                             Value::Number(_) => "type.number",
@@ -2052,10 +2054,15 @@ impl NbeTypecheckEngine {
                             })?;
                         fields.insert(key.to_string(), field_type);
                     }
-                } else if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                } else if let Some(children) =
+                    node.payload.get("children").and_then(|c| c.as_array())
+                {
                     for child_entry in children {
                         let child_idx = child_entry.as_u64().ok_or_else(|| {
-                            LangError::engine_node("synth_object_record: child index is not a u64", node)
+                            LangError::engine_node(
+                                "synth_object_record: child index is not a u64",
+                                node,
+                            )
                         })? as usize;
                         let child_ref = AstRef::new(child_idx);
                         let child_node = ast.get(child_ref).ok_or_else(|| {
@@ -2912,9 +2919,7 @@ impl NbeTypecheckEngine {
                 // registry (ADR-0083). The op name comes from the lit
                 // payload (a string).
                 let op_name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine(
-                        "typecheck: foreign_type requires a string lit (op name)",
-                    )
+                    LangError::engine("typecheck: foreign_type requires a string lit (op name)")
                 })?;
                 let modules = self.modules.as_ref().ok_or_else(|| {
                     LangError::engine(
@@ -3055,11 +3060,11 @@ impl NbeTypecheckEngine {
     }
 
     /// Extend the typing context with all variables bound by a `match` arm
-    /// pattern. Binders are `var` leaf nodes; composite patterns (`array`,
-    /// `object`, `entry`, `rest`) are recursed structurally. When the
-    /// scrutinee type provides element/field types, those are used; otherwise
-    /// a fresh metavariable is used. This is a dedicated judgment combinator
-    /// for pattern binding (ADR-0054).
+    /// pattern. Dispatch is driven by `AstShapeDef::pattern_role` metadata
+    /// (`leaf`, `sequence`, `entries`, `entry`, `rest`) rather than
+    /// `kind ==` checks. When the scrutinee type provides element/field types,
+    /// those are used; otherwise a fresh metavariable is used. This is a
+    /// dedicated judgment combinator for pattern binding (ADR-0054).
     fn bind_pattern_vars(
         &self,
         lang: &Language,
@@ -3075,6 +3080,183 @@ impl NbeTypecheckEngine {
             ))
         })?;
 
+        let pattern_role = lang
+            .ast
+            .get_by_identity(&pattern.kind)
+            .and_then(|s| s.pattern_role.as_deref());
+
+        match pattern_role {
+            Some("leaf") => {
+                if let Some(name) = pattern.payload.as_str() {
+                    if name != "_" {
+                        let meta = ctx.fresh_meta();
+                        ctx.extend(name.to_string(), meta_value(meta));
+                    }
+                }
+                Ok(())
+            }
+            Some("sequence") => {
+                let element_type = scrutinee_type
+                    .get("element")
+                    .cloned()
+                    .unwrap_or_else(|| meta_value(ctx.fresh_meta()));
+                let start = lang
+                    .child_role_index(&pattern.kind, "elements")
+                    .ok()
+                    .flatten()
+                    .unwrap_or(0);
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    for child_entry in children.iter().skip(start) {
+                        let child_idx = child_entry.as_u64().ok_or_else(|| {
+                            LangError::engine(
+                                "bind_pattern_vars: sequence child index is not a u64",
+                            )
+                        })? as usize;
+                        let child_ref = AstRef::new(child_idx);
+                        let Some(child_node) = ast.get(child_ref) else {
+                            continue;
+                        };
+                        let child_role = lang
+                            .ast
+                            .get_by_identity(&child_node.kind)
+                            .and_then(|s| s.pattern_role.as_deref());
+                        if child_role == Some("rest") {
+                            self.bind_pattern_vars(lang, ast, child_ref, scrutinee_type, ctx)?;
+                        } else {
+                            self.bind_pattern_vars(lang, ast, child_ref, &element_type, ctx)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            Some("entries") => {
+                let fields = scrutinee_type.get("fields");
+                let start = lang
+                    .child_role_index(&pattern.kind, "entries")
+                    .ok()
+                    .flatten()
+                    .unwrap_or(0);
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    for child_entry in children.iter().skip(start) {
+                        let child_idx = child_entry.as_u64().ok_or_else(|| {
+                            LangError::engine("bind_pattern_vars: entries child index is not a u64")
+                        })? as usize;
+                        let child_ref = AstRef::new(child_idx);
+                        let Some(child_node) = ast.get(child_ref) else {
+                            continue;
+                        };
+                        let child_role = lang
+                            .ast
+                            .get_by_identity(&child_node.kind)
+                            .and_then(|s| s.pattern_role.as_deref());
+                        if child_role == Some("entry") {
+                            self.bind_pattern_entry(
+                                lang,
+                                ast,
+                                child_node,
+                                fields,
+                                scrutinee_type,
+                                ctx,
+                            )?;
+                        } else if child_role == Some("rest") {
+                            self.bind_pattern_vars(lang, ast, child_ref, scrutinee_type, ctx)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            Some("entry") => {
+                let fields = scrutinee_type.get("fields");
+                self.bind_pattern_entry(lang, ast, pattern, fields, scrutinee_type, ctx)
+            }
+            Some("rest") => {
+                let subject_idx = lang
+                    .child_role_index(&pattern.kind, "subject")
+                    .ok()
+                    .flatten()
+                    .unwrap_or(0);
+                if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
+                    if let Some(entry) = children.get(subject_idx).and_then(|v| v.as_u64()) {
+                        self.bind_pattern_vars(
+                            lang,
+                            ast,
+                            AstRef::new(entry as usize),
+                            scrutinee_type,
+                            ctx,
+                        )?;
+                    }
+                }
+                Ok(())
+            }
+            _ => {
+                self.bind_pattern_vars_legacy(lang, ast, pattern, pattern_ref, scrutinee_type, ctx)
+            }
+        }
+    }
+
+    /// Bind a single `entry` pattern (`key: value`) using the `key`/`value`
+    /// child roles declared on the `entry` `AstShapeDef`.
+    fn bind_pattern_entry(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        entry_node: &handl_language::AstNode,
+        fields: Option<&Value>,
+        _scrutinee_type: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
+        let entry_children = entry_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| LangError::engine("bind_pattern_vars: entry node has no children"))?;
+        let key_idx = lang
+            .child_role_index(&entry_node.kind, "key")
+            .ok()
+            .flatten()
+            .unwrap_or(0);
+        let value_idx = lang
+            .child_role_index(&entry_node.kind, "value")
+            .ok()
+            .flatten()
+            .unwrap_or(1);
+        let key_entry = entry_children
+            .get(key_idx)
+            .ok_or_else(|| LangError::engine("bind_pattern_vars: entry missing key child"))?;
+        let value_entry = entry_children
+            .get(value_idx)
+            .ok_or_else(|| LangError::engine("bind_pattern_vars: entry missing value child"))?;
+        let key_idx = key_entry
+            .as_u64()
+            .ok_or_else(|| LangError::engine("bind_pattern_vars: entry key index is not a u64"))?
+            as usize;
+        let value_idx = value_entry
+            .as_u64()
+            .ok_or_else(|| LangError::engine("bind_pattern_vars: entry value index is not a u64"))?
+            as usize;
+        let key_name = ast
+            .get(AstRef::new(key_idx))
+            .and_then(|n| n.payload.as_str())
+            .unwrap_or("");
+        let field_type = fields
+            .and_then(|f| f.as_object())
+            .and_then(|fs| fs.get(key_name))
+            .cloned()
+            .unwrap_or_else(|| meta_value(ctx.fresh_meta()));
+        self.bind_pattern_vars(lang, ast, AstRef::new(value_idx), &field_type, ctx)
+    }
+
+    /// Role-less fallback for `bind_pattern_vars` so tests and legacy
+    /// languages that do not declare `pattern_role` metadata keep working.
+    fn bind_pattern_vars_legacy(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        pattern: &handl_language::AstNode,
+        _pattern_ref: AstRef,
+        scrutinee_type: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
         match pattern.kind.as_str() {
             "var" => {
                 if let Some(name) = pattern.payload.as_str() {
@@ -3109,9 +3291,7 @@ impl NbeTypecheckEngine {
                 Ok(())
             }
             "object" => {
-                let fields = scrutinee_type
-                    .get("fields")
-                    .and_then(|f| f.as_object());
+                let fields = scrutinee_type.get("fields");
                 if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
                     for child_entry in children {
                         let child_idx = child_entry.as_u64().ok_or_else(|| {
@@ -3122,32 +3302,14 @@ impl NbeTypecheckEngine {
                             continue;
                         };
                         if child_node.kind == "entry" {
-                            if let Some(entry_children) = child_node
-                                .payload
-                                .get("children")
-                                .and_then(|c| c.as_array())
-                            {
-                                if entry_children.len() >= 2 {
-                                    let key_idx = entry_children[0].as_u64().ok_or_else(|| {
-                                        LangError::engine(
-                                            "bind_pattern_vars: entry key index is not a u64",
-                                        )
-                                    })? as usize;
-                                    let value_idx = entry_children[1].as_u64().ok_or_else(|| {
-                                        LangError::engine(
-                                            "bind_pattern_vars: entry value index is not a u64",
-                                        )
-                                    })? as usize;
-                                    let key_name = ast.get(AstRef::new(key_idx))
-                                        .and_then(|n| n.payload.as_str())
-                                        .unwrap_or("");
-                                    let field_type = fields
-                                        .and_then(|fs| fs.get(key_name))
-                                        .cloned()
-                                        .unwrap_or_else(|| meta_value(ctx.fresh_meta()));
-                                    self.bind_pattern_vars(lang, ast, AstRef::new(value_idx), &field_type, ctx)?;
-                                }
-                            }
+                            self.bind_pattern_entry(
+                                lang,
+                                ast,
+                                child_node,
+                                fields,
+                                scrutinee_type,
+                                ctx,
+                            )?;
                         } else if child_node.kind == "rest" {
                             self.bind_pattern_vars(lang, ast, child_ref, scrutinee_type, ctx)?;
                         }
@@ -3158,7 +3320,13 @@ impl NbeTypecheckEngine {
             "rest" => {
                 if let Some(children) = pattern.payload.get("children").and_then(|c| c.as_array()) {
                     if let Some(first) = children.first().and_then(|v| v.as_u64()) {
-                        self.bind_pattern_vars(lang, ast, AstRef::new(first as usize), scrutinee_type, ctx)?;
+                        self.bind_pattern_vars(
+                            lang,
+                            ast,
+                            AstRef::new(first as usize),
+                            scrutinee_type,
+                            ctx,
+                        )?;
                     }
                 }
                 Ok(())
@@ -4217,11 +4385,7 @@ fn role_declared(lang: &Language, node_kind: &str, role: &str) -> bool {
 ///
 /// `None` = no such role declared or no children payload; callers fall back
 /// to the positional index.
-fn role_child_ref(
-    lang: &Language,
-    node: &AstNode,
-    role: &str,
-) -> Option<AstRef> {
+fn role_child_ref(lang: &Language, node: &AstNode, role: &str) -> Option<AstRef> {
     let idx = role_index_of(lang, &node.kind, role)?;
     let arena = node
         .payload
@@ -4509,10 +4673,7 @@ fn interpret_type_expr(
 /// Recognizes `var("Total")` / `var("Pure")` / `var("Marshalable")` and
 /// `field-access` producing `type.Total` / `type.Pure` / `type.Marshalable`.
 /// Returns `None` if the callee does not name a known meta-predicate.
-fn resolve_meta_predicate_tag(
-    ast: &Ast,
-    node: &handl_language::AstNode,
-) -> Option<&'static str> {
+fn resolve_meta_predicate_tag(ast: &Ast, node: &handl_language::AstNode) -> Option<&'static str> {
     match node.kind.as_str() {
         "var" => {
             let name = node.payload.as_str()?;
