@@ -1072,7 +1072,6 @@ dependencies = [
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
  "handl-plugin-lib-lang-typecheck",
- "handl-plugin-lib-prim",
  "handl-plugin-lib-rand-native",
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
@@ -1973,18 +1972,6 @@ dependencies = [
  "handl-plugin-lib-handl",
  "serde_json",
  "thiserror 2.0.20",
-]
-
-[[package]]
-name = "handl-plugin-lib-prim"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-stdlib",
- "handl-plugin-module",
- "serde",
- "serde_json",
 ]
 
 [[package]]

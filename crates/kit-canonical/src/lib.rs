@@ -35,7 +35,6 @@ use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_char_native::CharModule;
-use handl_plugin_lib_prim::PrimModule;
 use handl_plugin_lib_rand_native::RandModule;
 use handl_plugin_lib_time_native::TimeModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
@@ -124,7 +123,8 @@ impl ModuleResolver for StdlibResolver {
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "math" => stdlib::module("math")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
-            "prim" => Some(std::sync::Arc::new(PrimModule)),
+            "prim" => stdlib::module("prim")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "bool" => stdlib::module("bool")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "option" => stdlib::module("option")
@@ -900,10 +900,9 @@ impl Kit {
         stdlib_registry.register(build_dedent_module());
         stdlib_registry.register(TransformModule::new());
         stdlib_registry.register(CombModule::new());
-        // `prim` — the atom layer: `add`/`alloc`/`or` are pure handl
-        // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`),
-        // `compare` is the remaining native op.
-        stdlib_registry.register(PrimModule);
+        // `prim` — the atom layer: all four functions are pure handl
+        // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
+        stdlib_registry.register(stdlib::module("prim").expect("prim"));
         // `time`/`rand` — native backends (clock reads, deterministic
         // seeded RNG for `property`/`fuzz`, ADR-0092).
         stdlib_registry.register(TimeModule);
