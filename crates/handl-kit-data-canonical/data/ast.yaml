@@ -448,14 +448,14 @@
           type: object
         type: array
       children:
-        description: positional children [scrutinee, (motive,) arms]
+        description: positional children [scrutinee, (motive,) block]
         items:
           type: integer
         minItems: 2
         maxItems: 3
         type: array
       motive:
-        description: optional return motive function (return (i) ~> T)
+        description: optional return motive function parsed between 'return' and 'with' (e.g. return (i) ~> T)
         type: object
       scrutinee:
         type: object

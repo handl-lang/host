@@ -246,6 +246,14 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
+# `match` supports an optional `return ... with` motive clause and produces a
+# `match` node with 2 or 3 children: [scrutinee, (motive,) arms]. Surface forms:
+#   match scrutinee { arms }
+#   match scrutinee return motive with { arms }
+#   match (scrutinee : Type(indices...)) return motive with { arms }
+# The parser special-cases this (the grammar row only declares the 2-child
+# delimited-block form because a single arity cannot express the optional
+# `return`/`with` clause).
 - id: grammar.match.prefix
   token: token.keyword.match
   position: Prefix

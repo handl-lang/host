@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 Depends on ADR-0032 (types are values, shared `Value` space, universe levels),
 ADR-0068 (predicates as types, partial-evaluator typechecker, proofs are

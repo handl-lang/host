@@ -35,9 +35,7 @@
 //! declarations. The runtime pipeline (`Kit`/`Runtime`) is the
 //! recommended path for typechecking `data` declarations.
 
-use handl_language::{
-    Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, Language,
-};
+use handl_language::{Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, Language};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -100,7 +98,11 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Ast {
 
 /// Check whether a node's child at `cond.child_index` has kind
 /// `cond.child_kind` (ADR-0058 `when` condition).
-fn matches_condition(ast: &Ast, node: &AstNode, cond: &handl_language::AstDesugarCondition) -> bool {
+fn matches_condition(
+    ast: &Ast,
+    node: &AstNode,
+    cond: &handl_language::AstDesugarCondition,
+) -> bool {
     let child_idx = node
         .payload
         .get("children")
@@ -120,7 +122,10 @@ fn matches_condition(ast: &Ast, node: &AstNode, cond: &handl_language::AstDesuga
 /// Remap the `children` array in a node's payload from old to new indices.
 fn remap_children(node: &AstNode, remap: &[Option<usize>]) -> AstNode {
     let mut new_payload = node.payload.clone();
-    if let Some(children) = new_payload.get_mut("children").and_then(|c| c.as_array_mut()) {
+    if let Some(children) = new_payload
+        .get_mut("children")
+        .and_then(|c| c.as_array_mut())
+    {
         for child in children.iter_mut() {
             if let Some(old_idx) = child.as_u64() {
                 if let Some(Some(new_idx)) = remap.get(old_idx as usize) {
@@ -263,10 +268,7 @@ fn build_child(
         AstDesugarChild::KeepRest(start) => {
             // Keep all children from index `start` onward, each remapped
             // into the output arena (ADR-0060).
-            let children = original
-                .payload
-                .get("children")
-                .and_then(|c| c.as_array());
+            let children = original.payload.get("children").and_then(|c| c.as_array());
             match children {
                 Some(arr) => arr
                     .iter()
@@ -307,15 +309,8 @@ fn remap_child(original: &AstNode, remap: &[Option<usize>], i: usize) -> Option<
 }
 
 /// Get all remapped child indices from `start` onward.
-fn remap_children_from(
-    original: &AstNode,
-    remap: &[Option<usize>],
-    start: usize,
-) -> Vec<usize> {
-    let children = original
-        .payload
-        .get("children")
-        .and_then(|c| c.as_array());
+fn remap_children_from(original: &AstNode, remap: &[Option<usize>], start: usize) -> Vec<usize> {
+    let children = original.payload.get("children").and_then(|c| c.as_array());
     match children {
         Some(arr) => arr
             .iter()
@@ -329,8 +324,7 @@ fn remap_children_from(
 
 /// Push a leaf node (no children) into the output arena and return its index.
 fn push_leaf(out: &mut Ast, kind: &str, payload: Value) -> usize {
-    out.push(AstNode::new(kind).with_payload(payload))
-        .index()
+    out.push(AstNode::new(kind).with_payload(payload)).index()
 }
 
 /// Push a node with children into the output arena and return its index.
@@ -340,8 +334,7 @@ fn push_node(out: &mut Ast, kind: &str, children: Vec<usize>) -> usize {
     } else {
         serde_json::json!({ "children": children })
     };
-    out.push(AstNode::new(kind).with_payload(payload))
-        .index()
+    out.push(AstNode::new(kind).with_payload(payload)).index()
 }
 
 /// Push a `function` node with the given parameter names and body index.
@@ -390,10 +383,7 @@ fn push_function_with_termination(
 ///
 /// A recursive field is a constructor argument whose type expression is the
 /// type being defined, either bare (`Nat`) or applied (`Vec(n - 1, a)`).
-fn find_first_recursive_field(
-    constructors: &[DataConstructor],
-    type_name: &str,
-) -> Option<String> {
+fn find_first_recursive_field(constructors: &[DataConstructor], type_name: &str) -> Option<String> {
     for cons in constructors {
         for (arg_name, arg_type) in &cons.args {
             let mut parser = TypeExprParser::new(arg_type);
@@ -441,12 +431,7 @@ fn child_is_kind(ast: &Ast, original: &AstNode, i: usize, kind: &str) -> bool {
 /// `match` before typechecking would bypass this check. The function is
 /// tested directly in the test module below.
 #[allow(dead_code)]
-fn desugar_if(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> AstRef {
+fn desugar_if(original: &AstNode, ast: &Ast, out: &mut Ast, remap: &[Option<usize>]) -> AstRef {
     let _ = ast;
     let cond = remap_child(original, remap, 0).unwrap_or(0);
     let then_branch = remap_child(original, remap, 1).unwrap_or(0);
@@ -694,12 +679,7 @@ fn desugar_do_while(
 ///   }
 /// }
 /// ```
-fn desugar_for(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> AstRef {
+fn desugar_for(original: &AstNode, ast: &Ast, out: &mut Ast, remap: &[Option<usize>]) -> AstRef {
     let _ = ast;
     let pattern = remap_child(original, remap, 0).unwrap_or(0);
     let collection = remap_child(original, remap, 1).unwrap_or(0);
@@ -797,19 +777,35 @@ fn parse_data_payload(
     // Backward compatibility: if `payload.constructors` exists (hand-built
     // test nodes), use the old structured-JSON path.
     if let Some(constructors) = node.payload.get("constructors").and_then(|c| c.as_array()) {
-        let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
+        let name = node
+            .payload
+            .get("name")
+            .and_then(|v| v.as_str())?
+            .to_string();
         let cons = constructors
             .iter()
             .map(|c| {
-                let cname = c.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let cname = c
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let args = c
                     .get("args")
                     .and_then(|a| a.as_array())
                     .map(|arr| {
                         arr.iter()
                             .map(|a| {
-                                let aname = a.get("name").and_then(|v| v.as_str()).unwrap_or("_").to_string();
-                                let atype = a.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                let aname = a
+                                    .get("name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("_")
+                                    .to_string();
+                                let atype = a
+                                    .get("type")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
                                 (aname, atype)
                             })
                             .collect()
@@ -818,11 +814,7 @@ fn parse_data_payload(
                 let result_indices = c
                     .get("result_indices")
                     .and_then(|r| r.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .map(|v| v.as_str().map(String::from))
-                            .collect()
-                    })
+                    .map(|arr| arr.iter().map(|v| v.as_str().map(String::from)).collect())
                     .unwrap_or_default();
                 DataConstructor {
                     name: cname,
@@ -842,7 +834,13 @@ fn parse_data_payload(
         parse_type_expr(lang, type_node, ast)?
     } else {
         // Legacy form: name in payload, no parameters.
-        (node.payload.get("name").and_then(|v| v.as_str())?.to_string(), Vec::new())
+        (
+            node.payload
+                .get("name")
+                .and_then(|v| v.as_str())?
+                .to_string(),
+            Vec::new(),
+        )
     };
 
     // The constructor list is the last child for both new and legacy forms.
@@ -1064,7 +1062,11 @@ fn parse_constructor_arg(
     arg_node: &AstNode,
     position: usize,
 ) -> (String, String) {
-    if lang.child_role_index(&arg_node.kind, "annot").ok().flatten().is_some()
+    if lang
+        .child_role_index(&arg_node.kind, "annot")
+        .ok()
+        .flatten()
+        .is_some()
         || arg_node.kind == "type-annot"
     {
         let ta_children = arg_node.payload.get("children").and_then(|c| c.as_array());
@@ -1218,7 +1220,10 @@ fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
 ///
 /// Returns `Ok(())` if the declaration is strictly positive, `Err(reason)`
 /// otherwise.
-fn check_strict_positivity(type_name: &str, constructors: &[DataConstructor]) -> Result<(), String> {
+fn check_strict_positivity(
+    type_name: &str,
+    constructors: &[DataConstructor],
+) -> Result<(), String> {
     for cons in constructors {
         for (arg_name, arg_type) in &cons.args {
             let mut parser = TypeExprParser::new(arg_type);
@@ -1569,8 +1574,17 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
     let mut pred_param_refs: Vec<&str> = params.iter().map(|p| p.name.as_str()).collect();
     pred_param_refs.push("v");
     let v_var = push_leaf(out, "var", Value::from("v"));
-    let pred_body = build_predicate_body(out, &type_name, &params, &constructors, v_var);
-    let pred_fn = push_function(out, &pred_param_refs, pred_body);
+    let self_var = push_leaf(out, "var", Value::from("self"));
+    let pred_body = build_predicate_body(out, &type_name, &params, &constructors, v_var, self_var);
+    let inner_fn = push_function(out, &pred_param_refs, pred_body);
+    let outer_fn = push_function(out, &["self"], inner_fn);
+    let self_app = push_node(out, "call", vec![outer_fn, outer_fn]);
+    let mut pred_call_children: Vec<usize> = vec![self_app];
+    for p in &pred_param_refs {
+        pred_call_children.push(push_leaf(out, "var", Value::from(*p)));
+    }
+    let pred_body_call = push_node(out, "call", pred_call_children);
+    let pred_fn = push_function(out, &pred_param_refs, pred_body_call);
     let pred_target = push_leaf(out, "var", Value::from(type_name.clone()));
     let pred_assign = push_node(out, "assign", vec![pred_target, pred_fn]);
     stmts.push(pred_assign);
@@ -1630,46 +1644,54 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
     Some(AstRef::new(block))
 }
 
-/// Build the predicate body: a disjunction over constructor checks.
+/// Build the predicate dispatch body for the inner function `(params..., v) -> ...`.
+///
+/// The predicate must be able to call itself recursively, but it is built before
+/// the top-level `Type` binding is available in the environment. We use the
+/// `self` parameter of the enclosing fixed-point function: `self(self)` yields
+/// the same inner predicate, which can be applied to the recursive argument.
+///
+/// The dispatch is an `if` chain so that only the matching constructor's branch
+/// is evaluated (the `binary.or`/`binary.and` primitives are not short-circuiting).
 fn build_predicate_body(
     out: &mut Ast,
     type_name: &str,
     params: &[DataParam],
     constructors: &[DataConstructor],
     v_idx: usize,
+    self_idx: usize,
 ) -> usize {
     if constructors.is_empty() {
         return push_leaf(out, "lit", Value::Bool(false));
     }
-    if constructors.len() == 1 {
-        return build_cons_check(out, type_name, params, &constructors[0], v_idx);
+
+    // self(self) gives the recursive predicate closure.
+    let rec_app = push_node(out, "call", vec![self_idx, self_idx]);
+
+    let mut else_branch = push_leaf(out, "lit", Value::Bool(false));
+    for cons in constructors.iter().rev() {
+        let condition = build_constructor_condition(out, params, cons, v_idx);
+        let then_branch =
+            build_constructor_predicate_check(out, type_name, params, cons, v_idx, rec_app);
+        else_branch = push_node(out, "if", vec![condition, then_branch, else_branch]);
     }
-    let mut expr = build_cons_check(out, type_name, params, &constructors[0], v_idx);
-    for cons in &constructors[1..] {
-        let next = build_cons_check(out, type_name, params, cons, v_idx);
-        expr = push_node(out, "binary.or", vec![expr, next]);
-    }
-    expr
+    else_branch
 }
 
-/// Build a check for a single constructor:
-///   `v.tag == "ConsName"`
-///   and `param_i == result_index_i` for each supplied result index
-///   and `Type(index_exprs...)(v.arg)` for each recursive argument.
-fn build_cons_check(
+/// Build the guard for a constructor: `v.tag == "ConsName"` plus any
+/// non-tautological result-index equalities. These checks are safe to evaluate
+/// eagerly because they do not recursively inspect the value.
+fn build_constructor_condition(
     out: &mut Ast,
-    type_name: &str,
     params: &[DataParam],
     cons: &DataConstructor,
     v_idx: usize,
 ) -> usize {
-    // v.tag == "ConsName"
     let tag_lit = push_leaf(out, "lit", Value::from("tag"));
     let tag_access = push_node(out, "field-access", vec![v_idx, tag_lit]);
     let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
-    let mut expr = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
+    let mut condition = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
 
-    // Result-index checks.
     for (i, param) in params.iter().enumerate() {
         if let Some(index_expr) = cons.result_indices.get(i).and_then(|r| r.as_ref()) {
             let mut parser = TypeExprParser::new(index_expr);
@@ -1685,12 +1707,42 @@ fn build_cons_check(
                 }
                 let param_var = push_leaf(out, "var", Value::from(param.name.clone()));
                 let eq = push_node(out, "binary.eq", vec![param_var, idx_ast]);
-                expr = push_node(out, "binary.and", vec![expr, eq]);
+                condition = push_node(out, "binary.and", vec![condition, eq]);
             }
         }
     }
 
-    // Recursive-argument checks.
+    // For parameters typed as `Nat`, ensure the requested index is
+    // non-negative. This keeps well-founded indexed families such as `Fin`
+    // from accepting values whose recursive index has dropped below zero
+    // (e.g. `Fin(0, FS(FZ))` requires `Fin(-1, FZ)`, which must be empty).
+    for param in params {
+        if param.typ == "Nat" {
+            let param_var = push_leaf(out, "var", Value::from(param.name.clone()));
+            let zero = push_leaf(out, "value", Value::from(0));
+            let gte = push_node(out, "binary.gte", vec![param_var, zero]);
+            condition = push_node(out, "binary.and", vec![condition, gte]);
+        }
+    }
+
+    condition
+}
+
+/// Build the then-branch of a constructor's predicate check: a conjunction of
+/// recursive predicate calls, one for each recursive constructor argument.
+/// Because this is used inside the `then` branch of an `if`, the tag is known
+/// to match, so field accesses are safe.
+fn build_constructor_predicate_check(
+    out: &mut Ast,
+    type_name: &str,
+    _params: &[DataParam],
+    cons: &DataConstructor,
+    v_idx: usize,
+    rec_app: usize,
+) -> usize {
+    let mut expr = push_leaf(out, "lit", Value::Bool(true));
+    let mut had_recursive = false;
+
     for (arg_name, arg_type) in &cons.args {
         let mut parser = TypeExprParser::new(arg_type);
         if let Some(type_expr) = parser.parse() {
@@ -1700,26 +1752,31 @@ fn build_cons_check(
                 _ => false,
             };
             if is_recursive {
+                had_recursive = true;
                 let arg_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
                 let field_access = push_node(out, "field-access", vec![v_idx, arg_lit]);
-                let type_var = push_leaf(out, "var", Value::from(type_name));
 
                 let call = match type_expr {
                     TypeExpr::App(_, index_exprs) => {
-                        let mut call_children = vec![type_var];
+                        let mut call_children = vec![rec_app];
                         for idx_expr in &index_exprs {
                             call_children.push(type_expr_to_ast(out, idx_expr));
                         }
                         call_children.push(field_access);
                         push_node(out, "call", call_children)
                     }
-                    _ => push_node(out, "call", vec![type_var, field_access]),
+                    _ => push_node(out, "call", vec![rec_app, field_access]),
                 };
                 expr = push_node(out, "binary.and", vec![expr, call]);
             }
         }
     }
-    expr
+
+    if had_recursive {
+        expr
+    } else {
+        push_leaf(out, "lit", Value::Bool(true))
+    }
 }
 
 /// Build the recursor inner function (self-application form):
@@ -1889,10 +1946,7 @@ fn parse_arm_pattern(out: &Ast, pattern: &AstNode) -> Option<MatchArm> {
             })
         }
         "call" => {
-            let call_children = pattern
-                .payload
-                .get("children")
-                .and_then(|c| c.as_array())?;
+            let call_children = pattern.payload.get("children").and_then(|c| c.as_array())?;
             if call_children.is_empty() {
                 return None;
             }
@@ -1922,21 +1976,27 @@ fn parse_arm_pattern(out: &Ast, pattern: &AstNode) -> Option<MatchArm> {
 }
 
 /// Desugar an inductive `match` expression into a recursor application
-/// (ADR-0082 step 4, Phase 6.3 optional motives).
+/// (ADR-0082 step 4 and step 6, Phase 6.3 optional motives).
 ///
-/// `match n { Zero => 0, Succ(pred) => 1 }` becomes
-/// `Nat.rec(null, 0, (pred, __rec_0) => 1)(n)`.
+/// Non-indexed example:
+/// `match n { Zero: 0, Succ(pred): 1 }` becomes
+/// `Nat.rec(null, 0, (pred, __rec_0) ~> 1)(n)`.
 ///
-/// `match v return (i) -> T with { ... }` becomes
-/// `Type.rec(motive, ...)(v)` where the motive is passed as the first
-/// recursor argument.
+/// Indexed-family example:
+/// `match (v : Vec(n, a)) { VNil: 0, VCons(x, xs): __rec_0 + 1 }` becomes
+/// `Vec.rec(null, 0, step)(n, a, v)`.
 ///
-/// **Guard:** Only fires when ALL arms have constructor-like patterns
-/// (var nodes that aren't `_`, or call nodes with a var callee). If any
-/// arm uses a wildcard (`_`) or non-constructor pattern, the match is left
-/// unchanged. Indexed family matches (non-empty type parameters) are also
-/// left unchanged; the runtime `match` primitive or user code can call
-/// the indexed recursor explicitly.
+/// A motive is passed as the first recursor argument:
+/// `match v return (i) ~> T with { ... }` becomes
+/// `Type.rec(motive, ...)(indices..., v)`.
+///
+/// **Guards:**
+/// - Only fires when ALL arms have constructor-like patterns (var nodes that
+///   aren't `_`, or call nodes with a var callee). If any arm uses a wildcard
+///   (`_`) or non-constructor pattern, the match is left unchanged.
+/// - For indexed families, the scrutinee must be a (possibly parenthesised)
+///   type-annotated call to the matching family (`v : Type(indices...)`).
+///   Otherwise the match is left for the runtime `match` primitive.
 fn desugar_match_to_recursor(
     lang: &Language,
     original: &AstNode,
@@ -1944,7 +2004,10 @@ fn desugar_match_to_recursor(
     out: &mut Ast,
     remap: &[Option<usize>],
 ) -> Option<AstRef> {
-    let children = original.payload.get("children").and_then(|c| c.as_array())?;
+    let children = original
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())?;
     if children.len() < 2 {
         return None;
     }
@@ -2010,11 +2073,80 @@ fn desugar_match_to_recursor(
     let first_cons_name = &arms[0].cons_name;
     let (type_name, params, constructors) = cons_to_type.get(first_cons_name)?;
 
-    // Indexed family matches are not desugared here because the source-level
-    // `match` does not carry the scrutinee's index values.
-    if !params.is_empty() {
-        return None;
-    }
+    // For indexed families, the scrutinee must be a (possibly parenthesised)
+    // type-annotated expression `v : Type(indices...)`. The annotation gives us
+    // the index arguments for the recursor application; the subject is the
+    // value being matched. Non-indexed families keep the existing behaviour.
+    let (value_node, index_nodes): (usize, Vec<usize>) = if params.is_empty() {
+        (scrutinee, Vec::new())
+    } else {
+        let mut current = scrutinee;
+
+        // Unwrap a single-child `paren` if present.
+        if let Some(paren) = out.get(AstRef::new(current)) {
+            if paren.kind == "paren" {
+                let body_role = lang
+                    .child_role_index("paren", "body")
+                    .ok()
+                    .flatten()
+                    .unwrap_or(0);
+                let paren_children = paren
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())?;
+                current = paren_children
+                    .get(body_role)?
+                    .as_u64()? as usize;
+            }
+        }
+
+        let (value_idx, annot_idx) = {
+            let annotated = out.get(AstRef::new(current))?;
+            if annotated.kind != "type-annot" {
+                return None;
+            }
+            let subject_role = lang
+                .child_role_index("type-annot", "subject")
+                .ok()
+                .flatten()
+                .unwrap_or(0);
+            let annot_role = lang
+                .child_role_index("type-annot", "annot")
+                .ok()
+                .flatten()
+                .unwrap_or(1);
+            let children = annotated
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())?;
+            let value_idx = children.get(subject_role)?.as_u64()? as usize;
+            let annot_idx = children.get(annot_role)?.as_u64()? as usize;
+            (value_idx, annot_idx)
+        };
+
+        let annot = out.get(AstRef::new(annot_idx))?;
+        if annot.kind != "call" {
+            return None;
+        }
+        let annot_children = annot
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())?;
+        let callee_idx = annot_children.first()?.as_u64()? as usize;
+        let callee = out.get(AstRef::new(callee_idx))?;
+        if callee.kind != "var" || callee.payload.as_str()? != type_name.as_str() {
+            return None;
+        }
+
+        let mut index_nodes = Vec::with_capacity(params.len());
+        for val in annot_children.iter().skip(1) {
+            index_nodes.push(val.as_u64()? as usize);
+        }
+        if index_nodes.len() != params.len() {
+            return None;
+        }
+        (value_idx, index_nodes)
+    };
 
     if arms.len() != constructors.len() {
         return None;
@@ -2065,7 +2197,10 @@ fn desugar_match_to_recursor(
     call_children.extend(rec_args);
     let rec_call = push_node(out, "call", call_children);
 
-    let full_call = push_node(out, "call", vec![rec_call, scrutinee]);
+    let mut final_children = vec![rec_call];
+    final_children.extend(index_nodes);
+    final_children.push(value_node);
+    let full_call = push_node(out, "call", final_children);
 
     Some(AstRef::new(full_call))
 }
@@ -2212,9 +2347,7 @@ mod tests {
     #[test]
     fn no_desugar_is_identity() {
         let mut lang = Language::new();
-        lang.ast
-            .merge(AstShapeDef::new("ast.lit", "lit"))
-            .unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
         let mut ast = Ast::new();
         ast.push(AstNode::new("lit").with_payload(json!(42)));
         let out = apply_desugar(&lang, &ast);
@@ -2271,7 +2404,9 @@ mod tests {
         // Other shapes (no desugar)
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         // Build: if { children: [cond=0, then=1, else=2] }
         // where 0=lit(true), 1=lit(1), 2=lit(0)
@@ -2291,18 +2426,26 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 2);
         // First child is the remapped cond (lit(true))
-        let cond = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let cond = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(cond.kind, "lit");
         assert_eq!(cond.payload, json!(true));
         // Second child is the block
-        let block = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        let block = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(block.kind, "block");
         let block_children = block.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(block_children.len(), 2);
         // Each arm
-        let arm1 = out.get(AstRef::new(block_children[0].as_u64().unwrap() as usize)).unwrap();
+        let arm1 = out
+            .get(AstRef::new(block_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(arm1.kind, "arm");
-        let arm2 = out.get(AstRef::new(block_children[1].as_u64().unwrap() as usize)).unwrap();
+        let arm2 = out
+            .get(AstRef::new(block_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(arm2.kind, "arm");
     }
 
@@ -2349,7 +2492,9 @@ mod tests {
         lang.ast.merge(if_shape).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         // Build: outer if { children: [0, 1, 5] }
         //   0: lit(true)   (cond)
@@ -2375,12 +2520,21 @@ mod tests {
         assert_eq!(children.len(), 2);
         // The second arm's body (Keep(2) → original child 5 = inner if)
         // should be a match node (desugared), not null.
-        let block = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        let block = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
         let block_children = block.payload.get("children").unwrap().as_array().unwrap();
-        let arm2 = out.get(AstRef::new(block_children[1].as_u64().unwrap() as usize)).unwrap();
+        let arm2 = out
+            .get(AstRef::new(block_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         let arm2_children = arm2.payload.get("children").unwrap().as_array().unwrap();
-        let else_body = out.get(AstRef::new(arm2_children[1].as_u64().unwrap() as usize)).unwrap();
-        assert_eq!(else_body.kind, "match", "nested if should be desugared to match");
+        let else_body = out
+            .get(AstRef::new(arm2_children[1].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(
+            else_body.kind, "match",
+            "nested if should be desugared to match"
+        );
     }
 
     #[test]
@@ -2413,8 +2567,12 @@ mod tests {
         lang.ast.merge(entry_shape).unwrap();
         // Other shapes (no desugar, just so the language is well-formed)
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.array", "array")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.paren", "paren")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.array", "array"))
+            .unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.paren", "paren"))
+            .unwrap();
 
         // Build: entry { children: [array{[0]}, value(1)] }
         //   0: var("k")        (computed key expr)
@@ -2434,15 +2592,26 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 2);
         // Child 0 should be a `paren` node (not `array`).
-        let key_node = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let key_node = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(key_node.kind, "paren");
         // The paren's child 0 should be the remapped var("k").
-        let paren_children = key_node.payload.get("children").unwrap().as_array().unwrap();
-        let inner = out.get(AstRef::new(paren_children[0].as_u64().unwrap() as usize)).unwrap();
+        let paren_children = key_node
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let inner = out
+            .get(AstRef::new(paren_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(inner.kind, "var");
         assert_eq!(inner.payload, json!("k"));
         // Child 1 should be the remapped value(1).
-        let val = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        let val = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(val.kind, "value");
         assert_eq!(val.payload, json!(1));
     }
@@ -2485,8 +2654,13 @@ mod tests {
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "entry");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        let key = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
-        assert_eq!(key.kind, "var", "non-array key should pass through unchanged");
+        let key = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(
+            key.kind, "var",
+            "non-array key should pass through unchanged"
+        );
         assert_eq!(key.payload, json!("n"));
     }
 
@@ -2497,15 +2671,14 @@ mod tests {
         let mut lang = Language::new();
         let shape = AstShapeDef::new("ast.call", "call").with_desugar(AstDesugarRule {
             target_kind: "json".to_string(),
-            children: vec![
-                AstDesugarChild::Keep(0),
-                AstDesugarChild::KeepRest(1),
-            ],
+            children: vec![AstDesugarChild::Keep(0), AstDesugarChild::KeepRest(1)],
             when: None,
         });
         lang.ast.merge(shape).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.json", "json")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.json", "json"))
+            .unwrap();
 
         // Build: call { children: [0, 1, 2] }
         //   0: json("{\"a\": $0}")  (template)
@@ -2525,13 +2698,19 @@ mod tests {
         // Should have 3 children: [template, arg1, arg2]
         assert_eq!(children.len(), 3);
         // Child 0 is the json template
-        let template = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let template = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(template.kind, "json");
         // Children 1 and 2 are the args
-        let arg1 = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        let arg1 = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(arg1.kind, "lit");
         assert_eq!(arg1.payload, json!(42));
-        let arg2 = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        let arg2 = out
+            .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(arg2.kind, "lit");
         assert_eq!(arg2.payload, json!("hello"));
     }
@@ -2543,15 +2722,14 @@ mod tests {
         let mut lang = Language::new();
         let shape = AstShapeDef::new("ast.call", "call").with_desugar(AstDesugarRule {
             target_kind: "json".to_string(),
-            children: vec![
-                AstDesugarChild::Keep(0),
-                AstDesugarChild::KeepRest(1),
-            ],
+            children: vec![AstDesugarChild::Keep(0), AstDesugarChild::KeepRest(1)],
             when: None,
         });
         lang.ast.merge(shape).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.json", "json")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.json", "json"))
+            .unwrap();
 
         let mut ast = Ast::new();
         ast.push(AstNode::new("json").with_payload(json!("{}"))); // 0
@@ -2617,7 +2795,13 @@ mod tests {
         let block = child_node(&out, root, 1);
         assert_eq!(block.kind, "block");
         assert_eq!(
-            block.payload.get("children").unwrap().as_array().unwrap().len(),
+            block
+                .payload
+                .get("children")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
             2
         );
 
@@ -2670,7 +2854,13 @@ mod tests {
         let block = child_node(&out, root, 1);
         assert_eq!(block.kind, "block");
         assert_eq!(
-            block.payload.get("children").unwrap().as_array().unwrap().len(),
+            block
+                .payload
+                .get("children")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
             2
         );
 
@@ -2759,7 +2949,9 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.assign", "assign"))
             .unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.while", "while")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.while", "while"))
+            .unwrap();
 
         // Build: while { children: [cond=0, body=1] }
         //   0: binary.gt { children: [var("n"), lit(0)] }
@@ -2823,11 +3015,15 @@ mod tests {
         // `loop_step` eval protocol.
         let mut lang = Language::new();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.object", "object")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.object", "object"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.function", "function"))
             .unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.while", "while")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.while", "while"))
+            .unwrap();
 
         // Build: while { children: [object=0, function=1] }
         let mut ast = Ast::new();
@@ -2846,7 +3042,9 @@ mod tests {
         // `do { body } while cond` → `rec { __result = body, __continue = cond, __result = if ... }`
         let mut lang = Language::new();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.block", "block")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.block", "block"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.binary.gt", "binary.gt"))
             .unwrap();
@@ -3055,7 +3253,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         // The root should be a `block` containing the predicate, two
@@ -3063,12 +3264,22 @@ mod tests {
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
 
         // Each statement should be an `assign`.
         for (i, child_idx) in children.iter().enumerate() {
-            let node = out.get(AstRef::new(child_idx.as_u64().unwrap() as usize)).unwrap();
-            assert_eq!(node.kind, "assign", "statement {} should be assign, got {}", i, node.kind);
+            let node = out
+                .get(AstRef::new(child_idx.as_u64().unwrap() as usize))
+                .unwrap();
+            assert_eq!(
+                node.kind, "assign",
+                "statement {} should be assign, got {}",
+                i, node.kind
+            );
         }
     }
 
@@ -3104,8 +3315,16 @@ mod tests {
         // `__data_error__` prefix (Bug 0.4).
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "desugar-error");
-        let reason = root.payload.get("reason").and_then(|v| v.as_str()).unwrap_or("");
-        let kind = root.payload.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+        let reason = root
+            .payload
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let kind = root
+            .payload
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         assert_eq!(kind, "data-error");
         assert!(
             reason.contains("strict positivity"),
@@ -3123,7 +3342,10 @@ mod tests {
         let mut ast = Ast::new();
         // data Maybe = None | Some(value)
         // (value is untyped — not recursive, so no recursive check)
-        ast.push(data_node("Maybe", &[("None", &[]), ("Some", &[("value", "Int")])]));
+        ast.push(data_node(
+            "Maybe",
+            &[("None", &[]), ("Some", &[("value", "Int")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3140,7 +3362,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3148,15 +3373,26 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
 
         // First statement: Nat = (v) -> ...  (assign with var target, function value)
-        let pred_assign = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let pred_assign = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(pred_assign.kind, "assign");
-        let pred_children = pred_assign.payload.get("children").unwrap().as_array().unwrap();
+        let pred_children = pred_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         // Target: var("Nat")
-        let target = out.get(AstRef::new(pred_children[0].as_u64().unwrap() as usize)).unwrap();
+        let target = out
+            .get(AstRef::new(pred_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(target.kind, "var");
         assert_eq!(target.payload, json!("Nat"));
         // Value: function
-        let value = out.get(AstRef::new(pred_children[1].as_u64().unwrap() as usize)).unwrap();
+        let value = out
+            .get(AstRef::new(pred_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(value.kind, "function");
     }
 
@@ -3167,7 +3403,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3175,15 +3414,26 @@ mod tests {
 
         // Last statement: Nat.rec = rec { ... }
         // (Bug 0.3: recursor is wrapped in a rec region for self-reference)
-        let rec_assign = out.get(AstRef::new(children[3].as_u64().unwrap() as usize)).unwrap();
+        let rec_assign = out
+            .get(AstRef::new(children[3].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(rec_assign.kind, "assign");
-        let rec_children = rec_assign.payload.get("children").unwrap().as_array().unwrap();
+        let rec_children = rec_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         // Target: var("Nat.rec")
-        let target = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        let target = out
+            .get(AstRef::new(rec_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(target.kind, "var");
         assert_eq!(target.payload, json!("Nat.rec"));
         // Value: rec region (containing the self-application bindings)
-        let value = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        let value = out
+            .get(AstRef::new(rec_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(value.kind, "rec");
     }
 
@@ -3221,14 +3471,20 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         let inner_fn = recursor_inner_fn(&out, children).expect("inner function");
         assert_eq!(inner_fn.kind, "function");
-        let term = inner_fn.payload.get("termination").expect("termination metadata");
+        let term = inner_fn
+            .payload
+            .get("termination")
+            .expect("termination metadata");
         assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
         assert_eq!(term.get("decreasing_field").unwrap(), &json!("pred"));
     }
@@ -3257,8 +3513,8 @@ mod tests {
 
     #[test]
     fn data_tree_recursor_termination_uses_first_recursive_field() {
-    // data Tree = Leaf | Node(Tree, Tree) — two recursive fields. The
-    // termination metadata should use the first recursive field "left".
+        // data Tree = Leaf | Node(Tree, Tree) — two recursive fields. The
+        // termination metadata should use the first recursive field "left".
         let mut lang = Language::new();
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
@@ -3266,14 +3522,20 @@ mod tests {
         let mut ast = Ast::new();
         ast.push(data_node(
             "Tree",
-            &[("Leaf", &[]), ("Node", &[("left", "Tree"), ("right", "Tree")])],
+            &[
+                ("Leaf", &[]),
+                ("Node", &[("left", "Tree"), ("right", "Tree")]),
+            ],
         ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         let inner_fn = recursor_inner_fn(&out, children).expect("inner function");
-        let term = inner_fn.payload.get("termination").expect("termination metadata");
+        let term = inner_fn
+            .payload
+            .get("termination")
+            .expect("termination metadata");
         assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
         assert_eq!(term.get("decreasing_field").unwrap(), &json!("left"));
     }
@@ -3292,7 +3554,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3300,11 +3565,20 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
 
         // Statement 2: Succ = (pred) -> json{...}
-        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        let succ_assign = out
+            .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(succ_assign.kind, "assign");
-        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
+        let succ_children = succ_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         // Value: function (rich payload: params + body)
-        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        let succ_fn = out
+            .get(AstRef::new(succ_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(succ_fn.kind, "function");
         // params: ["pred"]
         let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
@@ -3316,13 +3590,28 @@ mod tests {
         assert_eq!(body.kind, "json");
         let body_children = body.payload.get("children").unwrap().as_array().unwrap();
         // Child 0: template json node (string payload)
-        let template = out.get(AstRef::new(body_children[0].as_u64().unwrap() as usize)).unwrap();
+        let template = out
+            .get(AstRef::new(body_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(template.kind, "json");
-        let template_str = template.payload.as_str().expect("template must be a string");
-        assert!(template_str.contains("\"pred\""), "template must contain pred field: {}", template_str);
-        assert!(template_str.contains("$0"), "template must contain $0 placeholder: {}", template_str);
+        let template_str = template
+            .payload
+            .as_str()
+            .expect("template must be a string");
+        assert!(
+            template_str.contains("\"pred\""),
+            "template must contain pred field: {}",
+            template_str
+        );
+        assert!(
+            template_str.contains("$0"),
+            "template must contain $0 placeholder: {}",
+            template_str
+        );
         // Child 1: the arg var node (pred), NOT a string literal
-        let arg_node = out.get(AstRef::new(body_children[1].as_u64().unwrap() as usize)).unwrap();
+        let arg_node = out
+            .get(AstRef::new(body_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(arg_node.kind, "var", "arg must be a var node, not a lit");
         assert_eq!(arg_node.payload, json!("pred"));
     }
@@ -3340,7 +3629,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         // Walk the AST and verify every `if` node has exactly 3 children.
@@ -3374,17 +3666,12 @@ mod tests {
         // var("Nat") — index 2
         let nat = ast.push(AstNode::new("var").with_payload(json!("Nat")));
         // call(Succ, Nat) — index 3
-        let call = ast.push(
-            AstNode::new("call").with_payload(json!({ "children": [succ, nat] })),
-        );
+        let call = ast.push(AstNode::new("call").with_payload(json!({ "children": [succ, nat] })));
         // alt(Zero, call) — index 4
-        let alt = ast.push(
-            AstNode::new("alt").with_payload(json!({ "children": [zero, call] })),
-        );
+        let alt = ast.push(AstNode::new("alt").with_payload(json!({ "children": [zero, call] })));
         // data(Nat, alt) — index 5
-        let _data = ast.push(
-            AstNode::new("data").with_payload(json!({ "name": "Nat", "children": [alt] })),
-        );
+        let _data = ast
+            .push(AstNode::new("data").with_payload(json!({ "name": "Nat", "children": [alt] })));
         ast
     }
 
@@ -3403,29 +3690,61 @@ mod tests {
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
 
         // Each statement should be an `assign`.
         for (i, child_idx) in children.iter().enumerate() {
-            let node = out.get(AstRef::new(child_idx.as_u64().unwrap() as usize)).unwrap();
-            assert_eq!(node.kind, "assign", "statement {} should be assign, got {}", i, node.kind);
+            let node = out
+                .get(AstRef::new(child_idx.as_u64().unwrap() as usize))
+                .unwrap();
+            assert_eq!(
+                node.kind, "assign",
+                "statement {} should be assign, got {}",
+                i, node.kind
+            );
         }
 
         // Verify the predicate target is var("Nat").
-        let pred_assign = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
-        let pred_children = pred_assign.payload.get("children").unwrap().as_array().unwrap();
-        let target = out.get(AstRef::new(pred_children[0].as_u64().unwrap() as usize)).unwrap();
+        let pred_assign = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        let pred_children = pred_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let target = out
+            .get(AstRef::new(pred_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(target.kind, "var");
         assert_eq!(target.payload, json!("Nat"));
 
         // Verify the Succ constructor has arg name "nat" (lowercased type).
-        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
-        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
-        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        let succ_assign = out
+            .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+            .unwrap();
+        let succ_children = succ_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let succ_fn = out
+            .get(AstRef::new(succ_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(succ_fn.kind, "function");
         let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
         assert_eq!(params.len(), 1);
-        assert_eq!(params[0], json!("nat"), "arg name should be lowercased type name");
+        assert_eq!(
+            params[0],
+            json!("nat"),
+            "arg name should be lowercased type name"
+        );
     }
 
     #[test]
@@ -3438,18 +3757,19 @@ mod tests {
         let mut ast = Ast::new();
         let true_var = ast.push(AstNode::new("var").with_payload(json!("True")));
         let false_var = ast.push(AstNode::new("var").with_payload(json!("False")));
-        let alt = ast.push(
-            AstNode::new("alt").with_payload(json!({ "children": [true_var, false_var] })),
-        );
-        ast.push(
-            AstNode::new("data").with_payload(json!({ "name": "Bool", "children": [alt] })),
-        );
+        let alt = ast
+            .push(AstNode::new("alt").with_payload(json!({ "children": [true_var, false_var] })));
+        ast.push(AstNode::new("data").with_payload(json!({ "name": "Bool", "children": [alt] })));
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
     }
 
     #[test]
@@ -3487,7 +3807,10 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3496,11 +3819,24 @@ mod tests {
         assert_eq!(children.len(), 4);
 
         // Verify the Succ constructor uses "pred" (from hand-built payload).
-        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
-        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
-        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        let succ_assign = out
+            .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+            .unwrap();
+        let succ_children = succ_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let succ_fn = out
+            .get(AstRef::new(succ_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
-        assert_eq!(params[0], json!("pred"), "hand-built arg name should be 'pred'");
+        assert_eq!(
+            params[0],
+            json!("pred"),
+            "hand-built arg name should be 'pred'"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -3527,38 +3863,47 @@ mod tests {
         // var("Nat") — index 3
         let nat = ast.push(AstNode::new("var").with_payload(json!("Nat")));
         // type-annot(value, Nat) — index 4
-        let type_annot = ast.push(
-            AstNode::new("type-annot").with_payload(json!({ "children": [value, nat] })),
-        );
+        let type_annot =
+            ast.push(AstNode::new("type-annot").with_payload(json!({ "children": [value, nat] })));
         // call(Just, type-annot) — index 5
-        let call = ast.push(
-            AstNode::new("call").with_payload(json!({ "children": [just, type_annot] })),
-        );
+        let call =
+            ast.push(AstNode::new("call").with_payload(json!({ "children": [just, type_annot] })));
         // alt(Nothing, call) — index 6
-        let alt = ast.push(
-            AstNode::new("alt").with_payload(json!({ "children": [nothing, call] })),
-        );
+        let alt =
+            ast.push(AstNode::new("alt").with_payload(json!({ "children": [nothing, call] })));
         // data(Maybe, alt) — index 7
-        ast.push(
-            AstNode::new("data").with_payload(json!({ "name": "Maybe", "children": [alt] })),
-        );
+        ast.push(AstNode::new("data").with_payload(json!({ "name": "Maybe", "children": [alt] })));
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+        assert_eq!(
+            children.len(),
+            4,
+            "expected 4 statements (pred + 2 cons + rec)"
+        );
 
         // The Just constructor (statement 2) should have param "value".
-        let just_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        let just_assign = out
+            .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(just_assign.kind, "assign");
-        let just_children = just_assign.payload.get("children").unwrap().as_array().unwrap();
-        let just_fn = out.get(AstRef::new(just_children[1].as_u64().unwrap() as usize)).unwrap();
+        let just_children = just_assign
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let just_fn = out
+            .get(AstRef::new(just_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(just_fn.kind, "function");
         let params = just_fn.payload.get("params").unwrap().as_array().unwrap();
         assert_eq!(params.len(), 1);
         assert_eq!(
-            params[0], json!("value"),
+            params[0],
+            json!("value"),
             "type-annot arg name should be 'value', not a placeholder"
         );
     }
@@ -3567,9 +3912,40 @@ mod tests {
     // Phase 2.1: Recursor handles N constructors (not just 2)
     // -----------------------------------------------------------------------
 
-    /// Count nodes of a given kind in the output AST.
-    fn count_kind(out: &Ast, kind: &str) -> usize {
-        out.nodes().iter().filter(|n| n.kind == kind).count()
+    /// Count nodes of a given kind reachable from a starting node.
+    fn count_kind_from(out: &Ast, start: usize, kind: &str) -> usize {
+        let mut count = 0usize;
+        let mut stack = vec![start];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(idx) = stack.pop() {
+            if !seen.insert(idx) {
+                continue;
+            }
+            if let Some(node) = out.get(AstRef::new(idx)) {
+                if node.kind == kind {
+                    count += 1;
+                }
+                // Follow both `children` arrays and the `body` pointer.
+                if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                    for c in children {
+                        if let Some(i) = c.as_u64() {
+                            stack.push(i as usize);
+                        }
+                    }
+                }
+                if let Some(body) = node.payload.get("body").and_then(|b| b.as_u64()) {
+                    stack.push(body as usize);
+                }
+            }
+        }
+        count
+    }
+
+    /// Count `if` nodes in the recursor dispatch body.
+    fn recursor_dispatch_if_count(out: &Ast, block_children: &[Value]) -> Option<usize> {
+        let inner = recursor_inner_fn(out, block_children)?;
+        let body = inner.payload.get("body")?.as_u64()? as usize;
+        Some(count_kind_from(out, body, "if"))
     }
 
     /// Extract the recursor's middle-function constructor-param count from a
@@ -3631,7 +4007,7 @@ mod tests {
         assert_eq!(nparams, 3, "RGB recursor should take 3 constructor params");
 
         // The dispatch should produce 3 `if` nodes (one per constructor).
-        let if_count = count_kind(&out, "if");
+        let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
         assert_eq!(
             if_count, 3,
             "RGB recursor dispatch should have 3 if nodes, got {}",
@@ -3677,7 +4053,7 @@ mod tests {
         assert_eq!(nparams, 3, "Nat3 recursor should take 3 constructor params");
 
         // 3 if nodes in the dispatch.
-        let if_count = count_kind(&out, "if");
+        let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
         assert_eq!(if_count, 3, "Nat3 recursor dispatch should have 3 if nodes");
 
         // Every if node has 3 children.
@@ -3700,7 +4076,10 @@ mod tests {
         let mut ast = Ast::new();
         ast.push(data_node(
             "Tree",
-            &[("Leaf", &[]), ("Node", &[("left", "Tree"), ("right", "Tree")])],
+            &[
+                ("Leaf", &[]),
+                ("Node", &[("left", "Tree"), ("right", "Tree")]),
+            ],
         ));
         let out = apply_desugar(&lang, &ast);
 
@@ -3715,7 +4094,7 @@ mod tests {
         assert_eq!(nparams, 2, "Tree recursor should take 2 constructor params");
 
         // 2 if nodes in the dispatch.
-        let if_count = count_kind(&out, "if");
+        let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
         assert_eq!(if_count, 2, "Tree recursor dispatch should have 2 if nodes");
 
         // The Node branch's step call should have:
@@ -3780,7 +4159,11 @@ mod tests {
 
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "desugar-error");
-        let reason = root.payload.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+        let reason = root
+            .payload
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         assert!(
             reason.contains("strict positivity"),
             "expected strict positivity error for nested function type, got: {}",
@@ -3865,10 +4248,7 @@ mod tests {
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
         let mut ast = Ast::new();
-        ast.push(data_node(
-            "Good",
-            &[("Cons", &[("xs", "List(Good)")])],
-        ));
+        ast.push(data_node("Good", &[("Cons", &[("xs", "List(Good)")])]));
         let out = apply_desugar(&lang, &ast);
 
         let root = out.nodes().last().unwrap();
@@ -3891,7 +4271,10 @@ mod tests {
     fn data_plus_match_nat_ast() -> Ast {
         let mut ast = Ast::new();
         // data Nat = Zero | Succ(Nat)
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
 
         // match n { Zero => 0, Succ(pred) => 1 }
         // scrutinee: var("n") — index 1
@@ -3901,15 +4284,18 @@ mod tests {
         // arm 1 body: lit(0) — index 3
         let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
         // arm 1: arm { children: [zero_pat, zero_body] } — index 4
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
         // arm 2 pattern: call(var("Succ"), var("pred")) — indices 5, 6, 7
         let succ_var = ast.push(AstNode::new("var").with_payload(json!("Succ")));
         let pred_var = ast.push(AstNode::new("var").with_payload(json!("pred")));
-        let succ_pat = ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
+        let succ_pat =
+            ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
         // arm 2 body: lit(1) — index 8
         let succ_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
         // arm 2: arm { children: [succ_pat, succ_body] } — index 9
-        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
+        let arm2 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
         // block { arm1, arm2 } — index 10
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
         // match { scrut, block } — index 11
@@ -3920,10 +4306,14 @@ mod tests {
     #[test]
     fn match_nat_desugars_to_recursor_call() {
         let mut lang = Language::new();
-        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let ast = data_plus_match_nat_ast();
         let out = apply_desugar(&lang, &ast);
@@ -3931,44 +4321,68 @@ mod tests {
         // The last node should be a `call` (the recursor application),
         // not a `match`.
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "call", "match should desugar to call (recursor application)");
+        assert_eq!(
+            root.kind, "call",
+            "match should desugar to call (recursor application)"
+        );
 
         // The outer call has 2 children: [rec_call, scrutinee]
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 2);
 
         // Child 1 (scrutinee) should be var("n")
-        let scrut = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        let scrut = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(scrut.kind, "var");
         assert_eq!(scrut.payload, json!("n"));
 
         // Child 0 is the inner call: Nat.rec(null, 0, (pred, __rec_0) => 1)
-        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        let rec_call = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(rec_call.kind, "call");
-        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        let rec_children = rec_call
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         // [Nat.rec, motive, base_case, step_fn] = 4 children
         assert_eq!(rec_children.len(), 4);
 
         // Child 0: var("Nat.rec")
-        let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        let rec_var = out
+            .get(AstRef::new(rec_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(rec_var.kind, "var");
         assert_eq!(rec_var.payload, json!("Nat.rec"));
 
         // Child 1: omitted motive = lit(null)
-        let motive = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        let motive = out
+            .get(AstRef::new(rec_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(motive.kind, "lit");
         assert_eq!(motive.payload, json!(null));
 
         // Child 2: base case = lit(0)
-        let base = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
+        let base = out
+            .get(AstRef::new(rec_children[2].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(base.kind, "lit");
         assert_eq!(base.payload, json!(0));
 
         // Child 3: step function (pred, __rec_0) => lit(1)
-        let step = out.get(AstRef::new(rec_children[3].as_u64().unwrap() as usize)).unwrap();
+        let step = out
+            .get(AstRef::new(rec_children[3].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(step.kind, "function");
         let params = step.payload.get("params").unwrap().as_array().unwrap();
-        assert_eq!(params.len(), 2, "step function should have 2 params (pred, __rec_0)");
+        assert_eq!(
+            params.len(),
+            2,
+            "step function should have 2 params (pred, __rec_0)"
+        );
         assert_eq!(params[0], json!("pred"));
         assert_eq!(params[1], json!("__rec_0"));
     }
@@ -3978,23 +4392,32 @@ mod tests {
         // `match n { Zero => 0, _ => 1 }` — has a wildcard arm, so it
         // should NOT be desugared to a recursor application.
         let mut lang = Language::new();
-        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
         // data Nat = Zero | Succ(Nat)
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
 
         // match n { Zero => 0, _ => 1 }
         let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
         let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
         let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
         let wildcard = ast.push(AstNode::new("var").with_payload(json!("_")));
         let else_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
-        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [wildcard, else_body]})));
+        let arm2 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [wildcard, else_body]})));
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
         ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
 
@@ -4010,8 +4433,12 @@ mod tests {
         // not a constructor pattern. Should NOT be desugared.
         let mut lang = Language::new();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.value", "value")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.value", "value"))
+            .unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
         // scrutinee: value(5)
@@ -4025,7 +4452,10 @@ mod tests {
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "match", "conditional match should not be desugared");
+        assert_eq!(
+            root.kind, "match",
+            "conditional match should not be desugared"
+        );
     }
 
     #[test]
@@ -4033,10 +4463,14 @@ mod tests {
         // data Bool = True | False
         // match b { True => 1, False => 0 } → Bool.rec(1, 0)(b)
         let mut lang = Language::new();
-        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
         ast.push(data_node("Bool", &[("True", &[]), ("False", &[])]));
@@ -4045,10 +4479,12 @@ mod tests {
         let scrut = ast.push(AstNode::new("var").with_payload(json!("b")));
         let true_pat = ast.push(AstNode::new("var").with_payload(json!("True")));
         let true_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [true_pat, true_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [true_pat, true_body]})));
         let false_pat = ast.push(AstNode::new("var").with_payload(json!("False")));
         let false_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
-        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [false_pat, false_body]})));
+        let arm2 = ast
+            .push(AstNode::new("arm").with_payload(json!({"children": [false_pat, false_body]})));
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
         ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
 
@@ -4061,13 +4497,24 @@ mod tests {
         assert_eq!(children.len(), 2);
 
         // Inner call: Bool.rec(null, 1, 0)
-        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
-        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        let rec_call = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        let rec_children = rec_call
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         // [Bool.rec, null, 1, 0] = 4 children (motive + 2 nullary constructor args)
         assert_eq!(rec_children.len(), 4);
-        let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        let rec_var = out
+            .get(AstRef::new(rec_children[0].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(rec_var.payload, json!("Bool.rec"));
-        let motive = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        let motive = out
+            .get(AstRef::new(rec_children[1].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(motive.payload, json!(null), "default motive is null");
     }
 
@@ -4077,45 +4524,73 @@ mod tests {
         // The recursor arguments should be in constructor declaration order
         // (Zero first, Succ second), regardless of arm order.
         let mut lang = Language::new();
-        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
 
         // match n { Succ(pred) => 1, Zero => 0 }
         let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
         // arm 1: Succ(pred) => 1
         let succ_var = ast.push(AstNode::new("var").with_payload(json!("Succ")));
         let pred_var = ast.push(AstNode::new("var").with_payload(json!("pred")));
-        let succ_pat = ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
+        let succ_pat =
+            ast.push(AstNode::new("call").with_payload(json!({"children": [succ_var, pred_var]})));
         let succ_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [succ_pat, succ_body]})));
         // arm 2: Zero => 0
         let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
         let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
-        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let arm2 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
         ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "call", "out-of-order match should desugar to call");
+        assert_eq!(
+            root.kind, "call",
+            "out-of-order match should desugar to call"
+        );
 
         // Inner call: Nat.rec(null, 0, (pred, __rec_0) => 1)
         let children = root.payload.get("children").unwrap().as_array().unwrap();
-        let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
-        let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
+        let rec_call = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        let rec_children = rec_call
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(rec_children.len(), 4);
 
         // Child 1 is the omitted motive; child 2 is Zero's base case.
-        let base = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
-        assert_eq!(base.payload, json!(0), "Zero base case should be 0 regardless of arm order");
+        let base = out
+            .get(AstRef::new(rec_children[2].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(
+            base.payload,
+            json!(0),
+            "Zero base case should be 0 regardless of arm order"
+        );
 
         // Child 3 is Succ's step fn, a function with params [pred, __rec_0].
-        let step = out.get(AstRef::new(rec_children[3].as_u64().unwrap() as usize)).unwrap();
+        let step = out
+            .get(AstRef::new(rec_children[3].as_u64().unwrap() as usize))
+            .unwrap();
         assert_eq!(step.kind, "function");
         let params = step.payload.get("params").unwrap().as_array().unwrap();
         assert_eq!(params[0], json!("pred"));
@@ -4123,53 +4598,71 @@ mod tests {
 
     #[test]
     fn match_incomplete_not_desugared() {
-    // match n { Zero => 0 } — only covers one of two constructors.
-    // This is not an exhaustive inductive match, so it should NOT desugar.
+        // match n { Zero => 0 } — only covers one of two constructors.
+        // This is not an exhaustive inductive match, so it should NOT desugar.
         let mut lang = Language::new();
-        lang.ast.merge(AstShapeDef::new("ast.data", "data")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
-        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        ast.push(data_node(
+            "Nat",
+            &[("Zero", &[]), ("Succ", &[("pred", "Nat")])],
+        ));
 
         // match n { Zero => 0 } — missing Succ arm
         let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
         let zero_pat = ast.push(AstNode::new("var").with_payload(json!("Zero")));
         let zero_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [zero_pat, zero_body]})));
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1]})));
         ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "match", "incomplete match should not be desugared");
+        assert_eq!(
+            root.kind, "match",
+            "incomplete match should not be desugared"
+        );
     }
 
     #[test]
     fn match_no_data_decl_not_desugared() {
-    // match n { Foo => 0, Bar => 1 } — constructors "Foo" and "Bar" are
-    // not declared in any `data` node. Should NOT desugar (no recursor).
+        // match n { Foo => 0, Bar => 1 } — constructors "Foo" and "Bar" are
+        // not declared in any `data` node. Should NOT desugar (no recursor).
         let mut lang = Language::new();
         lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast.merge(AstShapeDef::new("ast.match", "match")).unwrap();
+        lang.ast
+            .merge(AstShapeDef::new("ast.match", "match"))
+            .unwrap();
 
         let mut ast = Ast::new();
         let scrut = ast.push(AstNode::new("var").with_payload(json!("n")));
         let foo_pat = ast.push(AstNode::new("var").with_payload(json!("Foo")));
         let foo_body = ast.push(AstNode::new("lit").with_payload(json!(0)));
-        let arm1 = ast.push(AstNode::new("arm").with_payload(json!({"children": [foo_pat, foo_body]})));
+        let arm1 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [foo_pat, foo_body]})));
         let bar_pat = ast.push(AstNode::new("var").with_payload(json!("Bar")));
         let bar_body = ast.push(AstNode::new("lit").with_payload(json!(1)));
-        let arm2 = ast.push(AstNode::new("arm").with_payload(json!({"children": [bar_pat, bar_body]})));
+        let arm2 =
+            ast.push(AstNode::new("arm").with_payload(json!({"children": [bar_pat, bar_body]})));
         let block = ast.push(AstNode::new("block").with_payload(json!({"children": [arm1, arm2]})));
         ast.push(AstNode::new("match").with_payload(json!({"children": [scrut, block]})));
 
         let out = apply_desugar(&lang, &ast);
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "match", "match with unknown constructors should not be desugared");
+        assert_eq!(
+            root.kind, "match",
+            "match with unknown constructors should not be desugared"
+        );
     }
 
     #[test]
