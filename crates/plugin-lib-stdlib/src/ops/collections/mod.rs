@@ -4,11 +4,13 @@
 //! - [`seq`] — the shared sequential-container ops (`new`/`from`/
 //!   `to_array`/`len`/`is_empty` plus the end-parameterized
 //!   `push`/`pop`/`peek` used by `vec`, `list`, `queue`, `stack`, and
-//!   `deque`). The non-erroring members are also implemented in pure
+//!   `deque`). All members except `new`/`from`/`to_array` are now pure
 //!   handl (see `handl-packages/collections/{vec,list,queue,stack,deque}.hnl`);
-//!   the `pop`/`peek`/`dequeue`/`pop_*`/`peek_*` ops stay native because
-//!   the language has no error-raising primitive — the contract requires
-//!   `collection is empty` on an empty structure (same gap as ADR-0092).
+//!   the `pop`/`peek`/`dequeue`/`pop_*`/`peek_*` contract requires raising
+//!   `collection is empty` on an empty structure, which is now expressible
+//!   via the `error.raise` primitive (`handl-packages/error/error.hnl`).
+//!   `new` stays native because it is nullary and `from` is a reserved
+//!   word (it cannot be a record field); `to_array` stays grouped with them.
 //! - [`array`] — the `array.*` functional ops that take handl **arrows**
 //!   (`take_while`/`drop_while`/`scan`/`foldr`/`find_*`): arrow arguments
 //!   cannot cross the `HandlFunction` boundary, so they evaluate the
@@ -54,46 +56,27 @@ pub use error::CollectionsError;
 // Op names per sub-module (from the former module.rs)
 // ---------------------------------------------------------------------------
 
-/// `vec.*` native op names — `new` is nullary, `pop`/`peek` raise
-/// `collection is empty`, and `from` is a reserved word so it cannot be a
-/// handl record field; `len`/`is_empty`/`push` are pure handl in
-/// `handl-packages/collections/vec.hnl`.
-pub const VEC_OPS: &[&str] = &["vec.new", "vec.from", "vec.to_array", "vec.pop", "vec.peek"];
+/// `vec.*` native op names — `new` is nullary and `from` is a reserved
+/// word so it cannot be a handl record field (`to_array` stays grouped
+/// with them); `len`/`is_empty`/`push`/`pop`/`peek` are pure handl in
+/// `handl-packages/collections/vec.hnl`, with `pop`/`peek` raising
+/// `collection is empty` via `error.raise`.
+pub const VEC_OPS: &[&str] = &["vec.new", "vec.from", "vec.to_array"];
 
 /// `list.*` native op names — same reasoning as [`VEC_OPS`]; `push`
-/// (prepend) is pure handl.
-pub const LIST_OPS: &[&str] = &["list.new", "list.from", "list.to_array", "list.pop", "list.peek"];
+/// (prepend), `pop`, and `peek` are pure handl.
+pub const LIST_OPS: &[&str] = &["list.new", "list.from", "list.to_array"];
 
-/// `queue.*` native op names — `dequeue`/`peek` raise on empty; `from` is
-/// a reserved word.
-pub const QUEUE_OPS: &[&str] = &[
-    "queue.new",
-    "queue.from",
-    "queue.to_array",
-    "queue.dequeue",
-    "queue.peek",
-];
+/// `queue.*` native op names — same reasoning as [`VEC_OPS`];
+/// `dequeue`/`peek` raise on empty via `error.raise` in pure handl.
+pub const QUEUE_OPS: &[&str] = &["queue.new", "queue.from", "queue.to_array"];
 
 /// `stack.*` native op names — same reasoning as [`VEC_OPS`].
-pub const STACK_OPS: &[&str] = &[
-    "stack.new",
-    "stack.from",
-    "stack.to_array",
-    "stack.pop",
-    "stack.peek",
-];
+pub const STACK_OPS: &[&str] = &["stack.new", "stack.from", "stack.to_array"];
 
-/// `deque.*` native op names — `pop_*`/`peek_*` raise on empty and `from`
-/// is a reserved word; `push_back`/`push_front` are pure handl.
-pub const DEQUE_OPS: &[&str] = &[
-    "deque.new",
-    "deque.from",
-    "deque.to_array",
-    "deque.pop_back",
-    "deque.pop_front",
-    "deque.peek_back",
-    "deque.peek_front",
-];
+/// `deque.*` native op names — same reasoning as [`VEC_OPS`]; the
+/// `pop_*`/`peek_*` members are pure handl over `error.raise`.
+pub const DEQUE_OPS: &[&str] = &["deque.new", "deque.from", "deque.to_array"];
 
 /// `hash_map.*` op names (all native).
 pub const HASH_MAP_OPS: &[&str] = &[

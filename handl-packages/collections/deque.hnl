@@ -1,16 +1,26 @@
 --- deque — pure-handl implementation of the `deque` container ops.
 ---
 --- A double-ended queue is a plain array; `push_back`/`push_front` are
---- expressible directly. `new` and the `pop_*`/`peek_*` ops stay native
---- (see `ops/collections/seq.rs`): `new` is nullary and the pops/peeks
---- must raise `collection is empty` on an empty deque — the language has
---- no error-raising primitive.
+--- expressible directly, and the `pop_*`/`peek_*` ops raise
+--- `collection is empty` on an empty deque via the `error.raise`
+--- primitive (the ADR-0092 error-raising gap is closed). `new`/`from`/
+--- `to_array` stay native (see `ops/collections/seq.rs`): `new` is
+--- nullary and `from` is a reserved word (cannot be a record field).
 do {
   len_ :: xs ~> {
     while { xs: xs, n: 0 } {
       [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
+      }
+    }
+  }
+
+  rev_ :: xs ~> {
+    while { xs: xs, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
     }
   }
@@ -22,6 +32,25 @@ do {
       [h, ...t]: false
     },
     push_back: [c, v] ~> [...c, v],
-    push_front: [c, v] ~> [v, ...c]
+    push_front: [c, v] ~> [v, ...c],
+    pop_back: c ~> match c {
+      []: error.raise("collection is empty"),
+      [h, ...t]: match rev_(c) {
+        []: [],
+        [h2, ...t2]: rev_(t2)
+      }
+    },
+    pop_front: c ~> match c {
+      []: error.raise("collection is empty"),
+      [h, ...t]: t
+    },
+    peek_back: c ~> match rev_(c) {
+      []: error.raise("collection is empty"),
+      [h, ...t]: h
+    },
+    peek_front: c ~> match c {
+      []: error.raise("collection is empty"),
+      [h, ...t]: h
+    }
   }
 }

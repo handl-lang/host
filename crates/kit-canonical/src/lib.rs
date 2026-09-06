@@ -130,6 +130,10 @@ impl ModuleResolver for StdlibResolver {
             "option" => stdlib::module("option")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "type" => Some(std::sync::Arc::new(build_type_module())),
+            // `error` — the error-raising primitive (ADR-0092 gap (a));
+            // a plain table module.
+            "error" => stdlib::module("error")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "typeof" => stdlib::module("typeof")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             // `result` is a table module whose `tag` dep is not in the
@@ -878,6 +882,10 @@ impl Kit {
         stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
         stdlib_registry.register(stdlib::module("parse").expect("parse"));
         stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+        // `error` — the error-raising primitive (`error.raise`,
+        // ADR-0092 gap (a)); ops-only table module, callable as
+        // `error.raise(msg)` from any .hnl source or eval expression.
+        stdlib_registry.register(stdlib::module("error").expect("error"));
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.

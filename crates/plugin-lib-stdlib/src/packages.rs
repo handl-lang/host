@@ -229,49 +229,59 @@ pub static MODULES: &[ModuleSpec] = &[
         deps: &[],
     },
     // ── collections (former plugin-lib-collections) ────────────────────
-    // Sequential containers: record-field funcs are pure handl over plain
-    // arrays; `ops` holds only the members that must stay native (nullary
-    // `new`; `pop`/`peek`/`dequeue`/`pop_*`/`peek_*` raise
-    // `collection is empty` — no error-raising primitive in the language).
+    // Sequential containers: the whole non-nullary surface is pure handl
+    // over plain arrays; `ops` holds only `new`/`from`/`to_array`
+    // (`new` is nullary, `from` is a reserved word). `pop`/`peek`/
+    // `dequeue`/`pop_*`/`peek_*` raise `collection is empty` via
+    // `error.raise` — the `error` dep resolves through the table.
     ModuleSpec {
         name: "vec",
         hnl: include_str!("../../../handl-packages/collections/vec.hnl"),
-        funcs: &["len", "is_empty", "push"],
+        funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["error"],
     },
     ModuleSpec {
         name: "list",
         hnl: include_str!("../../../handl-packages/collections/list.hnl"),
-        funcs: &["len", "is_empty", "push"],
+        funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["error"],
     },
     ModuleSpec {
         name: "queue",
         hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
-        funcs: &["len", "is_empty", "enqueue"],
+        funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["error"],
     },
     ModuleSpec {
         name: "stack",
         hnl: include_str!("../../../handl-packages/collections/stack.hnl"),
-        funcs: &["len", "is_empty", "push"],
+        funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["error"],
     },
     ModuleSpec {
         name: "deque",
         hnl: include_str!("../../../handl-packages/collections/deque.hnl"),
-        funcs: &["len", "is_empty", "push_back", "push_front"],
+        funcs: &[
+            "len",
+            "is_empty",
+            "push_back",
+            "push_front",
+            "pop_back",
+            "pop_front",
+            "peek_back",
+            "peek_front",
+        ],
         ops: ops::collections::DEQUE_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["error"],
     },
     // `hash_map`/`hash_set` stay fully native (see the module .hnl docs).
     ModuleSpec {
@@ -377,6 +387,20 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
         deps: &["tag"],
     },
+    // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
+    // `error.raise` is an irreducible atom: aborting evaluation cannot be
+    // expressed over the eval vocabulary, so the module is ops-only. Any
+    // `.hnl` module that needs to fail loudly declares `deps: &["error"]`
+    // (or registers the module in its ambient chain) and calls
+    // `error.raise(msg)`.
+    ModuleSpec {
+        name: "error",
+        hnl: include_str!("../../../handl-packages/error/error.hnl"),
+        funcs: &[],
+        ops: ops::error::ERROR_OPS,
+        registry: Some(ops::error::error_op_registry),
+        deps: &[],
+    },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
     // `Scheme::Loop` descriptions built host-side (see
@@ -413,6 +437,7 @@ const UTILS_MODULES: &[&str] = &[
     "yaml",
     "url_rfc",
     "url_whatwg",
+    "error",
 ];
 
 /// The modules contributed by the `collections` aggregate package
@@ -522,6 +547,13 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.result",
         plugin_name: "lib-result",
         hnl: include_str!("../../../handl-packages/result/result.hnl"),
+        modules: &[],
+    },
+    PackageSpec {
+        lib_name: "error",
+        plugin_id: "lib.error",
+        plugin_name: "lib-error",
+        hnl: include_str!("../../../handl-packages/error/error.hnl"),
         modules: &[],
     },
     PackageSpec {

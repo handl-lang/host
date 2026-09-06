@@ -90,10 +90,22 @@ and linter all split source into top-level statements at bracket-depth zero
   `plugin-lib-test` is **deleted**. The framework contract stays in
   `handl-packages/test/test.hnl` (`op`/`handl` declarations); all 12 Rust
   handls moved into `plugin-engine-test::framework` (`src/framework/`),
-  which the runner's `TestModuleLookup` resolves `assert` through. No op
-  could move to pure handl yet: the language has **no error-raising
-  primitive** (assertions must fail loudly) and **no error capture**
-  (`assert.throws`/`test.run` need host-side `EvalContext::try_call_value`);
+  which the runner's `TestModuleLookup` resolves `assert` through. The
+  **error-raising** half of the blocker is now closed: `error.raise(v)`
+  is a native op on the `error` module (`handl-packages/error/error.hnl`
+  contract; `plugin-lib-stdlib::ops::error` handl; registered in the
+  canonical module chain). It is callable from any `.hnl` source as
+  `error.raise(msg)` — the unbound `error` var falls back to the module
+  path like `type.of`/`tag.tag` — or inside table modules via
+  `deps: &["error"]`. Payload: a `String` becomes the message verbatim,
+  any other value is JSON-serialized into it; it surfaces as
+  `EvalError::Other` → `LangError` through `kit.eval`/`hnl eval`.
+  `vec`/`list`/`stack`/`queue`/`deque` `pop`/`peek`/`dequeue`/`pop_*`/
+  `peek_*` are now pure handl over it (only `new`/`from`/`to_array` stay
+  native). Still missing: **no error capture**
+  (`assert.throws`/`test.run` need host-side `EvalContext::try_call_value`
+  reachable from handl — e.g. an `error.try`/`error.capture` op taking a
+  thunk — not yet added);
   `property`/`fuzz` additionally need a handl-reachable seeded RNG
   (`rand.seeded_*` lives in `plugin-lib-rand-native` and is wired into the
   canonical module chain) and `benchmark` needs a clock (`time.now_ms`/
