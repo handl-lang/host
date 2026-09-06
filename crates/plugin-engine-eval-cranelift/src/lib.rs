@@ -996,7 +996,9 @@ pub unsafe extern "C" fn helper_apply_closure(
         // Parse closure. Share the captured env via Rc::clone instead of
         // deep-cloning the HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
-            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+            TaggedValue::Arrow {
+                params, body, env, ..
+            } => (params.clone(), *body, Rc::clone(env)),
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
@@ -1863,7 +1865,9 @@ fn apply_closure_value(
         // Share the captured env via Rc::clone instead of deep-cloning the
         // HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
-            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+            TaggedValue::Arrow {
+                params, body, env, ..
+            } => (params.clone(), *body, Rc::clone(env)),
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
@@ -3153,6 +3157,7 @@ fn apply_native_v2(
                     params: Rc::from(params),
                     body,
                     env: Rc::new(captured),
+                    home: None,
                 })
             }
             Err(e) => Err(e),

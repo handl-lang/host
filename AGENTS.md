@@ -171,6 +171,16 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
 - **Reentrancy fix:** `HandlFunction` caches per-thread `Rc<Runtime>` and
   clones the `Rc` out of the `RefCell` before `run` so nested module calls
   don't hit `RefCell already borrowed`.
+- **Runtime fix (arrow-value boundary):** `HandlFunction::call` binds
+  arguments as per-call globals (`__arg_N`, via
+  `Runtime::eval_with_globals`) instead of serializing them into the
+  applied source text — closures, tagged values, and other reserved-key
+  values cross the boundary as *values*. Arrows that cross carry a
+  `"__home__"` frame id (registered in the tree-walk home-frame registry —
+  `current_home_frame`/`register_home_frame`) so `apply_app`/`call_value`
+  route the `body` index back to the AST + Language + module chain that
+  minted it. `apply_app` also curries surplus args (`x ~> y ~> body`
+  applied to two args applies `x` then applies the result to `y`).
 - The former `plugin-lib-utils` `StrModule` + `handl-packages/utils/str.hnl`
   are **demoted to a backend**: `plugin-lib-utils` is folded into
   `plugin-lib-stdlib` — the `str` MODULES row dispatches `str.*` ops via

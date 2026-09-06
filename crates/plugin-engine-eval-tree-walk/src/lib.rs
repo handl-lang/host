@@ -119,6 +119,131 @@ thread_local! {
     // `TreeWalkCallable` path (host functions calling arrow-values) can
     // re-attach them to a fresh `ScopeStack` without a deep clone.
     static CURRENT_GLOBALS: RefCell<Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>> = RefCell::new(None);
+    // Registry of "home" eval frames — the `Rc`s a minted arrow needs for
+    // its `body` index to remain meaningful after the arrow has crossed a
+    // runtime boundary (a `.hnl` module function receiving or returning a
+    // closure). Keyed by the `Rc<Ast>` pointer, which stays alive as long
+    // as the entry exists (the entry holds an `Rc::clone` of `ast`), so a
+    // pointer value can never be recycled while its frame is registered.
+    static HOME_FRAMES: RefCell<HashMap<u64, EvalFrame>> = RefCell::new(HashMap::new());
+}
+
+// ---------------------------------------------------------------------------
+// EvalFrame — arrow-value provenance across runtime boundaries
+// ---------------------------------------------------------------------------
+
+/// A snapshot of the eval state an arrow value needs for its `body` index
+/// to be meaningful: the AST the index refers to, the `Language` whose
+/// schemes interpret it, the module chain for host dispatch inside the
+/// body, and the host-provided globals (e.g. `self`).
+///
+/// Arrows minted inside an [`EvalEngine::eval`] call carry `home: None` and
+/// are applied against the *ambient* AST (threaded through `apply_app`'s
+/// `ast` parameter). An arrow that crosses a `serde_json` boundary into
+/// another runtime — e.g. a `HandlFunction` receiving an arrow argument or
+/// returning a closure — is stamped with `"__home__": <id>` so that
+/// `apply_app` / `call_value` can route application back here.
+#[derive(Clone)]
+struct EvalFrame {
+    /// The AST the arrow's `body` index refers to.
+    ast: Rc<Ast>,
+    /// The `Language` whose eval schemes interpret that AST.
+    lang: Rc<Language>,
+    /// The module chain for host-function dispatch inside the body.
+    modules: Option<Rc<dyn ModuleLookup>>,
+    /// The host-provided globals visible to the body.
+    globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+}
+
+impl EvalFrame {
+    /// Install this frame in the eval thread-locals, run `f`, then restore
+    /// the previous values — the same save/restore discipline as
+    /// [`EvalEngine::eval`], so nested `ctx.try_call_value` /
+    /// `TreeWalkCallable` calls inside the arrow body see the arrow's home
+    /// frame rather than the ambient one.
+    fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
+        let prev_ast = CURRENT_AST
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.ast))));
+        let prev_lang = CURRENT_LANG
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.lang))));
+        let prev_modules = CURRENT_MODULES
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.modules.clone()));
+        let prev_globals = CURRENT_GLOBALS
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
+        let out = f();
+        CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
+        CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
+        CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
+        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
+        out
+    }
+}
+
+/// Look up a registered home [`EvalFrame`] by id.
+fn home_frame(id: u64) -> Option<EvalFrame> {
+    HOME_FRAMES.with(|m| m.borrow().get(&id).cloned())
+}
+
+/// Register `frame` under `id` if not already present and return `id`.
+fn register_frame_at(id: u64, frame: EvalFrame) -> u64 {
+    HOME_FRAMES.with(|m| {
+        let mut map = m.borrow_mut();
+        map.entry(id).or_insert(frame);
+    });
+    id
+}
+
+/// Capture the ambient eval frame — the `CURRENT_AST` / `CURRENT_LANG` /
+/// `CURRENT_MODULES` / `CURRENT_GLOBALS` thread-locals of the eval currently
+/// running on this thread — and return its home-frame id for `__home__`
+/// stamping.
+///
+/// Returns `None` when no tree-walk eval is running (e.g. a host function
+/// invoked directly, outside any `eval`). The id is the `Rc<Ast>` pointer:
+/// the registered entry holds an `Rc` clone of the AST, so the pointer can
+/// never be recycled while the frame is registered, and repeated captures
+/// within one eval return the same id.
+///
+/// This is the seam that lets a nested `Runtime` (e.g. a `.hnl` module
+/// function's bridge eval) invoke arrow values minted by the *outer* eval:
+/// the host stamps incoming arrow arguments with this id, and
+/// `apply_app`/`call_value` route application back to this frame.
+pub fn current_home_frame() -> Option<u64> {
+    let ast = CURRENT_AST.with(|c| c.borrow().clone())?;
+    let id = Rc::as_ptr(&ast) as usize as u64;
+    let lang = CURRENT_LANG.with(|c| c.borrow().clone())?;
+    let modules = CURRENT_MODULES.with(|c| c.borrow().clone());
+    let globals = CURRENT_GLOBALS.with(|c| c.borrow().clone());
+    Some(register_frame_at(id, EvalFrame { ast, lang, modules, globals }))
+}
+
+/// Register a home [`EvalFrame`] for an eval performed outside the
+/// [`EvalEngine::eval`] thread-local window — e.g. the per-call bridge eval
+/// a `.hnl` module function runs — so arrows *returned* from that eval can
+/// be invoked later against this AST.
+///
+/// The id is derived from `Rc::as_ptr(&ast)`; the caller must pass an `Rc`
+/// it owns (e.g. the parsed AST kept alive for the frame's lifetime). The
+/// registered entry keeps the `Rc`s alive for the life of the thread.
+///
+/// `globals` are the extra root-scope bindings the eval ran with (e.g.
+/// per-call argument bindings); `None` means the frame has no host globals
+/// beyond what the module chain provides.
+pub fn register_home_frame(
+    ast: Rc<Ast>,
+    lang: Rc<Language>,
+    modules: Option<Rc<dyn ModuleLookup>>,
+    globals: Option<HashMap<String, Value>>,
+) -> u64 {
+    let globals = globals.map(|g| {
+        Rc::new(
+            g.into_iter()
+                .map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v)))
+                .collect::<FxHashMap<Rc<str>, TaggedValue>>(),
+        )
+    });
+    let id = Rc::as_ptr(&ast) as usize as u64;
+    register_frame_at(id, EvalFrame { ast, lang, modules, globals })
 }
 
 // ---------------------------------------------------------------------------
@@ -1321,6 +1446,7 @@ impl TreeWalkEngine {
                     params: Rc::from(params),
                     body,
                     env: captured,
+                    home: None,
                 };
                 Ok((closure, false))
             }
@@ -2388,15 +2514,19 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
-        let (params, body_idx, captured_env) = match callee {
-            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+        let (params, body_idx, captured_env, home) = match callee {
+            TaggedValue::Arrow {
+                params,
+                body,
+                env,
+                home,
+            } => (params.clone(), *body, Rc::clone(env), *home),
             _ => {
                 return Err(LangError::engine(
                     "callee is not an arrow-value".to_string(),
                 ));
             }
         };
-        let body_ref = AstRef::new(body_idx);
         // ADR-0074: if the arrow expects multiple params but receives a
         // single `Pair` (product `***`), destructure it into individual
         // args. `(a, b) ~> body` applied to `Pair(x, y)` binds `a=x, b=y`.
@@ -2406,29 +2536,95 @@ impl TreeWalkEngine {
             } else {
                 args.to_vec()
             };
-        if params.len() != actual_args.len() {
+        if actual_args.len() < params.len() {
             return Err(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
                 args.len()
             )));
         }
-        // Arrow-value invocation (ADR-0052): the arrow carries its
-        // definition-time env as data. We construct a fresh env that
-        // **shares** the carried env via `Rc` (an O(1) refcount bump —
-        // no deep clone of the captured variables on every call), push a
-        // single scope for the params, and evaluate the body. The
-        // caller's env is never mutated — no swap/restore hack.
-        // The carried env only contains user-created variables (globals
-        // are excluded at capture time), so we re-attach the host globals
-        // via the `globals` field — an `Rc` clone, cheap — rather than
-        // relying on them being present in the captured env. `lookup()`
-        // checks the local param scope first, then the shared captured
-        // env, then globals — so variable shadowing and captured-var
-        // lookup both work correctly.
+        if let Some(frame_id) = home {
+            // The arrow was minted by a *different* eval frame (it crossed
+            // a runtime boundary): its `body` index refers to that frame's
+            // AST. Evaluate it there — the frame is installed into the
+            // thread-locals for the duration so nested host calls
+            // (`ctx.try_call_value`) resolve against the arrow's home
+            // modules/globals too. The arrow is re-entered with
+            // `home: None` so its `body` resolves ambiently within the
+            // frame; any surplus args are curried through inside the frame
+            // (intermediate arrows index into the frame's AST).
+            let frame = home_frame(frame_id).ok_or_else(|| {
+                LangError::engine(format!("arrow: unknown home frame {}", frame_id))
+            })?;
+            // Host dispatch inside the body must see the arrow's *home*
+            // module chain, not the ambient engine's.
+            let mut engine = self.clone();
+            engine.modules = frame.modules.clone();
+            let local_callee = TaggedValue::Arrow {
+                params,
+                body: body_idx,
+                env: captured_env,
+                home: None,
+            };
+            let mut frame_env = ScopeStack::new();
+            if let Some(g) = &frame.globals {
+                frame_env.set_globals(Rc::clone(g));
+            }
+            return frame.enter(|| {
+                engine.apply_app(&local_callee, &actual_args, &frame.ast, &frame.lang, &mut frame_env)
+            });
+        }
+        // Curried application: arrows are unary-under-the-hood (`f :: x ~>
+        // y ~> body`), so applying more args than the arrow's parameter
+        // list binds the first `params.len()` args, evaluates the body,
+        // and applies the result to the remainder. `f(1, 5)` on a curried
+        // arrow is `(f 1) 5`.
+        let (head, mut rest) = actual_args.split_at(params.len());
+        let mut val = self.apply_arrow_body(
+            &params,
+            body_idx,
+            captured_env,
+            head,
+            ast,
+            lang,
+            Some(Rc::clone(&env.globals)),
+        )?;
+        while !rest.is_empty() {
+            val = self.apply_app(&val, rest, ast, lang, env)?;
+            rest = &[];
+        }
+        Ok(val)
+    }
+
+    /// Apply an arrow body: build a fresh env that **shares** the carried
+    /// env via `Rc` (an O(1) refcount bump — no deep clone of the captured
+    /// variables on every call), push a single scope for the params, and
+    /// evaluate the body. The caller's env is never mutated — no
+    /// swap/restore hack.
+    ///
+    /// `globals` are the host globals the body should fall back to: the
+    /// ambient env's globals for same-frame arrows, or the home frame's
+    /// globals for boundary-crossed arrows (`None` → none). The carried
+    /// env only contains user-created variables (globals are excluded at
+    /// capture time), so `lookup()` checks the local param scope first,
+    /// then the shared captured env, then globals — variable shadowing and
+    /// captured-var lookup both work correctly.
+    fn apply_arrow_body(
+        &self,
+        params: &[String],
+        body_idx: usize,
+        captured_env: Rc<FxHashMap<Rc<str>, TaggedValue>>,
+        actual_args: &[TaggedValue],
+        ast: &Ast,
+        lang: &Language,
+        globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+    ) -> Result<TaggedValue, LangError> {
+        let body_ref = AstRef::new(body_idx);
         let mut arrow_env = ScopeStack::new();
         arrow_env.captured = Some(captured_env);
-        arrow_env.set_globals(Rc::clone(&env.globals));
+        if let Some(g) = globals {
+            arrow_env.set_globals(g);
+        }
         arrow_env.push_scope();
         for (param, arg) in params.iter().zip(actual_args.iter()) {
             arrow_env.define(param, arg.clone());
@@ -3274,6 +3470,35 @@ impl ValueCallable for TreeWalkCallable {
                 "call_value: not an arrow-value".to_string(),
             ));
         }
+        // Boundary-crossed arrows carry `"__home__"` — the id of the eval
+        // frame that minted them. Route the application through that frame
+        // (installed in the thread-locals for the duration) so the body's
+        // AST index and module chain resolve correctly.
+        if let Some(frame_id) = obj.get("__home__").and_then(|v| v.as_u64()) {
+            let frame = home_frame(frame_id).ok_or_else(|| {
+                handl_platform::EvalError::Other(format!(
+                    "call_value: unknown home frame {}",
+                    frame_id
+                ))
+            })?;
+            return frame.enter(|| self.call_value_in_frame(callee, args));
+        }
+        self.call_value_in_frame(callee, args)
+    }
+}
+
+impl TreeWalkCallable {
+    /// Invoke an arrow-value in the *ambient* frame — the thread-locals
+    /// currently installed (either the running eval's or a home frame's
+    /// after [`EvalFrame::enter`]).
+    fn call_value_in_frame(
+        &self,
+        callee: &Value,
+        args: &[Value],
+    ) -> Result<Value, handl_platform::EvalError> {
+        let obj = callee.as_object().ok_or_else(|| {
+            handl_platform::EvalError::Other("call_value: not an object".to_string())
+        })?;
         let params: Vec<String> = obj
             .get("params")
             .and_then(|v| v.as_array())
@@ -3330,27 +3555,12 @@ impl ValueCallable for TreeWalkCallable {
         } else {
             args.to_vec()
         };
-        if params.len() != actual_args.len() {
+        if actual_args.len() < params.len() {
             return Err(handl_platform::EvalError::Other(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
                 actual_args.len()
             )));
-        }
-        // Build a fresh env that **shares** the arrow's captured env via
-        // `Rc` (an O(1) refcount bump — no deep clone on every call).
-        let mut arrow_env = ScopeStack::new();
-        arrow_env.captured = Some(Rc::new(captured_env));
-        // Re-attach host globals (e.g. `self`) from the thread-local so
-        // the closure body can look them up. The captured env only
-        // contains user-created variables (globals are excluded at
-        // capture time), so this fallback is required.
-        if let Some(g) = CURRENT_GLOBALS.with(|c| c.borrow().clone()) {
-            arrow_env.set_globals(g);
-        }
-        arrow_env.push_scope();
-        for (param, arg) in params.iter().zip(actual_args.iter()) {
-            arrow_env.define(param, TaggedValue::from(arg.clone()));
         }
         // Get AST and Language from thread-locals.
         let ast = CURRENT_AST.with(|c| c.borrow().clone()).ok_or_else(|| {
@@ -3366,10 +3576,37 @@ impl ValueCallable for TreeWalkCallable {
         } else {
             engine
         };
-        engine
-            .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
-            .map(|v| tagged_to_value(&v))
-            .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+        // Curried application, matching `apply_app`: surplus args apply
+        // the body's result (another arrow) to the remainder — `f(1, 5)`
+        // on `x ~> y ~> body` is `(f 1) 5`. The recursion goes through
+        // `call_value` so intermediate arrows keep routing by `__home__`.
+        let (head, mut rest) = actual_args.split_at(params.len());
+        let mut val = {
+            // Build a fresh env that **shares** the arrow's captured env via
+            // `Rc` (an O(1) refcount bump — no deep clone on every call).
+            let mut arrow_env = ScopeStack::new();
+            arrow_env.captured = Some(Rc::new(captured_env));
+            // Re-attach host globals (e.g. `self`) from the thread-local so
+            // the closure body can look them up. The captured env only
+            // contains user-created variables (globals are excluded at
+            // capture time), so this fallback is required.
+            if let Some(g) = CURRENT_GLOBALS.with(|c| c.borrow().clone()) {
+                arrow_env.set_globals(g);
+            }
+            arrow_env.push_scope();
+            for (param, arg) in params.iter().zip(head.iter()) {
+                arrow_env.define(param, TaggedValue::from(arg.clone()));
+            }
+            engine
+                .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
+                .map(|v| tagged_to_value(&v))
+                .map_err(|e| handl_platform::EvalError::Other(e.to_string()))?
+        };
+        while !rest.is_empty() {
+            val = self.call_value(&val, rest)?;
+            rest = &[];
+        }
+        Ok(val)
     }
 }
 
@@ -5212,9 +5449,12 @@ mod tests {
                 app(child(0), vec![child(1), child(2)]),
             ))
             .unwrap();
-        // function expects 1 param, call passes 2 args.
+        // function expects 1 param, call passes 2 args. Curried
+        // application binds `x = 1` and applies the body's result to the
+        // surplus arg — the body is a `lit` (not an arrow), so the
+        // application still fails with "callee is not an arrow-value".
         let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 0})),
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 1})),
             AstNode::new("lit").with_payload(json!(1)),
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("call").with_payload(json!({"children": [0, 1, 2]})),

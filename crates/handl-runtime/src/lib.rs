@@ -834,6 +834,33 @@ impl Runtime {
         engine.typecheck(&self.lang, &req)
     }
 
+    /// Evaluate an [`Ast`] like [`Runtime::eval`], but with `globals`
+    /// injected as additional root-scope variables for this call only.
+    ///
+    /// The eval engine is cloned (via [`EvalEngine::box_clone`] +
+    /// [`EvalEngine::with_global`]) so the runtime's engine is unchanged;
+    /// this is the per-call "bind arguments into the env" seam used by
+    /// hosts that need to pass *values* (e.g. closures, tagged values) into
+    /// a nested evaluation rather than serializing them into source text.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
+    /// propagates the engine's error.
+    pub fn eval_with_globals(
+        &self,
+        ast: &Ast,
+        globals: &HashMap<String, Value>,
+    ) -> Result<Value, LangError> {
+        let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
+        let mut engine = engine.box_clone();
+        for (name, val) in globals {
+            engine = engine.with_global(name, val.clone());
+        }
+        let req = EvalRequest::new(ast.clone());
+        engine.eval(&self.lang, &req)
+    }
+
     /// Convenience: `eval(parse(lex(src)?)?)`.
     ///
     /// Composes all three stages. If any stage's engine is missing, returns

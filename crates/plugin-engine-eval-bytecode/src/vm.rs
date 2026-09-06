@@ -863,6 +863,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         params: Rc::clone(params),
                         body: *body,
                         env: Rc::new(captured),
+                        home: None,
                     });
                 }
                 Instr::DerivedStepOp(op, ranges) => {
@@ -1026,6 +1027,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     params: Rc::from(params),
                     body,
                     env: Rc::new(captured),
+                    home: None,
                 })
             }
             "array" => {
@@ -2050,7 +2052,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
         let (params, body_idx, captured_env) = match callee {
-            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+            TaggedValue::Arrow {
+                params, body, env, ..
+            } => (params.clone(), *body, Rc::clone(env)),
             _ => {
                 return Err(LangError::engine(
                     "callee is not an arrow-value".to_string(),
