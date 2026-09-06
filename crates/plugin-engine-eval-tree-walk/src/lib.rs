@@ -1609,27 +1609,29 @@ impl TreeWalkEngine {
                                         current_node,
                                     )
                                 })? as usize;
-                        // Object key: if the key node is a `var` (bare
-                        // identifier) or `string` literal, use its payload
-                        // as the key string directly — don't evaluate it.
-                        // This makes `{ n: 5 }` use key "n" and `{ "s": 5 }`
-                        // use key "s". Otherwise (computed key), evaluate
-                        // the key expression and use its string
-                        // representation. Bracket computed keys `[expr]:`
-                        // are desugared to `paren { expr }` before eval
-                        // (ADR-0058), so they fall into the `else` branch.
                         let key_node = ast.at(AstRef::new(key_idx))?;
-                        // Static vs computed key is a payload question, not a
-                        // kind question (ADR-0081): a static key (bare
-                        // identifier or string literal) carries its key text
-                        // directly as a string payload — don't evaluate it.
-                        // This makes `{ n: 5 }` use key "n" and `{ "s": 5 }`
-                        // use key "s". Otherwise (computed key), evaluate
-                        // the key expression and use its string
-                        // representation. Bracket computed keys `[expr]:`
-                        // are desugared to `paren { expr }` before eval
-                        // (ADR-0058), so they fall into the `else` branch.
-                        let key = if let Some(key_text) = key_node.payload.as_str() {
+                        // Static vs computed key is declared data-driven:
+                        // the `entry` shape's `literal_children` list for
+                        // the `key` role (ADR-0081) names the child kinds
+                        // whose payload is the key text — don't evaluate
+                        // them. This makes `{ n: 5 }` use key "n" and
+                        // `{ "s": 5 }` use key "s". Otherwise (computed
+                        // key), evaluate the key expression and use its
+                        // string representation. Bracket computed keys
+                        // `[expr]:` are desugared to `paren { expr }`
+                        // before eval (ADR-0058), so they fall into the
+                        // `else` branch. Role-less shapes fall back to the
+                        // legacy string-payload heuristic.
+                        let is_literal_key = lang
+                            .literal_child(&entry_node.kind, "key", &key_node.kind)
+                            .unwrap_or_else(|| key_node.payload.is_string());
+                        let key = if is_literal_key {
+                            let key_text = key_node.payload.as_str().ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: literal key missing string payload".to_string(),
+                                    current_node,
+                                )
+                            })?;
                             key_text.to_string()
                         } else {
                             let key_val =
@@ -2005,19 +2007,16 @@ impl TreeWalkEngine {
                                             current_node,
                                         )
                                     })?;
-                                let var_name = {
-                                    let var_node = ast.at(AstRef::new(var_idx))?;
-                                    var_node.payload.as_str().ok_or_else(|| {
-                                        LangError::engine_node(
-                                            "eval_block: assign LHS must be an identifier"
-                                                .to_string(),
-                                            current_node,
-                                        )
-                                    })?
-                                };
+                                let var_name = binding_target_name(
+                                    lang,
+                                    ast,
+                                    var_idx,
+                                    "eval_block",
+                                    current_node,
+                                )?;
                                 match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                     Ok(value) => {
-                                        env.define(var_name, value.clone());
+                                        env.define(&var_name, value.clone());
                                         result = value;
                                         continue 'block;
                                     }
@@ -3232,14 +3231,16 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        let var_node = ast.at(AstRef::new(var_idx))?;
-                        if let Some(name) = var_node.payload.as_str() {
+                        if let Ok(name) =
+                            binding_target_name(lang, ast, var_idx, "eval_rec", current_node)
+                        {
                             // Seed from the enclosing scope (before the push).
                             // Since we already pushed a scope, lookup will
                             // search innermost-first, but the inner scope is
                             // empty at this point, so it falls through.
-                            let outer_val = env.lookup(name).cloned().unwrap_or(TaggedValue::Null);
-                            prev_values.insert(Rc::from(name), outer_val);
+                            let outer_val =
+                                env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
+                            prev_values.insert(Rc::from(name.as_str()), outer_val);
                         }
                     }
                 }
@@ -3315,24 +3316,25 @@ impl TreeWalkEngine {
                                         current_node,
                                     )
                                 })?;
-                            let var_node = ast.at(AstRef::new(var_idx))?;
-                            let var_name = var_node.payload.as_str().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "eval_rec: assign var payload must be a string".to_string(),
-                                    current_node,
-                                )
-                            })?;
+                            let var_name = binding_target_name(
+                                lang,
+                                ast,
+                                var_idx,
+                                "eval_rec",
+                                current_node,
+                            )?;
 
                             match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                 Ok(new_val) => {
                                     let prev = prev_values
-                                        .get(var_name)
+                                        .get(var_name.as_str())
                                         .cloned()
                                         .unwrap_or(TaggedValue::Null);
-                                    env.define(var_name, new_val.clone());
+                                    env.define(&var_name, new_val.clone());
                                     if !rec_value_eq(&new_val, &prev) {
                                         changed = true;
-                                        prev_values.insert(Rc::from(var_name), new_val.clone());
+                                        prev_values
+                                            .insert(Rc::from(var_name.as_str()), new_val.clone());
                                     }
                                     result = new_val;
                                 }
@@ -3946,6 +3948,38 @@ fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize
 /// `target` role. Falls back to the legacy kind check for role-less shapes.
 fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
     role_declared(lang, &node.kind, "target")
+}
+
+/// Resolve the bound name of a binding's `target` child: a bare `var`-like
+/// node carries the name in its payload; a wrapper whose shape declares a
+/// `subject` role (e.g. a type annotation — the `subject`/`annot` role
+/// convention, ADR-0081) delegates to that child. This makes
+/// `f: T = v`-shaped statements bind `f` without any kind check.
+fn binding_target_name(
+    lang: &Language,
+    ast: &Ast,
+    target_idx: usize,
+    err_ctx: &str,
+    err_node: &AstNode,
+) -> Result<String, LangError> {
+    let mut node = ast.at(AstRef::new(target_idx))?;
+    // Unwrap `subject`-roled wrappers (annotation-like nodes).
+    for _ in 0..8 {
+        if let Some(name) = node.payload.as_str() {
+            return Ok(name.to_string());
+        }
+        let subject_idx = match role_child_arena(lang, node, "subject") {
+            Some(i) => i,
+            None => break,
+        };
+        node = ast.at(AstRef::new(subject_idx))?;
+    }
+    node.payload.as_str().map(str::to_string).ok_or_else(|| {
+        LangError::engine_node(
+            format!("{err_ctx}: binding target must be an identifier"),
+            err_node,
+        )
+    })
 }
 
 /// Whether `node` is a return node: its shape declares a `value` role but no

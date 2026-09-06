@@ -2104,10 +2104,29 @@ fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
         };
 
         if let (Some(target_idx), Some(value_idx)) = (target_arena, value_arena) {
-            let name = match ctx.ast_at(AstRef::new(target_idx)) {
-                Ok(target_node) => match target_node.payload.as_str() {
-                    Some(s) => s.to_string(),
-                    None => {
+            // Resolve the bound name: a `target` child whose shape declares
+            // a `subject` role (e.g. a type annotation — the `subject`/`annot`
+            // role convention, ADR-0081) delegates to that child.
+            let mut tnode = match ctx.ast_at(AstRef::new(target_idx)) {
+                Ok(n) => n,
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            };
+            let name = loop {
+                if let Some(s) = tnode.payload.as_str() {
+                    break s.to_string();
+                }
+                match ctx.role_child_arena(tnode, "subject") {
+                    Ok(Some(subject_idx)) => match ctx.ast_at(AstRef::new(subject_idx)) {
+                        Ok(n) => tnode = n,
+                        Err(e) => {
+                            ctx.env.pop_scope();
+                            return ctx.set_error(e);
+                        }
+                    },
+                    Ok(None) => {
                         ctx.env.pop_scope();
                         return ctx.set_error(LangError::engine_node(
                             "eval_block: binding target must be an identifier"
@@ -2115,10 +2134,10 @@ fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
                             &node,
                         ));
                     }
-                },
-                Err(e) => {
-                    ctx.env.pop_scope();
-                    return ctx.set_error(e);
+                    Err(e) => {
+                        ctx.env.pop_scope();
+                        return ctx.set_error(e);
+                    }
                 }
             };
 
@@ -2923,18 +2942,26 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 ));
             }
         };
-        // Object key: if the key node is a `var` (bare identifier) or
-        // `string`, use its payload string directly — don't evaluate it.
-        // Otherwise (computed key), evaluate the key expression and use
-        // its string representation. Bracket computed keys `[expr]:` are
-        // desugared to `paren { expr }` before eval (ADR-0058), so they
-        // fall into the `None` (evaluate) branch. Mirrors the v2
-        // tree-walk's object prim.
+        // Object key: a literal key child (the entry shape declares
+        // `literal_children: { key: [...] }`, ADR-0081) uses its payload
+        // string directly — don't evaluate it. Otherwise (computed key),
+        // evaluate the key expression and use its string representation.
+        // Bracket computed keys `[expr]:` are desugared to `paren { expr }`
+        // before eval (ADR-0058), so they fall into the `None` (evaluate)
+        // branch. Mirrors the v2 tree-walk's object prim. Role-less shapes
+        // (or a null lang in the standalone driver) fall back to the
+        // legacy `var`/`string` kind heuristic.
         let key_node = match ast.at(AstRef::new(key_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
-        let direct_key = if key_node.kind == "var" || key_node.kind == "string" {
+        // SAFETY: ctx.lang is valid for the duration of run_native; it may
+        // be null in the standalone driver (no Language attached).
+        let lang = unsafe { ctx.lang.as_ref() };
+        let is_literal_key = lang
+            .and_then(|l| l.literal_child(&entry_node.kind, "key", &key_node.kind))
+            .unwrap_or_else(|| matches!(key_node.kind.as_str(), "var" | "string"));
+        let direct_key = if is_literal_key {
             key_node.payload.as_str().map(String::from)
         } else {
             None

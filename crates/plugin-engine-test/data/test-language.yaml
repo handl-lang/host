@@ -71,7 +71,7 @@ grammar:
       node_kind: test
       arity: 2
       child_separators:
-        - !Required token.equal
+        - !Required token.bind
   - id: grammar.property.prefix
     token: token.keyword.property
     position: Prefix
@@ -84,7 +84,7 @@ grammar:
       node_kind: property
       arity: 2
       child_separators:
-        - !Required token.equal
+        - !Required token.bind
   - id: grammar.integration_test.prefix
     token: token.keyword.integration_test
     position: Prefix
@@ -97,7 +97,7 @@ grammar:
       node_kind: integration_test
       arity: 2
       child_separators:
-        - !Required token.equal
+        - !Required token.bind
   - id: grammar.bench.prefix
     token: token.keyword.bench
     position: Prefix
@@ -110,7 +110,7 @@ grammar:
       node_kind: bench
       arity: 2
       child_separators:
-        - !Required token.equal
+        - !Required token.bind
   - id: grammar.assert.prefix
     token: token.keyword.assert
     position: Prefix

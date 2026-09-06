@@ -13,13 +13,14 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // additions (ADR-0079/0082).
     assert_eq!(lang.tokens.len(), 73);
 
-    // Grammar rows: 59 — v0.1 surface syntax (ADR-0074) + `::`/`data`
-    // additions; `|` pipe re-added for `data` constructor alternatives.
-    assert_eq!(lang.grammar.len(), 59);
+    // Grammar rows: 60 — v0.1 surface syntax (ADR-0074) + `::`/`data`/
+    // `let` statement-binding additions; `|` pipe re-added for `data`
+    // constructor alternatives.
+    assert_eq!(lang.grammar.len(), 60);
 
-    // Eval schemes: 62 — v0.1 surface syntax (ADR-0074) + `stmt.let`/
+    // Eval schemes: 63 — v0.1 surface syntax (ADR-0074) + `let`/`stmt.let`/
     // `data`/`import`-related schemes.
-    assert_eq!(lang.eval.len(), 62);
+    assert_eq!(lang.eval.len(), 63);
 
     // AST shapes: 61 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `stmt.let` additions.
@@ -57,7 +58,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 73);
-    assert_eq!(rt.lang().grammar.len(), 59);
+    assert_eq!(rt.lang().grammar.len(), 60);
 }
 
 #[test]

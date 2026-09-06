@@ -29,7 +29,9 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
     let eval_node_kinds: &[&str] = &[
         "var",
         "call",
-        // ADR-0079: `let` removed — `stmt.let` (below) is the live binding form.
+        // `let <name> :: <value>` statement binding (reinstated;
+        // `stmt.let` below remains the desugared block-context form).
+        "let",
         "if",
         "function",
         "binary.add",
@@ -138,6 +140,7 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.stmt-import.prefix",
         "grammar.stmt-export.prefix",
         "grammar.do-block.prefix",
+        "grammar.let.prefix",
         // v0.1 new grammar rules (ADR-0074)
         "grammar.product.infix",
         "grammar.nullish.infix",

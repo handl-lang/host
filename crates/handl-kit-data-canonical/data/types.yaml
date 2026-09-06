@@ -2047,7 +2047,17 @@
           source: Judgment
           lit: body
 
-# ADR-0079: `type.let` removed (let keyword deleted, graph blocks replace it).
+# `let <name> :: <value>` — statement binding. In block/rec statement
+# position the generic `target`/`value` role convention binds it in Γ
+# (`synth_block`/`check_block`/`synth_rec`); as a standalone expression it
+# mirrors `assign` — a statement with side effects, returning type.unit.
+- id: type.let
+  node_kind: let
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
 
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown

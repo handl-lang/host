@@ -419,17 +419,26 @@
       expr:
         type: string
     type: object
+# `let` — statement binding `let <name> :: <value>` (reinstated; the
+# surface form binds via `::`, mirroring `assign`). Children are
+# `[target, value]` where `target` is a `var` (or `type-annot`) node —
+# the same shape as `assign`, so the generic `target`/`value` role
+# convention binds it in block/rec statement position.
 - id: ast.let
   node_kind: let
+  children:
+    - role: target
+    - role: value
   payload_schema:
     properties:
-      name:
-        type: string
-      value:
-        type: object
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
     required:
-      - name
-      - value
+      - children
     type: object
 - id: ast.match
   node_kind: match
@@ -484,6 +493,17 @@
     type: object
 - id: ast.entry
   node_kind: entry
+  # `key`/`value` child roles + literal-key declaration (ADR-0081): a `var`
+  # or `string` key child is a literal key (its payload is the key string),
+  # while any other kind (e.g. `paren`, desugared from `[expr]:`) is a
+  # computed key evaluated at runtime.
+  children:
+    - role: key
+    - role: value
+  literal_children:
+    key:
+      - var
+      - string
   payload_schema:
     properties:
       children:

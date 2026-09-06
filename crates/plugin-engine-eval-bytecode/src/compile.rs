@@ -357,7 +357,7 @@ fn compile_arr(
     // iteration. Falls back to `NativeOp("object", n)` for dynamic
     // (computed) keys or the `entries` payload shape.
     if source == &ArrSource::Native && op == "object" {
-        if let Some(keys) = try_extract_static_object_keys(ast, node)? {
+        if let Some(keys) = try_extract_static_object_keys(lang, ast, node)? {
             // Emit `EvalNode(val_idx)` for each entry's value node, in
             // source order. The VM evaluates the node at the given absolute
             // arena index and pushes the result.
@@ -469,15 +469,18 @@ struct StaticObjectKeys {
 ///
 /// The object node's `payload["children"]` is an array of entry-node arena
 /// indices. Each entry node has `payload["children"] = [key_idx, val_idx]`.
-/// A key is static when its node kind is `"var"` or `"string"` (the payload
-/// string is used directly as the key — see the `object` handler in
-/// `vm.rs`). Computed keys (e.g. `[expr]:` desugared to `paren`) cause this
-/// function to return `None`, so the compiler falls back to
-/// `NativeOp("object", n)`.
+/// A key is static when the `entry` shape declares the key child's kind in
+/// its `literal_children` list for the `key` role (ADR-0081 — e.g.
+/// `var`/`string`; the payload string is used directly as the key — see
+/// the `object` handler in `vm.rs`). Computed keys (e.g. `[expr]:`
+/// desugared to `paren`) cause this function to return `None`, so the
+/// compiler falls back to `NativeOp("object", n)`. Shapes that declare no
+/// `literal_children` list keep the legacy `var`/`string` heuristic.
 ///
 /// Returns `None` if the payload shape is not `children` (e.g. the `entries`
 /// rich-payload shape) or if any key is dynamic.
 fn try_extract_static_object_keys(
+    lang: &Language,
     ast: &Ast,
     node: &AstNode,
 ) -> Result<Option<StaticObjectKeys>, LangError> {
@@ -515,10 +518,15 @@ fn try_extract_static_object_keys(
         };
 
         let key_node = ast.at(AstRef::new(key_idx))?;
-        // Static keys: `var` (bare identifier) or `string` (string literal).
-        // The key string is the node's payload. Computed keys (e.g. `paren`
-        // from `[expr]:` desugaring) fall back to `NativeOp`.
-        let key_str: String = if key_node.kind == "var" || key_node.kind == "string" {
+        // Static keys are declared literal for the `key` role by the entry
+        // shape (`literal_children`, ADR-0081). The key string is the node's
+        // payload. Computed keys (e.g. `paren` from `[expr]:` desugaring)
+        // fall back to `NativeOp`. Role-less shapes fall back to the legacy
+        // `var`/`string` kind heuristic.
+        let is_literal_key = lang
+            .literal_child(&entry_node.kind, "key", &key_node.kind)
+            .unwrap_or_else(|| matches!(key_node.kind.as_str(), "var" | "string"));
+        let key_str: String = if is_literal_key {
             match key_node.payload.as_str() {
                 Some(s) => s.to_string(),
                 None => return Ok(None),

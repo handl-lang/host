@@ -1121,33 +1121,31 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                         "object: entry missing value child".to_string(),
                                     )
                                 })? as usize;
-                        // Object key: if the key node is a `var` (bare
-                        // identifier) or `string` literal, use its payload
-                        // as the key string directly — don't evaluate it.
-                        // Otherwise (computed key), evaluate the key
-                        // expression and use its string representation.
-                        // Bracket computed keys `[expr]:` are desugared to
-                        // `paren { expr }` before eval (ADR-0058), so they
-                        // fall into the `else` branch. Mirrors the v2
-                        // tree-walk's object prim.
+                        // Object key: a literal key child (the entry shape
+                        // declares `literal_children: { key: [...] }`,
+                        // ADR-0081) uses its payload as the key string
+                        // directly — don't evaluate it. Otherwise (computed
+                        // key), evaluate the key expression and use its
+                        // string representation. Bracket computed keys
+                        // `[expr]:` are desugared to `paren { expr }`
+                        // before eval (ADR-0058), so they fall into the
+                        // `else` branch. Mirrors the v2 tree-walk's object
+                        // prim. Role-less shapes fall back to the legacy
+                        // `var`/`string` kind heuristic.
                         let key_node = self.ast.at(AstRef::new(key_idx))?;
-                        let key = if key_node.kind == "var" {
+                        let is_literal_key = self
+                            .lang
+                            .literal_child(&entry_node.kind, "key", &key_node.kind)
+                            .unwrap_or_else(|| {
+                                matches!(key_node.kind.as_str(), "var" | "string")
+                            });
+                        let key = if is_literal_key {
                             key_node
                                 .payload
                                 .as_str()
                                 .ok_or_else(|| {
                                     LangError::engine(
-                                        "object: var key missing string payload".to_string(),
-                                    )
-                                })?
-                                .to_string()
-                        } else if key_node.kind == "string" {
-                            key_node
-                                .payload
-                                .as_str()
-                                .ok_or_else(|| {
-                                    LangError::engine(
-                                        "object: string key missing payload".to_string(),
+                                        "object: literal key missing string payload".to_string(),
                                     )
                                 })?
                                 .to_string()
@@ -1850,16 +1848,30 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             let target_arena = self.role_child_arena(&child_node, "target")?;
             let value_arena = self.role_child_arena(&child_node, "value")?;
             if let (Some(target_idx), Some(value_idx)) = (target_arena, value_arena) {
-                // Binding child: evaluate the value and bind the target name.
-                let target_node = self.ast.at(AstRef::new(target_idx))?;
-                let var_name = target_node.payload.as_str().ok_or_else(|| {
-                    LangError::engine_node(
-                        "eval_block: binding target must be an identifier".to_string(),
-                        node,
-                    )
-                })?;
+                // Binding child: evaluate the value and bind the target
+                // name. A `target` child whose shape declares a `subject`
+                // role (e.g. a type annotation — the `subject`/`annot` role
+                // convention, ADR-0081) delegates to that child for the
+                // bound name.
+                let mut target_node = self.ast.at(AstRef::new(target_idx))?;
+                let var_name = loop {
+                    if let Some(s) = target_node.payload.as_str() {
+                        break s.to_string();
+                    }
+                    match self.role_child_arena(target_node, "subject")? {
+                        Some(subject_idx) => {
+                            target_node = self.ast.at(AstRef::new(subject_idx))?;
+                        }
+                        None => {
+                            return Err(LangError::engine_node(
+                                "eval_block: binding target must be an identifier".to_string(),
+                                node,
+                            ));
+                        }
+                    }
+                };
                 let value = self.exec_node_inner(AstRef::new(value_idx))?;
-                self.scopes.define(var_name, value.clone());
+                self.scopes.define(&var_name, value.clone());
                 result = value;
             } else {
                 result = self.exec_node_inner(AstRef::new(idx))?;

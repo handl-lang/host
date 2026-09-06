@@ -81,14 +81,15 @@
     text: "..."
   priority: 10
 - id: lex.eqeq
-  # `==` still lexes to the equality token (`token.equal`) for backward
-  # compatibility; the single `=` is now also equality (`token.equal`).
+  # `==` lexes to the equality token (`token.equal`); the single `=` is the
+  # binding operator — an alias of `::` (`token.bind`), so `{ x = y }` graph
+  # blocks and `assert a = b` produce `assign` nodes.
   token_kind: token.equal
   pattern: !Literal
     text: ==
   priority: 10
 - id: lex.equal
-  token_kind: token.equal
+  token_kind: token.bind
   pattern: !Literal
     text: =
   priority: 20
