@@ -23,15 +23,13 @@ handl-plugin-lib-lang-eval = { workspace = true }
 handl-plugin-lib-lang-typecheck = { workspace = true }
 handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
-handl-plugin-lib-utils = { workspace = true }
+handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-handl = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
 handl-plugin-lib-prim = { workspace = true }
 handl-plugin-lib-rand-native = { workspace = true }
 handl-plugin-lib-time-native = { workspace = true }
 handl-plugin-lib-unicode-native = { workspace = true }
-handl-plugin-lib-result = { workspace = true }
-handl-plugin-lib-collections = { workspace = true }
 handl-plugin-lib-tag = { workspace = true }
 handl-plugin-module = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

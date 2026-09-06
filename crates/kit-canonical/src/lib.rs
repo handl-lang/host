@@ -26,7 +26,7 @@ use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
 use handl_plugin_lib_tag::TypeRegistry;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
@@ -39,11 +39,7 @@ use handl_plugin_lib_prim::PrimModule;
 use handl_plugin_lib_rand_native::RandModule;
 use handl_plugin_lib_time_native::TimeModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
-use handl_plugin_lib_utils::{
-    BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
-    ParseModule as UtilsParseModule, SerializeModule, TypeModule,
-};
-use handl_plugin_lib_result::result_module;
+use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_module::ModuleRegistry;
 use handl_plugin_engine_eval::ImportResolver;
@@ -124,14 +120,25 @@ impl ModuleResolver for StdlibResolver {
             "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "transform" => Some(std::sync::Arc::new(TransformModule::new())),
             "comb" => Some(std::sync::Arc::new(CombModule::new())),
-            "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
-            "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
-            "math" => Some(std::sync::Arc::new(MathModule)),
+            "fn" | "combinators" => stdlib::module("combinators")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "math" => stdlib::module("math")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "prim" => Some(std::sync::Arc::new(PrimModule)),
-            "bool" => Some(std::sync::Arc::new(BoolModule)),
-            "option" => Some(std::sync::Arc::new(OptionModule)),
+            "bool" => stdlib::module("bool")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            "option" => stdlib::module("option")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "type" => Some(std::sync::Arc::new(build_type_module())),
-            "typeof" => Some(std::sync::Arc::new(TypeModule)),
+            "typeof" => stdlib::module("typeof")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            // `result` is a table module whose `tag` dep is not in the
+            // table (`tag` stays native in `plugin-lib-tag`), so it is
+            // built via `module_with` to resolve `"tag"` through this
+            // resolver.
+            "tag" => Some(std::sync::Arc::new(TagModule)),
+            "result" => stdlib::module_with("result", &StdlibResolver)
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             _ => None,
         }
     }
@@ -254,7 +261,7 @@ fn type_tag_json(v: &Value) -> &'static str {
 /// from `plugin-lib-utils`'s `r#type` module (the same handls that back
 /// `typeof.to_string` etc. on the legacy `typeof` module).
 fn type_op_registry() -> OpRegistry {
-    use handl_plugin_lib_utils::r#type::{Coalesce, ToNumber, ToString};
+    use handl_plugin_lib_stdlib::ops::r#type::{Coalesce, ToNumber, ToString};
     let mut registry = OpRegistry::new();
     registry.register("type.of", std::sync::Arc::new(TypeOf));
     registry.register("type.to_string", std::sync::Arc::new(ToString));
@@ -844,8 +851,8 @@ impl Kit {
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
         let mut stdlib_registry = ModuleRegistry::new();
-        stdlib_registry.register(CombinatorsModule);
-        stdlib_registry.register(MathModule);
+        stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
+        stdlib_registry.register(stdlib::module("math").expect("math"));
         // `str-handl` is the pure-handl `str` impl over the `char` floor;
         // it satisfies the `str` contract. Registered under `"str"` in
         // place of the former all-FFI `StrModule`, so `str.*` lookups and
@@ -853,21 +860,28 @@ impl Kit {
         stdlib_registry.register(build_str_handl_module());
         stdlib_registry.register(CharModule);
         stdlib_registry.register(UnicodeModule);
-        stdlib_registry.register(BoolModule);
+        stdlib_registry.register(stdlib::module("bool").expect("bool"));
         // `type` — the canonical runtime-introspection module: the
         // `type-handl` record (predicates/guards) over the native
         // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
         stdlib_registry.register(build_type_module());
         // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
         // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
-        stdlib_registry.register(TypeModule);
-        stdlib_registry.register(OptionModule);
-        stdlib_registry.register(result_module());
-        stdlib_registry.register(MoodModule);
-        stdlib_registry.register(EncodingModule::new());
-        stdlib_registry.register(UtilsParseModule::new());
-        stdlib_registry.register(SerializeModule::new());
-        stdlib_registry.register(CollectionsModule);
+        stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
+        stdlib_registry.register(stdlib::module("option").expect("option"));
+        // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
+        // atoms; built via `module_with` so its `tag` dep resolves to
+        // `TagModule` through `StdlibResolver`.
+        stdlib_registry
+            .register(stdlib::module_with("result", &StdlibResolver).expect("result"));
+        stdlib_registry.register(stdlib::module("mood").expect("mood"));
+        stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
+        stdlib_registry.register(stdlib::module("parse").expect("parse"));
+        stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+        // `collections` — the aggregate module over the package-table
+        // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
+        // preserving the former `plugin-lib-collections` lookup shape.
+        stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
         stdlib_registry.register(TagModule);
         stdlib_registry.register(build_dedent_module());
         stdlib_registry.register(TransformModule::new());

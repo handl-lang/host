@@ -1,7 +1,9 @@
 //! Concrete library-plugin registry population for the built-in kits.
 //!
-//! This module depends on the concrete `plugin-lib-*` crates so it can
-//! register their zero-argument constructors in a [`handl_kit_data::LibraryRegistry`].
+//! Handl-backed libraries (`hello`, `utils`, `cmp`, `json`, `toml`,
+//! `yaml`, `stats`, `collections`) are built from the package table in
+//! [`handl_plugin_lib_stdlib::packages`]; libraries with their own
+//! runtime/native backends keep their crate-provided plugins.
 
 use handl_kit_data::{LibraryPlugin, LibraryRegistry};
 
@@ -12,30 +14,26 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("module-runtime", || {
         Box::new(handl_plugin_module::ModuleRuntime::default()) as LibraryPlugin
     });
-    reg.register("hello", || {
-        Box::new(handl_plugin_lib_hello::HelloLibraryPlugin::new()) as LibraryPlugin
-    });
     reg.register("os-std", || {
         Box::new(handl_plugin_lib_os_std::LibraryPlugin::new()) as LibraryPlugin
     });
-    reg.register("utils", || {
-        Box::new(handl_plugin_lib_utils::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("cmp", || {
-        Box::new(handl_plugin_lib_cmp::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("collections", || {
-        Box::new(handl_plugin_lib_collections::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("json", || {
-        Box::new(handl_plugin_lib_json::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("toml", || {
-        Box::new(handl_plugin_lib_toml::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("yaml", || {
-        Box::new(handl_plugin_lib_yaml::LibraryPlugin::new()) as LibraryPlugin
-    });
+    // Table-driven libraries (former plugin-lib-{hello,utils,cmp,json,
+    // toml,yaml,stats,collections}).
+    for name in [
+        "hello",
+        "utils",
+        "cmp",
+        "json",
+        "toml",
+        "yaml",
+        "stats",
+        "collections",
+    ] {
+        reg.register(name, move || {
+            handl_plugin_lib_stdlib::library(name)
+                .unwrap_or_else(|| panic!("unknown stdlib package '{name}'"))
+        });
+    }
     reg.register("crypto", || {
         Box::new(handl_plugin_lib_crypto::LibraryPlugin::new()) as LibraryPlugin
     });
@@ -50,9 +48,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     });
     reg.register("unicode", || {
         Box::new(handl_plugin_lib_unicode::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("stats", || {
-        Box::new(handl_plugin_lib_stats::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("ws-rfc-memory", || {
         Box::new(handl_plugin_lib_ws_rfc_memory::LibraryPlugin::new()) as LibraryPlugin

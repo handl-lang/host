@@ -1,0 +1,38 @@
+--- hash_map — the `hash_map` module contract.
+---
+--- All ops stay native (see `ops/collections/hash_map.rs`): the language
+--- has no object-key-iteration primitive (`keys`/`values`/`entries`/
+--- `merge`/`pick`/`omit`/`invert` must enumerate a record's fields) and
+--- `update`/`update_path`/`map_*`/`filter_*` take arrow arguments, which
+--- cannot cross the `HandlFunction` module boundary.
+op "hash_map.new" : _ -> Object
+op "hash_map.from" : Object -> Object
+op "hash_map.to_object" : Object -> Object
+op "hash_map.len" : Object -> Number
+op "hash_map.is_empty" : Object -> Bool
+op "hash_map.get" : (Object * Str) -> Value
+op "hash_map.set" : (Object * Str * Value) -> Object
+op "hash_map.remove" : (Object * Str) -> Object
+op "hash_map.has" : (Object * Str) -> Bool
+op "hash_map.keys" : Object -> Array
+op "hash_map.values" : Object -> Array
+op "hash_map.entries" : Object -> Array
+op "hash_map.size" : Object -> Number
+op "hash_map.get_or" : (Object * Str * Value) -> Value
+op "hash_map.deep_get" : (Value * Str) -> Value
+op "hash_map.path_or" : (Value * Str * Value) -> Value
+op "hash_map.update" : (Object * Str * Fn) -> Object
+op "hash_map.set_path" : (Object * Str * Value) -> Value
+op "hash_map.update_path" : (Object * Str * Fn) -> Value
+op "hash_map.map_values" : (Fn * Object) -> Object
+op "hash_map.map_keys" : (Fn * Object) -> Object
+op "hash_map.filter_keys" : (Fn * Object) -> Object
+op "hash_map.filter_values" : (Fn * Object) -> Object
+op "hash_map.invert" : Object -> Object
+op "hash_map.clone_deep" : Value -> Value
+op "hash_map.pick" : (Object * Array) -> Object
+op "hash_map.omit" : (Object * Array) -> Object
+op "hash_map.merge" : (Object * Object) -> Object
+op "hash_map.deep_merge" : (Object * Object) -> Object
+op "hash_map.from_entries" : Array -> Object
+op "hash_map.has_key" : (Object * Str) -> Bool

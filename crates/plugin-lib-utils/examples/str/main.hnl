@@ -1,2 +1,0 @@
-greeting: type.str = str.upper(str.concat("hello", " ", "handl"));
-greeting

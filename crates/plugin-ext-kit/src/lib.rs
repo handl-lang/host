@@ -425,6 +425,31 @@ mod tests {
     use super::*;
     use handl_platform::{KitRegistry, PluginRegistry};
 
+    /// Every module name listed in the embedded kit manifests must resolve
+    /// through the populated [`LibraryRegistry`] — including the
+    /// table-driven libraries (`utils`, `cmp`, `json`, `toml`, `yaml`,
+    /// `stats`) now built from `handl-plugin-lib-stdlib`'s package table.
+    #[test]
+    fn builtin_kit_module_names_resolve() {
+        let loader = BasicKitLoaderPlugin::new();
+        for kit in ["hello", "stdlib", "cli", "config", "server"] {
+            loader
+                .load(kit)
+                .unwrap_or_else(|e| panic!("kit '{kit}' failed to load: {e}"));
+        }
+        // The table-driven packages resolve to PackagePlugins with the
+        // same ids/names as the deleted per-crate shells.
+        let mut registry = LibraryRegistry::new();
+        library_registry::populate(&mut registry);
+        let utils = registry.resolve("utils").expect("utils plugin");
+        assert_eq!(utils.id(), "lib.utils");
+        assert_eq!(utils.name(), "lib-utils");
+        let cmp = registry.resolve("cmp").expect("cmp plugin");
+        assert_eq!(cmp.id(), "lib.cmp");
+        let stats = registry.resolve("stats").expect("stats plugin");
+        assert_eq!(stats.id(), "lib.stats");
+    }
+
     #[test]
     fn metadata_returns_command_and_description() {
         let plugin = KitManagerPlugin::new();

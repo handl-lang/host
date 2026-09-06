@@ -1065,7 +1065,6 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-nbe",
  "handl-plugin-lib-char-native",
- "handl-plugin-lib-collections",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
@@ -1075,11 +1074,10 @@ dependencies = [
  "handl-plugin-lib-lang-typecheck",
  "handl-plugin-lib-prim",
  "handl-plugin-lib-rand-native",
- "handl-plugin-lib-result",
+ "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
  "handl-plugin-lib-time-native",
  "handl-plugin-lib-unicode-native",
- "handl-plugin-lib-utils",
  "handl-plugin-module",
  "handl-runtime",
  "serde",
@@ -1537,27 +1535,20 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-platform",
  "handl-plugin-lib-archive-tar",
- "handl-plugin-lib-cmp",
- "handl-plugin-lib-collections",
  "handl-plugin-lib-compress-gzip",
  "handl-plugin-lib-crypto",
  "handl-plugin-lib-datetime",
- "handl-plugin-lib-hello",
  "handl-plugin-lib-http-client-std",
  "handl-plugin-lib-intl",
  "handl-plugin-lib-ip",
- "handl-plugin-lib-json",
  "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-rand-native",
- "handl-plugin-lib-stats",
- "handl-plugin-lib-toml",
+ "handl-plugin-lib-stdlib",
  "handl-plugin-lib-unicode",
- "handl-plugin-lib-utils",
  "handl-plugin-lib-ws-rfc-memory",
  "handl-plugin-lib-ws-whatwg-native",
- "handl-plugin-lib-yaml",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -1656,54 +1647,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-arrow-iter"
-version = "0.1.0"
-dependencies = [
- "handl-language",
- "handl-platform",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-lib-handl",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-base64"
-version = "0.1.0"
-dependencies = [
- "base64",
- "handl-platform",
- "handl-plugin-lib-encoding",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-lib-char-native"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-cmp"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-utils",
- "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-collections"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
  "serde_json",
 ]
 
@@ -1796,27 +1743,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-hello"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-hex"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-encoding",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "hex",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-lib-http-client"
 version = "0.1.0"
 dependencies = [
@@ -1894,18 +1820,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-json"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-serialize",
- "handl-plugin-module",
- "serde",
  "serde_json",
 ]
 
@@ -2095,16 +2009,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-result"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-tag",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-lib-scheduler"
 version = "0.1.0"
 
@@ -2119,14 +2023,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-stats"
+name = "handl-plugin-lib-stdlib"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "handl-language",
  "handl-platform",
+ "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-lib-encoding",
  "handl-plugin-lib-handl",
- "handl-plugin-lib-utils",
+ "handl-plugin-lib-parse",
+ "handl-plugin-lib-serialize",
+ "handl-plugin-lib-tag",
  "handl-plugin-module",
+ "hex",
+ "iri-string",
+ "serde",
  "serde_json",
+ "serde_yaml",
+ "toml",
+ "url",
 ]
 
 [[package]]
@@ -2178,18 +2094,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-toml"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-serialize",
- "handl-plugin-module",
- "serde_json",
- "toml",
-]
-
-[[package]]
 name = "handl-plugin-lib-unicode"
 version = "0.1.0"
 dependencies = [
@@ -2214,50 +2118,6 @@ dependencies = [
  "icu_segmenter",
  "serde_json",
  "unicode-width",
-]
-
-[[package]]
-name = "handl-plugin-lib-url-rfc"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-parse",
- "iri-string",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-url-whatwg"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-parse",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
-name = "handl-plugin-lib-utils"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-base64",
- "handl-plugin-lib-encoding",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-hex",
- "handl-plugin-lib-json",
- "handl-plugin-lib-parse",
- "handl-plugin-lib-serialize",
- "handl-plugin-lib-toml",
- "handl-plugin-lib-url-rfc",
- "handl-plugin-lib-url-whatwg",
- "handl-plugin-lib-yaml",
- "handl-plugin-module",
- "serde_json",
 ]
 
 [[package]]
@@ -2331,18 +2191,6 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "handl-plugin-lib-yaml"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-serialize",
- "handl-plugin-module",
- "serde_json",
- "serde_yaml",
 ]
 
 [[package]]

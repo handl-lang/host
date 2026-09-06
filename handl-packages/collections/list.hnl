@@ -1,0 +1,25 @@
+--- list — pure-handl implementation of the `list` container ops.
+---
+--- A list is a plain array with front-end operations; `push` prepends.
+--- `new`/`pop`/`peek` stay native ops (see `ops/collections/seq.rs`):
+--- `new` is nullary and `pop`/`peek` must raise `collection is empty` on
+--- an empty list — the language has no error-raising primitive.
+do {
+  len_ :: xs ~> {
+    while { xs: xs, n: 0 } {
+      [xs, n] ~> match xs {
+        []: { out: n },
+        [h, ...t]: { state: { xs: t, n: n + 1 } }
+      }
+    }
+  }
+
+  {
+    len: xs ~> len_(xs),
+    is_empty: xs ~> match xs {
+      []: true,
+      [h, ...t]: false
+    },
+    push: [c, v] ~> [v, ...c]
+  }
+}

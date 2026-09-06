@@ -3,8 +3,9 @@
 //! A generic crate that lets `.hnl` files replace hand-rolled Rust
 //! `plugin-lib-*` bridge crates for pure-logic libraries.
 //!
-//! Each existing pure-logic library (e.g. `plugin-lib-stats`,
-//! `plugin-lib-hello`) has ~100+ lines of Rust bridge code that
+//! Each former pure-logic library crate (e.g. `plugin-lib-stats`,
+//! `plugin-lib-hello` — both now `plugin-lib-stdlib` package-table rows)
+//! had ~100+ lines of Rust bridge code that
 //! `include_str!`s a `.hnl` file, builds a cached per-thread `Runtime`, and
 //! evaluates a small applied expression per call. This crate eliminates that
 //! boilerplate with two reusable types:
@@ -29,7 +30,7 @@
 //!
 //! ```ignore
 //! use handl_plugin_lib_handl::{HandlModule, HandlLibraryPlugin};
-//! use handl_plugin_lib_utils::{MathModule, TypeModule};
+//! use handl_plugin_lib_stdlib as stdlib;
 //!
 //! const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 //! const STATS_FUNCS: &[&str] = &["sum", "avg", "product", "min", "max", "median", "stddev"];
@@ -39,9 +40,8 @@
 //!     .with_dependency(TypeModule);
 //!
 //! // Or as a plugin:
-//! let plugin = HandlLibraryPlugin::new("stats", "lib.stats", "lib-stats", STATS_HNL, STATS_FUNCS)
-//!     .with_dependency(MathModule)
-//!     .with_dependency(TypeModule);
+//! let plugin = HandlLibraryPlugin::new("stats", "lib.stats", "lib-stats", STATS_HNL, STATS_FUNCS);
+//! // or via the package table: stdlib::library("stats")
 //! ```
 //!
 //! ## Text transforms (ADR-0094)
@@ -787,8 +787,8 @@ impl Function for HandlFunction {
 /// field name listed in `func_names` becomes a callable [`Function`] via
 /// [`HandlFunction`].
 ///
-/// Dependency modules (e.g. [`MathModule`](handl_plugin_lib_utils::MathModule),
-/// [`TypeModule`](handl_plugin_lib_utils::TypeModule)) can be registered via
+/// Dependency modules (e.g. the [`module`](handl_plugin_lib_stdlib::module)
+/// table (e.g. `math`, `typeof`)) can be registered via
 /// [`HandlModule::with_dependency`] so that module-qualified calls inside the
 /// `.hnl` source (e.g. `math.sqrt`) resolve during evaluation.
 ///
@@ -796,13 +796,12 @@ impl Function for HandlFunction {
 ///
 /// ```ignore
 /// use handl_plugin_lib_handl::HandlModule;
-/// use handl_plugin_lib_utils::{MathModule, TypeModule};
+/// use handl_plugin_lib_stdlib as stdlib;
 ///
 /// const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 ///
 /// let module = HandlModule::new("stats", STATS_HNL, &["sum", "avg", "stddev"])
-///     .with_dependency(MathModule)
-///     .with_dependency(TypeModule);
+///     .with_resolver(&stdlib::DEFAULT_RESOLVER);
 /// ```
 pub struct HandlModule {
     /// The module name (namespace prefix for qualified calls).
@@ -1090,7 +1089,7 @@ pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {
 ///
 /// ```ignore
 /// use handl_plugin_lib_handl::HandlLibraryPlugin;
-/// use handl_plugin_lib_utils::{MathModule, TypeModule};
+/// use handl_plugin_lib_stdlib as stdlib;
 ///
 /// const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 ///

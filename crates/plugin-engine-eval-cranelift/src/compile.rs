@@ -50,7 +50,8 @@
 //!   `apply_closure_value` (a recursive call into the closure body's
 //!   compiled native function).
 //!
-//! - **`while_step`/`for_step`/`fix_step`** (from `plugin-lib-arrow-iter`):
+//! - **`while_step`/`for_step`/`fix_step`** (built by
+//!   `plugin-lib-stdlib::arrow_iter::{while_loop,for_loop,fix_loop}`):
 //!   these carry cond/body sub-schemes that must be re-evaluated **per
 //!   iteration** with the current value (extracted from the loop pair) as
 //!   incoming. The compiler calls `helper_v2_derived_step_arg_incoming` to

@@ -1956,7 +1956,7 @@ impl TreeWalkEngine {
                 false,
             )),
             // Utility unary numeric ops (used by derived-pattern tests in
-            // plugin-lib-arrow-iter). These take the incoming value as
+            // plugin-lib-stdlib's arrow_iter tests). These take the incoming value as
             // their single operand.
             "is_pos" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);

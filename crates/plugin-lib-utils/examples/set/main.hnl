@@ -1,5 +1,0 @@
-unique: type.arr = set.unique([1, 2, 2, 3]);
-union: type.arr = set.union([1, 2], [2, 3]);
-intersection: type.arr = set.intersection([1, 2], [2, 3]);
-difference: type.arr = set.difference([1, 2, 3], [2]);
-{ unique: unique, union: union, intersection: intersection, difference: difference }

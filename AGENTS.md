@@ -103,6 +103,19 @@ and linter all split source into top-level statements at bracket-depth zero
   `handl "..."` bindings as pure-handl `assert.hnl`/`property.hnl`/etc.
   per the ADR target layout.
 
+## Library packaging (ADR-0077 fold-in)
+
+Handl-authored libraries are **data, not crates**: `handl-packages/*` holds
+the contracts (`.hnl` `cap`/`op`/`handl` declarations) and pure-handl impls;
+`crates/plugin-lib-stdlib` holds the package table (`src/packages.rs` —
+`MODULES`: name → `.hnl` + funcs + ops + deps; `PACKAGES`: library name →
+modules) plus the native op impls (`src/ops/`); `plugin-lib-*-native` crates
+are FFI atom backends; `plugin-lib-handl` is the loader seam
+(`HandlModule`/`HandlLibraryPlugin`/`ModuleResolver`). `plugin-ext-kit`'s
+`populate` registers table libraries via `stdlib::library(name)`; modules
+with deps on non-table natives (e.g. `result` → `tag`) are built via
+`module_with`/`with_resolver_fallback`.
+
 ## String / Char / Unicode layering (ADR-0093)
 
 The `str`/`char`/`unicode` surface is layered: a **backend-neutral contract**
@@ -132,10 +145,11 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
                                  identifiers) composed with `unicode-handl`
 ```
 
-- `kit-canonical` registers `str-handl` under `"str"` **first** (before any
-  legacy `StrModule` fallback in `plugin-lib-utils`), so `str.*` and
-  `from "str" import` resolve to the handl impl. `char` resolves via
-  `StdlibResolver` → `CharModule`.
+- `kit-canonical` registers `str-handl` under `"str"` **first** (before the
+  all-FFI `str` table row in `plugin-lib-stdlib` — `ops::strs`, the former
+  `plugin-lib-utils` `StrModule`), so `str.*` and `from "str" import`
+  resolve to the handl impl. `char` resolves via `StdlibResolver` →
+  `CharModule`.
 - `kit-canonical` registers `handl-plugin-lib-unicode-native::UnicodeModule`
   under `"unicode"`; native `op`s take precedence and the `unicode-handl`
   record supplies fallback behavior for anything not implemented natively.
@@ -157,16 +171,19 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
 - **Reentrancy fix:** `HandlFunction` caches per-thread `Rc<Runtime>` and
   clones the `Rc` out of the `RefCell` before `run` so nested module calls
   don't hit `RefCell already borrowed`.
-- `plugin-lib-utils`'s `StrModule` + `handl-packages/utils/str.hnl` are
-  **demoted to a backend** (not deleted): `kit-cli`/`kit-stdlib`/
-  `kit-server`/`host-lsp` consume `str.*` via `plugin-lib-utils`'s
-  `contribute` and don't wire the `char` resolver, so `StrModule` stays
-  registered as the non-canonical fallback. The canonical `"str"` is
-  `str-handl`.
+- The former `plugin-lib-utils` `StrModule` + `handl-packages/utils/str.hnl`
+  are **demoted to a backend**: `plugin-lib-utils` is folded into
+  `plugin-lib-stdlib` — the `str` MODULES row dispatches `str.*` ops via
+  `ops::strs` — and `kit-cli`/`kit-stdlib`/`kit-server`/`host-lsp` consume
+  `str.*` through `plugin-ext-kit::populate` → `library("utils")` without
+  wiring the `char` resolver, so the FFI ops stay the non-canonical
+  fallback. The canonical `"str"` is `str-handl`.
 
 ## Stashes
 
 - `stash@{0}`: "pre-ADR: result module refactoring" — a `plugin-lib-result`
-  crate and related changes from a prior session. Untracked dirs
-  `crates/plugin-lib-result/` and `handl-packages/result/` exist in the
-  working tree but are NOT in the workspace `Cargo.toml`.
+  crate and related changes from a prior session. Since superseded: the
+  `plugin-lib-{hello,result,arrow-iter}` crates were folded into the
+  `plugin-lib-stdlib` package table (`MODULES`/`PACKAGES` rows) and
+  deleted; `handl-packages/{hello,result,arrow_iter}/` remain the source
+  of truth.
