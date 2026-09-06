@@ -134,6 +134,9 @@ impl ModuleResolver for StdlibResolver {
             // a plain table module.
             "error" => stdlib::module("error")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
+            // `obj` — record introspection (gap #3); a plain table module.
+            "obj" => stdlib::module("obj")
+                .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             "typeof" => stdlib::module("typeof")
                 .map(|m| std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>),
             // `result` is a table module whose `tag` dep is not in the
@@ -886,6 +889,9 @@ impl Kit {
         // ADR-0092 gap (a)); ops-only table module, callable as
         // `error.raise(msg)` from any .hnl source or eval expression.
         stdlib_registry.register(stdlib::module("error").expect("error"));
+        // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
+        // `obj.entries`); ops-only table module.
+        stdlib_registry.register(stdlib::module("obj").expect("obj"));
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.

@@ -13,6 +13,7 @@ pub mod combinators;
 pub mod encoding;
 pub mod error;
 pub mod hex;
+pub mod obj;
 pub mod json;
 pub mod math;
 pub mod mood;

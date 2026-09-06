@@ -283,14 +283,16 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: Some(ops::collections::collections_op_registry),
         deps: &["error"],
     },
-    // `hash_map`/`hash_set` stay fully native (see the module .hnl docs).
+    // `hash_map`/`hash_set` stay mostly native (see the module .hnl docs);
+    // the field-enumeration surface (`keys`/`values`/`entries`) is now
+    // pure handl over the `obj` introspection primitives.
     ModuleSpec {
         name: "hash_map",
         hnl: include_str!("../../../handl-packages/collections/hash_map.hnl"),
-        funcs: &[],
+        funcs: &["keys", "values", "entries"],
         ops: ops::collections::HASH_MAP_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
+        deps: &["obj"],
     },
     ModuleSpec {
         name: "hash_set",
@@ -387,6 +389,18 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
         deps: &["tag"],
     },
+    // ── obj (record introspection) ────────────────────────────────────
+    // `obj.keys`/`obj.values`/`obj.entries` are the object-field
+    // enumeration primitives (gap #3); used by `hash_map` and other
+    // record ops.
+    ModuleSpec {
+        name: "obj",
+        hnl: include_str!("../../../handl-packages/obj/obj.hnl"),
+        funcs: &[],
+        ops: ops::obj::OBJ_OPS,
+        registry: Some(ops::obj::obj_op_registry),
+        deps: &[],
+    },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
     // `error.raise` is an irreducible atom: aborting evaluation cannot be
     // expressed over the eval vocabulary, so the module is ops-only. Any
@@ -438,6 +452,7 @@ const UTILS_MODULES: &[&str] = &[
     "url_rfc",
     "url_whatwg",
     "error",
+    "obj",
 ];
 
 /// The modules contributed by the `collections` aggregate package
@@ -554,6 +569,13 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.error",
         plugin_name: "lib-error",
         hnl: include_str!("../../../handl-packages/error/error.hnl"),
+        modules: &[],
+    },
+    PackageSpec {
+        lib_name: "obj",
+        plugin_id: "lib.obj",
+        plugin_name: "lib-obj",
+        hnl: include_str!("../../../handl-packages/obj/obj.hnl"),
         modules: &[],
     },
     PackageSpec {

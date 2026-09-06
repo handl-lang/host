@@ -102,18 +102,17 @@ and linter all split source into top-level statements at bracket-depth zero
   `EvalError::Other` → `LangError` through `kit.eval`/`hnl eval`.
   `vec`/`list`/`stack`/`queue`/`deque` `pop`/`peek`/`dequeue`/`pop_*`/
   `peek_*` are now pure handl over it (only `new`/`from`/`to_array` stay
-  native). Still missing: **no error capture**
-  (`assert.throws`/`test.run` need host-side `EvalContext::try_call_value`
-  reachable from handl — e.g. an `error.try`/`error.capture` op taking a
-  thunk — not yet added);
+  native). The **error-capture** primitive is now added: `error.try(f)`
+  calls a thunk and returns a `result`-shaped tagged value
+  (`{"__tag__":"ok","value":v}` / `{"__tag__":"err","value":msg}`),
+  making `assert.throws`/`test.run` expressible in handl.
   `property`/`fuzz` additionally need a handl-reachable seeded RNG
   (`rand.seeded_*` lives in `plugin-lib-rand-native` and is wired into the
   canonical module chain) and `benchmark` needs a clock (`time.now_ms`/
   `time.instant_ns` live in `plugin-lib-time-native`, contract in
   `handl-packages/time/time.hnl`, also wired).
-  Remaining: add those primitives to the stdlib, then rewrite the
-  `handl "..."` bindings as pure-handl `assert.hnl`/`property.hnl`/etc.
-  per the ADR target layout.
+  Remaining: rewrite the `handl "..."` bindings as pure-handl
+  `assert.hnl`/`property.hnl`/etc. per the ADR target layout.
 
 ## Library packaging (ADR-0077 fold-in)
 
