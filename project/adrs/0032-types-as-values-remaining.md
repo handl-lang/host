@@ -19,7 +19,8 @@ Implement the remaining advanced type-system features:
 3. **Inductive families** — Enable types parameterized by values, like `Vec(A, n)` where `n` is a length index.
 4. **Dependent pattern matching with a motive** — Pattern match on indexed types, refining the goal type based on constructor arguments.
 5. **Type inference and unification** — Infer types in expressions with `_` holes; solve constraints via unification.
-6. **Proof erasure at runtime** — Remove proof terms before evaluation to reduce runtime overhead while preserving type safety.
+6. **Proof erasure at runtime** — ~~Remove proof terms before evaluation to reduce runtime overhead while preserving type safety.~~
+   - *Completed.* Built-in equality/membership proofs (`type.refl`, `type.is_evidence`) and the uninhabited `type.empty` are erased in `Runtime::run_checked` after typechecking. User-defined `data` proof-constructor erasure is a follow-up requiring surface syntax support.
 7. **Tactics** — Provide tactic-assisted proof construction (`auto`, `induction`, `rewrite`, `simp`) for interactive type-level programming.
 
 ## Consequences

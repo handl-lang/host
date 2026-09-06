@@ -58,6 +58,7 @@
 #![warn(missing_docs)]
 
 pub mod desugar_pass;
+pub mod erase_pass;
 pub mod fp;
 pub mod runtime_assert_pass;
 
@@ -894,6 +895,9 @@ impl Runtime {
             {
                 runtime_assert_pass::apply_runtime_asserts(&self.lang, &mut ast);
             }
+            // ADR-0032: proof erasure. Replace nodes whose inferred type is
+            // a singleton proof constructor with `erased` before eval.
+            erase_pass::apply_erase(&self.lang, &mut ast, &result.node_types);
         }
         self.eval(&ast)
     }

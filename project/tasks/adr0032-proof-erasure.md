@@ -125,69 +125,77 @@ Result (completed):
 
 ### 3. Implement `erase_pass` and wire it into `Runtime::run_checked`
 
-- Create `crates/handl-runtime/src/erase_pass.rs` modeled on
-  `crates/handl-runtime/src/runtime_assert_pass.rs` (in-place arena mutation,
-  preserving indices).
-  - Input: `&Language`, `&mut Ast`, `&HashMap<usize, Value>` (from
-    `TypecheckResult::node_types`).
-  - For each node, if its type value is a tagged proof constructor
-    (`__tag__` equal to `type.refl`, `type.is_evidence`, or `type.empty`,
-    with `__registry__` `handl.canonical` if present), replace the node with
-    an `erased` node (`kind = "erased"`, payload `null`).
-- Add `pub mod erase_pass;` in `crates/handl-runtime/src/lib.rs` and call
-  `erase_pass::apply_erase` inside `Runtime::run_checked` after the
-  `runtime_assert` diagnostic lowering (around line 895) and before `eval`.
-- Add integration tests:
-  - Direct `erase_pass` unit test in `crates/handl-runtime/src/erase_pass.rs`
-    or `crates/handl-runtime/src/lib.rs` using a hand-built AST + proof type
-    map.
-  - A `Runtime::run_checked` integration test (new
-    `crates/handl-runtime/tests/proof_erasure.rs`) using a stub typecheck
-    engine that returns `node_types` containing a `type.refl` type for one
-    AST node, and asserting the final value is `null`.
+Status: **done**
 
-Files expected to change:
+- Created `crates/handl-runtime/src/erase_pass.rs`:
+  - `apply_erase(lang, ast, node_types)` performs an in-place arena mutation.
+  - Proof values are recognized by `__tag__` (`type.refl`, `type.is_evidence`,
+    `type.empty`) and optional `__registry__ == "handl.canonical"`.
+  - Matching nodes are rewritten to the `erased` node kind with a `null`
+    payload. The `erased` kind is resolved from `lang.ast` by identity.
+- Wired `erase_pass::apply_erase` into `Runtime::run_checked` after the
+  `runtime_assert` pass and before `eval` (ADR-0032).
+- Added `pub mod erase_pass;` in `crates/handl-runtime/src/lib.rs`.
+- Added tests:
+  - Unit tests in `erase_pass.rs`: proof erasure, non-proof preservation,
+    missing type info, and missing `__registry__`.
+  - Integration test `crates/handl-runtime/tests/proof_erasure.rs`:
+    - `run_checked_erases_proof_typed_root` — a `value(42)` node whose
+      typechecker reports `type.refl` evaluates to `null`.
+    - `run_checked_preserves_computational_nodes` — a `value(42)` node
+      whose type is `type.number` still evaluates to `42`.
+
+Files changed:
 - `crates/handl-runtime/src/erase_pass.rs` (new)
-- `crates/handl-runtime/src/lib.rs` (`pub mod erase_pass`, call in
-  `Runtime::run_checked` at line 867/895)
+- `crates/handl-runtime/src/lib.rs`
 - `crates/handl-runtime/tests/proof_erasure.rs` (new)
 
-Verification:
-- `cargo test -p handl-runtime --test proof_erasure`
-- `cargo test -p handl-runtime`
-- `cargo test -p handl-kit-canonical`
+Verification (completed):
+- `cargo test -p handl-runtime --test proof_erasure` — 2 passed.
+- `cargo test -p handl-runtime` — 130+ tests passed (including new
+  `erase_pass` unit tests and the `erased_node` / `proof_erasure`
+  integration tests).
+- `cargo test -p handl-plugin-engine-typecheck-nbe` — 251 + 46 passed.
+- `cargo test -p handl-plugin-engine-eval-tree-walk` — 116 + integration
+  passed.
+- `cargo test -p handl-plugin-engine-eval-bytecode` — 71 + 4 passed.
+- `cargo test -p handl-plugin-engine-eval-cranelift --lib` — 79 passed.
+- `cargo test -p handl-kit-canonical` — 69 passed, 2 pre-existing failures
+  (`hello_greet_returns_canonical_greeting`,
+  `hello_greet_bridge_escapes_special_chars`); unrelated to erasure.
+- `cargo test -p handl-kit-data-canonical` — lib tests passed; integration
+  test `full_language_parity::language_has_eval_schemes_for_all_major_node_kinds`
+  fails on missing eval scheme for `let` (pre-existing, unrelated to erasure).
 
 ### 4. End-to-end verification and ADR status
 
-- Run the targeted crates and, if feasible, the workspace test suite to confirm
-  erasure does not regress `data` desugaring, `match`, or `runtime_assert`.
-- Document the current scope in `project/adrs/0032-types-as-values-remaining.md`
-  (mark item 6 as in progress/completed and note that user-defined `data`
-  proof-constructor erasure is a follow-up).
-- (Optional/follow-up) Sketch `data` proof-constructor erasure in
-  `crates/handl-runtime/src/desugar_pass.rs`: allow a constructor or the whole
-  `data` declaration to be marked `erased`/`proof` so the generated constructor
-  body and recursor branches can drop erased fields. This is gated on surface
-  syntax and is intentionally left as a later step.
+Status: **done**
 
-Files expected to change:
+- Ran the targeted crates (see subtask 3 verification) and confirmed that
+  `data` desugaring, `match`, `runtime_assert`, and the new `erased` node work.
+- Updated `project/adrs/0032-types-as-values-remaining.md`:
+  - Marked item 6 (Proof erasure at runtime) as **completed**.
+  - Added a note that built-in equality/membership proof erasure is in place
+    and user-defined `data` proof-constructor erasure remains a follow-up.
+- Left the optional `data` proof-constructor erasure in
+  `crates/handl-runtime/src/desugar_pass.rs` as a future step; it requires
+  surface syntax for marking constructors/types as `erased`/`proof`.
+
+Files changed:
 - `project/adrs/0032-types-as-values-remaining.md`
-- `crates/handl-runtime/src/desugar_pass.rs` (future)
+- `project/tasks/adr0032-proof-erasure.md`
 
-Verification:
-- `cargo test -p handl-runtime`
-- `cargo test -p handl-plugin-engine-typecheck-nbe`
-- `cargo test -p handl-kit-canonical`
-- `cargo test --workspace` (optional, if build is clean)
+Verification (completed):
+- Same targeted crate runs as subtask 3.
+- `data` desugaring tests (`indexed_family_data`, `indexed_family_match`,
+  `indexed_family_fin`) and `runtime_assert` tests remain green.
 
 ## First subtask to implement next
 
-**Subtask 1: Add the `erased` AST node and eval scheme.**
-
-It is the only piece that has no dependency on the typechecker's per-node
-output and gives the rest of the pipeline a concrete, testable runtime
-primitive. Once it exists, the erase pass has a single node kind to lower to,
-and the typechecker work in Subtask 2 can be verified end-to-end.
+All four subtasks are complete. The remaining follow-up is user-defined
+`data` proof-constructor erasure (marking a constructor or whole `data`
+declaration as `erased`/`proof` in surface syntax and dropping erased fields
+from generated constructors/recursors).
 
 ## Related files
 
