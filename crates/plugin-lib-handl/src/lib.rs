@@ -643,7 +643,7 @@ fn contains_unhomed_arrow(value: &serde_json::Value) -> bool {
 ///
 /// `__home__` records the eval frame (AST + Language + module chain) that
 /// minted the arrow so the receiving runtime can route application back to
-/// it — see `plugin-engine-eval-tree-walk`'s home-frame registry. Arrows
+/// it — see `plugin-engine-exec-tree-walk`'s home-frame registry. Arrows
 /// that already carry a `__home__` keep it: their provenance is elsewhere.
 fn stamp_home(value: &mut serde_json::Value, frame_id: u64) {
     match value {
@@ -726,7 +726,7 @@ fn build_runtime(
     registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     let registry = Rc::new(registry);
 
@@ -811,7 +811,7 @@ impl Function for HandlFunction {
         // this call's eval frame so the caller can apply them.
         let caller_frame = if args.iter().any(contains_unhomed_arrow) {
             Some(
-                handl_plugin_engine_eval_tree_walk::current_home_frame().ok_or_else(|| {
+                handl_plugin_engine_exec_tree_walk::current_home_frame().ok_or_else(|| {
                     EvalError::Other(format!(
                         "{}.{}: arrow argument passed with no active eval frame",
                         self.module_name, self.func_name
@@ -857,7 +857,7 @@ impl Function for HandlFunction {
         let ast = runtime.parse(&toks).map_err(errf)?;
         let result = runtime.eval_with_globals(&ast, &globals).map_err(errf)?;
         if contains_arrow(&result) {
-            let frame_id = handl_plugin_engine_eval_tree_walk::register_home_frame(
+            let frame_id = handl_plugin_engine_exec_tree_walk::register_home_frame(
                 Rc::new(ast),
                 Rc::new(runtime.lang().clone()),
                 runtime.modules().cloned(),

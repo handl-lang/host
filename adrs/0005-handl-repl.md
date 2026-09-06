@@ -16,7 +16,7 @@ The platform already has the infrastructure:
 
 - `handl-kit-data-canonical` — lexer, parser, evaluator, typechecker (all data-driven)
 - `handl-host-cli` — a CLI host that loads kits and runs commands
-- `handl-plugin-engine-eval-tree-walk` — tree-walking evaluator
+- `handl-plugin-engine-exec-tree-walk` — tree-walking evaluator
 - `handl-plugin-engine-typecheck-nbe` — normalization-by-evaluation typechecker
 - `handl-plugin-ext-refinement` — refinement inference engine
 

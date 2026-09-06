@@ -60,7 +60,7 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
-use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
+use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_value::{TaggedValue, tagged_to_value};
 use rustc_hash::FxHashMap;
 
@@ -280,7 +280,7 @@ pub(crate) struct VmFrame<'a, 'h> {
     /// The module registry (for `Foreign` dispatch).
     modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
     /// The import resolver for `import "path"` statements (Phase 9.5).
-    import_resolver: Option<&'h Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
+    import_resolver: Option<&'h Rc<dyn handl_plugin_engine_exec::ImportResolver>>,
     /// Per-node v2 compilation cache: `AstRef index -> compiled instructions`.
     cache: FxHashMap<usize, Rc<[Instr]>>,
     /// The scope stack.
@@ -301,7 +301,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         ast: &'a Ast,
         lang: &'a Language,
         modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
-        import_resolver: Option<&'h Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
+        import_resolver: Option<&'h Rc<dyn handl_plugin_engine_exec::ImportResolver>>,
     ) -> Self {
         Self {
             ast,
@@ -2264,7 +2264,7 @@ mod tests {
     use super::*;
     use handl_language::{Ast, AstNode, EvalSchemeDef, Language, Scheme, SchemeVersion};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use handl_plugin_engine_eval::ImportResolver;
+    use handl_plugin_engine_exec::ImportResolver;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
     use std::rc::Rc;

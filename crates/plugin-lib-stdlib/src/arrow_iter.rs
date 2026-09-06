@@ -13,7 +13,7 @@
 //! the user-supplied sub-arrows (`cond`/`body`) as `args`. The
 //! description is primitive-only (`Loop` + `Arr`); the *interpretation*
 //! of the composite op lives in the v2 reference handler
-//! (`handl-plugin-engine-eval-tree-walk`), which routes the current
+//! (`handl-plugin-engine-exec-tree-walk`), which routes the current
 //! value through the carried sub-arrows and produces an `Either`
 //! (`left` = done, `right` = continue) consumed by the multi-step
 //! `Loop` handler. This is consistent with ADR-0052's "handlers

@@ -28,7 +28,7 @@ Status: **done**
 - Add a unit or integration test verifying that an AST containing an `erased`
   node evaluates to `Value::Null`.
   - Candidate locations:
-    `crates/plugin-engine-eval-tree-walk/src/lib.rs` tests (native `const` tests
+    `crates/plugin-engine-exec-tree-walk/src/lib.rs` tests (native `const` tests
     already exist around line 3942),
     `crates/handl-runtime/src/lib.rs` tests, or a new
     `crates/handl-runtime/tests/proof_erasure.rs`.
@@ -37,10 +37,10 @@ Files expected to change:
 - `crates/handl-kit-data-canonical/data/ast.yaml`
 - `crates/handl-kit-data-canonical/data/eval.yaml`
 - `crates/handl-runtime/src/lib.rs` or `crates/handl-runtime/tests/proof_erasure.rs`
-  (or `crates/plugin-engine-eval-tree-walk/src/lib.rs`)
+  (or `crates/plugin-engine-exec-tree-walk/src/lib.rs`)
 
 Verification:
-- `cargo test -p handl-plugin-engine-eval-tree-walk`
+- `cargo test -p handl-plugin-engine-exec-tree-walk`
 - `cargo test -p handl-runtime`
 
 Result (completed):
@@ -55,7 +55,7 @@ Result (completed):
 - Verification run:
   - `cargo test -p handl-runtime --test erased_node` — 1 passed.
   - `cargo test -p handl-runtime` — all targets pass (120+ tests, 0 failed).
-  - `cargo test -p handl-plugin-engine-eval-tree-walk` — all pass (122 tests).
+  - `cargo test -p handl-plugin-engine-exec-tree-walk` — all pass (122 tests).
   - `cargo test -p handl-kit-canonical` — 69 passed, **2 pre-existing
     failures** (`hello_greet_returns_canonical_greeting`,
     `hello_greet_bridge_escapes_special_chars`) that also fail with the new
@@ -116,7 +116,7 @@ Result (completed):
     pass (includes the new test).
   - `cargo test -p handl-runtime` — all targets pass (100 lib + integration
     tests, 0 failed).
-  - `cargo test -p handl-plugin-engine-eval-tree-walk` — all pass.
+  - `cargo test -p handl-plugin-engine-exec-tree-walk` — all pass.
   - `cargo test -p handl-kit-canonical` — 69 passed, **2 pre-existing
     failures** (`hello_greet_returns_canonical_greeting`,
     `hello_greet_bridge_escapes_special_chars`,
@@ -156,10 +156,10 @@ Verification (completed):
   `erase_pass` unit tests and the `erased_node` / `proof_erasure`
   integration tests).
 - `cargo test -p handl-plugin-engine-typecheck-nbe` — 251 + 46 passed.
-- `cargo test -p handl-plugin-engine-eval-tree-walk` — 116 + integration
+- `cargo test -p handl-plugin-engine-exec-tree-walk` — 116 + integration
   passed.
-- `cargo test -p handl-plugin-engine-eval-bytecode` — 71 + 4 passed.
-- `cargo test -p handl-plugin-engine-eval-cranelift --lib` — 79 passed.
+- `cargo test -p handl-plugin-engine-exec-bytecode` — 71 + 4 passed.
+- `cargo test -p handl-plugin-engine-exec-cranelift --lib` — 79 passed.
 - `cargo test -p handl-kit-canonical` — 69 passed, 2 pre-existing failures
   (`hello_greet_returns_canonical_greeting`,
   `hello_greet_bridge_escapes_special_chars`); unrelated to erasure.
@@ -227,7 +227,7 @@ from generated constructors/recursors).
   - `type_is_evidence()` at line 6727
 - `crates/handl-language/src/lib.rs`
   - `Value` / `TAG_VALUE_KEY` / `REGISTRY_VALUE_KEY`
-- `crates/plugin-engine-eval-tree-walk/src/lib.rs`
+- `crates/plugin-engine-exec-tree-walk/src/lib.rs`
   - `const` native op at line 1084
 
 ## Notes / open questions

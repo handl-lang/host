@@ -15,7 +15,7 @@ serde_yaml = "0.9"
 serde_json = { workspace = true }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
-handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
-handl-plugin-engine-eval-cranelift = {path = "../plugin-engine-eval-cranelift" }
-handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = {path = "../plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }

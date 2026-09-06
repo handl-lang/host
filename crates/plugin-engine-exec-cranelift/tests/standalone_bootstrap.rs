@@ -24,7 +24,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use handl_plugin_engine_eval_cranelift::CraneliftEngine;
+use handl_plugin_engine_exec_cranelift::CraneliftEngine;
 use handl_test_utils::conformance::eval_corpus;
 
 /// A unique temp path for a standalone executable, derived from the case

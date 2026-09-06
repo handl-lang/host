@@ -31,9 +31,9 @@
 //! erased data dispatch) that a standalone-binary bootstrap would use.
 
 use handl_defining_handl::{corpus, language};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_plugin_engine_eval_cranelift::CraneliftEngine;
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec_cranelift::CraneliftEngine;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 
 /// `compile(handlLanguage, native)` (cranelift) produces results matching the
 /// host-built handl (tree-walk) for the full corpus, using the
@@ -78,7 +78,7 @@ fn bootstrap_cranelift_matches_tree_walk_emitter_language() {
 /// them.
 #[test]
 fn bootstrap_self_describing_language_binds_to_runtime() {
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
     use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
     use std::rc::Rc;

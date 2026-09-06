@@ -1,4 +1,4 @@
-//! # handl-plugin-engine-eval-tree-walk
+//! # handl-plugin-engine-exec-tree-walk
 //!
 //! The **reference interpreter** for the eval operation (ADR-0044 §3, §4,
 //! ADR-0052). Interprets the arrow-calculus [`handl_language::Scheme`]
@@ -104,8 +104,8 @@ use rustc_hash::FxHashMap;
 
 use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value, tag_value};
 use handl_platform::{ModuleLookup, ValueCallable};
-use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
+use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{TaggedValue, tagged_to_value};
 
 // Thread-local storage for the current AST and Language, so the
@@ -4026,7 +4026,7 @@ mod tests {
     use super::*;
     use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Scheme};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use handl_plugin_engine_eval::EvalRequest;
+    use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 

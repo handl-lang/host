@@ -18,8 +18,8 @@
 //! [`Runtime::from_registry`] resolves the [`RuntimeConfig`] names against it.
 //! `handl-runtime` names **no** engine impl crate; the engine impls
 //! (`plugin-engine-lex-pattern`, `plugin-engine-parse-pratt`,
-//! `plugin-engine-eval-tree-walk`, `plugin-engine-eval-bytecode`,
-//! `plugin-engine-eval-cranelift`) are deps of the **host**, which registers
+//! `plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`,
+//! `plugin-engine-exec-cranelift`) are deps of the **host**, which registers
 //! them. Adding an engine = register it; no `handl-runtime` edit.
 //!
 //! [`RuntimeConfig`] carries engine names as strings (e.g. `"pratt"`,
@@ -45,7 +45,7 @@
 //! and runs it. The non-serializable artifact never crosses the trait
 //! boundary; only the serializable handle does. The `CompileEngine` /
 //! `CompiledArtifact` impls live in the engine crates
-//! (`plugin-engine-eval-bytecode`, `plugin-engine-eval-cranelift`), not here.
+//! (`plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`), not here.
 //!
 //! ## Dyn-compatibility note
 //!
@@ -71,7 +71,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
@@ -103,8 +103,8 @@ pub struct CompiledHandle {
 /// A compiled artifact — engine-specific, non-serializable, held in the
 /// [`COMPILED_REGISTRY`] behind a trait object.
 ///
-/// Each compile engine (`plugin-engine-eval-bytecode`,
-/// `plugin-engine-eval-cranelift`) produces its own impl carrying the
+/// Each compile engine (`plugin-engine-exec-bytecode`,
+/// `plugin-engine-exec-cranelift`) produces its own impl carrying the
 /// compiled artifact plus the `Language` and `Ast` it was compiled from
 /// (needed to execute: the bytecode VM lazily compiles child nodes using
 /// `lang` + `ast`; the cranelift helpers read `ast` node payloads and `lang`
@@ -138,8 +138,8 @@ pub trait CompiledArtifact {
 
 /// A compile engine — produces [`CompiledArtifact`] impls from an [`Ast`].
 ///
-/// Impl live in the engine crates (`plugin-engine-eval-bytecode`,
-/// `plugin-engine-eval-cranelift`), not in `handl-runtime`. The runtime
+/// Impl live in the engine crates (`plugin-engine-exec-bytecode`,
+/// `plugin-engine-exec-cranelift`), not in `handl-runtime`. The runtime
 /// looks one up by target name in the [`EngineRegistry`] and calls
 /// `compile` to obtain a `Box<dyn CompiledArtifact>`.
 pub trait CompileEngine {
@@ -1600,9 +1600,9 @@ mod tests {
     /// `CompileEngine` trait). Compile-engine registration is tested in
     /// `kit-canonical` instead.
     fn default_registry() -> Rc<EngineRegistry> {
-        use handl_plugin_engine_eval_bytecode::BytecodeEngine;
-        use handl_plugin_engine_eval_cranelift::CraneliftEngine;
-        use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+        use handl_plugin_engine_exec_bytecode::BytecodeEngine;
+        use handl_plugin_engine_exec_cranelift::CraneliftEngine;
+        use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
         use handl_plugin_engine_lex_pattern::DataLexerEngine;
         use handl_plugin_engine_parse_pratt::PrattEngine;
         let mut reg = EngineRegistry::new();
@@ -1773,7 +1773,7 @@ mod tests {
     #[test]
     fn eval_only_runtime_lex_returns_error_eval_works() {
         let rt = Runtime::new(arith_lang()).with_eval_engine(Box::new(
-            handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
         ));
         // lex returns NotImplemented (no lex engine).
         assert_eq!(
@@ -2092,7 +2092,7 @@ mod tests {
     fn operation_markers_are_accessible() {
         let _ = Lexer;
         let _ = Parser;
-        let _ = handl_plugin_engine_eval::Eval;
+        let _ = handl_plugin_engine_exec::Eval;
     }
 
     // -----------------------------------------------------------------------

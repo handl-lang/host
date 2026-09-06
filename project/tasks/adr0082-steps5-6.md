@@ -105,9 +105,9 @@ Status: **completed**
   - `cargo test -p handl-runtime --test indexed_family_data` — passed
   - `cargo test -p handl-runtime --test indexed_family_match` — passed
   - `cargo test -p handl-runtime` — passed
-  - `cargo test -p handl-plugin-engine-eval-tree-walk` — passed
-  - `cargo test -p handl-plugin-engine-eval-bytecode` — passed
-  - `cargo test -p handl-plugin-engine-eval-cranelift` — lib, conformance, and
+  - `cargo test -p handl-plugin-engine-exec-tree-walk` — passed
+  - `cargo test -p handl-plugin-engine-exec-bytecode` — passed
+  - `cargo test -p handl-plugin-engine-exec-cranelift` — lib, conformance, and
     object-compilation tests passed; `tests/standalone_bootstrap.rs` timed out
     after 180 s (pre-existing hang, unrelated to ADR-0082).
 

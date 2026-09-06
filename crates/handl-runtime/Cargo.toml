@@ -8,7 +8,7 @@ handl-language = {path = "../handl-language" }
 handl-platform = {path = "../platform" }
 handl-plugin-engine-lex = {path = "../plugin-engine-lex" }
 handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
-handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -17,9 +17,9 @@ serde_json = { workspace = true }
 serde_json = { workspace = true }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
-handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
-handl-plugin-engine-eval-cranelift = {path = "../plugin-engine-eval-cranelift" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = {path = "../plugin-engine-exec-cranelift" }
 handl-plugin-module = {path = "../plugin-module" }
 handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
 handl-kit-canonical = {path = "../kit-canonical" }

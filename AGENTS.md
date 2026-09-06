@@ -64,23 +64,34 @@ and linter all split source into top-level statements at bracket-depth zero
 - **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
   hits — these are debt to close via `Language` data, not patterns to extend):
   - `plugin-engine-parse-pratt/src/lib.rs` ~L293/337: `match`/`data` special
-    parse branches — need grammar-row fields (optional motive, data params).
-  - `plugin-engine-eval-bytecode` (`vm.rs`/`compile.rs`) +
-    `plugin-engine-eval-cranelift/src/lib.rs`: object-key `var`/`string`
+    parse branches remain. Closing them needs new generic grammar-row fields:
+    an optional keyword clause (`return ... with`) between a fixed child and a
+    delimited block for `match`, and per-child binding powers plus a
+    `payload_extract` step for `data`.
+  - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
+    `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
     heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
     `AstShapeDef`.
-  - `handl-runtime/src/lib.rs` `collect_module_bindings`: `assign`/`let` root
-    kind checks — needs a generic top-level-export role convention.
-  - `handl-runtime/src/desugar_pass.rs`: `if`/`type-annot`/`paren` checks —
-    desugar rules belong in `AstShapeDef` data or documented as bootstrap.
-  - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: pattern-kind
-    match (`array`/`object`/`rest`/`entry`) — needs pattern-role metadata on
-    `AstShapeDef`/`TypeRuleDef`.
+  - `handl-runtime/src/lib.rs` `collect_module_bindings`: **closed**. Now
+    data-driven via `Language::binding_target` using `target` role/`name`
+    payload.
+  - `handl-runtime/src/desugar_pass.rs`: `type-annot`/`paren` checks in
+    `desugar_match_to_recursor`/`parse_type_param` are now data-driven via
+    `subject`/`annot`/`body` roles. Remaining `kind ==` in
+    `node_to_type_string`, `collect_constructors`, and the `while`/`if`/`for`
+    `try_rust_desugar` registry are bootstrap desugar code; they are documented
+    as out-of-scope for ADR-0081 unless/until declarative desugar rules grow
+    fresh-name generation and recursive structure building.
+  - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: **closed**.
+    Dispatch uses `AstShapeDef::pattern_role` (`leaf`/`sequence`/`entries`/
+    `entry`/`rest`) with a role-less fallback for tests.
   - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
-    replace with `Language::param_name` where `Language` is reachable.
-  - `host-lsp/src/*` (~20): token-kind/keyword checks — need
-    `Language.tokens`/classification data instead of `token.lbrace`/`return`/
-    `while`/`do` matching.
+    **closed**. Both now use `Language::param_name` (guarded by
+    `pattern_role: leaf`/`subject` role metadata).
+  - `host-lsp/src/*` (~20): token-kind/keyword checks remain. Closing them
+    needs a `category`/`class` field on `TokenKindDef` (keyword/open-bracket/
+    close-bracket/operator/identifier/etc.) plus host-LSP using
+    `lang.tokens` classification instead of string helpers.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
   - `data/eval.yaml`/`data/types.yaml` have **no `let` row** →
@@ -194,7 +205,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
   conversion replaces O(n²) `char.at` loops.
 - **Runtime fix (field-access):** `eval.field-access` is `source: Native`
-  (the `field_access` native op in `plugin-engine-eval-tree-walk`), not a
+  (the `field_access` native op in `plugin-engine-exec-tree-walk`), not a
   `!Foreign` host call. Passing a record of closures through the
   `serde_json` boundary serialized each `Arrow`'s captured env recursively —
   exponential in the number of prior bindings (OOM at ~20 helpers). Native

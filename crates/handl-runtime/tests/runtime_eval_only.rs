@@ -19,7 +19,7 @@ fn test_registry() -> Rc<EngineRegistry> {
     let mut reg = EngineRegistry::new();
     reg.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     Rc::new(reg)
 }
@@ -142,7 +142,7 @@ fn eval_only_runtime_with_manual_engine_binding() {
     // from_config) also works for an eval-only runtime.
     let lang = eval_lang();
     let rt = Runtime::new(lang).with_eval_engine(Box::new(
-        handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+        handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
     ));
 
     // lex/parse are not bound.

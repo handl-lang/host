@@ -26,7 +26,7 @@
 
 use handl_kit_data_canonical;
 use handl_language::{LangError, Language, Value};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::lex as lex_src;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;

@@ -104,14 +104,14 @@ members = [
   "crates/plugin-engine-lex",
   "crates/plugin-engine-lex-pattern",
   "crates/plugin-engine-parse",
-  "crates/plugin-engine-eval",
+  "crates/plugin-engine-exec",
   "crates/plugin-engine-typecheck",
   "crates/plugin-engine-typecheck-nbe",
   "crates/plugin-engine-parse-pratt",
-  "crates/plugin-engine-eval-tree-walk",
+  "crates/plugin-engine-exec-tree-walk",
   "crates/plugin-engine-test",
-  "crates/plugin-engine-eval-bytecode",
-  "crates/plugin-engine-eval-cranelift",
+  "crates/plugin-engine-exec-bytecode",
+  "crates/plugin-engine-exec-cranelift",
   "crates/plugin-engine-fmt",
   "crates/plugin-engine-lint",
   "crates/plugin-ffi",
@@ -247,14 +247,14 @@ handl-test-utils = { path = "crates/handl-test-utils" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
-handl-plugin-engine-eval = { path = "crates/plugin-engine-eval" }
+handl-plugin-engine-exec = { path = "crates/plugin-engine-exec" }
 handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
 handl-plugin-engine-typecheck-nbe = { path = "crates/plugin-engine-typecheck-nbe" }
 handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
-handl-plugin-engine-eval-tree-walk = { path = "crates/plugin-engine-eval-tree-walk" }
+handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-test = { path = "crates/plugin-engine-test" }
-handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode" }
-handl-plugin-engine-eval-cranelift = { path = "crates/plugin-engine-eval-cranelift" }
+handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-runtime = { path = "crates/handl-runtime" }

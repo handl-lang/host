@@ -7,16 +7,16 @@ edition.workspace = true
 handl-language = {path = "../handl-language" }
 handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
 handl-runtime = {path = "../handl-runtime" }
-handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 handl-platform = {path = "../platform" }
-handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
-handl-plugin-engine-eval-cranelift = {path = "../plugin-engine-eval-cranelift" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = {path = "../plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
 handl-plugin-lib-lang-lex = { workspace = true }

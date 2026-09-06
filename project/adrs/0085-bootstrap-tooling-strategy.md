@@ -27,7 +27,7 @@ already-generic Rust substrate exists and works — the plugin system
 (`platform` crate: `Capability`/`Plugin`/`Kit`/`Host`), the capability
 extensions (`plugin-ext-*`), and the generic engines (`plugin-engine-lex`,
 `plugin-engine-parse`, `plugin-engine-parse-pratt`,
-`plugin-engine-eval*`, `plugin-engine-typecheck*`). Much of the work is
+`plugin-engine-exec*`, `plugin-engine-typecheck*`). Much of the work is
 done; it just was never focused into a concrete toolchain for the arrow
 surface.
 

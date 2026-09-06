@@ -13,7 +13,7 @@ handl-runtime = {path = "../handl-runtime" }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-ext-diag = {path = "../plugin-ext-diag" }
 handl-plugin-lib-scheduler = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }

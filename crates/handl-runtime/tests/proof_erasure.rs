@@ -5,7 +5,7 @@
 //! that node before eval, so the final value is `null`.
 
 use handl_language::{Ast, AstNode, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserContext, ParserEngine, ParserRequest};
 use handl_runtime::{Runtime, TypecheckResult};

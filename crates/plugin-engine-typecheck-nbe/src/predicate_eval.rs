@@ -28,7 +28,7 @@
 //! would point outside the new arena.
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Proof, Value, Verdict};
-use handl_plugin_engine_eval::EvalRequest;
+use handl_plugin_engine_exec::EvalRequest;
 use handl_plugin_engine_typecheck::TypecheckDiagnostic;
 use std::collections::HashMap;
 use std::sync::OnceLock;

@@ -967,10 +967,10 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
- "handl-plugin-engine-eval-cranelift",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
+ "handl-plugin-engine-exec-cranelift",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-lib-lang-compile",
@@ -1055,10 +1055,10 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
- "handl-plugin-engine-eval-cranelift",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
+ "handl-plugin-engine-exec-cranelift",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
@@ -1092,8 +1092,8 @@ dependencies = [
  "handl-emitters",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-runtime",
@@ -1109,10 +1109,10 @@ dependencies = [
  "handl-emitters",
  "handl-kit-data",
  "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
- "handl-plugin-engine-eval-cranelift",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
+ "handl-plugin-engine-exec-cranelift",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-runtime",
@@ -1209,7 +1209,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-engine-eval"
+name = "handl-plugin-engine-exec"
 version = "0.1.0"
 dependencies = [
  "handl-language",
@@ -1219,13 +1219,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-engine-eval-bytecode"
+name = "handl-plugin-engine-exec-bytecode"
 version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
@@ -1235,7 +1235,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-engine-eval-cranelift"
+name = "handl-plugin-engine-exec-cranelift"
 version = "0.1.0"
 dependencies = [
  "cranelift",
@@ -1244,9 +1244,9 @@ dependencies = [
  "cranelift-object",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-ffi",
  "handl-plugin-module",
  "handl-runtime",
@@ -1257,13 +1257,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-engine-eval-tree-walk"
+name = "handl-plugin-engine-exec-tree-walk"
 version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
  "handl-plugin-module",
  "handl-test-utils",
  "handl-value",
@@ -1335,7 +1335,7 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
@@ -1373,8 +1373,8 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
@@ -1733,7 +1733,7 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-module",
@@ -2017,7 +2017,7 @@ dependencies = [
  "base64",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-lib-encoding",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-parse",
@@ -2294,10 +2294,10 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-bytecode",
- "handl-plugin-engine-eval-cranelift",
- "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-bytecode",
+ "handl-plugin-engine-exec-cranelift",
+ "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
@@ -2314,7 +2314,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-eval",
+ "handl-plugin-engine-exec",
  "handl-plugin-engine-parse",
  "handl-plugin-ext-eval",
  "handl-plugin-module",

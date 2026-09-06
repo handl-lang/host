@@ -93,7 +93,7 @@ use handl_language::{
     infer_effect_row, ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof,
     Scheme, Value, Verdict,
 };
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_typecheck::{
     TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
 };

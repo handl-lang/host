@@ -21,8 +21,8 @@ ADR-0058 established that eval engines should be fixed interpreters of
 `Language.eval` data. Dispatch is already data-driven: `eval.yaml`
 maps the `call` node kind to `Arr { op: "call", source: Native }`. But
 the **native op implementation** contains hardcoded language-specific
-logic in all three engines (`plugin-engine-eval-tree-walk`,
-`plugin-engine-eval-bytecode`, `plugin-engine-eval-cranelift`).
+logic in all three engines (`plugin-engine-exec-tree-walk`,
+`plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`).
 
 Each engine's `call` handler (`prim_call` / `prim_v2_call`) and its
 `apply_app` helper hardcode three concerns that should be separable:

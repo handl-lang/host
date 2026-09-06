@@ -8,7 +8,7 @@ handl-language = {path = "../handl-language" }
 handl-emitters = {path = "../handl-emitters" }
 handl-platform = {path = "../platform" }
 handl-runtime = {path = "../handl-runtime" }
-handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -16,4 +16,4 @@ thiserror = { workspace = true }
 [dev-dependencies]
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }

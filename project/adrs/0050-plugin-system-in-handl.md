@@ -59,7 +59,7 @@ porting the **toolchain** (parser, formatter, linter, type-checker), not the eng
 
 This ADR therefore fixes two permanent Rust pieces and moves everything above them into handl:
 
-1. **Bootstrap engine** — `plugin-engine-eval-*` (tree-walk / bytecode / cranelift). handl
+1. **Bootstrap engine** — `plugin-engine-exec-*` (tree-walk / bytecode / cranelift). handl
    cannot run without a runtime. The engine is the kernel that stays Rust.
 2. **Binding lib** — a generic extern façade so any Rust crate is exposed as a handl module
    through one uniform primitive. Mostly exists (`ModuleRuntime` + `ModuleRule`); needs a
@@ -74,7 +74,7 @@ handl.
 
 ```
 Rust (permanent):
-  1. bootstrap engine   — plugin-engine-eval-* (tree-walk/bytecode/cranelift)
+  1. bootstrap engine   — plugin-engine-exec-* (tree-walk/bytecode/cranelift)
   2. binding lib        — generic extern façade over ModuleRuntime + ModuleRule
 ─────────────────────────────────────────────────────────────────────────
 handl (everything above the line):

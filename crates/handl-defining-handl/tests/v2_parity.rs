@@ -13,11 +13,11 @@
 
 use handl_defining_handl::{corpus, language};
 use handl_language::{AstRef, LangError, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_plugin_engine_eval_bytecode::{BytecodeEngine, BytecodeEngineV2};
-use handl_plugin_engine_eval_cranelift::{CraneliftEngine, CraneliftEngineV2};
-use handl_plugin_engine_eval_tree_walk::v2::V2Interpreter;
-use handl_plugin_engine_eval_tree_walk::{ScopeStack, TreeWalkEngine};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec_bytecode::{BytecodeEngine, BytecodeEngineV2};
+use handl_plugin_engine_exec_cranelift::{CraneliftEngine, CraneliftEngineV2};
+use handl_plugin_engine_exec_tree_walk::v2::V2Interpreter;
+use handl_plugin_engine_exec_tree_walk::{ScopeStack, TreeWalkEngine};
 
 /// Evaluate a corpus case under the v2 tree-walk handler (`V2Interpreter`).
 ///

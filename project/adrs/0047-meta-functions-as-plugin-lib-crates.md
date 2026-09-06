@@ -60,7 +60,7 @@ living outside the `plugin-lib-*` namespace convention.
 `handl-platform` has zero dependency on `handl-language` (verified: no
 `handl-language` in its `Cargo.toml` or any source file). It is the
 language-agnostic platform layer — `Plugin`, `CapabilityRequest`,
-`HostFunctions` (re-exported from `plugin-engine-eval`), `Module`, etc. The
+`HostFunctions` (re-exported from `plugin-engine-exec`), `Module`, etc. The
 `RuntimeFactory`/`RuntimeHandle` traits take `Language`, `Source`, `Tokens`,
 `Ast` as parameters, so they are language-tied and do **not** belong in
 `handl-platform`. They need their own crate.
@@ -119,15 +119,15 @@ let runtime = Runtime::from_registry(lang, &registry, RuntimeConfig {
 ```
 
 The engine crates (`plugin-engine-lex-pattern`, `plugin-engine-parse-pratt`,
-`plugin-engine-eval-tree-walk`, `plugin-engine-eval-bytecode`,
-`plugin-engine-eval-cranelift`) are **already separate** and already implement
+`plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`,
+`plugin-engine-exec-cranelift`) are **already separate** and already implement
 `LexerEngine`/`ParserEngine`/`EvalEngine` traits. Each registers itself by
 name; `handl-runtime` names no engine crate. Adding an engine = register it;
 no `handl-runtime` edit.
 
 **`handl-runtime`'s `Cargo.toml` drops all 5 engine impl crates.** It depends
 only on `handl-language` + the three abstraction crates (`plugin-engine-lex`,
-`plugin-engine-parse`, `plugin-engine-eval`) for the engine trait definitions
+`plugin-engine-parse`, `plugin-engine-exec`) for the engine trait definitions
 and `HostFunctions`/`HostFn`. The engine _impls_ (tree-walk, bytecode,
 cranelift, pratt, lex-pattern) are deps of the **host**, not of
 `handl-runtime`. This is the key decoupling: a `handl-runtime` consumer is
@@ -150,7 +150,7 @@ per call).
 ```rust
 // handl-runtime (abstraction + Runtime impl)
 // deps: handl-language, plugin-engine-lex, plugin-engine-parse,
-//       plugin-engine-eval (for engine traits + HostFunctions/HostFn)
+//       plugin-engine-exec (for engine traits + HostFunctions/HostFn)
 
 /// A serializable handle to a compiled program.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,9 +234,9 @@ pub trait RuntimeHandle {
   friendly). The registry is the indirection that resolves names to engines
   without `handl-runtime` hardcoding any match.
 
-`HostFunctions` / `HostFn` are re-exported from `plugin-engine-eval` (already
+`HostFunctions` / `HostFn` are re-exported from `plugin-engine-exec` (already
 a low crate); `handl-runtime` re-exports them so `plugin-lib-*` crates depend
-on `handl-runtime` only, not `plugin-engine-eval` directly.
+on `handl-runtime` only, not `plugin-engine-exec` directly.
 
 ### 3. `compile` / `run_compiled` are leaf-able via `CompiledHandle` + `CompiledArtifact`
 
@@ -244,7 +244,7 @@ The compiled artifact (cranelift `CompiledResult` + `JITModule`, or bytecode
 `Vec<Instr>`) is not `serde`-serializable and not `Send`. It stays in
 `handl-runtime`'s thread-local `COMPILED_REGISTRY` — but now the registry
 holds `Box<dyn CompiledArtifact>`, not an engine-specific enum. Each compile
-engine (`plugin-engine-eval-cranelift`, `plugin-engine-eval-bytecode`)
+engine (`plugin-engine-exec-cranelift`, `plugin-engine-exec-bytecode`)
 produces its own `CompiledArtifact` impl. The `plugin-lib-compile` and
 `plugin-lib-run-compiled` crates work entirely with serializable handles:
 

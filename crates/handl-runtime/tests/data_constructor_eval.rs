@@ -10,7 +10,7 @@
 //! carry the argument *value* (`{"tag":"Zero"}`), not the string `"pred"`.
 
 use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Scheme, Value};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::{Runtime, desugar_pass::apply_desugar};
 use serde_json::json;
 

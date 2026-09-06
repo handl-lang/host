@@ -1,5 +1,5 @@
 [package]
-name = "handl-plugin-engine-eval-cranelift"
+name = "handl-plugin-engine-exec-cranelift"
 version.workspace = true
 edition.workspace = true
 
@@ -9,7 +9,7 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 handl-language = {path = "../handl-language" }
 handl-platform = {path = "../platform" }
-handl-plugin-engine-eval = {path = "../plugin-engine-eval" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-plugin-ffi = {path = "../plugin-ffi" }
 handl-runtime = {path = "../handl-runtime" }
 handl-value = {path = "../handl-value" }
@@ -22,7 +22,7 @@ rustc-hash = "2"
 
 [dev-dependencies]
 handl-test-utils = {path = "../handl-test-utils" }
-handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
-handl-plugin-engine-eval-bytecode = {path = "../plugin-engine-eval-bytecode" }
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
 handl-plugin-module = {path = "../plugin-module" }
 serde_json = { workspace = true }

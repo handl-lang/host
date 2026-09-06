@@ -608,7 +608,7 @@ fn data_file_source_returns_not_implemented_style_error() {
 
 #[test]
 fn into_runtime_binds_pratt_and_tree_walk() {
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
     use handl_runtime::EngineRegistry;
@@ -639,7 +639,7 @@ fn into_runtime_binds_pratt_and_tree_walk() {
 
 #[test]
 fn into_runtime_unknown_eval_engine_errors() {
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
     use handl_runtime::EngineRegistry;

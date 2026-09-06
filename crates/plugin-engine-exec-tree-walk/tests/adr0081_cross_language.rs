@@ -9,8 +9,8 @@
 use handl_language::{
     ArrSource, Ast, AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Scheme, Value,
 };
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use serde_json::json;
 
 // --- Renamed language builder ---------------------------------------------
@@ -209,7 +209,7 @@ fn tree_walk_renamed_kinds_closure() {
 // `has_variadic_role` fix — is tested below.
 #[test]
 fn bytecode_renamed_kinds_closure() {
-    use handl_plugin_engine_eval_bytecode::BytecodeEngine;
+    use handl_plugin_engine_exec_bytecode::BytecodeEngine;
     let engine = BytecodeEngine::new();
     let lang = renamed_language();
     let req = EvalRequest::new(closure_ast());

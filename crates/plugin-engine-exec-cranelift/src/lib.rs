@@ -1,13 +1,13 @@
-//! # handl-plugin-engine-eval-cranelift
+//! # handl-plugin-engine-exec-cranelift
 //!
 //! The **cranelift eval engine** for the eval operation (ADR-0044 §4, §7).
 //!
 //! This engine compiles [`handl_language::Scheme`] data to **native code** via
 //! [cranelift] and executes it via an in-memory JIT. It shares the same
 //! `Scheme` vocabulary as the
-//! [`handl_plugin_engine_eval_tree_walk`](handl_plugin_engine_eval_tree_walk)
+//! [`handl_plugin_engine_exec_tree_walk`](handl_plugin_engine_exec_tree_walk)
 //! reference interpreter and the
-//! [`handl_plugin_engine_eval_bytecode`](handl_plugin_engine_eval_bytecode)
+//! [`handl_plugin_engine_exec_bytecode`](handl_plugin_engine_exec_bytecode)
 //! bytecode engine; conformance tests verify all three produce **identical
 //! results**.
 //!
@@ -130,8 +130,8 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 }
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
-use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, ImportResolver};
+use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{TaggedValue, tagged_to_value};
 
 // ---------------------------------------------------------------------------
@@ -3810,7 +3810,7 @@ mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Scheme};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use handl_plugin_engine_eval::EvalRequest;
+    use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 
@@ -5980,8 +5980,8 @@ mod tests {
             },
         ];
 
-        let tw = handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new();
-        let bc = handl_plugin_engine_eval_bytecode::BytecodeEngineV2::new();
+        let tw = handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new();
+        let bc = handl_plugin_engine_exec_bytecode::BytecodeEngineV2::new();
         let cl = CraneliftEngineV2::new();
 
         for (name, lang, ast) in cases {

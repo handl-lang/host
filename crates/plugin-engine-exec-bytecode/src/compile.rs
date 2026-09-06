@@ -143,7 +143,7 @@ fn compile_into(
             // avoids re-creating the closure (and deep-cloning its captured
             // scope via `capture()`) on every iteration. Mirrors the
             // tree-walk optimization at
-            // `plugin-engine-eval-tree-walk/src/lib.rs:402-456`.
+            // `plugin-engine-exec-tree-walk/src/lib.rs:402-456`.
             if let Scheme::Arr {
                 op, args, source, ..
             } = body.as_ref()

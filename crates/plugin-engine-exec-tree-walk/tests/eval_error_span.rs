@@ -8,8 +8,8 @@
 //! offending source location.
 
 use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Scheme, Span, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 
 /// `arr(proj_child, lit: i)` — reference the i-th child node.
 fn pc(i: u64) -> Scheme {

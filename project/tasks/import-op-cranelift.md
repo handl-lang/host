@@ -2,7 +2,7 @@
 
 ## Objective
 
-Bring `plugin-engine-eval-cranelift` up to parity with the tree-walk and
+Bring `plugin-engine-exec-cranelift` up to parity with the tree-walk and
 bytecode engines for Phase 9.5 import/export:
 
 - Support `import "path"` in compiled/native programs.
@@ -11,7 +11,7 @@ can appear in a block and the last expression can use imported bindings.
 
 ## Background
 
-`crates/plugin-engine-eval-cranelift/src/lib.rs` defines:
+`crates/plugin-engine-exec-cranelift/src/lib.rs` defines:
 
 - `CraneliftEngine` — the `EvalEngine` impl.
 - `EvalCtx` — passed as a raw pointer to compiled native functions and back
@@ -20,7 +20,7 @@ can appear in a block and the last expression can use imported bindings.
 - `ScopeStack` — the scope environment used by helpers.
 
 The bytecode engine recently implemented the same two ops. See
-`crates/plugin-engine-eval-bytecode/src/vm.rs` for reference, especially:
+`crates/plugin-engine-exec-bytecode/src/vm.rs` for reference, especially:
 
 - `prim_v2_import`
 - `prim_v2_eval_block`
@@ -56,7 +56,7 @@ The bytecode engine recently implemented the same two ops. See
    - Pop the scope before returning.
 
 4. Tests.
-   - Add unit tests in `plugin-engine-eval-cranelift/src/lib.rs` (or a new
+   - Add unit tests in `plugin-engine-exec-cranelift/src/lib.rs` (or a new
      `tests/` file) that build a small AST and evaluate `stmt.import` and
      `block` nodes through `CraneliftEngine`.
    - Add a runtime integration test in `crates/handl-runtime/tests/` that uses
@@ -76,7 +76,7 @@ The bytecode engine recently implemented the same two ops. See
 ## Verification commands
 
 ```bash
-cargo test -p handl-plugin-engine-eval-cranelift --lib
+cargo test -p handl-plugin-engine-exec-cranelift --lib
 cargo test -p handl-runtime --test import_cranelift  # after adding integration test
 cargo test -p handl-runtime --test runtime_compile
 cargo test -p handl-kit-canonical
@@ -84,9 +84,9 @@ cargo test -p handl-kit-canonical
 
 ## References
 
-- `crates/plugin-engine-eval-bytecode/src/vm.rs` — `prim_v2_import`,
+- `crates/plugin-engine-exec-bytecode/src/vm.rs` — `prim_v2_import`,
   `prim_v2_eval_block`
-- `crates/plugin-engine-eval-tree-walk/src/lib.rs` — `prim_import`,
+- `crates/plugin-engine-exec-tree-walk/src/lib.rs` — `prim_import`,
   `prim_v2_eval_block`
-- `crates/plugin-engine-eval-cranelift/src/lib.rs` — `EvalCtx`,
+- `crates/plugin-engine-exec-cranelift/src/lib.rs` — `EvalCtx`,
   `helper_v2_apply_native`, `apply_native_v2`

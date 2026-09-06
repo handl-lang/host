@@ -52,7 +52,7 @@ use handl_language::{
 };
 
 use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-use handl_plugin_engine_eval_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
+use handl_plugin_engine_exec_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;

@@ -66,8 +66,8 @@ one element`.
 - **No parser change required:** the Pratt parser already produces an
   `array` node for `[expr]`; the disambiguation happens entirely in the
   eval engines' object-key handling.
-- **Three engines updated in lockstep:** `plugin-engine-eval-tree-walk`,
-  `plugin-engine-eval-bytecode`, and `plugin-engine-eval-cranelift` each
+- **Three engines updated in lockstep:** `plugin-engine-exec-tree-walk`,
+  `plugin-engine-exec-bytecode`, and `plugin-engine-exec-cranelift` each
   gain an `array`-key branch mirroring the existing `var` / `string` /
   evaluate-and-stringify cases.
 - **`(expr):` remains valid** — no breaking change for existing code that

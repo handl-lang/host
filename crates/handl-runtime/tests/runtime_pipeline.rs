@@ -25,7 +25,7 @@ fn test_registry() -> Rc<EngineRegistry> {
     reg.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
     reg.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     Rc::new(reg)
 }

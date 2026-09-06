@@ -1,7 +1,7 @@
 //! Harness functions that run the conformance corpus against any engine.
 
 use handl_language::Ast;
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 
 use super::corpus::{eval_corpus, parse_corpus};
 

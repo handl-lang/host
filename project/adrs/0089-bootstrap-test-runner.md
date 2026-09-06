@@ -7,7 +7,7 @@
 [ADR-0074 — Arrow Surface Syntax v0.1](./0074-arrow-syntax-v0_1-surface-redesign.md),
 [ADR-0044 — Language as Data](./0044-language-as-data-and-runtime-split.md)
 (test-language fragment), [ADR-0081 — Data-driven AST child roles](./0081-data-driven-ast-child-roles.md),
-and the eval engine (`plugin-engine-eval`). The test **framework library**
+and the eval engine (`plugin-engine-exec`). The test **framework library**
 (`assert`/`property`/`benchmark`/`fuzz`/`snapshot`) moves to handl under
 [ADR-0092](./0092-test-framework-in-handl.md); the future handl port of
 this runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).

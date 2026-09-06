@@ -27,8 +27,8 @@ The shipped architecture realizes this for four stages:
 | ------- | -------------------------------------- | --------------------------------------------------- | --------------------------------- |
 | lex     | `plugin-engine-lex` (`LexerEngine`)    | `plugin-engine-lex-pattern`                         | `lang.tokens`, `lang.lexer_rules` |
 | parse   | `plugin-engine-parse` (`ParserEngine`) | `plugin-engine-parse-pratt`                         | `lang.grammar`                    |
-| eval    | `plugin-engine-eval` (`EvalEngine`)    | `plugin-engine-eval-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`)            |
-| compile | (in `handl-runtime`)                   | `plugin-engine-eval-{bytecode,cranelift}`           | —                                 |
+| eval    | `plugin-engine-exec` (`EvalEngine`)    | `plugin-engine-exec-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`)            |
+| compile | (in `handl-runtime`)                   | `plugin-engine-exec-{bytecode,cranelift}`           | —                                 |
 
 The **typecheck** stage is the one exception. It is not data-driven and has no
 engine abstraction:

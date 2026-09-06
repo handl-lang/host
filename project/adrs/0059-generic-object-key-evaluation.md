@@ -24,8 +24,8 @@ a key child and a value child. The key child can be:
    (the parenthesized `(expr):` form).
 
 This rule is implemented in **Rust** in each of the three eval engines
-(`plugin-engine-eval-tree-walk`, `plugin-engine-eval-bytecode`,
-`plugin-engine-eval-cranelift`). Adding a new key form (as ADR-0057 did)
+(`plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`,
+`plugin-engine-exec-cranelift`). Adding a new key form (as ADR-0057 did)
 required changing all three engines in lockstep. This violates the
 platform's design principle: language rules should be **data**, not engine
 code (ADR-0053 §1, ADR-0052 §"Why a kernel").

@@ -41,8 +41,8 @@ use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_module::ModuleRegistry;
-use handl_plugin_engine_eval::ImportResolver;
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec::ImportResolver;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::path::{Path, PathBuf};
@@ -544,7 +544,7 @@ fn build_greet_runtime() -> Result<Runtime, LangError> {
     registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     let registry = Rc::new(registry);
     Runtime::from_registry(lang, &registry, &config)
@@ -822,28 +822,28 @@ impl Kit {
         registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
         registry.register_eval(
             "tree-walk",
-            Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+            Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
         );
         registry.register_eval(
             "bytecode",
-            Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()),
+            Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
         );
         registry.register_eval(
             "cranelift",
-            Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()),
+            Box::new(handl_plugin_engine_exec_cranelift::CraneliftEngine::new()),
         );
         registry.register_compile(
             "bytecode",
-            Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()),
+            Box::new(handl_plugin_engine_exec_bytecode::BytecodeCompileEngine::new()),
         );
         registry.register_compile(
             "native",
-            Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
+            Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
         );
         registry.register_typecheck(
             "nbe",
             Box::new(NbeTypecheckEngine::new(Box::new(
-                handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
             ))),
         );
         let registry = Rc::new(registry);
@@ -1283,28 +1283,28 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
     registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     registry.register_eval(
         "bytecode",
-        Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()),
+        Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
     );
     registry.register_eval(
         "cranelift",
-        Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()),
+        Box::new(handl_plugin_engine_exec_cranelift::CraneliftEngine::new()),
     );
     registry.register_compile(
         "bytecode",
-        Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()),
+        Box::new(handl_plugin_engine_exec_bytecode::BytecodeCompileEngine::new()),
     );
     registry.register_compile(
         "native",
-        Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
+        Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
     );
     registry.register_typecheck(
         "nbe",
         Box::new(NbeTypecheckEngine::new(Box::new(
-            handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
         ))),
     );
     let registry = Rc::new(registry);

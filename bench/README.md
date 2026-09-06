@@ -78,7 +78,7 @@ language. See each task's `README.md` for details.
 - **Not a JIT benchmark.** handl's canonical evaluator is a tree-walk
   interpreter. bun/node have JIT compilers. The gap on tight loops and
   recursion is expected and is useful data for motivating the cranelift
-  backend (`plugin-engine-eval-cranelift`), not a bug.
+  backend (`plugin-engine-exec-cranelift`), not a bug.
 - **Not a standard library benchmark.** Programs use only language builtins
   (arithmetic, print, process.argv). No external packages.
 - **Not a startup microbenchmark only.** Cold-start is one task; the others

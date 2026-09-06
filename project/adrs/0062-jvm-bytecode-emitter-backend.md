@@ -4,8 +4,8 @@
 
 Proposed
 
-Adds a fifth eval engine alongside `plugin-engine-eval-tree-walk`,
-`plugin-engine-eval-bytecode`, `plugin-engine-eval-cranelift`, and the
+Adds a fifth eval engine alongside `plugin-engine-exec-tree-walk`,
+`plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`, and the
 Truffle engine of [ADR-0061 — Truffle
 Backend](./0061-truffle-backend.md). Targets the arrow-calculus
 `SchemeV2` kernel from [ADR-0052 — Arrow Calculus
@@ -19,12 +19,12 @@ ADR-0061 picked the Truffle interpreter path for a JVM target, trading a
 GraalVM runtime dependency for a smaller implementation surface and
 polyglot interop. That leaves a gap: deployment contexts where a
 GraalVM JDK is unavailable but a stock JVM is. A stock-JVM backend is
-the peer of `plugin-engine-eval-cranelift` for the JVM — a code
+the peer of `plugin-engine-exec-cranelift` for the JVM — a code
 generator that lowers `SchemeV2` to `.class` files, runnable on any JDK
 without a special runtime.
 
 ADR-0061 explicitly left this path open ("a future
-`plugin-engine-eval-jvm` crate that emits `.class` files directly is
+`plugin-engine-exec-jvm` crate that emits `.class` files directly is
 explicitly _not_ rejected by this ADR"). This ADR picks it up.
 
 ### Why both backends
@@ -51,7 +51,7 @@ engines.
 ### Relationship to the cranelift engine
 
 The bytecode emitter is structurally a peer of
-`plugin-engine-eval-cranelift`:
+`plugin-engine-exec-cranelift`:
 
 | cranelift                                           | JVM bytecode emitter                                        |
 | --------------------------------------------------- | ----------------------------------------------------------- |
@@ -65,7 +65,7 @@ differs.
 
 ## Decision
 
-Add a new crate `handl-plugin-engine-eval-jvm` that implements
+Add a new crate `handl-plugin-engine-exec-jvm` that implements
 `EvalEngine` by compiling `SchemeV2` to JVM bytecode at eval time and
 executing it on an in-process JVM, with an optional ahead-of-time mode
 that emits `.class`/`.jar` files to disk.
@@ -77,7 +77,7 @@ Rust host (handl-runtime)
    │
    │  EvalEngine::eval(lang, req)
    ▼
-handl-plugin-engine-eval-jvm   (Rust crate)
+handl-plugin-engine-exec-jvm   (Rust crate)
    │
    │  compile_v2: SchemeV2 → JVM bytecode (in-memory or on-disk)
    ▼
@@ -94,7 +94,7 @@ Rust host (capability dispatch)
 
 ### Crate layout
 
-Mirrors `plugin-engine-eval-cranelift`:
+Mirrors `plugin-engine-exec-cranelift`:
 
 - `src/lib.rs` — `JvmBytecodeEngine` implementing `EvalEngine`;
   `RuntimeConfig` wiring (`with_eval("jvm")`).
@@ -180,7 +180,7 @@ calculus.
   Rust host. If polyglot interop is needed, use the Truffle engine.
 - **Short-circuiting `and`/`or`.** The `and`/`or` ops exist in v2 but
   are strict (evaluate both args — see
-  `plugin-engine-eval-tree-walk/src/lib.rs` lines 1155–1156).
+  `plugin-engine-exec-tree-walk/src/lib.rs` lines 1155–1156).
   Short-circuiting is a handler extension, not a backend concern; it
   would be added to all engines uniformly via a separate ADR, not
   per-backend.
@@ -201,7 +201,7 @@ calculus.
 - **A JVM bytecode generator to maintain.** This is the real cost:
   constant pool management, method descriptors, stack-map frames, local
   variable slots, `Choice`→`goto`/merge, `Loop`→back-edge. It is a
-  peer of `plugin-engine-eval-cranelift`'s `compile_v2.rs` in scope,
+  peer of `plugin-engine-exec-cranelift`'s `compile_v2.rs` in scope,
   targeting JVM bytecode instead of cranelift IR.
 - **A `jni` workspace dependency** (shared with the Truffle engine —
   ADR-0061). The boundary marshals `Value` as JSON, not raw Rust

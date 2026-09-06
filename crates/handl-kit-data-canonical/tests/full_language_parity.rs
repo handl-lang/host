@@ -324,7 +324,7 @@ fn language_has_core_capabilities() {
 fn full_kit_runtime_binds_engines() {
     // The full language must bind to the Pratt parse engine and tree-walk
     // eval engine without error.
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
     use handl_runtime::EngineRegistry;

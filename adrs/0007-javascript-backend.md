@@ -2,7 +2,7 @@
 
 ## Context
 
-Handl programs currently run only via the Rust tree-walking evaluator (`handl-plugin-engine-eval-tree-walk`). This limits handl to environments where a Rust binary can run. There is no way to:
+Handl programs currently run only via the Rust tree-walking evaluator (`handl-plugin-engine-exec-tree-walk`). This limits handl to environments where a Rust binary can run. There is no way to:
 
 - Run handl in the browser
 - Run handl in Node.js

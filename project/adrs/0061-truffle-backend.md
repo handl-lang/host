@@ -4,8 +4,8 @@
 
 Proposed
 
-Adds a fourth eval engine alongside `plugin-engine-eval-tree-walk`,
-`plugin-engine-eval-bytecode`, and `plugin-engine-eval-cranelift`. Targets
+Adds a fourth eval engine alongside `plugin-engine-exec-tree-walk`,
+`plugin-engine-exec-bytecode`, and `plugin-engine-exec-cranelift`. Targets
 the arrow-calculus `SchemeV2` kernel from [ADR-0052 — Arrow Calculus
 Kernel](./0052-arrow-calculus-kernel.md) (v1 cutover complete; v2 is the
 sole default) and the data-driven engine model from [ADR-0044 — Language
@@ -29,19 +29,19 @@ primitives (`arr`/`>>>`/`first`/`choice`/`loop`/`app`) and stated the
 semantic thesis explicitly: _execution is one possible handler
 interpretation, rather than a primitive property of arrows_ (Sanada's
 model). Three engines already implement the `EvalEngine` trait
-(`crates/plugin-engine-eval/src/lib.rs`):
+(`crates/plugin-engine-exec/src/lib.rs`):
 
-- `plugin-engine-eval-tree-walk` — reference interpreter (interprets
+- `plugin-engine-exec-tree-walk` — reference interpreter (interprets
   `SchemeV2` directly).
-- `plugin-engine-eval-bytecode` — compiles `SchemeV2` to a custom ISA.
-- `plugin-engine-eval-cranelift` — compiles `SchemeV2` to native machine
+- `plugin-engine-exec-bytecode` — compiles `SchemeV2` to a custom ISA.
+- `plugin-engine-exec-cranelift` — compiles `SchemeV2` to native machine
   code via cranelift JIT; supports on-disk binaries via `cranelift-object`.
 
 A JVM target is the obvious next backend. Two strategies are available:
 
-1. **JVM bytecode emitter** — a `plugin-engine-eval-jvm` crate that lowers
+1. **JVM bytecode emitter** — a `plugin-engine-exec-jvm` crate that lowers
    `SchemeV2` to `.class` files, structurally mirroring
-   `plugin-engine-eval-cranelift`'s `compile_v2.rs` + `standalone.rs`. This
+   `plugin-engine-exec-cranelift`'s `compile_v2.rs` + `standalone.rs`. This
    is a peer of the cranelift engine with a different code generator.
 
 2. **Truffle interpreter on GraalVM** — port the `V2Interpreter`
@@ -97,7 +97,7 @@ same `SchemeV2` data; conformance is one corpus, five engines.
 
 ## Decision
 
-Add a new crate `handl-plugin-engine-eval-truffle` that implements
+Add a new crate `handl-plugin-engine-exec-truffle` that implements
 `EvalEngine` by delegating to a Truffle interpreter running on a JVM
 host. The crate is the Rust-side bridge; the interpreter itself is
 authored in Java (or a JVM language) and loaded by the Rust host via
@@ -110,7 +110,7 @@ Rust host (handl-runtime)
    │
    │  EvalEngine::eval(lang, req)
    ▼
-handl-plugin-engine-eval-truffle   (Rust crate, JNI bridge)
+handl-plugin-engine-exec-truffle   (Rust crate, JNI bridge)
    │
    │  JNI: pass serialized Language + Ast + EvalRequest
    ▼
@@ -127,8 +127,8 @@ JVM / polyglot host
 
 ### Crate layout
 
-`handl-plugin-engine-eval-truffle` mirrors the structure of
-`plugin-engine-eval-cranelift`:
+`handl-plugin-engine-exec-truffle` mirrors the structure of
+`plugin-engine-exec-cranelift`:
 
 - `src/lib.rs` — `TruffleEngine` implementing `EvalEngine`; `RuntimeConfig`
   wiring (`with_eval("truffle")`).
@@ -143,11 +143,11 @@ JVM / polyglot host
   resource via a `build.rs` step that shells out to `javac` + `jar` when
   a JDK is available. The JAR is embedded with `include_bytes!` and
   written to a temp dir at runtime, the same pattern
-  `plugin-engine-eval-cranelift` uses for the cranelift-emitted `.o`.
+  `plugin-engine-exec-cranelift` uses for the cranelift-emitted `.o`.
 
 ### The Truffle interpreter
 
-A direct port of `crates/plugin-engine-eval-tree-walk/src/v2`:
+A direct port of `crates/plugin-engine-exec-tree-walk/src/v2`:
 
 - One `Node` subclass per `SchemeV2` variant: `ArrNode`, `SeqNode`,
   `FirstNode`, `ChoiceNode`, `LoopNode`, `AppNode`. Each `execute(VirtualFrame)`
@@ -181,7 +181,7 @@ the Truffle engine, a `Foreign(name)` op resolves through:
    host owns (e.g. `fs.read` when the Rust host is the process owner).
 
 The choice is per-`Foreign` name and configured at engine construction
-time, mirroring how `plugin-engine-eval-cranelift` resolves `Foreign`
+time, mirroring how `plugin-engine-exec-cranelift` resolves `Foreign`
 through `ModuleLookup`. The capability audit (ADR-0046) is unchanged —
 it inspects `SchemeV2` data, not the engine, so the Truffle engine
 inherits the same capability discipline as the other three.
@@ -211,7 +211,7 @@ engines do.
   this ADR.
 - **Short-circuiting `and`/`or`.** The `and`/`or` ops exist in v2 but
   are strict (evaluate both args — see
-  `plugin-engine-eval-tree-walk/src/lib.rs` lines 1155–1156).
+  `plugin-engine-exec-tree-walk/src/lib.rs` lines 1155–1156).
   Short-circuiting is a handler extension, not a backend concern; it
   would be added to all engines uniformly via a separate ADR, not
   per-backend. (`match` and `handle` are already implemented in v2.)

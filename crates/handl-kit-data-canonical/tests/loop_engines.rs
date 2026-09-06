@@ -20,9 +20,9 @@
 use handl_kit_data::{DataKit, DataKitManifest, FragmentSourceEntry};
 use handl_kit_data_canonical;
 use handl_language::Source;
-use handl_plugin_engine_eval_bytecode::BytecodeEngine;
-use handl_plugin_engine_eval_cranelift::CraneliftEngine;
-use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_exec_bytecode::BytecodeEngine;
+use handl_plugin_engine_exec_cranelift::CraneliftEngine;
+use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_runtime::{EngineRegistry, RuntimeConfig};

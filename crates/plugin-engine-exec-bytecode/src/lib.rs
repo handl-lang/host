@@ -1,11 +1,11 @@
-//! # handl-plugin-engine-eval-bytecode
+//! # handl-plugin-engine-exec-bytecode
 //!
 //! The **bytecode eval engine** for the eval operation (ADR-0044 §4, §7).
 //!
 //! This engine compiles [`handl_language::Scheme`] (the v2 arrow-calculus
 //! kernel, ADR-0052) data to a bytecode representation and executes it via a
 //! stack-based VM. It shares the same `Scheme` vocabulary as the
-//! [`handl_plugin_engine_eval_tree_walk`](handl_plugin_engine_eval_tree_walk)
+//! [`handl_plugin_engine_exec_tree_walk`](handl_plugin_engine_exec_tree_walk)
 //! reference interpreter; conformance tests verify both produce **identical
 //! results**.
 //!
@@ -61,7 +61,7 @@ pub use compile::compile;
 pub use instr::Instr;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_value::TaggedValue;
 use rustc_hash::FxHashMap;
 use std::rc::Rc;
@@ -82,7 +82,7 @@ pub struct BytecodeEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// The import resolver for `import "path"` statements (Phase 9.5).
-    import_resolver: Option<Rc<dyn handl_plugin_engine_eval::ImportResolver>>,
+    import_resolver: Option<Rc<dyn handl_plugin_engine_exec::ImportResolver>>,
     /// Global variables injected by the host (e.g. `self` -> language value).
     globals: FxHashMap<Rc<str>, TaggedValue>,
 }
@@ -167,7 +167,7 @@ impl EvalEngine for BytecodeEngine {
 
     fn with_import_resolver(
         &self,
-        resolver: Rc<dyn handl_plugin_engine_eval::ImportResolver>,
+        resolver: Rc<dyn handl_plugin_engine_exec::ImportResolver>,
     ) -> Box<dyn EvalEngine> {
         let mut engine = self.clone();
         engine.import_resolver = Some(resolver);
@@ -262,7 +262,7 @@ mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Language, Scheme, Value};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use handl_plugin_engine_eval::EvalRequest;
+    use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 

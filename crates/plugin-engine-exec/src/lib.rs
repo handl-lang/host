@@ -1,9 +1,9 @@
-//! # handl-plugin-engine-eval
+//! # handl-plugin-engine-exec
 //!
 //! The **abstraction** crate for the eval operation (ADR-0044 §3, §4, §7).
 //!
 //! Splits `plugin-ext-eval` into an abstraction (operation marker + trait,
-//! no engine) and an engine crate (`plugin-engine-eval-tree-walk`). This
+//! no engine) and an engine crate (`plugin-engine-exec-tree-walk`). This
 //! crate defines the `Eval` operation marker, [`EvalRequest`], the
 //! [`EvalEngine`] trait. `Foreign` scheme dispatch uses
 //! [`handl_platform::ModuleLookup`]/[`handl_platform::Function`] from the

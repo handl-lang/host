@@ -1,4 +1,4 @@
-//! Build script for plugin-engine-eval-cranelift.
+//! Build script for plugin-engine-exec-cranelift.
 //!
 //! On Linux, export dynamic symbols so that FFI tests can find `#[no_mangle]
 //! extern "C"` test functions via `Library::this()`.
