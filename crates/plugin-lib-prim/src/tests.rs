@@ -53,16 +53,18 @@ fn add_zero() {
     assert_eq!(call(&PrimModule, "add", &[n(0), n(0)]).as_i64(), Some(0));
 }
 
+// `prim.add` is now pure handl (`prim-handl`); arity/type failures surface
+// as eval errors (`EvalError::Other`) rather than the native `TypeMismatch`.
 #[test]
 fn add_missing_args_errors() {
     let result = call_err(&PrimModule, "add", &[n(1)]);
-    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+    assert!(result.is_err());
 }
 
 #[test]
 fn add_non_integer_errors() {
     let result = call_err(&PrimModule, "add", &[s("a"), n(1)]);
-    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+    assert!(result.is_err());
 }
 
 #[test]
@@ -117,10 +119,12 @@ fn alloc_zero_returns_empty_array() {
     assert_eq!(result.as_array().unwrap().len(), 0);
 }
 
+// `prim.alloc` is now pure handl (`prim-handl`); arity failures surface as
+// eval errors (`EvalError::Other`) rather than the native `TypeMismatch`.
 #[test]
 fn alloc_missing_args_errors() {
     let result = call_err(&PrimModule, "alloc", &[]);
-    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+    assert!(result.is_err());
 }
 
 #[test]
@@ -161,22 +165,15 @@ fn or_non_integer_errors() {
 // -----------------------------------------------------------------------
 
 #[test]
-fn op_registry_registers_all_four_ops() {
+fn op_registry_registers_native_ops() {
+    // `prim.add`/`prim.alloc` are pure handl (prim-handl record) — only the
+    // genuinely-native atoms (`prim.compare`, `prim.or`) are in the registry.
     let registry = prim_op_registry();
-    assert!(registry.contains("prim.add"));
+    assert!(!registry.contains("prim.add"));
     assert!(registry.contains("prim.compare"));
-    assert!(registry.contains("prim.alloc"));
+    assert!(!registry.contains("prim.alloc"));
     assert!(registry.contains("prim.or"));
-    assert_eq!(registry.len(), 4);
-}
-
-#[test]
-fn op_registry_add_dispatches() {
-    let registry = std::sync::Arc::new(prim_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("prim.add", registry);
-    let mut ctx = EvalContext::new();
-    let result = op_func.call(&[json!(2), json!(3)], &mut ctx).unwrap();
-    assert_eq!(result, json!(5));
+    assert_eq!(registry.len(), 2);
 }
 
 #[test]
@@ -186,16 +183,6 @@ fn op_registry_compare_dispatches() {
     let mut ctx = EvalContext::new();
     let result = op_func.call(&[json!(1), json!(2)], &mut ctx).unwrap();
     assert_eq!(result, json!(-1));
-}
-
-#[test]
-fn op_registry_alloc_dispatches() {
-    let registry = std::sync::Arc::new(prim_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("prim.alloc", registry);
-    let mut ctx = EvalContext::new();
-    let result = op_func.call(&[json!(5)], &mut ctx).unwrap();
-    assert!(result.is_array());
-    assert_eq!(result.as_array().unwrap().len(), 0);
 }
 
 #[test]
@@ -213,9 +200,7 @@ fn op_registry_or_dispatches() {
 fn prim_ops_have_no_checkers_trusted() {
     // The prim atoms are trusted — no runtime checkers attached.
     let registry = prim_op_registry();
-    assert!(registry.get_checker("prim.add").is_none());
     assert!(registry.get_checker("prim.compare").is_none());
-    assert!(registry.get_checker("prim.alloc").is_none());
     assert!(registry.get_checker("prim.or").is_none());
 }
 

@@ -88,7 +88,7 @@ fn run_selected_parallel_matches_sequential_order() {
     let seq = run(&plan);
     let par = run_selected(
         &plan,
-        &handl_plugin_lib_predicate::Predicate::True,
+        &handl_plugin_engine_test::Filter::all(),
         &SchedulePolicy::parallel(4),
     );
     let seq_results: Vec<(&str, &TestResult)> = seq
@@ -394,7 +394,7 @@ fn cached_second_run_replays_identical_results() {
     // identical in ordering and content.
     let plan = discover(&[fixture("mixed.handl")]).unwrap();
     let mut cache = TestRunCache::new();
-    let pred = handl_plugin_lib_predicate::Predicate::True;
+    let pred = handl_plugin_engine_test::Filter::all();
     let policy = SchedulePolicy::sequential();
 
     let first = run_selected_cached(&plan, &pred, &policy, &mut cache);
@@ -428,7 +428,7 @@ fn cache_is_opt_in_and_invalidates_on_source_change() {
     // different fingerprint and re-evaluates.
     let plan = discover(&[fixture("mixed.handl")]).unwrap();
     let mut cache = TestRunCache::new();
-    let pred = handl_plugin_lib_predicate::Predicate::True;
+    let pred = handl_plugin_engine_test::Filter::all();
     let policy = SchedulePolicy::sequential();
 
     // run / run_selected do not use a cache — nothing to assert on the

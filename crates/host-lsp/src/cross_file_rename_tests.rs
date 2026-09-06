@@ -28,7 +28,7 @@ fn make_temp_dir(prefix: &str) -> PathBuf {
 #[test]
 fn prepare_rename_on_identifier_returns_name() {
     // `x` is followed by `=`, so it is a renameable binding.
-    let source = "x = 42";
+    let source = "x :: 42";
     let result = prepare_rename(source, 0);
     let result = result.expect("expected a prepareRename result for `x`");
     assert_eq!(result["placeholder"].as_str().unwrap(), "x");
@@ -41,7 +41,7 @@ fn prepare_rename_on_identifier_returns_name() {
 #[test]
 fn prepare_rename_on_whitespace_returns_none() {
     // Offset 1 is the space between `x` and `=` — no identifier there.
-    let source = "x = 42";
+    let source = "x :: 42";
     assert!(prepare_rename(source, 1).is_none());
 }
 
@@ -57,7 +57,7 @@ fn prepare_rename_on_property_access_returns_none() {
 fn rename_updates_references_in_current_file() {
     // `x` is defined and used; renaming to `y` should edit both occurrences
     // in the current (untitled) file.
-    let source = "x = 42\nx";
+    let source = "x :: 42\nx";
     let result = rename(source, 0, "y", None).expect("expected a rename result");
     let changes = result["documentChanges"]
         .as_array()
@@ -189,7 +189,7 @@ fn rename_renames_arrow_file() {
 fn rename_non_arrow_identifier_no_file_rename() {
     // `x` is a binding, not an arrow file reference, and no file_path is
     // given — so there should be no RenameFile resource.
-    let source = "x = 42\nx";
+    let source = "x :: 42\nx";
     let result = rename(source, 0, "y", None).expect("expected a rename result");
     let changes = result["documentChanges"]
         .as_array()

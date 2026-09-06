@@ -127,8 +127,8 @@ fn flatten_top_level_blocks(ast: &mut Ast) {
 fn fin_indexed_family_predicate_and_match() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat = Zero | Succ(Nat)";
-    let fin_src = "data Fin(n: Nat) = FZ : Fin(n) | FS(i: Fin(n - 1)) : Fin(n)";
+    let nat_src = "data Nat :: Zero | Succ(Nat)";
+    let fin_src = "data Fin(n: Nat) :: FZ : Fin(n) | FS(i: Fin(n - 1)) : Fin(n)";
 
     let mut combined = Ast::new();
     let mut children: Vec<usize> = Vec::new();
@@ -137,26 +137,26 @@ fn fin_indexed_family_predicate_and_match() {
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, fin_src)));
 
     // Construct some `Fin` values.
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0 = FZ")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f1 = FS(FZ)")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0_in_Fin0_bad = FS(FZ)")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0 :: FZ")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f1 :: FS(FZ)")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0_in_Fin0_bad :: FS(FZ)")));
 
     // Predicate membership checks: Fin(n, value).
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p0 = Fin(0, f0)")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p1 = Fin(1, f1)")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p0 :: Fin(0, f0)")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p1 :: Fin(1, f1)")));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p_bad = Fin(0, f0_in_Fin0_bad)"),
+        &parse_raw(&kit, "p_bad :: Fin(0, f0_in_Fin0_bad)"),
     ));
 
     // Surface `match` without a motive.
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "m0 = match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }"),
+        &parse_raw(&kit, "m0 :: match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "m1 = match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }"),
+        &parse_raw(&kit, "m1 :: match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }"),
     ));
 
     // Surface `match` with an explicit motive.
@@ -164,7 +164,7 @@ fn fin_indexed_family_predicate_and_match() {
         &mut combined,
         &parse_raw(
             &kit,
-            "m_motive = match (f1 : Fin(1)) return (n, v) ~> Nat with { FZ: 0, FS(i): __rec_0 + 1 }",
+            "m_motive :: match (f1 : Fin(1)) return (n, v) ~> Nat with { FZ: 0, FS(i): __rec_0 + 1 }",
         ),
     ));
 

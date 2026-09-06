@@ -41,6 +41,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -50,14 +51,15 @@ use handl_language::{
     Language, LexerRuleDef, Source, TokenKindDef, Value,
 };
 
-use handl_platform::{Function, ModuleLookup};
+use handl_platform::{EvalContext, Function, Module, ModuleLookup};
 use handl_plugin_engine_eval_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_exec_cache::AstKey;
 use handl_plugin_ext_diag::Span;
-use handl_plugin_lib_predicate::{glob_matches, Predicate};
+use handl_kit_canonical::handl_module::{HandlModule, ModuleResolver};
+use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
 
@@ -893,7 +895,7 @@ fn build_test_runtime() -> Result<Runtime, String> {
 /// sequentially. See [`crate::config::run_with_config`] for the full
 /// planner/policy entry point.
 pub fn run(plan: &TestPlan) -> RunReport {
-    run_selected(plan, &Predicate::True, &SchedulePolicy::sequential())
+    run_selected(plan, &Filter::all(), &SchedulePolicy::sequential())
 }
 
 /// Run a test plan with a filter pattern.
@@ -912,46 +914,170 @@ pub fn run_with_filter(plan: &TestPlan, filter: &str) -> RunReport {
 // ---------------------------------------------------------------------------
 // Filtering (predicate model, ADR-0089)
 // ---------------------------------------------------------------------------
+//
+// The filter itself is a **handl arrow** evaluated per test case against a
+// record projection `{ name, path, tags }`. All logic — glob matching,
+// substring search, tag-expression parsing — lives in
+// `handl-packages/pred/pred.hnl` (the `pred` module replaces the deleted
+// `plugin-lib-predicate` crate). Rust keeps only the spec record
+// `{ names: [..], tags: [..] }` and the `pred.matches` host call.
 
-/// Build a [`Predicate<TestCase>`] from a filter pattern string.
-///
-/// An empty pattern selects all tests ([`Predicate::True`]). A pattern
-/// containing glob metacharacters (`*` or `?`) is matched against the test
-/// **name** via [`glob_matches`]; a plain pattern is a substring match on
-/// the name, mirroring [`run_with_filter`].
-///
-/// This is the runner's consumer-side glue over the generic
-/// `plugin-lib-predicate` combinators (ADR-0089 §"Filtering as a predicate
-/// model"): composable via [`Predicate::and`]/[`Predicate::or`]/
-/// [`Predicate::not`].
-pub fn filter_predicate(pattern: &str) -> Predicate<TestCase> {
-    if pattern.is_empty() {
-        return Predicate::True;
-    }
-    let pat = pattern.to_string();
-    let is_glob = pat.contains('*') || pat.contains('?');
-    Predicate::atom(move |case: &TestCase| {
-        if is_glob {
-            glob_matches(&pat, &case.name)
-        } else {
-            case.name.contains(&pat)
+/// The handl source for the `pred` predicate/filter library.
+const PRED_HNL: &str = include_str!("../../../handl-packages/pred/pred.hnl");
+
+/// The record field names exposed by `pred.hnl` — each becomes a callable
+/// [`Function`] on the `pred` module.
+const PRED_FUNCS: &[&str] = &[
+    "always",
+    "never",
+    "and",
+    "or",
+    "not",
+    "field",
+    "exact",
+    "glob",
+    "contains",
+    "match_glob",
+    "build",
+    "matches",
+];
+
+/// Resolver for `pred.hnl`'s `from "char" import` — maps `char` onto the
+/// canonical native `char` backend (the same floor `str-handl` builds on).
+struct PredResolver;
+
+impl ModuleResolver for PredResolver {
+    fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
+        match name {
+            "char" => Some(Arc::new(CharModule)),
+            _ => None,
         }
+    }
+}
+
+static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// The shared `pred` [`HandlModule`], built lazily on first use.
+fn pred_module() -> &'static HandlModule {
+    PRED_MODULE.get_or_init(|| {
+        HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_resolver(&PredResolver)
     })
 }
 
-/// Build a [`Predicate<TestCase>`] that selects tests tagged with `tag`.
+/// A compiled case-selection filter — the host-side handle for the `pred`
+/// module's spec record `{ names: [..], tags: [..] }`.
+///
+/// `names` is a list of name patterns (each is a glob on the test name when
+/// it contains `*`/`?`, else a substring match); every pattern must match.
+/// `tags` is a list of tag expressions (comma-separated OR terms, `!`
+/// negation — see [`tag_expr_predicate`]); every expression must hold.
+/// Semantics are defined entirely by `pred.hnl`; this type only composes
+/// spec records and evaluates them via `pred.matches`.
+#[derive(Debug, Clone)]
+pub struct Filter {
+    /// The `pred` spec record `{ names: [..], tags: [..] }`.
+    spec: Value,
+}
+
+impl Filter {
+    /// Select every test (the `pred.always` predicate).
+    pub fn all() -> Self {
+        Filter {
+            spec: serde_json::json!({ "names": [], "tags": [] }),
+        }
+    }
+
+    /// Compose with another filter: tests must satisfy both (logical AND).
+    pub fn and(mut self, mut other: Filter) -> Filter {
+        if let (Some(a), Some(b)) = (
+            self.spec.get_mut("names").and_then(Value::as_array_mut),
+            other.spec.get_mut("names").and_then(Value::as_array_mut),
+        ) {
+            a.append(b);
+        }
+        if let (Some(a), Some(b)) = (
+            self.spec.get_mut("tags").and_then(Value::as_array_mut),
+            other.spec.get_mut("tags").and_then(Value::as_array_mut),
+        ) {
+            a.append(b);
+        }
+        self
+    }
+
+    /// `true` when the spec selects everything (fast path — avoids spinning
+    /// up the `pred` runtime for the common unfiltered run).
+    fn selects_all(&self) -> bool {
+        let empty = |k: &str| {
+            self.spec
+                .get(k)
+                .and_then(Value::as_array)
+                .map(|a| a.is_empty())
+                .unwrap_or(true)
+        };
+        empty("names") && empty("tags")
+    }
+
+    /// Evaluate the filter against `case` by projecting it to the record
+    /// `{ name, path, tags }` and applying the compiled `pred` filter arrow
+    /// (`pred.matches`) in a single in-engine evaluation.
+    pub fn eval(&self, case: &TestCase) -> bool {
+        if self.selects_all() {
+            return true;
+        }
+        let case_record = serde_json::json!({
+            "name": case.name,
+            "path": case.module.display().to_string(),
+            "tags": case.tags,
+        });
+        let mut ctx = EvalContext::new();
+        pred_module()
+            .function("matches")
+            .map(|f| f.call(&[self.spec.clone(), case_record], &mut ctx))
+            .and_then(|r| r.ok())
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    }
+}
+
+impl Default for Filter {
+    fn default() -> Self {
+        Filter::all()
+    }
+}
+
+/// Build a [`Filter`] from a filter pattern string.
+///
+/// An empty pattern selects all tests ([`Filter::all`]). A pattern
+/// containing glob metacharacters (`*` or `?`) is matched against the test
+/// **name** as a glob; a plain pattern is a substring match on the name,
+/// mirroring [`run_with_filter`]. The match itself is evaluated in handl
+/// by `pred.hnl`.
+///
+/// Composable via [`Filter::and`] (ADR-0089 §"Filtering as a predicate
+/// model").
+pub fn filter_predicate(pattern: &str) -> Filter {
+    if pattern.is_empty() {
+        return Filter::all();
+    }
+    Filter {
+        spec: serde_json::json!({ "names": [pattern], "tags": [] }),
+    }
+}
+
+/// Build a [`Filter`] that selects tests tagged with `tag`.
 ///
 /// Tags are discovered from `-- tags: ...` doc-comment lines above a test
 /// declaration. An empty `tag` selects all tests.
-pub fn tag_predicate(tag: &str) -> Predicate<TestCase> {
+pub fn tag_predicate(tag: &str) -> Filter {
     if tag.is_empty() {
-        return Predicate::True;
+        return Filter::all();
     }
-    let tag = tag.to_string();
-    Predicate::atom(move |case: &TestCase| case.tags.iter().any(|t| t == &tag))
+    Filter {
+        spec: serde_json::json!({ "names": [], "tags": [tag] }),
+    }
 }
 
-/// Build a [`Predicate<TestCase>`] from a tag expression.
+/// Build a [`Filter`] from a tag expression.
 ///
 /// Grammar (per `--tag` flag value):
 ///
@@ -962,23 +1088,17 @@ pub fn tag_predicate(tag: &str) -> Predicate<TestCase> {
 ///
 /// So `"slow,net"` selects tests tagged `slow` OR `net`, `"!slow"` selects
 /// tests NOT tagged `slow`, and `"a,!b"` selects tests tagged `a` OR not
-/// tagged `b`. Repeated `--tag` flags are combined with AND by the caller.
-/// An empty expression (or one with only empty terms) selects all tests.
-///
-/// Composition uses the generic [`Predicate`] combinators (`atom`, `or`,
-/// `not`) rather than hand-rolled boolean logic.
-pub fn tag_expr_predicate(expr: &str) -> Predicate<TestCase> {
-    let mut predicate = Predicate::False;
-    let mut any = false;
-    for term in expr.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        any = true;
-        let p = match term.strip_prefix('!') {
-            Some(name) => tag_predicate(name.trim()).not(),
-            None => tag_predicate(term),
-        };
-        predicate = predicate.or(p);
+/// tagged `b`. Repeated `--tag` flags are combined with AND via
+/// [`Filter::and`]. An empty expression (or one with only empty terms)
+/// selects all tests.
+pub fn tag_expr_predicate(expr: &str) -> Filter {
+    let any = expr.split(',').any(|term| !term.trim().is_empty());
+    if !any {
+        return Filter::all();
     }
-    if any { predicate } else { Predicate::True }
+    Filter {
+        spec: serde_json::json!({ "names": [], "tags": [expr] }),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1117,11 +1237,11 @@ fn job_error_result(err: JobError) -> (TestResult, Duration, FailureDetail) {
     }
 }
 
-/// Run a test plan, selecting tests with a [`Predicate`] and executing them
+/// Run a test plan, selecting tests with a [`Filter`] and executing them
 /// under a [`SchedulePolicy`] via the generic [`BoundedScheduler`]
 /// (ADR-0089 §"Planner + Scheduler").
 ///
-/// Tests the predicate rejects are reported as [`TestResult::Skip`]. Selected
+/// Tests the filter rejects are reported as [`TestResult::Skip`]. Selected
 /// tests are dispatched to the scheduler as independent jobs keyed by plan
 /// index; results are re-collected into canonical plan order, so parallel
 /// execution changes timing but never logical result ordering (ADR-0089
@@ -1131,7 +1251,7 @@ fn job_error_result(err: JobError) -> (TestResult, Duration, FailureDetail) {
 /// [`TEST_RUNTIME`]); there is no shared state between tests.
 pub fn run_selected(
     plan: &TestPlan,
-    predicate: &Predicate<TestCase>,
+    predicate: &Filter,
     policy: &SchedulePolicy,
 ) -> RunReport {
     run_selected_impl(plan, predicate, policy, None, None)
@@ -1148,7 +1268,7 @@ pub fn run_selected(
 /// this thread, so ordering is deterministic under any `--jobs`.
 pub(crate) fn run_selected_impl(
     plan: &TestPlan,
-    predicate: &Predicate<TestCase>,
+    predicate: &Filter,
     policy: &SchedulePolicy,
     mut cache: Option<&mut TestRunCache>,
     mut events: Option<&mut Vec<TestEvent>>,
@@ -1524,7 +1644,7 @@ impl TestRunCache {
 /// fresh run.
 pub fn run_selected_cached(
     plan: &TestPlan,
-    predicate: &Predicate<TestCase>,
+    predicate: &Filter,
     policy: &SchedulePolicy,
     cache: &mut TestRunCache,
 ) -> RunReport {
@@ -1921,6 +2041,56 @@ test tagged_fast = 1 + 1
             span: Span::default(),
             tags: tags.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    // --- `pred` handl module (glob parity with the old Rust impl) --------
+
+    /// Evaluate `pred.match_glob(pat, s)` in the handl module.
+    fn match_glob(pat: &str, s: &str) -> bool {
+        let mut ctx = EvalContext::new();
+        super::pred_module()
+            .function("match_glob")
+            .unwrap()
+            .call(
+                &[serde_json::json!(pat), serde_json::json!(s)],
+                &mut ctx,
+            )
+            .unwrap()
+            .as_bool()
+            .unwrap()
+    }
+
+    #[test]
+    fn match_glob_semantics() {
+        // Parity with the deleted `plugin-lib-predicate` glob tests.
+        assert!(match_glob("*.hnl", "foo.hnl"));
+        assert!(!match_glob("*.hnl", "foo.txt"));
+        assert!(match_glob("test_*", "test_foo"));
+        assert!(match_glob("a?c", "abc"));
+        assert!(!match_glob("a?c", "abbc"));
+        // `*` matches the empty sequence; `**` collapses to `*`.
+        assert!(match_glob("a*", "a"));
+        // `**` collapses to `*` (flat matching): `**/*.hnl` still needs `/`.
+        assert!(!match_glob("**/*.hnl", "foo.hnl"));
+        assert!(match_glob("**/*.hnl", "a/b.hnl"));
+        assert!(match_glob("*a*b*", "xxaxxbyy"));
+        assert!(!match_glob("*a*b*", "xxbxx"));
+        // literal chars and `?` boundaries
+        assert!(match_glob("", ""));
+        assert!(!match_glob("", "a"));
+        assert!(!match_glob("?", ""));
+        assert!(match_glob("?", "a"));
+        assert!(match_glob("*?", "a"));
+    }
+
+    #[test]
+    fn filter_eval_via_pred_module() {
+        // Substring and glob name filters evaluate through `pred.matches`.
+        let case = tagged_case(&[]);
+        assert!(super::filter_predicate("t").eval(&case));
+        assert!(!super::filter_predicate("zzz").eval(&case));
+        assert!(super::filter_predicate("t*").eval(&case));
+        assert!(!super::filter_predicate("x*").eval(&case));
     }
 
     #[test]

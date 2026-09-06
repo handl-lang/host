@@ -614,9 +614,42 @@ impl NbeTypecheckEngine {
                         )
                     })?,
                 };
-                ctx.lookup(name).cloned().ok_or_else(|| {
-                    LangError::engine(format!("typecheck: lookup: unbound variable '{}'", name))
-                })
+                match ctx.lookup(name).cloned() {
+                    Some(ty) => Ok(ty),
+                    None => {
+                        // Fall back to the host-function namespace: a bare
+                        // name that resolves via the module chain (e.g.
+                        // `eval`/`lex`/`parse` meta functions) is a callable
+                        // host op — give it an opaque `type.function` with
+                        // fresh metas so `call` unification succeeds without
+                        // knowing the op's signature. Genuinely unbound
+                        // names still error.
+                        let is_host_fn = self
+                            .modules
+                            .as_ref()
+                            .and_then(|m| m.lookup(name))
+                            .is_some();
+                        if is_host_fn {
+                            let param = meta_value(ctx.fresh_meta());
+                            let body = meta_value(ctx.fresh_meta());
+                            ctx.registry
+                                .construct(
+                                    "type.function",
+                                    &serde_json::json!({"param": param, "body": body}),
+                                )
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "typecheck: lookup: failed to construct type.function",
+                                    )
+                                })
+                        } else {
+                            Err(LangError::engine(format!(
+                                "typecheck: lookup: unbound variable '{}'",
+                                name
+                            )))
+                        }
+                    }
+                }
             }
             "lookup_var" => {
                 let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {

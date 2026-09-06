@@ -29,19 +29,12 @@
 
 mod ops;
 
-#[allow(unused_imports)]
 pub use ops::*;
 
 use std::sync::{Arc, OnceLock};
 
 use handl_platform::{Function, Module};
 use handl_plugin_lib_handl::{HandlModule, OpRegistry};
-
-use ops::{
-    ANY_TAG, ARR_TAG, ARRAY_TAG, BOOL_TAG, NULL_TAG, NUM_TAG, NUMBER_TAG, OBJ_TAG, OBJECT_TAG,
-    STR_TAG, STRING_TAG, UNKNOWN_TAG, Coalesce, Default, Identity, ToBool, ToNumber, ToString,
-    TypeIs, TypeMay, TypeMust, TypeNot, TypeOf, TypeWhen,
-};
 
 /// The handl source declaring the typeof `op` interface — the single
 /// source of truth for the typeof API surface. Loaded at compile time

@@ -5,5 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = {path = "../platform" }
-handl-plugin-lib-type = {path = "../plugin-lib-type" }
+handl-plugin-typecheck-nbe = {path = "../plugin-typecheck-nbe" }
+handl-kit-type-schema-json = {path = "../kit-type-schema-json" }
 serde_json = { workspace = true }

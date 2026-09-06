@@ -2,23 +2,27 @@
 //!
 //! Minimal FFI layer for handl's arrow-based stdlib.
 //!
-//! Provides the `prim` module — the three irreducible atom functions that
-//! cannot be expressed as handl arrow graphs:
+//! Provides the `prim` module — the four atom functions of the `prim`
+//! contract (`handl-packages/prim/prim.hnl`):
 //!
-//! - `prim.add(a: Int, b: Int) -> Int` — integer addition
-//! - `prim.compare(a: Int, b: Int) -> Int` — returns -1, 0, or 1
-//! - `prim.alloc(n: Int) -> List` — creates an empty array of size n
-//! - `prim.or(a: Int, b: Int) -> Int` — bitwise OR (flag composition)
+//! - `prim.add(a: Int, b: Int) -> Int` — integer addition (**pure handl**:
+//!   `prim-handl` over the builtin `+`)
+//! - `prim.compare(a, b) -> Int` — deep total order over arbitrary values;
+//!   returns -1, 0, or 1 (**native `op`** — the language has no runtime
+//!   kind introspection, string ordering, or object-key enumeration)
+//! - `prim.alloc(n: Int) -> List` — creates an empty array (**pure handl**)
+//! - `prim.or(a: Int, b: Int) -> Int` — bitwise OR, flag composition
+//!   (**native `op`** — the eval vocabulary has no bitwise primitive)
 //!
 //! Everything else in the stdlib is built atop these via handl arrow graphs.
 //!
-//! This crate has been migrated to the `op`/`handl` declaration form
-//! (ADR-0077 Phase 2). The prim interface is declared in
-//! `handl-packages/prim/prim.hnl` via `op` declarations, and the Rust
-//! atom logic is registered as handls (handlers) in an [`OpRegistry`]. The
-//! [`PrimLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with the
-//! op registry, eliminating the per-library hand-rolled `Plugin` trait
-//! scaffolding.
+//! This crate follows the `op`/`handl` declaration form (ADR-0077): the
+//! `prim` interface is declared in `handl-packages/prim/prim.hnl`, the
+//! pure-handl impls live in `handl-packages/prim-handl/prim-handl.hnl`
+//! (loaded as a record module like `str-handl`/`unicode-handl`), and the
+//! remaining native atoms are registered as handls in an [`OpRegistry`].
+//! The [`PrimLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
+//! the op registry.
 //!
 //! No runtime guarantee checkers are attached to the prim ops — the atoms
 //! are trusted; their guarantees are structural and handled by the
@@ -28,17 +32,36 @@
 
 use std::sync::Arc;
 
-use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
+use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry, parse_cap_declarations};
 
-use ops::{Add, Alloc, Compare, Or};
+use ops::{Compare, Or};
 
 /// The handl source declaring the prim `op` interface — the single source
-/// of truth for the prim API surface. Loaded at compile time from the
-/// kit-stdlib data dir.
+/// of truth for the prim API surface and its `cap` capability
+/// declarations. Loaded at compile time from the kit-stdlib data dir.
 const PRIM_HNL: &str = include_str!("../../../handl-packages/prim/prim.hnl");
 
-/// The op names declared in `prim.hnl`.
-const PRIM_OPS: &[&str] = &["prim.add", "prim.compare", "prim.alloc", "prim.or"];
+/// The pure-handl implementation of `prim` (`prim-handl`) — a record of
+/// arrows providing `add` and `alloc`. The remaining `prim.*` functions
+/// stay native `op`s.
+const PRIM_HANDL_HNL: &str =
+    include_str!("../../../handl-packages/prim-handl/prim-handl.hnl");
+
+/// Record fields exposed by `prim-handl.hnl` — these become callable
+/// [`HandlFunction`](handl_plugin_lib_handl::HandlFunction)s.
+const PRIM_HANDL_FUNCS: &[&str] = &["add", "alloc"];
+
+/// The `prim` op names that remain native — each maps to a Rust
+/// `Function` impl registered in the [`OpRegistry`].
+const PRIM_OPS: &[&str] = &["prim.compare", "prim.or"];
+
+/// The capability ids declared by the `prim` contract (`prim.hnl`).
+fn prim_capabilities() -> Vec<handl_platform::CapabilityId> {
+    parse_cap_declarations(PRIM_HNL)
+        .into_iter()
+        .map(handl_platform::CapabilityId::from)
+        .collect()
+}
 
 pub mod module;
 pub mod ops;
@@ -53,19 +76,18 @@ pub use module::PrimModule;
 /// their op names.
 ///
 /// This registry maps:
-/// - `"prim.add"` → [`Add`] (no runtime checker; atom is trusted)
 /// - `"prim.compare"` → [`Compare`] (no runtime checker; atom is trusted)
-/// - `"prim.alloc"` → [`Alloc`] (no runtime checker; atom is trusted)
 /// - `"prim.or"` → [`Or`] (no runtime checker; atom is trusted)
+///
+/// `prim.add` and `prim.alloc` have no entries here — they are pure handl,
+/// provided by the `prim-handl` record.
 ///
 /// No guarantee checkers are attached — the prim atoms are trusted. Their
 /// guarantees are structural and handled by the inference engine's
 /// `ContractRegistry`.
 pub fn prim_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
-    registry.register("prim.add", Arc::new(Add));
     registry.register("prim.compare", Arc::new(Compare));
-    registry.register("prim.alloc", Arc::new(Alloc));
     registry.register("prim.or", Arc::new(Or));
     registry
 }
@@ -90,8 +112,15 @@ impl PrimLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(prim_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new_with_caps("prim", "lib.prim", "lib-prim", PRIM_HNL, &[])
-                .with_ops(PRIM_OPS, registry),
+            inner: HandlLibraryPlugin::new(
+                "prim",
+                "lib.prim",
+                "lib-prim",
+                PRIM_HANDL_HNL,
+                PRIM_HANDL_FUNCS,
+            )
+            .with_capabilities(prim_capabilities())
+            .with_ops(PRIM_OPS, registry),
         }
     }
 }
@@ -144,7 +173,8 @@ impl handl_platform::Plugin for PrimLibraryPlugin {
 /// directly instead of [`PrimLibraryPlugin`].
 pub fn prim_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(prim_op_registry());
-    HandlLibraryPlugin::new_with_caps("prim", "lib.prim", "lib-prim", PRIM_HNL, &[])
+    HandlLibraryPlugin::new("prim", "lib.prim", "lib-prim", PRIM_HANDL_HNL, PRIM_HANDL_FUNCS)
+        .with_capabilities(prim_capabilities())
         .with_ops(PRIM_OPS, registry)
 }
 

@@ -1073,8 +1073,11 @@ dependencies = [
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
  "handl-plugin-lib-lang-typecheck",
+ "handl-plugin-lib-prim",
+ "handl-plugin-lib-rand-native",
  "handl-plugin-lib-result",
  "handl-plugin-lib-tag",
+ "handl-plugin-lib-time-native",
  "handl-plugin-lib-unicode-native",
  "handl-plugin-lib-utils",
  "handl-plugin-module",
@@ -1341,7 +1344,7 @@ dependencies = [
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
- "handl-plugin-lib-predicate",
+ "handl-plugin-lib-char-native",
  "handl-plugin-lib-scheduler",
  "handl-plugin-module",
  "handl-runtime",
@@ -2059,10 +2062,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-predicate"
-version = "0.1.0"
-
-[[package]]
 name = "handl-plugin-lib-prim"
 version = "0.1.0"
 dependencies = [
@@ -2188,17 +2187,6 @@ dependencies = [
  "handl-plugin-module",
  "serde_json",
  "toml",
-]
-
-[[package]]
-name = "handl-plugin-lib-type"
-version = "0.1.0"
-dependencies = [
- "handl-kit-type-schema-json",
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-typecheck-nbe",
- "serde_json",
 ]
 
 [[package]]
@@ -2449,8 +2437,9 @@ dependencies = [
 name = "handl-plugin-typecheck-core"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-type-schema-json",
  "handl-platform",
- "handl-plugin-lib-type",
+ "handl-plugin-typecheck-nbe",
  "serde_json",
 ]
 

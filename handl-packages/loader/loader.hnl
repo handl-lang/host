@@ -1,0 +1,102 @@
+--- loader — canonical text transforms for .hnl module loading.
+---
+--- This is the bootstrap loader: it must contain no `cap`/`op`/`handl`/
+--- `import`/`tag` declaration lines (it is the code that strips those from
+--- every other .hnl file).  It operates over the `char` and `str` floors,
+--- which are injected into its bridge runtime by the host.
+---
+--- Design (ADR-0094): the Rust `handl-plugin-lib-handl` crate keeps only the
+--- FFI seam (Module/Function trait impls, runtime caching, op dispatch).  All
+--- text-level transform logic lives here, in pure handl, and is called from
+--- Rust through the cached per-thread loader runtime.
+---
+--- Status: this file is the canonical spec.  `escape_string` and
+--- `strip_comments` are implemented; the remaining arrows are identity/stub
+--- placeholders for this round because the bootstrap loop cannot yet be
+--- closed without a full `char`/`str` module in the generic bridge runtime.
+--- The active implementations remain in Rust as a fallback.
+
+do {
+  -- -----------------------------------------------------------------------
+  -- Internal helpers
+  -- -----------------------------------------------------------------------
+
+  rev :: xs ~> do {
+    while { xs: xs, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+      }
+    }
+  }
+
+  -- -----------------------------------------------------------------------
+  -- Implemented transforms
+  -- -----------------------------------------------------------------------
+
+  escape_string :: s ~> do {
+    quote :: char.from_code_point(34)
+    backslash :: char.from_code_point(92)
+    cs :: char.chars(s)
+    while { xs: cs, acc: "" } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [c, ...t]: if c == quote {
+          { state: { xs: t, acc: acc + backslash + c } }
+        } else {
+          if c == backslash {
+            { state: { xs: t, acc: acc + backslash + c } }
+          } else {
+            { state: { xs: t, acc: acc + c } }
+          }
+        }
+      }
+    }
+  }
+
+  strip_comments :: s ~> do {
+    lines :: str.lines(s)
+    kept :: while { xs: lines, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: rev(acc) },
+        [h, ...t]: if str.starts_with([h, "--"]) {
+          { state: { xs: t, acc: acc } }
+        } else {
+          { state: { xs: t, acc: [h, ...acc] } }
+        }
+      }
+    }
+    nl :: char.from_code_point(10)
+    str.join([kept, nl])
+  }
+
+  -- -----------------------------------------------------------------------
+  -- WIP / spec-only arrows.  The Rust side keeps the active implementation
+  -- for these until the pure-handl versions are completed and the bootstrap
+  -- loop is closed.
+  -- -----------------------------------------------------------------------
+
+  strip_decls :: s ~> s
+  transform_export_to_object :: s ~> s
+  find_binding_sep :: s ~> null
+  parse_imports :: s ~> []
+  parse_caps :: s ~> []
+  parse_tags :: s ~> []
+  expand_tags :: s ~> s
+
+  -- -----------------------------------------------------------------------
+  -- Public record
+  -- -----------------------------------------------------------------------
+
+  {
+    strip_comments: strip_comments,
+    strip_decls: strip_decls,
+    transform_export_to_object: transform_export_to_object,
+    find_binding_sep: find_binding_sep,
+    parse_imports: parse_imports,
+    parse_caps: parse_caps,
+    parse_tags: parse_tags,
+    expand_tags: expand_tags,
+    escape_string: escape_string
+  }
+}

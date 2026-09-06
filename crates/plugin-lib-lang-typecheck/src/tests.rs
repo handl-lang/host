@@ -68,6 +68,7 @@ impl RuntimeHandle for MockHandle {
             None => Ok(TypecheckResult {
                 typ: self.canned_result.clone(),
                 diagnostics: vec![],
+                node_types: Default::default(),
             }),
         }
     }

@@ -2,7 +2,7 @@
 //! Scheduler").
 //!
 //! [`RunConfig`] bundles everything the run stage needs — the selection
-//! [`Predicate`], the [`SchedulePolicy`] for the generic
+//! [`Filter`], the [`SchedulePolicy`] for the generic
 //! `BoundedScheduler`, an optional [`TestRunCache`] (`--cache`), and an
 //! event sink — so the `hnl test --filter/--jobs/--cache` flags map onto a
 //! single entry point, [`run_with_config`].
@@ -12,11 +12,12 @@
 //! [`crate::runner::run_selected_cached`] functions are thin wrappers over
 //! this entry point.
 
-use handl_plugin_lib_predicate::Predicate;
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
 use crate::events::TestEvent;
-use crate::runner::{self, filter_predicate, tag_predicate, RunReport, TestCase, TestPlan, TestRunCache};
+use crate::runner::{
+    self, filter_predicate, tag_predicate, Filter, RunReport, TestPlan, TestRunCache,
+};
 
 /// Configuration for a single test run.
 ///
@@ -27,9 +28,9 @@ use crate::runner::{self, filter_predicate, tag_predicate, RunReport, TestCase, 
 /// [`TestEvent`] to it (in canonical plan order — see
 /// [`crate::events`]). Clear it between runs if the config is reused.
 pub struct RunConfig {
-    /// Selection predicate (`--filter`/`--tag`). [`Predicate::True`]
+    /// Selection filter (`--filter`/`--tag`). [`Filter::all`]
     /// selects all tests.
-    pub predicate: Predicate<TestCase>,
+    pub predicate: Filter,
     /// Scheduler policy (`--jobs`). Defaults to available parallelism via
     /// [`SchedulePolicy::default`].
     pub policy: SchedulePolicy,
@@ -43,7 +44,7 @@ pub struct RunConfig {
 impl Default for RunConfig {
     fn default() -> Self {
         Self {
-            predicate: Predicate::True,
+            predicate: Filter::all(),
             policy: SchedulePolicy::default(),
             cache: None,
             events: Vec::new(),

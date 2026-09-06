@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
@@ -176,7 +176,7 @@ fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(Strin
         j += 1;
     }
     let is_binding = j < tokens.len()
-        && ((is_operator_kind(&tokens[j].kind) && tokens[j].text == "=")
+        && ((tokens[j].kind == "token.bind" && tokens[j].text == "::")
             || tokens[j].kind == "token.colon");
 
     // Check if it matches an arrow file name. We can't know the file path

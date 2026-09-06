@@ -129,18 +129,18 @@ fn flatten_top_level_blocks(ast: &mut Ast) {
 fn vec_indexed_family_match_with_and_without_motive() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat = Zero | Succ(Nat)";
-    let vec_src = "data Vec(n: Nat, a: Type) = VNil : Vec(0, a)
+    let nat_src = "data Nat :: Zero | Succ(Nat)";
+    let vec_src = "data Vec(n: Nat, a: Type) :: VNil : Vec(0, a)
                                        | VCons(x: a, xs: Vec(n - 1, a)) : Vec(n, a)";
 
     let match_src = |name, v, n| {
         format!(
-            "{name} = match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
+            "{name} :: match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
         )
     };
     let match_motive_src = |name, v, n| {
         format!(
-            "{name} = match ({v} : Vec({n}, a)) return (n, a, v) ~> Nat with {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
+            "{name} :: match ({v} : Vec({n}, a)) return (n, a, v) ~> Nat with {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
         )
     };
 
@@ -154,9 +154,9 @@ fn vec_indexed_family_match_with_and_without_motive() {
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, nat_src)));
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, vec_src)));
 
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "a = 0")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v0 = VNil")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v1 = VCons(42, v0)")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "a :: 0")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v0 :: VNil")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v1 :: VCons(42, v0)")));
 
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, &match_src("len0", "v0", "0"))));
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, &match_src("len1", "v1", "1"))));

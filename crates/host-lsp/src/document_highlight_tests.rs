@@ -3,7 +3,7 @@ use crate::document_highlight::document_highlight;
 #[test]
 fn document_highlight_finds_all_occurrences() {
     // `x = 42; y = x` — two occurrences of `x`.
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let offset = source.find('x').unwrap();
     let result = document_highlight(source, offset).expect("should find highlights");
     assert_eq!(
@@ -16,7 +16,7 @@ fn document_highlight_finds_all_occurrences() {
 #[test]
 fn document_highlight_marks_declaration_as_write() {
     // The `x` in `x = 42` is a declaration → kind 2 (Write).
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let offset = source.find('x').unwrap();
     let result = document_highlight(source, offset).expect("should find highlights");
     let decl = result
@@ -33,7 +33,7 @@ fn document_highlight_marks_declaration_as_write() {
 #[test]
 fn document_highlight_marks_usage_as_read() {
     // The `x` in `y = x` is a usage → kind 1 (Read).
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let usage_offset = source.rfind('x').unwrap();
     let result = document_highlight(source, usage_offset).expect("should find highlights");
     // Find the highlight whose start character matches the usage offset.
@@ -51,7 +51,7 @@ fn document_highlight_marks_usage_as_read() {
 #[test]
 fn document_highlight_on_whitespace_returns_none() {
     // Cursor on the space between `x` and `=` is not on an identifier.
-    let source = "x = 42";
+    let source = "x :: 42";
     let offset = source.find(' ').unwrap();
     assert!(document_highlight(source, offset).is_none());
 }
@@ -59,7 +59,7 @@ fn document_highlight_on_whitespace_returns_none() {
 #[test]
 fn document_highlight_on_non_identifier_returns_none() {
     // Cursor on a number is not on an identifier.
-    let source = "x = 42";
+    let source = "x :: 42";
     let offset = source.find('4').unwrap();
     assert!(document_highlight(source, offset).is_none());
 }
@@ -71,7 +71,7 @@ fn document_highlight_no_matches_returns_empty() {
     // single entry. The spec says "cursor on an identifier that appears once"
     // returns empty. We treat a single occurrence as no *additional* matches,
     // so the list has exactly one entry (the cursor's own occurrence).
-    let source = "z = 1";
+    let source = "z :: 1";
     let offset = source.find('z').unwrap();
     let result = document_highlight(source, offset).expect("should resolve identifier");
     // Only one occurrence exists, so no other matches to highlight.
@@ -84,7 +84,7 @@ fn document_highlight_no_matches_returns_empty() {
 
 #[test]
 fn document_highlight_returns_valid_json() {
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let offset = source.find('x').unwrap();
     let result = document_highlight(source, offset).expect("should find highlights");
     assert!(!result.is_empty(), "should have highlights");

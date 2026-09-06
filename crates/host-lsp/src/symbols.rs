@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
@@ -30,7 +30,7 @@ pub fn find_definition(source: &str, name: &str) -> Option<Span> {
             while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
                 j += 1;
             }
-            if j < tokens.len() && is_operator_kind(&tokens[j].kind) && tokens[j].text == "=" {
+            if j < tokens.len() && tokens[j].kind == "token.bind" && tokens[j].text == "::" {
                 return Some(tokens[i].span);
             }
         }

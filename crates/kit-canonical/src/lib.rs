@@ -35,13 +35,16 @@ use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_prim::PrimModule;
+use handl_plugin_lib_rand_native::RandModule;
+use handl_plugin_lib_time_native::TimeModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_lib_utils::{
     BoolModule, CombinatorsModule, EncodingModule, MathModule, MoodModule, OptionModule,
     ParseModule as UtilsParseModule, SerializeModule, TypeModule,
 };
 use handl_plugin_lib_result::result_module;
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_module::ModuleRegistry;
 use handl_plugin_engine_eval::ImportResolver;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -124,9 +127,11 @@ impl ModuleResolver for StdlibResolver {
             "fn" => Some(std::sync::Arc::new(CombinatorsModule)),
             "combinators" => Some(std::sync::Arc::new(CombinatorsModule)),
             "math" => Some(std::sync::Arc::new(MathModule)),
+            "prim" => Some(std::sync::Arc::new(PrimModule)),
             "bool" => Some(std::sync::Arc::new(BoolModule)),
             "option" => Some(std::sync::Arc::new(OptionModule)),
-            "type" => Some(std::sync::Arc::new(TypeModule)),
+            "type" => Some(std::sync::Arc::new(build_type_module())),
+            "typeof" => Some(std::sync::Arc::new(TypeModule)),
             _ => None,
         }
     }
@@ -149,7 +154,132 @@ fn build_str_handl_module() -> HandlModule {
         .with_resolver(&StdlibResolver)
 }
 
+// ---------------------------------------------------------------------------
+// type module — pure-Handl `type-handl` record over the `type.of` atom
+// ---------------------------------------------------------------------------
+//
+// `type` is a keyword in handl v0.1 (ADR-0074) but parses as a `var` atom,
+// so `type.of(v)` in handl source evaluates as
+// `field-access(var("type"), "of")` → the host call `"type.of"`, dispatched
+// to a module named `"type"` providing `of` (the same module-path
+// construction `tag.*`/`fn.*` use).
+//
+// The composition mirrors `unicode-native`: the pure-Handl record
+// (`handl-packages/type-handl/type-handl.hnl`) supplies every predicate and
+// kind guard, while the minimal reflection primitive `type.of` — plus the
+// coercion/variadic atoms `type.to_string`, `type.to_number`, and
+// `type.coalesce`, which the eval vocabulary cannot express — stay native
+// `op`s attached via `with_ops`. Ops take precedence over record fields on
+// name collision.
 
+/// The handl source implementing the `type` contract
+/// (`handl-packages/type/type.hnl`) as pure handl over the `type.of` atom.
+const TYPE_HANDL_HNL: &str =
+    include_str!("../../../handl-packages/type-handl/type-handl.hnl");
+
+/// The record field names exposed by `type-handl.hnl` — each becomes a
+/// callable [`Function`] on the `"type"` module.
+const TYPE_HANDL_FUNCS: &[&str] = &[
+    "is_null", "is_bool", "is_number", "is_string", "is_array", "is_object",
+    "is_arrow", "is_function", "is_bytes", "is_resource",
+    "tag", "name", "type_of", "typeof",
+    "is", "must", "may", "not", "when",
+    "identity", "default", "to_bool",
+];
+
+/// The `type` op names that remain native — each maps to a Rust
+/// [`Function`] impl registered in the [`OpRegistry`].
+///
+/// - `type.of` — the minimal runtime kind-introspection atom (there is no
+///   kind check in the eval vocabulary; `typeof` was removed from the
+///   language surface).
+/// - `type.to_string` / `type.to_number` — value↔string coercion and
+///   string→number parsing have no eval-vocabulary primitive.
+/// - `type.coalesce` — variadic; handl arrows have fixed parameter lists.
+const TYPE_OPS: &[&str] = &[
+    "type.of",
+    "type.to_string",
+    "type.to_number",
+    "type.coalesce",
+];
+
+/// `type.of(v)` — return the kind tag of a value.
+///
+/// The tag vocabulary matches the tree-walk engine's `type_tag`:
+/// `"null"`, `"bool"`, `"number"`, `"string"`, `"array"`, `"object"`,
+/// `"bytes"`, `"resource"`. At the `serde_json` boundary an arrow value
+/// arrives as `{"__arrow__": true, ...}` and is reported as `"arrow"`;
+/// `__pair__`/`__either__`/`__tag__` encodings report `"object"`, matching
+/// `type_tag` which sees them all as `Obj`.
+#[derive(Clone, Copy, Debug)]
+pub struct TypeOf;
+
+impl Function for TypeOf {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let v = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1,
+            args.len()
+        )))?;
+        Ok(Value::from(type_tag_json(v).to_string()))
+    }
+}
+
+/// Kind-tag classification at the `serde_json` boundary (see [`TypeOf`]).
+fn type_tag_json(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|b| b.as_bool()) == Some(true) {
+                "arrow"
+            } else if o.contains_key("__bytes__") {
+                "bytes"
+            } else if o.contains_key("__resource__") {
+                "resource"
+            } else {
+                "object"
+            }
+        }
+    }
+}
+
+/// Build the [`OpRegistry`] for the native `type` ops.
+///
+/// `type.of` is the new reflection atom ([`TypeOf`]); `to_string`,
+/// `to_number`, and `coalesce` reuse the existing coercion/variadic impls
+/// from `plugin-lib-utils`'s `r#type` module (the same handls that back
+/// `typeof.to_string` etc. on the legacy `typeof` module).
+fn type_op_registry() -> OpRegistry {
+    use handl_plugin_lib_utils::r#type::{Coalesce, ToNumber, ToString};
+    let mut registry = OpRegistry::new();
+    registry.register("type.of", std::sync::Arc::new(TypeOf));
+    registry.register("type.to_string", std::sync::Arc::new(ToString));
+    registry.register("type.to_number", std::sync::Arc::new(ToNumber));
+    registry.register("type.coalesce", std::sync::Arc::new(Coalesce));
+    registry
+}
+
+/// An ops-only `"type"` module used as the in-record dependency of
+/// `type-handl`: `type.of(v)` calls inside the `.hnl` source resolve
+/// through the bridge runtime's module chain to these native ops.
+fn type_ops_module() -> HandlModule {
+    HandlModule::new("type", "{}", &[]).with_ops(
+        TYPE_OPS,
+        std::sync::Arc::new(type_op_registry()),
+    )
+}
+
+/// Build the composed [`HandlModule`] for `type`: the `type-handl` record
+/// plus the native `type.*` ops.
+fn build_type_module() -> HandlModule {
+    HandlModule::new("type", TYPE_HANDL_HNL, TYPE_HANDL_FUNCS)
+        .with_dependency(type_ops_module())
+        .with_ops(TYPE_OPS, std::sync::Arc::new(type_op_registry()))
+}
 
 
 // ---------------------------------------------------------------------------
@@ -724,6 +854,12 @@ impl Kit {
         stdlib_registry.register(CharModule);
         stdlib_registry.register(UnicodeModule);
         stdlib_registry.register(BoolModule);
+        // `type` — the canonical runtime-introspection module: the
+        // `type-handl` record (predicates/guards) over the native
+        // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
+        stdlib_registry.register(build_type_module());
+        // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
+        // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
         stdlib_registry.register(TypeModule);
         stdlib_registry.register(OptionModule);
         stdlib_registry.register(result_module());
@@ -736,6 +872,13 @@ impl Kit {
         stdlib_registry.register(build_dedent_module());
         stdlib_registry.register(TransformModule::new());
         stdlib_registry.register(CombModule::new());
+        // `prim` — the atom layer: `add`/`alloc` are pure handl
+        // (`prim-handl` record), `compare`/`or` are native ops.
+        stdlib_registry.register(PrimModule);
+        // `time`/`rand` — native backends (clock reads, deterministic
+        // seeded RNG for `property`/`fuzz`, ADR-0092).
+        stdlib_registry.register(TimeModule);
+        stdlib_registry.register(RandModule);
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
@@ -1251,7 +1394,8 @@ pub fn is_doc_comment_kind(kind: &str) -> bool {
 pub fn is_operator_kind(kind: &str) -> bool {
     matches!(
         kind,
-        "token.equal"
+        "token.bind"
+            | "token.equal"
             | "token.plus"
             | "token.minus"
             | "token.star"
@@ -1674,9 +1818,9 @@ mod tests {
 
     #[test]
     fn typecheck_let_binds_var_and_returns_body_type() {
-        // ADR-0079: `let ... in` removed. Use `do { x = 1; x }` graph block.
+        // ADR-0079: `let ... in` removed. Use `do { x :: 1; x }` graph block.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x = 1; x }").unwrap();
+        let typ = kit.typecheck("do { x :: 1; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1729,9 +1873,9 @@ mod tests {
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type
-        // annotations yet — use untyped `do { x = 2; x }`.
+        // annotations yet — use untyped `do { x :: 2; x }`.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x = 2; x }").unwrap();
+        let typ = kit.typecheck("do { x :: 2; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1839,7 +1983,7 @@ mod tests {
     #[test]
     fn data_nat_parses_to_data_node_with_alt_tree() {
         let kit = Kit::new().unwrap();
-        let ast = parse_raw(&kit, "data Nat = Zero | Succ(Nat)");
+        let ast = parse_raw(&kit, "data Nat :: Zero | Succ(Nat)");
 
         // The last node should be a `data` node.
         let root = ast.nodes().last().unwrap();
@@ -1875,7 +2019,7 @@ mod tests {
     fn data_nat_desugars_to_block_from_source() {
         let kit = Kit::new().unwrap();
         // kit.parse applies the desugar pass.
-        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
 
         // The root should be a `block` with 4 statements (predicate + 2
         // constructors + recursor).
@@ -1899,7 +2043,7 @@ mod tests {
     #[test]
     fn data_bool_desugars_from_source() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Bool = True | False").unwrap();
+        let ast = kit.parse("data Bool :: True | False").unwrap();
 
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
@@ -1910,7 +2054,7 @@ mod tests {
 
     #[test]
     fn data_nat_eval_succ_zero() {
-        // End-to-end: parse `data Nat = Zero | Succ(Nat)` and `Succ(Zero)`,
+        // End-to-end: parse `data Nat :: Zero | Succ(Nat)` and `Succ(Zero)`,
         // desugar, and eval to get a tagged value.
         //
         // The Pratt parser parses one statement per call, so we parse the
@@ -1922,7 +2066,7 @@ mod tests {
         let kit = Kit::new().unwrap();
 
         // Parse and desugar the data declaration.
-        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
         // The root is a block with 4 assign children.
         let data_root = data_ast.nodes().last().unwrap();
         assert_eq!(data_root.kind, "block");
@@ -1990,10 +2134,10 @@ mod tests {
 
     #[test]
     fn data_nat_eval_zero() {
-        // Eval `Zero` after declaring `data Nat = Zero | Succ(Nat)`.
+        // Eval `Zero` after declaring `data Nat :: Zero | Succ(Nat)`.
         // Same combining approach as data_nat_eval_succ_zero.
         let kit = Kit::new().unwrap();
-        let data_ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
         let data_root = data_ast.nodes().last().unwrap();
         let data_children: Vec<usize> = data_root
             .payload
@@ -2074,7 +2218,7 @@ mod tests {
 
     #[test]
     fn data_desugar_visible_to_typechecker() {
-        // Parse `data Nat = Zero | Succ(Nat)` from source. The desugar pass
+        // Parse `data Nat :: Zero | Succ(Nat)` from source. The desugar pass
         // runs at parse time (Runtime::parse), so the typechecker should see
         // the desugared `Nat` predicate. We verify by typechecking a module
         // that includes the data declaration — the typechecker input is the
@@ -2085,7 +2229,7 @@ mod tests {
         // to the typechecker input (i.e., no `data` nodes remain in the
         // typechecked AST — they are all desugared to `block`/`assign`).
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Nat = Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
 
         // Verify no `data` nodes remain in the desugared AST.
         for node in ast.nodes() {
@@ -2159,7 +2303,7 @@ mod tests {
         // a runtime-assert node. At runtime with a valid value (5), the
         // assert passes and returns 5.
         let kit = Kit::new().unwrap();
-        let val = kit.run("do { y = 5; (y : (n ~> n > 0)) }").unwrap();
+        let val = kit.run("do { y :: 5; (y : (n ~> n > 0)) }").unwrap();
         assert_eq!(val, serde_json::json!(5));
     }
 
@@ -2168,7 +2312,7 @@ mod tests {
         // Same as above but with an invalid value (-1): the runtime assert
         // fails and raises a LangError.
         let kit = Kit::new().unwrap();
-        let err = kit.run("do { y = -1; (y : (n ~> n > 0)) }").unwrap_err();
+        let err = kit.run("do { y :: -1; (y : (n ~> n > 0)) }").unwrap_err();
         assert!(
             err.to_string().contains("assertion failed"),
             "expected assertion failure, got: {err}"

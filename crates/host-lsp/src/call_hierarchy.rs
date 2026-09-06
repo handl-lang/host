@@ -383,13 +383,13 @@ fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef
         }
 
         if depth == 0 && is_identifier_kind(kind) {
-            // Look for the next non-comment token; if it is `=`, this is a
+            // Look for the next non-comment token; if it is `::`, this is a
             // named-arrow definition.
             let mut j = i + 1;
             while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
                 j += 1;
             }
-            if j < tokens.len() && tokens[j].text == "=" {
+            if j < tokens.len() && tokens[j].text == "::" {
                 let body_start = tokens[j].span.end;
                 let body_end = line_end_offset(source, tokens[j].span.start);
                 defs.push(ArrowDef {

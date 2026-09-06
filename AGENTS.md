@@ -23,7 +23,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
-| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`Predicate<TestCase>`; `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-lib-predicate`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
+| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/check/test/run/eval` subcommands                                                                                                                                                                       |
 
@@ -71,8 +71,11 @@ and linter all split source into top-level statements at bracket-depth zero
   the canonical kit at discovery time via `Language::merge` (ADR-0044) — the
   legacy `test_*` binding convention remains as a fallback; (c) generic
   systems live in dedicated crates — `plugin-lib-scheduler` (bounded-job
-  `BoundedScheduler`/`SchedulePolicy`) and `plugin-lib-predicate`
-  (`Predicate<T>`/`StringMatcher`/glob+path matching) — plus
+  `BoundedScheduler`/`SchedulePolicy`) and filtering, which is now a
+  **handl arrow**: `plugin-lib-predicate` is deleted and its combinator
+  vocabulary (`and`/`or`/`not`/`field`/`exact`/`glob`/`always`/`never`/
+  `match_glob`) lives in `handl-packages/pred/pred.hnl`, evaluated per
+  case against a `{ name, path, tags }` record projection — plus
   `handl-language::capabilities` and `plugin-exec-cache` (`TestRunCache` keys
   results by `AstKey{kind:"test.result", module+name+body_source}`). The
   runner now consumes all of them: `run_with_config(&mut RunConfig)` is the

@@ -85,7 +85,10 @@ mod parse;
 mod serialize;
 pub mod shared;
 mod r#str;
-mod r#type;
+// `pub` so `kit-canonical` can reuse the coercion/variadic atoms
+// (`ToString`, `ToNumber`, `Coalesce`) as `type.*` ops on the canonical
+// `type` module (ADR-0077 `op`/`handl` split).
+pub mod r#type;
 
 pub use bool::BoolModule;
 pub use encoding::EncodingModule;

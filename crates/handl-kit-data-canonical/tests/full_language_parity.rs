@@ -29,7 +29,7 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
     let eval_node_kinds: &[&str] = &[
         "var",
         "call",
-        "let",
+        // ADR-0079: `let` removed — `stmt.let` (below) is the live binding form.
         "if",
         "function",
         "binary.add",

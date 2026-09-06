@@ -63,7 +63,6 @@ members = [
   "crates/plugin-lib-parse",
   "crates/plugin-lib-result",
   "crates/plugin-lib-prim",
-  "crates/plugin-lib-predicate",
   "crates/plugin-lib-rand",
   "crates/plugin-lib-rand-native",
   "crates/plugin-lib-time-native",
@@ -74,7 +73,6 @@ members = [
   "crates/plugin-lib-tls-native",
   "crates/plugin-lib-toml",
   "crates/plugin-lib-tag",
-  "crates/plugin-lib-type",
   "crates/plugin-lib-unicode",
   "crates/plugin-lib-unicode-native",
   "crates/plugin-lib-url-rfc",
@@ -222,7 +220,6 @@ handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
 handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
 handl-plugin-lib-result = { path = "crates/plugin-lib-result" }
 handl-plugin-lib-prim = { path = "crates/plugin-lib-prim" }
-handl-plugin-lib-predicate = { path = "crates/plugin-lib-predicate" }
 handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
 handl-plugin-lib-rand-native = { path = "crates/plugin-lib-rand-native" }
 handl-plugin-lib-time-native = { path = "crates/plugin-lib-time-native" }
@@ -235,7 +232,6 @@ handl-plugin-lib-tls = { path = "crates/plugin-lib-tls" }
 handl-plugin-lib-tls-native = { path = "crates/plugin-lib-tls-native" }
 handl-plugin-lib-toml = { path = "crates/plugin-lib-toml" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
-handl-plugin-lib-type = { path = "crates/plugin-lib-type", default-features = false }
 handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-plugin-lib-unicode-native = { path = "crates/plugin-lib-unicode-native" }
 handl-plugin-lib-url-rfc = { path = "crates/plugin-lib-url-rfc" }

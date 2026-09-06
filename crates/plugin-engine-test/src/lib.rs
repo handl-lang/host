@@ -8,7 +8,10 @@
 //! `bench` declarations are first-class syntax; the legacy `test_*` binding
 //! convention remains as a fallback. Execution dispatches selected tests to
 //! the generic `plugin-lib-scheduler` `BoundedScheduler` under a
-//! `SchedulePolicy`, selects them via `plugin-lib-predicate` `Predicate`s,
+//! `SchedulePolicy`, selects them via [`Filter`]s — a handl filter arrow
+//! from `handl-packages/pred/pred.hnl` evaluated per case against a record
+//! projection `{ name, path, tags }` (the `plugin-lib-predicate` crate is
+//! deleted; its combinator vocabulary lives in `pred.hnl`),
 //! and re-collects results into canonical plan order (parallelism changes
 //! timing, never ordering — ADR-0089).
 //!

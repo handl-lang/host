@@ -1,4 +1,15 @@
---- prim.add — integer addition (irreducible atom).
+--- prim — the minimal atom layer for handl's arrow-based stdlib.
+---
+--- This is the `prim` contract: the declared interface every `prim`
+--- implementation must satisfy. `prim.add` and `prim.alloc` are
+--- implemented in pure handl by the `prim-handl` record
+--- (`handl-packages/prim-handl/prim-handl.hnl`); `prim.compare` and
+--- `prim.or` remain native `op`s — the language lacks runtime kind
+--- introspection, string ordering, and object-key enumeration (needed
+--- for the deep total order) and bitwise primitives (needed for flag
+--- composition).
+
+--- prim.add — integer addition.
 cap "prim.add"
 op "prim.add" : (Int * Int) -> Int
   guarantee: True
@@ -6,7 +17,7 @@ op "prim.add" : (Int * Int) -> Int
 cap "prim.compare"
 op "prim.compare" : (a * b) -> Int
   guarantee: Le(output, 1)
---- prim.alloc — allocate an empty list (irreducible atom).
+--- prim.alloc — allocate an empty list.
 cap "prim.alloc"
 op "prim.alloc" : Int -> List a
   guarantee: LengthEq(output, 0)
@@ -15,7 +26,7 @@ cap "prim.or"
 op "prim.or" : (Int * Int) -> Int
   guarantee: True
 
-handl "prim.add" = rust_prim_add
+--- prim.add and prim.alloc are pure handl (prim-handl); only the two
+--- genuinely-native atoms keep `handl` bindings to Rust impls.
 handl "prim.compare" = rust_prim_compare
-handl "prim.alloc" = rust_prim_alloc
 handl "prim.or" = rust_prim_or

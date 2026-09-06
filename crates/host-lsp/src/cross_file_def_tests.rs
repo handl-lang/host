@@ -157,7 +157,7 @@ fn resolve_definition_prefers_in_file_definition() {
     fs::write(&current_file, "").expect("write main.hnl");
 
     // `x` is defined locally with `=`, so in-file definition wins.
-    let source = "x = 42\nx";
+    let source = "x :: 42\nx";
     let current_str = current_file.to_string_lossy().to_string();
 
     // Offset at the usage of `x` on the second line (after "x = 42\n").

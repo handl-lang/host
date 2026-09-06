@@ -43,6 +43,15 @@
 //!     .with_dependency(MathModule)
 //!     .with_dependency(TypeModule);
 //! ```
+//!
+//! ## Text transforms (ADR-0094)
+//!
+//! The text-level transform logic (`strip_declaration_lines`, `parse_*`,
+//! `expand_tag_declarations`, etc.) is migrating to
+//! `handl-packages/loader/loader.hnl`.  This crate keeps the Rust seam and
+//! fallback implementations while the pure-handl loader is being bootstrapped.
+//! `HandlModule::new_raw` is provided for loading the `loader` itself raw,
+//! without applying those transforms to its own source.
 
 
 pub mod op_registry;
@@ -852,6 +861,43 @@ impl HandlModule {
         }
     }
 
+    /// Create a new `HandlModule` without applying text transforms.
+    ///
+    /// This is intended for the bootstrap `loader` module, whose source
+    /// (`handl-packages/loader/loader.hnl`) must be evaluated raw so it can
+    /// then transform the sources of other `.hnl` modules.
+    pub fn new_raw(name: impl Into<String>, hnl_source: &str, func_names: &[&str]) -> Self {
+        let name = name.into();
+        let source = hnl_source.to_string();
+        let module_id = allocate_module_id();
+
+        // Initial builder with no dependencies. `with_dependency` will
+        // replace this with a builder that includes the dependencies.
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new()));
+
+        let functions = func_names
+            .iter()
+            .map(|&fname| {
+                let func = HandlFunction::new(
+                    name.clone(),
+                    fname.to_string(),
+                    source.clone(),
+                    module_id,
+                    Arc::clone(&builder),
+                );
+                (fname.to_string(), func)
+            })
+            .collect();
+
+        Self {
+            name,
+            functions,
+            op_functions: HashMap::new(),
+            dependencies: Vec::new(),
+            raw_source: hnl_source.to_string(),
+        }
+    }
+
     /// Add a dependency module to be registered in the bridge runtime.
     ///
     /// This allows the `.hnl` source to call module-qualified functions
@@ -962,6 +1008,14 @@ impl Module for HandlModule {
 
 /// The handl source implementing the `str` contract as pure handl over `char`.
 const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+
+/// The canonical text-transform loader source (ADR-0094).
+///
+/// Currently loaded only on request via [`HandlModule::new_raw`]; the public
+/// transform functions still fall back to the Rust implementations until the
+/// pure-handl versions are completed and the bootstrap loop is closed.
+#[allow(dead_code)]
+const LOADER_HNL: &str = include_str!("../../../handl-packages/loader/loader.hnl");
 
 /// The record field names exposed by `str-handl.hnl`.
 pub const STR_HANDL_FUNCS: &[&str] = &[

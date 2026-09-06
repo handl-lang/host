@@ -1,0 +1,138 @@
+--- type-handl — the pure-handl implementation of the `type` runtime
+--- introspection surface (contract: `handl-packages/type/type.hnl`).
+---
+--- `type` is a keyword in handl v0.1 (ADR-0074) but parses as a `var`
+--- atom, so `type.of(v)` evaluates as `field-access(var("type"), "of")` →
+--- the host call `"type.of"`. The single native atom is `type.of` —
+--- runtime kind introspection — plus three coercion/variadic atoms that
+--- cannot be expressed in handl (`type.to_string`, `type.to_number`,
+--- `type.coalesce`; see the gap notes below). Every predicate and guard
+--- is implemented here as pure handl over `type.of`.
+---
+--- Kind-tag vocabulary (returned by `type.of`, matching the tree-walk
+--- engine's `type_tag`): "null" | "bool" | "number" | "string" |
+--- "array" | "object" | "arrow" | "bytes" | "resource". At the
+--- serde_json boundary an arrow value arrives as `{"__arrow__": true,
+--- ...}` and is reported as "arrow"; `{"__bytes__": ...}` as "bytes" and
+--- `{"__resource__": ...}` as "resource" (ADR-0083). Pair/Either encodings
+--- (`__pair__`/`__either__`) report "object", as does a `__tag__`ged
+--- value — matching the engine's `type_tag` which sees them all as `Obj`.
+---
+--- Legacy kind spellings accepted by `is`/`must`/`may`/`not`/`when` (the
+--- old `typeof.*` vocabulary): "num", "str", "arr", "obj", "boolean",
+--- "bin", "any", "unknown", "never", and the same names with a "type."
+--- prefix (e.g. "type.num").
+---
+--- GAPS (still native `op`s, or unsupported):
+---   - `type.to_string` / `type.to_number` — NATIVE: value→string
+---     coercion and string→number parsing have no eval-vocabulary
+---     primitive (`+` requires both operands already strings/numbers).
+---   - `type.coalesce` — NATIVE: variadic (arbitrary arity); handl arrows
+---     have fixed parameter lists and there is no `...rest` parameter.
+---     `type.default` covers the two-argument case in pure handl.
+---   - `field.*`/variant-tag kinds — the old `typeof.is(v, "field.x")`
+---     and `typeof.not` variant-complement semantics require object-key
+---     enumeration / field-existence primitives that do not exist. Those
+---     stay on the legacy `typeof` module (`plugin-lib-utils`).
+---   - `if` conditions admit no `or`/`and` chains (the condition parse
+---     stops before infix bool ops), so alias normalization is a `match`
+---     on literal spellings rather than a disjunction.
+---   - Arrow arguments: `HandlFunction` re-embeds call arguments as handl
+---     literals, and the object-literal constructor rejects the reserved
+---     `__arrow__` key (forgery prevention) — so `type.is_arrow(f)` on an
+---     arrow value `f` fails at the boundary, the same host-call-path
+---     limitation as `transform.map`. The native `type.of(f)` op does
+---     report "arrow" for arrow values (ops receive raw args).
+---
+--- Registered as the `"type"` module by `kit-canonical`
+--- (`build_type_module`): the record fields below become callables and
+--- `with_ops` attaches the native atoms (`type.of`, `type.to_string`,
+--- `type.to_number`, `type.coalesce`). `type.of` calls inside the record
+--- resolve through a native ops-only `"type"` dependency module.
+
+do {
+  -- -------------------------------------------------------------------
+  -- Internal helpers (not exported — not listed in TYPE_HANDL_FUNCS).
+  -- -------------------------------------------------------------------
+
+  -- canon_kind — normalize a kind spelling to a canonical `type.of` tag.
+  -- Accepts the short/legacy aliases and `type.`-prefixed forms; unknown
+  -- spellings pass through unchanged (they simply never match).
+  canon_kind :: k ~> match k {
+    "any": "any", "unknown": "any", "type.any": "any", "type.unknown": "any",
+    "never": "never", "type.never": "never",
+    "null": "null", "type.null": "null",
+    "bool": "bool", "boolean": "bool", "bin": "bool",
+    "type.bool": "bool", "type.boolean": "bool",
+    "num": "number", "number": "number",
+    "type.num": "number", "type.number": "number",
+    "str": "string", "string": "string",
+    "type.str": "string", "type.string": "string",
+    "arr": "array", "array": "array",
+    "type.arr": "array", "type.array": "array",
+    "obj": "object", "object": "object",
+    "type.obj": "object", "type.object": "object",
+    "arrow": "arrow", "function": "arrow",
+    "type.arrow": "arrow", "type.function": "arrow",
+    "bytes": "bytes", "type.bytes": "bytes",
+    "resource": "resource", "type.resource": "resource",
+    _: k
+  }
+
+  -- kind_is — the `type.is` semantics over canonical tags.
+  kind_is :: [v, kind] ~> match canon_kind(kind) {
+    "any": true,
+    "never": false,
+    k: type.of(v) == k
+  }
+
+  {
+    -- ---- predicates -------------------------------------------------
+    is_null:     v ~> type.of(v) == "null",
+    is_bool:     v ~> type.of(v) == "bool",
+    is_number:   v ~> type.of(v) == "number",
+    is_string:   v ~> type.of(v) == "string",
+    is_array:    v ~> type.of(v) == "array",
+    is_object:   v ~> type.of(v) == "object",
+    is_arrow:    v ~> type.of(v) == "arrow",
+    is_function: v ~> type.of(v) == "arrow",
+    is_bytes:    v ~> type.of(v) == "bytes",
+    is_resource: v ~> type.of(v) == "resource",
+
+    -- ---- tag aliases ------------------------------------------------
+    -- `type.tag` / `type.name` / `type.type_of` / `type.typeof` are all
+    -- `type.of` spelled for the call site.
+    tag:     v ~> type.of(v),
+    name:    v ~> type.of(v),
+    type_of: v ~> type.of(v),
+    typeof:  v ~> type.of(v),
+
+    -- ---- kind guards -------------------------------------------------
+    is:  [v, kind] ~> kind_is(v, kind),
+    must: [v, kind] ~>
+      if kind_is(v, kind) {
+        { ok: v }
+      } else {
+        { err: "type.must: expected " + kind }
+      },
+    may:  [v, kind] ~> if kind_is(v, kind) { v } else { null },
+    not:  [v, kind] ~> if kind_is(v, kind) { null } else { v },
+    when: [v, kind, d] ~> if kind_is(v, kind) { v } else { d },
+
+    -- ---- utilities ---------------------------------------------------
+    identity: v ~> v,
+    default:  [v, d] ~> if type.of(v) == "null" { d } else { v },
+
+    -- type.to_bool — handl truthiness: null/false/0/""/[]/{} are falsy,
+    -- everything else (including arrows, bytes, resources) is truthy.
+    to_bool: v ~> match type.of(v) {
+      "null": false,
+      "bool": v,
+      "number": v != 0,
+      "string": v != "",
+      "array": v != [],
+      "object": v != {},
+      _: true
+    }
+  }
+}

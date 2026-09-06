@@ -76,43 +76,6 @@ fn require_two(
     Ok((&args[0], &args[1]))
 }
 
-fn require_one(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
-    if args.is_empty() {
-        return Err(EvalError::TypeMismatch(format!(
-            "expected {} args, got {}",
-            1,
-            args.len(),
-        )));
-    }
-    Ok(&args[0])
-}
-
-/// `prim.add(a: Int, b: Int) -> Int`
-///
-/// Integer addition. The two arguments are summed as integers; if either
-/// argument is not a number the call errors.
-#[derive(Clone, Copy)]
-pub struct Add;
-
-impl Function for Add {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let (a, b_arg) = require_two(args)?;
-        let av = a.as_i64().ok_or(EvalError::TypeMismatch(format!(
-            "expected {}, got {}",
-            "integer", "non-integer",
-        )))?;
-        let bv = b_arg.as_i64().ok_or(EvalError::TypeMismatch(format!(
-            "expected {}, got {}",
-            "integer", "non-integer",
-        )))?;
-        Ok(serde_json::Value::from(av + bv))
-    }
-}
-
 /// `prim.compare(a: Int, b: Int) -> Int`
 ///
 /// Compares two values and returns -1, 0, or 1 (like `cmp.compare`).
@@ -131,25 +94,6 @@ impl Function for Compare {
             Ordering::Equal => 0,
             Ordering::Greater => 1,
         }))
-    }
-}
-
-/// `prim.alloc(n: Int) -> List`
-///
-/// Creates an empty array of size n. Currently returns an empty
-/// `serde_json::Value::Array` — a placeholder for list creation. When n is 0
-/// (or any value) the result is an empty array.
-#[derive(Clone, Copy)]
-pub struct Alloc;
-
-impl Function for Alloc {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let _n = require_one(args)?;
-        Ok(serde_json::Value::Array(vec![]))
     }
 }
 

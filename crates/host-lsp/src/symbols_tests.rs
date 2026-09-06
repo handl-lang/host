@@ -13,7 +13,7 @@ fn extract_body(raw: &[u8]) -> String {
 
 #[test]
 fn identifier_at_offset_finds_identifier() {
-    let source = "x = 42";
+    let source = "x :: 42";
     let result = identifier_at_offset(source, 0);
     assert!(result.is_some());
     let (name, span) = result.unwrap();
@@ -24,14 +24,14 @@ fn identifier_at_offset_finds_identifier() {
 
 #[test]
 fn identifier_at_offset_on_operator_returns_none() {
-    let source = "x = 42";
+    let source = "x :: 42";
     let result = identifier_at_offset(source, 2);
     assert!(result.is_none());
 }
 
 #[test]
 fn find_definition_finds_definition_site() {
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let span = find_definition(source, "x");
     assert!(span.is_some());
     let span = span.unwrap();
@@ -41,34 +41,34 @@ fn find_definition_finds_definition_site() {
 
 #[test]
 fn find_definition_skips_usage_before_definition() {
-    let source = "y = x; x = 42";
+    let source = "y :: x; x :: 42";
     let span = find_definition(source, "x");
     assert!(span.is_some());
     let span = span.unwrap();
-    // definition is the second x (in `x = 42`), not the usage in `y = x`
-    assert_eq!(span.start, 7);
-    assert_eq!(span.end, 8);
+    // definition is the second x (in `x :: 42`), not the usage in `y :: x`
+    assert_eq!(span.start, 8);
+    assert_eq!(span.end, 9);
 }
 
 #[test]
 fn find_definition_nonexistent_returns_none() {
-    let source = "x = 42";
+    let source = "x :: 42";
     let span = find_definition(source, "nonexistent");
     assert!(span.is_none());
 }
 
 #[test]
 fn find_references_includes_definition_and_usage() {
-    let source = "x = 42; y = x";
+    let source = "x :: 42; y :: x";
     let spans = find_references(source, "x");
     assert_eq!(spans.len(), 2);
     assert_eq!(spans[0].start, 0);
-    assert_eq!(spans[1].start, 12);
+    assert_eq!(spans[1].start, 14);
 }
 
 #[test]
 fn find_references_no_match_returns_empty() {
-    let source = "x = 42";
+    let source = "x :: 42";
     let spans = find_references(source, "y");
     assert!(spans.is_empty());
 }
@@ -76,14 +76,14 @@ fn find_references_no_match_returns_empty() {
 #[test]
 fn handle_definition_writes_location_array() {
     let mut store = DocumentStore::new();
-    store.open("file:///test.handl", "x = 42; y = x");
+    store.open("file:///test.handl", "x :: 42; y :: x");
 
     let mut buf = Vec::new();
     let msg = Message {
         method: "textDocument/definition".to_string(),
         params: Some(json!({
             "textDocument": { "uri": "file:///test.handl" },
-            "position": { "line": 0, "character": 12 }
+            "position": { "line": 0, "character": 14 }
         })),
         id: Some(json!(1)),
     };
@@ -101,7 +101,7 @@ fn handle_definition_writes_location_array() {
 #[test]
 fn handle_definition_on_whitespace_returns_null() {
     let mut store = DocumentStore::new();
-    store.open("file:///test.handl", "x = 42");
+    store.open("file:///test.handl", "x :: 42");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -122,7 +122,7 @@ fn handle_definition_on_whitespace_returns_null() {
 #[test]
 fn handle_references_writes_location_array() {
     let mut store = DocumentStore::new();
-    store.open("file:///test.handl", "x = 42; y = x");
+    store.open("file:///test.handl", "x :: 42; y :: x");
 
     let mut buf = Vec::new();
     let msg = Message {
@@ -146,7 +146,7 @@ fn handle_references_writes_location_array() {
 #[test]
 fn handle_rename_writes_workspace_edit() {
     let mut store = DocumentStore::new();
-    store.open("file:///test.handl", "x = 42; y = x");
+    store.open("file:///test.handl", "x :: 42; y :: x");
 
     let mut buf = Vec::new();
     let msg = Message {

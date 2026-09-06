@@ -71,7 +71,7 @@ fn declaration_spans(source: &str, name: &str) -> std::collections::HashSet<(usi
             while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
                 j += 1;
             }
-            if j < tokens.len() && (&tokens[j].text == "=" || &tokens[j].text == ":") {
+            if j < tokens.len() && (&tokens[j].text == "::" || &tokens[j].text == ":") {
                 spans.insert((tokens[i].span.start, tokens[i].span.end));
             }
         }

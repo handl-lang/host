@@ -9,35 +9,21 @@ fn assemble_canonical_has_expected_fragment_counts() {
     let kit = handl_kit_data_canonical::assemble().expect("assembly should succeed");
     let lang = kit.lang();
 
-    // Token kinds: 69 — v0.1 surface syntax (ADR-0074).
-    // Removed 16 old tokens (arrow_app, arrow_bind, pipe, returnA, loop,
-    // where, handle, typeof, module, const, is, may, must, when,
-    // not keyword, vau) and added 13 new tokens (rec, while, for, return,
-    // law, trait, impl, infer, type, from, product, nullish, opt_chain).
-    // then retained for optional if-then backward compat.
-    assert_eq!(lang.tokens.len(), 69);
+    // Token kinds: 73 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // additions (ADR-0079/0082).
+    assert_eq!(lang.tokens.len(), 73);
 
-    // Grammar rows: 56 — v0.1 surface syntax (ADR-0074).
-    // Removed 15 old rules (arrow-app, arrow-bind, returnA, loop, pipe,
-    // handle, typeof, stmt-const, stmt-module, is, may, must, not.infix,
-    // when, vau) and added 13 new rules (product, nullish, opt-chain, rec,
-    // while, for, return, law, trait, impl, infer, type, do-while).
-    assert_eq!(lang.grammar.len(), 56);
+    // Grammar rows: 59 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // additions; `|` pipe re-added for `data` constructor alternatives.
+    assert_eq!(lang.grammar.len(), 59);
 
-    // Eval schemes: 58 — v0.1 surface syntax (ADR-0074).
-    // Removed 11 old schemes (arrow_bind, returnA, loop, handle,
-    // stmt-const, stmt-module, mood.cnd, mood.int, mood.neg,
-    // mood.norm, mood.pot) and added 12 new schemes (rec, while, for,
-    // return, law, trait, impl, infer, type, product, nullish, opt-chain).
-    // pipe, typeof retained for corpus compatibility.
-    assert_eq!(lang.eval.len(), 58);
+    // Eval schemes: 62 — v0.1 surface syntax (ADR-0074) + `stmt.let`/
+    // `data`/`import`-related schemes.
+    assert_eq!(lang.eval.len(), 62);
 
-    // AST shapes: 56 — v0.1 surface syntax (ADR-0074).
-    // Removed 15 old shapes (arrow_app, arrow_bind, returnA, loop, pipe,
-    // handle, typeof, const, module, mood.int, mood.pot, mood.norm,
-    // mood.neg, mood.cnd, vau) and added 12 new shapes (rec, while, for,
-    // return, law, trait, impl, infer, type, product, nullish, opt-chain).
-    assert_eq!(lang.ast.len(), 56);
+    // AST shapes: 61 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
+    // `stmt.let` additions.
+    assert_eq!(lang.ast.len(), 61);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -70,8 +56,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 69);
-    assert_eq!(rt.lang().grammar.len(), 56);
+    assert_eq!(rt.lang().tokens.len(), 73);
+    assert_eq!(rt.lang().grammar.len(), 59);
 }
 
 #[test]
@@ -128,7 +114,8 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.grammar.get_by_id("grammar.do-while.infix").is_some());
     // Removed grammar rules
     assert!(lang.grammar.get_by_id("grammar.vau.prefix").is_none());
-    assert!(lang.grammar.get_by_id("grammar.pipe.infix").is_none());
+    // `|` pipe re-added for `data` constructor alternatives (ADR-0082).
+    assert!(lang.grammar.get_by_id("grammar.pipe.infix").is_some());
     assert!(lang.grammar.get_by_id("grammar.loop.prefix").is_none());
     // The excluded duplicate grammar rows are absent.
     assert!(lang.grammar.get_by_id("grammar.call.postfix").is_none());

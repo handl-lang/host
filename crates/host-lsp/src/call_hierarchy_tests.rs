@@ -49,9 +49,9 @@ fn write_arrow(arrows_root: &PathBuf, subdir: &str, name: &str, contents: &str) 
 
 #[test]
 fn prepare_call_hierarchy_returns_item_for_named_arrow() {
-    // A named arrow: `reduce = loop(arr("fold_step") >>> first(id))`.
+    // A named arrow: `reduce :: loop(arr("fold_step") >>> first(id))`.
     // The cursor sits on the `reduce` identifier.
-    let source = "reduce = loop(arr(\"fold_step\") >>> first(id))";
+    let source = "reduce :: loop(arr(\"fold_step\") >>> first(id))";
     let offset = 3; // inside `reduce`
 
     let items = prepare_call_hierarchy(source, offset, None);
@@ -112,9 +112,9 @@ fn prepare_call_hierarchy_returns_empty_for_non_arrow() {
 
 #[test]
 fn prepare_call_hierarchy_returns_empty_when_cursor_not_on_identifier() {
-    // Cursor on the `=` operator of a named arrow — not an identifier.
-    let source = "reduce = loop(id)";
-    let offset = source.find('=').unwrap();
+    // Cursor on the `::` operator of a named arrow — not an identifier.
+    let source = "reduce :: loop(id)";
+    let offset = source.find("::").unwrap();
     let items = prepare_call_hierarchy(source, offset, None);
     assert!(items.is_empty(), "expected empty when not on an identifier");
 }
@@ -178,7 +178,7 @@ fn outgoing_calls_finds_string_literal_references() {
         &arrows_root,
         "fn",
         "reduce",
-        "reduce = loop(arr(\"fold_step\") >>> first(id))\n",
+        "reduce :: loop(arr(\"fold_step\") >>> first(id))\n",
     );
     let reduce_str = reduce_path.to_string_lossy().to_string();
 

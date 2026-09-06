@@ -111,8 +111,8 @@ fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
 fn vec_indexed_family_predicate_and_recursor() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat = Zero | Succ(Nat)";
-    let vec_src = "data Vec(n: Nat, a: Type) = VNil : Vec(0, a)
+    let nat_src = "data Nat :: Zero | Succ(Nat)";
+    let vec_src = "data Vec(n: Nat, a: Type) :: VNil : Vec(0, a)
                                        | VCons(x: a, xs: Vec(n - 1, a)) : Vec(n, a)";
 
     // Build a single AST containing both data declarations and the test body.
@@ -124,19 +124,19 @@ fn vec_indexed_family_predicate_and_recursor() {
 
     // Setup expressions: a = 0, v0 = VNil, v1 = VCons(42, v0),
     // r0 = Vec(0, a)(v0), r1 = Vec(1, a)(v1).
-    children.extend(append_parsed(&mut combined, &parse(&kit, "a = 0")));
-    children.extend(append_parsed(&mut combined, &parse(&kit, "v0 = VNil")));
+    children.extend(append_parsed(&mut combined, &parse(&kit, "a :: 0")));
+    children.extend(append_parsed(&mut combined, &parse(&kit, "v0 :: VNil")));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "v1 = VCons(42, v0)"),
+        &parse(&kit, "v1 :: VCons(42, v0)"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r0 = Vec(0, a, v0)"),
+        &parse(&kit, "r0 :: Vec(0, a, v0)"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r1 = Vec(1, a, v1)"),
+        &parse(&kit, "r1 :: Vec(1, a, v1)"),
     ));
 
     // Manually call the generated recursor: Vec.rec(null, 0, step)(n, a, v).

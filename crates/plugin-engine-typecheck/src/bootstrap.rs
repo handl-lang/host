@@ -631,6 +631,34 @@ fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagno
     // Phase 3: expression checking (bottom-up by child roles).
     // Accumulate all var references for unused-import detection.
     let mut references: HashSet<String> = HashSet::new();
+
+    // Walk the root of every statement that is not a declaration — bare
+    // expressions (e.g. `a = b` equal-comparisons, calls) still need
+    // unbound-wire checking. Binding targets are names, not references, so
+    // bindings/import/export statement roots are skipped here (binding
+    // values are checked below).
+    let decl_stmts: HashSet<usize> = bindings
+        .iter()
+        .map(|b| b.stmt_idx)
+        .chain(imports.iter().map(|i| i.stmt_idx))
+        .chain(exports.iter().map(|e| e.stmt_idx))
+        .collect();
+    for (i, stmt) in stmts.iter().enumerate() {
+        if decl_stmts.contains(&i) {
+            continue;
+        }
+        check_expr(
+            lang,
+            src,
+            &stmt.ast,
+            stmt.root,
+            &module_scope,
+            stmt,
+            diags,
+            &mut references,
+        );
+    }
+
     for binding in &bindings {
         let stmt = &stmts[binding.stmt_idx];
         let root = match stmt.ast.at(stmt.root) {

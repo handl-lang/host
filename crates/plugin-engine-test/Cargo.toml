@@ -16,7 +16,7 @@ handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-eval-tree-walk = {path = "../plugin-engine-eval-tree-walk" }
 handl-plugin-ext-diag = {path = "../plugin-ext-diag" }
 handl-plugin-lib-scheduler = { workspace = true }
-handl-plugin-lib-predicate = {path = "../plugin-lib-predicate" }
+handl-plugin-lib-char-native = { workspace = true }
 handl-plugin-exec-cache = {path = "../plugin-exec-cache" }
 rand = { workspace = true }
 serde = { workspace = true }

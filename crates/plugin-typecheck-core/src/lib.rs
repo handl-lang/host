@@ -9,8 +9,9 @@ use handl_platform::{
     CapabilityResponse, ContributionContext, PlatformError, Plugin, PluginContext, Typecheck,
     TypecheckBehavior, TypecheckRequest,
 };
-use handl_plugin_lib_type::{
-    Env, MetaContext, TCtx, Term, TypeError, Value, interpret, synth, synth_type,
+use handl_kit_type_schema_json::interpret;
+use handl_plugin_typecheck_nbe::{
+    Env, MetaContext, TCtx, Term, TypeError, Value, synth, synth_type,
 };
 
 /// A `TypecheckBehavior` that performs the canonical handl typecheck.
@@ -56,7 +57,7 @@ fn typecheck_payload(payload: &serde_json::Value) -> Result<Value, String> {
         let tctx = TCtx::new();
         return synth_type(&mut ctx, &env, &tctx, &term).map_err(|e| e.to_string());
     }
-    typecheck(&handl_plugin_lib_type::u0()).map_err(|e| e.to_string())
+    typecheck(&handl_plugin_typecheck_nbe::u0()).map_err(|e| e.to_string())
 }
 
 /// Plugin that contributes the canonical typecheck rule to `BasicTypechecker`.
@@ -114,14 +115,15 @@ mod tests {
 
     #[test]
     fn typecheck_instantiates_vm() {
-        let term = handl_plugin_lib_type::u0();
+        let term = handl_plugin_typecheck_nbe::u0();
         let result = typecheck(&term);
         assert!(result.is_ok());
     }
 
     #[test]
     fn typecheck_rejects_ill_typed_term() {
-        let term = handl_plugin_lib_type::lam("x", handl_plugin_lib_type::bvar(0));
+        let term =
+            handl_plugin_typecheck_nbe::lam("x", handl_plugin_typecheck_nbe::bvar(0));
         let result = typecheck(&term);
         assert!(result.is_err());
     }
