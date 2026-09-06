@@ -1,4 +1,0 @@
-category:
-  slug: lib-refinement
-  title: Refinement
-  description: Contract/refinement predicate vocabulary (the `data Pred` source of truth mirrored by plugin-ext-refinement).
