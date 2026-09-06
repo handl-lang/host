@@ -65,6 +65,8 @@ Result (completed):
 
 ### 2. Expose a per-node type map in `TypecheckResult`
 
+Status: **done**
+
 - Extend `TypecheckResult` in `crates/plugin-engine-typecheck/src/lib.rs` with a
   new field, e.g. `pub node_types: HashMap<usize, Value>` (keyed by
   `AstRef::index()`). Keep it backward-compatible by defaulting to an empty map.
@@ -92,6 +94,34 @@ Verification:
 - `cargo test -p handl-plugin-engine-typecheck-nbe`
 - `cargo test -p handl-runtime`
 - `cargo test -p handl-kit-canonical`
+
+Result (completed):
+
+- `TypecheckResult` gained `pub node_types: HashMap<usize, Value>`
+  (`crates/plugin-engine-typecheck/src/lib.rs`), keyed by `AstRef::index()`.
+- `TypecheckContext` gained `node_types` (initialized in
+  `TypecheckContext::new`); `synth_node` records the synthesized type and
+  `check_node` records `expected` on the `check_scheme` branch and the
+  synthesized `ty` on the synth-then-unify branch.
+- `NbeTypecheckEngine::typecheck` returns `node_types: ctx.node_types`.
+- Stub constructors updated: `crates/handl-runtime/src/lib.rs` (two sites)
+  and `.ref-crates/plugin-lib-lang-typecheck/src/tests.rs` — all use
+  `node_types: Default::default()`.
+- New test `node_types_populated_after_typecheck` in
+  `crates/plugin-engine-typecheck-nbe/src/tests.rs`: a `wrap{children:[0]}`
+  AST over a `lit` child; asserts `node_types[1]` (root) and
+  `node_types[0]` (child) both equal `type.number`.
+- Verification run:
+  - `cargo test -p handl-plugin-engine-typecheck-nbe` — 251 + 46 tests, all
+    pass (includes the new test).
+  - `cargo test -p handl-runtime` — all targets pass (100 lib + integration
+    tests, 0 failed).
+  - `cargo test -p handl-plugin-engine-eval-tree-walk` — all pass.
+  - `cargo test -p handl-kit-canonical` — 69 passed, **2 pre-existing
+    failures** (`hello_greet_returns_canonical_greeting`,
+    `hello_greet_bridge_escapes_special_chars`,
+    `check_json_value: expected type is not a tagged type value`) — same
+    failures reported in subtask 1, unrelated dirty-tree state.
 
 ### 3. Implement `erase_pass` and wire it into `Runtime::run_checked`
 
