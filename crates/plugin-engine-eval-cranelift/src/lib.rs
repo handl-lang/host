@@ -2967,8 +2967,12 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) }
 }
 
-/// v2 `index` prim: index into an array or object using pre-evaluated
-/// `target` and `index` values from the current node's payload.
+/// v2 `index` prim: index into an array or object.
+///
+/// `index { children: [target, index] }` — evaluates the two child nodes
+/// (target, then index), matching the v2 tree-walk's `index` dispatch.
+/// Falls back to legacy `payload.target`/`payload.index` for hand-built
+/// ASTs.
 ///
 /// - `(Array, Number)` → `arr[i]`.
 /// - `(Object, String)` → `obj[key]`.
@@ -2977,24 +2981,73 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
-    let target = match node.payload.get("target") {
-        Some(t) => t,
-        None => {
+    // Extract child indices (or legacy payload values) as owned data first
+    // so the `node` borrow ends before `eval_child_node` needs `&mut ctx`.
+    enum IndexSrc {
+        Children(usize, usize),
+        Legacy(TaggedValue, TaggedValue),
+    }
+    let src = if let Some(children) =
+        node.payload.get("children").and_then(|c| c.as_array())
+    {
+        if children.len() < 2 {
             return ctx.set_error(LangError::engine(
-                "index: missing target in payload".to_string(),
+                "index: expected at least 2 children".to_string(),
             ));
         }
+        let target_idx = match children[0].as_u64() {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::engine(
+                    "index: target index must be a number".to_string(),
+                ));
+            }
+        };
+        let index_idx = match children[1].as_u64() {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::engine(
+                    "index: index index must be a number".to_string(),
+                ));
+            }
+        };
+        IndexSrc::Children(target_idx, index_idx)
+    } else {
+        let target = match node.payload.get("target") {
+            Some(t) => t,
+            None => {
+                return ctx.set_error(LangError::engine(
+                    "index: missing target in payload".to_string(),
+                ));
+            }
+        };
+        let index = match node.payload.get("index") {
+            Some(i) => i,
+            None => {
+                return ctx.set_error(LangError::engine(
+                    "index: missing index in payload".to_string(),
+                ));
+            }
+        };
+        IndexSrc::Legacy(
+            TaggedValue::from(target.clone()),
+            TaggedValue::from(index.clone()),
+        )
     };
-    let index = match node.payload.get("index") {
-        Some(i) => i,
-        None => {
-            return ctx.set_error(LangError::engine(
-                "index: missing index in payload".to_string(),
-            ));
+    let (target_t, index_t) = match src {
+        IndexSrc::Children(target_idx, index_idx) => {
+            let target = match eval_child_node(ctx, target_idx) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            let index = match eval_child_node(ctx, index_idx) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            (target, index)
         }
+        IndexSrc::Legacy(t, i) => (t, i),
     };
-    let target_t = TaggedValue::from(target.clone());
-    let index_t = TaggedValue::from(index.clone());
     let result = match (&target_t, &index_t) {
         (TaggedValue::Arr(arr), TaggedValue::Int(i)) => {
             let idx = *i as usize;
@@ -3018,10 +3071,13 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         }
         (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
             Some(v) => Ok(v.clone()),
-            None => Err(LangError::engine_node(
-                format!("index: key '{}' not found", key),
-                node,
-            )),
+            None => match ctx.current_node() {
+                Ok(n) => Err(LangError::engine_node(
+                    format!("index: key '{}' not found", key),
+                    n,
+                )),
+                Err(e) => Err(e),
+            },
         },
         _ => Err(LangError::engine(
             "index: target must be array/object and index must be number/string".to_string(),

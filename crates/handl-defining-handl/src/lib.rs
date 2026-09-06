@@ -746,15 +746,16 @@ pub fn corpus() -> Vec<CorpusCase> {
             tree_walk_only: false,
         },
         // 39. Array index: [10, 20, 30][1] → 20
-        //     The `index` prim reads `target` and `index` from the payload.
+        //     The `index` prim operates on the evaluated `children`:
+        //     children[0] is the array node, children[1] is the index.
         CorpusCase {
             name: "array_index",
             source: "[10, 20, 30][1]",
             ast: {
                 let mut a = Ast::new();
-                a.push(
-                    AstNode::new("index").with_payload(json!({"target": [10, 20, 30], "index": 1})),
-                );
+                a.push(AstNode::new("array").with_payload(json!({"elements": [10, 20, 30]})));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("index").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(20),
@@ -780,15 +781,18 @@ pub fn corpus() -> Vec<CorpusCase> {
             tree_walk_only: false,
         },
         // 41. Object index: {"x": 5}["x"] → 5
-        //     The `index` prim with an object target and string key.
+        //     The `index` prim with an object target and string key —
+        //     children[0] is the object node, children[1] is the key.
         CorpusCase {
             name: "object_index",
             source: "{\"x\": 5}[\"x\"]",
             ast: {
                 let mut a = Ast::new();
-                a.push(
-                    AstNode::new("index").with_payload(json!({"target": {"x": 5}, "index": "x"})),
-                );
+                a.push(AstNode::new("object").with_payload(json!({
+                    "entries": [{"key": "x", "value": 5}]
+                })));
+                a.push(AstNode::new("value").with_payload(json!("x")));
+                a.push(AstNode::new("index").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(5),

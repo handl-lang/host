@@ -1174,12 +1174,43 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }
             }
             "index" => {
-                let target = node.payload.get("target").ok_or_else(|| {
-                    LangError::engine_node("index: missing target in payload".to_string(), node)
-                })?;
-                let index = node.payload.get("index").ok_or_else(|| {
-                    LangError::engine_node("index: missing index in payload".to_string(), node)
-                })?;
+                // `index { children: [target, index] }` — evaluate the two
+                // child nodes, matching the tree-walk/cranelift `index`
+                // dispatch. Falls back to legacy `payload.target`/
+                // `payload.index` for hand-built ASTs.
+                let (target, index) = if let Some(children) =
+                    node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    if children.len() < 2 {
+                        return Err(LangError::engine_node(
+                            "index: expected at least 2 children".to_string(),
+                            node,
+                        ));
+                    }
+                    let target_idx = children[0].as_u64().ok_or_else(|| {
+                        LangError::engine_node(
+                            "index: target index must be a number".to_string(),
+                            node,
+                        )
+                    })? as usize;
+                    let index_idx = children[1].as_u64().ok_or_else(|| {
+                        LangError::engine_node(
+                            "index: index index must be a number".to_string(),
+                            node,
+                        )
+                    })? as usize;
+                    let target = self.exec_node_inner(AstRef::new(target_idx))?;
+                    let index = self.exec_node_inner(AstRef::new(index_idx))?;
+                    (tagged_to_value(&target), tagged_to_value(&index))
+                } else {
+                    let target = node.payload.get("target").ok_or_else(|| {
+                        LangError::engine_node("index: missing target in payload".to_string(), node)
+                    })?;
+                    let index = node.payload.get("index").ok_or_else(|| {
+                        LangError::engine_node("index: missing index in payload".to_string(), node)
+                    })?;
+                    (target.clone(), index.clone())
+                };
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
                         let i = n.as_u64().ok_or_else(|| {
@@ -1196,7 +1227,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         Ok(TaggedValue::from(v))
                     }
                     (Value::Object(obj), Value::String(key)) => {
-                        let v = obj.get(key).cloned().ok_or_else(|| {
+                        let v = obj.get(&key).cloned().ok_or_else(|| {
                             LangError::engine_node(format!("index: key '{}' not found", key), node)
                         })?;
                         Ok(TaggedValue::from(v))

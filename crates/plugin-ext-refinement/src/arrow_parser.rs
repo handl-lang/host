@@ -413,10 +413,10 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
     }
 
     // Generate constructor arrows for each tag declaration.
-    // Each `tag name = Type` produces: `name = _0 ~> tag.tag("name", {value: _0})`
+    // Each `tag name = Type` produces: `name :: _0 ~> tag.tag("name", {value: _0})`
     let tag_constructor_src: String = tags
         .iter()
-        .map(|t| format!("{} = _0 ~> tag.tag(\"{}\", {{value: _0}})", t.name, t.name))
+        .map(|t| format!("{} :: _0 ~> tag.tag(\"{}\", {{value: _0}})", t.name, t.name))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -1086,10 +1086,15 @@ fn parse_named_arrows_data_driven(
             continue;
         }
 
-        // Find ` :: ` (top-level binding)
-        if let Some(eq_idx) = trimmed.find(" :: ") {
+        // Find ` :: ` (top-level binding); ` = ` is accepted for
+        // pre-migration sources so old `name = expr` lines still bind.
+        let sep = trimmed
+            .find(" :: ")
+            .map(|i| (i, 4))
+            .or_else(|| trimmed.find(" = ").map(|i| (i, 3)));
+        if let Some((eq_idx, sep_len)) = sep {
             let name = trimmed[..eq_idx].trim().to_string();
-            let expr_str = trimmed[eq_idx + 4..].trim();
+            let expr_str = trimmed[eq_idx + sep_len..].trim();
             let scheme = parse_arrow_expr_data_driven(expr_str, lang)?;
             map.insert(name, scheme);
         }
@@ -2319,6 +2324,10 @@ fn strip_comments(src: &str) -> String {
 // ============================================================================
 
 /// Check if the source contains named arrow definitions (`name :: expr`).
+///
+/// `name = expr` at line start is also detected so pre-`::`-migration
+/// sources route to named-arrow parsing (legacy fallback) rather than
+/// silently parsing as a single `equal` expression.
 fn has_named_arrows(src: &str) -> bool {
     src.lines().any(|line| {
         let trimmed = line.trim();
@@ -2328,7 +2337,7 @@ fn has_named_arrows(src: &str) -> bool {
         if line.starts_with(char::is_whitespace) {
             return false;
         }
-        trimmed.contains(" :: ")
+        trimmed.contains(" :: ") || trimmed.contains(" = ")
     })
 }
 
