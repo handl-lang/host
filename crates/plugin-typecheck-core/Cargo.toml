@@ -1,9 +1,0 @@
-[package]
-name = "handl-plugin-typecheck-core"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-platform = {path = "../platform" }
-handl-plugin-lib-type = {path = "../plugin-lib-type" }
-serde_json = { workspace = true }
