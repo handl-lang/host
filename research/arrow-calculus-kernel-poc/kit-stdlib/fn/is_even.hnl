@@ -1,2 +1,0 @@
--- is_even: test whether the input is zero (illustrative predicate).
-is_even = x ~> x == 0
