@@ -27,9 +27,9 @@
 //! - [`BoolModule`] — `bool.and`, `bool.or`, `bool.not`, `bool.xor`,
 //!   `bool.nand`, `bool.nor`, `bool.implies`, `bool.eq`
 //! - [`CombinatorsModule`] — `combinators.pipe`, `combinators.flow`, `combinators.compose`, `combinators.fanout`,
-//!   `combinators.choice`, `combinators.apply`, `combinators.map`, `combinators.filter`,
-//!   `combinators.reduce`, `combinators.tap`, `combinators.constantly`, `combinators.flip`,
+//!   `combinators.choice`, `combinators.apply`, `combinators.tap`, `combinators.constantly`, `combinators.flip`,
 //!   `combinators.partial`, `combinators.when`, `combinators.unless`, `combinators.converge`
+//! - [`TransformModule`] — `transform.map`, `transform.filter`, `transform.reduce`
 //! - [`TypeModule`] — `type.to_string`, `type.to_number`, `type.to_bool`,
 //!   `type.type_of`, `type.identity`, `type.default`, `type.coalesce`
 //! - [`OptionModule`] — `option.some`, `option.none`, `option.is_some`,
@@ -89,7 +89,7 @@ mod r#type;
 
 pub use bool::BoolModule;
 pub use encoding::EncodingModule;
-pub use r#fn::CombinatorsModule;
+pub use r#fn::{CombinatorsModule, TransformModule};
 pub use handl_plugin_lib_base64::Base64Module;
 pub use handl_plugin_lib_hex::HexModule;
 pub use handl_plugin_lib_json::JsonModule;
@@ -183,6 +183,7 @@ impl Plugin for UtilsLibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(StrModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(BoolModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(CombinatorsModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TransformModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(MoodModule))?;

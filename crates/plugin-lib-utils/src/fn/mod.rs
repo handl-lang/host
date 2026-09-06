@@ -1,12 +1,12 @@
 //! The `combinators` module — function combinator utilities.
 //!
 //! Provides functions callable as `combinators.pipe(v, f, g)`,
-//! `combinators.compose(f, g)`, `combinators.map(f, xs)`,
-//! `combinators.filter(f, xs)`, `combinators.reduce(f, xs, init)`, etc. in
-//! handl expressions.
+//! `combinators.compose(f, g)`, `combinators.when(v, p, f)`, etc. in
+//! handl expressions. The list transforms `map`/`filter`/`reduce` live in
+//! the `transform` module ([`TransformModule`]) instead.
 //!
 //! The combinators *interface* is declared in `handl-packages/utils/fn.hnl`
-//! via `cap`/`op`/`handl` declarations (ADR-0077 Phase 2). All 25
+//! via `cap`/`op`/`handl` declarations (ADR-0077 Phase 2). All 22
 //! functions are FFI atoms — they manipulate `serde_json::Value` callables
 //! via `apply_fn` from `crate::shared` and cannot be expressed as pure
 //! handl arrows without losing the exact `TypeMismatch` error messages the
@@ -36,7 +36,7 @@ use ops::{
 /// from the kit-stdlib data dir.
 ///
 /// `fn.hnl` contains `---` doc comments, `cap` declarations, `op`
-/// declarations, and `handl` bindings for all 25 combinators functions. The
+/// declarations, and `handl` bindings for all 22 combinators functions. The
 /// [`HandlModule`] loader strips comments and declaration lines, leaving
 /// an empty expression (no pure-logic arrows); all functions are
 /// resolved via [`OpFunction`] dispatching to the [`OpRegistry`].
@@ -52,9 +52,6 @@ const COMBINATORS_OPS: &[&str] = &[
     "combinators.fanout_fn",
     "combinators.choice",
     "combinators.apply",
-    "combinators.map",
-    "combinators.filter",
-    "combinators.reduce",
     "combinators.flat_map",
     "combinators.find",
     "combinators.some",
@@ -87,9 +84,6 @@ fn combinators_op_registry() -> OpRegistry {
     registry.register("combinators.fanout_fn", Arc::new(FanoutFn));
     registry.register("combinators.choice", Arc::new(Choice));
     registry.register("combinators.apply", Arc::new(Apply));
-    registry.register("combinators.map", Arc::new(Map));
-    registry.register("combinators.filter", Arc::new(Filter));
-    registry.register("combinators.reduce", Arc::new(Reduce));
     registry.register("combinators.flat_map", Arc::new(FlatMap));
     registry.register("combinators.find", Arc::new(Find));
     registry.register("combinators.some", Arc::new(SomeFn));
@@ -133,8 +127,7 @@ fn combinators_module() -> &'static HandlModule {
 ///
 /// Provides `combinators.pipe`, `combinators.flow`, `combinators.compose`,
 /// `combinators.fanout`, `combinators.fanout_fn`, `combinators.choice`,
-/// `combinators.apply`, `combinators.map`, `combinators.filter`,
-/// `combinators.reduce`, `combinators.flat_map`, `combinators.find`,
+/// `combinators.apply`, `combinators.flat_map`, `combinators.find`,
 /// `combinators.some`, `combinators.every`, `combinators.group_by`,
 /// `combinators.partition`, `combinators.count_by`, `combinators.tap`,
 /// `combinators.match`, `combinators.constantly`, `combinators.flip`,
@@ -157,5 +150,66 @@ impl Module for CombinatorsModule {
 
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
         combinators_module().functions()
+    }
+}
+
+// ── transform ────────────────────────────────────────────────────────
+
+/// The handl source declaring the `transform.*` op interface — the single
+/// source of truth for the list-transform API surface. Lives in
+/// `handl-packages/transform/` next to the canonical pure-handl impls
+/// (`map.hnl`/`filter.hnl`/`reduce.hnl`); this contract file only declares
+/// the `cap`/`op`/`handl` surface for the native fallback used by kits
+/// that wire `plugin-lib-utils` instead of `kit-canonical`'s
+/// `TransformModule`.
+const TRANSFORM_HNL: &str =
+    include_str!("../../../../handl-packages/transform/transform.hnl");
+
+/// The op names declared in `transform.hnl` — each maps to a Rust
+/// `Function` impl registered in the [`OpRegistry`].
+const TRANSFORM_OPS: &[&str] = &["transform.map", "transform.filter", "transform.reduce"];
+
+/// Build the [`OpRegistry`] for the transform ops, reusing the same Rust
+/// `Map`/`Filter`/`Reduce` handls that used to back `combinators.*`.
+fn transform_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("transform.map", Arc::new(Map));
+    registry.register("transform.filter", Arc::new(Filter));
+    registry.register("transform.reduce", Arc::new(Reduce));
+    registry
+}
+
+fn build_transform_module() -> HandlModule {
+    let registry = Arc::new(transform_op_registry());
+    HandlModule::new("transform", TRANSFORM_HNL, &[]).with_ops(TRANSFORM_OPS, registry)
+}
+
+static TRANSFORM_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+fn transform_module() -> &'static HandlModule {
+    TRANSFORM_MODULE.get_or_init(build_transform_module)
+}
+
+/// The `transform` module — list transform operations.
+///
+/// Provides `transform.map`, `transform.filter`, `transform.reduce`. The
+/// interface is declared in `handl-packages/transform/transform.hnl` via
+/// `op`/`handl` declarations and loaded via the generic [`HandlModule`];
+/// this struct only delegates [`Module`] lookups to the shared
+/// [`HandlModule`].
+#[derive(Clone, Copy)]
+pub struct TransformModule;
+
+impl Module for TransformModule {
+    fn name(&self) -> &str {
+        "transform"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        transform_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        transform_module().functions()
     }
 }
