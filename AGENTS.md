@@ -34,8 +34,10 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 `handl-runtime::apply_desugar` returns `Result<Ast, LangError>` and
 delegates to `RewriteEngine::run_pass("desugar")` with
 `with_desugar_natives`; `Runtime::parse` propagates transform errors.
-Declarative rules live in `lang.transforms` (lowered from `AstShapeDef`'s
-`desugar:` field at merge); kinds with no declarative rule fall back to the
+Declarative rules live in `lang.transforms`, authored as first-class
+`TransformDef`s in `data/transforms.yaml` (the `AstShapeDef` `desugar:`
+field is still lowered at merge for third-party backward compat); kinds
+with no declarative rule fall back to the
 named `desugar.*` native registry. `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
 diagnostics fail assembly.

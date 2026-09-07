@@ -2129,7 +2129,7 @@ pub fn desugar_native_registry() -> NativeRewriteRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstDesugarChild, AstDesugarCondition, AstDesugarRule, AstShapeDef};
+    use handl_language::{AstDesugarChild, AstDesugarRule, AstShapeDef};
     use serde_json::json;
 
     /// Shim over the [`RewriteEngine`](crate::RewriteEngine) so the moved

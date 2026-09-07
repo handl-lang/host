@@ -1,0 +1,56 @@
+# Transform rule definitions (ADR-0094 — Generic AST Transform Engine).
+#
+# First-class `TransformDef` fragments, merged into `lang.transforms` at
+# `Language` build. This file replaces the `desugar:` fields that used to
+# sit on `AstShapeDef` rows in `ast.yaml`; the `desugar:` field still works
+# (its rule is lowered into a `TransformDef` in pass "desugar" at merge)
+# for backward compatibility with third-party fragments, but the canonical
+# kit ships its transform rules here.
+#
+# Vocabulary (crates/handl-language/src/fragments/transform_def.rs):
+#   rule:     !Declarative { target_kind, children, payload? }
+#             | !Native "desugar.<form>"
+#   children: !Keep <index> | !KeepRole <role> | !KeepPath [<i>, …]
+#             | !KeepRest <index> | !Splice <index>
+#             | !Create { kind, payload?, children }
+#             | !Apply { rule_id, index }
+#   when:     !KindAt { index?, role?, kind } | !PayloadEq { path, value }
+#             | !ChildCount <n> | !And […] | !Or […] | !Not <cond>
+
+# `call` → `json` (ADR-0060 Layer 1): json{...}(args) is syntactic sugar.
+# When the callee (child 0) is a `json` node, desugar the `call` into a
+# `json` node that carries all original children. The `json` eval scheme
+# then evaluates the args and performs $0/$1/… placeholder substitution
+# into the template string (carried by child 0's payload).
+- id: transform.desugar.call
+  pass: desugar
+  node_kind: call
+  when: !KindAt
+    index: 0
+    kind: json
+  rule: !Declarative
+    target_kind: json
+    children:
+      - !Keep 0
+      - !KeepRest 1
+
+# `entry` computed key (ADR-0081): `[expr]: value` parses the key child as
+# an `array` node; desugar wraps the key expression in `paren` so the
+# object evaluator treats it as a computed key (evaluated at runtime)
+# rather than a literal key.
+- id: transform.desugar.entry
+  pass: desugar
+  node_kind: entry
+  when: !KindAt
+    index: 0
+    kind: array
+  rule: !Declarative
+    target_kind: entry
+    children:
+      - !Create
+        kind: paren
+        children:
+          - !KeepPath
+            - 0
+            - 0
+      - !Keep 1
