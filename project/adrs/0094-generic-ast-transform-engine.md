@@ -541,6 +541,28 @@ codemod), the path is: define a `lint` pass rule and use `find_matches` (or
 `RewriteEngine::run_pass` once the AST carries spans and a formatting-preserving
 renderer exists).  The existing v0.1 rules remain text edits.
 
+## LSP consumer: code actions
+
+`handl-host-lsp` now offers transform-engine-driven quick fixes in
+`textDocument/codeAction` (`crates/host-lsp/src/code_actions.rs`,
+`lint_fix_actions`).  The handler runs
+`handl_plugin_ext_lint::lint_source` over the open document; every lint
+diagnostic that carries a `Fix` and intersects the requested range becomes a
+`quickfix` `CodeAction` whose `WorkspaceEdit` applies the fix's text edit.
+For `lint.simplify-paren` — whose match sites come from
+`RewriteEngine::find_matches` — this realizes the "find pattern → show diff →
+apply at node" loop end to end: the action is titled "Remove redundant
+parentheses" and its edit replaces the parenthesized span with the inner
+atom's text.
+
+Span limitation (same caveat as the lint consumer): the v0.1 Pratt AST
+nodes carry no source spans, so the `TextEdit` range is taken from the
+`Fix`/`Span` the linter computes from the token stream, not from
+`AstNode::span`.  A direct `find_matches` → `apply_rule` → AST-diff edit
+bridge remains blocked on AST spans plus a layout-preserving renderer; when
+those land, the same `lint`-pass rules can drive precise node-level codemods
+through `apply_rule`/`RewriteTrace`.
+
 ## Open questions
 
 1. `TransformDef` identity key `pass:node_kind` — or does `priority` need
