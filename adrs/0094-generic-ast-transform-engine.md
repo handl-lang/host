@@ -553,6 +553,40 @@ renderer exists).  The existing v0.1 rules remain text edits.
 3. Does `Plan` mode belong on the trait or as a `RewriteEngine`-only
    method? On the trait for now so `-parallel` can offer it.
 
+## Follow-up: a `lower` pass for codegen backends
+
+The first concrete `lower` rule is `transform.lower.entry` in the canonical
+`transforms.yaml`.  It matches an `entry` node whose `key` child is a `string`
+literal and rewrites it to use the canonical `var` literal key shape.  This
+removes the `var`/`string` object-key heuristic that the bytecode and
+cranelift backends currently keep as a fallback in their compile/runtime
+paths.
+
+The rule is data-driven:
+
+```yaml
+- id: transform.lower.entry
+  pass: lower
+  node_kind: entry
+  when: !KindAt
+    role: key
+    kind: string
+  rule: !Native "lower.object_key"
+```
+
+Because the rewrite must copy the original `string` payload into a newly
+allocated `var` leaf, the rule is `Native`.  The implementation lives in the
+backend that opts in to lowering (`handl-plugin-engine-exec-bytecode` registers
+`lower.object_key` and calls `RewriteEngine::run_pass(lang, ast, root,
+"lower")` from `BytecodeEngine::eval`).  This keeps the canonical `Language`
+free of backend-specific payload-manipulation rules while proving that the
+pass machinery, dispatch, and native seam are reusable beyond `desugar`.
+
+`BytecodeEngine` exposes the pass as an opt-in (`with_lowering()`), and the
+bytecode conformance suite includes a parity test that runs the full eval
+corpus with and without the `lower` pass, ensuring the normalization is
+semantics-preserving on the existing eval surface.
+
 ## References
 
 - [ADR-0044](./0044-language-as-data-and-runtime-split.md) — language as
