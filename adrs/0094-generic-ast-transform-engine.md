@@ -264,8 +264,11 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
 
 - `AstShapeDef.desugar: AstDesugarRule` fields are **lowered to
   `TransformDef`s at `Language::merge` time** (pass `"desugar"`), so
-  `data/ast.yaml` needs no edits in phase 1. Renaming the YAML field to a
-  `transform:` table is a later cleanup.
+  `data/ast.yaml` needs no edits in phase 1. First-class transform rules
+  now live in `data/transforms.yaml` — a `Vec<TransformDef>` merged into
+  `lang.transforms` after the ast pass (so a first-class rule may
+  `replaces:` a lowered one). The `desugar:` field and its lowering remain
+  for backward compatibility with third-party fragments.
 - `try_rust_desugar` (`while`/`do-while`/`for`/`nullish`/`opt-chain`,
   ~4000 lines) moves verbatim into
   `plugin-engine-transform-rewrite::native::desugar` behind
@@ -340,20 +343,31 @@ handl-runtime                    calls RewriteEngine (drops
   fourth dispatch table after `eval`/`types`/`grammar`).
 - **`NativeRewrite` is a stable ABI seam** — `RewriteCtx` must be designed
   once, carefully, since natives depend on it.
-- **Deferred work is explicit:** `ast.yaml`'s `desugar:` field keeps its
-  name until a follow-up renames it to a `transform:` table. (The
-  originally-deferred vocabulary — `TopDown`/`Fixpoint`/`ApplyAt`/`Plan`/
-  `Splice`/`Apply`/`PayloadEq` — is now implemented; see "Deferred"
-  below.)
+- **Deferred work is explicit:** see "Deferred" below — most originally
+  deferred items (`TopDown`/`Fixpoint`/`ApplyAt`/`Plan`/`Splice`/`Apply`/
+  `PayloadEq`, and the `desugar:` → first-class `transforms.yaml` table)
+  have since landed.
 - **`handl-language` gains rule-vocabulary types** — a slight broadening
   of "pure data" (the vocabulary is data; only `plugin-engine-transform`
   has logic). Same trade-off already made for `Scheme`.
 
 ### Deferred (explicitly out of scope)
 
-- Renaming `ast.yaml` `desugar:` → `transform:` table.
 - `hnl transform` CLI subcommand.
 - `plugin-engine-transform-parallel`.
+
+Landed after initial merge (originally deferred): the `ast.yaml` `desugar:`
+field is superseded by a **first-class `transforms.yaml` data file** — a
+`Vec<TransformDef>` merged into `lang.transforms` by
+`handl-kit-data-canonical`'s `merge_fragments`/`language_from_yaml`/
+`language_from_dir` (optional on disk; absent = no first-class rules) and
+by the `transforms:` section of sectioned fragment docs (e.g.
+`plugin-engine-test`'s test-language fragment). The canonical `call` →
+`json` and `entry` computed-key rules are authored there using the
+`RewriteStep`/`TransformCondition` vocabulary (`!Keep`, `!KeepRest`,
+`!Create`, `!KeepPath`, `!KindAt {index, kind}`). `AstShapeDef.desugar` and
+its merge-time lowering are kept — third-party fragments may still declare
+`desugar:` on a shape.
 
 Implemented at landing (originally deferred): `Traversal::TopDown`,
 `Traversal::Fixpoint` (with `max` iterations + a node-count budget —
