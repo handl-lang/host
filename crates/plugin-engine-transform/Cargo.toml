@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-engine-transform"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { path = "../handl-language" }
+handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
+serde_json = { workspace = true }

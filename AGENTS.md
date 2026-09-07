@@ -25,7 +25,20 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
+| Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
+| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval` subcommands                                                                                                                                                                       |
+
+### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
+
+`handl-runtime::apply_desugar` returns `Result<Ast, LangError>` and
+delegates to `RewriteEngine::run_pass("desugar")` with
+`with_desugar_natives`; `Runtime::parse` propagates transform errors.
+Declarative rules live in `lang.transforms` (lowered from `AstShapeDef`'s
+`desugar:` field at merge); kinds with no declarative rule fall back to the
+named `desugar.*` native registry. `validate_transforms` runs at `Language`
+build in `handl-kit-data-canonical::merge_fragments` — Error-severity
+diagnostics fail assembly.
 
 ### CLI exit codes
 
@@ -75,13 +88,18 @@ and linter all split source into top-level statements at bracket-depth zero
   - `handl-runtime/src/lib.rs` `collect_module_bindings`: **closed**. Now
     data-driven via `Language::binding_target` using `target` role/`name`
     payload.
-  - `handl-runtime/src/desugar_pass.rs`: `type-annot`/`paren` checks in
-    `desugar_match_to_recursor`/`parse_type_param` are now data-driven via
-    `subject`/`annot`/`body` roles. Remaining `kind ==` in
-    `node_to_type_string`, `collect_constructors`, and the `while`/`if`/`for`
-    `try_rust_desugar` registry are bootstrap desugar code; they are documented
-    as out-of-scope for ADR-0081 unless/until declarative desugar rules grow
-    fresh-name generation and recursive structure building.
+  - `plugin-engine-transform-rewrite/src/native/desugar.rs` (moved from
+    `handl-runtime/src/desugar_pass.rs`, ADR-0094): `type-annot`/`paren`
+    checks in `desugar_match_to_recursor`/`parse_type_param` are data-driven
+    via `subject`/`annot`/`body` roles. Remaining `kind ==` in
+    `node_to_type_string`, `collect_constructors`, and the
+    `while`/`if`/`for`/`nullish`/`opt-chain`/`data`/`match` natives
+    (formerly the `try_rust_desugar` registry — now named `desugar.*`
+    entries behind `DESUGAR_NATIVES`, still Rust, still bootstrap desugar
+    code) are documented as out-of-scope for ADR-0081 unless/until
+    declarative desugar rules grow fresh-name generation and recursive
+    structure building. The dispatch is now data-driven; the Rust impls
+    remain the flagged debt.
   - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: **closed**.
     Dispatch uses `AstShapeDef::pattern_role` (`leaf`/`sequence`/`entries`/
     `entry`/`rest`) with a role-less fallback for tests.

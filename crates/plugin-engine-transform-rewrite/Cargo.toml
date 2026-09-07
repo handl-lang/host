@@ -1,0 +1,19 @@
+[package]
+name = "handl-plugin-engine-transform-rewrite"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { path = "../handl-language" }
+handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-runtime = { path = "../handl-runtime" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+serde_json = { workspace = true }
+criterion = "0.5"
+
+[[bench]]
+name = "transform"
+harness = false

@@ -1,0 +1,88 @@
+//! [`TransformCondition`] evaluation (ADR-0094 §3).
+//!
+//! Conditions are pure predicates over the *input* node (pre-remap) and the
+//! input arena. `KindAt` resolves the child position by named role via
+//! [`AstShapeDef::role_index`](handl_language::AstShapeDef::role_index)
+//! (ADR-0081), falling back to the positional `index` for shapes that declare
+//! no roles.
+
+use handl_language::{Ast, AstNode, AstRef, Language, TransformCondition};
+
+/// Evaluate `cond` against `node` in the input arena `ast`.
+///
+/// Returns `true` when the condition holds — i.e. the guarded rule may fire.
+/// A condition that cannot be resolved (missing child, unknown role, absent
+/// payload path) evaluates to `false`, never panics.
+pub(crate) fn matches_condition(
+    lang: &Language,
+    ast: &Ast,
+    node: &AstNode,
+    cond: &TransformCondition,
+) -> bool {
+    match cond {
+        TransformCondition::KindAt { index, role, kind } => {
+            match resolve_child_index(lang, node, *index, role.as_deref()) {
+                Some(old_idx) => ast
+                    .get(AstRef::new(old_idx))
+                    .map(|child| child.kind == *kind)
+                    .unwrap_or(false),
+                None => false,
+            }
+        }
+        TransformCondition::PayloadEq { path, value } => {
+            payload_at(&node.payload, path).map(|v| v == value).unwrap_or(false)
+        }
+        TransformCondition::ChildCount(n) => node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .map(|arr| arr.len() == *n)
+            .unwrap_or(*n == 0),
+        TransformCondition::And(conds) => conds
+            .iter()
+            .all(|c| matches_condition(lang, ast, node, c)),
+        TransformCondition::Or(conds) => conds
+            .iter()
+            .any(|c| matches_condition(lang, ast, node, c)),
+        TransformCondition::Not(cond) => !matches_condition(lang, ast, node, cond),
+    }
+}
+
+/// Resolve the child position to test for [`TransformCondition::KindAt`].
+///
+/// A declared `role` is resolved through the node's [`AstShapeDef`] first
+/// (ADR-0081); the positional `index` is the role-less fallback.
+fn resolve_child_index(
+    lang: &Language,
+    node: &AstNode,
+    index: Option<usize>,
+    role: Option<&str>,
+) -> Option<usize> {
+    let pos = role
+        .and_then(|r| {
+            lang.ast
+                .get_by_identity(&node.kind)
+                .and_then(|shape| shape.role_index(r))
+        })
+        .or(index)?;
+    node.payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.get(pos))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize)
+}
+
+/// Navigate a dotted `path` (`.`-separated object keys; numeric segments
+/// index into arrays) into `payload`.
+fn payload_at<'a>(payload: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
+    let mut cur = payload;
+    for seg in path.split('.') {
+        cur = if let Some(idx) = seg.parse::<usize>().ok().filter(|_| cur.is_array()) {
+            cur.get(idx)?
+        } else {
+            cur.get(seg)?
+        };
+    }
+    Some(cur)
+}

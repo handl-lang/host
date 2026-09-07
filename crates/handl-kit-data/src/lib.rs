@@ -488,7 +488,19 @@ fn merge_filtered(
     }
     for frag in fragment_lang.ast.fragments() {
         if passes(frag.id()) {
-            lang.ast.merge(frag.clone())?;
+            // `merge_ast_fragment` also lowers each shape's `desugar:` rule
+            // into a `TransformDef` in `lang.transforms` (ADR-0094 §6).
+            lang.merge_ast_fragment(frag.clone())?;
+        }
+    }
+    for frag in fragment_lang.transforms.fragments() {
+        if passes(frag.id()) {
+            // Skip fragments already present with identical content — e.g. a
+            // `transform.desugar.*` rule the ast loop above re-synthesized.
+            if lang.transforms.get_by_id(frag.id()) == Some(frag) {
+                continue;
+            }
+            lang.transforms.merge(frag.clone())?;
         }
     }
     for frag in fragment_lang.caps.fragments() {

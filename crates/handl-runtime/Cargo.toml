@@ -10,6 +10,7 @@ handl-plugin-engine-lex = {path = "../plugin-engine-lex" }
 handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
 handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
+handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

@@ -799,8 +799,9 @@ impl Runtime {
             .ok_or(LangError::NotImplemented)?;
         let req = ParserRequest::new(toks.clone());
         let ast = engine.parse_dyn(&self.lang, &req)?;
-        // ADR-0053 §7: apply data-driven desugar pass between parse and eval.
-        Ok(desugar_pass::apply_desugar(&self.lang, &ast))
+        // ADR-0094 §6: run the "desugar" transform pass between parse and
+        // eval; a failed transform propagates (no silent fallthrough).
+        desugar_pass::apply_desugar(&self.lang, &ast)
     }
 
     /// Evaluate an [`Ast`] into a [`Value`] using the bound eval engine.
@@ -1361,7 +1362,7 @@ impl ModuleLoader {
         };
         // Apply the same desugar pass the runtime applies at parse time
         // (ADR-0082), so imported modules see the same AST shape.
-        let ast = desugar_pass::apply_desugar(&self.lang, &ast);
+        let ast = desugar_pass::apply_desugar(&self.lang, &ast)?;
 
         // Evaluate the module. Clone the eval engine out of the RefCell
         // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
