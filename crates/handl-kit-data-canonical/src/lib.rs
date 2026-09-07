@@ -477,7 +477,7 @@ mod tests {
         // and rewrite steps).
         use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
-        assert_eq!(lang.transforms.len(), 2);
+        assert_eq!(lang.transforms.len(), 3);
 
         let call = &lang.transforms_for("desugar", "call")[0];
         assert_eq!(call.id, "transform.desugar.call");

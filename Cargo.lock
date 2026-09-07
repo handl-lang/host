@@ -1232,6 +1232,8 @@ dependencies = [
  "handl-platform",
  "handl-plugin-engine-exec",
  "handl-plugin-engine-exec-tree-walk",
+ "handl-plugin-engine-transform",
+ "handl-plugin-engine-transform-rewrite",
  "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",

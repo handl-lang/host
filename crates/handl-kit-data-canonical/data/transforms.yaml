@@ -54,3 +54,15 @@
             - 0
             - 0
       - !Keep 1
+
+# `lower` pass (ADR-0094 follow-up): canonicalize object entry keys so the
+# bytecode/cranelift backends can stop guessing whether a literal key is a
+# `var` or a `string`.  The rule is authored in language data; the payload
+# rewrite is implemented by the engine that opts in to the pass.
+- id: transform.lower.entry
+  pass: lower
+  node_kind: entry
+  when: !KindAt
+    role: key
+    kind: string
+  rule: !Native "lower.object_key"
