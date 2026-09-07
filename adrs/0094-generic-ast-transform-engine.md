@@ -353,8 +353,27 @@ handl-runtime                    calls RewriteEngine (drops
 
 ### Deferred (explicitly out of scope)
 
-- `hnl transform` CLI subcommand.
 - `plugin-engine-transform-parallel`.
+
+Landed after initial merge (originally deferred): the `hnl transform` CLI
+subcommand (`host-cli`):
+
+```text
+hnl transform <pass> <file.hnl> [--pipeline a,b,c] [--plan] [--trace]
+          [--stats] [--emit tree|json]
+```
+
+It parses each top-level statement RAW (bracket-depth-zero split + Pratt
+engine — no `Runtime::parse`, which would pre-desugar per ADR-0082), runs
+the pass via `RewriteEngine::run_pass`/`run_pipeline` with
+`with_desugar_natives`, and renders the output arena as an indented tree
+(`kind` + payload summary) or `--emit json`. `--plan` lists match sites
+(kind + rule id, incl. `native:desugar.*` fallback sites) without
+applying; `--trace` prints each `Rewrite`; `--stats` prints `PassStats`.
+Exit codes: 0 success, 1 transform failure, 2 usage/parse error — an
+unknown pass name (no `TransformDef` declares it) is a usage error, not a
+silent no-op. A regression test asserts raw-parse + `desugar` produces an
+arena identical to `Runtime::parse`'s output.
 
 Landed after initial merge (originally deferred): the `ast.yaml` `desugar:`
 field is superseded by a **first-class `transforms.yaml` data file** — a
