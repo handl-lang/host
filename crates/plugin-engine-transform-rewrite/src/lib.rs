@@ -303,7 +303,8 @@ impl RewriteEngine {
             let Some(node) = ast.get(AstRef::new(i)) else {
                 continue;
             };
-            if let Some(rules) = dispatch.rules_for(&node.kind) {
+            let rules = dispatch.rules_for(&node.kind);
+            if let Some(rules) = rules {
                 for def in rules {
                     let fires = match &def.when {
                         Some(cond) => matches_condition(lang, ast, node, cond),
@@ -318,6 +319,20 @@ impl RewriteEngine {
                         break; // first match wins, same as firing order
                     }
                 }
+            } else if let Some(name) = self
+                .native_fallback
+                .get(&(pass.to_string(), node.kind.clone()))
+            {
+                // Native fallback (ADR-0094 §6): kinds with no declarative
+                // rule for this pass may still rewrite via a wired native —
+                // a plan should show those sites too. (Only when NO
+                // declarative rule exists; a `when` miss is a pass-through,
+                // matching `PassRun::process`.)
+                matches.push(Match {
+                    at: AstRef::new(i),
+                    rule_id: format!("native:{name}"),
+                    bindings: Default::default(),
+                });
             }
         }
         matches
