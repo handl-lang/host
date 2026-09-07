@@ -2090,7 +2090,7 @@ pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
 /// match — becomes [`RewriteCtx::pass_through`]: the node is pushed into
 /// the output arena unchanged with its children remapped, exactly as the
 /// legacy fallthrough did.
-fn adapt(f: DesugarFn) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError>> {
+fn adapt(f: DesugarFn) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync> {
     Box::new(move |ctx| {
         let lang = ctx.lang();
         let node = ctx.node();

@@ -353,7 +353,26 @@ handl-runtime                    calls RewriteEngine (drops
 
 ### Deferred (explicitly out of scope)
 
-- `plugin-engine-transform-parallel`.
+`plugin-engine-transform-parallel` has been implemented and is no longer
+outstanding.
+
+### Implemented: `plugin-engine-transform-parallel`
+
+`plugin-engine-transform-parallel` provides a parallel `TransformEngine`
+implementation that partitions a bottom-up pass at the root's top-level
+children. Each child subtree is processed by a cloned `RewriteEngine` running in
+a `std::thread::scope` worker; the child output arenas are merged with offset
+remapping, and the root itself is rewritten sequentially via
+`RewriteEngine::run_pass_root`. This required making `NativeRewrite` and
+`RuleSource` `Send + Sync` and switching `RewriteEngine` shared state from `Rc`
+to `Arc`.
+
+The parallel implementation passes a parity suite asserting byte-for-byte output
+arena equality with `RewriteEngine` on generated module ASTs containing `while`,
+`nullish`, and `opt-chain` statements. On the Criterion benchmark of 500 such
+top-level statements (release profile), the sequential engine runs the `desugar`
+pass in ~1.55 ms while the parallel engine runs in ~4.41 ms; for this input size
+the thread/partition overhead currently exceeds the parallelism benefit.
 
 Landed after initial merge (originally deferred): the `hnl transform` CLI
 subcommand (`host-cli`):

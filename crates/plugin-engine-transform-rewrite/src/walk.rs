@@ -25,7 +25,7 @@
 //!   performs no rewrite, or `max` iterations / [`MAX_NODES`] is exceeded.
 
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, TransformDef, TransformRule};
 use handl_plugin_engine_transform::native::{NativeRewrite, RewriteCtx};
@@ -78,7 +78,7 @@ pub(crate) struct PassRun<'a> {
     /// The dispatch table for this pass (borrowed — built once per pass).
     dispatch: &'a Dispatch,
     /// The wired native-rewrite registry, if any.
-    natives: Option<Rc<dyn NativeRewrite>>,
+    natives: Option<Arc<dyn NativeRewrite>>,
     /// The `(pass, kind) → native name` fallback table.
     fallback: &'a NativeFallback,
     /// `true` for top-down traversal (children resolved lazily).
@@ -102,7 +102,7 @@ impl<'a> PassRun<'a> {
         ast: &'a Ast,
         pass: &'a str,
         dispatch: &'a Dispatch,
-        natives: Option<Rc<dyn NativeRewrite>>,
+        natives: Option<Arc<dyn NativeRewrite>>,
         fallback: &'a NativeFallback,
         topdown: bool,
         surgical: Option<(usize, &'a TransformDef)>,
@@ -121,6 +121,11 @@ impl<'a> PassRun<'a> {
             trace: RewriteTrace::new(),
             stats: PassStats::new(),
         }
+    }
+
+    /// Replace the old→new remap table with a pre-populated one.
+    pub(crate) fn set_remap(&mut self, remap: Vec<Option<usize>>) {
+        self.remap = remap;
     }
 
     /// Bottom-up pass: walk the whole arena in insertion order (children
@@ -144,7 +149,7 @@ impl<'a> PassRun<'a> {
 
     /// Dispatch one input node (bottom-up): fire the first matching rule,
     /// else consult the native fallback, else push the remapped node.
-    fn process(&mut self, i: usize, node: &AstNode, out: &mut Ast) -> Result<(), LangError> {
+    pub(crate) fn process(&mut self, i: usize, node: &AstNode, out: &mut Ast) -> Result<(), LangError> {
         let remapped = remap_children(node, &self.remap);
         if let Some((at, def)) = self.surgical {
             // Surgical mode: only `def` fires, only at `at`.

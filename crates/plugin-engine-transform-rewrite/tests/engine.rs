@@ -13,7 +13,7 @@ use handl_plugin_engine_transform::request::{TransformMode, TransformRequest};
 use handl_plugin_engine_transform::TransformEngine;
 use handl_plugin_engine_transform_rewrite::{RewriteEngine, Traversal};
 use serde_json::{json, Value};
-use std::rc::Rc;
+use std::sync::Arc;
 
 fn leaf(kind: &str, payload: Value) -> AstNode {
     AstNode::new(kind).with_payload(payload)
@@ -653,7 +653,7 @@ fn native_rule_dispatches_by_name() {
             Ok(AstRef::new(ctx.push_leaf("b", json!("made"))))
         }),
     );
-    let engine = RewriteEngine::new().with_native_registry(Rc::new(reg));
+    let engine = RewriteEngine::new().with_native_registry(Arc::new(reg));
     let mut ast = Ast::new();
     ast.push(node("a", &[]));
     let out = engine.run_pass(&lang, &ast, root(&ast), "p").unwrap();

@@ -29,7 +29,7 @@ mod step;
 mod walk;
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Instant;
 
 use handl_language::{Ast, AstRef, LangError, Language};
@@ -71,14 +71,14 @@ pub enum Traversal {
 
 /// The rule-interpreting transform engine (ADR-0094 §4).
 ///
-/// Cheap to clone (all shared state is behind `Rc`); `Clone` backs
+/// Cheap to clone (all shared state is behind `Arc`); `Clone` backs
 /// [`TransformEngine::box_clone`].
 #[derive(Clone)]
 pub struct RewriteEngine {
     /// Where rules come from (default: `lang.transforms`).
-    rule_source: Rc<dyn RuleSource>,
+    rule_source: Arc<dyn RuleSource>,
     /// The wired native-rewrite registry, if any.
-    natives: Option<Rc<dyn NativeRewrite>>,
+    natives: Option<Arc<dyn NativeRewrite>>,
     /// `(pass, node_kind) → native name` fallback consulted when a kind has
     /// no declarative rule — populated by
     /// [`with_desugar_natives`](Self::with_desugar_natives).
@@ -101,7 +101,7 @@ impl RewriteEngine {
     /// Create an engine reading rules from `lang.transforms`.
     pub fn new() -> Self {
         Self {
-            rule_source: Rc::new(LanguageRuleSource::new()),
+            rule_source: Arc::new(LanguageRuleSource::new()),
             natives: None,
             native_fallback: HashMap::new(),
             traversal: Traversal::BottomUp,
@@ -113,7 +113,7 @@ impl RewriteEngine {
     /// (codemod files, extra fragment sets, …).
     pub fn with_rule_source(src: Box<dyn RuleSource>) -> Self {
         Self {
-            rule_source: Rc::from(src),
+            rule_source: Arc::from(src),
             ..Self::new()
         }
     }
@@ -126,7 +126,7 @@ impl RewriteEngine {
     /// `for`, `nullish`, `opt-chain`, `data`, and `match` nodes that have no
     /// declarative rule — with declarative rules always taking precedence.
     pub fn with_desugar_natives(self) -> Self {
-        let mut engine = self.with_native_registry(Rc::new(native::desugar_native_registry()));
+        let mut engine = self.with_native_registry(Arc::new(native::desugar_native_registry()));
         for (kind, name) in native::DESUGAR_NATIVES {
             engine
                 .native_fallback
@@ -138,7 +138,7 @@ impl RewriteEngine {
     /// Wire a custom [`NativeRewrite`] registry (no fallback table — custom
     /// natives are reachable only through explicit
     /// `TransformRule::Native(name)` rules).
-    pub fn with_native_registry(mut self, natives: Rc<dyn NativeRewrite>) -> Self {
+    pub fn with_native_registry(mut self, natives: Arc<dyn NativeRewrite>) -> Self {
         self.natives = Some(natives);
         self
     }
@@ -413,6 +413,50 @@ impl RewriteEngine {
         // return the last arena (not an error; the bound was honored).
         Ok(TransformOutput::new(cur_ast, cur_root, trace, stats))
     }
+
+    /// Process only the root node after its children have already been
+    /// rewritten and placed in `out`.
+    ///
+    /// `child_remap` must map the old child indices referenced by `root`
+    /// (in `ast`) to the new indices already present in `out`. The new root
+    /// node — and any nodes created by the root rule — are appended to `out`.
+    ///
+    /// This is the sequential tail used by the parallel engine: children are
+    /// rewritten in parallel, then the root is processed once.
+    pub fn run_pass_root(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        root: AstRef,
+        pass: &str,
+        mut out: Ast,
+        child_remap: Vec<Option<usize>>,
+    ) -> Result<TransformOutput, LangError> {
+        let started = Instant::now();
+        if child_remap.len() < ast.len() {
+            return Err(LangError::engine(
+                "child_remap is shorter than the input arena".to_string(),
+            ));
+        }
+        let dispatch = Dispatch::build(&*self.rule_source, lang, pass);
+        let mut run = PassRun::new(
+            lang,
+            ast,
+            pass,
+            &dispatch,
+            self.natives.clone(),
+            &self.native_fallback,
+            false,
+            None,
+        );
+        run.set_remap(child_remap);
+        let node = ast.at(root)?;
+        run.process(root.index(), node, &mut out)?;
+        run.stats.duration = started.elapsed();
+        let root = run.output_root(root, &out);
+        let (trace, stats) = (run.trace.clone(), run.stats.clone());
+        Ok(TransformOutput::new(out, root, trace, stats))
+    }
 }
 
 impl TransformEngine for RewriteEngine {
@@ -459,7 +503,7 @@ impl TransformEngine for RewriteEngine {
         Box::new(self.clone())
     }
 
-    fn with_natives(&self, natives: Rc<dyn NativeRewrite>) -> Box<dyn TransformEngine> {
+    fn with_natives(&self, natives: Arc<dyn NativeRewrite>) -> Box<dyn TransformEngine> {
         let mut engine = self.clone();
         engine.natives = Some(natives);
         Box::new(engine)

@@ -18,7 +18,10 @@ use serde_json::Value;
 /// Natives receive a [`RewriteCtx`] and return the new output [`AstRef`]. They
 /// never touch raw arena indices directly; child remapping and node allocation
 /// go through the context.
-pub trait NativeRewrite {
+///
+/// Native registries are shared across threads by the parallel engine, so the
+/// trait is `Send + Sync`.
+pub trait NativeRewrite: Send + Sync {
     /// Apply the native rewrite named `name` to the input node in `ctx`.
     ///
     /// # Errors
@@ -176,8 +179,14 @@ impl<'a> RewriteCtx<'a> {
 }
 
 /// A native-rewrite registry backed by a `HashMap` of named functions.
+///
+/// The stored closures are `Send + Sync` so the registry can be shared across
+/// threads by the parallel engine.
 pub struct NativeRewriteRegistry {
-    fns: HashMap<String, Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError>>>,
+    fns: HashMap<
+        String,
+        Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync>,
+    >,
 }
 
 impl NativeRewriteRegistry {
@@ -192,7 +201,7 @@ impl NativeRewriteRegistry {
     pub fn register(
         &mut self,
         name: impl Into<String>,
-        f: Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError>>,
+        f: Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync>,
     ) {
         self.fns.insert(name.into(), f);
     }

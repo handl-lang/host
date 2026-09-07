@@ -23,7 +23,7 @@ pub mod source;
 pub mod validate;
 
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use handl_language::{AstRef, LangError, Language};
 
@@ -88,7 +88,7 @@ pub trait TransformEngine {
     /// Default: clone + ignore (the engine does not wire in the
     /// [`NativeRewrite`] registry). Implementations override this to enable
     /// `TransformRule::Native` dispatch.
-    fn with_natives(&self, _natives: Rc<dyn NativeRewrite>) -> Box<dyn TransformEngine> {
+    fn with_natives(&self, _natives: Arc<dyn NativeRewrite>) -> Box<dyn TransformEngine> {
         self.box_clone()
     }
 }

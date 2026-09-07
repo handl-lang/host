@@ -1371,6 +1371,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-engine-transform-parallel"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-plugin-engine-transform",
+ "handl-plugin-engine-transform-rewrite",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-engine-transform-rewrite"
 version = "0.1.0"
 dependencies = [
