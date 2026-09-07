@@ -628,6 +628,61 @@ bytecode conformance suite includes a parity test that runs the full eval
 corpus with and without the `lower` pass, ensuring the normalization is
 semantics-preserving on the existing eval surface.
 
+## Handl-authored transforms (the `handl:` native seam)
+
+Symmetric to `Native(name)` reaching into Rust, a `TransformDef` can name a
+`.hnl` function as its rewrite. The design keeps `TransformRule::Native` as
+the single dispatch spelling — no `TransformRule::Handl` variant was added,
+so `handl-language`, `validate_transforms`, and the serde schema are
+untouched. The convention is a `handl:` name prefix:
+
+```yaml
+- id: transform.mypass.foo
+  pass: mypass
+  node_kind: foo
+  rule: !Native "handl:mymod.myfn"
+```
+
+`handl:mymod.myfn` resolves to function `myfn` on the `HandlModule`
+registered under `mymod` with
+`handl_plugin_lib_handl::transform::HandlNativeRewrite` — a `NativeRewrite`
+impl living in `plugin-lib-handl`, where `.hnl` evaluation is reachable
+without a dependency cycle (the rewrite engine cannot depend on
+`handl-runtime`/`plugin-lib-handl`). Invocation mirrors the `pred.hnl`
+filter-arrow pattern: the node record crosses as an `__arg_0` global through
+`HandlFunction::call` and the result returns across the serde_json boundary.
+Non-`handl:` names delegate to an optional fallback registry, so one
+`with_native_registry` call serves both handl rules and Rust natives.
+
+**Value contract.** The `.hnl` function receives one argument — a recursive
+serialization of the matched node:
+
+```text
+{ kind: "foo",
+  span: { start: 0, end: 3 } | null,
+  payload: { … },                    -- the node's payload minus `children`
+  children: [ <node record>, … ] }   -- recursively serialized children
+```
+
+and returns either `null` (decline → the engine pushes the node through with
+remapped children) or a **node spec** `{ kind, payload?, children? }` that the
+engine realizes into the output arena. Each `children` element is itself a
+node spec or the marker `{ "__keep__": n }`, which reuses the remapped output
+of the *matched* node's child `n` (the index always refers to the matched
+node's `children` array, no matter how deeply nested the marker appears). A
+bare `{ "__keep__": n }` return replaces the matched node with that child.
+Realized nodes inherit the matched node's `span`, matching the documented
+span policy.
+
+**Rough edges.** The `.hnl` function cannot observe raw arena indices —
+`__keep__` is the only handle onto existing subtrees; results must not
+contain arrow values or other reserved-key (`__arrow__`/`__tag__`/…)
+shapes; and an arrow body that is a record literal must be parenthesized
+(`n ~> ({…})`) since a bare `{k: v}` record parses `k:` as a type
+annotation. The bridge runtime evaluates `(source).fn(arg)` against its own
+canonical `Language`, so user `handl:` rules never re-enter the transform
+engine. End-to-end coverage: `plugin-lib-handl/tests/handl_transform.rs`.
+
 ## References
 
 - [ADR-0044](./0044-language-as-data-and-runtime-split.md) — language as
