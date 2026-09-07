@@ -42,6 +42,15 @@ named `desugar.*` native registry. `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
 diagnostics fail assembly.
 
+`.hnl`-authored rewrites are supported via the `Native("handl:<mod>.<fn>")`
+spelling: `handl_plugin_lib_handl::transform::HandlNativeRewrite` is a
+`NativeRewrite` that resolves `handl:` names against registered
+`HandlModule`s and invokes the function with a `{kind, span, payload,
+children}` record; the function returns `null` (decline) or a node spec
+`{kind, payload?, children?}` where children may be `{"__keep__": n}`
+markers reusing the matched node's remapped child `n`. See ADR-0094 §"Handl-
+authored transforms" and `plugin-lib-handl/tests/handl_transform.rs`.
+
 ### CLI exit codes
 
 - `0` — success
