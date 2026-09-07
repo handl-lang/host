@@ -1,0 +1,19 @@
+# ADR-0094 second consumer: a `lint` pass used by the canonical linter as a
+# pattern matcher (`RewriteEngine::find_matches`).  The `rule` is a no-op
+# identity rewrite; the source-level fix is computed separately so formatting
+# is preserved.
+-
+  id: lint.simplify-paren
+  pass: lint
+  node_kind: paren
+  when:
+    !And
+    - !ChildCount 1
+    - !Or
+      - !KindAt { role: body, kind: var }
+      - !KindAt { role: body, kind: value }
+  rule:
+    !Declarative
+    target_kind: paren
+    children:
+      - !KeepRole "body"

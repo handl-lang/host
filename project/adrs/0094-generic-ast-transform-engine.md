@@ -493,6 +493,54 @@ of the decision, not follow-ups.
 6. `cargo test --workspace` green; `desugar_parity.rs` asserts identical
    output vs. the pre-migration implementation; criterion bench lands.
 
+## Second consumer: lint
+
+The canonical v0.1 linter (`handl-plugin-ext-lint`) was the first non-desugar
+use of the transform engine.  The exercise confirmed the engine generalizes as
+a **pattern matcher** but also exposed why lint fixes cannot (yet) be pure
+AST rewrites in this codebase.
+
+### Findings
+
+The three fixable lint rules in the v0.1 rule set are all fundamentally
+text-level edits:
+
+- `fmt` — whole-file canonical reformatting.
+- `unused-import` — delete a top-level statement line, including its trailing
+  newline.
+- `naming-convention` — rename an identifier token.
+
+None of them is a structural rewrite that can be expressed with the current
+`RewriteStep` vocabulary.  `naming-convention` needs payload string
+manipulation (`snake_case`); `unused-import` needs statement deletion;
+`fmt` is a token-stream operation.  More importantly, the v0.1 Pratt AST
+carries **no source spans**, and there is no span-preserving AST→source
+renderer (the formatter emits canonical text, not the original layout).  A
+pure `run_pass("lint")` + re-print would therefore discard comments,
+whitespace, and line breaks.
+
+### Chosen bridge
+
+The honest minimal win is to keep the existing text-fix pipeline and use
+`RewriteEngine::find_matches` as the lint's structural matcher for new,
+pattern-based rules.  This satisfies the engine-genericity rule: dispatch is
+`lang.transforms["lint"][kind]` and child positions resolve through
+`AstShapeDef` roles; no new `kind ==` checks are added.
+
+A demonstrative rule, `lint.simplify-paren`, lives in the embedded
+`crates/plugin-ext-lint/data/lint_transforms.yaml` file and is merged into the
+canonical `Language` at lint time.  It matches `paren` nodes with a single
+`var`/`value` child via `find_matches`; the actual source edit is then a
+span-preserving text replacement.  This proves the engine generalizes beyond
+desugar without forcing a bad fit for the existing text-based fix rules.
+
+### Consequence
+
+When an AST-level lint fix eventually becomes desirable (e.g. a structural
+codemod), the path is: define a `lint` pass rule and use `find_matches` (or
+`RewriteEngine::run_pass` once the AST carries spans and a formatting-preserving
+renderer exists).  The existing v0.1 rules remain text edits.
+
 ## Open questions
 
 1. `TransformDef` identity key `pass:node_kind` — or does `priority` need
