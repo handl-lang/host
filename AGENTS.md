@@ -140,10 +140,15 @@ and linter all split source into top-level statements at bracket-depth zero
       `export ... from`) which is the inverse order of the canonical Pratt
       `stmt-from`/`stmt-import` rows, and the loader must resolve imports
       before arrow expressions are parsed. The
-      `from "./x" import { dedent }` brace form is **not** handled by either
-      the arrow-loader line scanner or the canonical `stmt-from` row; it is a
-      known surface-syntax mismatch to be resolved through `Language` data if
-      arrow modules ever converge with canonical import grammar.
+      `from "./x" import { dedent }` brace form was handled by **neither**
+      the arrow-loader line scanner nor the canonical `stmt-from` row; the
+      single call site (`handl-packages/dedent/dedent.test.hnl`) was
+      rewritten to canonical `from "./dedent" import * as dedent`, so the
+      divergence is **closed**. Note the import line in `.test.hnl` files is
+      still skipped textually by the test runner (and stripped by `hnl
+      run`) — the stdlib module chain supplies the bindings — but the line
+      now also parses under canonical Pratt, so `hnl typecheck`/`lint`/`fmt`
+      accept the file.
     - `plugin-engine-transform-rewrite/src/native/desugar.rs`: only the
       `data` and `match`→recursor desugar natives
       (`node_to_type_string`, `collect_constructors`, strict positivity,
