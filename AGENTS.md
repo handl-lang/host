@@ -119,8 +119,14 @@ and linter all split source into top-level statements at bracket-depth zero
     `payload_extract` (lift a name-like string from a child into the payload
     — `data`'s `payload.name`). The `grammar.match.prefix`/
     `grammar.data.prefix` rows in `data/grammar.yaml` carry the fields; the
-    `kind == "match"`/`kind == "data"` branches are deleted. See ADR-0053's
-    amendment section.
+    `kind == "match"`/`kind == "data"` branches are deleted. The last
+    branch, `token.keyword.from`, is **closed** too: `AstShapeRef` gained
+    `trailing_tokens: Vec<TokenStep>` (ordered required/optional token steps
+    consumed after all children, one-of `kinds` per step, optional `field`
+    payload capture) and `PayloadExtractSpec` gained `required: bool`;
+    `grammar.stmt-from.prefix` now carries the `import * as <alias>` tail
+    and the `payload.path` lift. No `from`/`import` token-string checks
+    remain in the parse dispatch. See ADR-0053's amendment sections.
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
     `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
     heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`

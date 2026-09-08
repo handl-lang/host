@@ -250,10 +250,13 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
-# `from` is not fully expressible in a single grammar row because the path
-# is a child expression and `import * as alias` is a trailing clause with
-# multiple required keyword/punctuation tokens, so the parser handles this
-# form contextually.
+# `from "path" import * as alias` — the path is a child expression and the
+# `import * as <alias>` tail is a sequence of required trailing tokens
+# (`AstShapeRef::trailing_tokens`, ADR-0053): `import`, `*`, `as` are
+# consumed verbatim and the alias (identifier or string) is captured into
+# `payload.alias`. The path string is lifted out of the child into
+# `payload.path` via a required `payload_extract` step — a non-string path
+# child is a parse error.
 - id: grammar.stmt-from.prefix
   token: token.keyword.from
   position: Prefix
@@ -263,6 +266,21 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
+    payload_extract:
+      - child: 0
+        field: path
+        required: true
+    trailing_tokens:
+      - kinds:
+          - token.keyword.import
+      - kinds:
+          - token.star
+      - kinds:
+          - token.keyword.as
+      - kinds:
+          - token.identifier
+          - token.string
+        field: alias
 # `match` supports an optional `return ... with` motive clause and produces a
 # `match` node with 2 or 3 children: [scrutinee, (motive,) arms]. Surface forms:
 #   match scrutinee { arms }
