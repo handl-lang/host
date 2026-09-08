@@ -27,7 +27,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
-| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
+| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives) |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json|source] [--write]` — ADR-0094)               |
 
 ### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
@@ -37,9 +37,20 @@ delegates to `RewriteEngine::run_pass("desugar")` with
 `with_desugar_natives`; `Runtime::parse` propagates transform errors.
 Declarative rules live in `lang.transforms`, authored as first-class
 `TransformDef`s in `data/transforms.yaml` (the `AstShapeDef` `desugar:`
-field is still lowered at merge for third-party backward compat); kinds
-with no declarative rule fall back to the
-named `desugar.*` native registry. `validate_transforms` runs at `Language`
+field is still lowered at merge for third-party backward compat) — that
+includes the five fixed-shape sugar forms (`while`, `do-while`, `for`,
+`nullish`, `opt-chain`), which migrated out of Rust once it became clear
+they need neither fresh-name generation (their `__continue`/`__result`/
+`rec_v`/`rec_tail` binders are fixed `__`-namespace names) nor
+`Apply`-style recursion (bottom-up `Keep`/`KeepRest` already supplies
+rewritten subterms). Only `data` and `match` still fall back to the
+named `desugar.*` native registry (`desugar.data`,
+`desugar.match_recursor`): they parse type expressions out of payloads,
+iterate a variable number of constructors, run strict-positivity
+checking, and (for `match`) search the arena for `data` declarations —
+genuinely semantic work that would require per-constructor iteration /
+environment lookup, i.e. a macro system, not a rewrite step.
+`validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
 diagnostics fail assembly — and under `hnl typecheck`, whose bootstrap
 `Language` assembly in `plugin-engine-typecheck::bootstrap` mirrors
@@ -133,11 +144,20 @@ and linter all split source into top-level statements at bracket-depth zero
       the arrow-loader line scanner or the canonical `stmt-from` row; it is a
       known surface-syntax mismatch to be resolved through `Language` data if
       arrow modules ever converge with canonical import grammar.
-    - `plugin-engine-transform-rewrite/src/native/desugar.rs`: `while`/`if`/
-      `for`/`nullish`/`opt-chain`/`data`/`match` desugar natives,
-      `node_to_type_string`, `collect_constructors` stay Rust. Dispatch is
-      data-driven, but the implementations need fresh-name generation and
-      recursive structure building not yet in declarative transforms.
+    - `plugin-engine-transform-rewrite/src/native/desugar.rs`: only the
+      `data` and `match`→recursor desugar natives
+      (`node_to_type_string`, `collect_constructors`, strict positivity,
+      arena-wide `data`-declaration lookup) stay Rust — genuinely semantic
+      rewrites needing constructor-list iteration and environment lookup
+      that the `RewriteStep` vocabulary cannot express without growing
+      into a macro system. The fixed-shape forms (`while`/`do-while`/
+      `for`/`nullish`/`opt-chain`) are declarative `TransformDef`s in
+      `transforms.yaml` — the "fresh-name generation" the audit assumed
+      they needed turned out to be fixed `__`-namespace binders, and
+      bottom-up `Keep` supplies the recursion. The unregistered
+      `desugar_if` (never in the pass; `type.if` must observe `if` nodes)
+      was deleted — the identical rewrite is covered by the declarative
+      `if`→`match` tests.
     - `plugin-engine-typecheck/src/bootstrap.rs` and related YAML-assembly
       paths: these are the bootstrap `Language` builder (cyclic-dependency
       workaround) and are allowed to name canonical top-level kinds such as

@@ -212,3 +212,326 @@ fn parity_nested_mixed() {
     ast.push(node("while", &[2, 7])); // 8
     assert_parity(&lang, &ast);
 }
+
+// ---------------------------------------------------------------------------
+// Structural tests for the declarative `transforms.yaml` rewrites — the
+// fixed-shape sugar forms that used to be `desugar.*` natives.
+// ---------------------------------------------------------------------------
+
+/// Get the arena index of `node`'s child `i`.
+fn child_idx(node: &AstNode, i: usize) -> usize {
+    node.payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.get(i))
+        .and_then(|v| v.as_u64())
+        .unwrap() as usize
+}
+
+/// Get `node`'s child `i` from the arena.
+fn child_node<'a>(out: &'a Ast, node: &AstNode, i: usize) -> &'a AstNode {
+    &out.nodes()[child_idx(node, i)]
+}
+
+#[test]
+fn nullish_desugars_to_match_shape() {
+    // `a ?? b` → `match a { Some: rec_v, _: b }`
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(leaf("var", json!("x"))); // 0: a
+    ast.push(leaf("lit", json!("default"))); // 1: b
+    ast.push(node("nullish", &[0, 1])); // 2
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "match");
+
+    let left = child_node(&out, root, 0);
+    assert_eq!(left.kind, "var");
+    assert_eq!(left.payload, json!("x"));
+
+    let block = child_node(&out, root, 1);
+    assert_eq!(block.kind, "block");
+    assert_eq!(
+        block
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    // arm 1: pattern = object (some pattern), body = var("rec_v")
+    let arm1 = child_node(&out, block, 0);
+    assert_eq!(arm1.kind, "arm");
+    let pat1 = child_node(&out, arm1, 0);
+    assert_eq!(pat1.kind, "object");
+    let body1 = child_node(&out, arm1, 1);
+    assert_eq!(body1.kind, "var");
+    assert_eq!(body1.payload, json!("rec_v"));
+
+    // arm 2: pattern = var("_"), body = b
+    let arm2 = child_node(&out, block, 1);
+    assert_eq!(arm2.kind, "arm");
+    let pat2 = child_node(&out, arm2, 0);
+    assert_eq!(pat2.kind, "var");
+    assert_eq!(pat2.payload, json!("_"));
+    let body2 = child_node(&out, arm2, 1);
+    assert_eq!(body2.kind, "lit");
+    assert_eq!(body2.payload, json!("default"));
+}
+
+#[test]
+fn opt_chain_desugars_to_match_shape() {
+    // `a?.field` → `match a { Some: rec_v.field, _: None }`
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(leaf("var", json!("user"))); // 0: a
+    ast.push(leaf("var", json!("name"))); // 1: field
+    ast.push(node("opt-chain", &[0, 1])); // 2
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "match");
+
+    let left = child_node(&out, root, 0);
+    assert_eq!(left.kind, "var");
+    assert_eq!(left.payload, json!("user"));
+
+    let block = child_node(&out, root, 1);
+    assert_eq!(block.kind, "block");
+
+    // arm 1: pattern = object (some pattern), body = field-access
+    let arm1 = child_node(&out, block, 0);
+    assert_eq!(arm1.kind, "arm");
+    let pat1 = child_node(&out, arm1, 0);
+    assert_eq!(pat1.kind, "object");
+    let body1 = child_node(&out, arm1, 1);
+    assert_eq!(body1.kind, "field-access");
+    let fv = child_node(&out, body1, 0);
+    assert_eq!(fv.kind, "var");
+    assert_eq!(fv.payload, json!("rec_v"));
+    let ff = child_node(&out, body1, 1);
+    assert_eq!(ff.kind, "var");
+    assert_eq!(ff.payload, json!("name"));
+
+    // arm 2: pattern = var("_"), body = lit({"_tag": "None"})
+    let arm2 = child_node(&out, block, 1);
+    assert_eq!(arm2.kind, "arm");
+    let pat2 = child_node(&out, arm2, 0);
+    assert_eq!(pat2.kind, "var");
+    assert_eq!(pat2.payload, json!("_"));
+    let body2 = child_node(&out, arm2, 1);
+    assert_eq!(body2.kind, "lit");
+    assert_eq!(body2.payload, json!({"_tag": "None"}));
+}
+
+#[test]
+fn while_desugars_to_rec_shape() {
+    // `while cond { body }` → `rec { __continue = cond, __result = if ... }`
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(leaf("var", json!("n"))); // 0
+    ast.push(leaf("lit", json!(0))); // 1
+    ast.push(node("binary.gt", &[0, 1])); // 2: cond
+    ast.push(leaf("var", json!("n"))); // 3
+    ast.push(leaf("lit", json!(1))); // 4
+    ast.push(node("assign", &[3, 4])); // 5: body
+    ast.push(node("while", &[2, 5])); // 6
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "rec");
+
+    // rec has 2 children: [assign(__continue, cond), assign(__result, if)]
+    let children = root.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(children.len(), 2);
+
+    let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
+    assert_eq!(assign0.kind, "assign");
+    let a0_var = child_node(&out, assign0, 0);
+    assert_eq!(a0_var.payload, json!("__continue"));
+    let a0_val = child_node(&out, assign0, 1);
+    assert_eq!(a0_val.kind, "binary.gt");
+
+    let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
+    assert_eq!(assign1.kind, "assign");
+    let a1_var = child_node(&out, assign1, 0);
+    assert_eq!(a1_var.payload, json!("__result"));
+    let a1_val = child_node(&out, assign1, 1);
+    assert_eq!(a1_val.kind, "if");
+
+    // if has 3 children: [__continue, block, __result]
+    let if_cond = child_node(&out, a1_val, 0);
+    assert_eq!(if_cond.payload, json!("__continue"));
+    let if_then = child_node(&out, a1_val, 1);
+    assert_eq!(if_then.kind, "block");
+    let if_else = child_node(&out, a1_val, 2);
+    assert_eq!(if_else.payload, json!("__result"));
+
+    // block contains body + reassign(__continue, cond)
+    let block_children = if_then.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(block_children.len(), 2);
+    let block_body = &out.nodes()[block_children[0].as_u64().unwrap() as usize];
+    assert_eq!(block_body.kind, "assign");
+    let block_reassign = &out.nodes()[block_children[1].as_u64().unwrap() as usize];
+    assert_eq!(block_reassign.kind, "assign");
+    let reassign_var = child_node(&out, block_reassign, 0);
+    assert_eq!(reassign_var.payload, json!("__continue"));
+}
+
+#[test]
+fn while_state_passing_form_not_desugared() {
+    // `while { state } { closure }` (child 1 is a `function`) keeps the
+    // `loop_step` eval protocol — the `when` guard declines.
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(node("object", &[])); // 0: state
+    ast.push(AstNode::new("function").with_payload(json!({
+        "params": ["s"],
+        "body": 0
+    }))); // 1: closure
+    ast.push(node("while", &[0, 1])); // 2
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "while");
+}
+
+#[test]
+fn do_while_desugars_to_rec_shape() {
+    // `do { body } while cond` →
+    // `rec { __result = body, __continue = cond, __result = if ... }`
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(node("block", &[])); // 0: body
+    ast.push(leaf("var", json!("n"))); // 1
+    ast.push(leaf("lit", json!(0))); // 2
+    ast.push(node("binary.gt", &[1, 2])); // 3: cond
+    ast.push(node("do-while", &[0, 3])); // 4
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "rec");
+
+    let children = root.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(children.len(), 3);
+
+    // child 0: assign(__result, body)
+    let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
+    assert_eq!(assign0.kind, "assign");
+    assert_eq!(child_node(&out, assign0, 0).payload, json!("__result"));
+    assert_eq!(child_node(&out, assign0, 1).kind, "block");
+
+    // child 1: assign(__continue, cond)
+    let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
+    assert_eq!(assign1.kind, "assign");
+    assert_eq!(child_node(&out, assign1, 0).payload, json!("__continue"));
+    assert_eq!(child_node(&out, assign1, 1).kind, "binary.gt");
+
+    // child 2: assign(__result, if ...)
+    let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
+    assert_eq!(assign2.kind, "assign");
+    assert_eq!(child_node(&out, assign2, 1).kind, "if");
+}
+
+#[test]
+fn for_desugars_to_rec_shape() {
+    // `for x in xs { body }` →
+    // `rec { __xs = xs, __result = [], __result = match ... }`
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(leaf("var", json!("x"))); // 0: pattern
+    ast.push(leaf("var", json!("xs"))); // 1: collection
+    ast.push(leaf("var", json!("x"))); // 2
+    ast.push(leaf("lit", json!(2))); // 3
+    ast.push(node("binary.mul", &[2, 3])); // 4: body
+    ast.push(node("for", &[0, 1, 4])); // 5
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "rec");
+
+    let children = root.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(children.len(), 3);
+
+    // child 0: assign(__xs, collection)
+    let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
+    assert_eq!(assign0.kind, "assign");
+    assert_eq!(child_node(&out, assign0, 0).payload, json!("__xs"));
+    let a0_val = child_node(&out, assign0, 1);
+    assert_eq!(a0_val.kind, "var");
+    assert_eq!(a0_val.payload, json!("xs"));
+
+    // child 1: assign(__result, [])
+    let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
+    assert_eq!(assign1.kind, "assign");
+    assert_eq!(child_node(&out, assign1, 0).payload, json!("__result"));
+    assert_eq!(child_node(&out, assign1, 1).kind, "array");
+
+    // child 2: assign(__result, match ...)
+    let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
+    assert_eq!(assign2.kind, "assign");
+    let a2_val = child_node(&out, assign2, 1);
+    assert_eq!(a2_val.kind, "match");
+
+    // match has 2 children: [__xs, block]
+    assert_eq!(child_node(&out, a2_val, 0).payload, json!("__xs"));
+    let match_block = child_node(&out, a2_val, 1);
+    assert_eq!(match_block.kind, "block");
+    let block_children = match_block
+        .payload
+        .get("children")
+        .unwrap()
+        .as_array()
+        .unwrap();
+    assert_eq!(block_children.len(), 2);
+
+    // arm 1: pattern = [] (empty array), body = __result
+    let arm1 = &out.nodes()[block_children[0].as_u64().unwrap() as usize];
+    assert_eq!(arm1.kind, "arm");
+    assert_eq!(child_node(&out, arm1, 0).kind, "array");
+    assert_eq!(child_node(&out, arm1, 1).payload, json!("__result"));
+
+    // arm 2: pattern = [x, ...rec_tail], body = block { body, __xs = rec_tail }
+    let arm2 = &out.nodes()[block_children[1].as_u64().unwrap() as usize];
+    assert_eq!(arm2.kind, "arm");
+    let arm2_pat = child_node(&out, arm2, 0);
+    assert_eq!(arm2_pat.kind, "array");
+    let pat_children = arm2_pat
+        .payload
+        .get("children")
+        .unwrap()
+        .as_array()
+        .unwrap();
+    assert_eq!(pat_children.len(), 2);
+    let pat_x = &out.nodes()[pat_children[0].as_u64().unwrap() as usize];
+    assert_eq!(pat_x.payload, json!("x"));
+    let pat_rest = &out.nodes()[pat_children[1].as_u64().unwrap() as usize];
+    assert_eq!(pat_rest.kind, "rest");
+    let arm2_body = child_node(&out, arm2, 1);
+    assert_eq!(arm2_body.kind, "block");
+}
+
+#[test]
+fn nested_nullish_desugars() {
+    // Nested `nullish` — both should desugar to `match`.
+    let lang = canonical();
+    let mut ast = Ast::new();
+    ast.push(leaf("var", json!("a"))); // 0
+    ast.push(leaf("lit", json!("b"))); // 1
+    ast.push(node("nullish", &[0, 1])); // 2 — inner
+    ast.push(leaf("lit", json!("default"))); // 3
+    ast.push(node("nullish", &[2, 3])); // 4 — outer
+
+    let out = engine_desugar(&lang, &ast);
+    let root = out.nodes().last().unwrap();
+    assert_eq!(root.kind, "match");
+    let left = child_node(&out, root, 0);
+    assert_eq!(
+        left.kind, "match",
+        "nested nullish should be desugared to match"
+    );
+}

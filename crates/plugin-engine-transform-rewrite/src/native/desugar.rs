@@ -19,14 +19,23 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 // ---------------------------------------------------------------------------
-// Rust-level desugar passes for ADR-0074 v0.1 sugar forms (ADR-0074 v0.1).
+// Rust-level desugar passes for the genuinely *semantic* ADR-0074/0082
+// sugar forms.
 //
-// The declarative `DesugarRule` format in ast.yaml cannot express these
-// rewrites because they require fresh-name generation, pattern construction,
-// or recursive structure building. Each function below takes the original
-// (pre-remap) node, the full original AST, the output arena, and the
-// old→new remap table, and returns the replacement node's `AstRef` in the
-// output arena.
+// Only `data` and `match` remain native: they parse type expressions out
+// of node payloads, iterate a variable number of constructors, run
+// strict-positivity checking, and — for `match` — search the whole arena
+// for `data` declarations to resolve constructor names to their recursor.
+// None of that is expressible in the declarative `RewriteStep` vocabulary
+// (it would require per-constructor iteration / environment lookup — a
+// macro system, not a rewrite step).
+//
+// The fixed-shape sugar forms (`while`, `do-while`, `for`, `nullish`,
+// `opt-chain`, and the unregistered `if`→`match` rewrite) turned out to
+// need neither fresh-name generation (their `__continue`/`__result`/`rec_v`
+// binders are fixed `__`-namespace names) nor `Apply`-style recursion —
+// bottom-up `Keep`/`KeepRest` already supplies the rewritten subterms.
+// They live as `TransformDef`s in `data/transforms.yaml`.
 // ---------------------------------------------------------------------------
 
 /// Get the remapped new arena index of `original`'s child `i`.
@@ -43,19 +52,6 @@ fn remap_child(original: &AstNode, remap: &[Option<usize>], i: usize) -> Option<
     old_idx.and_then(|idx| remap.get(idx).copied().flatten())
 }
 
-/// Get all remapped child indices from `start` onward.
-fn remap_children_from(original: &AstNode, remap: &[Option<usize>], start: usize) -> Vec<usize> {
-    let children = original.payload.get("children").and_then(|c| c.as_array());
-    match children {
-        Some(arr) => arr
-            .iter()
-            .skip(start)
-            .filter_map(|v| v.as_u64().map(|i| i as usize))
-            .filter_map(|idx| remap.get(idx).copied().flatten())
-            .collect(),
-        None => vec![],
-    }
-}
 
 /// Push a leaf node (no children) into the output arena and return its index.
 fn push_leaf(out: &mut Ast, kind: &str, payload: Value) -> usize {
@@ -135,332 +131,6 @@ fn find_first_recursive_field(constructors: &[DataConstructor], type_name: &str)
     None
 }
 
-/// Check if `original`'s child `i` has the given kind in the original AST.
-fn child_is_kind(ast: &Ast, original: &AstNode, i: usize, kind: &str) -> bool {
-    let old_idx = original
-        .payload
-        .get("children")
-        .and_then(|c| c.as_array())
-        .and_then(|arr| arr.get(i))
-        .and_then(|v| v.as_u64())
-        .map(|v| v as usize);
-    match old_idx {
-        Some(idx) => match ast.get(AstRef::new(idx)) {
-            Some(child) => child.kind == kind,
-            None => false,
-        },
-        None => false,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 7. `if cond then else` → `match cond { true: then, _: else }`
-// ---------------------------------------------------------------------------
-
-/// Desugar `if { children: [cond, then, else] }` into
-/// `match { children: [cond, block { arm(lit(true), then), arm(var("_"), else) }] }`.
-///
-/// NOTE: This function is intentionally NOT registered in `try_rust_desugar`
-/// because the canonical typechecker has an `if`-specific type rule
-/// (`type.if`) that checks the condition is `type.bool`. Desugaring `if` to
-/// `match` before typechecking would bypass this check. The function is
-/// tested directly in the test module below.
-#[allow(dead_code)]
-#[allow(dead_code)] // exercised only by the direct unit tests (opt-in, unregistered)
-fn desugar_if(original: &AstNode, ast: &Ast, out: &mut Ast, remap: &[Option<usize>]) -> AstRef {
-    let _ = ast;
-    let cond = remap_child(original, remap, 0).unwrap_or(0);
-    let then_branch = remap_child(original, remap, 1).unwrap_or(0);
-    let else_branch = remap_child(original, remap, 2).unwrap_or(0);
-
-    // arm 1: pattern = lit(true), body = then
-    let true_lit = push_leaf(out, "lit", Value::Bool(true));
-    let arm1 = push_node(out, "arm", vec![true_lit, then_branch]);
-
-    // arm 2: pattern = var("_"), body = else
-    let wildcard = push_leaf(out, "var", Value::from("_"));
-    let arm2 = push_node(out, "arm", vec![wildcard, else_branch]);
-
-    // block { arm1, arm2 }
-    let block = push_node(out, "block", vec![arm1, arm2]);
-
-    // match { cond, block }
-    let match_idx = push_node(out, "match", vec![cond, block]);
-    AstRef::new(match_idx)
-}
-
-// ---------------------------------------------------------------------------
-// 4. `a ?? b` → `match a { some: value, none: b }`
-// ---------------------------------------------------------------------------
-
-/// Build an object-destructuring pattern that matches `{"_tag": "Some",
-/// "value": <inner>}` and binds `binder_name` to the inner value.
-///
-/// Produces:
-/// ```text
-/// object {
-///   children: [
-///     entry { children: [var("_tag"), lit("Some")] },
-///     entry { children: [var("value"), var(binder_name)] }
-///   ]
-/// }
-/// ```
-fn build_some_pattern(out: &mut Ast, binder_name: &str) -> usize {
-    let tag_key = push_leaf(out, "var", Value::from("_tag"));
-    let some_lit = push_leaf(out, "lit", Value::from("Some"));
-    let entry1 = push_node(out, "entry", vec![tag_key, some_lit]);
-
-    let value_key = push_leaf(out, "var", Value::from("value"));
-    let binder = push_leaf(out, "var", Value::from(binder_name));
-    let entry2 = push_node(out, "entry", vec![value_key, binder]);
-
-    push_node(out, "object", vec![entry1, entry2])
-}
-
-/// Desugar `nullish { children: [a, b] }` into
-/// `match { a, block { arm(some_pattern, binder), arm(var("_"), b) } }`.
-///
-/// The `some` pattern matches `{"_tag": "Some", "value": v}` and binds
-/// `rec_v` to `v`. The wildcard arm catches `none`, `null`, and anything
-/// else, returning `b`.
-fn desugar_nullish(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> AstRef {
-    let _ = ast;
-    let left = remap_child(original, remap, 0).unwrap_or(0);
-    let right = remap_child(original, remap, 1).unwrap_or(0);
-
-    // arm 1: pattern = some pattern, body = var("rec_v")
-    let some_pat = build_some_pattern(out, "rec_v");
-    let body_var = push_leaf(out, "var", Value::from("rec_v"));
-    let arm1 = push_node(out, "arm", vec![some_pat, body_var]);
-
-    // arm 2: pattern = var("_"), body = b
-    let wildcard = push_leaf(out, "var", Value::from("_"));
-    let arm2 = push_node(out, "arm", vec![wildcard, right]);
-
-    // block { arm1, arm2 }
-    let block = push_node(out, "block", vec![arm1, arm2]);
-
-    // match { a, block }
-    let match_idx = push_node(out, "match", vec![left, block]);
-    AstRef::new(match_idx)
-}
-
-// ---------------------------------------------------------------------------
-// 5. `a?.field` → `match a { some: v.field, none: none }`
-// ---------------------------------------------------------------------------
-
-/// Desugar `opt-chain { children: [a, field] }` into
-/// `match { a, block { arm(some_pattern, field-access(rec_v, field)), arm(var("_"), lit(none)) } }`.
-///
-/// The `some` pattern binds `rec_v` to the inner value. The body accesses
-/// `rec_v.field`. The wildcard arm returns `{"_tag": "None"}`.
-fn desugar_opt_chain(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> AstRef {
-    let _ = ast;
-    let left = remap_child(original, remap, 0).unwrap_or(0);
-    let field = remap_child(original, remap, 1).unwrap_or(0);
-
-    // arm 1: pattern = some pattern, body = field-access(rec_v, field)
-    let some_pat = build_some_pattern(out, "rec_v");
-    let rec_v_var = push_leaf(out, "var", Value::from("rec_v"));
-    let field_access = push_node(out, "field-access", vec![rec_v_var, field]);
-    let arm1 = push_node(out, "arm", vec![some_pat, field_access]);
-
-    // arm 2: pattern = var("_"), body = lit({"_tag": "None"})
-    let wildcard = push_leaf(out, "var", Value::from("_"));
-    let none_lit = push_leaf(out, "lit", serde_json::json!({"_tag": "None"}));
-    let arm2 = push_node(out, "arm", vec![wildcard, none_lit]);
-
-    // block { arm1, arm2 }
-    let block = push_node(out, "block", vec![arm1, arm2]);
-
-    // match { a, block }
-    let match_idx = push_node(out, "match", vec![left, block]);
-    AstRef::new(match_idx)
-}
-
-// ---------------------------------------------------------------------------
-// 1. `while cond { body }` → `rec` region
-// ---------------------------------------------------------------------------
-
-/// Desugar `while { children: [cond, body...] }` into a `rec` region with
-/// feedback structure:
-///
-/// ```text
-/// rec {
-///   __continue = cond
-///   __result = if __continue { body; __continue = cond } else { __result }
-/// }
-/// ```
-///
-/// **Guard**: the state-passing `while { state } { closure }` form (where
-/// child 1 is a `function` node) is NOT desugared — it retains the
-/// `loop_step` eval protocol. This guard distinguishes the v0.1
-/// condition-based `while cond { body }` from the legacy state-passing
-/// form until the parser gains contextual disambiguation.
-fn desugar_while(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    // Guard: skip the state-passing form (child 1 is a `function` node).
-    if child_is_kind(ast, original, 1, "function") {
-        return None;
-    }
-
-    let cond = remap_child(original, remap, 0).unwrap_or(0);
-    let body_exprs = remap_children_from(original, remap, 1);
-
-    // Fresh variable nodes (shared across multiple references).
-    let continue_var = push_leaf(out, "var", Value::from("__continue"));
-    let result_var = push_leaf(out, "var", Value::from("__result"));
-
-    // __continue = cond
-    let assign_continue = push_node(out, "assign", vec![continue_var, cond]);
-
-    // then branch: block { body..., __continue = cond }
-    let reassign = push_node(out, "assign", vec![continue_var, cond]);
-    let mut block_children = body_exprs;
-    block_children.push(reassign);
-    let then_block = push_node(out, "block", block_children);
-
-    // if __continue { then_block } else { __result }
-    let if_node = push_node(out, "if", vec![continue_var, then_block, result_var]);
-
-    // __result = if ...
-    let assign_result = push_node(out, "assign", vec![result_var, if_node]);
-
-    // rec { __continue = cond, __result = if ... }
-    let rec_idx = push_node(out, "rec", vec![assign_continue, assign_result]);
-    Some(AstRef::new(rec_idx))
-}
-
-// ---------------------------------------------------------------------------
-// 2. `do { body } while cond` → `rec` region (body-first)
-// ---------------------------------------------------------------------------
-
-/// Desugar `do-while { children: [body_block, cond] }` into a `rec` region
-/// that runs the body first, then checks the condition:
-///
-/// ```text
-/// rec {
-///   __result = body
-///   __continue = cond
-///   __result = if __continue { body; __continue = cond } else { __result }
-/// }
-/// ```
-fn desugar_do_while(
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> AstRef {
-    let _ = ast;
-    let body = remap_child(original, remap, 0).unwrap_or(0);
-    let cond = remap_child(original, remap, 1).unwrap_or(0);
-
-    // Fresh variable nodes (shared across multiple references).
-    let continue_var = push_leaf(out, "var", Value::from("__continue"));
-    let result_var = push_leaf(out, "var", Value::from("__result"));
-
-    // __result = body (run body first)
-    let assign_result_init = push_node(out, "assign", vec![result_var, body]);
-
-    // __continue = cond
-    let assign_continue = push_node(out, "assign", vec![continue_var, cond]);
-
-    // then branch: block { body, __continue = cond }
-    let reassign = push_node(out, "assign", vec![continue_var, cond]);
-    let then_block = push_node(out, "block", vec![body, reassign]);
-
-    // if __continue { then_block } else { __result }
-    let if_node = push_node(out, "if", vec![continue_var, then_block, result_var]);
-
-    // __result = if ...
-    let assign_result = push_node(out, "assign", vec![result_var, if_node]);
-
-    // rec { __result = body, __continue = cond, __result = if ... }
-    let rec_idx = push_node(
-        out,
-        "rec",
-        vec![assign_result_init, assign_continue, assign_result],
-    );
-    AstRef::new(rec_idx)
-}
-
-// ---------------------------------------------------------------------------
-// 3. `for x in xs { body }` → `rec` over iterator (map form)
-// ---------------------------------------------------------------------------
-
-/// Desugar `for { children: [pattern, collection, body...] }` into a `rec`
-/// region that iterates over the collection:
-///
-/// ```text
-/// rec {
-///   __xs = xs
-///   __result = []
-///   __result = match __xs {
-///     []: __result
-///     [x, ...rec_tail]: block { body..., __xs = rec_tail }
-///   }
-/// }
-/// ```
-fn desugar_for(original: &AstNode, ast: &Ast, out: &mut Ast, remap: &[Option<usize>]) -> AstRef {
-    let _ = ast;
-    let pattern = remap_child(original, remap, 0).unwrap_or(0);
-    let collection = remap_child(original, remap, 1).unwrap_or(0);
-    let body_exprs = remap_children_from(original, remap, 2);
-
-    // Fresh variable nodes (shared across multiple references).
-    let xs_var = push_leaf(out, "var", Value::from("__xs"));
-    let result_var = push_leaf(out, "var", Value::from("__result"));
-    let tail_var = push_leaf(out, "var", Value::from("rec_tail"));
-
-    // __xs = xs
-    let assign_xs = push_node(out, "assign", vec![xs_var, collection]);
-
-    // __result = []
-    let empty_array = push_node(out, "array", vec![]);
-    let assign_result_init = push_node(out, "assign", vec![result_var, empty_array]);
-
-    // match arm 1: pattern = [] (empty array), body = __result
-    let empty_pat = push_node(out, "array", vec![]);
-    let arm1 = push_node(out, "arm", vec![empty_pat, result_var]);
-
-    // match arm 2: pattern = [x, ...rec_tail], body = block { body..., __xs = rec_tail }
-    let rest_node = push_node(out, "rest", vec![tail_var]);
-    let array_pat = push_node(out, "array", vec![pattern, rest_node]);
-    let reassign_xs = push_node(out, "assign", vec![xs_var, tail_var]);
-    let mut block_children = body_exprs;
-    block_children.push(reassign_xs);
-    let then_block = push_node(out, "block", block_children);
-    let arm2 = push_node(out, "arm", vec![array_pat, then_block]);
-
-    // match { __xs, block { arm1, arm2 } }
-    let block = push_node(out, "block", vec![arm1, arm2]);
-    let match_node = push_node(out, "match", vec![xs_var, block]);
-
-    // __result = match ...
-    let assign_result = push_node(out, "assign", vec![result_var, match_node]);
-
-    // rec { __xs = xs, __result = [], __result = match ... }
-    let rec_idx = push_node(
-        out,
-        "rec",
-        vec![assign_xs, assign_result_init, assign_result],
-    );
-    AstRef::new(rec_idx)
-}
 
 // ---------------------------------------------------------------------------
 // 8. `data Name = Cons1 | Cons2(args) | ...` → predicate + constructors + recursor
@@ -1953,8 +1623,8 @@ fn desugar_match_to_recursor(
 /// Each handler takes the `Language`, the original (pre-remap) node, the
 /// full original AST, the output arena, and the old→new remap table. It
 /// returns the replacement node's `AstRef` in the output arena, or `None`
-/// if the handler decides not to desugar this particular node (e.g. the
-/// `while` guard that skips the state-passing form).
+/// if the handler decides not to desugar this particular node (e.g.
+/// `desugar_match_to_recursor` declining a conditional match).
 type DesugarFn = fn(&Language, &AstNode, &Ast, &mut Ast, &[Option<usize>]) -> Option<AstRef>;
 
 // --- Adapter wrappers ---------------------------------------------------
@@ -1963,56 +1633,6 @@ type DesugarFn = fn(&Language, &AstNode, &Ast, &mut Ast, &[Option<usize>]) -> Op
 // heterogeneous signatures — some take `lang`, some return `AstRef` vs
 // `Option<AstRef>`) to the uniform `DesugarFn` type expected by the
 // registry.
-
-fn desugar_nullish_wrapped(
-    _lang: &Language,
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    Some(desugar_nullish(original, ast, out, remap))
-}
-
-fn desugar_opt_chain_wrapped(
-    _lang: &Language,
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    Some(desugar_opt_chain(original, ast, out, remap))
-}
-
-fn desugar_while_wrapped(
-    _lang: &Language,
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    desugar_while(original, ast, out, remap)
-}
-
-fn desugar_do_while_wrapped(
-    _lang: &Language,
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    Some(desugar_do_while(original, ast, out, remap))
-}
-
-fn desugar_for_wrapped(
-    _lang: &Language,
-    original: &AstNode,
-    ast: &Ast,
-    out: &mut Ast,
-    remap: &[Option<usize>],
-) -> Option<AstRef> {
-    Some(desugar_for(original, ast, out, remap))
-}
 
 fn desugar_data_wrapped(
     lang: &Language,
@@ -2036,22 +1656,17 @@ fn desugar_data_wrapped(
 /// generate — this is inherent to a code generator — but the *dispatch* is
 /// table-driven and extensible.
 ///
-/// NOTE: `if` → `match` desugar is implemented as `desugar_if` but NOT
-/// registered here. The canonical typechecker has an `if`-specific type
-/// rule (`type.if`) that checks the condition is `type.bool` — desugaring
-/// `if` to `match` before typechecking would bypass this check and break
-/// `typecheck_if_with_non_bool_cond_errors`. The `if` eval scheme
-/// (`Seq`/`Choice`/`tag`) already handles `if` correctly at eval time.
-/// The `desugar_if` function is tested directly in the test module below.
+/// NOTE: `if` → `match` desugar is deliberately absent — it is trivially
+/// expressible as a `Declarative` rule, but the canonical typechecker has
+/// an `if`-specific type rule (`type.if`) that checks the condition is
+/// `type.bool`; desugaring `if` to `match` before typechecking would
+/// bypass this check and break `typecheck_if_with_non_bool_cond_errors`.
+/// The `if` eval scheme (`Seq`/`Choice`/`tag`) already handles `if`
+/// correctly at eval time.
 fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
     static REGISTRY: OnceLock<HashMap<&'static str, DesugarFn>> = OnceLock::new();
     REGISTRY.get_or_init(|| {
         let mut m = HashMap::new();
-        m.insert("nullish", desugar_nullish_wrapped as DesugarFn);
-        m.insert("opt-chain", desugar_opt_chain_wrapped as DesugarFn);
-        m.insert("while", desugar_while_wrapped as DesugarFn);
-        m.insert("do-while", desugar_do_while_wrapped as DesugarFn);
-        m.insert("for", desugar_for_wrapped as DesugarFn);
         m.insert("data", desugar_data_wrapped as DesugarFn);
         // ADR-0082 step 4: `match` with constructor patterns desugars to
         // recursor application. Returns `None` (no desugar) for conditional
@@ -2068,16 +1683,13 @@ fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
 /// The engine consults this table for a node only when no declarative
 /// [`TransformDef`](handl_language::TransformDef) was found for the node's
 /// kind — preserving the legacy ordering where `try_rust_desugar` ran after
-/// the declarative `AstShapeDef::desugar` dispatch. `if` is deliberately
-/// absent (see [`desugar_registry`]); `match` maps to the
+/// the declarative `AstShapeDef::desugar` dispatch. `match` maps to the
 /// constructor-pattern recursor desugar, which declines non-constructor
-/// matches via [`RewriteCtx::pass_through`].
+/// matches via [`RewriteCtx::pass_through`]. The fixed-shape forms
+/// (`while`/`do-while`/`for`/`nullish`/`opt-chain`) are declarative
+/// `TransformDef`s in `data/transforms.yaml`; `if` stays surface-level
+/// (see [`desugar_registry`]).
 pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
-    ("nullish", "desugar.nullish"),
-    ("opt-chain", "desugar.opt_chain"),
-    ("while", "desugar.while"),
-    ("do-while", "desugar.do_while"),
-    ("for", "desugar.for"),
     ("data", "desugar.data"),
     ("match", "desugar.match_recursor"),
 ];
@@ -2085,11 +1697,10 @@ pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
 /// Adapt a [`DesugarFn`] (the moved legacy signature) into a
 /// [`NativeRewriteRegistry`] closure over [`RewriteCtx`].
 ///
-/// A handler returning `None` — e.g. the `while` guard that skips the
-/// state-passing form, or `desugar_match_to_recursor` on a conditional
-/// match — becomes [`RewriteCtx::pass_through`]: the node is pushed into
-/// the output arena unchanged with its children remapped, exactly as the
-/// legacy fallthrough did.
+/// A handler returning `None` — e.g. `desugar_match_to_recursor` on a
+/// conditional match — becomes [`RewriteCtx::pass_through`]: the node is
+/// pushed into the output arena unchanged with its children remapped,
+/// exactly as the legacy fallthrough did.
 fn adapt(f: DesugarFn) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync> {
     Box::new(move |ctx| {
         let lang = ctx.lang();
@@ -2106,15 +1717,9 @@ fn adapt(f: DesugarFn) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, Lang
 /// Build a [`NativeRewriteRegistry`] wiring every desugar native under its
 /// `desugar.<form>` name (ADR-0094 §3 `TransformRule::Native`).
 ///
-/// Registered names: `desugar.nullish`, `desugar.opt_chain`,
-/// `desugar.while`, `desugar.do_while`, `desugar.for`, `desugar.data`,
-/// `desugar.match_recursor`.
-///
-/// `desugar.if` is intentionally **not** registered: the canonical
-/// typechecker's `type.if` rule must observe `if` nodes, so desugaring
-/// `if` → `match` before typechecking would bypass it (see
-/// [`desugar_registry`]). `desugar_if` is retained for its direct tests
-/// only.
+/// Registered names: `desugar.data`, `desugar.match_recursor` — the only
+/// rewrites left that need semantics beyond the declarative
+/// [`RewriteStep`](handl_language::RewriteStep) vocabulary.
 pub fn desugar_native_registry() -> NativeRewriteRegistry {
     let mut reg = NativeRewriteRegistry::new();
     for (kind, name) in DESUGAR_NATIVES {
@@ -2545,486 +2150,6 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         // Only child 0 (the template); KeepRest(1) produces nothing
         assert_eq!(children.len(), 1);
-    }
-
-    // -----------------------------------------------------------------------
-    // Rust-level desugar tests for ADR-0074 v0.1 sugar forms
-    // -----------------------------------------------------------------------
-
-    /// Helper: get a child index from a node's payload.
-    fn child_idx(_out: &Ast, node: &AstNode, i: usize) -> usize {
-        node.payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .and_then(|arr| arr.get(i))
-            .and_then(|v| v.as_u64())
-            .unwrap() as usize
-    }
-
-    /// Helper: get a child node from a node's payload.
-    fn child_node<'a>(out: &'a Ast, node: &'a AstNode, i: usize) -> &'a AstNode {
-        let idx = child_idx(out, node, i);
-        &out.nodes()[idx]
-    }
-
-    #[test]
-    fn rust_if_to_match_desugar() {
-        // `if cond { then } else { else }` → `match cond { true: then, _: else }`
-        // NOTE: `if` desugar is NOT registered in the dispatch (it would
-        // break the typechecker's `if`-specific type rule). Test the
-        // function directly by building the AST and calling `desugar_if`.
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: cond
-        ast.push(AstNode::new("lit").with_payload(json!(1))); // 1: then
-        ast.push(AstNode::new("lit").with_payload(json!(0))); // 2: else
-        ast.push(AstNode::new("if").with_payload(json!({"children": [0, 1, 2]}))); // 3
-
-        // Build a remap table (identity) and output arena with the children.
-        let mut out = Ast::new();
-        out.push(AstNode::new("var").with_payload(json!("n"))); // 0
-        out.push(AstNode::new("lit").with_payload(json!(1))); // 1
-        out.push(AstNode::new("lit").with_payload(json!(0))); // 2
-        let remap: Vec<Option<usize>> = vec![Some(0), Some(1), Some(2), None];
-
-        let if_node = ast.nodes().last().unwrap();
-        let root_ref = desugar_if(if_node, &ast, &mut out, &remap);
-        let root = out.get(root_ref).unwrap();
-        assert_eq!(root.kind, "match");
-
-        // match has children [cond, block]
-        let cond = child_node(&out, root, 0);
-        assert_eq!(cond.kind, "var");
-        assert_eq!(cond.payload, json!("n"));
-
-        let block = child_node(&out, root, 1);
-        assert_eq!(block.kind, "block");
-        assert_eq!(
-            block
-                .payload
-                .get("children")
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .len(),
-            2
-        );
-
-        // arm 1: pattern = lit(true), body = then
-        let arm1 = child_node(&out, block, 0);
-        assert_eq!(arm1.kind, "arm");
-        let pat1 = child_node(&out, arm1, 0);
-        assert_eq!(pat1.kind, "lit");
-        assert_eq!(pat1.payload, json!(true));
-        let body1 = child_node(&out, arm1, 1);
-        assert_eq!(body1.kind, "lit");
-        assert_eq!(body1.payload, json!(1));
-
-        // arm 2: pattern = var("_"), body = else
-        let arm2 = child_node(&out, block, 1);
-        assert_eq!(arm2.kind, "arm");
-        let pat2 = child_node(&out, arm2, 0);
-        assert_eq!(pat2.kind, "var");
-        assert_eq!(pat2.payload, json!("_"));
-        let body2 = child_node(&out, arm2, 1);
-        assert_eq!(body2.kind, "lit");
-        assert_eq!(body2.payload, json!(0));
-    }
-
-    #[test]
-    fn rust_nullish_to_match_desugar() {
-        // `a ?? b` → `match a { some: rec_v, _: b }`
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.nullish", "nullish"))
-            .unwrap();
-
-        // Build: nullish { children: [a=0, b=1] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("x"))); // 0: a
-        ast.push(AstNode::new("lit").with_payload(json!("default"))); // 1: b
-        ast.push(AstNode::new("nullish").with_payload(json!({"children": [0, 1]}))); // 2
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "match");
-
-        // match has children [a, block]
-        let left = child_node(&out, root, 0);
-        assert_eq!(left.kind, "var");
-        assert_eq!(left.payload, json!("x"));
-
-        let block = child_node(&out, root, 1);
-        assert_eq!(block.kind, "block");
-        assert_eq!(
-            block
-                .payload
-                .get("children")
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .len(),
-            2
-        );
-
-        // arm 1: pattern = object (some pattern), body = var("rec_v")
-        let arm1 = child_node(&out, block, 0);
-        assert_eq!(arm1.kind, "arm");
-        let pat1 = child_node(&out, arm1, 0);
-        assert_eq!(pat1.kind, "object");
-        let body1 = child_node(&out, arm1, 1);
-        assert_eq!(body1.kind, "var");
-        assert_eq!(body1.payload, json!("rec_v"));
-
-        // arm 2: pattern = var("_"), body = b
-        let arm2 = child_node(&out, block, 1);
-        assert_eq!(arm2.kind, "arm");
-        let pat2 = child_node(&out, arm2, 0);
-        assert_eq!(pat2.kind, "var");
-        assert_eq!(pat2.payload, json!("_"));
-        let body2 = child_node(&out, arm2, 1);
-        assert_eq!(body2.kind, "lit");
-        assert_eq!(body2.payload, json!("default"));
-    }
-
-    #[test]
-    fn rust_opt_chain_to_match_desugar() {
-        // `a?.field` → `match a { some: rec_v.field, _: none }`
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.opt-chain", "opt-chain"))
-            .unwrap();
-
-        // Build: opt-chain { children: [a=0, field=1] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("user"))); // 0: a
-        ast.push(AstNode::new("var").with_payload(json!("name"))); // 1: field
-        ast.push(AstNode::new("opt-chain").with_payload(json!({"children": [0, 1]}))); // 2
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "match");
-
-        // match has children [a, block]
-        let left = child_node(&out, root, 0);
-        assert_eq!(left.kind, "var");
-        assert_eq!(left.payload, json!("user"));
-
-        let block = child_node(&out, root, 1);
-        assert_eq!(block.kind, "block");
-
-        // arm 1: pattern = object (some pattern), body = field-access
-        let arm1 = child_node(&out, block, 0);
-        assert_eq!(arm1.kind, "arm");
-        let pat1 = child_node(&out, arm1, 0);
-        assert_eq!(pat1.kind, "object");
-        let body1 = child_node(&out, arm1, 1);
-        assert_eq!(body1.kind, "field-access");
-        // field-access has children [rec_v, field]
-        let fv = child_node(&out, body1, 0);
-        assert_eq!(fv.kind, "var");
-        assert_eq!(fv.payload, json!("rec_v"));
-        let ff = child_node(&out, body1, 1);
-        assert_eq!(ff.kind, "var");
-        assert_eq!(ff.payload, json!("name"));
-
-        // arm 2: pattern = var("_"), body = lit({"_tag": "None"})
-        let arm2 = child_node(&out, block, 1);
-        assert_eq!(arm2.kind, "arm");
-        let pat2 = child_node(&out, arm2, 0);
-        assert_eq!(pat2.kind, "var");
-        assert_eq!(pat2.payload, json!("_"));
-        let body2 = child_node(&out, arm2, 1);
-        assert_eq!(body2.kind, "lit");
-        assert_eq!(body2.payload, json!({"_tag": "None"}));
-    }
-
-    #[test]
-    fn rust_while_to_rec_desugar() {
-        // `while cond { body }` → `rec { __continue = cond, __result = if ... }`
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.binary.gt", "binary.gt"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.assign", "assign"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.while", "while"))
-            .unwrap();
-
-        // Build: while { children: [cond=0, body=1] }
-        //   0: binary.gt { children: [var("n"), lit(0)] }
-        //   1: assign { children: [var("n"), binary.sub(...)] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
-        ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
-        ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [0, 1]}))); // 2: cond
-        ast.push(AstNode::new("var").with_payload(json!("n"))); // 3
-        ast.push(AstNode::new("lit").with_payload(json!(1))); // 4
-        ast.push(AstNode::new("assign").with_payload(json!({"children": [3, 4]}))); // 5: body
-        ast.push(AstNode::new("while").with_payload(json!({"children": [2, 5]}))); // 6
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "rec");
-
-        // rec has 2 children: [assign(__continue, cond), assign(__result, if)]
-        let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 2);
-
-        // child 0: assign(__continue, cond)
-        let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
-        assert_eq!(assign0.kind, "assign");
-        let a0_var = child_node(&out, assign0, 0);
-        assert_eq!(a0_var.payload, json!("__continue"));
-        let a0_val = child_node(&out, assign0, 1);
-        assert_eq!(a0_val.kind, "binary.gt");
-
-        // child 1: assign(__result, if ...)
-        let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
-        assert_eq!(assign1.kind, "assign");
-        let a1_var = child_node(&out, assign1, 0);
-        assert_eq!(a1_var.payload, json!("__result"));
-        let a1_val = child_node(&out, assign1, 1);
-        assert_eq!(a1_val.kind, "if");
-
-        // if has 3 children: [__continue, block, __result]
-        let if_cond = child_node(&out, a1_val, 0);
-        assert_eq!(if_cond.payload, json!("__continue"));
-        let if_then = child_node(&out, a1_val, 1);
-        assert_eq!(if_then.kind, "block");
-        let if_else = child_node(&out, a1_val, 2);
-        assert_eq!(if_else.payload, json!("__result"));
-
-        // block contains body + reassign(__continue, cond)
-        let block_children = if_then.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(block_children.len(), 2);
-        let block_body = &out.nodes()[block_children[0].as_u64().unwrap() as usize];
-        assert_eq!(block_body.kind, "assign");
-        let block_reassign = &out.nodes()[block_children[1].as_u64().unwrap() as usize];
-        assert_eq!(block_reassign.kind, "assign");
-        let reassign_var = child_node(&out, block_reassign, 0);
-        assert_eq!(reassign_var.payload, json!("__continue"));
-    }
-
-    #[test]
-    fn rust_while_state_passing_not_desugared() {
-        // The state-passing `while { state } { closure }` form (child 1 is
-        // a `function` node) should NOT be desugared — it retains the
-        // `loop_step` eval protocol.
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.object", "object"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.function", "function"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.while", "while"))
-            .unwrap();
-
-        // Build: while { children: [object=0, function=1] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("object").with_payload(json!({"children": []}))); // 0: state
-        ast.push(AstNode::new("function").with_payload(json!({"children": [0, 0]}))); // 1: closure
-        ast.push(AstNode::new("while").with_payload(json!({"children": [0, 1]}))); // 2
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        // Should remain `while`, not desugared to `rec`.
-        assert_eq!(root.kind, "while");
-    }
-
-    #[test]
-    fn rust_do_while_to_rec_desugar() {
-        // `do { body } while cond` → `rec { __result = body, __continue = cond, __result = if ... }`
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.block", "block"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.binary.gt", "binary.gt"))
-            .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.do-while", "do-while"))
-            .unwrap();
-
-        // Build: do-while { children: [body=0, cond=1] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("block").with_payload(json!({"children": []}))); // 0: body
-        ast.push(AstNode::new("var").with_payload(json!("n"))); // 1
-        ast.push(AstNode::new("lit").with_payload(json!(0))); // 2
-        ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [1, 2]}))); // 3: cond
-        ast.push(AstNode::new("do-while").with_payload(json!({"children": [0, 3]}))); // 4
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "rec");
-
-        // rec has 3 children: [assign(__result, body), assign(__continue, cond), assign(__result, if)]
-        let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 3);
-
-        // child 0: assign(__result, body)
-        let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
-        assert_eq!(assign0.kind, "assign");
-        let a0_var = child_node(&out, assign0, 0);
-        assert_eq!(a0_var.payload, json!("__result"));
-        let a0_val = child_node(&out, assign0, 1);
-        assert_eq!(a0_val.kind, "block");
-
-        // child 1: assign(__continue, cond)
-        let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
-        assert_eq!(assign1.kind, "assign");
-        let a1_var = child_node(&out, assign1, 0);
-        assert_eq!(a1_var.payload, json!("__continue"));
-        let a1_val = child_node(&out, assign1, 1);
-        assert_eq!(a1_val.kind, "binary.gt");
-
-        // child 2: assign(__result, if ...)
-        let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
-        assert_eq!(assign2.kind, "assign");
-        let a2_val = child_node(&out, assign2, 1);
-        assert_eq!(a2_val.kind, "if");
-    }
-
-    #[test]
-    fn rust_for_to_rec_desugar() {
-        // `for x in xs { body }` → `rec { __xs = xs, __result = [], __result = match ... }`
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.binary.mul", "binary.mul"))
-            .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.for", "for")).unwrap();
-
-        // Build: for { children: [pattern=0, collection=1, body=2] }
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("x"))); // 0: pattern
-        ast.push(AstNode::new("var").with_payload(json!("xs"))); // 1: collection
-        ast.push(AstNode::new("var").with_payload(json!("x"))); // 2
-        ast.push(AstNode::new("lit").with_payload(json!(2))); // 3
-        ast.push(AstNode::new("binary.mul").with_payload(json!({"children": [2, 3]}))); // 4: body
-        ast.push(AstNode::new("for").with_payload(json!({"children": [0, 1, 4]}))); // 5
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "rec");
-
-        // rec has 3 children: [assign(__xs, xs), assign(__result, []), assign(__result, match)]
-        let children = root.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(children.len(), 3);
-
-        // child 0: assign(__xs, collection)
-        let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
-        assert_eq!(assign0.kind, "assign");
-        let a0_var = child_node(&out, assign0, 0);
-        assert_eq!(a0_var.payload, json!("__xs"));
-        let a0_val = child_node(&out, assign0, 1);
-        assert_eq!(a0_val.kind, "var");
-        assert_eq!(a0_val.payload, json!("xs"));
-
-        // child 1: assign(__result, [])
-        let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
-        assert_eq!(assign1.kind, "assign");
-        let a1_var = child_node(&out, assign1, 0);
-        assert_eq!(a1_var.payload, json!("__result"));
-        let a1_val = child_node(&out, assign1, 1);
-        assert_eq!(a1_val.kind, "array");
-
-        // child 2: assign(__result, match ...)
-        let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
-        assert_eq!(assign2.kind, "assign");
-        let a2_val = child_node(&out, assign2, 1);
-        assert_eq!(a2_val.kind, "match");
-
-        // match has 2 children: [__xs, block]
-        let match_scrut = child_node(&out, a2_val, 0);
-        assert_eq!(match_scrut.payload, json!("__xs"));
-        let match_block = child_node(&out, a2_val, 1);
-        assert_eq!(match_block.kind, "block");
-
-        // block has 2 arms
-        let block_children = match_block
-            .payload
-            .get("children")
-            .unwrap()
-            .as_array()
-            .unwrap();
-        assert_eq!(block_children.len(), 2);
-
-        // arm 1: pattern = [] (empty array), body = __result
-        let arm1 = &out.nodes()[block_children[0].as_u64().unwrap() as usize];
-        assert_eq!(arm1.kind, "arm");
-        let arm1_pat = child_node(&out, arm1, 0);
-        assert_eq!(arm1_pat.kind, "array");
-        let arm1_body = child_node(&out, arm1, 1);
-        assert_eq!(arm1_body.payload, json!("__result"));
-
-        // arm 2: pattern = [x, ...rec_tail], body = block { body, __xs = rec_tail }
-        let arm2 = &out.nodes()[block_children[1].as_u64().unwrap() as usize];
-        assert_eq!(arm2.kind, "arm");
-        let arm2_pat = child_node(&out, arm2, 0);
-        assert_eq!(arm2_pat.kind, "array");
-        // pattern has [x, rest]
-        let pat_children = arm2_pat
-            .payload
-            .get("children")
-            .unwrap()
-            .as_array()
-            .unwrap();
-        assert_eq!(pat_children.len(), 2);
-        let pat_x = &out.nodes()[pat_children[0].as_u64().unwrap() as usize];
-        assert_eq!(pat_x.payload, json!("x"));
-        let pat_rest = &out.nodes()[pat_children[1].as_u64().unwrap() as usize];
-        assert_eq!(pat_rest.kind, "rest");
-        // arm 2 body is a block
-        let arm2_body = child_node(&out, arm2, 1);
-        assert_eq!(arm2_body.kind, "block");
-    }
-
-    #[test]
-    fn rust_desugar_nested_nullish() {
-        // Nested `nullish` — both should desugar to `match`.
-        let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.nullish", "nullish"))
-            .unwrap();
-
-        // Build: nullish { children: [inner_nullish=3, lit=4] }
-        //   0: var("a")     (inner left)
-        //   1: lit("b")     (inner right)
-        //   2: nullish { children: [0, 1] }  (inner nullish)
-        //   3: lit("default")  (outer right)
-        //   4: nullish { children: [2, 3] }  (outer nullish)
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("a"))); // 0
-        ast.push(AstNode::new("lit").with_payload(json!("b"))); // 1
-        ast.push(AstNode::new("nullish").with_payload(json!({"children": [0, 1]}))); // 2
-        ast.push(AstNode::new("lit").with_payload(json!("default"))); // 3
-        ast.push(AstNode::new("nullish").with_payload(json!({"children": [2, 3]}))); // 4
-
-        let out = apply_desugar(&lang, &ast);
-        let root = out.nodes().last().unwrap();
-        // outer nullish → match
-        assert_eq!(root.kind, "match");
-
-        // The outer's left child (originally inner nullish) should also be
-        // desugared to match.
-        let left = child_node(&out, root, 0);
-        assert_eq!(
-            left.kind, "match",
-            "nested nullish should be desugared to match"
-        );
     }
 
     // -----------------------------------------------------------------------
@@ -4471,17 +3596,15 @@ mod tests {
 
     #[test]
     fn desugar_registry_contains_expected_entries() {
-        // The registry must be table-driven and contain the v0.1 sugar
-        // forms. `if` is intentionally NOT registered (see desugar_registry
-        // docs). This test guards against accidental removal of entries.
+        // Only the two genuinely semantic forms remain native; the
+        // fixed-shape forms (`while`/`do-while`/`for`/`nullish`/`opt-chain`)
+        // are declarative `TransformDef`s in `transforms.yaml`. `if` is
+        // intentionally NOT registered (see desugar_registry docs). This
+        // test guards against accidental removal of entries.
         let reg = desugar_registry();
-        assert!(reg.contains_key("nullish"));
-        assert!(reg.contains_key("opt-chain"));
-        assert!(reg.contains_key("while"));
-        assert!(reg.contains_key("do-while"));
-        assert!(reg.contains_key("for"));
         assert!(reg.contains_key("data"));
         assert!(reg.contains_key("match"));
+        assert_eq!(reg.len(), 2);
         // `if` is deliberately excluded — the typechecker has an `if`-specific
         // type rule that desugaring to `match` would bypass.
         assert!(
