@@ -142,9 +142,6 @@
   label: law
   category: keyword
   doc: "**Law declaration — assert a contract signature** `law`\n\n```\nlaw `name` : `signature`\n```"
-- id: token.keyword.let
-  label: let
-  category: keyword
 - id: token.keyword.match
   label: match
   category: keyword
@@ -183,9 +180,6 @@
   label: "["
   category: open-bracket
   pair: token.rbracket
-- id: token.let
-  label: null
-  category: keyword
 - id: token.lparen
   label: (
   category: open-bracket

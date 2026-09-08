@@ -101,6 +101,31 @@ pub trait EvalEngine {
     fn with_import_resolver(&self, _resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
         self.box_clone()
     }
+
+    /// Seal a module's exported bindings before they cross into the
+    /// importer's scope (Phase 9.5 `import "path"`).
+    ///
+    /// Engines whose closure/arrow values carry provenance tied to the
+    /// *module's* eval (e.g. the tree-walk engine's `body` AST index) stamp
+    /// them here so a later application routes back to the module's eval
+    /// frame. `ast` is the module's post-desugar AST and `lang` the
+    /// `Language` it was evaluated under.
+    ///
+    /// Default: identity — engines whose values carry no ambient-eval
+    /// references need no sealing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if sealing fails (e.g. no active eval frame
+    /// could be registered).
+    fn seal_module_value(
+        &self,
+        _ast: &Ast,
+        _lang: &Language,
+        value: Value,
+    ) -> Result<Value, LangError> {
+        Ok(value)
+    }
 }
 
 /// A resolver for `import "path"` statements (Phase 9.5).

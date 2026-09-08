@@ -2891,10 +2891,23 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             ));
         }
     };
+    let lang = match unsafe { ctx.lang.as_ref() } {
+        Some(l) => l,
+        None => {
+            return ctx.set_error(LangError::engine(
+                "object: no language".to_string(),
+            ));
+        }
+    };
+    let start = match lang.child_role_index(&node.kind, "entries") {
+        Ok(Some(i)) => i,
+        Ok(None) | Err(_) => 0,
+    };
     // Collect entry indices, then for each entry collect (key_idx, val_idx),
     // releasing borrows before evaluating children.
     let entry_indices: Vec<usize> = match children
         .iter()
+        .skip(start)
         .map(|c| c.as_u64().map(|i| i as usize))
         .collect::<Option<Vec<_>>>()
     {
@@ -2926,7 +2939,15 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 ));
             }
         };
-        let key_idx = match entry_children.first().and_then(|v| v.as_u64()) {
+        let key_role = match lang.child_role_index(&entry_node.kind, "key") {
+            Ok(Some(i)) => i,
+            Ok(None) | Err(_) => 0,
+        };
+        let val_role = match lang.child_role_index(&entry_node.kind, "value") {
+            Ok(Some(i)) => i,
+            Ok(None) | Err(_) => 1,
+        };
+        let key_idx = match entry_children.get(key_role).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
                 return ctx.set_error(LangError::engine(
@@ -2934,7 +2955,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 ));
             }
         };
-        let val_idx = match entry_children.get(1).and_then(|v| v.as_u64()) {
+        let val_idx = match entry_children.get(val_role).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
                 return ctx.set_error(LangError::engine(
@@ -2957,12 +2978,11 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
-        // SAFETY: ctx.lang is valid for the duration of run_native; it may
-        // be null in the standalone driver (no Language attached).
-        let lang = unsafe { ctx.lang.as_ref() };
         let is_literal_key = lang
-            .and_then(|l| l.literal_child(&entry_node.kind, "key", &key_node.kind))
-            .unwrap_or_else(|| matches!(key_node.kind.as_str(), "var" | "string"));
+            .literal_child(&entry_node.kind, "key", &key_node.kind)
+            .unwrap_or_else(|| {
+                matches!(key_node.kind.as_str(), "var" | "string")
+            });
         let direct_key = if is_literal_key {
             key_node.payload.as_str().map(String::from)
         } else {

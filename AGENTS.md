@@ -23,9 +23,9 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
 | AST formatter          | `plugin-engine-fmt`                      | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                   |
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
-| Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
+| Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
+| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
 | Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json|source] [--write]` — ADR-0094)               |
@@ -75,8 +75,9 @@ because `handl-kit-canonical` → `handl-runtime` → `plugin-engine-typecheck`
 would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (ADR-0089)
 use `handl-kit-data-canonical` (no eval engine) or
 `handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
-ADR-0092 — the framework's temporary Rust handls live in
-`plugin-engine-test::framework`.
+ADR-0092; the framework is now pure-handl under `handl-packages/test/`
+(registered by `handl-kit-canonical`), and `plugin-engine-test::framework`
+retains only the `assert` failure side-channel.
 
 ### Source splitting
 
@@ -91,9 +92,12 @@ and linter all split source into top-level statements at bracket-depth zero
   because the bytecode and cranelift engines do not implement the `Bind`
   scheme — an engine-coverage gap, not a test failure; the compiled-engine
   tests skip them and `self_host_tree_walk_only_cases` covers them on the
-  tree-walk engine. `let` is **not** removed from the language: the
-  statement form `let x :: v` parses via `grammar.let.prefix` and evals
-  (`eval.let` mirrors `assign`); the `let ... in` expression form was
+  tree-walk engine. `let` has **no surface syntax**: `token.let`,
+  `token.keyword.let`, `lex.let`, `lex.keyword.let`, and
+  `grammar.let.prefix` were removed — source text `let` lexes as a
+  `token.identifier`. The `let`/`stmt.let` node kinds remain as internal
+  binding kinds (`ast.let`, `eval.let`, `eval.stmt-let`) used by
+  self-host/conformance fixtures; the `let ... in` expression form was
   removed in ADR-0079 (block bindings `do { x = y; ... }` cover it).
 - **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
   hits — these are debt to close via `Language` data, not patterns to extend):
@@ -110,9 +114,11 @@ and linter all split source into top-level statements at bracket-depth zero
     `kind == "match"`/`kind == "data"` branches are deleted. See ADR-0053's
     amendment section.
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
-    `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
-    heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
-    `AstShapeDef`.
+    `plugin-engine-exec-cranelift/src/lib.rs` (+ `plugin-engine-exec-tree-walk`):
+    object-key `var`/`string` heuristic — **closed**. Resolved via `entry`
+    `children` `key`/`value` roles and `literal_children` (var/string); all
+    sites use `Language::child_role_index` / `literal_child` with no `kind ==`
+    fallback. `object` also declares the `entries` child role.
   - `handl-runtime/src/lib.rs` `collect_module_bindings`: **closed**. Now
     data-driven via `Language::binding_target` using `target` role/`name`
     payload.
@@ -153,12 +159,13 @@ and linter all split source into top-level statements at bracket-depth zero
     `is_label`/`token_kind_for_label` rather than kind strings.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
-  - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed**. `ast.let`
-    (`target`/`value` roles), `grammar.let.prefix` (`let x :: v`),
-    `eval.let` (native `assign` op), and `type.let` (synth `type.unit`)
-    all exist; `parity_block_*` (46 tests in
-    `plugin-engine-typecheck-nbe/tests/parity.rs`) all pass and
-    `full_language_parity` no longer exists.
+  - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed** for the
+    internal binding kinds. `ast.let` (`target`/`value` roles), `eval.let`
+    (native `assign` op), `eval.stmt-let`, and `type.let` exist for the
+    self-host/conformance `let`/`stmt.let` node kinds, but there is no
+    `grammar.let.prefix` — `let` has no surface syntax (it lexes as an
+    identifier). `parity_block_*` (in
+    `plugin-engine-typecheck-nbe/tests/parity.rs`) pass.
 - **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
   (`plugin-engine-test/data/test-language.yaml`) declares
@@ -184,33 +191,22 @@ and linter all split source into top-level statements at bracket-depth zero
   `hnl test` in `host-cli`, suite grouping (`SuiteStarted`/`SuiteFinished`
   unemitted), structured `expected`/`actual`/`diff` once assert errors carry
   them. ADR-0074 grammar is **not** amended.
-- **ADR-0092 (crate deletion done; pure-handl migration blocked):**
-  `plugin-lib-test` is **deleted**. The framework contract stays in
-  `handl-packages/test/test.hnl` (`op`/`handl` declarations); all 12 Rust
-  handls moved into `plugin-engine-test::framework` (`src/framework/`),
-  which the runner's `TestModuleLookup` resolves `assert` through. The
-  **error-raising** half of the blocker is now closed: `error.raise(v)`
-  is a native op on the `error` module (`handl-packages/error/error.hnl`
-  contract; `plugin-lib-stdlib::ops::error` handl; registered in the
-  canonical module chain). It is callable from any `.hnl` source as
-  `error.raise(msg)` — the unbound `error` var falls back to the module
-  path like `type.of`/`tag.tag` — or inside table modules via
-  `deps: &["error"]`. Payload: a `String` becomes the message verbatim,
-  any other value is JSON-serialized into it; it surfaces as
-  `EvalError::Other` → `LangError` through `kit.eval`/`hnl eval`.
-  `vec`/`list`/`stack`/`queue`/`deque` `pop`/`peek`/`dequeue`/`pop_*`/
-  `peek_*` are now pure handl over it (only `new`/`from`/`to_array` stay
-  native). The **error-capture** primitive is now added: `error.try(f)`
-  calls a thunk and returns a `result`-shaped tagged value
-  (`{"__tag__":"ok","value":v}` / `{"__tag__":"err","value":msg}`),
-  making `assert.throws`/`test.run` expressible in handl.
-  `property`/`fuzz` additionally need a handl-reachable seeded RNG
-  (`rand.seeded_*` lives in `plugin-lib-rand-native` and is wired into the
-  canonical module chain) and `benchmark` needs a clock (`time.now_ms`/
-  `time.instant_ns` live in `plugin-lib-time-native`, contract in
-  `handl-packages/time/time.hnl`, also wired).
-  Remaining: rewrite the `handl "..."` bindings as pure-handl
-  `assert.hnl`/`property.hnl`/etc. per the ADR target layout.
+- **ADR-0092 (pure-handl migration done):**
+  `plugin-lib-test` is **deleted**. The framework now lives as pure handl
+  in `handl-packages/test/` (`assert.hnl`, `property.hnl`, `benchmark.hnl`,
+  `fuzz.hnl`, `snapshot.hnl`, `test.hnl`). `handl-kit-canonical` builds and
+  registers these modules through the generic `HandlModule` seam; their
+  `op`/`handl` declarations are stripped at load time. The
+  `plugin-engine-test::framework` crate no longer contains the temporary
+  Rust handls — it only keeps the thread-local assert-failure side-channel
+  consumed by the runner's `TestAssertHandler`. The framework uses the
+  **result pattern** only (`{"__tag__":"ok",...}` / `{"__tag__":"err",...}`);
+  it neither raises nor catches errors directly. The engine continues to
+  convert per-case `EvalError` into a failed `TestOutcome` in the runner,
+  and `assert.*` helpers build `err` result values directly. The
+  `rand.seeded_*` RNG and `time.instant_ns` clock used by the framework
+  were already wired into the canonical module chain; `error.raise` and
+  `error.try` are not used by the test framework.
 
 ## Library packaging (ADR-0077 fold-in)
 

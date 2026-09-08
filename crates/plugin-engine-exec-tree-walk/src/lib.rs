@@ -1532,12 +1532,15 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
+                    let start = lang
+                        .child_role_index(&current_node.kind, "entries")?
+                        .unwrap_or(0);
                     // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs
-                    // `{ key: val }` (object). When ALL children are non-entry
-                    // nodes (bare expressions), treat as a block: evaluate
-                    // each and return the last value. When any child is an
-                    // `entry` node, treat as an object.
-                    let all_bare = children.iter().all(|c| {
+                    // `{ key: val }` (object). When ALL children from the
+                    // `entries` role are non-`entry` nodes (bare expressions),
+                    // treat as a block: evaluate each and return the last value.
+                    // When any child is an `entry` node, treat as an object.
+                    let all_bare = children.iter().skip(start).all(|c| {
                         c.as_u64()
                             .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
                             .map(|n| n.kind != "entry")
@@ -1546,7 +1549,7 @@ impl TreeWalkEngine {
                     if all_bare && !children.is_empty() {
                         // Block semantics: evaluate all, return last.
                         let mut last = TaggedValue::Null;
-                        for entry in children {
+                        for entry in children.iter().skip(start) {
                             let idx = entry.as_u64().ok_or_else(|| {
                                 LangError::engine_node(
                                     "object: entry index must be a number".to_string(),
@@ -1558,7 +1561,7 @@ impl TreeWalkEngine {
                         return Ok((last, false));
                     }
                     let mut obj = FxHashMap::default();
-                    for entry in children {
+                    for entry in children.iter().skip(start) {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::engine_node(
                                 "object: entry index must be a number".to_string(),
@@ -1589,26 +1592,30 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        let key_idx =
-                            entry_children
-                                .get(0)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing key child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
-                        let val_idx =
-                            entry_children
-                                .get(1)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing value child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
+                        let key_role = lang
+                            .child_role_index(&entry_node.kind, "key")?
+                            .unwrap_or(0);
+                        let val_role = lang
+                            .child_role_index(&entry_node.kind, "value")?
+                            .unwrap_or(1);
+                        let key_idx = entry_children
+                            .get(key_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing key child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
+                        let val_idx = entry_children
+                            .get(val_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing value child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
                         let key_node = ast.at(AstRef::new(key_idx))?;
                         // Static vs computed key is declared data-driven:
                         // the `entry` shape's `literal_children` list for
@@ -3442,6 +3449,81 @@ impl EvalEngine for TreeWalkEngine {
 
     fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_import_resolver(resolver))
+    }
+
+    fn seal_module_value(&self, ast: &Ast, lang: &Language, value: Value) -> Result<Value, LangError> {
+        if !contains_unhomed_arrow(&value) {
+            return Ok(value);
+        }
+        // Register the module's eval frame so the arrow's `body` index
+        // remains meaningful in the importer's scope: `apply_app` /
+        // `call_value` route `__home__`-stamped arrows back to this frame
+        // (its AST, `Language`, module chain, and globals).
+        let frame_id = register_home_frame(
+            Rc::new(ast.clone()),
+            Rc::new(lang.clone()),
+            self.modules.clone(),
+            if self.globals.is_empty() {
+                None
+            } else {
+                Some(self.globals.clone())
+            },
+        );
+        let mut value = value;
+        stamp_home(&mut value, frame_id);
+        Ok(value)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arrow-value sealing helpers (Phase 9.5 module import)
+// ---------------------------------------------------------------------------
+//
+// Mirrors of the private helpers in `plugin-lib-handl` (which stamp arrow
+// arguments/results crossing `HandlFunction` boundaries); kept local so the
+// sealing hook needs no cross-crate plumbing.
+
+/// Whether `value` contains an arrow value (`{"__arrow__": true, ...}`)
+/// that carries no `__home__` frame id — i.e. an arrow whose `body` index
+/// refers to the ambient eval's AST and must be stamped before it crosses
+/// into an importer's scope.
+fn contains_unhomed_arrow(value: &Value) -> bool {
+    match value {
+        Value::Array(a) => a.iter().any(contains_unhomed_arrow),
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
+                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
+                    || o.values().any(contains_unhomed_arrow);
+            }
+            o.values().any(contains_unhomed_arrow)
+        }
+        _ => false,
+    }
+}
+
+/// Stamp every arrow value inside `value` that lacks a `__home__` frame id
+/// with `frame_id` — recursively, including arrows nested inside a
+/// closure's captured `env` (their `body` indices refer to the same AST).
+/// Arrows that already carry a `__home__` keep it: their provenance is
+/// elsewhere.
+fn stamp_home(value: &mut Value, frame_id: u64) {
+    match value {
+        Value::Array(a) => {
+            for v in a.iter_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
+                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
+            {
+                o.insert("__home__".to_string(), Value::from(frame_id));
+            }
+            for v in o.values_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        _ => {}
     }
 }
 
