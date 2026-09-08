@@ -2,8 +2,8 @@
 
 ## Tooling (low priority — self-hosting, see `project/rfcs/`)
 
-Bootstrap tooling (ADR-0085..0091 — improving the existing `plugin-*`
-crates; no new tooling crates) is high priority and tracked in TODO.md. Everything below is the _low priority_ self-hosting
+The ADR-0085..0094 bootstrap tooling implementation is near-term work and
+tracked in `TODO.md`. Everything below is the _low priority_ self-hosting
 follow-up: porting the tooling to handl itself once the language is stable.
 The generic Rust substrate (plugin system, `plugin-ext-*`,
 `plugin-engine-*`) stays as bootstrap and fallback (ADR-0085 rule 6).
@@ -20,7 +20,7 @@ The generic Rust substrate (plugin system, `plugin-ext-*`,
   `plugin-engine-typecheck`; adds the deferred scope (traits, refinements,
   invariants, row variables). Blocked on compiled backends (perf).
 - **RFC-0005 — Test runner in handl.** Refactor of bootstrap
-  `plugin-lib-test`; adds parallel execution (ADR-0072), properties,
+  `plugin-engine-test`; adds parallel execution (ADR-0072), properties,
   benchmarks.
 - **RFC-0006 — LSP server in handl.** Hardest target, intentionally last;
   session as a fold over the message stream, features as arrows, thin Rust
@@ -29,6 +29,9 @@ The generic Rust substrate (plugin system, `plugin-ext-*`,
   ADR-0029: generic, composable, extensible, replaceable, modular,
   documented CLI that loads integrations contributed by the tool RFCs and
   is decoupled from them.
+
+- **VS Code extension.** The `editor-support/vscode` skeleton exists; full
+  feature work is deferred until RFC-0006 LSP-in-handl matures.
 
 Order: RFC-0001 → 0002/0003 → 0005 → 0007 → 0004 → 0006.
 
