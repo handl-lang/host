@@ -9,7 +9,7 @@ Handl is built around a single, composable platform layer. Every tool, language 
 ## The layers
 
 - **Platform** — the shared contracts in `handl-platform`. It defines `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `Contribution`, `ContributionContext`, `Host`, `HostConfig`, `HostApplier`, `Options`, `AstNode`, `DataTypes`, and the loading algorithm.
-- **Operation** — a cross-cutting concern. Each `handl-ext-*` crate defines an `Operation` marker and a default `RuleAcceptor` plugin such as `BasicFormatter`, `BasicLinter`, `BasicLexer`, `BasicParser`, `BasicTypechecker`, `BasicCli`, `BasicLsp`, `BasicDoc`, or `BasicHover`.
+- **Operation** — a cross-cutting concern. Each `handl-ext-*` crate defines an `Operation` marker and a default `RuleAcceptor` plugin such as `BasicFormatter`, `BasicLinter`, `BasicLexer`, `BasicParser`, `BasicCli`, `BasicLsp`, `BasicDoc`, or `BasicHover`.
 - **Plugin** — the universal unit. A plugin can be a library, a target, an operation, a rule, or an executable contribution.
 - **Rule** — a `Behavior<Op>` contributed to a `RuleAcceptor` for a specific `AstNode.kind`.
 - **Kit** — a curated, version-pinned manifest of plugins and default option values. A kit is not executable.

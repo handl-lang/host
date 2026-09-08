@@ -295,11 +295,16 @@ pub fn manifest() -> DataKitManifest {
 }
 
 /// Build an [`EmitterRegistry`] pre-populated with the canonical YAML data
-/// emitter and this kit's manifest registered under [`KIT_NAME`].
+/// emitter and all embedded `data/kits/*.yaml` manifests registered under
+/// their kit names (so `extends: canonical` resolves for child kits).
 pub fn registry() -> EmitterRegistry {
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("canonical-yaml", || Box::new(YamlDataEmitter::new()));
-    reg.register_kit(KIT_NAME, manifest());
+    for (name, _) in KIT_MANIFESTS {
+        let m = load_kit(name)
+            .unwrap_or_else(|e| panic!("failed to load manifest for {}: {}", name, e));
+        reg.register_kit(name, m);
+    }
     reg
 }
 
@@ -377,6 +382,7 @@ pub fn assemble() -> Result<DataKit, LangError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_kit_data::DataKit;
 
     #[test]
     fn manifest_has_single_yaml_source() {
@@ -534,5 +540,67 @@ mod tests {
                 assert!(lang.grammar.get_by_id("grammar.call.infix").is_some());
             }
         }
+    }
+
+    #[test]
+    fn load_kit_config_carries_caps() {
+        let config = load_kit("config").unwrap();
+        assert_eq!(config.caps.len(), 13);
+        for id in &[
+            "lib.math",
+            "lib.str",
+            "lib.array",
+            "lib.set",
+            "lib.bool",
+            "lib.cmp",
+            "lib.obj",
+            "lib.fn",
+            "lib.type",
+            "lib.crypto",
+            "lib.datetime",
+            "lib.intl",
+            "lib.kv",
+        ] {
+            assert!(
+                config.caps.iter().any(|c| c.id == *id),
+                "config manifest missing cap {}",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn assemble_config_extends_canonical_caps() {
+        let kit = DataKit::assemble(&load_kit("config").unwrap(), &registry()).unwrap();
+        let lang = kit.lang();
+        // Canonical contributes 3 foundation caps; config adds 13 pure-library caps.
+        assert_eq!(lang.caps.len(), 16);
+        assert!(lang.caps.get_by_id("lex").is_some());
+        assert!(lang.caps.get_by_id("parse").is_some());
+        for id in &[
+            "lib.math",
+            "lib.str",
+            "lib.array",
+            "lib.set",
+            "lib.bool",
+            "lib.cmp",
+            "lib.obj",
+            "lib.fn",
+            "lib.type",
+            "lib.crypto",
+            "lib.datetime",
+            "lib.intl",
+            "lib.kv",
+        ] {
+            assert!(lang.caps.get_by_id(id).is_some(), "missing cap {}", id);
+        }
+    }
+
+    #[test]
+    fn assemble_config_inherits_parent_runtime() {
+        let kit = DataKit::assemble(&load_kit("config").unwrap(), &registry()).unwrap();
+        assert_eq!(kit.runtime_config().typecheck, "nbe");
+        assert_eq!(kit.runtime_config().parse, "pratt");
+        assert_eq!(kit.runtime_config().eval, "tree-walk");
     }
 }

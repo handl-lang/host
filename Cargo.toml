@@ -116,7 +116,6 @@ members = [
   "crates/handl-emitters",
   "crates/handl-kit-data",
   "crates/handl-kit-data-canonical",
-  "crates/handl-kit-data-config",
   "crates/handl-defining-handl",
   "crates/handl-value",
 ]
@@ -249,11 +248,11 @@ handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode
 handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
+handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
-handl-kit-data-config = { path = "crates/handl-kit-data-config" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 

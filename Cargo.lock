@@ -1000,7 +1000,11 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-applier-bootstrap",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-test",
+ "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
  "handl-plugin-ext-cli",
  "handl-plugin-ext-diag",
@@ -1121,18 +1125,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
-]
-
-[[package]]
-name = "handl-kit-data-config"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-kit-data",
- "handl-kit-data-canonical",
- "handl-language",
- "handl-runtime",
- "serde_json",
 ]
 
 [[package]]
@@ -2026,7 +2018,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "tar",
  "toml",
  "url",
 ]
