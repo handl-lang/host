@@ -233,3 +233,47 @@ fn code_actions_no_lint_fix_for_clean_source() {
         actions,
     );
 }
+
+// ---------------------------------------------------------------------------
+// f. Engine rewrite actions via apply_rule + PreserveEmitter (ADR-0094)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn code_actions_apply_rule_simplify_paren_offered() {
+    // `-- doc\n` is 7 bytes; `(` of `(42)` is at 14, `)` ends at 18.
+    // The engine-driven rewrite re-emits the whole statement as `main :: 42`
+    // (the `=` token is an alias of `::` / `token.bind`, which the formatter
+    // canonicalizes back to `::`) while removing the redundant parens.
+    let src = "-- doc\nmain = (42)\n";
+    let actions = code_actions(src, 15, 15, &[]);
+    let action = actions
+        .iter()
+        .find(|a| {
+            a.get("title").and_then(|t| t.as_str())
+                == Some("Apply rewrite: Remove redundant parentheses")
+        })
+        .unwrap_or_else(|| panic!("expected apply-rule rewrite action, got: {:?}", actions));
+    assert_eq!(action.get("kind").and_then(|k| k.as_str()), Some("quickfix"));
+    let changes = &action["edit"]["changes"]["file:///untitled.hnl"][0];
+    assert_eq!(changes["newText"].as_str(), Some("main :: 42"));
+    assert_eq!(changes["range"]["start"]["line"].as_u64(), Some(1));
+    assert_eq!(changes["range"]["start"]["character"].as_u64(), Some(0));
+    assert_eq!(changes["range"]["end"]["line"].as_u64(), Some(1));
+    assert_eq!(changes["range"]["end"]["character"].as_u64(), Some(11));
+}
+
+#[test]
+fn code_actions_apply_rule_simplify_paren_not_offered_outside_range() {
+    // Cursor on line 0 — far from the `(42)` on line 1 — should not offer
+    // the engine rewrite action.
+    let src = "-- doc\nmain = (42)\n";
+    let actions = code_actions(src, 2, 2, &[]);
+    assert!(
+        actions.iter().all(|a| {
+            a.get("title").and_then(|t| t.as_str())
+                != Some("Apply rewrite: Remove redundant parentheses")
+        }),
+        "should not offer apply-rule action outside its span, got: {:?}",
+        actions,
+    );
+}
