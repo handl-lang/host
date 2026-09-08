@@ -112,6 +112,17 @@ pending `loader.hnl` becoming the installed default transform (the
 `HandlLoader`/`install_loader` seam). The value model does not currently
 expose a host module as a first-class record, so declarations suffice.
 
+*Loader status update:* the parsed-AST cache in `HandlFunction::call`
+(thread-local `AST_CACHE` + `EvalEngine::eval_shared` /
+`Runtime::eval_shared_with_globals`) removed the per-call re-parse that
+originally blocked the default install — measured ~7× faster on
+`loader.strip_decls` over `dedent.hnl` and ~19× on warm `str.*` calls.
+The remaining blocker is the interpreted `str.*`/`char.*` body eval over
+every input character (~43s release for a 22k-char transform), so
+`loader.hnl` stays opt-in; see AGENTS.md "Loader self-hosting" for the
+measured numbers and the `plugin-lib-handl/examples/loader_bench.rs`
+harness.
+
 ### Static checking
 
 `hnl typecheck` scopes the bound names of every `stmt.import` — the child

@@ -1250,14 +1250,20 @@ impl Kit {
         // (`handl-packages/loader/loader.hnl`) is fully implemented and
         // parity-tested against the Rust bootstrap transforms
         // (`plugin-lib-handl/tests/loader.rs`), but it is deliberately NOT
-        // installed here: every nested `str.*`/`char.*` call inside the
-        // interpreted transforms re-lexes/parses the ~740-line `str-handl`
-        // bridge source, making whole-file processing take minutes per
-        // kit build.  Hosts may opt in via
+        // installed here. `HandlFunction::call` now caches the parsed
+        // applied-form AST per (module, function, arity) and evaluates it
+        // through `eval_shared` with zero arena clones, so the per-call
+        // re-parse is gone — but the residual cost is the *interpreted*
+        // `str.*`/`char.*` body eval over every input character: measured
+        // ~43s (release) for `strip_decls` on the 22k-char str-handl
+        // source, i.e. minutes across a kit build
+        // (`plugin-lib-handl/examples/loader_bench.rs`).  Hosts may opt in
+        // via
         // `handl_plugin_lib_handl::install_loader(HandlLoader::new(vec![
         // char_backend, str_backend]))`; the bootstrap path remains the
-        // default until the bridge stops re-parsing sources per call or a
-        // compiled eval engine runs the transforms.
+        // default until a compiled eval engine runs the transforms (or a
+        // `TaggedValue`-level record cache avoids the exponential env
+        // serialization of `do {}`-block modules).
 
         let mut stdlib_registry = ModuleRegistry::new();
         stdlib_registry.register(stdlib::module("combinators").expect("combinators"));

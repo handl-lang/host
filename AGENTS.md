@@ -352,18 +352,26 @@ implementation** of the `.hnl` text transforms: `strip_comments`,
 - `plugin-lib-handl/tests/loader.rs` is a parity test (handl vs bootstrap,
   small corpus) — **all transforms agree**.
 
-**Why the handl loader is not the default yet:** every `Function::call` on
-a `HandlModule` re-lexes/parses the full module source
-(`(source).f(__arg_N)`), and the transforms run on the tree-walk
-interpreter — so each `str.*`/`char.*` op inside the interpreted loader
-costs a re-parse of the ~740-line `str-handl` source. Whole-file
-transforms take ~1.7s per call on *small* sources and minutes across a
-kit's ~30 modules — `kit-canonical` measured this and deliberately does
-**not** `install_loader` (see the NOTE in `build_kit`). Promotion to the
-default path awaits either a parsed-AST cache in `HandlFunction::call`
-(applied-form sources are per-module constants) or a compiled eval engine
-for the transform pass. Until then the Rust `bootstrap` seam is the
-minimal *active* implementation and `loader.hnl` is the verified spec.
+**Why the handl loader is not the default yet:** `HandlFunction::call`
+now caches the parsed applied-form `Ast` per (module, function, arity) in
+a thread-local `AST_CACHE` and evaluates it via
+`Runtime::eval_shared_with_globals` / `EvalEngine::eval_shared` (an
+`Rc<Ast>` seam that eliminates both per-call arena clones on the
+tree-walk engine), so parsing is no longer the bottleneck. Measured on
+`examples/loader_bench.rs` (release): a warm `str.length` call went
+~6.5ms → ~0.33ms (~19×); `loader.strip_decls` on `dedent.hnl` (2.7k
+chars) ~6.7s → ~0.93s (~7×); but on `str-handl.hnl` (22k chars) ~91s →
+~43s. The residual cost is the *interpreted* `str.*`/`char.*` body eval
+over every input character (record caching is impossible across the
+`serde_json::Value` boundary — arrows' captured `env`s expand
+exponentially for `do {}`-block modules like `str-handl`). ~43s for one
+22k-char transform — minutes across a kit's ~30 modules — is still far
+too slow, so `kit-canonical` deliberately does **not** `install_loader`
+(see the NOTE in `build_kit`). Promotion to the default path awaits a
+compiled eval engine (bytecode/cranelift) for the transform pass, or a
+`TaggedValue`-level cache that never serializes captured envs. Until then
+the Rust `bootstrap` seam is the minimal *active* implementation and
+`loader.hnl` is the verified spec.
 
 ## String / Char / Unicode layering (ADR-0093)
 

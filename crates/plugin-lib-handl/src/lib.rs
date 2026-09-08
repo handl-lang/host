@@ -23,8 +23,16 @@
 //! The tree-walk engine indexes into a thread-local `CURRENT_AST` arena, so a
 //! handl closure `Value` produced by one bridge runtime cannot be cached and
 //! called later from an outer runtime. Therefore the `Runtime` is cached
-//! per-thread (via [`thread_local!`]), and only the small applied expression
-//! `(source).func(args)` is lexed/parsed/evaluated per call.
+//! per-thread (via [`thread_local!`]), and the applied expression
+//! `(source).func(__arg_N)` — whose text is argument-independent (arguments
+//! cross the boundary as `__arg_N` globals) — is lexed/parsed **once** per
+//! (module, function, arity) into a per-thread `AST_CACHE`
+//! `Rc<Ast>` and re-evaluated per call through
+//! [`Runtime::eval_shared_with_globals`], which installs the cached arena
+//! without a deep clone. Caching the *evaluated* record is not possible
+//! across the `serde_json::Value` boundary: arrows capture earlier
+//! `do`-block bindings, and materializing each arrow's `env` expands
+//! recursively (exponential on ~100-binding modules like `str-handl`).
 //!
 //! ## Usage
 //!
@@ -54,10 +62,12 @@
 //! - `mod bootstrap` — the irreducible Rust implementations.  They prepare
 //!   the `str` floor itself (`str-handl` needs `from "char" import`
 //!   stripping before any loader exists — the bootstrap paradox) and are
-//!   the default path until the bridge runtime stops re-parsing module
-//!   sources per `Function::call` (the interpreted loader is correct —
-//!   parity-tested in `tests/loader.rs` — but pathologically slow on
-//!   whole-file inputs under the current bridge).
+//!   the default path: the interpreted loader is correct — parity-tested
+//!   in `tests/loader.rs` — but remains too slow on whole-file inputs even
+//!   with the per-thread applied-AST cache in `HandlFunction::call` (the
+//!   residual cost is interpreted `str.*`/`char.*` eval over every input
+//!   character, not parsing — see AGENTS.md "Loader self-hosting" for
+//!   measured numbers).
 //! - [`HandlLoader`] / [`install_loader`] — the opt-in self-hosting seam.
 //!   Once a host installs a loader built over `char` + `str` modules, every
 //!   public transform here (and [`HandlModule::new`]'s `analyze_source`
@@ -787,21 +797,6 @@ pub fn escape_handl_string(s: &str) -> String {
     out
 }
 
-/// Whether `value` contains an arrow value (`{"__arrow__": true, ...}`)
-/// anywhere — recursively, including inside a closure's captured `env`.
-fn contains_arrow(value: &serde_json::Value) -> bool {
-    match value {
-        serde_json::Value::Array(a) => a.iter().any(contains_arrow),
-        serde_json::Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
-                return true;
-            }
-            o.values().any(contains_arrow)
-        }
-        _ => false,
-    }
-}
-
 /// Whether `value` contains an arrow value that carries no `__home__`
 /// frame id — i.e. an arrow whose `body` index refers to the *ambient*
 /// eval's AST and must be stamped before it crosses a runtime boundary.
@@ -874,6 +869,35 @@ thread_local! {
     /// the active AST / `Language` in thread-locals, so `Runtime` is not
     /// `Send`.
     static RUNTIME_CACHE: RefCell<HashMap<usize, std::rc::Rc<Runtime>>> = RefCell::new(HashMap::new());
+
+    /// Per-thread cache of parsed applied-form ASTs.
+    ///
+    /// [`HandlFunction::call`] evaluates the applied expression
+    /// `(source).func(__arg_0, ..., __arg_{n-1})`; that source text is a
+    /// pure function of `(module id, function name, arity)` — call
+    /// arguments cross the boundary as `__arg_N` globals, never as source
+    /// text — so the lexed/parsed/desugared [`handl_language::Ast`] can be
+    /// parsed once and reused across calls. This removes the per-call
+    /// re-parse of the full module source that made the interpreted
+    /// `loader.hnl` transforms pathologically slow (every nested `str.*`
+    /// call re-parsed the ~740-line `str-handl` bridge source).
+    ///
+    /// The cache is thread-local (like `RUNTIME_CACHE`) because `Ast`
+    /// is not `Send`. It is keyed by module ID rather than source identity:
+    /// a module's prepared source is fixed at construction, and parse does
+    /// not depend on the module's dependency set (`with_dependency` only
+    /// changes the eval-time module chain), so entries stay valid across
+    /// `rebuild_functions` (which allocates a fresh module ID anyway).
+    ///
+    /// Note: caching the *evaluated* module record instead of the AST is
+    /// not possible across the `serde_json::Value` boundary — arrows in
+    /// `do { ... }`-block modules capture earlier bindings, and
+    /// materializing the record would expand each arrow's captured `env`
+    /// recursively (exponential blowup on ~100-binding modules such as
+    /// `str-handl`). Record *construction* inside the per-call eval is
+    /// cheap (`Rc` env captures), so the AST cache is the right seam.
+    static AST_CACHE: RefCell<HashMap<(usize, String, usize), std::rc::Rc<handl_language::Ast>>> =
+        RefCell::new(HashMap::new());
 }
 
 /// Allocate a unique module ID (called at [`HandlModule`] construction time).
@@ -934,9 +958,11 @@ fn build_runtime(
 
 /// A callable [`Function`] backed by a `.hnl` source field.
 ///
-/// Each call evaluates `(source).func_name(args)` via a cached per-thread
+/// Each call evaluates `(source).func_name(__arg_N)` via a cached per-thread
 /// `Runtime`. The `Runtime` is built lazily on first use and reused for
-/// subsequent calls on the same thread.
+/// subsequent calls on the same thread; the applied form's parsed `Ast` is
+/// likewise cached per (module, function, arity) in `AST_CACHE`, so only the
+/// eval stage runs per call.
 ///
 /// This type is created by [`HandlModule`]; you do not typically construct
 /// it directly.
@@ -1014,12 +1040,6 @@ impl Function for HandlFunction {
             globals.insert(name.clone(), v);
             arg_names.push(name);
         }
-        let source = format!(
-            "({}).{}({})",
-            self.source,
-            self.func_name,
-            arg_names.join(", ")
-        );
         let module_id = self.module_id;
         let builder = Arc::clone(&self.builder);
         let module_name = &self.module_name;
@@ -1037,15 +1057,41 @@ impl Function for HandlFunction {
         let errf = |e: handl_language::LangError| {
             EvalError::Other(format!("{module_name}.{func_name}: {e}"))
         };
+        // Parse the applied form `(source).func(__arg_0, ...)` once per
+        // (module, function, arity) and reuse the `Ast` across calls — the
+        // source text cannot vary with the arguments (they are `__arg_N`
+        // globals). The `Rc<Ast>` is cloned out of the thread-local cache
+        // and the `RefCell` borrow released *before* eval so re-entrant
+        // nested calls never hold the borrow; eval only reads the AST
+        // (`EvalRequest` takes a clone), so sharing is sound.
+        let ast_key = (module_id, func_name.clone(), args.len());
+        let ast = AST_CACHE.with(|cache| cache.borrow().get(&ast_key).cloned());
+        let ast = match ast {
+            Some(ast) => ast,
+            None => {
+                let source = format!(
+                    "({}).{}({})",
+                    self.source,
+                    self.func_name,
+                    arg_names.join(", ")
+                );
+                let toks = runtime.lex(&Source::new(&source)).map_err(errf)?;
+                let parsed = Rc::new(runtime.parse(&toks).map_err(errf)?);
+                AST_CACHE.with(|cache| {
+                    cache.borrow_mut().insert(ast_key, Rc::clone(&parsed))
+                });
+                parsed
+            }
+        };
         // Keep the parsed AST: if the result contains arrows, their `body`
         // indices refer to it — register it as a home frame so the caller
         // can apply them.
-        let toks = runtime.lex(&Source::new(&source)).map_err(errf)?;
-        let ast = runtime.parse(&toks).map_err(errf)?;
-        let result = runtime.eval_with_globals(&ast, &globals).map_err(errf)?;
-        if contains_arrow(&result) {
+        let result = runtime
+            .eval_shared_with_globals(&ast, &globals)
+            .map_err(errf)?;
+        if contains_unhomed_arrow(&result) {
             let frame_id = handl_plugin_engine_exec_tree_walk::register_home_frame(
-                Rc::new(ast),
+                Rc::clone(&ast),
                 Rc::new(runtime.lang().clone()),
                 runtime.modules().cloned(),
                 None,
@@ -1244,14 +1290,19 @@ impl HandlModule {
     /// builder that includes the current dependencies.
     ///
     /// This is called after `with_dependency` / `with_dependency_arc` to
-    /// ensure the builder reflects the latest dependency set. The per-thread
-    /// runtime cache uses `module_id` as the key, so any previously cached
-    /// runtime for this module ID will be replaced on next access.
+    /// ensure the builder reflects the latest dependency set. All
+    /// per-thread caches (`RUNTIME_CACHE`, `AST_CACHE`)
+    /// key on `module_id`, so a *fresh* module ID is
+    /// allocated here — previously cached runtimes/ASTs/evaluated records
+    /// for the old ID are abandoned and rebuilt on next access against the
+    /// new dependency set.
     fn rebuild_functions(&mut self) {
         let deps = self.dependencies.clone();
         let builder: RuntimeBuilder = Arc::new(move || build_runtime(deps.clone()));
+        let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
             func.builder = Arc::clone(&builder);
+            func.module_id = module_id;
         }
     }
 }

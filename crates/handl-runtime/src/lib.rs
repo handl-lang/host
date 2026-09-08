@@ -862,6 +862,33 @@ impl Runtime {
         engine.eval(&self.lang, &req)
     }
 
+    /// Like [`eval_with_globals`](Self::eval_with_globals), but takes the
+    /// [`Ast`] behind an `Rc` and dispatches to
+    /// [`EvalEngine::eval_shared`], so engines that hold the arena by `Rc`
+    /// internally (the tree-walk engine) reuse the caller's allocation
+    /// instead of deep-cloning it into an [`EvalRequest`].
+    ///
+    /// This is the per-call seam for hosts that cache a parsed AST and
+    /// re-evaluate it many times with different globals — e.g.
+    /// `plugin-lib-handl`'s `HandlFunction` bridge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
+    /// propagates the engine's error.
+    pub fn eval_shared_with_globals(
+        &self,
+        ast: &Rc<Ast>,
+        globals: &HashMap<String, Value>,
+    ) -> Result<Value, LangError> {
+        let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
+        let mut engine = engine.box_clone();
+        for (name, val) in globals {
+            engine = engine.with_global(name, val.clone());
+        }
+        engine.eval_shared(&self.lang, ast)
+    }
+
     /// Convenience: `eval(parse(lex(src)?)?)`.
     ///
     /// Composes all three stages. If any stage's engine is missing, returns

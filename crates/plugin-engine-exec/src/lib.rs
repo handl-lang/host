@@ -102,6 +102,24 @@ pub trait EvalEngine {
         self.box_clone()
     }
 
+    /// Evaluate an [`Ast`] held behind an [`Rc`], avoiding the deep arena
+    /// clone into [`EvalRequest`] when the caller already shares the arena
+    /// (e.g. a per-thread parsed-AST cache such as
+    /// `plugin-lib-handl`'s `HandlFunction` bridge, which re-evaluates the
+    /// same module AST on every call).
+    ///
+    /// Default: clone the arena into a request and delegate to
+    /// [`eval`](Self::eval). Engines that hold the arena by `Rc` internally
+    /// (the tree-walk engine installs it in a thread-local) override this
+    /// to reuse the caller's `Rc` — zero arena clones per call.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on failure, as [`eval`](Self::eval) does.
+    fn eval_shared(&self, lang: &Language, ast: &Rc<Ast>) -> Result<Value, LangError> {
+        self.eval(lang, &EvalRequest::new((**ast).clone()))
+    }
+
     /// Seal a module's exported bindings before they cross into the
     /// importer's scope (Phase 9.5 `import "path"`).
     ///

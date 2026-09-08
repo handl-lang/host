@@ -3531,10 +3531,12 @@ impl Default for TreeWalkEngine {
     }
 }
 
-impl EvalEngine for TreeWalkEngine {
-    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
-        let ast = &req.ast;
-        if ast.is_empty() {
+impl TreeWalkEngine {
+    /// Shared eval body for [`EvalEngine::eval`] / [`EvalEngine::eval_shared`]:
+    /// install `ast_rc`/`lang_rc`/modules in the thread-locals (saving the
+    /// previous values for nested evals), then evaluate the arena root.
+    fn eval_ast_rc(&self, lang: &Language, ast_rc: Rc<Ast>) -> Result<Value, LangError> {
+        if ast_rc.is_empty() {
             return Ok(Value::Null);
         }
         // Set thread-locals so host functions can call arrow-values via
@@ -3543,7 +3545,6 @@ impl EvalEngine for TreeWalkEngine {
         // another `HandlFunction` — e.g. `dedent` → `str.*` → `str-handl` →
         // `char.*` runs a nested `Runtime::run` → `eval`) restores them on
         // return instead of clobbering the outer runtime's state.
-        let ast_rc = Rc::new(ast.clone());
         let lang_rc = Rc::new(lang.clone());
         let modules_rc = self.modules.clone();
         let prev_ast =
@@ -3578,6 +3579,19 @@ impl EvalEngine for TreeWalkEngine {
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
         result
+    }
+}
+
+impl EvalEngine for TreeWalkEngine {
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
+        self.eval_ast_rc(lang, Rc::new(req.ast.clone()))
+    }
+
+    /// `Rc`-carrying entry point (e.g. `plugin-lib-handl`'s per-thread
+    /// parsed-AST cache): installs the caller's `Rc<Ast>` directly as
+    /// `CURRENT_AST`, avoiding the per-call arena deep clone entirely.
+    fn eval_shared(&self, lang: &Language, ast: &Rc<Ast>) -> Result<Value, LangError> {
+        self.eval_ast_rc(lang, Rc::clone(ast))
     }
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {
