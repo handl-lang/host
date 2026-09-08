@@ -54,3 +54,14 @@ References: ADR-0074 (v0.1 surface syntax), ADR-0069 (files are arrows), ADR-005
 ## Status
 
 Accepted
+
+**Amendment (completed):** `let` is now fully removed end-to-end — the
+statement form `let x :: v` (`token.let`, `lex.let`, `grammar.let.prefix`,
+`ast.let`, `eval.let`, `type.let`) and the internal `stmt.let` kind
+(`eval.stmt-let`; it had no producer — nothing desugared to it) are all
+deleted. `token.keyword.let` + `lex.keyword.let` remain as a tombstone (the
+`then`/`axiom` pattern: a keyword token with no grammar row) so `let` stays
+a reserved word and `let x :: v` fails with "unexpected token" instead of
+re-lexing as an identifier. Bindings are `x = y` / `x :: y` (`token.bind` →
+`assign`) and `do { x = y; ... }` blocks. The dead `eval_let` dispatch arms
+in the bytecode VM and cranelift engine are also removed.

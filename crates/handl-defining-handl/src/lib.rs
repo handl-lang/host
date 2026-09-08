@@ -10,8 +10,8 @@
 //! This crate produces a [`Language`] value that describes the **subset** of
 //! handl the data-driven engines can evaluate — the constructs migrated to
 //! the data-driven model in Phases 4–5 (value, var, the binary arithmetic /
-//! comparison ops, unary not, let / stmt.let, if, ternary,
-//! function, call, pipe, paren, apply). It is the "handl defining
+//! comparison ops, unary not, block bindings (`do { x = v; ... }`), if,
+//! ternary, function, call, pipe, paren, apply). It is the "handl defining
 //! handl": the language spec as data.
 //!
 //! ## Scope (honest deliverable)
@@ -102,7 +102,7 @@ pub struct CorpusCase {
 ///
 /// Each case's [`Ast`] is constructed manually using the canonical data-driven
 /// node kinds and the payload conventions documented by the Phase 4
-/// emitters. The Pratt grammar for delimited forms (let/call/if/function) is
+/// emitters. The Pratt grammar for delimited forms (call/if/function) is
 /// a placeholder per Phase 4 deviations, so ASTs are hand-built rather than
 /// parsed from source.
 ///
@@ -138,18 +138,18 @@ pub struct CorpusCase {
 /// | `typeof_bool`        | `typeof true`                         | value, typeof                       |
 /// | `not_true`           | `!false`                              | value, unary.not                    |
 /// | `not_false`          | `!true`                               | value, unary.not                    |
-/// | `let_var`            | `let x = 5 in x`                        | value, let, var                     |
-/// | `stmt_let`           | `let x = 6 in x`                        | value, stmt.let, var                |
+/// | `bind_var`           | `do { x = 5; x }`                     | value, assign, block, var           |
+/// | `bind_stmt`          | `do { x :: 6; x }`                    | value, assign, block, var           |
 /// | `if_true`            | `if (true) 1 else 2`                  | value, if                           |
 /// | `if_false`           | `if (false) 1 else 2`                 | value, if                           |
 /// | `ternary_true`       | `true ? 1 : 2`                        | value, ternary                      |
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `function_call`      | `let f = [x, y] ~> x + y in f(3, 4)`    | function, call, let, var, binary.add|
-/// | `pipe_call`          | `let f = (x ~> x + 1) in 5 | f`         | function, pipe, let, var, binary.add|
-/// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
-/// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
+/// | `function_call`      | `do { f :: [x, y] ~> x + y; f(3, 4) }` | function, call, assign, block, var, binary.add|
+/// | `pipe_call`          | `do { f :: (x ~> x + 1); 5 | f }`      | function, pipe, assign, block, var, binary.add|
+/// | `nested_bind`        | `do { x = 3; y = 4; x + y }`          | assign, block, var, binary.add      |
+/// | `if_with_bind`       | `if (true) (do { x = 1; x }) else 0`  | if, assign, block, var, value       |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
 /// | `array_index`        | `[10, 20, 30][1]`                     | index                               |
 /// | `object_literal`     | `{"a": 1, "b": 2}`                    | object                              |
@@ -328,31 +328,46 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(false),
             tree_walk_only: false,
         },
-        // 13. Let + var: let x = 5 in x
+        // 13. Block bind + var: do { x = 5; x }
+        //     `eval_block` binds each `assign` child's target var, then
+        //     returns the last child's value.
         CorpusCase {
-            name: "let_var",
-            source: "let x = 5 in x",
+            name: "bind_var",
+            source: "do { x = 5; x }",
             ast: {
                 let mut a = Ast::new();
-                a.push(AstNode::new("value").with_payload(json!(5)));
-                a.push(AstNode::new("var").with_payload(json!("x")));
-                a.push(AstNode::new("stmt.let").with_payload(json!({"name": "x", "children": [0, 1]})));
+                a.push(AstNode::new("value").with_payload(json!(5))); // 0
+                a.push(AstNode::new("var").with_payload(json!("x"))); // 1
+                a.push(
+                    AstNode::new("assign") // 2: x = 5
+                        .with_payload(json!({"children": [1, 0]})),
+                );
+                a.push(
+                    AstNode::new("block") // 3: do { x = 5; x }
+                        .with_payload(json!({"children": [2, 1]})),
+                );
                 a
             },
             expected: json!(5),
-            // ADR-0079: `let` removed; cranelift does not support it.
+            // Block binding is implemented in the tree-walk engine only.
             tree_walk_only: true,
         },
-        // 14. stmt.let + var: let x = 6 in x  (stmt.let uses the same Bind scheme as let)
+        // 14. Block bind via `::`: do { x :: 6; x }
+        //     `=` and `::` both lex to `token.bind` → `assign` nodes.
         CorpusCase {
-            name: "stmt_let",
-            source: "let x = 6 in x",
+            name: "bind_stmt",
+            source: "do { x :: 6; x }",
             ast: {
                 let mut a = Ast::new();
-                a.push(AstNode::new("value").with_payload(json!(6)));
-                a.push(AstNode::new("var").with_payload(json!("x")));
+                a.push(AstNode::new("value").with_payload(json!(6))); // 0
+                a.push(AstNode::new("var").with_payload(json!("x"))); // 1
                 a.push(
-                    AstNode::new("stmt.let").with_payload(json!({"name": "x", "children": [0, 1]})),
+                    AstNode::new("assign") // 2: x :: 6
+                        .with_payload(json!({"children": [1, 0]})),
+                );
+                a.push(
+                    AstNode::new("block") // 3: do { x :: 6; x }
+                        .with_payload(json!({"children": [2, 1]})),
                 );
                 a
             },
@@ -450,12 +465,12 @@ pub fn corpus() -> Vec<CorpusCase> {
         // `not`, `when`). The `mood` node kind no longer exists; only
         // `mood.int`, `mood.pot`, `mood.norm`, `mood.neg`, `mood.cnd` remain.
         // This case is intentionally omitted from the corpus.
-        // 22. Function + call: let f = [x, y] ~> x + y in f(3, 4)
+        // 22. Function + call: do { f :: [x, y] ~> x + y; f(3, 4) }
         //     The canonical call emitter targets 2-arg calls, so the function
         //     takes two params.
         CorpusCase {
             name: "function_call",
-            source: "let f = [x, y] ~> x + y in f(3, 4)",
+            source: "do { f :: [x, y] ~> x + y; f(3, 4) }",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -476,20 +491,24 @@ pub fn corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [6, 4, 5]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 8: let f = function in call
-                        .with_payload(json!({"name": "f", "children": [3, 7]})),
+                    AstNode::new("assign") // 8: f :: function
+                        .with_payload(json!({"children": [6, 3]})),
+                );
+                a.push(
+                    AstNode::new("block") // 9: do { f :: fn; f(3, 4) }
+                        .with_payload(json!({"children": [8, 7]})),
                 );
                 a
             },
             expected: json!(7),
             tree_walk_only: true,
         },
-        // 23. Pipe: let f = (x ~> x + 1) in 5 | f
+        // 23. Pipe: do { f :: (x ~> x + 1); 5 | f }
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
         //     applies the right child (function) to the left child (value).
         CorpusCase {
             name: "pipe_call",
-            source: "let f = (x ~> x + 1) in 5 | f",
+            source: "do { f :: (x ~> x + 1); 5 | f }",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -509,18 +528,22 @@ pub fn corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [4, 5]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 7: let f = function in pipe
-                        .with_payload(json!({"name": "f", "children": [3, 6]})),
+                    AstNode::new("assign") // 7: f :: function
+                        .with_payload(json!({"children": [5, 3]})),
+                );
+                a.push(
+                    AstNode::new("block") // 8: do { f :: fn; 5 | f }
+                        .with_payload(json!({"children": [7, 6]})),
                 );
                 a
             },
             expected: json!(6),
             tree_walk_only: true,
         },
-        // 24. Nested let + add: let x = 3 in let y = 4 in x + y
+        // 24. Two block bindings + add: do { x = 3; y = 4; x + y }
         CorpusCase {
-            name: "nested_let",
-            source: "let x = 3 in let y = 4 in x + y",
+            name: "nested_bind",
+            source: "do { x = 3; y = 4; x + y }",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3))); // 0
@@ -532,35 +555,44 @@ pub fn corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [2, 3]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 5: let y = 4 in (x + y)
-                        .with_payload(json!({"name": "y", "children": [1, 4]})),
+                    AstNode::new("assign") // 5: y = 4
+                        .with_payload(json!({"children": [3, 1]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 6: let x = 3 in (let y ...)
-                        .with_payload(json!({"name": "x", "children": [0, 5]})),
+                    AstNode::new("assign") // 6: x = 3
+                        .with_payload(json!({"children": [2, 0]})),
+                );
+                a.push(
+                    AstNode::new("block") // 7: do { x = 3; y = 4; x + y }
+                        .with_payload(json!({"children": [6, 5, 4]})),
                 );
                 a
             },
             expected: json!(7),
             tree_walk_only: true,
         },
-        // 25. If with let in branch: if (true) (let x = 1 in x) else 0
+        // 25. If with block binding in branch:
+        //     if (true) (do { x = 1; x }) else 0
         CorpusCase {
-            name: "if_with_let",
-            source: "if (true) (let x = 1 in x) else 0",
+            name: "if_with_bind",
+            source: "if (true) (do { x = 1; x }) else 0",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(true))); // 0: cond
                 a.push(AstNode::new("value").with_payload(json!(1))); // 1
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 2
                 a.push(
-                    AstNode::new("stmt.let") // 3: let x = 1 in x
-                        .with_payload(json!({"name": "x", "children": [1, 2]})),
+                    AstNode::new("assign") // 3: x = 1
+                        .with_payload(json!({"children": [2, 1]})),
                 );
-                a.push(AstNode::new("value").with_payload(json!(0))); // 4: else
                 a.push(
-                    AstNode::new("if") // 5
-                        .with_payload(json!({"children": [0, 3, 4]})),
+                    AstNode::new("block") // 4: do { x = 1; x }
+                        .with_payload(json!({"children": [3, 2]})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(0))); // 5: else
+                a.push(
+                    AstNode::new("if") // 6
+                        .with_payload(json!({"children": [0, 4, 5]})),
                 );
                 a
             },
@@ -842,7 +874,7 @@ pub fn corpus() -> Vec<CorpusCase> {
 /// | `proc_double`      | `21 \| (x ~> x * 2)`                          | 42       |
 /// | `proc_const`       | `99 \| (x ~> 42)`                             | 42       |
 /// | `proc_pipe_chain`  | `5 \| (x ~> x + 1) \| (y ~> y * 2)`          | 12       |
-/// | `proc_let_body`    | `3 \| (x ~> (let y = x + 1 in y * 2))`         | 8        |
+/// | `proc_bind_body`   | `3 \| (x ~> do { y = x + 1; y * 2 })`           | 8        |
 pub fn proc_corpus() -> Vec<CorpusCase> {
     vec![
         // 1. proc_increment: 41 | (x ~> x + 1)  →  42
@@ -965,14 +997,14 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
             expected: json!(12),
             tree_walk_only: false,
         },
-        // 5. proc_let_body: 3 | (x ~> (let y = x + 1 in y * 2))  →  8
-        //    The function body uses a let-binding: y = x + 1 = 4, then y * 2 = 8.
+        // 5. proc_bind_body: 3 | (x ~> do { y = x + 1; y * 2 })  →  8
+        //    The function body is a block binding: y = x + 1 = 4, then y * 2 = 8.
         CorpusCase {
-            name: "proc_let_body",
-            source: "3 | (x ~> (let y = x + 1 in y * 2))",
+            name: "proc_bind_body",
+            source: "3 | (x ~> do { y = x + 1; y * 2 })",
             ast: {
                 let mut a = Ast::new();
-                // --- function body: let y = x + 1 in y * 2 ---
+                // --- function body: do { y = x + 1; y * 2 } ---
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0: param x
                 a.push(AstNode::new("value").with_payload(json!(1))); // 1: literal 1
                 a.push(
@@ -986,17 +1018,21 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [3, 4]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 6: let y = (x + 1) in (y * 2)
-                        .with_payload(json!({"name": "y", "children": [2, 5]})),
+                    AstNode::new("assign") // 6: y = x + 1
+                        .with_payload(json!({"children": [3, 2]})),
                 );
                 a.push(
-                    AstNode::new("function") // 7: x ~> let y = x + 1 in y * 2
-                        .with_payload(json!({"params": ["x"], "body": 6})),
+                    AstNode::new("block") // 7: do { y = x + 1; y * 2 }
+                        .with_payload(json!({"children": [6, 5]})),
                 );
-                a.push(AstNode::new("value").with_payload(json!(3))); // 8: left of pipe
                 a.push(
-                    AstNode::new("pipe") // 9: 3 | fn  →  8
-                        .with_payload(json!({"children": [8, 7]})),
+                    AstNode::new("function") // 8: x ~> do { y = x + 1; y * 2 }
+                        .with_payload(json!({"params": ["x"], "body": 7})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(3))); // 9: left of pipe
+                a.push(
+                    AstNode::new("pipe") // 10: 3 | fn  →  8
+                        .with_payload(json!({"children": [9, 8]})),
                 );
                 a
             },

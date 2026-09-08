@@ -323,79 +323,17 @@ impl PrattEngine {
         // 2. Build the prefix (null-denotation) node.
         let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
 
-        // `match` and `data` are now expressed in grammar data: `match` via
-        // `AstShapeRef::keyword_clauses` (the optional `return ... with`
-        // motive clause between the scrutinee and the arm block) and `data`
-        // via `AstShapeRef::child_binding_powers` (type child at rbp 6,
-        // constructor list at rbp 0) plus `AstShapeRef::payload_extract`
-        // (the family name lifted from the type child into `payload.name`).
-        let left = if token.kind.as_str() == "token.keyword.from" {
-            // `from "path" import * as alias` — not expressible as a single
-            // grammar row (path is a child expression, `import * as alias` is a
-            // trailing clause), so it is parsed contextually.
-            let path_ref = self.expression_inner(lang, cursor, 0)?;
-            let import_tok = cursor.advance()?;
-            if import_tok.kind.as_str() != "token.keyword.import" {
-                return Err(LangError::engine_at(
-                    format!("expected 'import' after from path, got {}", import_tok.kind),
-                    import_tok.span(),
-                    Some("token".to_string()),
-                ));
-            }
-            let star = cursor.advance()?;
-            if star.kind.as_str() != "token.star" {
-                return Err(LangError::engine_at(
-                    format!("expected '*' in from-import, got {}", star.kind),
-                    star.span(),
-                    Some("token".to_string()),
-                ));
-            }
-            let as_tok = cursor.advance()?;
-            if as_tok.kind.as_str() != "token.keyword.as" {
-                return Err(LangError::engine_at(
-                    format!("expected 'as' in from-import, got {}", as_tok.kind),
-                    as_tok.span(),
-                    Some("token".to_string()),
-                ));
-            }
-            let alias_tok = cursor.advance()?;
-            let alias = if alias_tok.kind.as_str() == "token.identifier"
-                || alias_tok.kind.as_str() == "token.string"
-            {
-                alias_tok.text.as_str()
-            } else {
-                return Err(LangError::engine_at(
-                    format!("expected alias in from-import, got {}", alias_tok.kind),
-                    alias_tok.span(),
-                    Some("token".to_string()),
-                ));
-            };
-            let path_text = {
-                let ast_guard = self.ast.borrow();
-                let path_node = ast_guard.at(path_ref)?;
-                path_node
-                    .payload
-                    .as_str()
-                    .map(String::from)
-                    .ok_or_else(|| {
-                        LangError::engine_at(
-                            "from-import: expected a string literal path".to_string(),
-                            path_node.span,
-                            Some("token".to_string()),
-                        )
-                    })?
-            };
-            let mut payload_fields = serde_json::Map::new();
-            payload_fields.insert(
-                "children".to_string(),
-                Value::Array(vec![Value::from(path_ref.index())]),
-            );
-            payload_fields.insert("path".to_string(), Value::from(path_text));
-            payload_fields.insert("alias".to_string(), Value::from(alias.to_string()));
-            let payload = Value::Object(payload_fields);
-            let span = Self::span_union(token.span(), alias_tok.span());
-            self.push_spanned("stmt.import", payload, span)
-        } else if arity == 0 && delim.is_none() && shape.payload_tokens.is_empty() {
+        // `match`, `data`, and `from` are now expressed in grammar data:
+        // `match` via `AstShapeRef::keyword_clauses` (the optional
+        // `return ... with` motive clause between the scrutinee and the arm
+        // block), `data` via `AstShapeRef::child_binding_powers` (type child
+        // at rbp 6, constructor list at rbp 0) plus
+        // `AstShapeRef::payload_extract` (the family name lifted from the
+        // type child into `payload.name`), and `from` via
+        // `AstShapeRef::trailing_tokens` (the required `import * as <alias>`
+        // tail, alias captured into `payload.alias`) plus a `required`
+        // `payload_extract` step lifting the path string into `payload.path`.
+        let left = if arity == 0 && delim.is_none() && shape.payload_tokens.is_empty() {
             // Atom: payload is the token's interpreted value (dispatches on
             // LiteralKind — no substring matching).
             let payload = self.atom_payload(lang, &token);
@@ -494,18 +432,19 @@ impl PrattEngine {
                     DelimitedResult::Elements(indices) => children.extend(indices),
                 }
             }
+            // Trailing token steps (`AstShapeRef::trailing_tokens`) are
+            // consumed in order after all children — e.g. `from`'s required
+            // `import * as <alias>` tail, with the alias text captured into
+            // `payload.alias`.
+            Self::consume_trailing_tokens(cursor, shape, &mut payload_fields)?;
             // Build payload: start with extracted fields, then add children.
             // Payload-extraction steps (`AstShapeRef::payload_extract`) lift
             // a name-like string out of a fixed child's payload into this
             // node's payload — e.g. `data` lifts the family name from its
-            // type child into `payload.name`.
-            for spec in &shape.payload_extract {
-                if let Some(&child_idx) = children.get(spec.child) {
-                    if let Some(s) = self.extract_child_name(lang, AstRef::new(child_idx)) {
-                        payload_fields.insert(spec.field.clone(), Value::from(s));
-                    }
-                }
-            }
+            // type child into `payload.name`; `from` lifts the module path
+            // into `payload.path` (required — a non-string child is a parse
+            // error).
+            self.apply_payload_extract(lang, shape, &children, &mut payload_fields)?;
             payload_fields.insert(
                 "children".to_string(),
                 Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
@@ -630,17 +569,14 @@ impl PrattEngine {
                     DelimitedResult::Elements(indices) => children.extend(indices),
                 }
             }
+            // Trailing token steps (`AstShapeRef::trailing_tokens`) apply to
+            // infix rows too — consumed in order after all children.
+            let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
+            Self::consume_trailing_tokens(cursor, shape, &mut payload_fields)?;
             // Payload-extraction steps (`AstShapeRef::payload_extract`) apply
             // to infix rows too — lift a name-like string out of a child into
             // this node's payload.
-            let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
-            for spec in &shape.payload_extract {
-                if let Some(&child_idx) = children.get(spec.child) {
-                    if let Some(s) = self.extract_child_name(lang, AstRef::new(child_idx)) {
-                        payload_fields.insert(spec.field.clone(), Value::from(s));
-                    }
-                }
-            }
+            self.apply_payload_extract(lang, shape, &children, &mut payload_fields)?;
             payload_fields.insert(
                 "children".to_string(),
                 Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
@@ -652,6 +588,87 @@ impl PrattEngine {
         }
 
         Ok(left)
+    }
+
+    /// Consume the ordered trailing token steps declared in
+    /// [`AstShapeRef::trailing_tokens`] (ADR-0053), storing each
+    /// `field`-carrying token's text into `payload_fields`.
+    ///
+    /// Each step matches when the next token's kind is in `step.kinds`; a
+    /// non-`optional` step that does not match is a parse error. This is the
+    /// data-driven replacement for `from`'s hardcoded `import * as <alias>`
+    /// tail — and serves any future multi-keyword suffix form (e.g.
+    /// `try ... catch ... finally`-style tails where the tail carries no
+    /// children).
+    fn consume_trailing_tokens(
+        cursor: &mut Cursor<'_>,
+        shape: &AstShapeRef,
+        payload_fields: &mut serde_json::Map<String, Value>,
+    ) -> Result<(), LangError> {
+        for step in &shape.trailing_tokens {
+            let matches = cursor
+                .peek()
+                .map(|t| step.kinds.iter().any(|k| k == &t.kind))
+                .unwrap_or(false);
+            if !matches {
+                if step.optional {
+                    continue;
+                }
+                // Surface "unexpected end of input" when the cursor is
+                // exhausted; otherwise an expected-token error.
+                let tok = cursor.advance()?;
+                return Err(LangError::engine_at(
+                    format!("expected {}, got {}", step.kinds.join(" or "), tok.kind),
+                    tok.span(),
+                    Some("token".to_string()),
+                ));
+            }
+            let tok = cursor.advance()?;
+            if let Some(field) = &step.field {
+                payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply [`AstShapeRef::payload_extract`] steps: lift a name-like string
+    /// out of a fixed child into `payload_fields` under `spec.field`.
+    ///
+    /// When `spec.required` is set and no string resolves (missing child or
+    /// no name-like payload), this is a parse error rather than a silently
+    /// unset field — e.g. `from` requires a string-literal path child.
+    fn apply_payload_extract(
+        &self,
+        lang: &Language,
+        shape: &AstShapeRef,
+        children: &[usize],
+        payload_fields: &mut serde_json::Map<String, Value>,
+    ) -> Result<(), LangError> {
+        for spec in &shape.payload_extract {
+            let resolved = children
+                .get(spec.child)
+                .and_then(|&i| self.extract_child_name(lang, AstRef::new(i)));
+            match resolved {
+                Some(s) => {
+                    payload_fields.insert(spec.field.clone(), Value::from(s));
+                }
+                None if spec.required => {
+                    let span = children
+                        .get(spec.child)
+                        .and_then(|&i| self.child_span(AstRef::new(i)));
+                    return Err(LangError::engine_at(
+                        format!(
+                            "expected a name-like child for payload field {}",
+                            spec.field
+                        ),
+                        span,
+                        Some("token".to_string()),
+                    ));
+                }
+                None => {}
+            }
+        }
+        Ok(())
     }
 
     /// Parse any optional keyword clauses anchored after fixed child

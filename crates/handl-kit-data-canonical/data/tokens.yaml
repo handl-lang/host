@@ -142,6 +142,11 @@
   label: law
   category: keyword
   doc: "**Law declaration — assert a contract signature** `law`\n\n```\nlaw `name` : `signature`\n```"
+# `let` is removed from the language (ADR-0079 completed). The keyword
+# token is retained with NO grammar row — the same tombstone pattern as
+# `token.keyword.then`/`token.keyword.axiom` — so `let` stays a reserved
+# word and `let x :: v` fails to parse ("unexpected token") instead of
+# silently lexing as an identifier.
 - id: token.keyword.let
   label: let
   category: keyword
@@ -183,9 +188,6 @@
   label: "["
   category: open-bracket
   pair: token.rbracket
-- id: token.let
-  label: null
-  category: keyword
 - id: token.lparen
   label: (
   category: open-bracket

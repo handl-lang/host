@@ -250,10 +250,13 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
-# `from` is not fully expressible in a single grammar row because the path
-# is a child expression and `import * as alias` is a trailing clause with
-# multiple required keyword/punctuation tokens, so the parser handles this
-# form contextually.
+# `from "path" import * as alias` — the path is a child expression and the
+# `import * as <alias>` tail is a sequence of required trailing tokens
+# (`AstShapeRef::trailing_tokens`, ADR-0053): `import`, `*`, `as` are
+# consumed verbatim and the alias (identifier or string) is captured into
+# `payload.alias`. The path string is lifted out of the child into
+# `payload.path` via a required `payload_extract` step — a non-string path
+# child is a parse error.
 - id: grammar.stmt-from.prefix
   token: token.keyword.from
   position: Prefix
@@ -263,6 +266,21 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
+    payload_extract:
+      - child: 0
+        field: path
+        required: true
+    trailing_tokens:
+      - kinds:
+          - token.keyword.import
+      - kinds:
+          - token.star
+      - kinds:
+          - token.keyword.as
+      - kinds:
+          - token.identifier
+          - token.string
+        field: alias
 # `match` supports an optional `return ... with` motive clause and produces a
 # `match` node with 2 or 3 children: [scrutinee, (motive,) arms]. Surface forms:
 #   match scrutinee { arms }
@@ -528,24 +546,6 @@
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
-# `let <name> :: <value>` — statement binding (reinstated). The old
-# `let ... in` expression form was removed in ADR-0079 (graph blocks
-# `{ x = y; ... }` cover that); this row parses the statement form, which
-# produces a `let` node with `assign` shape: children `[target, value]`.
-# `binding_power [6, 0]` parses the name child at rbp 6 so it stops before
-# `::` (token.bind, lbp 5) — the same trick `data` uses — while `:` (lbp
-# 12) still binds, so `let x : T :: v` parses the target as a `type-annot`.
-- id: grammar.let.prefix
-  token: token.let
-  position: Prefix
-  binding_power:
-    - 6
-    - 0
-  child_shape:
-    node_kind: let
-    arity: 2
-    child_separators:
-      - !Required token.bind
 - id: grammar.do-block.prefix
   token: token.keyword.do
   position: Prefix

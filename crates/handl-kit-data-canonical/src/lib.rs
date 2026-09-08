@@ -442,12 +442,11 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 62 type rules in types.yaml. `type.let` is reinstated for the
-        // `let <name> :: <value>` statement-binding form (`type.stmt.let`
-        // stays removed — `stmt.let` is desugared-only). Phase 7 added
-        // `type.Total` and `type.Pure` meta-predicate types. Phase 8.2
-        // added `type.Marshalable` meta-predicate type.
-        assert_eq!(lang.types.len(), 62);
+        // 61 type rules in types.yaml. `let` is fully removed from the
+        // language (ADR-0079 completed), so `type.let`/`type.stmt.let` are
+        // absent. Phase 7 added `type.Total` and `type.Pure` meta-predicate
+        // types. Phase 8.2 added `type.Marshalable` meta-predicate type.
+        assert_eq!(lang.types.len(), 61);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

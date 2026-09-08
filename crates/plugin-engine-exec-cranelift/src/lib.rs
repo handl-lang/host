@@ -3192,7 +3192,6 @@ fn apply_native_v2(
             Err(e) => Err(e),
         },
         "bind" => return prim_v2_bind(ctx),
-        "eval_let" => return prim_v2_bind(ctx),
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
         "while_step" => {
             let inc = incoming.unwrap_or(TaggedValue::Null);

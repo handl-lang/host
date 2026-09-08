@@ -81,12 +81,15 @@ fn lex_bind_token_is_double_colon() {
 
 #[test]
 fn lex_let_binding() {
+    // `let` is removed from the language (ADR-0079 completed): the text
+    // still lexes to the tombstone `token.keyword.let` (reserved word, no
+    // grammar row) — `token.let` is gone.
     let toks = lex("let x = 42");
     assert_eq!(
         toks,
         vec![
             Token {
-                kind: "token.let".into(),
+                kind: "token.keyword.let".into(),
                 text: "let".into(),
                 ..Default::default()
             },
