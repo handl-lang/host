@@ -422,8 +422,10 @@
         args: []
         source: Native
         lit: 1
+      # `proj_child_or`: the else child is optional (`optional_children` on
+      # `grammar.if.prefix`) — an else-less `if` evaluates to null.
       r: !Arr
-        op: proj_child
+        op: proj_child_or
         args: []
         source: Native
         lit: 2

@@ -108,7 +108,13 @@ and linter all split source into top-level statements at bracket-depth zero
     — `data`'s `payload.name`). The `grammar.match.prefix`/
     `grammar.data.prefix` rows in `data/grammar.yaml` carry the fields; the
     `kind == "match"`/`kind == "data"` branches are deleted. See ADR-0053's
-    amendment section.
+    amendment section. A fourth generic field, `optional_children`
+    (trailing fixed children gated on their preceding `child_separators`
+    entry — parsed only when the separator token is present), backs the
+    optional `else` clause: `grammar.if.prefix` declares
+    `optional_children: [2]`, so `if c {x}` produces an arity-2 `if` node
+    that evaluates to null (`eval.if` uses `proj_child_or`; `type.if` uses
+    `synth_child_or`/`check_child_or`).
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
     `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
     heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`

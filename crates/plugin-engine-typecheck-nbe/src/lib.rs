@@ -491,6 +491,60 @@ impl NbeTypecheckEngine {
                 let child = child_ref(ast, node_ref, idx)?;
                 self.synth_node(lang, ast, child, ctx)
             }
+            "synth_child_or" => {
+                // Like `synth_child`, but tolerates an absent child (e.g.
+                // the missing `else` of an else-less `if`, produced by an
+                // `optional_children` grammar row): when the child index is
+                // out of range, the fallback sub-scheme `args[0]` is
+                // evaluated instead.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "typecheck: {} requires a u64 lit (child index)",
+                        op
+                    ))
+                })?;
+                match try_child_ref(ast, node_ref, idx)? {
+                    Some(child) => self.synth_node(lang, ast, child, ctx),
+                    None => {
+                        let fallback = args.first().ok_or_else(|| {
+                            LangError::engine(format!(
+                                "typecheck: {} requires a fallback scheme arg",
+                                op
+                            ))
+                        })?;
+                        self.eval_type_scheme(lang, ast, node_ref, fallback, ctx, incoming)
+                    }
+                }
+            }
+            "check_child_or" => {
+                // Like `check_child`, but tolerates an absent child: when
+                // the child index is out of range the check is a no-op.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "typecheck: {} requires a u64 lit (child index)",
+                        op
+                    ))
+                })?;
+                match try_child_ref(ast, node_ref, idx)? {
+                    Some(child) => {
+                        let expected = if args.is_empty() {
+                            incoming.clone().unwrap_or(Value::Null)
+                        } else {
+                            self.eval_type_scheme(
+                                lang,
+                                ast,
+                                node_ref,
+                                &args[0],
+                                ctx,
+                                incoming.clone(),
+                            )?
+                        };
+                        self.check_node(lang, ast, child, &expected, ctx)?;
+                        Ok(Value::Null)
+                    }
+                    None => Ok(Value::Null),
+                }
+            }
             "check_child" => {
                 let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
                     LangError::engine("typecheck: check_child requires a u64 lit (child index)")
@@ -4358,6 +4412,33 @@ fn child_ref(ast: &Ast, node_ref: AstRef, idx: u64) -> Result<AstRef, LangError>
             ))
         })?;
     Ok(AstRef::new(child_idx as usize))
+}
+
+/// Like [`child_ref`], but returns `Ok(None)` when the child index is absent
+/// (e.g. an `optional_children` child that was not produced) instead of
+/// erroring. Errors only when the node itself or its children array is
+/// missing.
+fn try_child_ref(ast: &Ast, node_ref: AstRef, idx: u64) -> Result<Option<AstRef>, LangError> {
+    let node: &AstNode = ast.get(node_ref).ok_or_else(|| {
+        LangError::engine(format!(
+            "typecheck: try_child_ref: node index {} out of bounds",
+            node_ref.index()
+        ))
+    })?;
+    let children = node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .ok_or_else(|| {
+            LangError::engine(format!(
+                "typecheck: try_child_ref: node kind '{}' has no children array",
+                node.kind
+            ))
+        })?;
+    Ok(children
+        .get(idx as usize)
+        .and_then(|v| v.as_u64())
+        .map(|i| AstRef::new(i as usize)))
 }
 
 // --- ADR-0081 data-driven child roles --------------------------------------

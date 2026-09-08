@@ -229,6 +229,12 @@
     block_children:
       - 1
       - 2
+    # `else` clause is optional (ADR-0053 `optional_children`): child 2 is
+    # parsed only when the `else` keyword follows the then-block — the
+    # keyword is the disambiguator, so a following statement is never
+    # swallowed as the else branch (`if c {x} y` = `if` + `y`).
+    optional_children:
+      - 2
     child_separators:
       - !Optional token.keyword.then
       - !Required token.keyword.else

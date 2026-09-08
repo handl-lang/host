@@ -1655,6 +1655,7 @@ pub unsafe extern "C" fn helper_v2_eval_child(
     ctx: *mut EvalCtx,
     child_n: usize,
     incoming: *mut TaggedValue,
+    or_null: i64,
 ) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
@@ -1662,8 +1663,13 @@ pub unsafe extern "C" fn helper_v2_eval_child(
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
+        // `or_null` (from `proj_child_or`): an absent child — missing
+        // children array or out-of-range index — yields null instead of an
+        // error (e.g. the missing `else` of an else-less `if`).
+        let tolerate_missing = or_null != 0;
         let children = match node.payload.get("children").and_then(|c| c.as_array()) {
             Some(arr) => arr,
+            None if tolerate_missing => return box_value(TaggedValue::Null),
             None => {
                 return ctx.set_error(LangError::engine(
                     "expected children array in payload".to_string(),
@@ -1672,6 +1678,7 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         };
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
+            None if tolerate_missing => return box_value(TaggedValue::Null),
             None => {
                 return ctx.set_error(LangError::engine_node(
                     format!("child {} not found", child_n),

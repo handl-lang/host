@@ -389,6 +389,21 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(2),
             tree_walk_only: false,
         },
+        // 16b. If without else: `if (false) 1` — the `else` child is optional
+        // (grammar `optional_children`); the arity-2 node evaluates to null.
+        CorpusCase {
+            name: "if_no_else",
+            source: "if (false) 1",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(false)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("if").with_payload(json!({"children": [0, 1]})));
+                a
+            },
+            expected: json!(null),
+            tree_walk_only: false,
+        },
         // 17. Ternary true: true ? 1 : 2  (ternary uses the same Branch scheme as if)
         CorpusCase {
             name: "ternary_true",

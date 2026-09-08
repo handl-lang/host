@@ -365,13 +365,20 @@
     type: object
 - id: ast.if
   node_kind: if
+  # Roles: `condition`/`then`/`else`. The `else` child is optional — a
+  # else-less `if` has 2 children and evaluates to null when the condition
+  # is false.
+  children:
+    - role: condition
+    - role: then
+    - role: else
   payload_schema:
     properties:
       children:
         items:
           type: integer
         maxItems: 3
-        minItems: 3
+        minItems: 2
         type: array
     required:
       - children

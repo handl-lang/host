@@ -1324,6 +1324,31 @@ impl TreeWalkEngine {
                 let val = self.eval_node_inner(ast, target_ref, lang, env)?;
                 Ok((val, false))
             }
+            "proj_child_or" => {
+                // Like `proj_child`, but tolerates an absent child (e.g. the
+                // missing `else` of a else-less `if`): when the child index
+                // is out of range the result is `Null` instead of an error.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine_node(
+                        "proj_child_or: missing index literal".to_string(),
+                        current_node,
+                    )
+                })?;
+                let arena_idx = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .and_then(|children| children.get(idx as usize))
+                    .and_then(|v| v.as_u64());
+                match arena_idx {
+                    Some(i) => {
+                        let val =
+                            self.eval_node_inner(ast, AstRef::new(i as usize), lang, env)?;
+                        Ok((val, false))
+                    }
+                    None => Ok((TaggedValue::Null, false)),
+                }
+            }
             "extend_env" => {
                 let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
                     LangError::engine_node("extend_env: missing name literal", current_node)
