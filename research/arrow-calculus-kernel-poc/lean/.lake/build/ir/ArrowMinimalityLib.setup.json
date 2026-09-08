@@ -32,6 +32,8 @@
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/FanoutUnencodable.olean"]],
   "ArrowMinimalityLib.EquationalLawInference":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/EquationalLawInference.olean"]],
+  "ArrowMinimalityLib.EffectHandlers":
+  [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/EffectHandlers.olean"]],
   "ArrowMinimalityLib.DependentProofGraphs":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/DependentProofGraphs.olean"]],
   "ArrowMinimalityLib.CutElimCongruence":

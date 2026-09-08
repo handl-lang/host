@@ -1,10 +1,10 @@
 {"synthetic": false,
  "schemaVersion": "2025-09-10",
  "outputs":
- {"o": ["8ee39a50118459cc.olean"],
+ {"o": ["40427f4638aefc25.olean"],
   "m": false,
-  "i": "b4304492e12015e3.ilean",
-  "c": "452853bff4293eb9.c"},
+  "i": "e71e07c17d2c4fb8.ilean",
+  "c": "5013cf3378635bed.c"},
  "log":
  [{"message":
    ".> LEAN_PATH=/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean /home/luis/.elan/toolchains/leanprover--lean4---v4.33.1/bin/lean /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib.lean -o /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib.olean -i /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib.ilean -c /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib.c --setup /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib.setup.json --json",
@@ -76,7 +76,11 @@
       ["ArrowMinimalityLib.EquationalLawInference transitive imports (legacy)",
        "ce883eeed880a835"],
       ["ArrowMinimalityLib.EquationalLawInference:importAllArts",
-       "6b77c006ab8f77e4"]]]]],
+       "6b77c006ab8f77e4"],
+      ["ArrowMinimalityLib.EffectHandlers transitive imports (legacy)",
+       "f69b7f4e5bfad019"],
+      ["ArrowMinimalityLib.EffectHandlers:importAllArts",
+       "3dc50b80684ce9e9"]]]]],
   ["libs",
    [["import dynlibs", "00000000000006bb"],
     ["package external libraries", "00000000000006bb"],
@@ -85,10 +89,10 @@
   ["Lean 4.33.1, commit 819816b2e0a3bf405af45ae5c7af2491d8f5bee6",
    "0051240b7c23c453"],
   ["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib.lean",
-   "7cb0f92ebb5fe6e7"],
+   "cbdd4b5278c1a0a6"],
   ["options", "00000000000006bb"],
   ["isModule: false", "feefd2a0d3a1847e"],
   ["Module.name: ArrowMinimalityLib", "535910bc26e21c74"],
   ["Package.id?: (some arrow_minimality_lib)", "6f9f5635d56cb398"],
   ["Module.leanArgs: #[]", "00000000000006bb"]],
- "depHash": "361e633723be1355"}
+ "depHash": "a0825030b7162489"}

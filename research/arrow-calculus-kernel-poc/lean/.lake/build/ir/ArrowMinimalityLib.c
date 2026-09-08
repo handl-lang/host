@@ -1,6 +1,6 @@
 // Lean compiler output
 // Module: ArrowMinimalityLib
-// Imports: public import Init public meta import Init public import ArrowMinimalityLib.Basic public import ArrowMinimalityLib.ProofGraphs public import ArrowMinimalityLib.IteratedLoop public import ArrowMinimalityLib.Translation public import ArrowMinimalityLib.DependentProofGraphs public import ArrowMinimalityLib.RefinementProofGraphs public import ArrowMinimalityLib.ProofAdvantage public import ArrowMinimalityLib.CutElimCongruence public import ArrowMinimalityLib.ProofRelevant public import ArrowMinimalityLib.FanoutUnencodable public import ArrowMinimalityLib.RefinementCharacterization public import ArrowMinimalityLib.InvariantDomain public import ArrowMinimalityLib.StructuralInference public import ArrowMinimalityLib.LoopInvariantDiscovery public import ArrowMinimalityLib.AlgorithmicCompleteness public import ArrowMinimalityLib.Termination public import ArrowMinimalityLib.TraitInference public import ArrowMinimalityLib.EquationalLawInference
+// Imports: public import Init public meta import Init public import ArrowMinimalityLib.Basic public import ArrowMinimalityLib.ProofGraphs public import ArrowMinimalityLib.IteratedLoop public import ArrowMinimalityLib.Translation public import ArrowMinimalityLib.DependentProofGraphs public import ArrowMinimalityLib.RefinementProofGraphs public import ArrowMinimalityLib.ProofAdvantage public import ArrowMinimalityLib.CutElimCongruence public import ArrowMinimalityLib.ProofRelevant public import ArrowMinimalityLib.FanoutUnencodable public import ArrowMinimalityLib.RefinementCharacterization public import ArrowMinimalityLib.InvariantDomain public import ArrowMinimalityLib.StructuralInference public import ArrowMinimalityLib.LoopInvariantDiscovery public import ArrowMinimalityLib.AlgorithmicCompleteness public import ArrowMinimalityLib.Termination public import ArrowMinimalityLib.TraitInference public import ArrowMinimalityLib.EquationalLawInference public import ArrowMinimalityLib.EffectHandlers
 #include <lean/lean.h>
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -33,6 +33,7 @@ lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_AlgorithmicCom
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_Termination(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_TraitInference(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_EquationalLawInference(uint8_t builtin);
+lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_EffectHandlers(uint8_t builtin);
 static bool _G_initialized = false;
 LEAN_EXPORT lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib(uint8_t builtin) {
 lean_object * res;
@@ -96,6 +97,9 @@ res = initialize_arrow__minimality__lib_ArrowMinimalityLib_TraitInference(builti
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_arrow__minimality__lib_ArrowMinimalityLib_EquationalLawInference(builtin);
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_arrow__minimality__lib_ArrowMinimalityLib_EffectHandlers(builtin);
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 return lean_io_result_mk_ok(lean_box(0));
