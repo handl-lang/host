@@ -31,8 +31,8 @@
 use std::cell::RefCell;
 
 use handl_language::{
-    Ast, AstNode, AstRef, ChildSeparator, DelimitedShape, GrammarPosition, LangError, Language,
-    LiteralKind, Span, Token, Value,
+    Ast, AstNode, AstRef, AstShapeRef, ChildSeparator, DelimitedShape, GrammarPosition, LangError,
+    Language, LiteralKind, Span, Token, Value,
 };
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -323,98 +323,13 @@ impl PrattEngine {
         // 2. Build the prefix (null-denotation) node.
         let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
 
-        // ADR-0081 engine-genericity note: `match` and `data` are the
-        // remaining contextual prefix forms that cannot (yet) be expressed with
-        // the current `GrammarRow`/`AstShapeRef` vocabulary.
-        // - `match` needs an optional keyword clause (`return ... with`) between
-        //   the first fixed child and the delimited block.
-        // - `data` needs per-child binding powers (the second child must parse
-        //   at rbp 0 to allow `|` infix, while the first child parses at rbp 6)
-        //   plus a way to extract a synthesized name from the first child into
-        //   the payload.
-        // Future generic fields (`optional_clauses`, `child_binding_powers`,
-        // `payload_extract`) could close these branches.
-        let left = if kind == "match" {
-            // Phase 6.3: `match` supports an optional return motive:
-            //   match scrutinee return motive with { arms }
-            // The grammar row only describes the `scrutinee { arms }` form;
-            // this contextual branch handles the optional `return ... with`
-            // clause and produces a `match` node with 2 or 3 children.
-            let scrutinee = self.expression_inner(lang, cursor, prefix_rbp)?;
-            let mut match_children = vec![scrutinee.index()];
-            if cursor
-                .peek()
-                .map(|t| t.kind.as_str() == "token.keyword.return")
-                .unwrap_or(false)
-            {
-                let _ = cursor.advance()?; // consume `return`
-                let motive = self.expression_inner(lang, cursor, 0)?;
-                let with = cursor.advance()?;
-                if with.kind.as_str() != "token.keyword.with" {
-                    return Err(LangError::engine_at(
-                        format!("expected 'with' after match motive, got {}", with.kind),
-                        with.span(),
-                        Some("token".to_string()),
-                    ));
-                }
-                match_children.push(motive.index());
-            }
-            if let Some(d) = delim {
-                let result = self.parse_delimited_block(lang, cursor, d)?;
-                let block_idx = match result {
-                    DelimitedResult::Container(idx) => idx,
-                    DelimitedResult::Elements(indices) => {
-                        if indices.is_empty() {
-                            let node = AstNode::new("block")
-                                .with_payload(serde_json::json!({ "children": [] }));
-                            self.ast.borrow_mut().push(node).index()
-                        } else {
-                            indices[0]
-                        }
-                    }
-                };
-                match_children.push(block_idx);
-            }
-            let payload = serde_json::json!({ "children": match_children });
-            let span = Self::span_union(
-                token.span(),
-                self.child_span(AstRef::new(*match_children.last().unwrap())),
-            );
-            self.push_spanned("match", payload, span)
-        } else if kind == "data" {
-            // Phase 6.3: `data` declarations support parameters:
-            //   data Name(params) = constructors
-            // The grammar row has arity 2 with a separating `=`, but a single
-            // prefix_rbp cannot both stop the type expression before `=` and
-            // allow `|` infix inside the constructor list. We handle the form
-            // contextually: parse the type expression at a binding power above
-            // `=` (5), consume `=`, then parse the constructor list at 0.
-            let type_rbp = 6;
-            let type_expr = self.expression_inner(lang, cursor, type_rbp)?;
-            let eq = cursor.advance()?;
-            if eq.kind.as_str() != "token.bind" {
-                return Err(LangError::engine_at(
-                    format!("expected '::' in data declaration, got {}", eq.kind),
-                    eq.span(),
-                    Some("token".to_string()),
-                ));
-            }
-            let cons_expr = self.expression_inner(lang, cursor, 0)?;
-            let mut payload_fields = serde_json::Map::new();
-            if let Some(name) = self.extract_type_name(lang, type_expr) {
-                payload_fields.insert("name".to_string(), Value::from(name));
-            }
-            payload_fields.insert(
-                "children".to_string(),
-                Value::Array(vec![
-                    Value::from(type_expr.index()),
-                    Value::from(cons_expr.index()),
-                ]),
-            );
-            let payload = Value::Object(payload_fields);
-            let span = Self::span_union(token.span(), self.child_span(cons_expr));
-            self.push_spanned("data", payload, span)
-        } else if token.kind.as_str() == "token.keyword.from" {
+        // `match` and `data` are now expressed in grammar data: `match` via
+        // `AstShapeRef::keyword_clauses` (the optional `return ... with`
+        // motive clause between the scrutinee and the arm block) and `data`
+        // via `AstShapeRef::child_binding_powers` (type child at rbp 6,
+        // constructor list at rbp 0) plus `AstShapeRef::payload_extract`
+        // (the family name lifted from the type child into `payload.name`).
+        let left = if token.kind.as_str() == "token.keyword.from" {
             // `from "path" import * as alias` — not expressible as a single
             // grammar row (path is a child expression, `import * as alias` is a
             // trailing clause), so it is parsed contextually.
@@ -546,9 +461,24 @@ impl PrattEngine {
                     };
                     AstRef::new(idx)
                 } else {
-                    self.expression_inner(lang, cursor, prefix_rbp)?
+                    // Per-child right binding power override
+                    // (`AstShapeRef::child_binding_powers`): when present,
+                    // child `i` parses at its own rbp instead of the row
+                    // default — e.g. `data`'s type child stops before `::`
+                    // (rbp 6) while its constructor list parses at rbp 0.
+                    let child_rbp = shape
+                        .child_binding_powers
+                        .get(i)
+                        .copied()
+                        .unwrap_or(prefix_rbp);
+                    self.expression_inner(lang, cursor, child_rbp)?
                 };
                 children.push(child.index());
+                // Optional keyword clauses (`AstShapeRef::keyword_clauses`):
+                // after fixed child `i`, a clause whose `open` keyword is the
+                // next token is parsed and its expression spliced in as an
+                // extra child — e.g. `match`'s `return motive with` clause.
+                self.try_keyword_clauses(lang, cursor, shape, i, &mut children)?;
                 // Consume separator between children (not after the last
                 // normal child — the delimited block follows).
                 if i + 1 < normal {
@@ -565,6 +495,17 @@ impl PrattEngine {
                 }
             }
             // Build payload: start with extracted fields, then add children.
+            // Payload-extraction steps (`AstShapeRef::payload_extract`) lift
+            // a name-like string out of a fixed child's payload into this
+            // node's payload — e.g. `data` lifts the family name from its
+            // type child into `payload.name`.
+            for spec in &shape.payload_extract {
+                if let Some(&child_idx) = children.get(spec.child) {
+                    if let Some(s) = self.extract_child_name(lang, AstRef::new(child_idx)) {
+                        payload_fields.insert(spec.field.clone(), Value::from(s));
+                    }
+                }
+            }
             payload_fields.insert(
                 "children".to_string(),
                 Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
@@ -627,6 +568,9 @@ impl PrattEngine {
             };
             let mut children: Vec<usize> = Vec::with_capacity(infix_arity);
             children.push(left.index());
+            // Optional keyword clauses anchored after the left operand
+            // (`after_child: 0`) — e.g. `x op KW clause y` forms.
+            self.try_keyword_clauses(lang, cursor, shape, 0, &mut children)?;
             for i in 0..normal {
                 let child_idx = i + 1;
                 let child = if shape.block_children.contains(&child_idx)
@@ -660,9 +604,18 @@ impl PrattEngine {
                     };
                     AstRef::new(idx)
                 } else {
-                    self.expression_inner(lang, cursor, rbp_right)?
+                    // Per-child right binding power override
+                    // (`AstShapeRef::child_binding_powers`), keyed on the
+                    // child index (left operand is index 0).
+                    let child_rbp = shape
+                        .child_binding_powers
+                        .get(child_idx)
+                        .copied()
+                        .unwrap_or(rbp_right);
+                    self.expression_inner(lang, cursor, child_rbp)?
                 };
                 children.push(child.index());
+                self.try_keyword_clauses(lang, cursor, shape, child_idx, &mut children)?;
                 // Consume separator between children (not after the last).
                 if i + 1 < normal {
                     if let Some(sep) = shape.child_separators.get(i) {
@@ -677,7 +630,22 @@ impl PrattEngine {
                     DelimitedResult::Elements(indices) => children.extend(indices),
                 }
             }
-            let payload = serde_json::json!({ "children": children });
+            // Payload-extraction steps (`AstShapeRef::payload_extract`) apply
+            // to infix rows too — lift a name-like string out of a child into
+            // this node's payload.
+            let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
+            for spec in &shape.payload_extract {
+                if let Some(&child_idx) = children.get(spec.child) {
+                    if let Some(s) = self.extract_child_name(lang, AstRef::new(child_idx)) {
+                        payload_fields.insert(spec.field.clone(), Value::from(s));
+                    }
+                }
+            }
+            payload_fields.insert(
+                "children".to_string(),
+                Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
+            );
+            let payload = Value::Object(payload_fields);
             let start = self.child_span(left);
             let span = Self::span_union(start, cursor.last_span());
             left = self.push_spanned(infix_kind.as_str(), payload, span);
@@ -686,14 +654,65 @@ impl PrattEngine {
         Ok(left)
     }
 
-    /// Extract the family/constructor name from a parsed type expression.
+    /// Parse any optional keyword clauses anchored after fixed child
+    /// `after_child` (`AstShapeRef::keyword_clauses`), splicing each parsed
+    /// clause expression into `children`.
     ///
-    /// The `data` AST shape carries `payload.name` for backward compatibility.
-    /// We resolve it generically: a string payload (`var`), a `name` property,
-    /// or the `callee` role child (`call(...)`).
-    fn extract_type_name(&self, lang: &Language, type_expr: AstRef) -> Option<String> {
+    /// For each declared clause whose `after_child` matches, if the next
+    /// token has the clause's `open` kind the clause fires: `open` is
+    /// consumed, a clause expression is parsed at `clause.binding_power`,
+    /// the `close` keyword is required and consumed, and the expression is
+    /// appended to `children`. When the next token is not `open`, the clause
+    /// is skipped. Fully data-driven — e.g. `match`'s `return ... with`
+    /// motive clause is `after_child: 0, open: token.keyword.return,
+    /// close: token.keyword.with` in `grammar.yaml`.
+    fn try_keyword_clauses(
+        &self,
+        lang: &Language,
+        cursor: &mut Cursor<'_>,
+        shape: &AstShapeRef,
+        after_child: usize,
+        children: &mut Vec<usize>,
+    ) -> Result<(), LangError> {
+        for clause in &shape.keyword_clauses {
+            if clause.after_child != after_child {
+                continue;
+            }
+            let fires = cursor
+                .peek()
+                .map(|t| t.kind == clause.open)
+                .unwrap_or(false);
+            if !fires {
+                continue;
+            }
+            let _ = cursor.advance()?; // consume the `open` keyword
+            let expr = self.expression_inner(lang, cursor, clause.binding_power)?;
+            let close = cursor.advance()?;
+            if close.kind != clause.close {
+                return Err(LangError::engine_at(
+                    format!(
+                        "expected {} after keyword clause, got {}",
+                        clause.close, close.kind
+                    ),
+                    close.span(),
+                    Some("token".to_string()),
+                ));
+            }
+            children.push(expr.index());
+        }
+        Ok(())
+    }
+
+    /// Extract a name-like string from a parsed child node for
+    /// [`AstShapeRef::payload_extract`](handl_language::AstShapeRef::payload_extract)
+    /// steps.
+    ///
+    /// Resolved generically: a string payload (e.g. `var("Nat")`), an
+    /// existing `name` property, or the `callee`-role child of a
+    /// `call`-shaped node (`Name(params...)`).
+    fn extract_child_name(&self, lang: &Language, child: AstRef) -> Option<String> {
         let ast = self.ast.borrow();
-        let node = ast.get(type_expr)?;
+        let node = ast.get(child)?;
 
         // Direct string payload (e.g. `var("Nat")`).
         if let Some(s) = node.payload.as_str() {
