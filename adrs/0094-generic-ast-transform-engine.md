@@ -369,10 +369,22 @@ to `Arc`.
 
 The parallel implementation passes a parity suite asserting byte-for-byte output
 arena equality with `RewriteEngine` on generated module ASTs containing `while`,
-`nullish`, and `opt-chain` statements. On the Criterion benchmark of 500 such
-top-level statements (release profile), the sequential engine runs the `desugar`
-pass in ~1.55 ms while the parallel engine runs in ~4.41 ms; for this input size
-the thread/partition overhead currently exceeds the parallelism benefit.
+`nullish`, and `opt-chain` statements. The largest real `.hnl` modules in the
+repository (`handl-packages/str-handl/str-handl.hnl`, ~760 lines) are far below
+the size where parallelism pays off, so the Criterion benchmark uses synthetic
+mixed modules to sweep the desugar pass from 500 to 50 000 top-level statements.
+On those inputs (release profile) the sequential engine is faster at every size
+measured: ~0.96 ms vs ~3.47 ms at 500 statements, ~5.97 ms vs ~14.04 ms at 2 000,
+~11.96 ms vs ~22.79 ms at 5 000, ~36.12 ms vs ~56.76 ms at 10 000, and ~202.5 ms
+vs ~373.3 ms at 50 000. There is no measured crossover; the thread spawn,
+subtree extraction, and per-worker arena merge overhead dominate the available
+work for currently reachable inputs. `ParallelEngine`'s default threshold is
+therefore set to 1 000 000 AST nodes, which keeps it on the sequential fallback
+for all realistic workloads while preserving the implementation as a correct,
+swappable `TransformEngine`. The merge step is the largest single bottleneck —
+each worker produces a fresh arena that must be offset-remapped into a new shared
+arena — so a shared-arena or zero-copy merge design is the most promising lever
+if a workload ever justifies parallel desugar.
 
 Landed after initial merge (originally deferred): the `hnl transform` CLI
 subcommand (`host-cli`):
