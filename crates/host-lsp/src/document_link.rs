@@ -29,7 +29,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{is_comment_kind, is_doc_comment_kind};
+use handl_kit_canonical::TokenClasses;
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -64,9 +64,10 @@ pub fn document_links(source: &str, file_path: Option<&str>) -> Vec<Value> {
         Err(_) => return Vec::new(),
     };
 
+    let classes = TokenClasses::new(kit.language());
     let mut links = Vec::new();
     for token in &tokens {
-        if !is_comment_kind(&token.kind) {
+        if !classes.is_comment(&token.kind) {
             continue;
         }
         let comment_start = token.span.start;
@@ -360,9 +361,5 @@ fn overlaps_any(start: usize, end: usize, spans: &[(usize, usize)]) -> bool {
     spans.iter().any(|&(s, e)| start < e && end > s)
 }
 
-// Keep `is_doc_comment_kind` imported so the module documents its awareness
-// of both comment flavours even though `is_comment_kind` already covers both.
-#[allow(dead_code)]
-fn _doc_comment_marker() {
-    let _ = is_doc_comment_kind;
-}
+// `TokenClasses::is_comment` covers both comment flavours (`comment` and
+// `doc-comment` categories) — doc comments are link-scannable too.

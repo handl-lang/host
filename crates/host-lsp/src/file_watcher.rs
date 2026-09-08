@@ -140,8 +140,9 @@ fn references_any_stem(source: &str, stems: &HashSet<String>, own_stem: Option<&
         }
     };
 
+    let classes = handl_kit_canonical::TokenClasses::new(kit.language());
     for t in &tokens {
-        if handl_kit_canonical::is_identifier_kind(&t.kind)
+        if classes.is_identifier(&t.kind)
             && stems.contains(&t.text)
             && Some(t.text.as_str()) != own_stem
         {

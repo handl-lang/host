@@ -127,10 +127,23 @@ and linter all split source into top-level statements at bracket-depth zero
   - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
     **closed**. Both now use `Language::param_name` (guarded by
     `pattern_role: leaf`/`subject` role metadata).
-  - `host-lsp/src/*` (~20): token-kind/keyword checks remain. Closing them
-    needs a `category`/`class` field on `TokenKindDef` (keyword/open-bracket/
-    close-bracket/operator/identifier/etc.) plus host-LSP using
-    `lang.tokens` classification instead of string helpers.
+  - `host-lsp/src/*` (~20): **closed**. `TokenKindDef` gained optional
+    `category`/`pair`/`doc` fields (serde-compatible, free-form strings —
+    third-party kits unaffected); `handl-kit-data-canonical/data/tokens.yaml`
+    populates them for every canonical kind, `Language` exposes
+    `token_category`/`token_in_category`/`token_pair`/`token_doc`/
+    `token_kind_for_label`, and `handl-kit-canonical::TokenClasses` is the
+    shared classifier. host-LSP, `host-tooling` (semantic tokens +
+    TextMate grammar generation), `plugin-ext-fmt` and `plugin-ext-lint`
+    now classify via `lang.tokens` — no `token.*` kind strings or
+    `is_*_kind` helpers remain outside `kit-canonical`'s legacy shims
+    (kept for bootstrap paths and third-party kits that declare no
+    categories). Residual
+    *identity-specific* checks (not category-answerable, so intentionally
+    kept): keyword text matches (`rec`/`law`/`match`/`do`/`return`/
+    `axiom`/`color`/snippet+completion tables) — these name a *specific*
+    keyword, not a token class; punctuation spellings resolve through
+    `is_label`/`token_kind_for_label` rather than kind strings.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
   - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed**. `ast.let`

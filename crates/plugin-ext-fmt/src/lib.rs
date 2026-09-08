@@ -94,7 +94,7 @@ pub fn format_source(src: &str) -> Result<String, FormatError> {
     }
 
     // 4. Reconstruct canonical source from the token stream.
-    let formatted = format_tokens(src, tokens.as_slice());
+    let formatted = format_tokens(src, tokens.as_slice(), &lang);
 
     // 5. Post-process: blank lines, trailing whitespace, trailing newline.
     Ok(post_process(&formatted))
@@ -211,53 +211,56 @@ enum TokenCat {
 }
 
 /// Classify a token kind into a spacing category.
-fn classify_token(kind: &str) -> TokenCat {
-    match kind {
-        "token.lparen" => TokenCat::OpenBracket,
-        "token.lbracket" => TokenCat::OpenBracket,
-        "token.rparen" => TokenCat::CloseParen,
-        "token.rbracket" => TokenCat::CloseBracket,
-        "token.lbrace" => TokenCat::OpenBrace,
-        "token.rbrace" => TokenCat::CloseBrace,
-        "token.comma" => TokenCat::Comma,
-        "token.colon" => TokenCat::Colon,
-        "token.dot" => TokenCat::Dot,
-        "token.comment" | "token.doc_comment" => TokenCat::Comment,
-        // Binary operators (ADR-0074 precedence table).
-        "token.bind"
-        | "token.equal"
-        | "token.arrow"
-        | "token.flow"
-        | "token.plus"
-        | "token.minus"
-        | "token.star"
-        | "token.slash"
-        | "token.percent"
-        | "token.pow"
-        | "token.eqeq"
-        | "token.neq"
-        | "token.lt"
-        | "token.gt"
-        | "token.lte"
-        | "token.gte"
-        | "token.spaceship"
-        | "token.and"
-        | "token.or"
-        | "token.fanout"
-        | "token.product"
-        | "token.nullish"
-        | "token.opt_chain"
-        | "token.choice" => TokenCat::BinaryOp,
-        // Keywords.
-        k if k.starts_with("token.keyword.") => TokenCat::Keyword,
-        // Atoms.
-        "token.identifier"
-        | "token.number"
-        | "token.string"
-        | "token.bool"
-        | "token.null"
-        | "token.json"
-        | "token.template" => TokenCat::Atom,
+///
+/// Driven by the language's `TokenKindDef::category`/`label` data
+/// (ADR-0044): brackets resolve via `open-bracket`/`close-bracket` +
+/// spelling, binary operators via the `operator` category minus the
+/// non-infix spellings (`!`, `?`, `...`, `|` — prefix/nullary or
+/// non-spacing operators in v0.1 surface).
+fn classify_token(lang: &Language, kind: &str) -> TokenCat {
+    let is_label = |l: &str| lang.token_kind_for_label(l) == Some(kind);
+    match lang.token_category(kind) {
+        Some("open-bracket") => {
+            if is_label("{") {
+                TokenCat::OpenBrace
+            } else {
+                TokenCat::OpenBracket
+            }
+        }
+        Some("close-bracket") => {
+            if is_label("}") {
+                TokenCat::CloseBrace
+            } else if is_label(")") {
+                TokenCat::CloseParen
+            } else {
+                TokenCat::CloseBracket
+            }
+        }
+        Some("comment") | Some("doc-comment") => TokenCat::Comment,
+        // Binary (infix, space-around) operators: the `operator` category
+        // minus the non-infix spellings.
+        Some("operator") => {
+            match lang.token_kind(kind).and_then(|d| d.label.as_deref()) {
+                // Non-infix spellings (plus unlabeled legacy kinds like
+                // `token.bang`/`token.question`) are not binary operators.
+                Some("!") | Some("?") | Some("...") | Some("|") | None => TokenCat::Other,
+                Some(_) => TokenCat::BinaryOp,
+            }
+        }
+        Some("keyword") => TokenCat::Keyword,
+        Some("identifier") | Some("number") | Some("string") | Some("bool") | Some("null")
+        | Some("template") => TokenCat::Atom,
+        Some("punctuation") => {
+            if is_label(",") {
+                TokenCat::Comma
+            } else if is_label(":") {
+                TokenCat::Colon
+            } else if is_label(".") {
+                TokenCat::Dot
+            } else {
+                TokenCat::Other
+            }
+        }
         _ => TokenCat::Other,
     }
 }
@@ -359,7 +362,7 @@ fn gap_has_newline(src: &str, from: usize, to: usize) -> bool {
 /// Walks tokens in order, preserving the original line structure (newlines
 /// between tokens) while applying canonical spacing rules for inline tokens
 /// and 2-space indentation for continuation lines.
-fn format_tokens(src: &str, tokens: &[handl_language::Token]) -> String {
+fn format_tokens(src: &str, tokens: &[handl_language::Token], lang: &Language) -> String {
     let starts = compute_token_starts(src, tokens);
     let mut out = String::new();
     let mut depth: usize = 0;
@@ -367,7 +370,7 @@ fn format_tokens(src: &str, tokens: &[handl_language::Token]) -> String {
     let mut prev_cat: Option<TokenCat> = None;
 
     for (i, token) in tokens.iter().enumerate() {
-        let cat = classify_token(&token.kind);
+        let cat = classify_token(lang, &token.kind);
         let token_start = starts[i];
         let prev_end = if i > 0 {
             starts[i - 1] + tokens[i - 1].text.len()
@@ -826,16 +829,29 @@ mod tests {
 
     #[test]
     fn classify_known_tokens() {
-        assert_eq!(classify_token("token.lparen"), TokenCat::OpenBracket);
-        assert_eq!(classify_token("token.rparen"), TokenCat::CloseParen);
-        assert_eq!(classify_token("token.lbrace"), TokenCat::OpenBrace);
-        assert_eq!(classify_token("token.rbrace"), TokenCat::CloseBrace);
-        assert_eq!(classify_token("token.comma"), TokenCat::Comma);
-        assert_eq!(classify_token("token.equal"), TokenCat::BinaryOp);
-        assert_eq!(classify_token("token.flow"), TokenCat::BinaryOp);
-        assert_eq!(classify_token("token.keyword.if"), TokenCat::Keyword);
-        assert_eq!(classify_token("token.identifier"), TokenCat::Atom);
-        assert_eq!(classify_token("token.comment"), TokenCat::Comment);
+        let lang = canonical_language().expect("canonical language assembles");
+        assert_eq!(
+            classify_token(&lang, "token.lparen"),
+            TokenCat::OpenBracket
+        );
+        assert_eq!(
+            classify_token(&lang, "token.rparen"),
+            TokenCat::CloseParen
+        );
+        assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
+        assert_eq!(
+            classify_token(&lang, "token.rbrace"),
+            TokenCat::CloseBrace
+        );
+        assert_eq!(classify_token(&lang, "token.comma"), TokenCat::Comma);
+        assert_eq!(classify_token(&lang, "token.equal"), TokenCat::BinaryOp);
+        assert_eq!(classify_token(&lang, "token.flow"), TokenCat::BinaryOp);
+        assert_eq!(
+            classify_token(&lang, "token.keyword.if"),
+            TokenCat::Keyword
+        );
+        assert_eq!(classify_token(&lang, "token.identifier"), TokenCat::Atom);
+        assert_eq!(classify_token(&lang, "token.comment"), TokenCat::Comment);
     }
 
     #[test]

@@ -17,7 +17,7 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::kit_resolver::kit_for_file;
 use crate::line_map::LineMap;
@@ -56,25 +56,28 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
     // instead of an O(n) scan from the start of the source.
     let lines = LineMap::new(source);
 
+    let classes = TokenClasses::new(kit.language());
+
     // The first significant (non-comment) token decides whether this is an
-    // arrow file (it starts with the `rec` keyword).
+    // arrow file (it starts with the `rec` keyword — a specific keyword
+    // identity, not a category).
     let is_arrow = tokens
         .iter()
-        .find(|t| !is_comment_kind(&t.kind))
-        .map(|t| is_keyword_kind(&t.kind) && t.text == "rec")
+        .find(|t| !classes.is_comment(&t.kind))
+        .map(|t| classes.is_keyword(&t.kind) && t.text == "rec")
         .unwrap_or(false);
 
     // Contract files are identified by the presence of a `law` keyword.
     let is_contract = tokens
         .iter()
-        .any(|t| is_keyword_kind(&t.kind) && t.text == "law");
+        .any(|t| classes.is_keyword(&t.kind) && t.text == "law");
 
     if is_arrow {
-        arrow_symbols(source, &lines, &tokens)
+        arrow_symbols(&classes, source, &lines, &tokens)
     } else if is_contract {
-        contract_symbols(source, &lines, &tokens)
+        contract_symbols(&classes, source, &lines, &tokens)
     } else {
-        general_symbols(source, &lines, &tokens)
+        general_symbols(&classes, source, &lines, &tokens)
     }
 }
 
@@ -94,7 +97,12 @@ enum Frame {
     BraceObject,
 }
 
-fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn arrow_symbols(
+    classes: &TokenClasses,
+    source: &str,
+    lines: &LineMap,
+    tokens: &[SpannedToken],
+) -> Vec<Value> {
     let mut out = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     // Set by the `match` keyword, consumed by the next `{` (which opens a
@@ -109,13 +117,13 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
         let t = &tokens[i];
         let kind = t.kind.as_str();
 
-        if is_comment_kind(kind) {
+        if classes.is_comment(kind) {
             i += 1;
             continue;
         }
 
         // Keywords -----------------------------------------------------------
-        if is_keyword_kind(kind) {
+        if classes.is_keyword(kind) {
             match t.text.as_str() {
                 "rec" => out.push(sym(
                     "rec",
@@ -153,81 +161,72 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
             continue;
         }
 
-        // Brackets / braces / parens ----------------------------------------
-        match kind {
-            "token.lbrace" => {
-                let frame = if expect_match_body {
-                    expect_match_body = false;
-                    pattern_start = next_sig_idx(tokens, i + 1);
-                    Frame::BraceMatch
-                } else {
-                    Frame::BraceObject
-                };
-                stack.push(frame);
-            }
-            "token.rbrace" => {
-                stack.pop();
-                pattern_start = None;
-            }
-            "token.lparen" => {
-                stack.push(Frame::Paren);
-            }
-            "token.rparen" => {
-                stack.pop();
-            }
-            "token.lbracket" => {
-                stack.push(Frame::Bracket);
-            }
-            "token.rbracket" => {
-                stack.pop();
-            }
-            "token.colon" => {
-                // A `:` directly inside a match body separates the arm
-                // pattern from the arm body.
-                if matches!(stack.last(), Some(Frame::BraceMatch)) {
-                    if let Some(start_idx) = pattern_start {
-                        if start_idx < i {
-                            let pstart = tokens[start_idx].span.start;
-                            let mut pend = pstart;
-                            for j in start_idx..i {
-                                if !is_comment_kind(&tokens[j].kind) {
-                                    pend = tokens[j].span.end;
-                                }
+        // Brackets / braces / parens — resolved by category + spelling.
+        if classes.is_label(kind, "{") {
+            let frame = if expect_match_body {
+                expect_match_body = false;
+                pattern_start = next_sig_idx(classes, tokens, i + 1);
+                Frame::BraceMatch
+            } else {
+                Frame::BraceObject
+            };
+            stack.push(frame);
+        } else if classes.is_label(kind, "}") {
+            stack.pop();
+            pattern_start = None;
+        } else if classes.is_open_bracket(kind) {
+            stack.push(if classes.is_label(kind, "(") {
+                Frame::Paren
+            } else {
+                Frame::Bracket
+            });
+        } else if classes.is_close_bracket(kind) {
+            stack.pop();
+        } else if classes.is_label(kind, ":") {
+            // A `:` directly inside a match body separates the arm
+            // pattern from the arm body.
+            if matches!(stack.last(), Some(Frame::BraceMatch)) {
+                if let Some(start_idx) = pattern_start {
+                    if start_idx < i {
+                        let pstart = tokens[start_idx].span.start;
+                        let mut pend = pstart;
+                        for j in start_idx..i {
+                            if !classes.is_comment(&tokens[j].kind) {
+                                pend = tokens[j].span.end;
                             }
-                            // Use the original source text so the pattern
-                            // keeps its formatting (e.g. "[h, ...t]").
-                            let name = &source[pstart..pend];
-                            out.push(sym(name, KIND_VARIABLE, "match arm", lines, pstart, pend));
                         }
-                        pattern_start = None;
+                        // Use the original source text so the pattern
+                        // keeps its formatting (e.g. "[h, ...t]").
+                        let name = &source[pstart..pend];
+                        out.push(sym(name, KIND_VARIABLE, "match arm", lines, pstart, pend));
                     }
+                    pattern_start = None;
                 }
             }
-            "token.comma" => {
-                // A `,` directly inside a match body ends an arm body and
-                // returns to pattern position for the next arm.
-                if matches!(stack.last(), Some(Frame::BraceMatch)) {
-                    pattern_start = next_sig_idx(tokens, i + 1);
-                }
+        } else if classes.is_label(kind, ",") {
+            // A `,` directly inside a match body ends an arm body and
+            // returns to pattern position for the next arm.
+            if matches!(stack.last(), Some(Frame::BraceMatch)) {
+                pattern_start = next_sig_idx(classes, tokens, i + 1);
             }
-            _ => {
-                // Object key: an identifier directly inside a record literal
-                // followed by `:` or `::` is a field name. v0.1 syntax uses
-                // `::` for field assignment while `:` is used for typed fields.
-                if is_identifier_kind(kind) {
-                    if matches!(stack.last(), Some(Frame::BraceObject)) {
-                        if let Some(ni) = next_sig_idx(tokens, i + 1) {
-                            if tokens[ni].kind == "token.colon" || tokens[ni].kind == "token.bind"
-                            {
-                                out.push(sym(
-                                    &t.text,
-                                    KIND_FIELD,
-                                    "field",
-                                    lines,
-                                    t.span.start,
-                                    t.span.end,
-                                ));
-                            }
+        } else {
+            // Object key: an identifier directly inside a record literal
+            // followed by `:` or `::` is a field name. v0.1 syntax uses
+            // `::` for field assignment while `:` is used for typed fields.
+            if classes.is_identifier(kind) {
+                if matches!(stack.last(), Some(Frame::BraceObject)) {
+                    if let Some(ni) = next_sig_idx(classes, tokens, i + 1) {
+                        if classes.is_label(&tokens[ni].kind, ":")
+                            || classes.is_label(&tokens[ni].kind, "::")
+                        {
+                            out.push(sym(
+                                &t.text,
+                                KIND_FIELD,
+                                "field",
+                                lines,
+                                t.span.start,
+                                t.span.end,
+                            ));
                         }
                     }
                 }
@@ -243,12 +242,17 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
 // Contract files
 // ---------------------------------------------------------------------------
 
-fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn contract_symbols(
+    classes: &TokenClasses,
+    source: &str,
+    lines: &LineMap,
+    tokens: &[SpannedToken],
+) -> Vec<Value> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
         let t = &tokens[i];
-        if is_keyword_kind(&t.kind) && t.text == "law" {
+        if classes.is_keyword(&t.kind) && t.text == "law" {
             // Collect the law name (possibly dotted, e.g. `list.head`) up
             // to the `:` that introduces the signature.
             let mut j = i + 1;
@@ -257,19 +261,19 @@ fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> V
             let mut colon_end: Option<usize> = None;
             while j < tokens.len() {
                 let tj = &tokens[j];
-                if is_comment_kind(&tj.kind) {
+                if classes.is_comment(&tj.kind) {
                     j += 1;
                     continue;
                 }
-                if tj.kind == "token.colon" {
+                if classes.is_label(&tj.kind, ":") {
                     colon_end = Some(tj.span.end);
                     break;
                 }
                 // Another `law` without a colon — bail out.
-                if is_keyword_kind(&tj.kind) && tj.text == "law" {
+                if classes.is_keyword(&tj.kind) && tj.text == "law" {
                     break;
                 }
-                if is_identifier_kind(&tj.kind) || tj.kind == "token.dot" {
+                if classes.is_identifier(&tj.kind) || classes.is_label(&tj.kind, ".") {
                     if name_start.is_none() {
                         name_start = Some(tj.span.start);
                     }
@@ -305,14 +309,19 @@ fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> V
 // General .hnl files
 // ---------------------------------------------------------------------------
 
-fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn general_symbols(
+    classes: &TokenClasses,
+    source: &str,
+    lines: &LineMap,
+    tokens: &[SpannedToken],
+) -> Vec<Value> {
     let mut out = Vec::new();
     for (i, t) in tokens.iter().enumerate() {
         let kind = t.kind.as_str();
-        if is_comment_kind(kind) {
+        if classes.is_comment(kind) {
             continue;
         }
-        if is_keyword_kind(kind) {
+        if classes.is_keyword(kind) {
             match t.text.as_str() {
                 "match" => out.push(sym(
                     "match",
@@ -349,9 +358,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "import" => {
                     // `import name from module` — the next significant token
                     // is the imported name.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(classes, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if classes.is_identifier(&nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_VARIABLE,
@@ -366,9 +375,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "trait" => {
                     // `trait Name { … }` — the next significant token is the
                     // trait name.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(classes, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if classes.is_identifier(&nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_INTERFACE,
@@ -383,9 +392,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "impl" => {
                     // `impl Trait for Type { … }` — the next significant token
                     // is the trait being implemented.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(classes, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if classes.is_identifier(&nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_INTERFACE,
@@ -401,13 +410,13 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
             }
             continue;
         }
-        if is_identifier_kind(kind) {
+        if classes.is_identifier(kind) {
             // A binding declaration at the start of a line: `name :: value` or
             // `name: type`.
             if lines.is_at_line_start(t.span.start) {
-                if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                if let Some(ni) = next_sig_idx(classes, tokens, i + 1) {
                     let nk = tokens[ni].kind.as_str();
-                    if nk == "token.bind" || nk == "token.colon" {
+                    if classes.is_label(nk, "::") || classes.is_label(nk, ":") {
                         out.push(sym(
                             &t.text,
                             KIND_VARIABLE,
@@ -429,12 +438,16 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
 // ---------------------------------------------------------------------------
 
 /// Index of the next non-comment token at or after `from`, or `None`.
-fn next_sig_idx(tokens: &[SpannedToken], from: usize) -> Option<usize> {
+fn next_sig_idx(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    from: usize,
+) -> Option<usize> {
     tokens
         .iter()
         .enumerate()
         .skip(from)
-        .find(|(_, t)| !is_comment_kind(&t.kind))
+        .find(|(_, t)| !classes.is_comment(&t.kind))
         .map(|(idx, _)| idx)
 }
 
