@@ -10,10 +10,18 @@ has a module loader. The remaining blockers are dependency resolution in
 - [x] Implement `import` op in bytecode engine
 - [x] Implement `import` op in cranelift engine
 - [x] Add module loader to `handl-runtime` (`load_module`/`resolve_import`)
-- [ ] Define module resolution semantics (path-based? registry-based?)
-- [ ] Add dependency resolution to `.handl.toml` (`[dependencies]` section)
-- [ ] Wire `import` through the desugar pass if needed
-- [ ] Test: `import "arrows/fn/map.hnl"` works end-to-end
+- [x] Define module resolution semantics — path-based: `[dependencies]`
+      specifier → package dir, else module-dir/module-root/CWD-relative
+      (ADR-0095; registry/content-addressed resolution stays future work
+      per ADR-0010)
+- [x] Add dependency resolution to `.handl.toml` (`[dependencies]` section
+      in `handl-platform::config::HostConfig`; vendored/path deps only)
+- [x] Wire `import` through the desugar pass — verified not needed:
+      `stmt.import` has no desugar rule and passes through unchanged;
+      `ModuleLoader` already applies `desugar` to imported modules
+- [x] Test: `import "arrows/fn/map.hnl"` works end-to-end
+      (`kit-canonical/tests/import_export.rs`; `hnl run`/`hnl eval`
+      verified against a fixture project)
 
 ## High priority — handl stdlib in handl (ADR-0092)
 
@@ -84,3 +92,10 @@ These are still open and should be picked up alongside the above.
 - `handl-kit-data-config` deleted; kit manifests live in
   `crates/handl-kit-data-canonical/data/kits/*.yaml`.
 - `import` op is implemented in all three eval engines.
+- Module resolution semantics + `.handl.toml` `[dependencies]` landed
+  (ADR-0095): `import "arrows/fn/map.hnl"` works end-to-end through
+  `hnl run`/`hnl eval`, including nested relative imports and
+  cross-module arrow values via `EvalEngine::seal_module_value` +
+  `__home__` frame stamping. `from "<mod>" import` module-name forms are
+  still handled by the `HandlModule`/`ModuleResolver` seam (and are still
+  stripped by `hnl run`), not the file loader.
