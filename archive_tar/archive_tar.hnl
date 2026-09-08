@@ -6,6 +6,3 @@ op "tar.pack" : Array -> String
   guarantee: IsBase64(output)
 op "tar.unpack" : String -> Array
   guarantee: True
-
-handl "tar.pack" = rust_tar_pack
-handl "tar.unpack" = rust_tar_unpack
