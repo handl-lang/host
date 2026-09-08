@@ -25,7 +25,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> TypecheckReport`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
+| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
 | Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
 | CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json|source] [--write]` — ADR-0094)               |
@@ -75,8 +75,9 @@ because `handl-kit-canonical` → `handl-runtime` → `plugin-engine-typecheck`
 would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (ADR-0089)
 use `handl-kit-data-canonical` (no eval engine) or
 `handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
-ADR-0092 — the framework's temporary Rust handls live in
-`plugin-engine-test::framework`.
+ADR-0092; the framework is now pure-handl under `handl-packages/test/`
+(registered by `handl-kit-canonical`), and `plugin-engine-test::framework`
+retains only the `assert` failure side-channel.
 
 ### Source splitting
 
@@ -210,33 +211,22 @@ and linter all split source into top-level statements at bracket-depth zero
   `hnl test` in `host-cli`, suite grouping (`SuiteStarted`/`SuiteFinished`
   unemitted), structured `expected`/`actual`/`diff` once assert errors carry
   them. ADR-0074 grammar is **not** amended.
-- **ADR-0092 (crate deletion done; pure-handl migration blocked):**
-  `plugin-lib-test` is **deleted**. The framework contract stays in
-  `handl-packages/test/test.hnl` (`op`/`handl` declarations); all 12 Rust
-  handls moved into `plugin-engine-test::framework` (`src/framework/`),
-  which the runner's `TestModuleLookup` resolves `assert` through. The
-  **error-raising** half of the blocker is now closed: `error.raise(v)`
-  is a native op on the `error` module (`handl-packages/error/error.hnl`
-  contract; `plugin-lib-stdlib::ops::error` handl; registered in the
-  canonical module chain). It is callable from any `.hnl` source as
-  `error.raise(msg)` — the unbound `error` var falls back to the module
-  path like `type.of`/`tag.tag` — or inside table modules via
-  `deps: &["error"]`. Payload: a `String` becomes the message verbatim,
-  any other value is JSON-serialized into it; it surfaces as
-  `EvalError::Other` → `LangError` through `kit.eval`/`hnl eval`.
-  `vec`/`list`/`stack`/`queue`/`deque` `pop`/`peek`/`dequeue`/`pop_*`/
-  `peek_*` are now pure handl over it (only `new`/`from`/`to_array` stay
-  native). The **error-capture** primitive is now added: `error.try(f)`
-  calls a thunk and returns a `result`-shaped tagged value
-  (`{"__tag__":"ok","value":v}` / `{"__tag__":"err","value":msg}`),
-  making `assert.throws`/`test.run` expressible in handl.
-  `property`/`fuzz` additionally need a handl-reachable seeded RNG
-  (`rand.seeded_*` lives in `plugin-lib-rand-native` and is wired into the
-  canonical module chain) and `benchmark` needs a clock (`time.now_ms`/
-  `time.instant_ns` live in `plugin-lib-time-native`, contract in
-  `handl-packages/time/time.hnl`, also wired).
-  Remaining: rewrite the `handl "..."` bindings as pure-handl
-  `assert.hnl`/`property.hnl`/etc. per the ADR target layout.
+- **ADR-0092 (pure-handl migration done):**
+  `plugin-lib-test` is **deleted**. The framework now lives as pure handl
+  in `handl-packages/test/` (`assert.hnl`, `property.hnl`, `benchmark.hnl`,
+  `fuzz.hnl`, `snapshot.hnl`, `test.hnl`). `handl-kit-canonical` builds and
+  registers these modules through the generic `HandlModule` seam; their
+  `op`/`handl` declarations are stripped at load time. The
+  `plugin-engine-test::framework` crate no longer contains the temporary
+  Rust handls — it only keeps the thread-local assert-failure side-channel
+  consumed by the runner's `TestAssertHandler`. The framework uses the
+  **result pattern** only (`{"__tag__":"ok",...}` / `{"__tag__":"err",...}`);
+  it neither raises nor catches errors directly. The engine continues to
+  convert per-case `EvalError` into a failed `TestOutcome` in the runner,
+  and `assert.*` helpers build `err` result values directly. The
+  `rand.seeded_*` RNG and `time.instant_ns` clock used by the framework
+  were already wired into the canonical module chain; `error.raise` and
+  `error.try` are not used by the test framework.
 
 ## Library packaging (ADR-0077 fold-in)
 
