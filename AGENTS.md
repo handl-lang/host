@@ -27,18 +27,29 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Test framework library | `handl-packages/test/` (handl contract, ADR-0092) + `plugin-engine-test::framework` (temporary Rust handls) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
 | Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
-| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval` subcommands                                                                                                                                                                       |
+| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json]` — ADR-0094)                              |
 
 ### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
 
 `handl-runtime::apply_desugar` returns `Result<Ast, LangError>` and
 delegates to `RewriteEngine::run_pass("desugar")` with
 `with_desugar_natives`; `Runtime::parse` propagates transform errors.
-Declarative rules live in `lang.transforms` (lowered from `AstShapeDef`'s
-`desugar:` field at merge); kinds with no declarative rule fall back to the
+Declarative rules live in `lang.transforms`, authored as first-class
+`TransformDef`s in `data/transforms.yaml` (the `AstShapeDef` `desugar:`
+field is still lowered at merge for third-party backward compat); kinds
+with no declarative rule fall back to the
 named `desugar.*` native registry. `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
 diagnostics fail assembly.
+
+`.hnl`-authored rewrites are supported via the `Native("handl:<mod>.<fn>")`
+spelling: `handl_plugin_lib_handl::transform::HandlNativeRewrite` is a
+`NativeRewrite` that resolves `handl:` names against registered
+`HandlModule`s and invokes the function with a `{kind, span, payload,
+children}` record; the function returns `null` (decline) or a node spec
+`{kind, payload?, children?}` where children may be `{"__keep__": n}`
+markers reusing the matched node's remapped child `n`. See ADR-0094 §"Handl-
+authored transforms" and `plugin-lib-handl/tests/handl_transform.rs`.
 
 ### CLI exit codes
 

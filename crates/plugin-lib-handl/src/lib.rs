@@ -55,7 +55,9 @@
 
 
 pub mod op_registry;
+pub mod transform;
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
+pub use transform::{HandlNativeRewrite, HANDL_PREFIX, KEEP_KEY};
 
 use std::cell::RefCell;
 use std::collections::HashMap;

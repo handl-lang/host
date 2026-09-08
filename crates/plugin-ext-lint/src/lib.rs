@@ -21,6 +21,7 @@
 //! | `naming-convention` | Warning | yes | bindings `snake_case`, arrows `kebab-case` |
 //! | `missing-module-doc` | Info | no | module lacks a leading doc comment |
 //! | `fmt` | Warning | yes | file is not canonical per ADR-0086 |
+//! | `simplify-paren` | Warning | yes | redundant `paren` around a single atom (ADR-0094) |
 //!
 //! Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091). See
 //! [`lint_source`], [`check_source`], and [`fix_source`] for the public API.
@@ -28,13 +29,18 @@
 pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
 
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language, TransformDef};
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
+use handl_plugin_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 use handl_plugin_ext_fmt::{check_source as fmt_check_source, format_source as fmt_format_source};
+
+/// ADR-0094: embedded `lint` pass transform rules used as pattern matchers.
+const LINT_TRANSFORMS_YAML: &str = include_str!("../data/lint_transforms.yaml");
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -72,23 +78,24 @@ impl From<LangError> for LintError {
 ///
 /// Returns [`LintError::Parse`] if the source cannot be parsed.
 pub fn lint_source(src: &str) -> Result<Vec<Diagnostic>, LintError> {
-    let lang = canonical_language()?;
+    let lang = lint_language()?;
     let chunks = split_statements(src);
-    let info = LangInfo::build(&lang);
+    let info = LangInfo::build(lang);
 
     // Parse every top-level statement chunk.
     let mut parsed: Vec<ParsedChunk> = Vec::with_capacity(chunks.len());
     for chunk in &chunks {
-        let ast = parse_chunk(&lang, &chunk.text)?;
+        let ast = parse_chunk(lang, &chunk.text)?;
         if ast.is_empty() {
             continue;
         }
         let root_idx = ast.len() - 1;
-        let idents = identifier_positions(&lang, &chunk.text, chunk.offset);
-        let bools = bool_positions(&lang, &chunk.text, chunk.offset);
-        let analysis = analyze_chunk(&lang, &info, &ast, AstRef::new(root_idx), &idents, &bools);
+        let idents = identifier_positions(lang, &chunk.text, chunk.offset);
+        let bools = bool_positions(lang, &chunk.text, chunk.offset);
+        let analysis = analyze_chunk(lang, &info, &ast, AstRef::new(root_idx), &idents, &bools);
         parsed.push(ParsedChunk {
             chunk: chunk.clone(),
+            ast,
             analysis,
         });
     }
@@ -104,6 +111,7 @@ pub fn lint_source(src: &str) -> Result<Vec<Diagnostic>, LintError> {
     diags.extend(rule_naming_convention(&parsed));
     diags.extend(rule_shadowed_binding(&parsed));
     diags.extend(rule_unbound_wire(&parsed));
+    diags.extend(rule_simplify_paren(src, &parsed, lang));
 
     // dead-branch diagnostics are collected during analysis.
     for p in &parsed {
@@ -169,11 +177,25 @@ fn compute_fixes(src: &str) -> Vec<Fix> {
 // Internal: language assembly + parsing
 // ---------------------------------------------------------------------------
 
-/// Assemble the canonical language once (cheap after the first call thanks to
-/// the compiled-in data fragments).
-fn canonical_language() -> Result<Language, LintError> {
-    let kit = handl_kit_data_canonical::assemble()?;
-    Ok(kit.lang().clone())
+/// Assemble the lint language once: canonical data plus the embedded
+/// ADR-0094 `lint` pass transform rules.
+fn lint_language() -> Result<&'static Language, LintError> {
+    static LANG: OnceLock<Language> = OnceLock::new();
+    let lang = LANG.get_or_init(|| {
+        let mut lang = handl_kit_data_canonical::assemble()
+            .expect("canonical language data must assemble")
+            .lang()
+            .clone();
+        let rules: Vec<TransformDef> = serde_yaml::from_str(LINT_TRANSFORMS_YAML)
+            .expect("lint transforms must be valid YAML");
+        for rule in rules {
+            lang.transforms
+                .merge(rule)
+                .expect("lint transforms must merge cleanly");
+        }
+        lang
+    });
+    Ok(lang)
 }
 
 /// Parse a single statement chunk into an [`Ast`] using the Pratt parser.
@@ -340,6 +362,49 @@ fn token_positions(
     out
 }
 
+/// A token's absolute byte range and surface text.
+#[derive(Clone, Debug)]
+struct TokenInfo {
+    kind: String,
+    text: String,
+    start: usize,
+    end: usize,
+}
+
+/// Lex a chunk and recover each token's absolute byte range and text.
+fn chunk_tokens(lang: &Language, chunk_text: &str, chunk_offset: usize) -> Vec<TokenInfo> {
+    let tokens = match lex(lang, chunk_text) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+    let bytes = chunk_text.as_bytes();
+    let mut pos = 0usize;
+    let mut out = Vec::new();
+    for token in tokens.as_slice() {
+        // Skip whitespace.
+        while pos < bytes.len() {
+            let ch = match chunk_text[pos..].chars().next() {
+                Some(c) => c,
+                None => break,
+            };
+            if ch.is_whitespace() {
+                pos += ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        let start = pos;
+        pos += token.text.len();
+        out.push(TokenInfo {
+            kind: token.kind.clone(),
+            text: token.text.clone(),
+            start: chunk_offset + start,
+            end: chunk_offset + pos,
+        });
+    }
+    out
+}
+
 // ---------------------------------------------------------------------------
 // Internal: language classification (data-driven, ADR-0081)
 // ---------------------------------------------------------------------------
@@ -443,6 +508,7 @@ struct ChunkAnalysis {
 /// A parsed chunk bundled with its analysis.
 struct ParsedChunk {
     chunk: Chunk,
+    ast: Ast,
     analysis: ChunkAnalysis,
 }
 
@@ -967,6 +1033,108 @@ fn rule_unbound_wire(parsed: &[ParsedChunk]) -> Vec<Diagnostic> {
         }
     }
     diags
+}
+
+/// `simplify-paren` (Warning, fixable) — a `paren` node around a single
+/// `var`/`value` atom.  The match is found via the ADR-0094 `lint` pass
+/// `find_matches`; the source fix is a span-preserving text deletion.
+fn rule_simplify_paren(_src: &str, parsed: &[ParsedChunk], lang: &Language) -> Vec<Diagnostic> {
+    let engine = RewriteEngine::new();
+    let mut diags = Vec::new();
+    for p in parsed {
+        if p.chunk.text.is_empty() {
+            continue;
+        }
+        let tokens = chunk_tokens(lang, &p.chunk.text, p.chunk.offset);
+        if tokens.is_empty() {
+            continue;
+        }
+        let root = AstRef::new(p.ast.len().saturating_sub(1));
+        let matches = engine.find_matches(lang, &p.ast, root, "lint");
+        let mut used: Vec<bool> = vec![false; tokens.len()];
+        for m in matches {
+            if m.rule_id != "lint.simplify-paren" {
+                continue;
+            }
+            let Some(fix) = paren_text_fix(&p.ast, m.at, &tokens, &mut used) else {
+                continue;
+            };
+            let (span, replacement, inner_text) = fix;
+            diags.push(
+                Diagnostic::new(
+                    "simplify-paren",
+                    Severity::Warning,
+                    span,
+                    format!("redundant parentheses around '{}'", inner_text),
+                )
+                .with_fix(Fix { span, replacement }),
+            );
+        }
+    }
+    diags
+}
+
+/// Extract the source text of an atom inside a `paren` node.
+///
+/// Handles the bare-scalar payloads used by `var` and the canonical `value`
+/// atom shape, plus the object payload used by some `value` rows.
+fn paren_atom_text(node: &AstNode) -> Option<String> {
+    if let Some(s) = node.payload.as_str() {
+        return Some(s.to_string());
+    }
+    if node.payload.is_null() {
+        return Some("null".to_string());
+    }
+    if !node.payload.is_object() {
+        // Numbers and booleans render as their surface text.
+        return Some(node.payload.to_string());
+    }
+    if let Some(v) = node.payload.get("value").or_else(|| node.payload.get("name")) {
+        return Some(if let Some(s) = v.as_str() {
+            s.to_string()
+        } else {
+            v.to_string()
+        });
+    }
+    None
+}
+
+/// Compute a text fix for a matched `paren` node.
+///
+/// Returns `(span, replacement, inner_text)` on success.  The `tokens` are the
+/// chunk's token stream; `used` tracks which tokens have already been consumed
+/// so duplicate names don't get matched to the wrong paren.
+fn paren_text_fix(
+    ast: &Ast,
+    paren_ref: AstRef,
+    tokens: &[TokenInfo],
+    used: &mut [bool],
+) -> Option<(Span, String, String)> {
+    let paren = ast.at(paren_ref).ok()?;
+    let children = child_indices(&paren);
+    if children.len() != 1 {
+        return None;
+    }
+    let child = ast.at(AstRef::new(children[0])).ok()?;
+    let inner_text = paren_atom_text(child)?;
+
+    // Find a `(` token whose next token is the inner literal and whose
+    // following token is `)`.  Mark the three tokens used.
+    for i in 0..tokens.len().saturating_sub(2) {
+        if used[i]
+            || tokens[i].kind != "token.lparen"
+            || tokens[i + 1].text != inner_text
+            || tokens[i + 2].kind != "token.rparen"
+        {
+            continue;
+        }
+        used[i] = true;
+        used[i + 1] = true;
+        used[i + 2] = true;
+        let span = Span::from_byte_range(tokens[i].start, tokens[i + 2].end, "");
+        return Some((span, inner_text.clone(), inner_text));
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------

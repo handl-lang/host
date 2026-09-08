@@ -174,3 +174,62 @@ fn code_actions_no_extract_for_simple_selection() {
         actions,
     );
 }
+
+// ---------------------------------------------------------------------------
+// e. Lint quick fixes via the transform engine (ADR-0094)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn code_actions_simplify_paren_offered() {
+    // `-- doc\n` is 7 bytes; `(` of `(42)` is at offset 14, `)` ends at 18.
+    // Cursor inside the parens should yield the engine-driven quick fix.
+    let src = "-- doc\nmain = (42)\n";
+    let actions = code_actions(src, 15, 15, &[]);
+    let action = actions
+        .iter()
+        .find(|a| {
+            a.get("title").and_then(|t| t.as_str()) == Some("Remove redundant parentheses")
+        })
+        .unwrap_or_else(|| panic!("expected 'Remove redundant parentheses', got: {:?}", actions));
+    assert_eq!(
+        action.get("kind").and_then(|k| k.as_str()),
+        Some("quickfix")
+    );
+    // The edit replaces `(42)` with `42`.
+    let changes = &action["edit"]["changes"]["file:///untitled.hnl"][0];
+    assert_eq!(changes["newText"].as_str(), Some("42"));
+    // Byte offset 14 is line 1 (0-based), character 7.
+    assert_eq!(changes["range"]["start"]["line"].as_u64(), Some(1));
+    assert_eq!(changes["range"]["start"]["character"].as_u64(), Some(7));
+    assert_eq!(changes["range"]["end"]["line"].as_u64(), Some(1));
+    assert_eq!(changes["range"]["end"]["character"].as_u64(), Some(11));
+}
+
+#[test]
+fn code_actions_simplify_paren_not_offered_outside_range() {
+    // Cursor on line 0 — far from the `(42)` on line 1 — should not offer
+    // the lint fix.
+    let src = "-- doc\nmain = (42)\n";
+    let actions = code_actions(src, 2, 2, &[]);
+    assert!(
+        actions.iter().all(|a| {
+            a.get("title").and_then(|t| t.as_str()) != Some("Remove redundant parentheses")
+        }),
+        "should not offer paren fix outside its span, got: {:?}",
+        actions,
+    );
+}
+
+#[test]
+fn code_actions_no_lint_fix_for_clean_source() {
+    // No redundant parens → no lint quick fix.
+    let src = "-- doc\nmain = 42\n";
+    let actions = code_actions(src, 13, 13, &[]);
+    assert!(
+        actions.iter().all(|a| {
+            a.get("title").and_then(|t| t.as_str()) != Some("Remove redundant parentheses")
+        }),
+        "should not offer paren fix for clean source, got: {:?}",
+        actions,
+    );
+}

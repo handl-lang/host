@@ -213,6 +213,41 @@ fn naming_convention_fix() {
 }
 
 // ---------------------------------------------------------------------------
+// simplify-paren
+// ---------------------------------------------------------------------------
+
+#[test]
+fn simplify_paren_fires() {
+    let src = "-- doc\nmain = (42)\n";
+    let diags = lint_source(src).unwrap();
+    assert!(
+        has(&diags, "simplify-paren", Severity::Warning),
+        "expected simplify-paren warning, got {:?}",
+        diags
+    );
+}
+
+#[test]
+fn simplify_paren_fix() {
+    let src = "-- doc\nmain = (42)\n";
+    let fixed = fix_source(src).unwrap();
+    assert_eq!(fixed, "-- doc\nmain = 42\n");
+    let diags = lint_source(&fixed).unwrap();
+    assert!(for_rule(&diags, "simplify-paren").is_empty());
+}
+
+#[test]
+fn simplify_paren_var() {
+    // The `paren` node wraps a bound `var`; the fix removes the parens while
+    // preserving the surrounding source layout.
+    let src = "-- doc\nx = 1\nmain = (x)\n";
+    let fixed = fix_source(src).unwrap();
+    assert_eq!(fixed, "-- doc\nx = 1\nmain = x\n");
+    let diags = lint_source(&fixed).unwrap();
+    assert!(for_rule(&diags, "simplify-paren").is_empty());
+}
+
+// ---------------------------------------------------------------------------
 // missing-module-doc
 // ---------------------------------------------------------------------------
 
