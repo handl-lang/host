@@ -604,7 +604,7 @@ through `apply_rule`/`RewriteTrace`.
 The first concrete `lower` rule is `transform.lower.entry` in the canonical
 `transforms.yaml`.  It matches an `entry` node whose `key` child is a `string`
 literal and rewrites it to use the canonical `var` literal key shape.  This
-removes the `var`/`string` object-key heuristic that the bytecode and
+normalizes the `var`/`string` object-key heuristic that the bytecode and
 cranelift backends currently keep as a fallback in their compile/runtime
 paths.
 
@@ -628,10 +628,49 @@ backend that opts in to lowering (`handl-plugin-engine-exec-bytecode` registers
 free of backend-specific payload-manipulation rules while proving that the
 pass machinery, dispatch, and native seam are reusable beyond `desugar`.
 
-`BytecodeEngine` exposes the pass as an opt-in (`with_lowering()`), and the
-bytecode conformance suite includes a parity test that runs the full eval
-corpus with and without the `lower` pass, ensuring the normalization is
-semantics-preserving on the existing eval surface.
+### Backend normalization audit
+
+An audit of the two codegen backends (`plugin-engine-exec-bytecode` and
+`plugin-engine-exec-cranelift`) was performed to find `kind ==`/shape
+heuristics that could be retired by the `lower` pass.  The candidates flagged
+in `AGENTS.md` were:
+
+- **Object-entry key `var`/`string` heuristic** — found in
+  `plugin-engine-exec-bytecode/src/compile.rs` (`try_extract_static_object_keys`),
+  `plugin-engine-exec-bytecode/src/vm.rs` (`object` native op), and
+  `plugin-engine-exec-cranelift/src/lib.rs` (object helper).  This is the
+  only heuristic that reaches the codegen backends in a form the `lower` pass
+  can remove: the existing `transform.lower.entry` + `lower.object_key` native
+  rewrite `string` keys to the canonical `var` shape before the backend sees
+  the AST.
+- **`match`/`arm`/`block`/`paren`/`type-annot` desugared-vs-raw assumptions** —
+  no residual shape heuristics found in the codegen paths.  `match` is
+  dispatched as a native op, `paren` wrappers are already removed by the
+  `desugar` pass, and `block`/`type-annot` handling is role-based.
+- **`nullish`/`opt-chain` remnants** — none reach the backends un-desugared;
+  the `desugar` pass rewrites them before evaluation.
+- **Constant folding (e.g. `binary.add` of numeric literals)** — skipped.  The
+  canonical literal shape and eval scheme for `value` nodes are not
+  unambiguous enough in the current data to make a semantics-preserving
+  rewrite that does not duplicate backend arithmetic; the `binary.add` scheme
+  is evaluated as the `add` native op.  No rule was added for this.
+
+The audit produced **no additional `lower` rules** beyond `transform.lower.entry`.
+The object-key `var`/`string` fallback in the backends is therefore kept but
+now explicitly commented as redundant under `BytecodeEngine::with_lowering()`;
+removing it entirely would break the non-lowering path and any role-less
+`entry` shapes.  A unit test (`lower_object_key_bypasses_string_kind_heuristic`)
+proves the `lower` pass rewrites `string` keys to `var` so the heuristic is
+not exercised.
+
+### Cranelift parity
+
+`CraneliftEngine` does not yet opt in to the `lower` pass.  Wiring it would
+require adding `plugin-engine-transform-rewrite` as a dependency, which risks
+introducing a dependency cycle: `handl-runtime` already depends on
+`plugin-engine-exec-cranelift`, and `plugin-engine-transform-rewrite` has a
+dev-dependency on `handl-runtime`.  Cranelift therefore retains the same
+`var`/`string` kind fallback with a cross-reference to this ADR section.
 
 ## Handl-authored transforms (the `handl:` native seam)
 
