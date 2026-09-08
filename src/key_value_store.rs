@@ -73,11 +73,36 @@ impl Module for KeyValueStoreModule {
 fn kv_op_registry(store: impl KeyValueStore + 'static) -> OpRegistry {
     let store: Arc<dyn KeyValueStore> = Arc::new(store);
     let mut registry = OpRegistry::new();
-    registry.register("kv.get", Arc::new(GetFn { store: store.clone() }));
-    registry.register("kv.set", Arc::new(SetFn { store: store.clone() }));
-    registry.register("kv.remove", Arc::new(RemoveFn { store: store.clone() }));
-    registry.register("kv.clear", Arc::new(ClearFn { store: store.clone() }));
-    registry.register("kv.has", Arc::new(HasFn { store: store.clone() }));
+    registry.register(
+        "kv.get",
+        Arc::new(GetFn {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.set",
+        Arc::new(SetFn {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.remove",
+        Arc::new(RemoveFn {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.clear",
+        Arc::new(ClearFn {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.has",
+        Arc::new(HasFn {
+            store: store.clone(),
+        }),
+    );
     registry.register("kv.size", Arc::new(SizeFn { store }));
     registry
 }

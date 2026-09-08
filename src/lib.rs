@@ -64,13 +64,7 @@ impl KvLibraryPlugin {
     /// Create a new `KvLibraryPlugin`.
     pub fn new() -> Self {
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "kv",
-                "lib.kv",
-                "lib-kv",
-                KV_HNL,
-                &[],
-            ),
+            inner: HandlLibraryPlugin::new_with_caps("kv", "lib.kv", "lib-kv", KV_HNL, &[]),
         }
     }
 }
