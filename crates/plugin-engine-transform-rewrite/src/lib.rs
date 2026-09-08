@@ -23,7 +23,10 @@
 
 #![warn(missing_docs)]
 
-mod condition;
+/// [`TransformCondition`](handl_language::TransformCondition) evaluation —
+/// shared by this engine and by other consumers of the predicate vocabulary
+/// (e.g. `plugin-engine-lint` `Match` lint rules, ADR-0097).
+pub mod condition;
 mod dispatch;
 pub mod native;
 mod step;

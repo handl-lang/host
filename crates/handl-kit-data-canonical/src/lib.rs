@@ -47,7 +47,7 @@ use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry};
 use handl_language::{
     AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
-    OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
+    LintRuleDef, OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
 };
 
 /// The kit name under which this kit registers itself (for `extends`
@@ -84,6 +84,7 @@ const CAPS_YAML: &str = include_str!("../data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../data/options.yaml");
 const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
 const TRANSFORMS_YAML: &str = include_str!("../data/transforms.yaml");
+const LINTS_YAML: &str = include_str!("../data/lints.yaml");
 
 /// Build a [`Language`] from the 9 embedded YAML data files.
 ///
@@ -106,6 +107,7 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         OPTIONS_YAML,
         LEXER_RULES_YAML,
         TRANSFORMS_YAML,
+        LINTS_YAML,
     )
 }
 
@@ -127,6 +129,7 @@ fn merge_fragments(
     options_yaml: &str,
     lexer_rules_yaml: &str,
     transforms_yaml: &str,
+    lints_yaml: &str,
 ) -> Result<Language, LangError> {
     let mut lang = Language::new();
 
@@ -198,6 +201,13 @@ fn merge_fragments(
         lang.transforms.merge(frag)?;
     }
 
+    // Lint rules (ADR-0097 — non-union, pre-resolved).
+    let lints: Vec<LintRuleDef> = serde_yaml::from_str(lints_yaml)
+        .map_err(|e| LangError::engine(format!("lints.yaml: {}", e)))?;
+    for frag in lints {
+        lang.lints.merge(frag)?;
+    }
+
     // ADR-0094 "Production readiness": transform-rule validation runs at
     // `Language` build. Error-severity diagnostics (duplicate identity keys,
     // out-of-bounds `Keep`/`KeepRole`/`KeepPath`/`KeepRest`/`Apply` steps,
@@ -264,6 +274,14 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         Err(e) => return Err(LangError::engine(format!("transforms.yaml: {}", e))),
     };
 
+    // `lints.yaml` is optional: fragment directories written before
+    // ADR-0097's first-class lint-rule section do not carry one.
+    let lints_yaml = match std::fs::read_to_string(dir.join("lints.yaml")) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "[]".to_string(),
+        Err(e) => return Err(LangError::engine(format!("lints.yaml: {}", e))),
+    };
+
     merge_fragments(
         &tokens_yaml,
         &grammar_yaml,
@@ -274,6 +292,7 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         &options_yaml,
         &lexer_rules_yaml,
         &transforms_yaml,
+        &lints_yaml,
     )
 }
 
@@ -548,8 +567,10 @@ mod tests {
       - !Keep 0
       - !Keep 1
 "#;
-        let lang =
-            merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap();
+        let lang = merge_fragments(
+            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]",
+        )
+        .unwrap();
         let rules = lang.transforms_for("desugar", "sugared");
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].id, "transform.desugar.sugared");
@@ -585,8 +606,10 @@ mod tests {
     children:
       - !Keep 7
 "#;
-        let err =
-            merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap_err();
+        let err = merge_fragments(
+            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]",
+        )
+        .unwrap_err();
         assert!(
             format!("{err}").contains("transform rule validation failed"),
             "expected validation failure, got: {err}"

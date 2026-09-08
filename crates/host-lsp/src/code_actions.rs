@@ -423,7 +423,7 @@ fn lint_fix_actions(source: &str, range_start: usize, range_end: usize) -> Vec<V
             continue;
         }
         actions.push(json!({
-            "title": lint_action_title(diag.rule, &diag.message),
+            "title": lint_action_title(&diag.rule, &diag.message),
             "kind": "quickfix",
             "diagnostics": [{
                 "range": span_to_range(source, diag.span.start, diag.span.end),

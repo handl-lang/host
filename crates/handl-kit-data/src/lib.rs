@@ -464,7 +464,8 @@ fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
 /// filter by fragment `id`.
 ///
 /// Fragments are iterated in the order tokens → grammar → eval → types → ast →
-/// caps → options, preserving the dependency ordering that `requires` validation
+/// transforms → caps → options → lexer_rules → lints, preserving the dependency
+/// ordering that `requires` validation
 /// relies on (e.g. token kinds before grammar rows that require them). A
 /// fragment is merged only if it passes the filter; skipped fragments are
 /// simply absent, so a later fragment declaring `replaces: [skipped_id]` will
@@ -543,6 +544,11 @@ fn merge_filtered(
     for frag in fragment_lang.lexer_rules.fragments() {
         if passes(frag.id()) {
             lang.lexer_rules.merge(frag.clone())?;
+        }
+    }
+    for frag in fragment_lang.lints.fragments() {
+        if passes(frag.id()) {
+            lang.lints.merge(frag.clone())?;
         }
     }
     Ok(())

@@ -1,0 +1,122 @@
+# Canonical lint rules (ADR-0097 — Lint Rules as Language Data).
+#
+# Each `LintRuleDef` declares a check (`!Match` — a node-local pattern using
+# the ADR-0094 `TransformCondition` predicate vocabulary — or `!Native`, a
+# named escape hatch resolved against the lint engine's native registry), the
+# diagnostic it produces (`name`/`severity`/`message` template), and an
+# optional declarative `fix`.
+#
+# Message templates: `{source}` is the matched node's own source text,
+# `{source:<role>}` the source text of the child occupying `role`,
+# `{payload}` the node's payload; `!Native` rules substitute `{key}`
+# placeholders from the argument map the native returns.
+
+# --- Match rules (node-local, fully declarative) ----------------------------
+
+# `simplify-paren` — redundant parentheses around a single atom. The same
+# match is also declared as a `lint`-pass `TransformDef` in
+# `plugin-ext-lint/data/lint_transforms.yaml` for transform-engine consumers
+# (`host-lsp` `find_matches` + `lsp-rewrite` quick fixes); this is the
+# diagnostic-producing rule.
+-
+  id: lint.simplify-paren
+  name: simplify-paren
+  severity: warning
+  message: "redundant parentheses around '{source:body}'"
+  check:
+    !Match
+    node_kind: paren
+    when:
+      !And
+      - !ChildCount 1
+      - !Or
+        - !KindAt { role: body, kind: var }
+        - !KindAt { role: body, kind: value }
+  fix:
+    !Unwrap { role: body }
+
+# `dead-branch` — a conditional arm guarded by a constant. `if` resolves the
+# `condition` role; `ternary` declares no shape roles so the condition is
+# child 0. Four arms share the `dead-branch` name (one per kind × guard).
+-
+  id: lint.dead-branch.if.true
+  name: dead-branch
+  severity: warning
+  message: "branch guarded by constant `true` is always taken; subsequent arms are dead"
+  check:
+    !Match
+    node_kind: if
+    when: !ChildPayloadEq { role: condition, value: true }
+-
+  id: lint.dead-branch.if.false
+  name: dead-branch
+  severity: warning
+  message: "branch guarded by constant `false` is never taken"
+  check:
+    !Match
+    node_kind: if
+    when: !ChildPayloadEq { role: condition, value: false }
+-
+  id: lint.dead-branch.ternary.true
+  name: dead-branch
+  severity: warning
+  message: "branch guarded by constant `true` is always taken; subsequent arms are dead"
+  check:
+    !Match
+    node_kind: ternary
+    when: !ChildPayloadEq { index: 0, value: true }
+-
+  id: lint.dead-branch.ternary.false
+  name: dead-branch
+  severity: warning
+  message: "branch guarded by constant `false` is never taken"
+  check:
+    !Match
+    node_kind: ternary
+    when: !ChildPayloadEq { index: 0, value: false }
+
+# --- Native rules (module scope / whole source — the semantic residue) ------
+#
+# These need cross-statement scope analysis or raw source access the
+# `TransformCondition` vocabulary cannot express — the same reason
+# `desugar.data` stays a named native (ADR-0094). Implementations are
+# registered by the host (`scope.*`/`naming-convention`/`source.missing-module-doc`
+# ship in `plugin-engine-lint`'s canonical native registry; `source.fmt` is
+# registered by `plugin-ext-lint`, which owns the formatter dependency).
+
+-
+  id: lint.scope.unbound-wire
+  name: unbound-wire
+  severity: error
+  message: "reference to unbound name '{name}'"
+  check: !Native "scope.unbound-wire"
+-
+  id: lint.scope.shadowed-binding
+  name: shadowed-binding
+  severity: warning
+  message: "binding '{name}' shadows an existing binding"
+  check: !Native "scope.shadowed-binding"
+-
+  id: lint.scope.unused-import
+  name: unused-import
+  severity: warning
+  message: "import '{name}' is never referenced"
+  check: !Native "scope.unused-import"
+-
+  id: lint.naming-convention
+  name: naming-convention
+  severity: warning
+  message: "binding '{name}' should be snake_case"
+  check: !Native "naming-convention"
+-
+  id: lint.source.missing-module-doc
+  name: missing-module-doc
+  severity: info
+  message: "module lacks a leading doc comment"
+  check: !Native "source.missing-module-doc"
+-
+  id: lint.source.fmt
+  name: fmt
+  severity: warning
+  message: "file is not in canonical format"
+  check: !Native "source.fmt"

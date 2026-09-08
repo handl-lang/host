@@ -5,15 +5,36 @@
 //!
 //! The engine is **fully data-driven**: what constitutes a binding, a
 //! reference, a terminal statement, or a block is resolved from
-//! `lang.ast`/`lang.grammar` — never from hardcoded `kind ==` checks. The
-//! lint rules themselves are part of the fixed tooling vocabulary (Rust), but
-//! the *classification* of nodes is data-driven via `payload_schema`
-//! conventions (`"binding": true`, `"reference": true`, `"terminates": true`)
-//! and named child roles (`statements`).
+//! `lang.ast`/`lang.grammar` — never from hardcoded `kind ==` checks.
+//!
+//! Lint rules come in two layers (ADR-0097 — Lint Rules as Language Data):
+//!
+//! - **Data rules** in `lang.lints` ([`LintRuleDef`](handl_language::LintRuleDef)s,
+//!   merged from `lints.yaml`): `!Match` checks are node-local predicates in
+//!   the ADR-0094 `TransformCondition` vocabulary; `!Native` checks resolve
+//!   against a [`NativeLintRegistry`] (the `desugar.*`-native analogue).
+//!   [`LintEngine::lint_module`] / [`LintEngine::lint_source`] run them.
+//! - **Built-in checks** (empty block, unreachable code, shadowing, unused
+//!   bindings) are the fixed tooling vocabulary, with node classification
+//!   data-driven via `payload_schema` conventions (`"binding": true`,
+//!   `"reference": true`, `"terminates": true`) and named child roles
+//!   (`statements`). [`LintEngine::lint`] runs them on a single AST.
 
 use std::collections::HashMap;
 
-use handl_language::{Ast, AstNode, AstRef, GrammarPosition, LangError, Language, Span};
+use handl_language::{Ast, AstNode, AstRef, GrammarPosition, LangError, Language, LintCheck, Span};
+
+/// Module-level linting: statement splitting, parsing, and the shared
+/// per-statement [`ModuleAnalysis`](module::ModuleAnalysis).
+pub mod module;
+/// Native lint rules and the [`NativeLintRegistry`](native::NativeLintRegistry).
+pub mod native;
+
+pub use module::{LintModule, LintStatement, ModuleAnalysis, parse_module};
+pub use native::{
+    CANONICAL_LINT_NATIVES, LintCtx, NativeHit, NativeLintFn, NativeLintRegistry,
+    canonical_lint_natives,
+};
 
 /// Severity of a lint diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +47,20 @@ pub enum DiagnosticLevel {
     Info,
 }
 
-/// A lint diagnostic with severity, message, and optional source span.
+/// A source fix attached to a [`LintDiagnostic`]: replace the absolute byte
+/// range `start..end` with `replacement`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LintFixOut {
+    /// Absolute start byte offset.
+    pub start: usize,
+    /// Absolute end byte offset.
+    pub end: usize,
+    /// Replacement text.
+    pub replacement: String,
+}
+
+/// A lint diagnostic with severity, message, optional source span, the name
+/// of the rule that produced it, and an optional fix.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LintDiagnostic {
     /// Severity level.
@@ -35,30 +69,174 @@ pub struct LintDiagnostic {
     pub message: String,
     /// Optional source span (byte offsets).
     pub span: Option<Span>,
+    /// The reported rule name (`LintRuleDef::name`; a builtin name for the
+    /// fixed vocabulary checks).
+    pub rule: String,
+    /// Optional fix.
+    pub fix: Option<LintFixOut>,
 }
 
 impl LintDiagnostic {
-    fn warning(msg: impl Into<String>, span: Option<Span>) -> Self {
+    fn warning(rule: &str, msg: impl Into<String>, span: Option<Span>) -> Self {
         Self {
             level: DiagnosticLevel::Warning,
             message: msg.into(),
             span,
+            rule: rule.to_string(),
+            fix: None,
         }
     }
+}
+
+/// Parse a `LintRuleDef` severity label into a [`DiagnosticLevel`].
+fn severity_of(severity: &str, rule_id: &str) -> Result<DiagnosticLevel, LangError> {
+    match severity {
+        "error" => Ok(DiagnosticLevel::Error),
+        "warning" => Ok(DiagnosticLevel::Warning),
+        "info" => Ok(DiagnosticLevel::Info),
+        other => Err(LangError::engine(format!(
+            "lint rule {}: unknown severity '{}'",
+            rule_id, other
+        ))),
+    }
+}
+
+/// Render a native rule's message template: every `{key}` placeholder is
+/// replaced by `args[key]`.
+fn render_native_message(
+    template: &str,
+    args: &std::collections::BTreeMap<String, String>,
+) -> String {
+    let mut out = template.to_string();
+    for (k, v) in args {
+        out = out.replace(&format!("{{{}}}", k), v);
+    }
+    out
 }
 
 /// The data-driven AST lint engine.
 ///
 /// Reads `Language` data to classify nodes (bindings, references, terminals,
 /// blocks) and walks an [`Ast`] recursively to produce [`LintDiagnostic`]s.
-/// Construct with [`LintEngine::new`] and run with [`LintEngine::lint`].
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LintEngine;
+/// [`lint`](Self::lint) runs the built-in checks on a single AST;
+/// [`lint_module`](Self::lint_module) / [`lint_source`](Self::lint_source)
+/// run the `lang.lints` rule table over a whole module.
+///
+/// `!Native` checks resolve against the engine's [`NativeLintRegistry`] —
+/// wire it with [`with_native_registry`](Self::with_native_registry) or
+/// [`with_canonical_lint_natives`](Self::with_canonical_lint_natives).
+#[derive(Debug, Clone, Default)]
+pub struct LintEngine {
+    natives: NativeLintRegistry,
+}
 
 impl LintEngine {
-    /// Create a new lint engine with default options.
+    /// Create a new lint engine with no native rules registered.
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    /// Wire an additional native-lint registry (its entries override
+    /// existing names).
+    pub fn with_native_registry(mut self, natives: NativeLintRegistry) -> Self {
+        self.natives.extend(&natives);
+        self
+    }
+
+    /// Wire a single native rule by name.
+    pub fn with_native(
+        mut self,
+        name: impl Into<String>,
+        f: impl Fn(&LintCtx<'_>) -> Result<Vec<NativeHit>, LangError> + Send + Sync + 'static,
+    ) -> Self {
+        self.natives.register(name, f);
+        self
+    }
+
+    /// Wire the canonical surface's native lint rules (`scope.*`,
+    /// `naming-convention`, `source.missing-module-doc`) — the analogue of
+    /// `RewriteEngine::with_desugar_natives` (ADR-0094).
+    pub fn with_canonical_lint_natives(self) -> Self {
+        self.with_native_registry(canonical_lint_natives())
+    }
+
+    /// Lint a whole module: run every
+    /// [`LintRuleDef`](handl_language::LintRuleDef) in `lang.lints`.
+    ///
+    /// `!Match` rules are evaluated node-locally per statement; `!Native`
+    /// rules dispatch to the registry with the shared [`ModuleAnalysis`].
+    /// Diagnostics come back in rule order — hosts sort by span.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if a rule declares an unknown severity or a
+    /// `!Native` check with no registered implementation.
+    pub fn lint_module(
+        &self,
+        lang: &Language,
+        module: &LintModule,
+    ) -> Result<Vec<LintDiagnostic>, LangError> {
+        let analysis = ModuleAnalysis::build(lang, module);
+        let mut diags = Vec::new();
+        for rule in lang.lints.iter() {
+            let level = severity_of(&rule.severity, &rule.id)?;
+            match &rule.check {
+                LintCheck::Match { node_kind, when } => {
+                    for stmt in &module.statements {
+                        module::eval_match_rule(
+                            lang,
+                            stmt,
+                            module.src,
+                            rule,
+                            node_kind,
+                            when.as_ref(),
+                            level,
+                            &mut diags,
+                        );
+                    }
+                }
+                LintCheck::Native(name) => {
+                    let f = self.natives.get(name).ok_or_else(|| {
+                        LangError::engine(format!(
+                            "lint rule {}: no native registered for '{}'",
+                            rule.id, name
+                        ))
+                    })?;
+                    let ctx = LintCtx {
+                        lang,
+                        src: module.src,
+                        module: &module.statements,
+                        analysis: &analysis,
+                    };
+                    for hit in f(&ctx)? {
+                        diags.push(LintDiagnostic {
+                            level,
+                            message: render_native_message(&rule.message, &hit.args),
+                            span: hit.span,
+                            rule: rule.name.clone(),
+                            fix: hit.fix,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(diags)
+    }
+
+    /// Split `src` into statements, parse each, and lint the module (the
+    /// bootstrap one-statement-per-parse convention — see [`parse_module`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if any statement fails to lex/parse or a rule
+    /// fails (see [`lint_module`](Self::lint_module)).
+    pub fn lint_source(
+        &self,
+        lang: &Language,
+        src: &str,
+    ) -> Result<Vec<LintDiagnostic>, LangError> {
+        let module = parse_module(lang, src)?;
+        self.lint_module(lang, &module)
     }
 
     /// Lint the subtree rooted at `root` in `ast` using `lang` data.
@@ -98,6 +276,7 @@ impl LintEngine {
         for (name, span) in &bindings {
             if !used.contains(name.as_str()) {
                 diags.push(LintDiagnostic::warning(
+                    "unused-binding",
                     format!("binding '{}' is never used", name),
                     *span,
                 ));
@@ -124,7 +303,11 @@ impl LintEngine {
         if classifier.is_block(lang, node) {
             let children = child_indices(node);
             if children.is_empty() {
-                diags.push(LintDiagnostic::warning("empty block", node.span));
+                diags.push(LintDiagnostic::warning(
+                    "empty-block",
+                    "empty block",
+                    node.span,
+                ));
             }
         }
 
@@ -138,6 +321,7 @@ impl LintEngine {
         if let Some(name) = classifier.binding_name(node) {
             if scope.shadows(&name) {
                 diags.push(LintDiagnostic::warning(
+                    "shadowed-binding",
                     format!("binding '{}' shadows an outer binding", name),
                     node.span,
                 ));
@@ -196,6 +380,7 @@ impl LintEngine {
             let child = ast.at(AstRef::new(child_idx))?;
             if found_terminal {
                 diags.push(LintDiagnostic::warning(
+                    "unreachable-code",
                     "unreachable code after terminal statement",
                     child.span,
                 ));
@@ -385,7 +570,7 @@ mod tests {
     use super::*;
     use handl_language::{
         Ast, AstNode, AstShapeDef, AstShapeRef, ChildRoleSpec, GrammarPosition, GrammarRow,
-        Language, PayloadTokenSpec,
+        Language, LintCheck, LintFix, LintRuleDef, PayloadTokenSpec, TransformCondition,
     };
     use serde_json::json;
 
@@ -591,5 +776,174 @@ mod tests {
         let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("empty block"));
+    }
+
+    // --- ADR-0097: `lang.lints` rule dispatch (lint_module) ----------------
+
+    /// A language with a `paren` shape (role `body`) and a `var` leaf, for
+    /// Match-rule tests. The statement `x = (y)` is assembled by hand — the
+    /// toy language is not lexable, so we bypass `parse_module`.
+    fn paren_lang() -> Language {
+        let mut lang = test_lang();
+        lang.ast
+            .merge(
+                AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
+                    role: "body".into(),
+                    variadic: false,
+                }]),
+            )
+            .unwrap();
+        lang
+    }
+
+    /// The module `x = (y)`: a `paren` node spanning bytes 4..7 wrapping a
+    /// `var` leaf `y` at 5..6.
+    fn paren_module(src: &str) -> LintModule<'_> {
+        let mut ast = Ast::new();
+        let var = ast.push(
+            AstNode::new("var")
+                .with_span(Span { start: 5, end: 6 })
+                .with_payload(json!("y")),
+        );
+        let paren = ast.push(
+            AstNode::new("paren")
+                .with_span(Span { start: 4, end: 7 })
+                .with_payload(json!({"children": [var.index()]})),
+        );
+        LintModule {
+            src,
+            statements: vec![LintStatement {
+                text: src.to_string(),
+                offset: 0,
+                ast,
+                root: paren,
+            }],
+        }
+    }
+
+    #[test]
+    fn lint_module_match_rule_fires_with_declarative_fix() {
+        let mut lang = paren_lang();
+        lang.lints
+            .merge(
+                LintRuleDef::new(
+                    "lint.test.paren",
+                    "simplify-paren",
+                    "warning",
+                    "redundant parentheses around '{source:body}'",
+                    LintCheck::Match {
+                        node_kind: "paren".into(),
+                        when: Some(TransformCondition::ChildCount(1)),
+                    },
+                )
+                .with_fix(LintFix::Unwrap {
+                    index: None,
+                    role: Some("body".into()),
+                }),
+            )
+            .unwrap();
+        let module = paren_module("x = (y)");
+        let diags = LintEngine::new().lint_module(&lang, &module).unwrap();
+        assert_eq!(diags.len(), 1);
+        let d = &diags[0];
+        assert_eq!(d.rule, "simplify-paren");
+        assert_eq!(d.level, DiagnosticLevel::Warning);
+        assert_eq!(d.message, "redundant parentheses around 'y'");
+        assert_eq!(d.span, Some(Span { start: 4, end: 7 }));
+        assert_eq!(
+            d.fix,
+            Some(LintFixOut {
+                start: 4,
+                end: 7,
+                replacement: "y".into()
+            })
+        );
+    }
+
+    #[test]
+    fn lint_module_match_rule_when_filters() {
+        let mut lang = paren_lang();
+        lang.lints
+            .merge(LintRuleDef::new(
+                "lint.test.paren",
+                "simplify-paren",
+                "warning",
+                "matched",
+                LintCheck::Match {
+                    node_kind: "paren".into(),
+                    // The paren has exactly one child — this must not fire.
+                    when: Some(TransformCondition::ChildCount(2)),
+                },
+            ))
+            .unwrap();
+        let module = paren_module("x = (y)");
+        let diags = LintEngine::new().lint_module(&lang, &module).unwrap();
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn lint_module_native_rule_dispatches_and_templates() {
+        let mut lang = paren_lang();
+        lang.lints
+            .merge(LintRuleDef::new(
+                "lint.test.native",
+                "test-native",
+                "info",
+                "saw '{name}'",
+                LintCheck::Native("test.always".into()),
+            ))
+            .unwrap();
+        let module = paren_module("x = (y)");
+        let engine = LintEngine::new().with_native("test.always", |ctx| {
+            assert_eq!(ctx.src, "x = (y)");
+            assert_eq!(ctx.module.len(), 1);
+            Ok(vec![NativeHit::named("thing", Span { start: 0, end: 1 })])
+        });
+        let diags = engine.lint_module(&lang, &module).unwrap();
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "test-native");
+        assert_eq!(diags[0].level, DiagnosticLevel::Info);
+        assert_eq!(diags[0].message, "saw 'thing'");
+    }
+
+    #[test]
+    fn lint_module_unknown_native_errors() {
+        let mut lang = paren_lang();
+        lang.lints
+            .merge(LintRuleDef::new(
+                "lint.test.missing",
+                "missing",
+                "warning",
+                "m",
+                LintCheck::Native("test.missing".into()),
+            ))
+            .unwrap();
+        let module = paren_module("x = (y)");
+        let err = LintEngine::new()
+            .lint_module(&lang, &module)
+            .unwrap_err();
+        assert!(format!("{err}").contains("test.missing"), "{err}");
+    }
+
+    #[test]
+    fn lint_module_unknown_severity_errors() {
+        let mut lang = paren_lang();
+        lang.lints
+            .merge(LintRuleDef::new(
+                "lint.test.sev",
+                "sev",
+                "bogus",
+                "m",
+                LintCheck::Match {
+                    node_kind: "paren".into(),
+                    when: None,
+                },
+            ))
+            .unwrap();
+        let module = paren_module("x = (y)");
+        let err = LintEngine::new()
+            .lint_module(&lang, &module)
+            .unwrap_err();
+        assert!(format!("{err}").contains("bogus"), "{err}");
     }
 }

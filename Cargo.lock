@@ -1293,6 +1293,10 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform-rewrite",
  "serde",
  "serde_json",
 ]
@@ -1579,11 +1583,7 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
- "handl-plugin-engine-lex-pattern",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "handl-plugin-engine-transform",
- "handl-plugin-engine-transform-rewrite",
+ "handl-plugin-engine-lint",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
  "serde",

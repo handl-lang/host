@@ -13,7 +13,7 @@ use handl_language::{Ast, AstNode, AstRef, Language, TransformCondition};
 /// Returns `true` when the condition holds — i.e. the guarded rule may fire.
 /// A condition that cannot be resolved (missing child, unknown role, absent
 /// payload path) evaluates to `false`, never panics.
-pub(crate) fn matches_condition(
+pub fn matches_condition(
     lang: &Language,
     ast: &Ast,
     node: &AstNode,
@@ -32,6 +32,19 @@ pub(crate) fn matches_condition(
         TransformCondition::PayloadEq { path, value } => {
             payload_at(&node.payload, path).map(|v| v == value).unwrap_or(false)
         }
+        TransformCondition::ChildPayloadEq {
+            index,
+            role,
+            path,
+            value,
+        } => match resolve_child_index(lang, node, *index, role.as_deref()) {
+            Some(old_idx) => ast
+                .get(AstRef::new(old_idx))
+                .and_then(|child| payload_at(&child.payload, path))
+                .map(|v| v == value)
+                .unwrap_or(false),
+            None => false,
+        },
         TransformCondition::ChildCount(n) => node
             .payload
             .get("children")
@@ -76,6 +89,9 @@ fn resolve_child_index(
 /// Navigate a dotted `path` (`.`-separated object keys; numeric segments
 /// index into arrays) into `payload`.
 fn payload_at<'a>(payload: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
+    if path.is_empty() {
+        return Some(payload);
+    }
     let mut cur = payload;
     for seg in path.split('.') {
         cur = if let Some(idx) = seg.parse::<usize>().ok().filter(|_| cur.is_array()) {

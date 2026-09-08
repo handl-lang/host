@@ -126,8 +126,9 @@ pub struct Fix {
 /// A diagnostic with rule name, severity, span, message, and optional fix.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Diagnostic {
-    /// The rule name, e.g. `"unused-import"`.
-    pub rule: &'static str,
+    /// The rule name, e.g. `"unused-import"`. Owned: rule names come from
+    /// `Language` data (ADR-0097), not Rust constants.
+    pub rule: String,
     /// Severity of the diagnostic.
     pub severity: Severity,
     /// Source span the diagnostic refers to.
@@ -141,13 +142,13 @@ pub struct Diagnostic {
 impl Diagnostic {
     /// Create a new diagnostic with no fix.
     pub fn new(
-        rule: &'static str,
+        rule: impl Into<String>,
         severity: Severity,
         span: Span,
         message: impl Into<String>,
     ) -> Self {
         Diagnostic {
-            rule,
+            rule: rule.into(),
             severity,
             span,
             message: message.into(),

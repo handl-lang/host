@@ -285,6 +285,41 @@ fn validate_condition(
             // Payload paths are engine-defined; the abstraction crate cannot
             // validate them statically.
         }
+        TransformCondition::ChildPayloadEq {
+            index,
+            role,
+            path: _,
+            value: _,
+        } => {
+            if let (Some(i), Some(s)) = (index, shape) {
+                if let Some(n) = shape_role_count(Some(s)) {
+                    if *i >= n {
+                        diags.push(Diagnostic::new(
+                            RULE,
+                            Severity::Error,
+                            Span::default(),
+                            format!(
+                                "rule {} ChildPayloadEq index {} is out of bounds for shape '{}'",
+                                rule_id, i, s.node_kind
+                            ),
+                        ));
+                    }
+                }
+            }
+            if let (Some(r), Some(s)) = (role, shape) {
+                if s.role_index(r).is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule {} ChildPayloadEq uses unknown role '{}' for shape '{}'",
+                            rule_id, r, s.node_kind
+                        ),
+                    ));
+                }
+            }
+        }
         TransformCondition::ChildCount(n) => {
             if let Some(s) = shape {
                 if let Some(roles) = &s.children {
