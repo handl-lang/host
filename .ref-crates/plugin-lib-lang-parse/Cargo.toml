@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lib-lang-parse"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = {path = "../../crates/handl-language" }
+handl-runtime = {path = "../../crates/handl-runtime" }
+handl-platform = {path = "../../crates/platform" }
+handl-plugin-module = {path = "../../crates/plugin-module" }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }

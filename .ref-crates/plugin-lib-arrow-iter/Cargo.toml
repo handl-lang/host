@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-lib-arrow-iter"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = {path = "../../crates/handl-language" }
+handl-platform = {path = "../../crates/platform" }
+handl-plugin-lib-handl = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-exec-tree-walk = {path = "../../crates/plugin-engine-exec-tree-walk" }
+serde_json = { workspace = true }

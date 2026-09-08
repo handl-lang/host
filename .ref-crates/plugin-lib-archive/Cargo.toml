@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-lib-archive"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-lib-handl = { workspace = true }
+handl-platform = {path = "../../crates/platform" }
+thiserror.workspace = true

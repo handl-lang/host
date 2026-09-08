@@ -1,0 +1,17 @@
+[package]
+name = "handl-plugin-lib-os-std"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-module = {path = "../../crates/plugin-module"  }
+handl-plugin-lib-handl = { workspace = true }
+handl-platform = {path = "../../crates/platform" }
+serde_json = { workspace = true }
+handl-plugin-lib-os.workspace = true
+
+[target."cfg(unix)".dependencies]
+mio = { version = "1", features = ["net", "os-poll"] }
+nix = { version = "0.29", features = ["signal", "process"] }
+
+[dev-dependencies]

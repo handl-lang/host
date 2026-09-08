@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lib-hex"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-module = {path = "../../crates/plugin-module"  }
+handl-platform = {path = "../../crates/platform" }
+handl-plugin-lib-encoding = {path = "../plugin-lib-encoding"  }
+handl-plugin-lib-handl = { workspace = true }
+hex = "0.4"
+serde_json = "1"

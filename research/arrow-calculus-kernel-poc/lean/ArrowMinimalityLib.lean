@@ -15,6 +15,8 @@ import ArrowMinimalityLib.InvariantDomain
 import ArrowMinimalityLib.StructuralInference
 import ArrowMinimalityLib.LoopInvariantDiscovery
 import ArrowMinimalityLib.AlgorithmicCompleteness
+import ArrowMinimalityLib.AlgorithmicCompletenessOmega
+import ArrowMinimalityLib.DecidableFragment
 import ArrowMinimalityLib.Termination
 import ArrowMinimalityLib.TraitInference
 import ArrowMinimalityLib.EquationalLawInference

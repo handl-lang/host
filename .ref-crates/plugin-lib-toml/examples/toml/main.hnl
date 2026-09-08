@@ -1,0 +1,9 @@
+value: type.obj = {
+  title: "example",
+  owner: { name: "luis" },
+  nums: [1, 2, 3],
+  active: true
+};
+text: type.str = toml.encode(value);
+decoded: type.obj = toml.decode(text);
+{ value: value, text: text, decoded: decoded }

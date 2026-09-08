@@ -36,10 +36,14 @@
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/EffectHandlers.olean"]],
   "ArrowMinimalityLib.DependentProofGraphs":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/DependentProofGraphs.olean"]],
+  "ArrowMinimalityLib.DecidableFragment":
+  [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/DecidableFragment.olean"]],
   "ArrowMinimalityLib.CutElimCongruence":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/CutElimCongruence.olean"]],
   "ArrowMinimalityLib.Basic":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Basic.olean"]],
+  "ArrowMinimalityLib.AlgorithmicCompletenessOmega":
+  [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/AlgorithmicCompletenessOmega.olean"]],
   "ArrowMinimalityLib.AlgorithmicCompleteness":
   [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/AlgorithmicCompleteness.olean"]]},
  "dynlibs": []}

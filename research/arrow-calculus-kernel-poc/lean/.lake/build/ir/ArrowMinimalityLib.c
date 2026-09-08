@@ -1,6 +1,6 @@
 // Lean compiler output
 // Module: ArrowMinimalityLib
-// Imports: public import Init public meta import Init public import ArrowMinimalityLib.Basic public import ArrowMinimalityLib.ProofGraphs public import ArrowMinimalityLib.IteratedLoop public import ArrowMinimalityLib.Translation public import ArrowMinimalityLib.DependentProofGraphs public import ArrowMinimalityLib.RefinementProofGraphs public import ArrowMinimalityLib.ProofAdvantage public import ArrowMinimalityLib.CutElimCongruence public import ArrowMinimalityLib.ProofRelevant public import ArrowMinimalityLib.FanoutUnencodable public import ArrowMinimalityLib.RefinementCharacterization public import ArrowMinimalityLib.InvariantDomain public import ArrowMinimalityLib.StructuralInference public import ArrowMinimalityLib.LoopInvariantDiscovery public import ArrowMinimalityLib.AlgorithmicCompleteness public import ArrowMinimalityLib.Termination public import ArrowMinimalityLib.TraitInference public import ArrowMinimalityLib.EquationalLawInference public import ArrowMinimalityLib.EffectHandlers
+// Imports: public import Init public meta import Init public import ArrowMinimalityLib.Basic public import ArrowMinimalityLib.ProofGraphs public import ArrowMinimalityLib.IteratedLoop public import ArrowMinimalityLib.Translation public import ArrowMinimalityLib.DependentProofGraphs public import ArrowMinimalityLib.RefinementProofGraphs public import ArrowMinimalityLib.ProofAdvantage public import ArrowMinimalityLib.CutElimCongruence public import ArrowMinimalityLib.ProofRelevant public import ArrowMinimalityLib.FanoutUnencodable public import ArrowMinimalityLib.RefinementCharacterization public import ArrowMinimalityLib.InvariantDomain public import ArrowMinimalityLib.StructuralInference public import ArrowMinimalityLib.LoopInvariantDiscovery public import ArrowMinimalityLib.AlgorithmicCompleteness public import ArrowMinimalityLib.AlgorithmicCompletenessOmega public import ArrowMinimalityLib.DecidableFragment public import ArrowMinimalityLib.Termination public import ArrowMinimalityLib.TraitInference public import ArrowMinimalityLib.EquationalLawInference public import ArrowMinimalityLib.EffectHandlers
 #include <lean/lean.h>
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -30,6 +30,8 @@ lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_InvariantDomai
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_StructuralInference(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_LoopInvariantDiscovery(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_AlgorithmicCompleteness(uint8_t builtin);
+lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_AlgorithmicCompletenessOmega(uint8_t builtin);
+lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_DecidableFragment(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_Termination(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_TraitInference(uint8_t builtin);
 lean_object* initialize_arrow__minimality__lib_ArrowMinimalityLib_EquationalLawInference(uint8_t builtin);
@@ -88,6 +90,12 @@ res = initialize_arrow__minimality__lib_ArrowMinimalityLib_LoopInvariantDiscover
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_arrow__minimality__lib_ArrowMinimalityLib_AlgorithmicCompleteness(builtin);
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_arrow__minimality__lib_ArrowMinimalityLib_AlgorithmicCompletenessOmega(builtin);
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_arrow__minimality__lib_ArrowMinimalityLib_DecidableFragment(builtin);
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_arrow__minimality__lib_ArrowMinimalityLib_Termination(builtin);

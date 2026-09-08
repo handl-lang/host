@@ -1,0 +1,426 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
+
+use crate::error::HttpError;
+
+/// The handl source declaring the http-client `op` interface — the single
+/// source of truth for the HTTP client API surface. Loaded at compile time
+/// from the kit-stdlib data dir.
+const HTTP_CLIENT_HNL: &str =
+    include_str!("../../../../handl-packages/http_client/http_client.hnl");
+
+// ── Types ───────────────────────────────────────────────────────────
+
+/// HTTP method enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+    Head,
+    Options,
+}
+
+impl HttpMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Patch => "PATCH",
+            Self::Delete => "DELETE",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_ascii_uppercase().as_str() {
+            "GET" => Some(Self::Get),
+            "POST" => Some(Self::Post),
+            "PUT" => Some(Self::Put),
+            "PATCH" => Some(Self::Patch),
+            "DELETE" => Some(Self::Delete),
+            "HEAD" => Some(Self::Head),
+            "OPTIONS" => Some(Self::Options),
+            _ => None,
+        }
+    }
+}
+
+/// HTTP request descriptor.
+#[derive(Debug, Clone)]
+pub struct HttpRequest {
+    pub method: HttpMethod,
+    pub url: String,
+    pub body: Option<String>,
+    pub headers: HashMap<String, String>,
+    pub timeout_ms: Option<u64>,
+}
+
+impl HttpRequest {
+    pub fn new(method: HttpMethod, url: impl Into<String>) -> Self {
+        HttpRequest {
+            method,
+            url: url.into(),
+            body: None,
+            headers: HashMap::new(),
+            timeout_ms: None,
+        }
+    }
+
+    pub fn with_body(mut self, body: impl Into<String>) -> Self {
+        self.body = Some(body.into());
+        self
+    }
+
+    pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.insert(name.into(), value.into());
+        self
+    }
+
+    pub fn with_timeout(mut self, ms: u64) -> Self {
+        self.timeout_ms = Some(ms);
+        self
+    }
+}
+
+/// HTTP response.
+#[derive(Debug, Clone)]
+pub struct HttpResponse {
+    pub status: u16,
+    pub status_text: String,
+    pub body: String,
+    pub headers: HashMap<String, String>,
+    pub url: String,
+}
+
+impl HttpResponse {
+    pub fn new(status: u16, body: impl Into<String>) -> Self {
+        HttpResponse {
+            status,
+            status_text: String::new(),
+            body: body.into(),
+            headers: HashMap::new(),
+            url: String::new(),
+        }
+    }
+
+    pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.insert(name.into(), value.into());
+        self
+    }
+
+    pub fn with_status_text(mut self, text: impl Into<String>) -> Self {
+        self.status_text = text.into();
+        self
+    }
+
+    pub fn with_url(mut self, url: impl Into<String>) -> Self {
+        self.url = url.into();
+        self
+    }
+
+    /// Returns `true` if the status code is in the 2xx range.
+    pub fn ok(&self) -> bool {
+        self.status >= 200 && self.status < 300
+    }
+}
+
+// ── Trait ───────────────────────────────────────────────────────────
+
+/// Abstract HTTP client service.
+///
+/// Inspired by the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API),
+/// this trait uses a single [`request`] method with an [`HttpRequest`] descriptor,
+/// giving full control over method, headers, body, and timeout.
+///
+/// Implementations:
+/// - `handl-lib-http-client-std` — backed by `ureq`
+/// - [`http_client_stub::StubHttpClient`] — canned responses for testing
+pub trait HttpClient: Send + Sync {
+    fn request(&self, req: &HttpRequest) -> Result<HttpResponse, HttpError>;
+}
+
+// ── Module adapter ──────────────────────────────────────────────────
+
+/// Module adapter for [`HttpClient`] — exposes `http.*` functions.
+///
+/// | Function | Args | Description |
+/// |----------|------|-------------|
+/// | `http.get(url)` | `(url)` or `(url, headers)` | GET request |
+/// | `http.post(url, body)` | `(url, body)` or `(url, body, headers)` | POST request |
+/// | `http.put(url, body)` | `(url, body)` or `(url, body, headers)` | PUT request |
+/// | `http.patch(url, body)` | `(url, body)` or `(url, body, headers)` | PATCH request |
+/// | `http.delete(url)` | `(url)` or `(url, headers)` | DELETE request |
+/// | `http.head(url)` | `(url)` or `(url, headers)` | HEAD request |
+/// | `http.request(method, url, body, headers)` | `(method, url, body, headers)` | Full control |
+///
+/// `headers` is a JSON object of header name to value.
+/// `body` in `http.request` can be `null` for bodyless requests.
+///
+/// The interface is declared in `http_client.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// delegates [`Module`] lookups to the [`HandlModule`] built from the
+/// client.
+pub struct HttpClientModule {
+    module: HandlModule,
+}
+
+impl HttpClientModule {
+    pub fn new(client: impl HttpClient + 'static) -> Self {
+        let mut registry = OpRegistry::new();
+        register_http_client_ops(&mut registry, client);
+        Self {
+            module: HandlModule::new("http", HTTP_CLIENT_HNL, &[])
+                .with_ops(HTTP_CLIENT_OPS, Arc::new(registry)),
+        }
+    }
+}
+
+impl Module for HttpClientModule {
+    fn name(&self) -> &str {
+        "http"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
+    }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
+    args.get(idx)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            idx + 1,
+            args.len(),
+        )))?
+        .as_str()
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
+}
+
+fn extract_headers(
+    args: &[serde_json::Value],
+    idx: usize,
+) -> Result<HashMap<String, String>, EvalError> {
+    match args.get(idx) {
+        None => Ok(HashMap::new()),
+        Some(v) if v.is_null() => Ok(HashMap::new()),
+        Some(v) => {
+            let obj = v.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "object", "non-object",
+            )))?;
+            let mut headers = HashMap::new();
+            for (key, val) in obj {
+                let value = val.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
+                headers.insert(key.clone(), value.to_string());
+            }
+            Ok(headers)
+        }
+    }
+}
+
+fn response_to_value(resp: HttpResponse) -> serde_json::Value {
+    let ok = resp.ok();
+    let headers: serde_json::Map<String, serde_json::Value> = resp
+        .headers
+        .into_iter()
+        .map(|(k, v)| (k, serde_json::Value::String(v)))
+        .collect();
+    serde_json::Value::from(serde_json::json!({
+        "status": resp.status,
+        "status_text": resp.status_text,
+        "ok": ok,
+        "body": resp.body,
+        "headers": serde_json::Value::Object(headers),
+        "url": resp.url}))
+}
+
+// ── Verb function structs ───────────────────────────────────────────
+
+macro_rules! bodyless_fn {
+    ($name:ident, $method:expr) => {
+        struct $name {
+            client: Arc<dyn HttpClient>,
+        }
+
+        impl Function for $name {
+            fn call(
+                &self,
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
+                let url = require_string_at(args, 0)?;
+                let headers = extract_headers(args, 1)?;
+                let req = HttpRequest {
+                    method: $method,
+                    url: url.to_string(),
+                    body: None,
+                    headers,
+                    timeout_ms: None,
+                };
+                self.client
+                    .request(&req)
+                    .map(response_to_value)
+                    .map_err(Into::into)
+            }
+        }
+    };
+}
+
+macro_rules! body_fn {
+    ($name:ident, $method:expr) => {
+        struct $name {
+            client: Arc<dyn HttpClient>,
+        }
+
+        impl Function for $name {
+            fn call(
+                &self,
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
+                let url = require_string_at(args, 0)?;
+                let body = require_string_at(args, 1)?;
+                let headers = extract_headers(args, 2)?;
+                let req = HttpRequest {
+                    method: $method,
+                    url: url.to_string(),
+                    body: Some(body.to_string()),
+                    headers,
+                    timeout_ms: None,
+                };
+                self.client
+                    .request(&req)
+                    .map(response_to_value)
+                    .map_err(Into::into)
+            }
+        }
+    };
+}
+
+bodyless_fn!(GetFn, HttpMethod::Get);
+bodyless_fn!(DeleteFn, HttpMethod::Delete);
+bodyless_fn!(HeadFn, HttpMethod::Head);
+
+body_fn!(PostFn, HttpMethod::Post);
+body_fn!(PutFn, HttpMethod::Put);
+body_fn!(PatchFn, HttpMethod::Patch);
+
+struct RequestFn {
+    client: Arc<dyn HttpClient>,
+}
+
+impl Function for RequestFn {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let method_str = require_string_at(args, 0)?;
+        let method = HttpMethod::parse(method_str)
+            .ok_or_else(|| EvalError::Other(format!("unknown HTTP method: {method_str}")))?;
+        let url = require_string_at(args, 1)?;
+        let body = match args.get(2) {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(
+                v.as_str()
+                    .ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "string", "non-string",
+                    )))?
+                    .to_string(),
+            ),
+        };
+        let headers = extract_headers(args, 3)?;
+        let req = HttpRequest {
+            method,
+            url: url.to_string(),
+            body,
+            headers,
+            timeout_ms: None,
+        };
+        self.client
+            .request(&req)
+            .map(response_to_value)
+            .map_err(Into::into)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `http_client.hnl` — the HTTP client interface.
+pub const HTTP_CLIENT_OPS: &[&str] = &[
+    "http.get",
+    "http.post",
+    "http.put",
+    "http.patch",
+    "http.delete",
+    "http.head",
+    "http.request",
+];
+
+/// Register the `http` ops into the given [`OpRegistry`], dispatching to the
+/// given [`HttpClient`] implementation.
+pub fn register_http_client_ops(registry: &mut OpRegistry, client: impl HttpClient + 'static) {
+    let client: Arc<dyn HttpClient> = Arc::new(client);
+    registry.register(
+        "http.get",
+        Arc::new(GetFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.post",
+        Arc::new(PostFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.put",
+        Arc::new(PutFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.patch",
+        Arc::new(PatchFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.delete",
+        Arc::new(DeleteFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.head",
+        Arc::new(HeadFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register("http.request", Arc::new(RequestFn { client }));
+}

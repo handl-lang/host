@@ -1,0 +1,5 @@
+server: type.any = http_server.new();
+route: type.null = http_server.route(server, "GET", "/hello", "Hello from handl");
+start: type.null = http_server.start(server, "127.0.0.1:8081");
+join: type.null = http_server.join(server);
+[route, start, join]

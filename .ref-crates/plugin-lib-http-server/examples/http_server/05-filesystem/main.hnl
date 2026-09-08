@@ -1,0 +1,8 @@
+path: type.str = "crates/lib-http-server/examples/http_server/05-filesystem/greeting.txt";
+written: type.null = fs.write(path, "Hello from handl files");
+content: type.str = fs.read(path);
+server: type.any = http_server.new();
+route: type.null = http_server.route(server, "GET", "/greeting", content);
+start: type.null = http_server.start(server, "127.0.0.1:8085");
+join: type.null = http_server.join(server);
+[written, route, start, join]

@@ -574,6 +574,82 @@ fn stmt_import_bound_names(ast: &Ast, root: &AstNode) -> Vec<String> {
 // Expression checking
 // ---------------------------------------------------------------------------
 
+/// Collect the names bound by a pattern using `AstShapeDef::pattern_role`
+/// metadata and declared child roles (ADR-0081). The conventional wildcard
+/// `_` is skipped: it binds nothing and must not be reported as unbound.
+fn pattern_bound_names(
+    lang: &Language,
+    ast: &Ast,
+    node_ref: AstRef,
+    out: &mut HashSet<String>,
+) {
+    let node = match ast.at(node_ref) {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+    let role = lang
+        .ast
+        .get_by_identity(&node.kind)
+        .and_then(|s| s.pattern_role.as_deref());
+
+    match role {
+        Some("leaf") => {
+            if let Some(name) = node.payload.as_str() {
+                if name != "_" {
+                    out.insert(name.to_string());
+                }
+            }
+        }
+        Some("rest") => {
+            if let Ok(Some(subject_idx)) = lang.child_role_index(&node.kind, "subject") {
+                let children = children_of(node);
+                if let Some(&subject_raw) = children.get(subject_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(subject_raw), out);
+                }
+            }
+        }
+        Some("sequence") => {
+            if let Ok(Some(elements_idx)) = lang.child_role_index(&node.kind, "elements") {
+                for &child_raw in children_of(node).iter().skip(elements_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(child_raw), out);
+                }
+            }
+        }
+        Some("entries") => {
+            if let Ok(Some(entries_idx)) = lang.child_role_index(&node.kind, "entries") {
+                for &child_raw in children_of(node).iter().skip(entries_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(child_raw), out);
+                }
+            }
+        }
+        Some("entry") => {
+            if let Ok(Some(value_idx)) = lang.child_role_index(&node.kind, "value") {
+                let children = children_of(node);
+                if let Some(&value_raw) = children.get(value_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(value_raw), out);
+                }
+            }
+        }
+        _ => {
+            // Wrapper fallbacks for role-less shapes that still appear in
+            // patterns: a `paren`-wrapped pattern uses the `body` role, and
+            // a `type-annot`-wrapped pattern uses the `subject` role.
+            if let Ok(Some(body_idx)) = lang.child_role_index(&node.kind, "body") {
+                for &child_raw in children_of(node).iter().skip(body_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(child_raw), out);
+                }
+            } else if let Ok(Some(subject_idx)) =
+                lang.child_role_index(&node.kind, "subject")
+            {
+                let children = children_of(node);
+                if let Some(&subject_raw) = children.get(subject_idx) {
+                    pattern_bound_names(lang, ast, AstRef::new(subject_raw), out);
+                }
+            }
+        }
+    }
+}
+
 /// Recursively check an expression subtree for unbound wires, `rec`
 /// not-yet-checked boundaries, and arrow-kind consistency.
 ///
@@ -595,8 +671,12 @@ fn check_expr(
         Err(_) => return,
     };
 
-    // Var reference — check scope.
+    // Var reference — check scope. The `_` wildcard is a conventional
+    // pattern binder that never refers to an in-scope name.
     if let Some(name) = var_name(node) {
+        if name == "_" {
+            return;
+        }
         references.insert(name.clone());
         if !scope.contains(&name) {
             let span = name_span(src, stmt, &name);
@@ -610,35 +690,16 @@ fn check_expr(
         return;
     }
 
-    // Function (arrow lambda `x ~> body`): add params to scope, check body.
+    // Function (arrow lambda `x ~> body` or `[p, ...rest] ~> body`): add
+    // the pattern-bound params to scope, then check the body.
     // Identified data-drivenly by the `params` + `body` roles (ADR-0081).
     let params_idx = lang.child_role_index(&node.kind, "params").ok().flatten();
     let body_idx = lang.child_role_index(&node.kind, "body").ok().flatten();
     if let (Some(pi), Some(bi)) = (params_idx, body_idx) {
         let children = children_of(node);
         let mut inner_scope = scope.clone();
-        // `param_names` resolves the fixed params and an optional rest
-        // param (`[a, ...rest] ~> body`) data-driven via `pattern_role`/
-        // variadic-role metadata (ADR-0081); single-param arrows
-        // (`x ~> body`) come back as a one-element list.
         if let Some(&params_raw) = children.get(pi) {
-            if let Ok(params_node) = ast.at(AstRef::new(params_raw)) {
-                match lang.param_names(ast, params_node) {
-                    Ok((names, rest)) => {
-                        for name in names {
-                            inner_scope.insert(name);
-                        }
-                        if let Some(name) = rest {
-                            inner_scope.insert(name);
-                        }
-                    }
-                    Err(_) => {
-                        if let Some(name) = var_name(params_node) {
-                            inner_scope.insert(name);
-                        }
-                    }
-                }
-            }
+            pattern_bound_names(lang, ast, AstRef::new(params_raw), &mut inner_scope);
         }
         if let Some(&body_raw) = children.get(bi) {
             check_expr(
@@ -647,6 +708,32 @@ fn check_expr(
                 ast,
                 AstRef::new(body_raw),
                 &inner_scope,
+                stmt,
+                diags,
+                references,
+            );
+        }
+        return;
+    }
+
+    // Pattern arm (`pattern: body`): bind the pattern names, then check
+    // the body. Identified data-drivenly by the `pattern` + `body` child
+    // roles (ADR-0081) — covers `match` arms and any other arm-like form.
+    let pattern_idx = lang.child_role_index(&node.kind, "pattern").ok().flatten();
+    let body_idx = lang.child_role_index(&node.kind, "body").ok().flatten();
+    if let (Some(pi), Some(bi)) = (pattern_idx, body_idx) {
+        let children = children_of(node);
+        let mut arm_scope = scope.clone();
+        if let Some(&pattern_raw) = children.get(pi) {
+            pattern_bound_names(lang, ast, AstRef::new(pattern_raw), &mut arm_scope);
+        }
+        if let Some(&body_raw) = children.get(bi) {
+            check_expr(
+                lang,
+                src,
+                ast,
+                AstRef::new(body_raw),
+                &arm_scope,
                 stmt,
                 diags,
                 references,
@@ -1001,6 +1088,21 @@ mod tests {
         // And the rendered error is readable for the CLI path.
         let shown = CheckError::Language("x".into()).to_string();
         assert!(shown.starts_with("language error:"), "got: {shown}");
+    }
+
+        #[test]
+    fn debug_parse_cli() {
+        let lang = assemble_language().expect("assemble");
+        let src = "f :: (desc: String) ~> { description: desc }";
+        let chunk = Chunk {
+            text: src.to_string(),
+            offset: 0,
+        };
+        let ast = parse_chunk(&lang, &chunk.text).expect("parse");
+        for i in 0..ast.len() {
+            let node = ast.at(AstRef::new(i)).expect("node");
+            eprintln!("{i}: kind={} payload={} children={:?}", node.kind, node.payload, children_of(node));
+        }
     }
 
     /// A `desugar:` field on an `AstShapeDef` still lowers into a

@@ -1,0 +1,6 @@
+server: type.any = http_server.new();
+hash: type.str = crypto.sha256("hello");
+route: type.null = http_server.route(server, "GET", "/hash", hash);
+start: type.null = http_server.start(server, "127.0.0.1:8086");
+join: type.null = http_server.join(server);
+[route, start, join]

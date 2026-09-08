@@ -1,0 +1,5 @@
+server: type.any = http_server.new();
+serve: type.null = http_server.serve_static(server, "/static", "crates/lib-http-server/examples/http_server/02-static/public");
+start: type.null = http_server.start(server, "127.0.0.1:8082");
+join: type.null = http_server.join(server);
+[serve, start, join]
