@@ -2950,7 +2950,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         // before eval (ADR-0058), so they fall into the `None` (evaluate)
         // branch. Mirrors the v2 tree-walk's object prim. Role-less shapes
         // (or a null lang in the standalone driver) fall back to the
-        // legacy `var`/`string` kind heuristic.
+        // legacy `var`/`string` kind heuristic.  Cranelift does not yet
+        // opt in to the `lower` pass; see ADR-0094 §"Follow-up: a `lower`
+        // pass for codegen backends" for the parity note.
         let key_node = match ast.at(AstRef::new(key_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
