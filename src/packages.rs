@@ -20,9 +20,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Module, PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_lib_handl::{
-    HandlModule, ModuleResolver, OpRegistry, parse_cap_declarations,
-};
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry, parse_cap_declarations};
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 use crate::ops;
@@ -439,6 +437,26 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
         deps: &["math", "cmp"],
     },
+    // ── archive / archive_tar (former plugin-lib-archive, plugin-lib-archive-tar)
+    // The `archive` module is caps-only (no callable ops — it's a trait
+    // abstraction). The `tar` module provides `tar.pack` and `tar.unpack` via
+    // the consolidated Rust `Function` impls in `ops::tar`.
+    ModuleSpec {
+        name: "archive",
+        hnl: include_str!("../../../handl-packages/archive/archive.hnl"),
+        funcs: &[],
+        ops: &[],
+        registry: None,
+        deps: &[],
+    },
+    ModuleSpec {
+        name: "tar",
+        hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
+        funcs: &[],
+        ops: ops::tar::TAR_OPS,
+        registry: Some(ops::tar::tar_op_registry),
+        deps: &[],
+    },
 ];
 
 /// The modules contributed by the `utils` aggregate package (matches the
@@ -473,6 +491,12 @@ const UTILS_MODULES: &[&str] = &[
 const COLLECTIONS_MODULES: &[&str] = &[
     "vec", "list", "queue", "stack", "deque", "hash_map", "hash_set", "array",
 ];
+
+/// The modules contributed by the `archive-tar` package (former
+/// `plugin-lib-archive-tar`). The `archive` module is the caps-only
+/// abstraction surface (former `plugin-lib-archive` `Archive` trait); the
+/// `tar` module carries the callable `tar.pack` / `tar.unpack` ops.
+const ARCHIVE_TAR_MODULES: &[&str] = &["archive", "tar"];
 
 /// The package table — keyed by library-registry name (kit manifest
 /// `modules:` entries).
@@ -603,6 +627,14 @@ pub static PACKAGES: &[PackageSpec] = &[
         hnl: include_str!("../../../handl-packages/prim/prim.hnl"),
         modules: &[],
     },
+    // ── archive-tar (former plugin-lib-archive-tar) ─────────────────────
+    PackageSpec {
+        lib_name: "archive-tar",
+        plugin_id: "lib.archive-tar",
+        plugin_name: "lib-archive-tar",
+        hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
+        modules: &[], // resolved via ARCHIVE_TAR_MODULES (see package_module_names)
+    },
 ];
 
 /// Look up a [`ModuleSpec`] by module name.
@@ -620,6 +652,9 @@ fn package_module_names(spec: &PackageSpec) -> Vec<&'static str> {
     }
     if spec.lib_name == "collections" {
         return COLLECTIONS_MODULES.to_vec();
+    }
+    if spec.lib_name == "archive-tar" {
+        return ARCHIVE_TAR_MODULES.to_vec();
     }
     if !spec.modules.is_empty() {
         return spec.modules.iter().map(|m| m.name).collect();
@@ -654,8 +689,7 @@ pub static DEFAULT_RESOLVER: PackageResolver<'static> = PackageResolver { fallba
 /// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and
 /// dependency modules through `resolver`.
 pub fn build_module(spec: &ModuleSpec, resolver: &dyn ModuleResolver) -> HandlModule {
-    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
-        .with_resolver(resolver);
+    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs).with_resolver(resolver);
     for dep in spec.deps {
         if let Some(dep_module) = resolver.resolve(dep) {
             module = module.with_dependency_arc(dep_module);
@@ -692,9 +726,9 @@ pub fn module_ref(name: &str) -> Option<&'static HandlModule> {
     module_spec(name)?;
     let mut cache = module_cache().lock().ok()?;
     Some(
-        *cache
-            .entry(name.to_string())
-            .or_insert_with(|| Box::leak(Box::new(module(name).expect("module_spec checked above")))),
+        *cache.entry(name.to_string()).or_insert_with(|| {
+            Box::leak(Box::new(module(name).expect("module_spec checked above")))
+        }),
     )
 }
 
@@ -766,7 +800,10 @@ impl Plugin for PackagePlugin {
         };
         for name in package_module_names(self.spec) {
             let spec = module_spec(name).unwrap_or_else(|| {
-                panic!("package '{}' lists unknown module '{name}'", self.spec.lib_name)
+                panic!(
+                    "package '{}' lists unknown module '{name}'",
+                    self.spec.lib_name
+                )
             });
             ctx.contribute::<ModuleRuntime>(ModuleRule::new(build_module(spec, &fallback)))?;
         }

@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
 use crate::shared::{
     apply_fn, arr as to_arr, b as to_bool, find_extremum_by, num, require_array,
     require_function_and_array, require_one_arg,
 };
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 use serde_json::Value as JsonValue;
 
 /// The handl source declaring the cmp `op` interface — the single source

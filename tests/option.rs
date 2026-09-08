@@ -63,14 +63,20 @@ impl ExprEvaluator for TestEval {
 }
 
 fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
-    let func = module_ref("option").unwrap().function(name).expect("function exists");
+    let func = module_ref("option")
+        .unwrap()
+        .function(name)
+        .expect("function exists");
     let mut ctx = EvalContext::new();
     ctx.set_expr_evaluator(std::rc::Rc::new(TestEval));
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
 fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
-    let func = module_ref("option").unwrap().function(name).expect("function exists");
+    let func = module_ref("option")
+        .unwrap()
+        .function(name)
+        .expect("function exists");
     let mut ctx = EvalContext::new();
     ctx.set_expr_evaluator(std::rc::Rc::new(TestEval));
     func.call(args, &mut ctx)

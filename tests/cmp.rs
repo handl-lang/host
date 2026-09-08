@@ -1,8 +1,8 @@
 use handl_platform::Function;
 use handl_platform::Module;
 
-use handl_plugin_lib_stdlib::module_ref;
 use handl_platform::{EvalContext, EvalError};
+use handl_plugin_lib_stdlib::module_ref;
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
@@ -52,12 +52,20 @@ fn unknown_function() {
 
 #[test]
 fn eq_numbers() {
-    assert!(call(module_ref("cmp").unwrap(), "eq", &[n(1.0), n(1.0)]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "eq", &[n(1.0), n(1.0)])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn eq_strings() {
-    assert!(call(module_ref("cmp").unwrap(), "eq", &[s("a"), s("a")]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "eq", &[s("a"), s("a")])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
@@ -78,37 +86,65 @@ fn eq_objects_deep() {
 
 #[test]
 fn ne_numbers() {
-    assert!(call(module_ref("cmp").unwrap(), "ne", &[n(1.0), n(2.0)]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "ne", &[n(1.0), n(2.0)])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn lt_numbers() {
-    assert!(call(module_ref("cmp").unwrap(), "lt", &[n(1.0), n(2.0)]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "lt", &[n(1.0), n(2.0)])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn lt_strings() {
-    assert!(call(module_ref("cmp").unwrap(), "lt", &[s("a"), s("b")]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "lt", &[s("a"), s("b")])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn lt_mixed_types_number_before_string() {
-    assert!(call(module_ref("cmp").unwrap(), "lt", &[n(1.0), s("a")]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "lt", &[n(1.0), s("a")])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn le_equal() {
-    assert!(call(module_ref("cmp").unwrap(), "le", &[n(2.0), n(2.0)]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "le", &[n(2.0), n(2.0)])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn gt_strings() {
-    assert!(call(module_ref("cmp").unwrap(), "gt", &[s("b"), s("a")]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "gt", &[s("b"), s("a")])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
 fn ge_mixed_types() {
-    assert!(call(module_ref("cmp").unwrap(), "ge", &[s("a"), n(1.0)]).as_bool().unwrap());
+    assert!(
+        call(module_ref("cmp").unwrap(), "ge", &[s("a"), n(1.0)])
+            .as_bool()
+            .unwrap()
+    );
 }
 
 #[test]
@@ -170,7 +206,12 @@ fn max_strings() {
 #[test]
 fn clamp_within() {
     assert_eq!(
-        call(module_ref("cmp").unwrap(), "clamp", &[n(5.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("cmp").unwrap(),
+            "clamp",
+            &[n(5.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(5.0)
     );
 }
@@ -178,7 +219,12 @@ fn clamp_within() {
 #[test]
 fn clamp_below() {
     assert_eq!(
-        call(module_ref("cmp").unwrap(), "clamp", &[n(-1.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("cmp").unwrap(),
+            "clamp",
+            &[n(-1.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(0.0)
     );
 }
@@ -186,41 +232,62 @@ fn clamp_below() {
 #[test]
 fn clamp_above() {
     assert_eq!(
-        call(module_ref("cmp").unwrap(), "clamp", &[n(15.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("cmp").unwrap(),
+            "clamp",
+            &[n(15.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(10.0)
     );
 }
 
 #[test]
 fn clamp_inverted_bounds_errors() {
-    let result = call_err(module_ref("cmp").unwrap(), "clamp", &[n(5.0), n(10.0), n(0.0)]);
+    let result = call_err(
+        module_ref("cmp").unwrap(),
+        "clamp",
+        &[n(5.0), n(10.0), n(0.0)],
+    );
     assert!(matches!(result, Err(EvalError::Other(_))));
 }
 
 #[test]
 fn between_true() {
     assert!(
-        call(module_ref("cmp").unwrap(), "between", &[n(5.0), n(0.0), n(10.0)])
-            .as_bool()
-            .unwrap()
+        call(
+            module_ref("cmp").unwrap(),
+            "between",
+            &[n(5.0), n(0.0), n(10.0)]
+        )
+        .as_bool()
+        .unwrap()
     );
 }
 
 #[test]
 fn between_false() {
     assert!(
-        !call(module_ref("cmp").unwrap(), "between", &[n(15.0), n(0.0), n(10.0)])
-            .as_bool()
-            .unwrap()
+        !call(
+            module_ref("cmp").unwrap(),
+            "between",
+            &[n(15.0), n(0.0), n(10.0)]
+        )
+        .as_bool()
+        .unwrap()
     );
 }
 
 #[test]
 fn in_range_aliased() {
     assert!(
-        call(module_ref("cmp").unwrap(), "in_range", &[n(0.0), n(-1.0), n(1.0)])
-            .as_bool()
-            .unwrap()
+        call(
+            module_ref("cmp").unwrap(),
+            "in_range",
+            &[n(0.0), n(-1.0), n(1.0)]
+        )
+        .as_bool()
+        .unwrap()
     );
 }
 

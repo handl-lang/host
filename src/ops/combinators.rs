@@ -909,8 +909,8 @@ impl Function for Partial {
     }
 }
 
-use std::sync::Arc;
 use handl_plugin_lib_handl::OpRegistry;
+use std::sync::Arc;
 
 pub const COMBINATORS_OPS: &[&str] = &[
     "combinators.pipe",

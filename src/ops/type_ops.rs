@@ -326,8 +326,8 @@ impl Function for Coalesce {
     }
 }
 
-use std::sync::Arc;
 use handl_plugin_lib_handl::OpRegistry;
+use std::sync::Arc;
 
 pub const TYPE_OPS: &[&str] = &[
     "typeof.string",

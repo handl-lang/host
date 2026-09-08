@@ -23,7 +23,15 @@ fn eval_standalone(
     let mut ast = Ast::new();
     ast.push(AstNode::new("test").with_payload(json!({})));
     let node = ast.at(AstRef::new(0)).unwrap();
-    engine.eval_scheme_v2(scheme, &ast, AstRef::new(0), &Language::new(), env, node, None)
+    engine.eval_scheme_v2(
+        scheme,
+        &ast,
+        AstRef::new(0),
+        &Language::new(),
+        env,
+        node,
+        None,
+    )
 }
 
 #[test]

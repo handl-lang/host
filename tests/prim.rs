@@ -27,17 +27,26 @@ fn unknown_function() {
 
 #[test]
 fn add_positive() {
-    assert_eq!(call(module_ref("prim").unwrap(), "add", &[n(2), n(3)]).as_i64(), Some(5));
+    assert_eq!(
+        call(module_ref("prim").unwrap(), "add", &[n(2), n(3)]).as_i64(),
+        Some(5)
+    );
 }
 
 #[test]
 fn add_negative() {
-    assert_eq!(call(module_ref("prim").unwrap(), "add", &[n(-4), n(7)]).as_i64(), Some(3));
+    assert_eq!(
+        call(module_ref("prim").unwrap(), "add", &[n(-4), n(7)]).as_i64(),
+        Some(3)
+    );
 }
 
 #[test]
 fn add_zero() {
-    assert_eq!(call(module_ref("prim").unwrap(), "add", &[n(0), n(0)]).as_i64(), Some(0));
+    assert_eq!(
+        call(module_ref("prim").unwrap(), "add", &[n(0), n(0)]).as_i64(),
+        Some(0)
+    );
 }
 
 #[test]
@@ -104,5 +113,8 @@ fn or_with_zero() {
 
 #[test]
 fn or_all_bits() {
-    assert_eq!(call(module_ref("prim").unwrap(), "or", &[n(-1), n(0)]).as_i64(), Some(-1));
+    assert_eq!(
+        call(module_ref("prim").unwrap(), "or", &[n(-1), n(0)]).as_i64(),
+        Some(-1)
+    );
 }

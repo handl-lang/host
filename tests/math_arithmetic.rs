@@ -1,8 +1,8 @@
 use handl_platform::Function;
 use handl_platform::Module;
 
-use handl_plugin_lib_stdlib::module_ref;
 use handl_platform::{EvalContext, EvalError};
+use handl_plugin_lib_stdlib::module_ref;
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");

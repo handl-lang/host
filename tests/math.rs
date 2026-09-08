@@ -1,8 +1,8 @@
 use handl_platform::Function;
 use handl_platform::Module;
 
-use handl_plugin_lib_stdlib::module_ref;
 use handl_platform::{EvalContext, EvalError};
+use handl_plugin_lib_stdlib::module_ref;
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
@@ -35,28 +35,46 @@ fn module_name() {
 
 #[test]
 fn abs_positive() {
-    assert_eq!(call(module_ref("math").unwrap(), "abs", &[n(5.0)]).as_f64(), Some(5.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "abs", &[n(5.0)]).as_f64(),
+        Some(5.0)
+    );
 }
 
 #[test]
 fn abs_negative() {
-    assert_eq!(call(module_ref("math").unwrap(), "abs", &[n(-5.0)]).as_f64(), Some(5.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "abs", &[n(-5.0)]).as_f64(),
+        Some(5.0)
+    );
 }
 
 #[test]
 fn floor() {
-    assert_eq!(call(module_ref("math").unwrap(), "floor", &[n(3.7)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "floor", &[n(3.7)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
 fn ceil() {
-    assert_eq!(call(module_ref("math").unwrap(), "ceil", &[n(3.2)]).as_f64(), Some(4.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "ceil", &[n(3.2)]).as_f64(),
+        Some(4.0)
+    );
 }
 
 #[test]
 fn round() {
-    assert_eq!(call(module_ref("math").unwrap(), "round", &[n(3.5)]).as_f64(), Some(4.0));
-    assert_eq!(call(module_ref("math").unwrap(), "round", &[n(3.4)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "round", &[n(3.5)]).as_f64(),
+        Some(4.0)
+    );
+    assert_eq!(
+        call(module_ref("math").unwrap(), "round", &[n(3.4)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
@@ -77,7 +95,10 @@ fn max() {
 
 #[test]
 fn sqrt() {
-    assert_eq!(call(module_ref("math").unwrap(), "sqrt", &[n(9.0)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sqrt", &[n(9.0)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
@@ -90,29 +111,49 @@ fn pow() {
 
 #[test]
 fn sign_positive() {
-    assert_eq!(call(module_ref("math").unwrap(), "sign", &[n(5.0)]).as_f64(), Some(1.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sign", &[n(5.0)]).as_f64(),
+        Some(1.0)
+    );
 }
 
 #[test]
 fn sign_negative() {
-    assert_eq!(call(module_ref("math").unwrap(), "sign", &[n(-5.0)]).as_f64(), Some(-1.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sign", &[n(-5.0)]).as_f64(),
+        Some(-1.0)
+    );
 }
 
 #[test]
 fn sign_zero() {
-    assert_eq!(call(module_ref("math").unwrap(), "sign", &[n(0.0)]).as_f64(), Some(1.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sign", &[n(0.0)]).as_f64(),
+        Some(1.0)
+    );
 }
 
 #[test]
 fn trunc() {
-    assert_eq!(call(module_ref("math").unwrap(), "trunc", &[n(3.7)]).as_f64(), Some(3.0));
-    assert_eq!(call(module_ref("math").unwrap(), "trunc", &[n(-3.7)]).as_f64(), Some(-3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "trunc", &[n(3.7)]).as_f64(),
+        Some(3.0)
+    );
+    assert_eq!(
+        call(module_ref("math").unwrap(), "trunc", &[n(-3.7)]).as_f64(),
+        Some(-3.0)
+    );
 }
 
 #[test]
 fn clamp_within_range() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(5.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(5.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(5.0)
     );
 }
@@ -120,7 +161,12 @@ fn clamp_within_range() {
 #[test]
 fn clamp_below_min() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(-5.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(-5.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(0.0)
     );
 }
@@ -128,21 +174,34 @@ fn clamp_below_min() {
 #[test]
 fn clamp_above_max() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(15.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(15.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(10.0)
     );
 }
 
 #[test]
 fn log() {
-    let result = call(module_ref("math").unwrap(), "log", &[n(std::f64::consts::E)]).as_f64();
+    let result = call(
+        module_ref("math").unwrap(),
+        "log",
+        &[n(std::f64::consts::E)],
+    )
+    .as_f64();
     assert!(result.is_some());
     assert!((result.unwrap() - 1.0).abs() < 1e-10);
 }
 
 #[test]
 fn log10() {
-    assert_eq!(call(module_ref("math").unwrap(), "log10", &[n(100.0)]).as_f64(), Some(2.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "log10", &[n(100.0)]).as_f64(),
+        Some(2.0)
+    );
 }
 
 #[test]
@@ -232,17 +291,28 @@ fn e() {
 
 #[test]
 fn log2() {
-    assert_eq!(call(module_ref("math").unwrap(), "log2", &[n(8.0)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "log2", &[n(8.0)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
 fn cbrt() {
-    assert_eq!(call(module_ref("math").unwrap(), "cbrt", &[n(27.0)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "cbrt", &[n(27.0)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
 fn degrees() {
-    let result = call(module_ref("math").unwrap(), "degrees", &[n(std::f64::consts::PI)]).as_f64();
+    let result = call(
+        module_ref("math").unwrap(),
+        "degrees",
+        &[n(std::f64::consts::PI)],
+    )
+    .as_f64();
     assert!(result.is_some());
     assert!((result.unwrap() - 180.0).abs() < 1e-10);
 }
@@ -256,7 +326,12 @@ fn radians() {
 
 #[test]
 fn round_to_two_decimals() {
-    let result = call(module_ref("math").unwrap(), "round_to", &[n(3.14159), n(2.0)]).as_f64();
+    let result = call(
+        module_ref("math").unwrap(),
+        "round_to",
+        &[n(3.14159), n(2.0)],
+    )
+    .as_f64();
     assert!(result.is_some());
     assert!((result.unwrap() - 3.14).abs() < 1e-10);
 }
@@ -269,7 +344,12 @@ fn round_to_zero_decimals() {
 
 #[test]
 fn round_to_three_decimals() {
-    let result = call(module_ref("math").unwrap(), "round_to", &[n(2.71828), n(3.0)]).as_f64();
+    let result = call(
+        module_ref("math").unwrap(),
+        "round_to",
+        &[n(2.71828), n(3.0)],
+    )
+    .as_f64();
     assert!(result.is_some());
     assert!((result.unwrap() - 2.718).abs() < 1e-10);
 }
@@ -381,12 +461,18 @@ fn sign_non_number_errors() {
 
 #[test]
 fn sign_negative_edge() {
-    assert_eq!(call(module_ref("math").unwrap(), "sign", &[n(-5.0)]).as_f64(), Some(-1.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sign", &[n(-5.0)]).as_f64(),
+        Some(-1.0)
+    );
 }
 
 #[test]
 fn sign_zero_edge() {
-    assert_eq!(call(module_ref("math").unwrap(), "sign", &[n(0.0)]).as_f64(), Some(1.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sign", &[n(0.0)]).as_f64(),
+        Some(1.0)
+    );
 }
 
 #[test]
@@ -535,7 +621,10 @@ fn cbrt_non_number_errors() {
 
 #[test]
 fn cbrt_negative() {
-    assert_eq!(call(module_ref("math").unwrap(), "cbrt", &[n(-27.0)]).as_f64(), Some(-3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "cbrt", &[n(-27.0)]).as_f64(),
+        Some(-3.0)
+    );
 }
 
 #[test]
@@ -730,26 +819,43 @@ fn clamp_two_args_errors() {
 
 #[test]
 fn clamp_first_arg_non_number_errors() {
-    let result = call_err(module_ref("math").unwrap(), "clamp", &[s("x"), n(0.0), n(10.0)]);
+    let result = call_err(
+        module_ref("math").unwrap(),
+        "clamp",
+        &[s("x"), n(0.0), n(10.0)],
+    );
     assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn clamp_second_arg_non_number_errors() {
-    let result = call_err(module_ref("math").unwrap(), "clamp", &[n(5.0), s("x"), n(10.0)]);
+    let result = call_err(
+        module_ref("math").unwrap(),
+        "clamp",
+        &[n(5.0), s("x"), n(10.0)],
+    );
     assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn clamp_third_arg_non_number_errors() {
-    let result = call_err(module_ref("math").unwrap(), "clamp", &[n(5.0), n(0.0), s("x")]);
+    let result = call_err(
+        module_ref("math").unwrap(),
+        "clamp",
+        &[n(5.0), n(0.0), s("x")],
+    );
     assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn clamp_edge_values() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(5.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(5.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(5.0)
     );
 }
@@ -757,7 +863,12 @@ fn clamp_edge_values() {
 #[test]
 fn clamp_below_min_edge() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(-3.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(-3.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(0.0)
     );
 }
@@ -765,7 +876,12 @@ fn clamp_below_min_edge() {
 #[test]
 fn clamp_above_max_edge() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "clamp", &[n(15.0), n(0.0), n(10.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "clamp",
+            &[n(15.0), n(0.0), n(10.0)]
+        )
+        .as_f64(),
         Some(10.0)
     );
 }
@@ -815,7 +931,12 @@ fn round_to_two_decimals_alt() {
 #[test]
 fn round_to_two_decimals_edge() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "round_to", &[n(3.14159), n(2.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "round_to",
+            &[n(3.14159), n(2.0)]
+        )
+        .as_f64(),
         Some(3.14)
     );
 }
@@ -850,42 +971,66 @@ fn e_returns_constant() {
 
 #[test]
 fn abs_zero() {
-    assert_eq!(call(module_ref("math").unwrap(), "abs", &[n(0.0)]).as_f64(), Some(0.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "abs", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
 }
 
 #[test]
 fn floor_already_integer() {
-    assert_eq!(call(module_ref("math").unwrap(), "floor", &[n(5.0)]).as_f64(), Some(5.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "floor", &[n(5.0)]).as_f64(),
+        Some(5.0)
+    );
 }
 
 #[test]
 fn ceil_already_integer() {
-    assert_eq!(call(module_ref("math").unwrap(), "ceil", &[n(5.0)]).as_f64(), Some(5.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "ceil", &[n(5.0)]).as_f64(),
+        Some(5.0)
+    );
 }
 
 #[test]
 fn round_half_up() {
-    assert_eq!(call(module_ref("math").unwrap(), "round", &[n(2.5)]).as_f64(), Some(3.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "round", &[n(2.5)]).as_f64(),
+        Some(3.0)
+    );
 }
 
 #[test]
 fn round_half_down() {
-    assert_eq!(call(module_ref("math").unwrap(), "round", &[n(2.4)]).as_f64(), Some(2.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "round", &[n(2.4)]).as_f64(),
+        Some(2.0)
+    );
 }
 
 #[test]
 fn trunc_positive() {
-    assert_eq!(call(module_ref("math").unwrap(), "trunc", &[n(2.7)]).as_f64(), Some(2.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "trunc", &[n(2.7)]).as_f64(),
+        Some(2.0)
+    );
 }
 
 #[test]
 fn trunc_negative() {
-    assert_eq!(call(module_ref("math").unwrap(), "trunc", &[n(-2.7)]).as_f64(), Some(-2.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "trunc", &[n(-2.7)]).as_f64(),
+        Some(-2.0)
+    );
 }
 
 #[test]
 fn sqrt_zero() {
-    assert_eq!(call(module_ref("math").unwrap(), "sqrt", &[n(0.0)]).as_f64(), Some(0.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "sqrt", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
 }
 
 #[test]
@@ -906,12 +1051,18 @@ fn mod_op_normal() {
 
 #[test]
 fn degrees_zero() {
-    assert_eq!(call(module_ref("math").unwrap(), "degrees", &[n(0.0)]).as_f64(), Some(0.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "degrees", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
 }
 
 #[test]
 fn radians_zero() {
-    assert_eq!(call(module_ref("math").unwrap(), "radians", &[n(0.0)]).as_f64(), Some(0.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "radians", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
 }
 
 // ── is_nan / is_finite / is_infinite ───────────────────────────────
@@ -1104,7 +1255,12 @@ fn tau_is_two_pi() {
 #[test]
 fn lerp_start() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "lerp", &[n(0.0), n(10.0), n(0.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "lerp",
+            &[n(0.0), n(10.0), n(0.0)]
+        )
+        .as_f64(),
         Some(0.0)
     );
 }
@@ -1112,7 +1268,12 @@ fn lerp_start() {
 #[test]
 fn lerp_end() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "lerp", &[n(0.0), n(10.0), n(1.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "lerp",
+            &[n(0.0), n(10.0), n(1.0)]
+        )
+        .as_f64(),
         Some(10.0)
     );
 }
@@ -1120,7 +1281,12 @@ fn lerp_end() {
 #[test]
 fn lerp_mid() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "lerp", &[n(0.0), n(10.0), n(0.5)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "lerp",
+            &[n(0.0), n(10.0), n(0.5)]
+        )
+        .as_f64(),
         Some(5.0)
     );
 }
@@ -1128,7 +1294,12 @@ fn lerp_mid() {
 #[test]
 fn lerp_negative_range() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "lerp", &[n(-10.0), n(10.0), n(0.5)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "lerp",
+            &[n(-10.0), n(10.0), n(0.5)]
+        )
+        .as_f64(),
         Some(0.0)
     );
 }
@@ -1147,7 +1318,11 @@ fn lerp_two_args_errors() {
 
 #[test]
 fn lerp_non_number_errors() {
-    let result = call_err(module_ref("math").unwrap(), "lerp", &[s("x"), n(10.0), n(0.5)]);
+    let result = call_err(
+        module_ref("math").unwrap(),
+        "lerp",
+        &[s("x"), n(10.0), n(0.5)],
+    );
     assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
@@ -1205,7 +1380,11 @@ fn map_range_no_args_errors() {
 
 #[test]
 fn map_range_four_args_errors() {
-    let result = call_err(module_ref("math").unwrap(), "map_range", &[n(5.0), n(0.0), n(10.0), n(0.0)]);
+    let result = call_err(
+        module_ref("math").unwrap(),
+        "map_range",
+        &[n(5.0), n(0.0), n(10.0), n(0.0)],
+    );
     assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
@@ -1223,19 +1402,26 @@ fn map_range_non_number_errors() {
 
 #[test]
 fn fract_positive() {
-    let result = call(module_ref("math").unwrap(), "fract", &[n(3.7)]).as_f64().unwrap();
+    let result = call(module_ref("math").unwrap(), "fract", &[n(3.7)])
+        .as_f64()
+        .unwrap();
     assert!((result - 0.7).abs() < 1e-10);
 }
 
 #[test]
 fn fract_negative() {
-    let result = call(module_ref("math").unwrap(), "fract", &[n(-3.7)]).as_f64().unwrap();
+    let result = call(module_ref("math").unwrap(), "fract", &[n(-3.7)])
+        .as_f64()
+        .unwrap();
     assert!((result - (-0.7)).abs() < 1e-10);
 }
 
 #[test]
 fn fract_integer() {
-    assert_eq!(call(module_ref("math").unwrap(), "fract", &[n(5.0)]).as_f64(), Some(0.0));
+    assert_eq!(
+        call(module_ref("math").unwrap(), "fract", &[n(5.0)]).as_f64(),
+        Some(0.0)
+    );
 }
 
 #[test]
@@ -1565,7 +1751,12 @@ fn floor_div_negative_divisor() {
 #[test]
 fn floor_div_both_negative() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "floor_div", &[n(-7.0), n(-3.0)]).as_f64(),
+        call(
+            module_ref("math").unwrap(),
+            "floor_div",
+            &[n(-7.0), n(-3.0)]
+        )
+        .as_f64(),
         Some(2.0)
     );
 }

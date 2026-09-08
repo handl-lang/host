@@ -89,7 +89,8 @@ impl Function for HexDecode {
         let s = args[0]
             .as_str()
             .ok_or_else(|| EvalError::Other("hex.decode expects a string".to_string()))?;
-        let decoded = hex::decode(s).map_err(|e| EvalError::Other(format!("hex decode error: {e}")))?;
+        let decoded =
+            hex::decode(s).map_err(|e| EvalError::Other(format!("hex decode error: {e}")))?;
         let out = String::from_utf8(decoded)
             .map_err(|e| EvalError::Other(format!("hex decode is not valid utf-8: {e}")))?;
         Ok(Value::String(out))
@@ -125,9 +126,9 @@ impl RuntimePredicateChecker for HexGuaranteeChecker {
         // that decodes as valid hex and re-encodes to the same value
         // (round-trip). For decode, the output is an arbitrary string with no
         // specific guarantee, so we only require it be a string.
-        let s = output.as_str().ok_or_else(|| {
-            "expected a string output".to_string()
-        })?;
+        let s = output
+            .as_str()
+            .ok_or_else(|| "expected a string output".to_string())?;
         // Verify the output is valid hex by attempting a decode. We accept
         // any string for the decode-op output (no IsHex guarantee there),
         // but for the encode-op output this enforces IsHex. Since this

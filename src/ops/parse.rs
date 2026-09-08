@@ -102,7 +102,10 @@ pub const PARSE_OPS: &[&str] = &["parse.parse"];
 
 pub fn parse_op_registry() -> OpRegistry {
     let mut parsers: HashMap<String, Arc<dyn DynParser>> = HashMap::new();
-    parsers.insert("url_whatwg".to_string(), Arc::new(crate::ops::url_whatwg::Whatwg));
+    parsers.insert(
+        "url_whatwg".to_string(),
+        Arc::new(crate::ops::url_whatwg::Whatwg),
+    );
     parsers.insert("url_rfc".to_string(), Arc::new(crate::ops::url_rfc::Rfc));
     let mut registry = OpRegistry::new();
     registry.register("parse.parse", Arc::new(Parse { parsers }));

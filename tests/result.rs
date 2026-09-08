@@ -27,8 +27,7 @@ impl ModuleResolver for TagResolver {
 
 /// Helper: call a result function by name with the given args.
 fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
-    let module =
-        stdlib::module_with("result", &TagResolver).expect("result module should exist");
+    let module = stdlib::module_with("result", &TagResolver).expect("result module should exist");
     let func = module
         .function(name)
         .unwrap_or_else(|| panic!("result.{name} should exist"));

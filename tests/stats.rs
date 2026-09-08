@@ -16,8 +16,9 @@ fn stats_fn(name: &str) -> &'static dyn Function {
 
 /// Helper: call a stats `Function` on a JSON array and compare as f64.
 fn check_func(func: &dyn Function, input: serde_json::Value, expected: f64) {
-    let result =
-        func.call(&[input], &mut EvalContext::new()).unwrap_or_else(|e| panic!("failed: {e}"));
+    let result = func
+        .call(&[input], &mut EvalContext::new())
+        .unwrap_or_else(|e| panic!("failed: {e}"));
     let actual = result
         .as_f64()
         .unwrap_or_else(|| panic!("did not return a number: {result:?}"));
@@ -69,31 +70,45 @@ fn stddev_works() {
 #[test]
 fn empty_array_edge_cases() {
     assert_eq!(
-        stats_fn("sum").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("sum")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(0)
     );
     assert_eq!(
-        stats_fn("avg").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("avg")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(0)
     );
     assert_eq!(
-        stats_fn("product").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("product")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(1)
     );
     assert_eq!(
-        stats_fn("min").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("min")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(null)
     );
     assert_eq!(
-        stats_fn("max").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("max")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(null)
     );
     assert_eq!(
-        stats_fn("median").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("median")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(0)
     );
     assert_eq!(
-        stats_fn("stddev").call(&[json!([])], &mut EvalContext::new()).unwrap(),
+        stats_fn("stddev")
+            .call(&[json!([])], &mut EvalContext::new())
+            .unwrap(),
         json!(0)
     );
 }
@@ -137,7 +152,9 @@ fn stats_module_works_in_module_registry() {
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
-    let func = lookup.lookup("stats.sum").expect("stats.sum should resolve");
+    let func = lookup
+        .lookup("stats.sum")
+        .expect("stats.sum should resolve");
     let mut ctx = EvalContext::new();
     let result = func.call(&[json!([1, 2, 3, 4, 5])], &mut ctx).unwrap();
     assert_eq!(result, json!(15));

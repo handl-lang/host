@@ -17,12 +17,10 @@ use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 fn norm(v: &serde_json::Value) -> serde_json::Value {
     match v {
         serde_json::Value::Number(n) => serde_json::json!(n.as_f64().unwrap_or(0.0)),
-        serde_json::Value::Array(a) => {
-            serde_json::Value::Array(a.iter().map(norm).collect())
+        serde_json::Value::Array(a) => serde_json::Value::Array(a.iter().map(norm).collect()),
+        serde_json::Value::Object(o) => {
+            serde_json::Value::Object(o.iter().map(|(k, v)| (k.clone(), norm(v))).collect())
         }
-        serde_json::Value::Object(o) => serde_json::Value::Object(
-            o.iter().map(|(k, v)| (k.clone(), norm(v))).collect(),
-        ),
         other => other.clone(),
     }
 }
@@ -185,16 +183,28 @@ fn hash_map_get_set_has_remove() {
     // `set` replaces an existing key.
     let map = call(m, "set", &[map, s("a"), n(10.0)]);
     assert_eq!(call(m, "get", &[map.clone(), s("a")]), n(10.0));
-    assert_eq!(call(m, "get", &[map.clone(), s("missing")]), serde_json::Value::Null);
+    assert_eq!(
+        call(m, "get", &[map.clone(), s("missing")]),
+        serde_json::Value::Null
+    );
     assert_eq!(
         call(m, "get", &[map.clone(), s("missing"), n(42.0)]),
         n(42.0)
     );
-    assert_eq!(call(m, "has", &[map.clone(), s("b")]), serde_json::json!(true));
-    assert_eq!(call(m, "has_key", &[map.clone(), s("z")]), serde_json::json!(false));
+    assert_eq!(
+        call(m, "has", &[map.clone(), s("b")]),
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        call(m, "has_key", &[map.clone(), s("z")]),
+        serde_json::json!(false)
+    );
     assert_eq!(call(m, "len", &[map.clone()]), n(2.0));
     let map = call(m, "remove", &[map, s("a")]);
-    assert_eq!(call(m, "has", &[map.clone(), s("a")]), serde_json::json!(false));
+    assert_eq!(
+        call(m, "has", &[map.clone(), s("a")]),
+        serde_json::json!(false)
+    );
     assert_eq!(call(m, "size", &[map]), n(1.0));
 }
 
@@ -203,9 +213,9 @@ fn hash_map_keys_values_entries() {
     let m = module_ref("hash_map").expect("hash_map module");
     let map = obj(&[("a", n(1.0)), ("b", n(2.0))]);
     let mut keys = call(m, "keys", &[map.clone()]);
-    keys.as_array_mut().unwrap().sort_by(|a, b| {
-        a.as_str().unwrap().cmp(b.as_str().unwrap())
-    });
+    keys.as_array_mut()
+        .unwrap()
+        .sort_by(|a, b| a.as_str().unwrap().cmp(b.as_str().unwrap()));
     assert_eq!(keys, arr(&[s("a"), s("b")]));
     let mut values = call(m, "values", &[map.clone()]);
     values
@@ -262,7 +272,11 @@ fn hash_map_pick_omit_invert_from_entries() {
     );
     assert_eq!(call(m, "get", &[built, s("y")]), n(2.0));
     assert_eq!(
-        call(m, "get_or", &[obj(&[("a", serde_json::Value::Null)]), s("a"), n(3.0)]),
+        call(
+            m,
+            "get_or",
+            &[obj(&[("a", serde_json::Value::Null)]), s("a"), n(3.0)]
+        ),
         n(3.0)
     );
     // clone_deep is a deep copy (identity over values).
@@ -281,7 +295,10 @@ fn hash_set_dedup_and_membership() {
     let st = call(m, "from", &[arr(&[n(1.0), n(2.0), n(1.0), n(3.0), n(2.0)])]);
     assert_eq!(st, arr(&[n(1.0), n(2.0), n(3.0)]));
     assert_eq!(call(m, "len", &[st.clone()]), n(3.0));
-    assert_eq!(call(m, "has", &[st.clone(), n(2.0)]), serde_json::json!(true));
+    assert_eq!(
+        call(m, "has", &[st.clone(), n(2.0)]),
+        serde_json::json!(true)
+    );
     // `add` is idempotent.
     assert_eq!(call(m, "add", &[st.clone(), n(2.0)]), st);
     assert_eq!(
@@ -337,13 +354,22 @@ fn array_basics() {
     assert_eq!(call(m, "len", &[a.clone()]), n(3.0));
     assert_eq!(call(m, "is_empty", &[a.clone()]), serde_json::json!(false));
     assert_eq!(call(m, "is_empty", &[arr(&[])]), serde_json::json!(true));
-    assert_eq!(call(m, "reverse", &[a.clone()]), arr(&[n(3.0), n(2.0), n(1.0)]));
+    assert_eq!(
+        call(m, "reverse", &[a.clone()]),
+        arr(&[n(3.0), n(2.0), n(1.0)])
+    );
     assert_eq!(
         call(m, "concat", &[a.clone(), arr(&[n(4.0)])]),
         arr(&[n(1.0), n(2.0), n(3.0), n(4.0)])
     );
-    assert_eq!(call(m, "contains", &[a.clone(), n(2.0)]), serde_json::json!(true));
-    assert_eq!(call(m, "contains", &[a.clone(), n(9.0)]), serde_json::json!(false));
+    assert_eq!(
+        call(m, "contains", &[a.clone(), n(2.0)]),
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        call(m, "contains", &[a.clone(), n(9.0)]),
+        serde_json::json!(false)
+    );
     assert_eq!(call(m, "index_of", &[a.clone(), n(3.0)]), n(2.0));
     assert_eq!(call(m, "index_of", &[a.clone(), n(9.0)]), n(-1.0));
     assert_eq!(call(m, "first", &[a.clone()]), n(1.0));
@@ -367,25 +393,52 @@ fn array_push_pop_shift_slice() {
     assert_eq!(call(m, "pop", &[arr(&[])]), arr(&[]));
     assert_eq!(call(m, "shift", &[a.clone()]), arr(&[n(2.0), n(3.0)]));
     assert_eq!(call(m, "shift", &[arr(&[])]), arr(&[]));
-    assert_eq!(call(m, "prepend", &[a.clone(), n(0.0)]), arr(&[n(0.0), n(1.0), n(2.0), n(3.0)]));
-    assert_eq!(call(m, "slice", &[a.clone(), n(0.0), n(2.0)]), arr(&[n(1.0), n(2.0)]));
+    assert_eq!(
+        call(m, "prepend", &[a.clone(), n(0.0)]),
+        arr(&[n(0.0), n(1.0), n(2.0), n(3.0)])
+    );
+    assert_eq!(
+        call(m, "slice", &[a.clone(), n(0.0), n(2.0)]),
+        arr(&[n(1.0), n(2.0)])
+    );
     // end is clamped to len; start clamped to end.
-    assert_eq!(call(m, "slice", &[a.clone(), n(1.0), n(99.0)]), arr(&[n(2.0), n(3.0)]));
+    assert_eq!(
+        call(m, "slice", &[a.clone(), n(1.0), n(99.0)]),
+        arr(&[n(2.0), n(3.0)])
+    );
 }
 
 #[test]
 fn array_take_drop_fill_range() {
     let m = module_ref("array").expect("array module");
     let a = arr(&[n(1.0), n(2.0), n(3.0), n(4.0)]);
-    assert_eq!(call(m, "take", &[a.clone(), n(2.0)]), arr(&[n(1.0), n(2.0)]));
+    assert_eq!(
+        call(m, "take", &[a.clone(), n(2.0)]),
+        arr(&[n(1.0), n(2.0)])
+    );
     assert_eq!(call(m, "take", &[a.clone(), n(99.0)]), a);
-    assert_eq!(call(m, "drop", &[a.clone(), n(2.0)]), arr(&[n(3.0), n(4.0)]));
+    assert_eq!(
+        call(m, "drop", &[a.clone(), n(2.0)]),
+        arr(&[n(3.0), n(4.0)])
+    );
     assert_eq!(call(m, "drop", &[a.clone(), n(99.0)]), arr(&[]));
-    assert_eq!(call(m, "fill", &[n(3.0), s("x")]), arr(&[s("x"), s("x"), s("x")]));
+    assert_eq!(
+        call(m, "fill", &[n(3.0), s("x")]),
+        arr(&[s("x"), s("x"), s("x")])
+    );
     // range with default and explicit step.
-    assert_eq!(call(m, "range", &[n(0.0), n(4.0)]), arr(&[n(0.0), n(1.0), n(2.0), n(3.0)]));
-    assert_eq!(call(m, "range", &[n(0.0), n(6.0), n(2.0)]), arr(&[n(0.0), n(2.0), n(4.0)]));
-    assert_eq!(call(m, "range", &[n(5.0), n(0.0), n(-2.0)]), arr(&[n(5.0), n(3.0), n(1.0)]));
+    assert_eq!(
+        call(m, "range", &[n(0.0), n(4.0)]),
+        arr(&[n(0.0), n(1.0), n(2.0), n(3.0)])
+    );
+    assert_eq!(
+        call(m, "range", &[n(0.0), n(6.0), n(2.0)]),
+        arr(&[n(0.0), n(2.0), n(4.0)])
+    );
+    assert_eq!(
+        call(m, "range", &[n(5.0), n(0.0), n(-2.0)]),
+        arr(&[n(5.0), n(3.0), n(1.0)])
+    );
 }
 
 #[test]
@@ -417,13 +470,21 @@ fn array_pairs_and_windows() {
         arr(&[arr(&[n(1.0), n(2.0)]), arr(&[s("x"), s("y")])])
     );
     assert_eq!(
-        call(m, "zip", &[arr(&[n(1.0), n(2.0), n(3.0)]), arr(&[s("a"), s("b")])]),
+        call(
+            m,
+            "zip",
+            &[arr(&[n(1.0), n(2.0), n(3.0)]), arr(&[s("a"), s("b")])]
+        ),
         arr(&[arr(&[n(1.0), s("a")]), arr(&[n(2.0), s("b")])])
     );
     let xs = arr(&[n(1.0), n(2.0), n(3.0), n(4.0)]);
     assert_eq!(
         call(m, "windows", &[xs.clone(), n(2.0)]),
-        arr(&[arr(&[n(1.0), n(2.0)]), arr(&[n(2.0), n(3.0)]), arr(&[n(3.0), n(4.0)])])
+        arr(&[
+            arr(&[n(1.0), n(2.0)]),
+            arr(&[n(2.0), n(3.0)]),
+            arr(&[n(3.0), n(4.0)])
+        ])
     );
     assert_eq!(call(m, "windows", &[xs.clone(), n(9.0)]), arr(&[]));
     assert_eq!(
@@ -441,11 +502,19 @@ fn array_dedupe_compact_transpose_insert_remove() {
         arr(&[n(1.0), n(2.0), n(1.0)])
     );
     assert_eq!(
-        call(m, "compact", &[arr(&[n(1.0), serde_json::Value::Null, n(2.0)])]),
+        call(
+            m,
+            "compact",
+            &[arr(&[n(1.0), serde_json::Value::Null, n(2.0)])]
+        ),
         arr(&[n(1.0), n(2.0)])
     );
     assert_eq!(
-        call(m, "transpose", &[arr(&[arr(&[n(1.0), n(2.0)]), arr(&[n(3.0), n(4.0)])])]),
+        call(
+            m,
+            "transpose",
+            &[arr(&[arr(&[n(1.0), n(2.0)]), arr(&[n(3.0), n(4.0)])])]
+        ),
         arr(&[arr(&[n(1.0), n(3.0)]), arr(&[n(2.0), n(4.0)])])
     );
     assert_eq!(
@@ -473,7 +542,10 @@ fn array_intersperse_intercalate_pluck() {
         call(
             m,
             "intercalate",
-            &[arr(&[arr(&[n(1.0)]), arr(&[n(2.0), n(3.0)])]), arr(&[n(0.0)])]
+            &[
+                arr(&[arr(&[n(1.0)]), arr(&[n(2.0), n(3.0)])]),
+                arr(&[n(0.0)])
+            ]
         ),
         arr(&[n(1.0), n(0.0), n(2.0), n(3.0)])
     );
