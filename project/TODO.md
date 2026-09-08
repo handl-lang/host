@@ -32,8 +32,11 @@ framework needs are wired. The remaining blocker is moving the framework's
 
 - [ ] Rewrite the `handl "..."` bindings in `plugin-engine-test::framework` as
       pure-handl `assert.hnl`/`property.hnl`/etc. (per ADR-0092 target layout)
-- [ ] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
-      `handl-packages/` and `examples/`
+- [~] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
+      `handl-packages/` and `examples/` (workflow + script added; currently
+      informational/continue-on-error because the gate is not green: fmt 1/172
+      canonical, lint 139/172 files with diagnostics, typecheck 141/172 files
+      with diagnostics, test 42 pass but 32 scanned modules have parse errors)
 
 ## High priority — engine genericity and known issues
 
