@@ -12,10 +12,10 @@ use handl_language::LangError;
 use handl_language::Language;
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{
-    as_compiled_id, as_compiled_target, compiled_value, CompiledHandle, RuntimeFactory,
-    RuntimeHandle,
+    CompiledHandle, RuntimeFactory, RuntimeHandle, as_compiled_id, as_compiled_target,
+    compiled_value,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::RunCompiledModule;
 
