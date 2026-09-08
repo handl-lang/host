@@ -73,7 +73,7 @@ fn classifier_maps_string_to_string_type() {
 fn classifier_maps_keyword_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier::canonical();
-    let (ty, mods) = classifier.classify("token.keyword.let", &legend).unwrap();
+    let (ty, mods) = classifier.classify("token.keyword.if", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
     assert_eq!(mods, 0);
 }

@@ -86,15 +86,27 @@ and linter all split source into top-level statements at bracket-depth zero
 
 ### Known issues
 
-- `handl-defining-handl`: `let`/`stmt.let` corpus cases
-  (`let_var`/`stmt_let`/`nested_let`/`if_with_let`) are `tree_walk_only`
-  because the bytecode and cranelift engines do not implement the `Bind`
-  scheme — an engine-coverage gap, not a test failure; the compiled-engine
-  tests skip them and `self_host_tree_walk_only_cases` covers them on the
-  tree-walk engine. `let` is **not** removed from the language: the
-  statement form `let x :: v` parses via `grammar.let.prefix` and evals
-  (`eval.let` mirrors `assign`); the `let ... in` expression form was
-  removed in ADR-0079 (block bindings `do { x = y; ... }` cover it).
+- `let` is **fully removed** from the language (completes ADR-0079):
+  `token.let`, `lex.let`, `grammar.let.prefix`, `ast.let`, `eval.let`, and
+  `type.let` are deleted. `token.keyword.let` + `lex.keyword.let` stay as a
+  **tombstone** (same pattern as `then`/`axiom`): `let` remains a reserved
+  word with no grammar row, so `let x :: v` fails with "unexpected token"
+  instead of silently lexing as an identifier. Bindings are plain
+  `x = y` / `x :: y` (both lex to `token.bind` → `assign` nodes);
+  `do { x = y; ... }` blocks cover the old `let ... in` form. The internal
+  `stmt.let` kind is also gone — nothing produced it (no grammar row, no
+  desugar native, no transform); block bindings eval directly as `assign`
+  children of `block` via `eval_block`.
+  The `handl-defining-handl` corpus cases that modelled `let`/`stmt.let`
+  were rewritten to `block`+`assign` form
+  (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body` —
+  still `tree_walk_only` since block binding is the tree-walk coverage
+  path). Note: several engine/test crates still use a kind literally
+  named `"let"` inside **self-contained toy `Language`s** (e.g.
+  `plugin-engine-exec-*` unit tests, `handl-test-utils` conformance
+  corpus, `plugin-engine-lint`/`plugin-engine-fmt` fixtures,
+  `handl-runtime/tests/runtime_eval_only.rs`) — those kinds are local to
+  their test languages and unrelated to canonical surface syntax.
 - **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
   hits — these are debt to close via `Language` data, not patterns to extend):
   - `plugin-engine-parse-pratt/src/lib.rs` `match`/`data` special parse
@@ -153,12 +165,12 @@ and linter all split source into top-level statements at bracket-depth zero
     `is_label`/`token_kind_for_label` rather than kind strings.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
-  - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed**. `ast.let`
-    (`target`/`value` roles), `grammar.let.prefix` (`let x :: v`),
-    `eval.let` (native `assign` op), and `type.let` (synth `type.unit`)
-    all exist; `parity_block_*` (46 tests in
-    `plugin-engine-typecheck-nbe/tests/parity.rs`) all pass and
-    `full_language_parity` no longer exists.
+  - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed by removal**.
+    `let` is gone end-to-end (`token.let`, `lex.let`, `grammar.let.prefix`,
+    `ast.let`, `eval.let`, `eval.stmt-let`, `type.let` all deleted;
+    `token.keyword.let`/`lex.keyword.let` remain only as a reserved-word
+    tombstone); `parity_block_*` (46 tests in
+    `plugin-engine-typecheck-nbe/tests/parity.rs`) all pass.
 - **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
   (`plugin-engine-test/data/test-language.yaml`) declares

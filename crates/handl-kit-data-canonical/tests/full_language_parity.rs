@@ -29,9 +29,6 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
     let eval_node_kinds: &[&str] = &[
         "var",
         "call",
-        // `let <name> :: <value>` statement binding (reinstated;
-        // `stmt.let` below remains the desugared block-context form).
-        "let",
         "if",
         "function",
         "binary.add",
@@ -65,7 +62,6 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "type-annot",
         "resolve",
         "apply",
-        "stmt.let",
         "stmt.import",
         "stmt.export",
         "hello.greet",
@@ -140,7 +136,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.stmt-import.prefix",
         "grammar.stmt-export.prefix",
         "grammar.do-block.prefix",
-        "grammar.let.prefix",
         // v0.1 new grammar rules (ADR-0074)
         "grammar.product.infix",
         "grammar.nullish.infix",
@@ -212,7 +207,8 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.string",
         // Identifier.
         "token.identifier",
-        // Keywords.
+        // Keywords. (`token.keyword.let` stays as a tombstone — `let` is a
+        // reserved word with no grammar row after removal.)
         "token.keyword.let",
         "token.keyword.if",
         "token.keyword.else",
@@ -235,7 +231,6 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.keyword.type",
         "token.keyword.from",
         // Tokens declared only by grammar/eval emitters (not the foundation).
-        "token.let",
         "token.if",
         "token.bang",
         "token.question",
@@ -263,7 +258,6 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "var",
         "value",
         "call",
-        "let",
         "array",
         "object",
         "index",

@@ -64,7 +64,7 @@ fn v2_futamura_first_projection_specializes_language_once() {
     // Pick three distinct programs as the dynamic inputs.
     let dynamic_inputs: Vec<_> = cases
         .iter()
-        .filter(|c| matches!(c.name, "literal" | "function_call" | "nested_let"))
+        .filter(|c| matches!(c.name, "literal" | "function_call" | "nested_bind"))
         .collect();
     assert_eq!(
         dynamic_inputs.len(),

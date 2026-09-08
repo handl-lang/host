@@ -2047,18 +2047,6 @@
           source: Judgment
           lit: body
 
-# `let <name> :: <value>` — statement binding. In block/rec statement
-# position the generic `target`/`value` role convention binds it in Γ
-# (`synth_block`/`check_block`/`synth_rec`); as a standalone expression it
-# mirrors `assign` — a statement with side effects, returning type.unit.
-- id: type.let
-  node_kind: let
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unit
-
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown
 # ---------------------------------------------------------------------------
@@ -2862,7 +2850,9 @@
 # Statement kinds
 # ---------------------------------------------------------------------------
 
-# ADR-0079: `type.stmt.let` removed (no grammar row, let keyword deleted).
+# ADR-0079 (completed): `type.let`/`type.stmt.let` absent — `let` is fully
+# removed from the language (no token, lexer rule, grammar row, AST shape,
+# eval scheme, or type rule). Bindings are plain `x = y` / `x :: y`.
 
 - id: type.stmt.export
   node_kind: stmt.export
