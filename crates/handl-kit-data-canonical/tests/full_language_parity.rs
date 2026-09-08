@@ -29,8 +29,9 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
     let eval_node_kinds: &[&str] = &[
         "var",
         "call",
-        // `let <name> :: <value>` statement binding (reinstated;
-        // `stmt.let` below remains the desugared block-context form).
+        // `let`/`stmt.let` are internal binding kinds — no `let` keyword
+        // or grammar row exists; they are produced by self-host/
+        // conformance fixtures and internal desugar/block contexts.
         "let",
         "if",
         "function",
@@ -140,7 +141,8 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.stmt-import.prefix",
         "grammar.stmt-export.prefix",
         "grammar.do-block.prefix",
-        "grammar.let.prefix",
+        // NOTE: no `grammar.let.*` — `let` is not a keyword; bindings use
+        // `grammar.assign.infix` (`=`) / `grammar.bind.infix` (`::`).
         // v0.1 new grammar rules (ADR-0074)
         "grammar.product.infix",
         "grammar.nullish.infix",
@@ -213,7 +215,7 @@ fn language_has_token_kinds_for_all_major_tokens() {
         // Identifier.
         "token.identifier",
         // Keywords.
-        "token.keyword.let",
+        // NOTE: no `token.keyword.let` — `let` is not a keyword.
         "token.keyword.if",
         "token.keyword.else",
         "token.keyword.match",
@@ -235,7 +237,6 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.keyword.type",
         "token.keyword.from",
         // Tokens declared only by grammar/eval emitters (not the foundation).
-        "token.let",
         "token.if",
         "token.bang",
         "token.question",
@@ -263,6 +264,8 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "var",
         "value",
         "call",
+        // Internal binding kind (no surface syntax) — kept for self-host/
+        // conformance fixtures and internal desugar/block contexts.
         "let",
         "array",
         "object",

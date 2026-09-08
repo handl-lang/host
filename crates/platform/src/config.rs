@@ -33,6 +33,21 @@ pub struct PluginReference {
     pub manifest: Option<String>,
 }
 
+/// A project dependency declared in `[dependencies]` of `.handl.toml`.
+///
+/// Phase 9.5 package management supports **vendored / path dependencies
+/// only** — a dependency names a local package directory containing `.hnl`
+/// sources. The name is the import specifier's first path segment:
+/// `import "arrows/fn/map.hnl"` resolves inside the `arrows` dependency's
+/// directory. Registry/content-addressed resolution is future work
+/// (ADR-0010).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DependencySpec {
+    /// Path to the package root, relative to the manifest directory
+    /// (or absolute).
+    pub path: String,
+}
+
 /// The in-memory description of which plugins to load, what to exclude, and
 /// which option overrides to apply.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -45,6 +60,10 @@ pub struct HostConfig {
     pub excludes: Vec<String>,
     /// Option overrides keyed by dotted option id.
     pub options: HashMap<String, serde_json::Value>,
+    /// Project dependencies keyed by import name (`[dependencies]` table):
+    /// `import "<name>/<rest>"` resolves `<rest>` inside the named
+    /// dependency's directory.
+    pub dependencies: HashMap<String, DependencySpec>,
 }
 
 impl HostConfig {
@@ -83,6 +102,17 @@ impl HostConfig {
                 .into_iter()
                 .map(|(k, v)| (k, toml_value_to_json(v)))
                 .collect(),
+            dependencies: raw
+                .dependencies
+                .into_iter()
+                .map(|(k, v)| {
+                    let path = match v {
+                        RawDependency::Path(p) => p,
+                        RawDependency::Spec { path } => path,
+                    };
+                    (k, DependencySpec { path })
+                })
+                .collect(),
         })
     }
 }
@@ -105,6 +135,17 @@ struct RawPlugin {
     manifest: Option<String>,
 }
 
+/// A `[dependencies]` entry: either a bare path string (`arrows =
+/// "vendor/arrows"`) or a table with a `path` key (`arrows = { path =
+/// "vendor/arrows" }`). The table form leaves room for future specifiers
+/// (hashes, tags) without changing the schema.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum RawDependency {
+    Path(String),
+    Spec { path: String },
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 struct RawHostConfig {
     #[serde(default)]
@@ -115,6 +156,8 @@ struct RawHostConfig {
     exclude: Vec<String>,
     #[serde(default)]
     options: HashMap<String, toml::Value>,
+    #[serde(default)]
+    dependencies: HashMap<String, RawDependency>,
 }
 
 fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
@@ -189,5 +232,20 @@ register = "handl-plugin-custom-linter"
         assert!(config.options.get("threshold").unwrap().is_number());
         assert!(config.options.get("features").unwrap().is_array());
         assert!(config.options.get("nested").unwrap().is_object());
+    }
+
+    #[test]
+    fn host_config_parses_dependencies() {
+        let source = r#"
+[dependencies]
+arrows = "vendor/arrows"
+utils = { path = "../shared/utils" }
+"#;
+
+        let config = HostConfig::from_toml(source).unwrap();
+
+        assert_eq!(config.dependencies.len(), 2);
+        assert_eq!(config.dependencies["arrows"].path, "vendor/arrows");
+        assert_eq!(config.dependencies["utils"].path, "../shared/utils");
     }
 }

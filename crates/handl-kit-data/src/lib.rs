@@ -50,7 +50,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use handl_emitters::Emitter;
-use handl_language::{Fragment, LangError, Language};
+use handl_language::{CapabilityDecl, Fragment, LangError, Language};
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -153,6 +153,11 @@ pub struct DataKitManifest {
     /// Runtime engine selection (ADR §7).
     #[serde(default)]
     pub runtime: RuntimeConfig,
+    /// Capability declarations contributed directly by this kit. Merged into
+    /// the assembled `Language` using the same `lang.caps.merge` path as
+    /// fragment-sourced capabilities (ADR-0044 §5).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub caps: Vec<CapabilityDecl>,
     /// Ordered library module plugin names, resolved at load time via a
     /// [`LibraryRegistry`] populated by the host (e.g. `handl-plugin-ext-kit`).
     /// When `extends` is set, the parent's module list comes first and this
@@ -171,6 +176,7 @@ impl DataKitManifest {
             exclude: Vec::new(),
             extends: None,
             runtime: RuntimeConfig::new(),
+            caps: Vec::new(),
             modules: Vec::new(),
         }
     }
@@ -202,6 +208,12 @@ impl DataKitManifest {
     /// Set the runtime config (builder style).
     pub fn with_runtime(mut self, config: RuntimeConfig) -> Self {
         self.runtime = config;
+        self
+    }
+
+    /// Set the direct capability declarations (builder style).
+    pub fn with_caps(mut self, caps: Vec<CapabilityDecl>) -> Self {
+        self.caps = caps;
         self
     }
 
@@ -350,14 +362,14 @@ impl DataKit {
     ) -> Result<Self, LangError> {
         // 1. Resolve the `extends` chain: assemble the parent first (one level
         //    supported in Phase 5).
-        let mut lang = if let Some(parent_name) = &manifest.extends {
+        let (mut lang, parent_runtime) = if let Some(parent_name) = &manifest.extends {
             let parent_manifest = registry
                 .resolve_kit(parent_name)
                 .ok_or_else(|| LangError::engine(format!("unknown parent kit: {}", parent_name)))?;
             let parent = DataKit::assemble(parent_manifest, registry)?;
-            parent.lang
+            (parent.lang, parent.runtime_config)
         } else {
-            Language::new()
+            (Language::new(), RuntimeConfig::default())
         };
 
         // 2 + 3. Merge each fragment source's fragments, applying the filter.
@@ -372,9 +384,24 @@ impl DataKit {
             )?;
         }
 
+        // 4. Merge direct capability declarations contributed by this kit
+        //    using the same `lang.caps.merge` path as fragment-sourced caps.
+        for cap in &manifest.caps {
+            lang.caps.merge(cap.clone())?;
+        }
+
+        // Runtime config: a child with no explicit selection inherits its
+        // parent's `RuntimeConfig` so that `extends: canonical` preserves e.g.
+        // `runtime.typecheck: nbe`.
+        let runtime_config = if manifest.runtime == RuntimeConfig::default() {
+            parent_runtime
+        } else {
+            manifest.runtime.clone()
+        };
+
         Ok(Self {
             lang,
-            runtime_config: manifest.runtime.clone(),
+            runtime_config,
         })
     }
 

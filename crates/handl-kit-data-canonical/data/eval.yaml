@@ -457,7 +457,8 @@
     op: eval_block
     args: []
     source: Native
-# `let <name> :: <value>` — statement binding. The `let` node has
+# `let` — internal binding kind (no `let` surface syntax; the grammar
+# row was removed). The `let` node has
 # `assign` shape (children `[target, value]` with `target`/`value` roles),
 # so block/rec statement position binds it via the generic role convention
 # (`eval_block`/`eval_rec` intercept target+value shapes); evaluated

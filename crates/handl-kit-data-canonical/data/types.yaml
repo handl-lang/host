@@ -2058,7 +2058,8 @@
           source: Judgment
           lit: body
 
-# `let <name> :: <value>` — statement binding. In block/rec statement
+# `let` — internal binding kind (no `let` surface syntax; the grammar
+# row was removed). In block/rec statement
 # position the generic `target`/`value` role convention binds it in Γ
 # (`synth_block`/`check_block`/`synth_rec`); as a standalone expression it
 # mirrors `assign` — a statement with side effects, returning type.unit.

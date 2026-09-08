@@ -449,9 +449,11 @@
       expr:
         type: string
     type: object
-# `let` — statement binding `let <name> :: <value>` (reinstated; the
-# surface form binds via `::`, mirroring `assign`). Children are
-# `[target, value]` where `target` is a `var` (or `type-annot`) node —
+# `let` — internal binding kind. There is NO `let` surface syntax (the
+# `grammar.let.prefix` row was removed; `let` lexes as an identifier).
+# The `let`/`stmt.let` kinds are produced by self-host/conformance
+# fixtures and internal desugar/block contexts, not by parsing. Children
+# are `[target, value]` where `target` is a `var` (or `type-annot`) node —
 # the same shape as `assign`, so the generic `target`/`value` role
 # convention binds it in block/rec statement position.
 - id: ast.let
@@ -505,6 +507,9 @@
 - id: ast.object
   node_kind: object
   pattern_role: entries
+  children:
+    - role: entries
+      variadic: true
   payload_schema:
     properties:
       entries:
