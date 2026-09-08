@@ -617,12 +617,22 @@ impl PatternMatchCtx for EvalCtx {
 struct ScopeStack {
     /// The stack of scope frames.
     scopes: Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+    /// Set when `assign` updates a binding in an *enclosing* scope (not the
+    /// innermost one) with a different value. Read and cleared by `eval_rec`
+    /// fixpoint detection (`prim_v2_eval_rec`) — such writes are the
+    /// ADR-0074 feedback wires: the `while`/`do-while`/`for` desugars update
+    /// `__continue`/`__xs` (and user bindings like `x = x + 1`) from inside
+    /// `if`/`match` branch blocks, and a pass that produces any such write
+    /// must not count as converged. Mirrors the tree-walk
+    /// `ScopeStack::enclosing_updated`.
+    enclosing_updated: bool,
 }
 
 impl ScopeStack {
     fn new() -> Self {
         Self {
             scopes: vec![Rc::new(FxHashMap::default())],
+            enclosing_updated: false,
         }
     }
 
@@ -637,6 +647,45 @@ impl ScopeStack {
         // only pops when `len > 1`, so the stack is never empty.
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         Rc::make_mut(last).insert(Rc::from(name), value);
+    }
+
+    /// Assign `name = value`: update the nearest existing binding in the
+    /// enclosing local scopes (innermost-first), or define it in the
+    /// innermost scope when the name is not already bound.
+    ///
+    /// This is the `x = y` statement semantics for blocks (ADR-0074): a
+    /// binding that shadows a name bound in an enclosing scope *updates*
+    /// that binding — this is what lets the `while`/`do-while` desugar's
+    /// feedback wires (`__continue = cond` inside the `if` branch block)
+    /// reach the `rec` region's bindings, and what lets loop-body
+    /// rebindings such as `x = x + 1` be observed after the loop. Mirrors
+    /// the tree-walk `ScopeStack::assign` exactly, including the
+    /// `enclosing_updated` fixpoint flag (only cross-scope writes that
+    /// change the value set it).
+    fn assign(&mut self, name: &str, value: TaggedValue) {
+        let last = self.scopes.len() - 1;
+        for (i, scope) in self.scopes.iter_mut().enumerate().rev() {
+            if scope.contains_key(name) {
+                // SAFETY: each scope frame is freshly pushed / uniquely
+                // owned (refcount 1) during block eval, so `Rc::make_mut`
+                // is a cheap in-place mutation.
+                let slot = Rc::make_mut(scope).get_mut(name);
+                if let Some(slot) = slot {
+                    if !handl_value::eq(slot, &value) {
+                        *slot = value;
+                        // Only cross-scope writes are fixpoint-relevant: an
+                        // update to a binding defined earlier in the *same*
+                        // innermost scope is ordinary sequencing and must
+                        // not keep a `rec` pass alive.
+                        if i < last {
+                            self.enclosing_updated = true;
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        self.define(name, value);
     }
 
     /// Push a new empty scope.
@@ -2212,7 +2261,10 @@ fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
                     return ctx.set_error(e);
                 }
             };
-            ctx.env.define(&name, value.clone());
+            // `x = y` updates the nearest enclosing binding when `x` is
+            // already bound (ADR-0074 feedback wires); otherwise it defines
+            // a block-local binding.
+            ctx.env.assign(&name, value.clone());
             result = value;
         } else {
             match eval_child_node(ctx, idx) {
@@ -2225,6 +2277,353 @@ fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
         }
     }
     ctx.env.pop_scope();
+    unsafe { box_value(result) }
+}
+
+/// Whether `node`'s shape declares the given child role (ADR-0081).
+/// Returns `false` when no `lang` is available (standalone bootstrap).
+fn role_declared(ctx: &EvalCtx, node: &AstNode, role: &str) -> bool {
+    if ctx.lang.is_null() {
+        return false;
+    }
+    // SAFETY: ctx.lang is a valid pointer for the duration of evaluation.
+    matches!(
+        unsafe { (*ctx.lang).child_role_index(&node.kind, role) },
+        Ok(Some(_))
+    )
+}
+
+/// Whether `node` is a binding (assign-like) node: its shape declares a
+/// `target` role. Mirrors the tree-walk `is_assign_node`.
+fn is_assign_node(ctx: &EvalCtx, node: &AstNode) -> bool {
+    role_declared(ctx, node, "target")
+}
+
+/// Whether `node` is a return node: its shape declares a `value` role but
+/// no `target` role (a binding declares both). Mirrors the tree-walk
+/// `is_return_node`.
+fn is_return_node(ctx: &EvalCtx, node: &AstNode) -> bool {
+    role_declared(ctx, node, "value") && !role_declared(ctx, node, "target")
+}
+
+/// Resolve the bound name of a binding's `target` child: a bare `var`-like
+/// node carries the name in its payload; a wrapper whose shape declares a
+/// `subject` role (e.g. a type annotation — the `subject`/`annot` role
+/// convention, ADR-0081) delegates to that child. Mirrors the tree-walk
+/// `binding_target_name`.
+fn binding_target_name(
+    ctx: &EvalCtx,
+    target_idx: usize,
+    err_ctx: &str,
+    err_node: &AstNode,
+) -> Result<String, LangError> {
+    let mut node = ctx.ast_at(AstRef::new(target_idx))?;
+    // Unwrap `subject`-roled wrappers (annotation-like nodes).
+    for _ in 0..8 {
+        if let Some(name) = node.payload.as_str() {
+            return Ok(name.to_string());
+        }
+        let subject_idx = match ctx.role_child_arena(node, "subject")? {
+            Some(i) => i,
+            None => break,
+        };
+        node = ctx.ast_at(AstRef::new(subject_idx))?;
+    }
+    node.payload.as_str().map(str::to_string).ok_or_else(|| {
+        LangError::engine_node(
+            format!("{err_ctx}: binding target must be an identifier"),
+            err_node,
+        )
+    })
+}
+
+/// Convergence comparison for `eval_rec` bindings.
+///
+/// Closures (`TaggedValue::Arrow`) are compared by params and body index
+/// only, NOT by their captured env. In a `rec` fixpoint, each pass
+/// re-evaluates a closure binding and creates a new closure that captures
+/// the current scope (which now includes other rec bindings). The captured
+/// env naturally differs each pass even though the closure's code is
+/// identical, so a full structural `eq` would never converge. Comparing
+/// only params + body lets the fixpoint converge after the env stabilizes.
+/// Non-closure values use the standard structural `eq`. Mirrors the
+/// tree-walk `rec_value_eq`.
+fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
+    match (a, b) {
+        (
+            TaggedValue::Arrow {
+                params: p1,
+                body: b1,
+                ..
+            },
+            TaggedValue::Arrow {
+                params: p2,
+                body: b2,
+                ..
+            },
+        ) => p1.len() == p2.len() && p1.iter().zip(p2.iter()).all(|(a, b)| a == b) && b1 == b2,
+        _ => handl_value::eq(a, b),
+    }
+}
+
+/// `eval_rec` native op: recursive computation region (ADR-0074).
+/// Mirrors the v2 tree-walk's `prim_eval_rec` exactly.
+///
+/// The `rec` node's children are the flattened block bindings. Each child
+/// is an expression:
+/// - `assign` children (`a = expr`) define bindings that may reference
+///   each other cyclically.
+/// - `return` children exit the region early with the return value.
+/// - Any other expression is evaluated for its side effects / result.
+///
+/// The engine iterates to a fixpoint: on each pass, every binding's value
+/// expression is re-evaluated using the current values of other bindings.
+/// When no binding's value changes between passes, the fixpoint is
+/// reached. A fuel limit (10000 iterations) prevents infinite loops.
+/// `return` inside a `rec` region exits the region early with the return
+/// value. The last child's value is the result of the region (unless a
+/// `return` exits early).
+///
+/// Bindings are NOT pre-initialized. On the first pass, a binding that
+/// references another not-yet-computed binding will either find it in an
+/// enclosing scope (if it exists there) or encounter an error (e.g.
+/// arithmetic on an unbound variable). Errors during binding evaluation
+/// are caught and the binding is skipped for that pass — it will be
+/// retried on the next pass once its dependencies have values.
+fn prim_v2_eval_rec(ctx: &mut EvalCtx) -> *mut TaggedValue {
+    let node = match ctx.current_node() {
+        Ok(n) => n.clone(),
+        Err(e) => return ctx.set_error(e),
+    };
+
+    let children = match node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .cloned()
+    {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "eval_rec: expected children array in payload".to_string(),
+                &node,
+            ));
+        }
+    };
+    if children.is_empty() {
+        return unsafe { box_value(TaggedValue::Null) };
+    }
+
+    // Push a new scope for the rec region. Bindings will be defined here
+    // as they are computed.
+    ctx.env.push_scope();
+
+    macro_rules! bail {
+        ($e:expr) => {{
+            ctx.env.pop_scope();
+            return ctx.set_error($e);
+        }};
+    }
+
+    // Track the previous value of each binding for change detection.
+    // Initialize from the enclosing scope so we can detect the first
+    // change correctly.
+    let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+    let mut binding_names: Vec<Rc<str>> = Vec::new();
+    for entry in &children {
+        let child_idx = match entry.as_u64() {
+            Some(i) => i as usize,
+            None => bail!(LangError::engine_node(
+                "eval_rec: child index must be a number".to_string(),
+                &node,
+            )),
+        };
+        let child_node = match ctx.ast_at(AstRef::new(child_idx)) {
+            Ok(n) => n.clone(),
+            Err(e) => bail!(e),
+        };
+        if is_assign_node(ctx, &child_node) {
+            if let Some(ac) = child_node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+            {
+                if ac.len() >= 2 {
+                    let var_idx = match ctx
+                        .role_child_arena(&child_node, "target")
+                        .and_then(|r| Ok(r.or_else(|| ac[0].as_u64().map(|i| i as usize))))
+                    {
+                        Ok(Some(i)) => i,
+                        Ok(None) => bail!(LangError::engine_node(
+                            "eval_rec: assign var index must be a number".to_string(),
+                            &node,
+                        )),
+                        Err(e) => bail!(e),
+                    };
+                    if let Ok(name) = binding_target_name(ctx, var_idx, "eval_rec", &node) {
+                        // Seed from the enclosing scope (before the push).
+                        // Since we already pushed a scope, lookup will
+                        // search innermost-first, but the inner scope is
+                        // empty at this point, so it falls through.
+                        let outer_val = ctx.env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
+                        let name_rc = Rc::from(name.as_str());
+                        prev_values.insert(Rc::clone(&name_rc), outer_val);
+                        binding_names.push(name_rc);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut result = TaggedValue::Null;
+    const MAX_FUEL: usize = 10000;
+    let mut converged = false;
+
+    for _iter in 0..MAX_FUEL {
+        let mut changed = false;
+
+        for entry in &children {
+            let child_idx = match entry.as_u64() {
+                Some(i) => i as usize,
+                None => bail!(LangError::engine_node(
+                    "eval_rec: child index must be a number".to_string(),
+                    &node,
+                )),
+            };
+            let child_node = match ctx.ast_at(AstRef::new(child_idx)) {
+                Ok(n) => n.clone(),
+                Err(e) => bail!(e),
+            };
+
+            // Handle `return` — exit the region with the return value.
+            if is_return_node(ctx, &child_node) {
+                if let Some(rc) = child_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                {
+                    if let Some(first) = rc.first() {
+                        if let Some(ret_idx) = first.as_u64() {
+                            match eval_child_node(ctx, ret_idx as usize) {
+                                Ok(v) => {
+                                    ctx.env.pop_scope();
+                                    return unsafe { box_value(v) };
+                                }
+                                Err(e) => bail!(e),
+                            }
+                        }
+                    }
+                }
+                // `return` with no value → exit with Null.
+                ctx.env.pop_scope();
+                return unsafe { box_value(TaggedValue::Null) };
+            }
+
+            // Handle `assign` bindings — evaluate the value expression and
+            // update the binding in the current scope. Errors are caught:
+            // a binding may reference another not-yet-computed binding
+            // (still unbound or Null), which would error. The binding is
+            // skipped for this pass and retried next pass.
+            if is_assign_node(ctx, &child_node) {
+                if let Some(ac) = child_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                {
+                    if ac.len() >= 2 {
+                        let var_idx = match ctx
+                            .role_child_arena(&child_node, "target")
+                            .and_then(|r| Ok(r.or_else(|| ac[0].as_u64().map(|i| i as usize))))
+                        {
+                            Ok(Some(i)) => i,
+                            Ok(None) => bail!(LangError::engine_node(
+                                "eval_rec: assign var index must be a number".to_string(),
+                                &node,
+                            )),
+                            Err(e) => bail!(e),
+                        };
+                        let value_idx = match ctx
+                            .role_child_arena(&child_node, "value")
+                            .and_then(|r| Ok(r.or_else(|| ac[1].as_u64().map(|i| i as usize))))
+                        {
+                            Ok(Some(i)) => i,
+                            Ok(None) => bail!(LangError::engine_node(
+                                "eval_rec: assign value index must be a number".to_string(),
+                                &node,
+                            )),
+                            Err(e) => bail!(e),
+                        };
+                        let var_name = match binding_target_name(ctx, var_idx, "eval_rec", &node) {
+                            Ok(n) => n,
+                            Err(e) => bail!(e),
+                        };
+
+                        match eval_child_node(ctx, value_idx) {
+                            Ok(new_val) => {
+                                ctx.env.define(&var_name, new_val.clone());
+                                result = new_val;
+                            }
+                            Err(e) => {
+                                // Skip — binding couldn't be computed this
+                                // pass. Discard the deferred error left by
+                                // eval_child_node so it does not leak into
+                                // the next pass's error handling.
+                                let _ = e;
+                                let _ = ctx.error.take();
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // Non-binding expression — evaluate normally.
+            match eval_child_node(ctx, child_idx) {
+                Ok(v) => result = v,
+                Err(e) => bail!(e),
+            }
+        }
+
+        // End-of-pass fixpoint check. A binding's value can also change via
+        // a nested update — `x = y` inside a block updates the nearest
+        // enclosing binding (`ScopeStack::assign`), which is how the
+        // `while`/`do-while`/`for` desugars rewrite the rec-scope
+        // `__continue`/`__xs` slots from inside the `if`/`match` branch
+        // blocks. Comparing only at rec-level assign-eval time misses those
+        // writes and converges one pass early (or oscillates), so compare
+        // each tracked binding's *current* env value against the value it
+        // held at the end of the previous pass — and treat any cross-scope
+        // write observed this pass (e.g. a body rebinding an outer
+        // variable) as a change.
+        if ctx.env.enclosing_updated {
+            changed = true;
+            ctx.env.enclosing_updated = false;
+        }
+        for name in &binding_names {
+            let cur = ctx.env.lookup(name).cloned().unwrap_or(TaggedValue::Null);
+            let prev = prev_values
+                .get(name.as_ref())
+                .cloned()
+                .unwrap_or(TaggedValue::Null);
+            prev_values.insert(Rc::clone(name), cur.clone());
+            if !rec_value_eq(&cur, &prev) {
+                changed = true;
+            }
+        }
+
+        if !changed {
+            converged = true;
+            break;
+        }
+    }
+
+    ctx.env.pop_scope();
+    if !converged {
+        return ctx.set_error(LangError::engine_node(
+            "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint".to_string(),
+            &node,
+        ));
+    }
     unsafe { box_value(result) }
 }
 
@@ -3454,6 +3853,9 @@ fn apply_native_v2(
         // ADR-0054 / ADR-0079: `do { stmt; expr }` evaluates children in
         // sequence in a new scope and returns the last child's value.
         "eval_block" => return prim_v2_eval_block(ctx),
+        // ADR-0074: `rec` — recursive computation region, iterated to a
+        // fixpoint (mirrors the v2 tree-walk's `eval_rec`).
+        "eval_rec" => return prim_v2_eval_rec(ctx),
         "add" => bin_num_v2(args, |a, b| a + b),
         "sub" => bin_num_v2(args, |a, b| a - b),
         "mul" => bin_num_v2(args, |a, b| a * b),

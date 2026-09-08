@@ -147,20 +147,29 @@ and linter all split source into top-level statements at bracket-depth zero
   `stmt.let` kind is also gone — nothing produced it (no grammar row, no
   desugar native, no transform); block bindings eval directly as `assign`
   children of `block` via `eval_block`. `x = y` in a block is
-  **update-or-define** (`ScopeStack::assign` in tree-walk/bytecode): it
-  updates the nearest enclosing binding when `x` is already bound, else
-  defines a block-local binding — that is what lets `while`/`do-while`/
-  `for` bodies rebind outer variables (`x = x + 1`) and lets the desugars'
-  `__continue`/`__xs` feedback wires reach the `rec` region's bindings.
-  `rec` fixpoint convergence observes those cross-scope writes via
+  **update-or-define** (`ScopeStack::assign` in all three engines —
+  tree-walk, bytecode, cranelift): it updates the nearest enclosing
+  binding when `x` is already bound, else defines a block-local binding —
+  that is what lets `while`/`do-while`/`for` bodies rebind outer
+  variables (`x = x + 1`) and lets the desugars' `__continue`/`__xs`
+  feedback wires reach the `rec` region's bindings. `rec` fixpoint
+  convergence observes those cross-scope writes via
   `ScopeStack::enclosing_updated` plus an end-of-pass comparison of each
   rec binding's env value (nested writes are invisible to assign-time
-  change detection).
+  change detection); the `eval_rec` native op is implemented in all
+  three engines (`prim_eval_rec` / `prim_v2_eval_rec`), so the
+  `rec`+`assign` structures the `desugar` pass produces for
+  `while`/`do-while`/`for` run identically on the compiled engines.
   The `handl-defining-handl` corpus cases that modelled `let`/`stmt.let`
   were rewritten to `block`+`assign` form
-  (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body` —
-  still `tree_walk_only` since block binding is the tree-walk coverage
-  path). Note: several engine/test crates still use a kind literally
+  (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body`,
+  plus `rest_params`/`rest_params_empty` — **no corpus case is
+  `tree_walk_only` any more**; `function_call`/`pipe_call`/`if_true`
+  were stale flags). `tests/bind_rec_parity.rs` gates the semantics
+  end-to-end: real `do {}` rebinding and `while`/`do-while`/`for`
+  sources are parsed (desugar runs at parse time) and run through
+  tree-walk, bytecode, and cranelift with identical results. Note:
+  several engine/test crates still use a kind literally
   named `"let"` inside **self-contained toy `Language`s** (e.g.
   `plugin-engine-exec-*` unit tests, `handl-test-utils` conformance
   corpus, `plugin-engine-lint`/`plugin-engine-fmt` fixtures,
