@@ -56,250 +56,56 @@
             - 0
       - !Keep 1
 
-# `a ?? b` → `match a { Some: rec_v, _: b }` (ADR-0074 A.5). The `some`
-# pattern is the object-destructuring shape `{"_tag": "Some", "value":
-# rec_v}`; the wildcard arm catches `none`/`null`/anything else.
-# (Formerly the `desugar.nullish` native — expressible declaratively
-# because the rewrite is a fixed `Create` tree over remapped children; the
-# `rec_v` binder is a fixed `__`-namespace name, not a gensym.)
-- id: transform.desugar.nullish
-  pass: desugar
-  node_kind: nullish
-  rule: !Declarative
-    target_kind: match
-    children:
-      - !Keep 0
-      - !Create
-        kind: block
-        children:
-          # arm(object {_tag: "Some", value: rec_v}, var rec_v)
-          - !Create
-            kind: arm
-            children:
-              - !Create
-                kind: object
-                children:
-                  - !Create
-                    kind: entry
-                    children:
-                      - !Create { kind: var, payload: "_tag" }
-                      - !Create { kind: lit, payload: "Some" }
-                  - !Create
-                    kind: entry
-                    children:
-                      - !Create { kind: var, payload: "value" }
-                      - !Create { kind: var, payload: "rec_v" }
-              - !Create { kind: var, payload: "rec_v" }
-          # arm(var "_", b)
-          - !Create
-            kind: arm
-            children:
-              - !Create { kind: var, payload: "_" }
-              - !Keep 1
-
-# `a?.field` → `match a { Some: rec_v.field, _: None }` (ADR-0074 A.5).
-# (Formerly the `desugar.opt_chain` native.)
-- id: transform.desugar.opt_chain
-  pass: desugar
-  node_kind: opt-chain
-  rule: !Declarative
-    target_kind: match
-    children:
-      - !Keep 0
-      - !Create
-        kind: block
-        children:
-          # arm(object {_tag: "Some", value: rec_v}, field-access(rec_v, field))
-          - !Create
-            kind: arm
-            children:
-              - !Create
-                kind: object
-                children:
-                  - !Create
-                    kind: entry
-                    children:
-                      - !Create { kind: var, payload: "_tag" }
-                      - !Create { kind: lit, payload: "Some" }
-                  - !Create
-                    kind: entry
-                    children:
-                      - !Create { kind: var, payload: "value" }
-                      - !Create { kind: var, payload: "rec_v" }
-              - !Create
-                kind: field-access
-                children:
-                  - !Create { kind: var, payload: "rec_v" }
-                  - !Keep 1
-          # arm(var "_", lit {"_tag": "None"})
-          - !Create
-            kind: arm
-            children:
-              - !Create { kind: var, payload: "_" }
-              - !Create { kind: lit, payload: { _tag: "None" } }
-
-# `while cond { body }` → `rec` feedback region (ADR-0074 A.4):
-#   rec { __continue = cond,
-#         __result = if __continue { body...; __continue = cond }
-#                    else { __result } }
-# Guard: the state-passing `while { state } { step-fn }` form (child 1 is a
-# `function` node) is NOT desugared — it retains the `loop_step` eval
-# protocol. serde_yaml cannot express `!Not` around an enum condition, so
-# the guard is a higher-priority identity rewrite (rebuilds the node with
-# remapped children — identical output to a pass-through).
-# `__continue`/`__result` are fixed `__`-namespace names.
-# (Formerly the `desugar.while` native.)
-- id: transform.desugar.while.state_form
-  pass: desugar
-  node_kind: while
-  priority: -1
-  when: !KindAt
-    index: 1
-    kind: function
-  rule: !Declarative
-    target_kind: while
-    children:
-      - !Keep 0
-      - !Keep 1
-- id: transform.desugar.while
-  pass: desugar
-  node_kind: while
-  rule: !Declarative
-    target_kind: rec
-    children:
-      # __continue = cond
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__continue" }
-          - !Keep 0
-      # __result = if __continue { body...; __continue = cond } else __result
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__result" }
-          - !Create
-            kind: if
-            children:
-              - !Create { kind: var, payload: "__continue" }
-              - !Create
-                kind: block
-                children:
-                  - !KeepRest 1
-                  - !Create
-                    kind: assign
-                    children:
-                      - !Create { kind: var, payload: "__continue" }
-                      - !Keep 0
-              - !Create { kind: var, payload: "__result" }
-
-# `do { body } while cond` → `rec` region, body-first (ADR-0074 A.6):
-#   rec { __result = body, __continue = cond,
-#         __result = if __continue { body; __continue = cond }
-#                    else { __result } }
+# `do { body } while cond` → `block { body; while-expansion }`
+# (ADR-0074 A.6). The body runs once before the condition is checked —
+# expressed as `body` followed by the same `rec` feedback region `while`
+# desugars to:
+#   block { body,
+#           rec { __continue = cond,
+#                 __result = if __continue { body; __continue = cond }
+#                            else { __result } } }
+# The earlier `rec { __result = body, __continue = cond, __result = if … }`
+# shape could never converge: `rec` re-evaluates every binding each
+# fixpoint pass, so the `__result = body` init binding re-ran the body
+# unconditionally and `__result` oscillated forever (fuel limit).
 # (Formerly the `desugar.do_while` native.)
 - id: transform.desugar.do_while
   pass: desugar
   node_kind: do-while
   rule: !Declarative
-    target_kind: rec
+    target_kind: block
     children:
-      # __result = body (run body first)
+      # body — runs exactly once, before the condition is checked.
+      - !Keep 0
+      # then the `while cond { body }` expansion.
       - !Create
-        kind: assign
+        kind: rec
         children:
-          - !Create { kind: var, payload: "__result" }
-          - !Keep 0
-      # __continue = cond
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__continue" }
-          - !Keep 1
-      # __result = if __continue { body; __continue = cond } else __result
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__result" }
+          # __continue = cond
           - !Create
-            kind: if
+            kind: assign
             children:
-              - !Create { kind: var, payload: "__continue" }
-              - !Create
-                kind: block
-                children:
-                  - !Keep 0
-                  - !Create
-                    kind: assign
-                    children:
-                      - !Create { kind: var, payload: "__continue" }
-                      - !Keep 1
-              - !Create { kind: var, payload: "__result" }
-
-# `for x in xs { body }` → `rec` over the collection (ADR-0074 A.5):
-#   rec { __xs = xs, __result = [],
-#         __result = match __xs {
-#           []: __result
-#           [x, ...rec_tail]: { body...; __xs = rec_tail } } }
-# (Formerly the `desugar.for` native.)
-- id: transform.desugar.for
-  pass: desugar
-  node_kind: for
-  rule: !Declarative
-    target_kind: rec
-    children:
-      # __xs = xs
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__xs" }
-          - !Keep 1
-      # __result = []
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__result" }
-          - !Create { kind: array }
-      # __result = match __xs { []: __result, [x, ...rec_tail]: block }
-      - !Create
-        kind: assign
-        children:
-          - !Create { kind: var, payload: "__result" }
+              - !Fresh "__continue"
+              - !Keep 1
+          # __result = if __continue { body; __continue = cond } else __result
           - !Create
-            kind: match
+            kind: assign
             children:
-              - !Create { kind: var, payload: "__xs" }
+              - !Fresh "__result"
               - !Create
-                kind: block
+                kind: if
                 children:
-                  # arm(array [], var __result)
+                  - !Fresh "__continue"
                   - !Create
-                    kind: arm
+                    kind: block
                     children:
-                      - !Create { kind: array }
-                      - !Create { kind: var, payload: "__result" }
-                  # arm(array [pattern, rest(rec_tail)],
-                  #     block { body..., __xs = rec_tail })
-                  - !Create
-                    kind: arm
-                    children:
+                      - !Keep 0
                       - !Create
-                        kind: array
+                        kind: assign
                         children:
-                          - !Keep 0
-                          - !Create
-                            kind: rest
-                            children:
-                              - !Create { kind: var, payload: "rec_tail" }
-                      - !Create
-                        kind: block
-                        children:
-                          - !KeepRest 2
-                          - !Create
-                            kind: assign
-                            children:
-                              - !Create { kind: var, payload: "__xs" }
-                              - !Create { kind: var, payload: "rec_tail" }
+                          - !Fresh "__continue"
+                          - !Keep 1
+                  - !Fresh "__result"
 
 # `lower` pass (ADR-0094 follow-up): canonicalize object entry keys so the
 # bytecode/cranelift backends can stop guessing whether a literal key is a
@@ -430,18 +236,26 @@
                       - !Keep 0
               - !Fresh "__result"
 
-# `for x in xs { body }` → `rec` over destructured iteration.
+# `for x in xs { body }` → `block { __xs = xs; __result = []; rec {...} }`.
+# The collection/accumulator init bindings are hoisted OUT of the `rec`
+# region: `rec` re-evaluates every binding each fixpoint pass, so an
+# in-region `__xs = xs` would reset the iterator every pass and the loop
+# could never advance (fuel limit). Inside the region, `__xs`/`__result`
+# are read from (and `__xs` written back to) the enclosing block scope via
+# the `assign` feedback-wire semantics.
 - id: transform.desugar.for
   pass: desugar
   node_kind: for
   rule: !Declarative
-    target_kind: rec
+    target_kind: block
     children:
+      # __xs = xs  (once — the iteration cursor)
       - !Create
         kind: assign
         children:
           - !Fresh "__xs"
           - !Keep 1
+      # __result = []  (once — the accumulator seed)
       - !Create
         kind: assign
         children:
@@ -449,41 +263,45 @@
           - !Create
             kind: array
             payload: { "children": [] }
+      # rec { __result = match __xs { []: __result, [x, ...rec_tail]: block { body; __xs = rec_tail } } }
       - !Create
-        kind: assign
+        kind: rec
         children:
-          - !Fresh "__result"
           - !Create
-            kind: match
+            kind: assign
             children:
-              - !Fresh "__xs"
+              - !Fresh "__result"
               - !Create
-                kind: block
+                kind: match
                 children:
+                  - !Fresh "__xs"
                   - !Create
-                    kind: arm
+                    kind: block
                     children:
                       - !Create
-                        kind: array
-                        payload: { "children": [] }
-                      - !Fresh "__result"
-                  - !Create
-                    kind: arm
-                    children:
-                      - !Create
-                        kind: array
+                        kind: arm
                         children:
-                          - !Keep 0
                           - !Create
-                            kind: rest
-                            children:
-                              - !Fresh "rec_tail"
+                            kind: array
+                            payload: { "children": [] }
+                          - !Fresh "__result"
                       - !Create
-                        kind: block
+                        kind: arm
                         children:
-                          - !KeepRest 2
                           - !Create
-                            kind: assign
+                            kind: array
                             children:
-                              - !Fresh "__xs"
-                              - !Fresh "rec_tail"
+                              - !Keep 0
+                              - !Create
+                                kind: rest
+                                children:
+                                  - !Fresh "rec_tail"
+                          - !Create
+                            kind: block
+                            children:
+                              - !KeepRest 2
+                              - !Create
+                                kind: assign
+                                children:
+                                  - !Fresh "__xs"
+                                  - !Fresh "rec_tail"

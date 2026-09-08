@@ -9,23 +9,24 @@ fn assemble_canonical_has_expected_fragment_counts() {
     let kit = handl_kit_data_canonical::assemble().expect("assembly should succeed");
     let lang = kit.lang();
 
-    // Token kinds: 71 — v0.1 surface syntax (ADR-0074) + `::`/`data`
-    // additions (ADR-0079/0082); `token.let`/`token.keyword.let` removed —
-    // `let` is not a keyword.
-    assert_eq!(lang.tokens.len(), 71);
+    // Token kinds: 72 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // additions (ADR-0079/0082); `token.let` removed (`let` fully removed —
+    // ADR-0079 completed) while `token.keyword.let` stays as a tombstone so
+    // `let` remains a reserved word (no grammar row → parse error).
+    assert_eq!(lang.tokens.len(), 72);
 
     // Grammar rows: 59 — v0.1 surface syntax (ADR-0074) + `::`/`data`
-    // additions; `|` pipe re-added for `data` constructor alternatives.
-    // `grammar.let.prefix` removed — `let` is not a keyword.
+    // additions; `|` pipe re-added for `data` constructor alternatives;
+    // `grammar.let.prefix` removed (`let` fully removed).
     assert_eq!(lang.grammar.len(), 59);
 
-    // Eval schemes: 63 — v0.1 surface syntax (ADR-0074) + `let`/`stmt.let`
-    // (internal binding kinds, no surface syntax) + `data`/`import`-
-    // related schemes.
-    assert_eq!(lang.eval.len(), 63);
+    // Eval schemes: 61 — v0.1 surface syntax (ADR-0074) +
+    // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
+    // (`let` fully removed — `stmt.let` had no producer).
+    assert_eq!(lang.eval.len(), 61);
 
     // AST shapes: 61 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
-    // `let` (internal binding kind) additions.
+    // `flow` (arrow-parser refinement roles) additions; `ast.let` removed.
     assert_eq!(lang.ast.len(), 61);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
@@ -63,7 +64,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 71);
+    assert_eq!(rt.lang().tokens.len(), 72);
     assert_eq!(rt.lang().grammar.len(), 59);
 }
 
@@ -79,9 +80,10 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.tokens.get_by_id("token.arrow").is_some());
     assert!(lang.tokens.get_by_id("token.lparen").is_some());
     assert!(lang.tokens.get_by_id("token.eqeq").is_some());
-    // `let` is not a keyword — `token.keyword.let`/`token.let` removed.
-    assert!(lang.tokens.get_by_id("token.keyword.let").is_none());
+    // `let` is removed: the lexed binding token is gone; the keyword token
+    // remains as a tombstone (reserved word, no grammar row).
     assert!(lang.tokens.get_by_id("token.let").is_none());
+    assert!(lang.tokens.get_by_id("token.keyword.let").is_some());
     assert!(lang.tokens.get_by_id("token.keyword.match").is_some());
     assert!(lang.tokens.get_by_id("token.bang").is_some());
     assert!(lang.tokens.get_by_id("token.question").is_some());
@@ -123,8 +125,6 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.grammar.get_by_id("grammar.do-while.infix").is_some());
     // Removed grammar rules
     assert!(lang.grammar.get_by_id("grammar.vau.prefix").is_none());
-    // `let` is not a keyword — no `let` grammar rows exist.
-    assert!(lang.grammar.get_by_id("grammar.let.prefix").is_none());
     // `|` pipe re-added for `data` constructor alternatives (ADR-0082).
     assert!(lang.grammar.get_by_id("grammar.pipe.infix").is_some());
     assert!(lang.grammar.get_by_id("grammar.loop.prefix").is_none());

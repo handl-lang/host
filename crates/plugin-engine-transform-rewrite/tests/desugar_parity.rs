@@ -263,14 +263,14 @@ fn nullish_desugars_to_match_shape() {
         2
     );
 
-    // arm 1: pattern = object (some pattern), body = var("rec_v")
+    // arm 1: pattern = object (some pattern), body = fresh var for `rec_v`
     let arm1 = child_node(&out, block, 0);
     assert_eq!(arm1.kind, "arm");
     let pat1 = child_node(&out, arm1, 0);
     assert_eq!(pat1.kind, "object");
     let body1 = child_node(&out, arm1, 1);
     assert_eq!(body1.kind, "var");
-    assert_eq!(body1.payload, json!("rec_v"));
+    assert_eq!(body1.payload, json!("__fresh_rec_v_0"));
 
     // arm 2: pattern = var("_"), body = b
     let arm2 = child_node(&out, block, 1);
@@ -312,7 +312,7 @@ fn opt_chain_desugars_to_match_shape() {
     assert_eq!(body1.kind, "field-access");
     let fv = child_node(&out, body1, 0);
     assert_eq!(fv.kind, "var");
-    assert_eq!(fv.payload, json!("rec_v"));
+    assert_eq!(fv.payload, json!("__fresh_rec_v_0"));
     let ff = child_node(&out, body1, 1);
     assert_eq!(ff.kind, "var");
     assert_eq!(ff.payload, json!("name"));
@@ -346,30 +346,31 @@ fn while_desugars_to_rec_shape() {
     assert_eq!(root.kind, "rec");
 
     // rec has 2 children: [assign(__continue, cond), assign(__result, if)]
+    // — binder names are `!Fresh`-minted (`__fresh_<hint>_<n>`).
     let children = root.payload.get("children").unwrap().as_array().unwrap();
     assert_eq!(children.len(), 2);
 
     let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
     assert_eq!(assign0.kind, "assign");
     let a0_var = child_node(&out, assign0, 0);
-    assert_eq!(a0_var.payload, json!("__continue"));
+    assert_eq!(a0_var.payload, json!("__fresh___continue_0"));
     let a0_val = child_node(&out, assign0, 1);
     assert_eq!(a0_val.kind, "binary.gt");
 
     let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
     assert_eq!(assign1.kind, "assign");
     let a1_var = child_node(&out, assign1, 0);
-    assert_eq!(a1_var.payload, json!("__result"));
+    assert_eq!(a1_var.payload, json!("__fresh___result_1"));
     let a1_val = child_node(&out, assign1, 1);
     assert_eq!(a1_val.kind, "if");
 
     // if has 3 children: [__continue, block, __result]
     let if_cond = child_node(&out, a1_val, 0);
-    assert_eq!(if_cond.payload, json!("__continue"));
+    assert_eq!(if_cond.payload, json!("__fresh___continue_0"));
     let if_then = child_node(&out, a1_val, 1);
     assert_eq!(if_then.kind, "block");
     let if_else = child_node(&out, a1_val, 2);
-    assert_eq!(if_else.payload, json!("__result"));
+    assert_eq!(if_else.payload, json!("__fresh___result_1"));
 
     // block contains body + reassign(__continue, cond)
     let block_children = if_then.payload.get("children").unwrap().as_array().unwrap();
@@ -379,7 +380,7 @@ fn while_desugars_to_rec_shape() {
     let block_reassign = &out.nodes()[block_children[1].as_u64().unwrap() as usize];
     assert_eq!(block_reassign.kind, "assign");
     let reassign_var = child_node(&out, block_reassign, 0);
-    assert_eq!(reassign_var.payload, json!("__continue"));
+    assert_eq!(reassign_var.payload, json!("__fresh___continue_0"));
 }
 
 #[test]
@@ -403,7 +404,10 @@ fn while_state_passing_form_not_desugared() {
 #[test]
 fn do_while_desugars_to_rec_shape() {
     // `do { body } while cond` →
-    // `rec { __result = body, __continue = cond, __result = if ... }`
+    // `block { body, rec { __continue = cond, __result = if ... } }` —
+    // the body runs once before the `while`-expansion feedback region
+    // (the old `rec { __result = body, … }` shape could never reach a
+    // fixpoint since `rec` re-evaluates the init binding every pass).
     let lang = canonical();
     let mut ast = Ast::new();
     ast.push(node("block", &[])); // 0: body
@@ -414,33 +418,42 @@ fn do_while_desugars_to_rec_shape() {
 
     let out = engine_desugar(&lang, &ast);
     let root = out.nodes().last().unwrap();
-    assert_eq!(root.kind, "rec");
+    assert_eq!(root.kind, "block");
 
     let children = root.payload.get("children").unwrap().as_array().unwrap();
-    assert_eq!(children.len(), 3);
+    assert_eq!(children.len(), 2);
 
-    // child 0: assign(__result, body)
-    let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
+    // child 0: the body, run once before the loop.
+    let body = &out.nodes()[children[0].as_u64().unwrap() as usize];
+    assert_eq!(body.kind, "block");
+
+    // child 1: rec { assign(__continue, cond), assign(__result, if ...) }
+    let rec = &out.nodes()[children[1].as_u64().unwrap() as usize];
+    assert_eq!(rec.kind, "rec");
+    let rec_children = rec.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(rec_children.len(), 2);
+
+    let assign0 = &out.nodes()[rec_children[0].as_u64().unwrap() as usize];
     assert_eq!(assign0.kind, "assign");
-    assert_eq!(child_node(&out, assign0, 0).payload, json!("__result"));
-    assert_eq!(child_node(&out, assign0, 1).kind, "block");
+    assert_eq!(
+        child_node(&out, assign0, 0).payload,
+        json!("__fresh___continue_0")
+    );
+    assert_eq!(child_node(&out, assign0, 1).kind, "binary.gt");
 
-    // child 1: assign(__continue, cond)
-    let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
+    let assign1 = &out.nodes()[rec_children[1].as_u64().unwrap() as usize];
     assert_eq!(assign1.kind, "assign");
-    assert_eq!(child_node(&out, assign1, 0).payload, json!("__continue"));
-    assert_eq!(child_node(&out, assign1, 1).kind, "binary.gt");
-
-    // child 2: assign(__result, if ...)
-    let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
-    assert_eq!(assign2.kind, "assign");
-    assert_eq!(child_node(&out, assign2, 1).kind, "if");
+    assert_eq!(
+        child_node(&out, assign1, 0).payload,
+        json!("__fresh___result_1")
+    );
+    assert_eq!(child_node(&out, assign1, 1).kind, "if");
 }
 
 #[test]
 fn for_desugars_to_rec_shape() {
     // `for x in xs { body }` →
-    // `rec { __xs = xs, __result = [], __result = match ... }`
+    // `block { __xs = xs, __result = [], rec { __result = match ... } }`
     let lang = canonical();
     let mut ast = Ast::new();
     ast.push(leaf("var", json!("x"))); // 0: pattern
@@ -452,15 +465,21 @@ fn for_desugars_to_rec_shape() {
 
     let out = engine_desugar(&lang, &ast);
     let root = out.nodes().last().unwrap();
-    assert_eq!(root.kind, "rec");
+    assert_eq!(root.kind, "block");
 
+    // block has 3 children: [assign(__xs, xs), assign(__result, []), rec]
+    // — the init bindings are hoisted out of `rec` (it would re-evaluate
+    // and reset them every fixpoint pass otherwise).
     let children = root.payload.get("children").unwrap().as_array().unwrap();
     assert_eq!(children.len(), 3);
 
     // child 0: assign(__xs, collection)
     let assign0 = &out.nodes()[children[0].as_u64().unwrap() as usize];
     assert_eq!(assign0.kind, "assign");
-    assert_eq!(child_node(&out, assign0, 0).payload, json!("__xs"));
+    assert_eq!(
+        child_node(&out, assign0, 0).payload,
+        json!("__fresh___xs_0")
+    );
     let a0_val = child_node(&out, assign0, 1);
     assert_eq!(a0_val.kind, "var");
     assert_eq!(a0_val.payload, json!("xs"));
@@ -468,17 +487,24 @@ fn for_desugars_to_rec_shape() {
     // child 1: assign(__result, [])
     let assign1 = &out.nodes()[children[1].as_u64().unwrap() as usize];
     assert_eq!(assign1.kind, "assign");
-    assert_eq!(child_node(&out, assign1, 0).payload, json!("__result"));
+    assert_eq!(
+        child_node(&out, assign1, 0).payload,
+        json!("__fresh___result_1")
+    );
     assert_eq!(child_node(&out, assign1, 1).kind, "array");
 
-    // child 2: assign(__result, match ...)
-    let assign2 = &out.nodes()[children[2].as_u64().unwrap() as usize];
+    // child 2: rec { assign(__result, match ...) }
+    let rec = &out.nodes()[children[2].as_u64().unwrap() as usize];
+    assert_eq!(rec.kind, "rec");
+    let rec_children = rec.payload.get("children").unwrap().as_array().unwrap();
+    assert_eq!(rec_children.len(), 1);
+    let assign2 = &out.nodes()[rec_children[0].as_u64().unwrap() as usize];
     assert_eq!(assign2.kind, "assign");
     let a2_val = child_node(&out, assign2, 1);
     assert_eq!(a2_val.kind, "match");
 
     // match has 2 children: [__xs, block]
-    assert_eq!(child_node(&out, a2_val, 0).payload, json!("__xs"));
+    assert_eq!(child_node(&out, a2_val, 0).payload, json!("__fresh___xs_0"));
     let match_block = child_node(&out, a2_val, 1);
     assert_eq!(match_block.kind, "block");
     let block_children = match_block
@@ -493,7 +519,10 @@ fn for_desugars_to_rec_shape() {
     let arm1 = &out.nodes()[block_children[0].as_u64().unwrap() as usize];
     assert_eq!(arm1.kind, "arm");
     assert_eq!(child_node(&out, arm1, 0).kind, "array");
-    assert_eq!(child_node(&out, arm1, 1).payload, json!("__result"));
+    assert_eq!(
+        child_node(&out, arm1, 1).payload,
+        json!("__fresh___result_1")
+    );
 
     // arm 2: pattern = [x, ...rec_tail], body = block { body, __xs = rec_tail }
     let arm2 = &out.nodes()[block_children[1].as_u64().unwrap() as usize];

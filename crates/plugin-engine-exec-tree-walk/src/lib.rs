@@ -296,6 +296,14 @@ pub struct ScopeStack {
     /// invocations. Accessible via `lookup()` as a fallback but excluded
     /// from `capture()`.
     pub(crate) globals: Rc<FxHashMap<Rc<str>, TaggedValue>>,
+    /// Set when `assign` updates a binding in an *enclosing* scope (not the
+    /// innermost one) with a different value. Read and cleared by
+    /// `rec` fixpoint detection (`prim_eval_rec`) — such writes are the
+    /// ADR-0074 feedback wires: the `while`/`do-while`/`for` desugars
+    /// update `__continue`/`__xs` (and user bindings like `x = x + 1`)
+    /// from inside `if`/`match` branch blocks, and a pass that produces
+    /// any such write must not count as converged.
+    pub(crate) enclosing_updated: bool,
 }
 
 #[allow(clippy::new_without_default)]
@@ -307,6 +315,7 @@ impl ScopeStack {
             scopes: vec![FxHashMap::default()],
             captured: None,
             globals: Rc::new(FxHashMap::default()),
+            enclosing_updated: false,
         }
     }
 
@@ -339,6 +348,39 @@ impl ScopeStack {
         // empty during evaluation.
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(Rc::from(name), value);
+    }
+
+    /// Assign `name = value`: update the nearest existing binding in the
+    /// enclosing local scopes (innermost-first), or define it in the
+    /// innermost scope when the name is not already bound.
+    ///
+    /// This is the `x = y` statement semantics for blocks (ADR-0074): a
+    /// binding that shadows a name bound in an enclosing scope *updates*
+    /// that binding — this is what lets the `while`/`do-while` desugar's
+    /// feedback wires (`__continue = cond` inside the `if` branch block)
+    /// reach the `rec` region's bindings, and what lets loop-body
+    /// rebindings such as `x = x + 1` be observed after the loop. Only
+    /// the local scope stack is searched; `captured` and `globals` are
+    /// read-only snapshots, so a name visible only through them is
+    /// shadowed by a fresh local definition (matching `define`).
+    pub fn assign(&mut self, name: &str, value: TaggedValue) {
+        let last = self.scopes.len() - 1;
+        for (i, scope) in self.scopes.iter_mut().enumerate().rev() {
+            if let Some(slot) = scope.get_mut(name) {
+                if !handl_value::eq(slot, &value) {
+                    *slot = value;
+                    // Only cross-scope writes are fixpoint-relevant: an
+                    // update to a binding defined earlier in the *same*
+                    // innermost scope is ordinary sequencing and must not
+                    // keep a `rec` pass alive.
+                    if i < last {
+                        self.enclosing_updated = true;
+                    }
+                }
+                return;
+            }
+        }
+        self.define(name, value);
     }
 
     /// Push a new empty scope.
@@ -2040,7 +2082,12 @@ impl TreeWalkEngine {
                                 )?;
                                 match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                     Ok(value) => {
-                                        env.define(&var_name, value.clone());
+                                        // `x = y` updates the nearest
+                                        // enclosing binding when `x` is
+                                        // already bound (ADR-0074 feedback
+                                        // wires); otherwise it defines a
+                                        // block-local binding.
+                                        env.assign(&var_name, value.clone());
                                         result = value;
                                         continue 'block;
                                     }
@@ -3270,6 +3317,7 @@ impl TreeWalkEngine {
         // Initialize from the enclosing scope so we can detect the first
         // change correctly.
         let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+        let mut binding_names: Vec<Rc<str>> = Vec::new();
         for entry in children {
             let child_idx = entry.as_u64().ok_or_else(|| {
                 LangError::engine_node(
@@ -3301,7 +3349,9 @@ impl TreeWalkEngine {
                             // search innermost-first, but the inner scope is
                             // empty at this point, so it falls through.
                             let outer_val = env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
-                            prev_values.insert(Rc::from(name.as_str()), outer_val);
+                            let name_rc = Rc::from(name.as_str());
+                            prev_values.insert(Rc::clone(&name_rc), outer_val);
+                            binding_names.push(name_rc);
                         }
                     }
                 }
@@ -3382,16 +3432,7 @@ impl TreeWalkEngine {
 
                             match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                 Ok(new_val) => {
-                                    let prev = prev_values
-                                        .get(var_name.as_str())
-                                        .cloned()
-                                        .unwrap_or(TaggedValue::Null);
                                     env.define(&var_name, new_val.clone());
-                                    if !rec_value_eq(&new_val, &prev) {
-                                        changed = true;
-                                        prev_values
-                                            .insert(Rc::from(var_name.as_str()), new_val.clone());
-                                    }
                                     result = new_val;
                                 }
                                 Err(_) => {
@@ -3408,6 +3449,33 @@ impl TreeWalkEngine {
 
                 // Non-binding expression — evaluate normally.
                 result = self.eval_node_inner(ast, AstRef::new(child_idx), lang, env)?;
+            }
+
+            // End-of-pass fixpoint check. A binding's value can also change
+            // via a nested update — `x = y` inside a block updates the
+            // nearest enclosing binding (`ScopeStack::assign`), which is how
+            // the `while`/`do-while`/`for` desugars rewrite the rec-scope
+            // `__continue`/`__xs` slots from inside the `if`/`match` branch
+            // blocks. Comparing only at rec-level assign-eval time misses
+            // those writes and converges one pass early (or oscillates), so
+            // compare each tracked binding's *current* env value against
+            // the value it held at the end of the previous pass — and treat
+            // any cross-scope write observed this pass (e.g. a body rebinding
+            // an outer variable) as a change.
+            if env.enclosing_updated {
+                changed = true;
+                env.enclosing_updated = false;
+            }
+            for name in &binding_names {
+                let cur = env.lookup(name).cloned().unwrap_or(TaggedValue::Null);
+                let prev = prev_values
+                    .get(name.as_ref())
+                    .cloned()
+                    .unwrap_or(TaggedValue::Null);
+                prev_values.insert(Rc::clone(name), cur.clone());
+                if !rec_value_eq(&cur, &prev) {
+                    changed = true;
+                }
             }
 
             if !changed {

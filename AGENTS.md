@@ -39,11 +39,11 @@ Declarative rules live in `lang.transforms`, authored as first-class
 `TransformDef`s in `data/transforms.yaml` (the `AstShapeDef` `desugar:`
 field is still lowered at merge for third-party backward compat) — that
 includes the five fixed-shape sugar forms (`while`, `do-while`, `for`,
-`nullish`, `opt-chain`), which migrated out of Rust once it became clear
-they need neither fresh-name generation (their `__continue`/`__result`/
-`rec_v`/`rec_tail` binders are fixed `__`-namespace names) nor
-`Apply`-style recursion (bottom-up `Keep`/`KeepRest` already supplies
-rewritten subterms). Only `data` and `match` still fall back to the
+`nullish`, `opt-chain`), which migrated out of Rust once `RewriteStep::
+Fresh` landed (their `__continue`/`__result`/`rec_v`/`rec_tail` binders
+are minted per-application as `__fresh_<hint>_<n>` names) — no
+`Apply`-style recursion is needed either (bottom-up `Keep`/`KeepRest`
+already supplies rewritten subterms). Only `data` and `match` still fall back to the
 named `desugar.*` native registry (`desugar.data`,
 `desugar.match_recursor`): they parse type expressions out of payloads,
 iterate a variable number of constructors, run strict-positivity
@@ -108,7 +108,16 @@ and linter all split source into top-level statements at bracket-depth zero
   `do { x = y; ... }` blocks cover the old `let ... in` form. The internal
   `stmt.let` kind is also gone — nothing produced it (no grammar row, no
   desugar native, no transform); block bindings eval directly as `assign`
-  children of `block` via `eval_block`.
+  children of `block` via `eval_block`. `x = y` in a block is
+  **update-or-define** (`ScopeStack::assign` in tree-walk/bytecode): it
+  updates the nearest enclosing binding when `x` is already bound, else
+  defines a block-local binding — that is what lets `while`/`do-while`/
+  `for` bodies rebind outer variables (`x = x + 1`) and lets the desugars'
+  `__continue`/`__xs` feedback wires reach the `rec` region's bindings.
+  `rec` fixpoint convergence observes those cross-scope writes via
+  `ScopeStack::enclosing_updated` plus an end-of-pass comparison of each
+  rec binding's env value (nested writes are invisible to assign-time
+  change detection).
   The `handl-defining-handl` corpus cases that modelled `let`/`stmt.let`
   were rewritten to `block`+`assign` form
   (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body` —
@@ -157,8 +166,7 @@ and linter all split source into top-level statements at bracket-depth zero
       that the `RewriteStep` vocabulary cannot express without growing
       into a macro system. The fixed-shape forms (`while`/`do-while`/
       `for`/`nullish`/`opt-chain`) are declarative `TransformDef`s in
-      `transforms.yaml` — the "fresh-name generation" the audit assumed
-      they needed turned out to be fixed `__`-namespace binders, and
+      `transforms.yaml` — `RewriteStep::Fresh` mints their binders, and
       bottom-up `Keep` supplies the recursion. The unregistered
       `desugar_if` (never in the pass; `type.if` must observe `if` nodes)
       was deleted — the identical rewrite is covered by the declarative
