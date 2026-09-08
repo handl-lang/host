@@ -543,6 +543,20 @@ already guarantees that `Keep`-derived and declarative rewrites inherit the
 original source span; only created sub-trees and explicit rewrite targets are
 formatted.
 
+At the CLI level, statements with no rewrites are emitted by copying their
+entire trimmed source chunk (`src[start..end]`) verbatim, while statements that
+were rewritten are formatted by `PreserveEmitter` and placed back at their
+original location. Gaps between statements (`src[0..first_start]` and
+`src[end_i..start_{i+1}]` and `src[last_end..]`) are preserved, so leading
+comments, blank lines, and trailing text survive.
+
+`--emit source` and `--write` are not appropriate for lowering passes that
+create internal-only nodes (e.g. `desugar` producing `rec`, `if__continue`,
+tagged-record recursors). The CLI preflights the output AST: any created
+(`span: None`) node whose kind has no grammar row and no leaf payload is
+considered un-emittable and the command refuses with an error. Only
+surface-preserving passes can be turned back into usable source text.
+
 ## Migration sequence
 
 1. `handl-language`: `TransformDef` fragment + `TransformRule`/
