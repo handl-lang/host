@@ -14,6 +14,8 @@ handl-plugin-ext-refinement.workspace = true
 handl-kit-canonical.workspace = true
 handl-language.workspace = true
 handl-host-tooling.workspace = true
+handl-plugin-ext-diag.workspace = true
+handl-plugin-ext-lint.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

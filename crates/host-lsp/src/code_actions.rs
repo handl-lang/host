@@ -9,6 +9,10 @@
 //!   `{ … }` (without a `return` prefix) gets the prefix inserted.
 //! * **Convert `//` to `///` doc comment** — a regular line comment at the top
 //!   of the file (before any code) can be promoted to a doc comment.
+//! * **Lint quick fixes (ADR-0094)** — diagnostics from the canonical linter
+//!   that carry a `Fix` (e.g. `lint.simplify-paren`, matched by the transform
+//!   engine's `find_matches`) are offered as quickfix actions whose edit is
+//!   the fix's span-preserving text replacement.
 //! * **Extract to named arrow** — a complex selection containing `>>>`, `|||`,
 //!   or a nested `~>` arrow can be extracted into a named arrow binding.
 
@@ -79,6 +83,9 @@ pub fn code_actions(
             }
         }
     }
+
+    // Transform-engine-driven lint quick fixes (ADR-0094).
+    actions.extend(lint_fix_actions(source, range_start, range_end));
 
     actions
 }
@@ -341,6 +348,83 @@ fn convert_comment_actions(
             "---",
         ));
         break;
+    }
+    actions
+}
+
+// ---------------------------------------------------------------------------
+// e. Lint quick fixes via the transform engine (ADR-0094)
+// ---------------------------------------------------------------------------
+
+/// Map a lint rule name to a user-facing code-action title.
+///
+/// The lint pass matches are produced by `RewriteEngine::find_matches` inside
+/// `plugin-ext-lint` — this is only a label lookup, not pattern matching.
+fn lint_action_title(rule: &str, message: &str) -> String {
+    match rule {
+        "simplify-paren" => "Remove redundant parentheses".to_string(),
+        _ => format!("Fix: {}", message),
+    }
+}
+
+/// Offer quick fixes for lint diagnostics that carry a [`Fix`].
+///
+/// Runs `handl_plugin_ext_lint::lint_source` over the document — the
+/// `simplify-paren` rule (and any future `lint`-pass rules) is matched by the
+/// ADR-0094 transform engine's `find_matches`, so these actions are genuinely
+/// engine-driven: find pattern → show diff (the `edit`) → apply at node.
+///
+/// Span caveat: the v0.1 Pratt AST nodes carry no source spans, so the edit
+/// range comes from the `Fix` span lint computes from the token stream, not
+/// from `AstNode::span`.  Only diagnostics whose fix span intersects the
+/// requested range are offered.
+fn lint_fix_actions(source: &str, range_start: usize, range_end: usize) -> Vec<Value> {
+    if source.trim().is_empty() {
+        return Vec::new();
+    }
+    let diags = match handl_plugin_ext_lint::lint_source(source) {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+    let mut actions = Vec::new();
+    for diag in diags {
+        let Some(fix) = &diag.fix else {
+            continue;
+        };
+        // Offer the action only when the cursor / selection touches the fix
+        // span.  A zero-width cursor must lie inside the span.
+        let fs = fix.span.start;
+        let fe = fix.span.end;
+        let touches = if range_start == range_end {
+            range_start >= fs && range_start <= fe
+        } else {
+            range_start < fe && range_end > fs
+        };
+        if !touches {
+            continue;
+        }
+        actions.push(json!({
+            "title": lint_action_title(diag.rule, &diag.message),
+            "kind": "quickfix",
+            "diagnostics": [{
+                "range": span_to_range(source, diag.span.start, diag.span.end),
+                "severity": match diag.severity {
+                    handl_plugin_ext_diag::Severity::Error => 1,
+                    handl_plugin_ext_diag::Severity::Warning => 2,
+                    _ => 3,
+                },
+                "source": "handl-lint",
+                "message": diag.message,
+            }],
+            "edit": {
+                "changes": {
+                    UNTITLED_URI: [{
+                        "range": span_to_range(source, fs, fe),
+                        "newText": fix.replacement,
+                    }]
+                }
+            },
+        }));
     }
     actions
 }

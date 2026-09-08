@@ -8,7 +8,10 @@ use handl_language::{Language, TransformDef};
 /// `lang.transforms`. Alternate implementations can load rules from a codemod
 /// file or an extra YAML fragment set without merging them into the
 /// [`Language`].
-pub trait RuleSource {
+///
+/// Rule sources are shared across threads by the parallel engine, so the
+/// trait is `Send + Sync`.
+pub trait RuleSource: Send + Sync {
     /// Return all transform rules for `pass`, sorted by priority ascending.
     ///
     /// The default source returns owned clones because a [`RuleSource`] may

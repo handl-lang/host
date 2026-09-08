@@ -299,19 +299,9 @@
       - callee
       - args
     type: object
-  # ADR-0060 Layer 1: json{...}(args) is syntactic sugar. When the callee
-  # (child 0) is a `json` node, desugar the `call` into a `json` node that
-  # carries all original children. The `json` eval scheme then evaluates
-  # the args and performs $0/$1/… placeholder substitution into the template
-  # string (carried by child 0's payload).
-  desugar:
-    target_kind: json
-    when:
-      child_index: 0
-      child_kind: json
-    children:
-      - !Keep 0
-      - !KeepRest 1
+  # ADR-0060 Layer 1: json{...}(args) is syntactic sugar — see
+  # `transform.desugar.call` in transforms.yaml, which rewrites a `call`
+  # whose callee is a `json` node into that `json` node.
 - id: ast.export
   node_kind: export
   payload_schema:
@@ -518,19 +508,8 @@
     required:
       - children
     type: object
-  desugar:
-    target_kind: entry
-    when:
-      child_index: 0
-      child_kind: array
-    children:
-      - !Create
-        kind: paren
-        children:
-          - !KeepPath
-            - 0
-            - 0
-      - !Keep 1
+  # The `array`-key desugar lives in transforms.yaml
+  # (`transform.desugar.entry`).
 - id: ast.paren
   node_kind: paren
   children:

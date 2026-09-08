@@ -4,7 +4,7 @@
 //!
 //! Assembles a [`Language`] from **authored YAML data files** (one per fragment
 //! type: `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `ast.yaml`, `caps.yaml`,
-//! `options.yaml`, `lexer_rules.yaml`), embedded at compile time via
+//! `options.yaml`, `lexer_rules.yaml`, `transforms.yaml`), embedded at compile time via
 //! `include_str!`. No Rust emitter crates are needed — the language definition
 //! is pure data.
 //!
@@ -47,7 +47,7 @@ use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry};
 use handl_language::{
     AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
-    OptionSchema, TokenKindDef, TypeRuleDef,
+    OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
 };
 
 /// The kit name under which this kit registers itself (for `extends`
@@ -83,8 +83,9 @@ const AST_YAML: &str = include_str!("../data/ast.yaml");
 const CAPS_YAML: &str = include_str!("../data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../data/options.yaml");
 const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
+const TRANSFORMS_YAML: &str = include_str!("../data/transforms.yaml");
 
-/// Build a [`Language`] from the 7 embedded YAML data files.
+/// Build a [`Language`] from the 9 embedded YAML data files.
 ///
 /// Each file contains a YAML list of fragments of one type. The fragments are
 /// deserialized and merged into a single [`Language`]. `eval.yaml` holds the
@@ -104,10 +105,11 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         CAPS_YAML,
         OPTIONS_YAML,
         LEXER_RULES_YAML,
+        TRANSFORMS_YAML,
     )
 }
 
-/// Merge the eight YAML fragment strings into a single [`Language`].
+/// Merge the nine YAML fragment strings into a single [`Language`].
 ///
 /// Each argument is the raw YAML text for one fragment type. The fragments are
 /// deserialized and merged in the same order as [`language_from_yaml`].
@@ -124,6 +126,7 @@ fn merge_fragments(
     caps_yaml: &str,
     options_yaml: &str,
     lexer_rules_yaml: &str,
+    transforms_yaml: &str,
 ) -> Result<Language, LangError> {
     let mut lang = Language::new();
 
@@ -186,6 +189,15 @@ fn merge_fragments(
         lang.lexer_rules.merge(frag)?;
     }
 
+    // Transform rules (ADR-0094 — non-union, pre-resolved). Merged *after*
+    // the ast pass so a first-class rule may `replaces:` a `desugar:`-lowered
+    // `transform.desugar.*` rule synthesized above.
+    let transforms: Vec<TransformDef> = serde_yaml::from_str(transforms_yaml)
+        .map_err(|e| LangError::engine(format!("transforms.yaml: {}", e)))?;
+    for frag in transforms {
+        lang.transforms.merge(frag)?;
+    }
+
     // ADR-0094 "Production readiness": transform-rule validation runs at
     // `Language` build. Error-severity diagnostics (duplicate identity keys,
     // out-of-bounds `Keep`/`KeepRole`/`KeepPath`/`KeepRest`/`Apply` steps,
@@ -209,10 +221,11 @@ fn merge_fragments(
     Ok(lang)
 }
 
-/// Build a [`Language`] from the eight YAML data files in a directory.
+/// Build a [`Language`] from the nine YAML data files in a directory.
 ///
 /// Reads `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`,
-/// `ast.yaml`, `caps.yaml`, `options.yaml`, and `lexer_rules.yaml` from `dir`
+/// `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml`, and
+/// (optionally — absent means no first-class rules) `transforms.yaml` from `dir`
 /// and merges them the same way [`language_from_yaml`] merges the embedded
 /// files. This is the per-file kit loading path (ADR 0003): a host resolves a
 /// kit data directory and assembles a [`Language`] from its authored YAML.
@@ -243,6 +256,14 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
     let options_yaml = read("options.yaml")?;
     let lexer_rules_yaml = read("lexer_rules.yaml")?;
 
+    // `transforms.yaml` is optional: fragment directories written before
+    // ADR-0094's first-class transform section do not carry one.
+    let transforms_yaml = match std::fs::read_to_string(dir.join("transforms.yaml")) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "[]".to_string(),
+        Err(e) => return Err(LangError::engine(format!("transforms.yaml: {}", e))),
+    };
+
     merge_fragments(
         &tokens_yaml,
         &grammar_yaml,
@@ -252,6 +273,7 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         &caps_yaml,
         &options_yaml,
         &lexer_rules_yaml,
+        &transforms_yaml,
     )
 }
 
@@ -437,15 +459,88 @@ mod tests {
     }
 
     #[test]
-    fn ast_desugar_rules_lower_into_transforms() {
-        // ADR-0094 §6: `desugar:` fields on `AstShapeDef`s are lowered into
-        // `lang.transforms` (pass "desugar") at merge time.
+    fn transforms_yaml_loads_first_class_rules() {
+        // ADR-0094: transform rules are authored in `data/transforms.yaml`
+        // and land in `lang.transforms` directly — identical semantics to
+        // the old `desugar:`-field lowering (same ids, pass, conditions,
+        // and rewrite steps).
+        use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
-        assert_eq!(lang.transforms.len(), 2);
-        let rules = lang.transforms_for("desugar", "call");
+        assert_eq!(lang.transforms.len(), 3);
+
+        let call = &lang.transforms_for("desugar", "call")[0];
+        assert_eq!(call.id, "transform.desugar.call");
+        assert_eq!(call.priority, 0);
+        assert_eq!(
+            call.when,
+            Some(TransformCondition::KindAt {
+                index: Some(0),
+                role: None,
+                kind: "json".into()
+            })
+        );
+        assert_eq!(
+            call.rule,
+            TransformRule::Declarative {
+                target_kind: "json".into(),
+                children: vec![RewriteStep::Keep(0), RewriteStep::KeepRest(1)],
+                payload: None,
+            }
+        );
+
+        let entry = &lang.transforms_for("desugar", "entry")[0];
+        assert_eq!(entry.id, "transform.desugar.entry");
+        assert_eq!(
+            entry.when,
+            Some(TransformCondition::KindAt {
+                index: Some(0),
+                role: None,
+                kind: "array".into()
+            })
+        );
+        assert_eq!(
+            entry.rule,
+            TransformRule::Declarative {
+                target_kind: "entry".into(),
+                children: vec![
+                    RewriteStep::Create {
+                        kind: "paren".into(),
+                        payload: None,
+                        children: vec![RewriteStep::KeepPath(vec![0, 0])],
+                    },
+                    RewriteStep::Keep(1),
+                ],
+                payload: None,
+            }
+        );
+    }
+
+    #[test]
+    fn desugar_field_still_lowers_into_transforms() {
+        // Backward compat (ADR-0094): an `AstShapeDef` carrying a `desugar:`
+        // rule still lowers into a `TransformDef` in pass "desugar" — the
+        // field is kept for third-party fragments.
+        let ast_yaml = r#"
+- id: ast.sugared
+  node_kind: sugared
+  children:
+    - role: a
+    - role: b
+  desugar:
+    target_kind: plain
+    when:
+      child_index: 0
+      child_kind: paren
+    children:
+      - !Keep 0
+      - !Keep 1
+"#;
+        let lang =
+            merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap();
+        let rules = lang.transforms_for("desugar", "sugared");
         assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].id, "transform.desugar.call");
-        assert_eq!(rules[0].priority, 0);
+        assert_eq!(rules[0].id, "transform.desugar.sugared");
+        assert_eq!(rules[0].pass, "desugar");
     }
 
     #[test]
@@ -477,8 +572,8 @@ mod tests {
     children:
       - !Keep 7
 "#;
-        let err = merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]")
-            .unwrap_err();
+        let err =
+            merge_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap_err();
         assert!(
             format!("{err}").contains("transform rule validation failed"),
             "expected validation failure, got: {err}"

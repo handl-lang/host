@@ -48,7 +48,7 @@ use serde::{Deserialize, Serialize};
 
 use handl_language::{
     Ast, AstNode, AstRef, AstShapeDef, EvalSchemeDef, GrammarRow, Language, LexerRuleDef, Source,
-    TokenKindDef, Value, as_tag, language_value, tag_value,
+    TokenKindDef, TransformDef, Value, as_tag, language_value, tag_value,
 };
 
 use handl_kit_canonical::handl_module::{HandlModule, ModuleResolver};
@@ -492,6 +492,9 @@ struct TestLanguageYaml {
     /// `eval:` — eval schemes that project the `body` child.
     #[serde(default)]
     eval: Vec<EvalSchemeDef>,
+    /// `transforms:` — first-class `TransformDef` rules (ADR-0094).
+    #[serde(default)]
+    transforms: Vec<TransformDef>,
 }
 
 /// Build the test-language fragment as a standalone [`Language`].
@@ -518,6 +521,9 @@ fn test_language_fragment() -> Result<Language, String> {
     }
     for f in doc.eval {
         frag.eval.merge(f).map_err(|e| e.to_string())?;
+    }
+    for f in doc.transforms {
+        frag.transforms.merge(f).map_err(|e| e.to_string())?;
     }
     Ok(frag)
 }
