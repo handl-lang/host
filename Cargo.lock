@@ -1011,6 +1011,7 @@ dependencies = [
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
+ "handl-plugin-ext-refinement",
  "handl-plugin-lib-scheduler",
  "serde_json",
 ]

@@ -389,6 +389,59 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   `str.*` through `plugin-ext-kit::populate` → `library("utils")` without
   wiring the `char` resolver, so the FFI ops stay the non-canonical
   fallback. The canonical `"str"` is `str-handl`.
+- **`hnl typecheck` dialect routing (dogfood-sweep reconciliation).** Not
+  every `.hnl` file is canonical surface syntax: `handl-packages/` mixes
+  three dialects — (a) canonical handl, (b) **contract files**
+  (`axiom <name> : T -> T` + indented `requires:`/`guarantee:`/
+  `termination:` clauses; `contracts/*.hnl`, `str`, `char`, `time`,
+  `unicode`), and (c) **arrow-module files** (top-level `cap`/`op`/`handl`/
+  `tag` declarations and arrow-graph expressions — `arr(`/`first(`/
+  `choice(`/`loop(`/`comp(`/`app(`/`|||`/`rec { ... }` simple form — e.g.
+  `state/*`, `fn/*`, `collection/*`, `parse-*`). `typecheck_one` in
+  `host-cli` now routes: contract files (first top-level line starts with
+  `axiom `) go to `plugin_ext_refinement::parse_contracts`; canonical
+  parse failures or canonical-files-with-arrow-markers-that-error are
+  retried through `parse_arrow_module` (which itself runs the canonical
+  grammar data-driven, then a legacy arrow fallback). Routing lives in
+  `host-cli` because `plugin-engine-typecheck` → `plugin-ext-refinement`
+  would cycle (`refinement` → `kit-data-canonical` → `handl-runtime` →
+  `typecheck`). Sweep result: **30 → 0 parse failures** across the 177-file
+  corpus; typecheck failures 128 → 57, all remaining `[unbound-wire]`
+  (binder/match-arm scoping and module-env gaps — a separate class).
+  - `axiom` is no longer a pure tombstone in the canonical language:
+    `grammar.axiom.prefix` parses `axiom name body` to a `law` node (the
+    documented alias). The contract-file `axiom name : sig` dialect still
+    belongs to `parse_contracts`, which now also accepts the Unicode
+    spellings `→` (arrow), `×` (product), `∧`/`∨` (and/or) used by
+    `handl-packages/contracts/*.hnl`. Note `handl-packages/contracts/` and
+    the crate-bundled `plugin-ext-refinement/contracts/` have **diverged
+    semantically** (the bundled copies are older ASCII variants — e.g.
+    `axiom cons` vs `axiom list.cons`); the loader accepts both spellings
+    but the contents differ — reconciling them is a contract-content
+    decision left open.
+  - `->` and `|>` never lexed in any dialect — dead syntax. The five
+    `cli-framework` files that used the speculative `f :: (p: T): R ->`
+    signature / `x |> (p) -> body` pipe dialect were rewritten to canonical
+    `f :: (p: T) ~> body` + direct calls; `examples/handl/composition.hnl`
+    was rejoined to a single `5 >>> ...` statement (the statement splitter
+    breaks at depth-0 newlines).
+  - `:=` appears only inside `--` comments — no token needed.
+  - Call-site spread `f(...xs)` is **deferred**: no live source uses it
+    (only doc comments); `...` (token.ellipsis) already parses in
+    array/object/rest positions. `...` and `>>>` are distinct tokens — the
+    claimed prefix ambiguity does not exist. Real support needs an
+    eval-scheme splice (a `proj_rest`/apply-path op that expands `rest`
+    children into the arg list), not just a `rest_token` row on `call` —
+    a language-design decision, not a sweep fix.
+  - The arrow parser's named-arrow path now actually splits ` :: ` (it was
+    detected by `has_named_arrows` but never split — `name :: rec {...}`
+    files failed with "no named arrows found") and routes bodies through
+    `parse_arrow_expr` so `rec { ... }` bodies work in named arrows.
+  - Match-arm `{ stmt; stmt }` multi-statement bodies (`fn/*`,
+    `collection/*` rich-rec files) were left in arrow-dialect form — they
+    parse via `parse_arrow_module`'s legacy path and are consumed by the
+    refinement pipeline today (`state_tests` asserts their `Scheme`s).
+    Canonical multi-statement bodies remain `do { ... }`.
 
 ## Stashes
 

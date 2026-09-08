@@ -1095,7 +1095,10 @@ fn parse_named_arrows_data_driven(
         if let Some((eq_idx, sep_len)) = sep {
             let name = trimmed[..eq_idx].trim().to_string();
             let expr_str = trimmed[eq_idx + sep_len..].trim();
-            let scheme = parse_arrow_expr_data_driven(expr_str, lang)?;
+            // `parse_arrow_expr` covers the simple `rec { body }` form and
+            // falls back to the legacy parser when the data-driven grammar
+            // rejects the expression (e.g. arity-1 `rec`).
+            let scheme = parse_arrow_expr(expr_str)?;
             map.insert(name, scheme);
         }
     }
@@ -2338,11 +2341,19 @@ fn parse_named_arrows(src: &str) -> Result<HashMap<String, Scheme>, String> {
             continue;
         }
 
-        // Find ` = ` (top-level assignment)
-        if let Some(eq_idx) = trimmed.find(" = ") {
+        // Find ` :: ` or ` = ` (top-level binding); both are detected by
+        // `has_named_arrows`, so both must be split here. ` :: ` is the
+        // canonical spelling; ` = ` is the pre-migration form.
+        let sep = trimmed
+            .find(" :: ")
+            .map(|i| (i, 4))
+            .or_else(|| trimmed.find(" = ").map(|i| (i, 3)));
+        if let Some((eq_idx, sep_len)) = sep {
             let name = trimmed[..eq_idx].trim().to_string();
-            let expr_str = trimmed[eq_idx + 3..].trim();
-            let scheme = parse_arrow_expr_legacy(expr_str)?;
+            let expr_str = trimmed[eq_idx + sep_len..].trim();
+            // `parse_arrow_expr` also handles `rec { body }` bodies — the
+            // legacy tokenizer has no brace tokens.
+            let scheme = parse_arrow_expr(expr_str)?;
             map.insert(name, scheme);
         }
     }

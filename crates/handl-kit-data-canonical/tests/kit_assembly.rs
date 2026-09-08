@@ -15,10 +15,11 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `let` remains a reserved word (no grammar row → parse error).
     assert_eq!(lang.tokens.len(), 72);
 
-    // Grammar rows: 59 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // Grammar rows: 60 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
-    // `grammar.let.prefix` removed (`let` fully removed).
-    assert_eq!(lang.grammar.len(), 59);
+    // `grammar.let.prefix` removed (`let` fully removed);
+    // `grammar.axiom.prefix` added (`axiom` aliases to a `law` node).
+    assert_eq!(lang.grammar.len(), 60);
 
     // Eval schemes: 61 — v0.1 surface syntax (ADR-0074) +
     // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
@@ -65,7 +66,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 72);
-    assert_eq!(rt.lang().grammar.len(), 59);
+    assert_eq!(rt.lang().grammar.len(), 60);
 }
 
 #[test]

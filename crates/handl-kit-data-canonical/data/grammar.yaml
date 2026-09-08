@@ -12,7 +12,7 @@
 #   ?. opt-chain (45/46), *** product (35/36), &&& fanout (35/36),
 #   >>> flow (25/26), ||| choice (20/21), ?: ternary (15/16),
 #   : type-annot (12/13), ~> arrow (10/9, right-assoc), = assign (5/6).
-# Retained: axiom token (no grammar rule — alias for law).
+# Retained: axiom token — grammar.axiom.prefix aliases it to a `law` node.
 #
 # NOTE (ADR-0053 scope boundary): several v0.1 constructs are NOT expressible
 # in a declarative Pratt grammar and require parser-level contextual
@@ -396,9 +396,22 @@
     node_kind: return
     arity: 1
 # `law name body` — compile-time law declaration (ADR-0074).
-# `axiom` is retained as a compatible alias (no grammar rule needed).
 - id: grammar.law.prefix
   token: token.keyword.law
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: law
+    arity: 2
+# `axiom name body` — compatible alias for `law` (produces a `law` node).
+# Note: the `axiom name : Type -> Type` / `guarantee:` contract files under
+# `handl-packages/contracts/` (and the contract headers in
+# `str`/`char`/`time`/`unicode`) are a separate dialect parsed by
+# `plugin-ext-refinement::loader::parse_contracts`, not by this grammar.
+- id: grammar.axiom.prefix
+  token: token.keyword.axiom
   position: Prefix
   binding_power:
     - 0
