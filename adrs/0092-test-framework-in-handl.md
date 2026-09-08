@@ -2,13 +2,23 @@
 
 ## Status
 
-Partially implemented. `plugin-lib-test` is **deleted**: the framework
-contract remains in `handl-packages/test/test.hnl` (`op`/`handl`
-declarations) and the 12 Rust handls moved into
-`handl-plugin-engine-test::framework` as the temporary bridge this ADR
-prescribes. No op moved to pure handl yet — see the addendum at the bottom
-for the blockers discovered during the migration (error raise/capture are
-required in addition to the RNG/clock prerequisites listed below).
+Implemented. `plugin-lib-test` is **deleted**. The framework contract
+remains in `handl-packages/test/test.hnl` (`op`/`handl` declarations), and
+all 12 temporary Rust handls have been replaced by pure-handl modules under
+`handl-packages/test/`:
+
+- `assert.hnl` — `assert.equal`, `assert.not_equal`, `assert.true`,
+  `assert.false`, `assert.contains`
+- `snapshot.hnl` — `snapshot.format`, `snapshot.match`
+- `property.hnl` — `property.for_all`
+- `fuzz.hnl` — `fuzz.run`
+- `benchmark.hnl` — `benchmark.run`
+- `test.hnl` — `test.run` (suite executor)
+
+No Rust handls remain in the framework. `plugin-engine-test::framework`
+retains only a thread-local assert-failure side-channel so the runner can
+capture structured `expected`/`actual`/`diff` detail from the tree-walk
+`assert` keyword handler.
 
 Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)) and an instance of the
@@ -173,35 +183,32 @@ dependencies (RNG, clock) that gate two of the ops.
    `property.for_all` / `fuzz.run`.
 4. **A clock primitive** in the stdlib (`time.*`) for `benchmark.run`.
 
-Items 3 and 4 may land after the migration begins — the affected ops stay
-Rust handls in `plugin-engine-test` until then.
+Items 3 and 4 are now satisfied: `rand.seeded_*` RNG ops and
+`time.instant_ns` are wired into the canonical module chain. The
+`error.raise`/`error.try` primitives were not needed for the framework; the
+pure-handl implementation uses the **result pattern** only
+(`{"__tag__":"ok",...}` / `{"__tag__":"err",...}`).
 
 ## Status
 
-Partially implemented (see top). ADR-0089 landed first; the runner lives in
-`plugin-engine-test`.
+Implemented (see top). ADR-0089 landed first; the runner lives in
+`plugin-engine-test`. The pure-handl framework lives in
+`handl-packages/test/` and is registered by `handl-kit-canonical` through the
+generic `HandlModule` seam.
 
-### Implementation addendum (migration pass 1)
+### Implementation addendum (migration pass 2)
 
-- `plugin-lib-test` deleted: removed from workspace `members` and
-  `[workspace.dependencies]`; its only dependent was `plugin-engine-test`.
-- All framework code (assert/property/benchmark/fuzz/snapshot/test Rust
-  handls, `OpRegistry`, `HandlModule`s, `TestLibraryPlugin`, tests) moved
-  verbatim to `crates/plugin-engine-test/src/framework/`. `test.hnl`
-  remains the contract; the `handl "..." = rust_*` bindings resolve to
-  these handls.
-- The runner's `TestModuleLookup` resolves `assert.*` via
-  `crate::framework::AssertModule`; test bodies such as
-  `assert.true(false)` still fail properly.
-- **Newly discovered blockers for the pure-handl phase** (beyond the
-  prerequisites listed above): the language currently has (a) no
-  **error-raising** primitive callable from handl — `assert.*` and
-  `snapshot.match` exist to fail loudly, so they cannot be pure handl yet;
-  and (b) no **error capture** — `assert.throws` and `test.run` must call
-  a function value and observe failure, which today only exists host-side
-  as `EvalContext::try_call_value`. The `rand.seeded_*` ops exist in
-  `plugin-lib-rand` but are not wired into the canonical module chain, and
-  no `time.*` clock primitive exists. The pure-handl `assert.hnl`/
-  `property.hnl`/`fuzz.hnl`/`snapshot.hnl`/`benchmark.hnl`/`test.hnl`
-  implementation files land once `error.*` (raise + capture), `random.*`
-  (seeded), and `time.*` (clock) primitives are available.
+- `plugin-lib-test` is deleted. The remaining temporary Rust handls in
+  `crates/plugin-engine-test/src/framework/` were removed.
+- All `op`/`handl` declarations in `handl-packages/test/test.hnl` now
+  resolve to pure-handl implementations in `handl-packages/test/`
+  (`assert.hnl`, `property.hnl`, `benchmark.hnl`, `fuzz.hnl`,
+  `snapshot.hnl`, `test.hnl`).
+- The framework uses only the result pattern for failures; `assert.*`
+  helpers return `err`-tagged values directly. The runner converts those
+  back into `TestOutcome::Failed` and, via the `assert` keyword handler,
+  reads the thread-local assert-failure side-channel for structured
+  `expected`/`actual`/`diff` detail.
+- `benchmark.run` uses `time.instant_ns`; `property.for_all` and `fuzz.run`
+  use `rand.seeded_float`. No `error.raise`/`error.try` is used by the
+  framework.
