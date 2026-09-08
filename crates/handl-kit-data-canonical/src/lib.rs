@@ -465,7 +465,11 @@ mod tests {
         // and rewrite steps).
         use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
-        assert_eq!(lang.transforms.len(), 3);
+        // 9 rules: call, entry, nullish, opt_chain, while (+ its
+        // state-passing guard), do_while, for, and the `lower` pass's
+        // entry rule. The five fixed-shape sugar forms were migrated from
+        // `desugar.*` natives to declarative `TransformDef`s.
+        assert_eq!(lang.transforms.len(), 9);
 
         let call = &lang.transforms_for("desugar", "call")[0];
         assert_eq!(call.id, "transform.desugar.call");

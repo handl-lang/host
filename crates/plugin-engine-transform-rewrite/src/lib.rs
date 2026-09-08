@@ -12,10 +12,11 @@
 //!   the engine core.
 //! - `TransformRule::Native(name)` dispatches through the wired
 //!   [`NativeRewrite`] registry. [`with_desugar_natives`](RewriteEngine::with_desugar_natives)
-//!   wires the moved `try_rust_desugar` machinery (while, do-while, for,
-//!   nullish, opt-chain, data, match) as named natives under `desugar.*`,
-//!   consulted as a **fallback** for kinds with no declarative rule —
-//!   preserving the legacy declarative-before-native ordering.
+//!   wires the remaining semantic desugar handlers (`data`,
+//!   `match`→recursor) as named natives under `desugar.*`, consulted as a
+//!   **fallback** for kinds with no declarative rule — the fixed-shape
+//!   forms (`while`, `do-while`, `for`, `nullish`, `opt-chain`) are
+//!   declarative `TransformDef`s in `data/transforms.yaml`.
 //! - Every run returns a [`TransformOutput`] with a [`RewriteTrace`]
 //!   (input→output provenance) and [`PassStats`] (visited/rewritten/
 //!   per-rule counts + duration).
@@ -120,11 +121,12 @@ impl RewriteEngine {
 
     /// Wire the desugar native registry (ADR-0094 §6).
     ///
-    /// Registers the moved `try_rust_desugar` handlers under their
+    /// Registers the remaining `try_rust_desugar` handlers under their
     /// `desugar.<form>` names **and** installs the `(desugar, kind)` native
-    /// fallback table, so the `"desugar"` pass rewrites `while`, `do-while`,
-    /// `for`, `nullish`, `opt-chain`, `data`, and `match` nodes that have no
-    /// declarative rule — with declarative rules always taking precedence.
+    /// fallback table, so the `"desugar"` pass rewrites `data` and `match`
+    /// nodes that have no declarative rule — with declarative rules always
+    /// taking precedence. (`while`, `do-while`, `for`, `nullish`, and
+    /// `opt-chain` desugar declaratively via `transforms.yaml`.)
     pub fn with_desugar_natives(self) -> Self {
         let mut engine = self.with_native_registry(Arc::new(native::desugar_native_registry()));
         for (kind, name) in native::DESUGAR_NATIVES {
