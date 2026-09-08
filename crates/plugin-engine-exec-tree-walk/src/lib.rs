@@ -3450,6 +3450,81 @@ impl EvalEngine for TreeWalkEngine {
     fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_import_resolver(resolver))
     }
+
+    fn seal_module_value(&self, ast: &Ast, lang: &Language, value: Value) -> Result<Value, LangError> {
+        if !contains_unhomed_arrow(&value) {
+            return Ok(value);
+        }
+        // Register the module's eval frame so the arrow's `body` index
+        // remains meaningful in the importer's scope: `apply_app` /
+        // `call_value` route `__home__`-stamped arrows back to this frame
+        // (its AST, `Language`, module chain, and globals).
+        let frame_id = register_home_frame(
+            Rc::new(ast.clone()),
+            Rc::new(lang.clone()),
+            self.modules.clone(),
+            if self.globals.is_empty() {
+                None
+            } else {
+                Some(self.globals.clone())
+            },
+        );
+        let mut value = value;
+        stamp_home(&mut value, frame_id);
+        Ok(value)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arrow-value sealing helpers (Phase 9.5 module import)
+// ---------------------------------------------------------------------------
+//
+// Mirrors of the private helpers in `plugin-lib-handl` (which stamp arrow
+// arguments/results crossing `HandlFunction` boundaries); kept local so the
+// sealing hook needs no cross-crate plumbing.
+
+/// Whether `value` contains an arrow value (`{"__arrow__": true, ...}`)
+/// that carries no `__home__` frame id — i.e. an arrow whose `body` index
+/// refers to the ambient eval's AST and must be stamped before it crosses
+/// into an importer's scope.
+fn contains_unhomed_arrow(value: &Value) -> bool {
+    match value {
+        Value::Array(a) => a.iter().any(contains_unhomed_arrow),
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
+                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
+                    || o.values().any(contains_unhomed_arrow);
+            }
+            o.values().any(contains_unhomed_arrow)
+        }
+        _ => false,
+    }
+}
+
+/// Stamp every arrow value inside `value` that lacks a `__home__` frame id
+/// with `frame_id` — recursively, including arrows nested inside a
+/// closure's captured `env` (their `body` indices refer to the same AST).
+/// Arrows that already carry a `__home__` keep it: their provenance is
+/// elsewhere.
+fn stamp_home(value: &mut Value, frame_id: u64) {
+    match value {
+        Value::Array(a) => {
+            for v in a.iter_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
+                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
+            {
+                o.insert("__home__".to_string(), Value::from(frame_id));
+            }
+            for v in o.values_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        _ => {}
+    }
 }
 
 // ---------------------------------------------------------------------------
