@@ -370,3 +370,38 @@ Verification gate: `cargo test --workspace`. The self-hosting corpus
 (`crates/handl-defining-handl/tests/v2_parity.rs`, 42 cases × 6 engines) is
 the real test — if all pass, the generic parser produces equivalent ASTs
 and the desugar pass preserves eval results.
+
+## Amendment — contextual clause vocabulary (`match`/`data` closed)
+
+*Amended after implementation: the last two contextual prefix forms,
+`match` and `data`, are now expressed in grammar data. Three further
+`AstShapeRef` fields close the gap — all `Vec`/`serde`-defaulted, so
+third-party grammar rows are unaffected:*
+
+- **`child_binding_powers: Vec<u8>`** — per-child right binding powers.
+  `child_binding_powers[i]` overrides the row default (prefix left bp /
+  infix right bp) when parsing fixed child `i`. `data` uses `[6, 0]`: the
+  type-expression child stops before `::` (bind, lbp 5) while the
+  constructor list parses at rbp 0 so `|` (lbp 1) still binds into `alt`
+  nodes. Applied in both the prefix and infix loops (keyed on child index;
+  the infix left operand is index 0).
+- **`keyword_clauses: Vec<KeywordClause>`** — optional
+  `open <expr> close` clauses anchored after fixed child `after_child`.
+  When the next token has kind `open`, the engine consumes it, parses a
+  clause expression at the clause's own `binding_power`, requires and
+  consumes `close`, and splices the expression in as an extra child at that
+  position. `match` declares `after_child: 0, open: token.keyword.return,
+  close: token.keyword.with` — producing `[scrutinee, motive?, arms]`
+  children with no parser special-case.
+- **`payload_extract: Vec<PayloadExtractSpec>`** — lift a name-like string
+  out of fixed child `child` into the node's payload under `field`. The
+  engine resolves the string generically: bare string payload (`var`),
+  existing `name` property, or the `callee`-role child of a `call`-shaped
+  node. `data` uses `{child: 0, field: name}` so `payload.name` carries the
+  family name for `data Vec(..) :: ...`.
+
+With these fields the generic `expression_inner` handles `match` and `data`
+entirely from `grammar.yaml` rows; the `kind == "match"`/`kind == "data"`
+branches are deleted. The scope-boundary list above still stands —
+`keyword_clauses` covers *keyword-delimited* optionality between a fixed
+child and the trailing block, not arbitrary optional sub-structure.
