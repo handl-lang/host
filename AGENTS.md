@@ -247,6 +247,38 @@ are FFI atom backends; `plugin-lib-handl` is the loader seam
 with deps on non-table natives (e.g. `result` → `tag`) are built via
 `module_with`/`with_resolver_fallback`.
 
+### Loader self-hosting (ADR-0094) — status: canonical in handl, bootstrap on the hot path
+
+`handl-packages/loader/loader.hnl` is the **complete canonical
+implementation** of the `.hnl` text transforms: `strip_comments`,
+`strip_decls`, `transform_export_to_object` (incl. `find_binding_sep`),
+`parse_imports`, `parse_caps`, `parse_tags`, `expand_tags`,
+`escape_string`, plus the composites `prepare` and `analyze`. In
+`plugin-lib-handl`:
+
+- `mod bootstrap` holds the irreducible Rust copies — needed to prepare
+  `str-handl` itself (the bootstrap paradox: the loader needs `str`,
+  `str` needs the transforms) and as the correctness fallback.
+- `HandlLoader` + `install_loader`/`loader()` are the opt-in self-hosting
+  seam: once installed (e.g. `HandlLoader::new(vec![char_mod, str_mod])`),
+  `HandlModule::new`/`analyze_source` and every public transform delegate
+  to `loader.hnl`, falling back to `bootstrap` on loader error.
+- `plugin-lib-handl/tests/loader.rs` is a parity test (handl vs bootstrap,
+  small corpus) — **all transforms agree**.
+
+**Why the handl loader is not the default yet:** every `Function::call` on
+a `HandlModule` re-lexes/parses the full module source
+(`(source).f(__arg_N)`), and the transforms run on the tree-walk
+interpreter — so each `str.*`/`char.*` op inside the interpreted loader
+costs a re-parse of the ~740-line `str-handl` source. Whole-file
+transforms take ~1.7s per call on *small* sources and minutes across a
+kit's ~30 modules — `kit-canonical` measured this and deliberately does
+**not** `install_loader` (see the NOTE in `build_kit`). Promotion to the
+default path awaits either a parsed-AST cache in `HandlFunction::call`
+(applied-form sources are per-module constants) or a compiled eval engine
+for the transform pass. Until then the Rust `bootstrap` seam is the
+minimal *active* implementation and `loader.hnl` is the verified spec.
+
 ## String / Char / Unicode layering (ADR-0093)
 
 The `str`/`char`/`unicode` surface is layered: a **backend-neutral contract**

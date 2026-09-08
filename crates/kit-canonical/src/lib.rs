@@ -1032,6 +1032,19 @@ impl Kit {
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
+        // NOTE (ADR-0094 loader self-hosting): the pure-handl loader
+        // (`handl-packages/loader/loader.hnl`) is fully implemented and
+        // parity-tested against the Rust bootstrap transforms
+        // (`plugin-lib-handl/tests/loader.rs`), but it is deliberately NOT
+        // installed here: every nested `str.*`/`char.*` call inside the
+        // interpreted transforms re-lexes/parses the ~740-line `str-handl`
+        // bridge source, making whole-file processing take minutes per
+        // kit build.  Hosts may opt in via
+        // `handl_plugin_lib_handl::install_loader(HandlLoader::new(vec![
+        // char_backend, str_backend]))`; the bootstrap path remains the
+        // default until the bridge stops re-parsing sources per call or a
+        // compiled eval engine runs the transforms.
+
         let mut stdlib_registry = ModuleRegistry::new();
         stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
         stdlib_registry.register(stdlib::module("math").expect("math"));

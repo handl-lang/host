@@ -1766,6 +1766,7 @@ dependencies = [
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-transform",
  "handl-plugin-engine-transform-rewrite",
+ "handl-plugin-lib-char-native",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",

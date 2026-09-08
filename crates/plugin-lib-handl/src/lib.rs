@@ -47,11 +47,25 @@
 //! ## Text transforms (ADR-0094)
 //!
 //! The text-level transform logic (`strip_declaration_lines`, `parse_*`,
-//! `expand_tag_declarations`, etc.) is migrating to
-//! `handl-packages/loader/loader.hnl`.  This crate keeps the Rust seam and
-//! fallback implementations while the pure-handl loader is being bootstrapped.
-//! `HandlModule::new_raw` is provided for loading the `loader` itself raw,
-//! without applying those transforms to its own source.
+//! `expand_tag_declarations`, export→object rewriting, etc.) is canonically
+//! implemented in `handl-packages/loader/loader.hnl` — fully, in pure handl
+//! over the `char`/`str` floors.  This crate keeps a two-level seam:
+//!
+//! - `mod bootstrap` — the irreducible Rust implementations.  They prepare
+//!   the `str` floor itself (`str-handl` needs `from "char" import`
+//!   stripping before any loader exists — the bootstrap paradox) and are
+//!   the default path until the bridge runtime stops re-parsing module
+//!   sources per `Function::call` (the interpreted loader is correct —
+//!   parity-tested in `tests/loader.rs` — but pathologically slow on
+//!   whole-file inputs under the current bridge).
+//! - [`HandlLoader`] / [`install_loader`] — the opt-in self-hosting seam.
+//!   Once a host installs a loader built over `char` + `str` modules, every
+//!   public transform here (and [`HandlModule::new`]'s `analyze_source`
+//!   pipeline) delegates to `loader.hnl`, falling back to `bootstrap` on
+//!   any loader error.
+//!
+//! `HandlModule::new_raw` loads the `loader` itself raw, without applying
+//! those transforms to its own source.
 
 
 pub mod op_registry;
@@ -91,13 +105,35 @@ pub trait ModuleResolver: Send + Sync {
 // Helpers (generalized from the stats/hello bridges)
 // ---------------------------------------------------------------------------
 
-/// Strip `--` comment lines from a `.hnl` source so the embedded source
-/// parses as a bare expression.
-///
-/// Data files often have a `--` header comment that documents the
-/// definitions but is not valid inside the applied `(source).func(input)`
-/// form the Pratt parser evaluates, so it is removed before evaluation.
-fn strip_comment_lines(src: &str) -> String {
+/// A parsed import declaration from a `.hnl` source file.
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    /// The module path being imported from (e.g. `"str"`, `"fn"`).
+    pub path: String,
+    /// The local alias for the imported module (e.g. `"str"`).
+    pub alias: String,
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap transforms (irreducible Rust seam)
+// ---------------------------------------------------------------------------
+//
+// These line-based text transforms are the *bootstrap* implementations of
+// `handl-packages/loader/loader.hnl`.  They are required because the loader
+// itself needs `str`/`char` to run, and `str` (`str-handl`) is a `.hnl`
+// module that can only be prepared by these transforms — the bootstrap
+// paradox.  Once a [`HandlLoader`] is installed via [`install_loader`], the
+// public functions below delegate to the handl implementations and these
+// remain only as the bootstrap path and correctness fallback.
+mod bootstrap {
+    use super::ImportDecl;
+    /// Strip `--` comment lines from a `.hnl` source so the embedded source
+    /// parses as a bare expression.
+    ///
+    /// Data files often have a `--` header comment that documents the
+    /// definitions but is not valid inside the applied `(source).func(input)`
+    /// form the Pratt parser evaluates, so it is removed before evaluation.
+    pub(super) fn strip_comment_lines(src: &str) -> String {
     src.lines()
         .filter(|line| !line.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
@@ -134,7 +170,7 @@ fn strip_comment_lines(src: &str) -> String {
 /// assert!(!cleaned.contains("op "));
 /// assert!(cleaned.contains("name ~>"));
 /// ```
-pub fn strip_declaration_lines(src: &str) -> String {
+pub(super) fn strip_declaration_lines(src: &str) -> String {
     src.lines()
         .filter(|line| {
             let trimmed = line.trim_start();
@@ -184,7 +220,7 @@ pub fn strip_declaration_lines(src: &str) -> String {
 ///
 /// If no `export` lines are found, the source is returned unchanged (the
 /// existing object-literal form is preserved).
-fn transform_export_to_object(src: &str) -> String {
+pub(super) fn transform_export_to_object(src: &str) -> String {
     // Collect (name, expr_lines) pairs from top-level export lines.
     let mut entries: Vec<(String, Vec<String>)> = Vec::new();
     let mut current: Option<(String, Vec<String>)> = None;
@@ -246,7 +282,7 @@ fn transform_export_to_object(src: &str) -> String {
 /// `=>`). `::` takes precedence — a lone `:` (type annotations, object
 /// fields, `match` arms) is not a separator. Returns `None` if no binding
 /// separator is found.
-fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
+pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
     let bytes = s.as_bytes();
     let mut i = 0;
     let mut depth: i32 = 0;
@@ -303,19 +339,10 @@ fn is_import_line(trimmed: &str) -> bool {
     false
 }
 
-/// A parsed import declaration from a `.hnl` source file.
-#[derive(Debug, Clone)]
-pub struct ImportDecl {
-    /// The module path being imported from (e.g. `"str"`, `"fn"`).
-    pub path: String,
-    /// The local alias for the imported module (e.g. `"str"`).
-    pub alias: String,
-}
-
 /// Parse import declarations from a `.hnl` source string.
 ///
 /// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
-pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+pub(super) fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
     src.lines()
         .filter_map(|line| {
             let trimmed = line.trim_start();
@@ -407,7 +434,7 @@ fn extract_quoted(s: &str) -> Option<(String, &str)> {
 /// let caps = parse_cap_declarations(src);
 /// assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
 /// ```
-pub fn parse_cap_declarations(src: &str) -> Vec<String> {
+pub(super) fn parse_cap_declarations(src: &str) -> Vec<String> {
     let mut caps = Vec::new();
     for line in src.lines() {
         let trimmed = line.trim();
@@ -468,7 +495,7 @@ fn extract_quoted_cap_name(s: &str) -> Option<String> {
 /// assert_eq!(tags, vec![("ok".to_string(), "Value".to_string()),
 ///                       ("err".to_string(), "Error".to_string())]);
 /// ```
-pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
+pub(super) fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
     let mut tags = Vec::new();
     for line in src.lines() {
         let trimmed = line.trim();
@@ -534,7 +561,7 @@ pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
 ///   }
 /// }
 /// ```
-pub fn expand_tag_declarations(src: &str) -> String {
+pub(super) fn expand_tag_declarations(src: &str) -> String {
     let tags = parse_tag_declarations(src);
     if tags.is_empty() {
         return src.to_string();
@@ -583,6 +610,160 @@ pub fn expand_tag_declarations(src: &str) -> String {
     }
     out.push_str("}");
     out
+}
+
+}
+
+// ---------------------------------------------------------------------------
+// Public transform API — delegates to the installed [`HandlLoader`]
+// (`handl-packages/loader/loader.hnl`) when present, else to `bootstrap`.
+// ---------------------------------------------------------------------------
+
+fn loader_string(func: &str, src: &str) -> Option<String> {
+    match loader_call(func, src) {
+        Some(serde_json::Value::String(s)) => Some(s),
+        _ => None,
+    }
+}
+
+/// Strip `cap`/`op`/`handl`/`import` declaration lines (and their indented
+/// `guarantee:`/`requires:`/`termination:` continuation lines) from a `.hnl`
+/// source.  Delegates to `loader.strip_decls` when a [`HandlLoader`] is
+/// installed; otherwise uses the bootstrap implementation.
+///
+/// # Example
+///
+/// ```
+/// use handl_plugin_lib_handl::strip_declaration_lines;
+///
+/// let src = r#"cap "hello.greet"
+/// op "hello.greet" : String -> String
+///   guarantee: True
+/// name ~> "Hello, " + name + "!"
+/// "#;
+/// let cleaned = strip_declaration_lines(src);
+/// assert!(!cleaned.contains("cap"));
+/// assert!(!cleaned.contains("op "));
+/// assert!(cleaned.contains("name ~>"));
+/// ```
+pub fn strip_declaration_lines(src: &str) -> String {
+    loader_string("strip_decls", src)
+        .unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
+}
+
+/// Parse `from 'path' import * as 'alias'` / `import "path" as alias`
+/// declarations.  Delegates to `loader.parse_imports` when a [`HandlLoader`]
+/// is installed; otherwise uses the bootstrap implementation.
+pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+    if let Some(v) = loader_call("parse_imports", src) {
+        if let Some(imports) = imports_from_json(&v) {
+            return imports;
+        }
+    }
+    bootstrap::parse_import_declarations(src)
+}
+
+/// Parse `cap "name"` declarations (ADR-0077 Phase 5).  Delegates to
+/// `loader.parse_caps` when a [`HandlLoader`] is installed; otherwise uses
+/// the bootstrap implementation.
+pub fn parse_cap_declarations(src: &str) -> Vec<String> {
+    if let Some(v) = loader_call("parse_caps", src) {
+        if let Some(caps) = caps_from_json(&v) {
+            return caps;
+        }
+    }
+    bootstrap::parse_cap_declarations(src)
+}
+
+/// Parse `tag name <::|=> Type` declarations into `(name, payload_type)`
+/// pairs.  Delegates to `loader.parse_tags` when a [`HandlLoader`] is
+/// installed; otherwise uses the bootstrap implementation.
+pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
+    if let Some(v) = loader_call("parse_tags", src) {
+        if let Some(tags) = tags_from_json(&v) {
+            return tags;
+        }
+    }
+    bootstrap::parse_tag_declarations(src)
+}
+
+/// Expand `tag` declarations into `tag.tag` constructor bindings wrapped in
+/// a `do { ... }` block.  Delegates to `loader.expand_tags` when a
+/// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
+pub fn expand_tag_declarations(src: &str) -> String {
+    loader_string("expand_tags", src)
+        .unwrap_or_else(|| bootstrap::expand_tag_declarations(src))
+}
+
+/// Strip `--` comment lines.  Delegates to `loader.strip_comments` when a
+/// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
+pub fn strip_comment_lines(src: &str) -> String {
+    loader_string("strip_comments", src)
+        .unwrap_or_else(|| bootstrap::strip_comment_lines(src))
+}
+
+/// Rewrite top-level `export name <::|=> expr` declarations into an object
+/// literal.  Delegates to `loader.transform_export_to_object` when a
+/// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
+pub fn transform_export_to_object(src: &str) -> String {
+    loader_string("transform_export_to_object", src)
+        .unwrap_or_else(|| bootstrap::transform_export_to_object(src))
+}
+
+/// The result of running the `.hnl` text transforms over a module source:
+/// the evaluatable source plus the declaration scans the host needs.
+struct SourceAnalysis {
+    prepared: String,
+    imports: Vec<ImportDecl>,
+}
+
+fn imports_from_json(v: &serde_json::Value) -> Option<Vec<ImportDecl>> {
+    let arr = v.as_array()?;
+    let mut out = Vec::with_capacity(arr.len());
+    for item in arr {
+        let path = item.get("path")?.as_str()?.to_string();
+        let alias = item.get("alias")?.as_str()?.to_string();
+        out.push(ImportDecl { path, alias });
+    }
+    Some(out)
+}
+
+fn caps_from_json(v: &serde_json::Value) -> Option<Vec<String>> {
+    let arr = v.as_array()?;
+    arr.iter()
+        .map(|x| x.as_str().map(|s| s.to_string()))
+        .collect()
+}
+
+fn tags_from_json(v: &serde_json::Value) -> Option<Vec<(String, String)>> {
+    let arr = v.as_array()?;
+    let mut out = Vec::with_capacity(arr.len());
+    for item in arr {
+        let name = item.get("name")?.as_str()?.to_string();
+        let payload = item.get("payload")?.as_str()?.to_string();
+        out.push((name, payload));
+    }
+    Some(out)
+}
+
+/// Run the full source-preparation pipeline once.  When a [`HandlLoader`]
+/// is installed this is a single `loader.analyze` evaluation; otherwise it
+/// runs the bootstrap transforms.
+fn analyze_source(src: &str) -> SourceAnalysis {
+    if let Some(v) = loader_call("analyze", src) {
+        if let (Some(prepared), Some(imports)) = (
+            v.get("source").and_then(|s| s.as_str()).map(|s| s.to_string()),
+            v.get("imports").and_then(imports_from_json),
+        ) {
+            return SourceAnalysis { prepared, imports };
+        }
+    }
+    let stripped = bootstrap::strip_declaration_lines(&bootstrap::strip_comment_lines(src));
+    let exported = bootstrap::transform_export_to_object(&stripped);
+    SourceAnalysis {
+        prepared: bootstrap::expand_tag_declarations(&exported),
+        imports: bootstrap::parse_import_declarations(src),
+    }
 }
 
 /// Escape a Rust string for embedding inside a handl `"..."` string literal.
@@ -909,8 +1090,9 @@ pub struct HandlModule {
     op_functions: HashMap<String, OpFunction>,
     /// Dependency modules registered in the bridge runtime.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
-    /// The raw `.hnl` source (before stripping), used for parsing imports.
-    raw_source: String,
+    /// Import declarations parsed from the source during [`analyze_source`]
+    /// (used by [`with_resolver`](Self::with_resolver) for dep wiring).
+    imports: Vec<ImportDecl>,
 }
 
 impl HandlModule {
@@ -924,9 +1106,12 @@ impl HandlModule {
     /// `(source).name(args)` on call.
     pub fn new(name: impl Into<String>, hnl_source: &str, func_names: &[&str]) -> Self {
         let name = name.into();
-        let stripped = strip_declaration_lines(&strip_comment_lines(hnl_source));
-        let exported = transform_export_to_object(&stripped);
-        let source = expand_tag_declarations(&exported);
+        // ADR-0094: the full text-transform pipeline runs in handl
+        // (`loader.analyze`) once a `HandlLoader` is installed; otherwise
+        // the bootstrap transforms run.
+        let analysis = analyze_source(hnl_source);
+        let source = analysis.prepared;
+        let imports = analysis.imports;
         let module_id = allocate_module_id();
 
         // Initial builder with no dependencies. `with_dependency` will
@@ -952,7 +1137,7 @@ impl HandlModule {
             functions,
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
-            raw_source: hnl_source.to_string(),
+            imports,
         }
     }
 
@@ -989,7 +1174,7 @@ impl HandlModule {
             functions,
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
-            raw_source: hnl_source.to_string(),
+            imports: Vec::new(),
         }
     }
 
@@ -1020,8 +1205,7 @@ impl HandlModule {
     /// source declares its own dependencies, and the resolver maps names
     /// to concrete module implementations.
     pub fn with_resolver(mut self, resolver: &dyn ModuleResolver) -> Self {
-        let imports = parse_import_declarations(&self.raw_source);
-        for decl in &imports {
+        for decl in &self.imports {
             if let Some(module) = resolver.resolve(&decl.path) {
                 self.dependencies.push(module);
             }
@@ -1106,11 +1290,93 @@ const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-
 
 /// The canonical text-transform loader source (ADR-0094).
 ///
-/// Currently loaded only on request via [`HandlModule::new_raw`]; the public
-/// transform functions still fall back to the Rust implementations until the
-/// pure-handl versions are completed and the bootstrap loop is closed.
-#[allow(dead_code)]
+/// Loaded raw via [`HandlModule::new_raw`] by [`HandlLoader::new`]; once
+/// installed through [`install_loader`], every `.hnl` text transform
+/// (declaration/comment stripping, export transformation, import/
+/// capability/tag parsing, tag expansion) is evaluated in handl.
 const LOADER_HNL: &str = include_str!("../../../handl-packages/loader/loader.hnl");
+
+/// The record field names exposed by `loader.hnl`.
+pub const LOADER_FUNCS: &[&str] = &[
+    "strip_comments",
+    "strip_decls",
+    "transform_export_to_object",
+    "find_binding_sep",
+    "parse_imports",
+    "parse_caps",
+    "parse_tags",
+    "expand_tags",
+    "escape_string",
+    "prepare",
+    "analyze",
+];
+
+// ---------------------------------------------------------------------------
+// HandlLoader — the self-hosted `.hnl` text-transform pipeline (ADR-0094)
+// ---------------------------------------------------------------------------
+
+/// A handle to the pure-handl loader (`handl-packages/loader/loader.hnl`).
+///
+/// The loader is a [`HandlModule`] built *raw* — its own source is the code
+/// that strips declarations, so it must not be transformed.  It needs the
+/// `char` and `str` floors injected as dependency modules: `char` is a
+/// native floor (no loader needed) and `str` (`str-handl`) is prepared by
+/// the bootstrap transforms — this is the two-phase resolution of the
+/// bootstrap paradox.
+///
+/// Once a `HandlLoader` is installed via [`install_loader`], all public
+/// transform functions in this crate (and [`HandlModule::new`]'s
+/// preparation pipeline) delegate to the handl implementations.  Before
+/// installation, or if a loader call fails, the `bootstrap` module's Rust
+/// implementations are used.
+pub struct HandlLoader {
+    /// The raw loader module.
+    module: HandlModule,
+}
+
+impl HandlLoader {
+    /// Build the loader with the given dependency modules (typically a
+    /// `char` backend and the `str` implementation built over it).
+    pub fn new(deps: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
+        let mut module = HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS);
+        for dep in deps {
+            module = module.with_dependency_arc(dep);
+        }
+        Self { module }
+    }
+
+    /// Invoke a loader transform function on `src`.
+    fn call(&self, func: &str, src: &str) -> Result<serde_json::Value, EvalError> {
+        let f = self.module.function(func).ok_or_else(|| {
+            EvalError::Other(format!("loader: no transform function '{func}'"))
+        })?;
+        f.call(
+            &[serde_json::Value::String(src.to_string())],
+            &mut EvalContext::new(),
+        )
+    }
+}
+
+/// The process-wide installed loader (ADR-0094).
+static LOADER: std::sync::OnceLock<HandlLoader> = std::sync::OnceLock::new();
+
+/// Install the process-wide [`HandlLoader`].  Subsequent `.hnl` module
+/// construction routes text transforms through `loader.hnl`.  The first
+/// installation wins; later calls return the rejected loader.
+pub fn install_loader(loader: HandlLoader) -> Result<(), HandlLoader> {
+    LOADER.set(loader)
+}
+
+/// The installed [`HandlLoader`], if any.
+pub fn loader() -> Option<&'static HandlLoader> {
+    LOADER.get()
+}
+
+/// Call a transform on the installed loader; `None` when no loader is
+/// installed or the call fails (callers fall back to `bootstrap`).
+fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
+    loader()?.call(func, src).ok()
+}
 
 /// The record field names exposed by `str-handl.hnl`.
 pub const STR_HANDL_FUNCS: &[&str] = &[
@@ -1238,9 +1504,10 @@ impl HandlLibraryPlugin {
             module_name: module_name.into(),
             plugin_id: plugin_id.into(),
             plugin_name: plugin_name.into(),
-            source: expand_tag_declarations(&strip_declaration_lines(&strip_comment_lines(
-                hnl_source,
-            ))),
+            // The raw source is kept here; `build_module` runs the full
+            // prepare pipeline (handl loader when installed, bootstrap
+            // otherwise) via `HandlModule::new`.
+            source: hnl_source.to_string(),
             func_names: func_names.iter().map(|s| s.to_string()).collect(),
             dependencies: Vec::new(),
             op_names: Vec::new(),
