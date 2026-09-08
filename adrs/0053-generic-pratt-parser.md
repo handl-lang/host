@@ -405,3 +405,34 @@ entirely from `grammar.yaml` rows; the `kind == "match"`/`kind == "data"`
 branches are deleted. The scope-boundary list above still stands —
 `keyword_clauses` covers *keyword-delimited* optionality between a fixed
 child and the trailing block, not arbitrary optional sub-structure.
+
+## Amendment — trailing token steps (`from` closed)
+
+*Amended after implementation: the last contextual prefix form, `from`, is
+now expressed in grammar data. One further `AstShapeRef` field plus a flag
+on `PayloadExtractSpec` close the gap — all `serde`-defaulted, so
+third-party grammar rows are unaffected:*
+
+- **`trailing_tokens: Vec<TokenStep>`** — an ordered sequence of token
+  steps consumed *after* all fixed children and the delimited block, before
+  the node's payload is assembled. Each `TokenStep` accepts one of `kinds`,
+  optionally captures the token's text into `payload.field`, and may be
+  marked `optional` (skipped when the next token does not match). This is
+  the tail-form counterpart of `payload_tokens` (which consumes *before*
+  children) and generalizes multi-keyword suffixes: `from "path" import *
+  as alias` is `kinds: [token.keyword.import]`, `kinds: [token.star]`,
+  `kinds: [token.keyword.as]`, `kinds: [token.identifier, token.string],
+  field: alias`. It would equally serve `try ... catch ... finally`-style
+  tails or `export * from "path"` suffixes where the tail carries no
+  children (keyword-anchored *children* remain `keyword_clauses`' job).
+- **`PayloadExtractSpec.required: bool`** — when true, failure to resolve a
+  name-like string from the child is a parse error instead of a silently
+  unset field. `from` uses `{child: 0, field: path, required: true}` so a
+  non-string-literal path child errors at parse time, exactly as the
+  deleted branch did.
+
+With these fields `grammar.stmt-from.prefix` produces the identical
+`stmt.import` node (`children: [path]`, `payload.path`, `payload.alias`,
+span = `from`..alias) and the `token.keyword.from` special branch — the
+last hardcoded parse dispatch — is deleted. The engine no longer contains
+any `kind ==` or token-kind-string checks for `from`/`import`.
