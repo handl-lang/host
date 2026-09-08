@@ -356,6 +356,9 @@ handl-runtime                    calls RewriteEngine (drops
 `plugin-engine-transform-parallel` has been implemented and is no longer
 outstanding.
 
+The layout-preserving AST→source emitter has been implemented in
+`handl-plugin-engine-fmt` as `PreserveEmitter` and is no longer out of scope.
+
 ### Implemented: `plugin-engine-transform-parallel`
 
 `plugin-engine-transform-parallel` provides a parallel `TransformEngine`
@@ -369,26 +372,40 @@ to `Arc`.
 
 The parallel implementation passes a parity suite asserting byte-for-byte output
 arena equality with `RewriteEngine` on generated module ASTs containing `while`,
-`nullish`, and `opt-chain` statements. On the Criterion benchmark of 500 such
-top-level statements (release profile), the sequential engine runs the `desugar`
-pass in ~1.55 ms while the parallel engine runs in ~4.41 ms; for this input size
-the thread/partition overhead currently exceeds the parallelism benefit.
+`nullish`, and `opt-chain` statements. The largest real `.hnl` modules in the
+repository (`handl-packages/str-handl/str-handl.hnl`, ~760 lines) are far below
+the size where parallelism pays off, so the Criterion benchmark uses synthetic
+mixed modules to sweep the desugar pass from 500 to 50 000 top-level statements.
+On those inputs (release profile) the sequential engine is faster at every size
+measured: ~0.96 ms vs ~3.47 ms at 500 statements, ~5.97 ms vs ~14.04 ms at 2 000,
+~11.96 ms vs ~22.79 ms at 5 000, ~36.12 ms vs ~56.76 ms at 10 000, and ~202.5 ms
+vs ~373.3 ms at 50 000. There is no measured crossover; the thread spawn,
+subtree extraction, and per-worker arena merge overhead dominate the available
+work for currently reachable inputs. `ParallelEngine`'s default threshold is
+therefore set to 1 000 000 AST nodes, which keeps it on the sequential fallback
+for all realistic workloads while preserving the implementation as a correct,
+swappable `TransformEngine`. The merge step is the largest single bottleneck —
+each worker produces a fresh arena that must be offset-remapped into a new shared
+arena — so a shared-arena or zero-copy merge design is the most promising lever
+if a workload ever justifies parallel desugar.
 
 Landed after initial merge (originally deferred): the `hnl transform` CLI
 subcommand (`host-cli`):
 
 ```text
 hnl transform <pass> <file.hnl> [--pipeline a,b,c] [--plan] [--trace]
-          [--stats] [--emit tree|json]
+          [--stats] [--emit tree|json|source] [--write]
 ```
 
 It parses each top-level statement RAW (bracket-depth-zero split + Pratt
 engine — no `Runtime::parse`, which would pre-desugar per ADR-0082), runs
 the pass via `RewriteEngine::run_pass`/`run_pipeline` with
 `with_desugar_natives`, and renders the output arena as an indented tree
-(`kind` + payload summary) or `--emit json`. `--plan` lists match sites
-(kind + rule id, incl. `native:desugar.*` fallback sites) without
-applying; `--trace` prints each `Rewrite`; `--stats` prints `PassStats`.
+(`kind` + payload summary), `--emit json`, or a preserving source rendering
+(`--emit source` / `--write`) using `handl-plugin-engine-fmt::PreserveEmitter`.
+`--plan` lists match sites (kind + rule id, incl. `native:desugar.*` fallback
+sites) without applying; `--trace` prints each `Rewrite`; `--stats` prints
+`PassStats`.
 Exit codes: 0 success, 1 transform failure, 2 usage/parse error — an
 unknown pass name (no `TransformDef` declares it) is a usage error, not a
 silent no-op. A regression test asserts raw-parse + `desugar` produces an
@@ -442,11 +459,16 @@ of the decision, not follow-ups.
   registry; `Apply` targets an existing rule id. Runs at `Language` build
   (wired in `handl-kit-data-canonical::merge_fragments` — Error-severity
   diagnostics fail assembly; warnings do not, since shapes and native
-  registries may arrive from other fragments/engines). Wiring `hnl check`
-  to re-report these diagnostics remains a follow-up — its bootstrap path
-  in `plugin-engine-typecheck` merges `ast.yaml` shapes directly (without
-  transform lowering), so the build-time check in `merge_fragments` is the
-  enforcing site today.
+  registries may arrive from other fragments/engines) *and* under the CLI
+  check path: `hnl typecheck` (the `hnl check` surface) builds its
+  `Language` in `plugin-engine-typecheck::bootstrap`, which cannot depend
+  on `handl-kit-data-canonical` (cycle via `handl-runtime`), so it embeds
+  the same nine YAML files and mirrors `merge_fragments` —
+  `merge_ast_fragment` lowering, the `transforms.yaml` merge, and
+  `validate_transforms`. Error-severity diagnostics there surface as
+  `CheckError::Language` ("language error: transform rule validation
+  failed: …") on stderr with exit code 2, instead of a panic or a check
+  run against a malformed language.
 
 ### Errors & diagnostics
 
@@ -495,6 +517,46 @@ of the decision, not follow-ups.
   shape version that changes arity is caught by `validate_transforms`,
   not silently misapplied.
 
+### Splice-preserving emitter
+
+The `PreserveEmitter` in `handl-plugin-engine-fmt` renders a transformed AST
+back to surface syntax while keeping the user's original formatting and
+comments wherever possible. It reuses the data-driven `FormatEngine` for all
+layout decisions and walks the output AST top-down:
+
+- A node that is not in the `RewriteTrace` and whose entire subtree also
+  contains no rewritten node, and that still carries a Pratt-parser span, is
+  emitted as `src[span.start..span.end]` — copying the original bytes,
+  including any comments or whitespace inside the span.
+- Any node that was produced by a rewrite, has `span: None` (created by a
+  `Create` step), or has a changed descendant is routed through the same
+  data-driven `FormatEngine` formatting as a plain format call. The recursive
+  child rendering still consults the preserving emitter, so unchanged children
+  of a rewritten outer node are spliced while the changed children are
+  reformatted.
+
+Change detection is trace-driven: `PreserveEmitter::new` is passed the set of
+`to` `AstRef`s from `TransformOutput.trace.rewrites` and precomputes a
+`has_changed` flag for every reachable node (itself in the set or any
+transitive child in the set). This is safe because ADR-0094's span policy
+already guarantees that `Keep`-derived and declarative rewrites inherit the
+original source span; only created sub-trees and explicit rewrite targets are
+formatted.
+
+At the CLI level, statements with no rewrites are emitted by copying their
+entire trimmed source chunk (`src[start..end]`) verbatim, while statements that
+were rewritten are formatted by `PreserveEmitter` and placed back at their
+original location. Gaps between statements (`src[0..first_start]` and
+`src[end_i..start_{i+1}]` and `src[last_end..]`) are preserved, so leading
+comments, blank lines, and trailing text survive.
+
+`--emit source` and `--write` are not appropriate for lowering passes that
+create internal-only nodes (e.g. `desugar` producing `rec`, `if__continue`,
+tagged-record recursors). The CLI preflights the output AST: any created
+(`span: None`) node whose kind has no grammar row and no leaf payload is
+considered un-emittable and the command refuses with an error. Only
+surface-preserving passes can be turned back into usable source text.
+
 ## Migration sequence
 
 1. `handl-language`: `TransformDef` fragment + `TransformRule`/
@@ -516,8 +578,11 @@ of the decision, not follow-ups.
 
 The canonical v0.1 linter (`handl-plugin-ext-lint`) was the first non-desugar
 use of the transform engine.  The exercise confirmed the engine generalizes as
-a **pattern matcher** but also exposed why lint fixes cannot (yet) be pure
-AST rewrites in this codebase.
+a **pattern matcher**; with `AstNode::span` now populated by the Pratt parser,
+the lint-to-fix chain is fully AST-derived for pattern-based rules. A
+layout-preserving AST→source emitter is now available in
+`handl-plugin-engine-fmt::PreserveEmitter` for use by the transform CLI and
+can be adopted by the LSP lint fix path.
 
 ### Findings
 
@@ -532,11 +597,11 @@ text-level edits:
 None of them is a structural rewrite that can be expressed with the current
 `RewriteStep` vocabulary.  `naming-convention` needs payload string
 manipulation (`snake_case`); `unused-import` needs statement deletion;
-`fmt` is a token-stream operation.  More importantly, the v0.1 Pratt AST
-carries **no source spans**, and there is no span-preserving AST→source
-renderer (the formatter emits canonical text, not the original layout).  A
-pure `run_pass("lint")` + re-print would therefore discard comments,
-whitespace, and line breaks.
+`fmt` is a token-stream operation.  There is still no span-preserving
+AST→source renderer (the formatter emits canonical text, not the original
+layout), so a pure `run_pass("lint")` + re-print would discard comments,
+whitespace, and line breaks.  The `simplify-paren` rule therefore stays a
+text replacement, but the text is now cut directly from the matched node spans.
 
 ### Chosen bridge
 
@@ -549,16 +614,17 @@ pattern-based rules.  This satisfies the engine-genericity rule: dispatch is
 A demonstrative rule, `lint.simplify-paren`, lives in the embedded
 `crates/plugin-ext-lint/data/lint_transforms.yaml` file and is merged into the
 canonical `Language` at lint time.  It matches `paren` nodes with a single
-`var`/`value` child via `find_matches`; the actual source edit is then a
-span-preserving text replacement.  This proves the engine generalizes beyond
-desugar without forcing a bad fit for the existing text-based fix rules.
+`var`/`value` child via `find_matches`; the source fix then replaces the
+`paren` node's `span` with the source text under the matched child's `span`.
+This proves the engine generalizes beyond desugar and that the match
+→ span → edit chain is now genuinely AST-derived.
 
 ### Consequence
 
 When an AST-level lint fix eventually becomes desirable (e.g. a structural
 codemod), the path is: define a `lint` pass rule and use `find_matches` (or
-`RewriteEngine::run_pass` once the AST carries spans and a formatting-preserving
-renderer exists).  The existing v0.1 rules remain text edits.
+`RewriteEngine::run_pass` once a formatting-preserving renderer exists).  The
+existing v0.1 rules remain text edits.
 
 ## LSP consumer: code actions
 
@@ -574,13 +640,20 @@ apply at node" loop end to end: the action is titled "Remove redundant
 parentheses" and its edit replaces the parenthesized span with the inner
 atom's text.
 
-Span limitation (same caveat as the lint consumer): the v0.1 Pratt AST
-nodes carry no source spans, so the `TextEdit` range is taken from the
-`Fix`/`Span` the linter computes from the token stream, not from
-`AstNode::span`.  A direct `find_matches` → `apply_rule` → AST-diff edit
-bridge remains blocked on AST spans plus a layout-preserving renderer; when
-those land, the same `lint`-pass rules can drive precise node-level codemods
-through `apply_rule`/`RewriteTrace`.
+The match comes from `RewriteEngine::find_matches`; the default fix is still
+a span→text replacement for speed.  The edit range is taken from the
+`Fix`/`Span` the linter computes from `AstNode::span` (the matched `paren`
+node and its inner child), so the match → span → edit chain is now fully
+AST-derived.
+
+A second `quickfix` action is also offered for `lint.simplify-paren`:
+`RewriteEngine::find_matches` locates the matched `paren` site, then
+`RewriteEngine::apply_rule` is run against a companion `lsp-rewrite` pass
+rule and the transformed statement is re-emitted with
+`handl-plugin-engine-fmt::PreserveEmitter`, producing a `WorkspaceEdit` that
+replaces the whole statement.  This exercises the `find_matches` →
+`apply_rule` → `RewriteTrace` → `PreserveEmitter` bridge end-to-end while
+leaving the existing text fix in place as a lighter-weight alternative.
 
 ## Open questions
 
@@ -599,7 +672,7 @@ through `apply_rule`/`RewriteTrace`.
 The first concrete `lower` rule is `transform.lower.entry` in the canonical
 `transforms.yaml`.  It matches an `entry` node whose `key` child is a `string`
 literal and rewrites it to use the canonical `var` literal key shape.  This
-removes the `var`/`string` object-key heuristic that the bytecode and
+normalizes the `var`/`string` object-key heuristic that the bytecode and
 cranelift backends currently keep as a fallback in their compile/runtime
 paths.
 
@@ -623,10 +696,49 @@ backend that opts in to lowering (`handl-plugin-engine-exec-bytecode` registers
 free of backend-specific payload-manipulation rules while proving that the
 pass machinery, dispatch, and native seam are reusable beyond `desugar`.
 
-`BytecodeEngine` exposes the pass as an opt-in (`with_lowering()`), and the
-bytecode conformance suite includes a parity test that runs the full eval
-corpus with and without the `lower` pass, ensuring the normalization is
-semantics-preserving on the existing eval surface.
+### Backend normalization audit
+
+An audit of the two codegen backends (`plugin-engine-exec-bytecode` and
+`plugin-engine-exec-cranelift`) was performed to find `kind ==`/shape
+heuristics that could be retired by the `lower` pass.  The candidates flagged
+in `AGENTS.md` were:
+
+- **Object-entry key `var`/`string` heuristic** — found in
+  `plugin-engine-exec-bytecode/src/compile.rs` (`try_extract_static_object_keys`),
+  `plugin-engine-exec-bytecode/src/vm.rs` (`object` native op), and
+  `plugin-engine-exec-cranelift/src/lib.rs` (object helper).  This is the
+  only heuristic that reaches the codegen backends in a form the `lower` pass
+  can remove: the existing `transform.lower.entry` + `lower.object_key` native
+  rewrite `string` keys to the canonical `var` shape before the backend sees
+  the AST.
+- **`match`/`arm`/`block`/`paren`/`type-annot` desugared-vs-raw assumptions** —
+  no residual shape heuristics found in the codegen paths.  `match` is
+  dispatched as a native op, `paren` wrappers are already removed by the
+  `desugar` pass, and `block`/`type-annot` handling is role-based.
+- **`nullish`/`opt-chain` remnants** — none reach the backends un-desugared;
+  the `desugar` pass rewrites them before evaluation.
+- **Constant folding (e.g. `binary.add` of numeric literals)** — skipped.  The
+  canonical literal shape and eval scheme for `value` nodes are not
+  unambiguous enough in the current data to make a semantics-preserving
+  rewrite that does not duplicate backend arithmetic; the `binary.add` scheme
+  is evaluated as the `add` native op.  No rule was added for this.
+
+The audit produced **no additional `lower` rules** beyond `transform.lower.entry`.
+The object-key `var`/`string` fallback in the backends is therefore kept but
+now explicitly commented as redundant under `BytecodeEngine::with_lowering()`;
+removing it entirely would break the non-lowering path and any role-less
+`entry` shapes.  A unit test (`lower_object_key_bypasses_string_kind_heuristic`)
+proves the `lower` pass rewrites `string` keys to `var` so the heuristic is
+not exercised.
+
+### Cranelift parity
+
+`CraneliftEngine` does not yet opt in to the `lower` pass.  Wiring it would
+require adding `plugin-engine-transform-rewrite` as a dependency, which risks
+introducing a dependency cycle: `handl-runtime` already depends on
+`plugin-engine-exec-cranelift`, and `plugin-engine-transform-rewrite` has a
+dev-dependency on `handl-runtime`.  Cranelift therefore retains the same
+`var`/`string` kind fallback with a cross-reference to this ADR section.
 
 ## Handl-authored transforms (the `handl:` native seam)
 

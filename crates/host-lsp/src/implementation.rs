@@ -23,8 +23,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
-use handl_language::{Language, TokenCategory as TC};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::kit_resolver::kit_for_file;
 use crate::refinement::{RefinementEngine, find_arrows_root};
@@ -53,14 +52,14 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };
-    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
     };
 
     // a. Find the identifier at the cursor position.
-    let name = match identifier_at_cursor(lang, &tokens, offset) {
+    let classes = TokenClasses::new(kit.language());
+    let name = match identifier_at_cursor(&classes, &tokens, offset) {
         Some(n) => n,
         None => return Vec::new(),
     };
@@ -74,7 +73,7 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
     if !is_contract_file(&fs_path) {
         return Vec::new();
     }
-    if !is_axiom_name_at_cursor(lang, &tokens, offset) {
+    if !is_axiom_name_at_cursor(&classes, &tokens, offset) {
         return Vec::new();
     }
 
@@ -109,11 +108,15 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
 ///
 /// Returns `None` when the cursor is not within an identifier token (e.g. on
 /// whitespace, a keyword, or an operator).
-fn identifier_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usize) -> Option<String> {
+fn identifier_at_cursor(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    offset: usize,
+) -> Option<String> {
     let token = tokens
         .iter()
         .find(|t| t.span.start <= offset && offset < t.span.end)?;
-    if !is_identifier_kind(lang, token.kind.as_str()) {
+    if !classes.is_identifier(token.kind.as_str()) {
         return None;
     }
     Some(token.text.clone())
@@ -126,7 +129,11 @@ fn identifier_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usize)
 /// `axiom` may be tokenized as either a keyword or a plain identifier
 /// depending on the data-driven lexer configuration, so the check is on the
 /// token *text* rather than its kind.
-fn is_axiom_name_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usize) -> bool {
+fn is_axiom_name_at_cursor(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    offset: usize,
+) -> bool {
     let idx = match tokens
         .iter()
         .position(|t| t.span.start <= offset && offset < t.span.end)
@@ -134,7 +141,7 @@ fn is_axiom_name_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usi
         Some(i) => i,
         None => return false,
     };
-    if !is_identifier_kind(lang, tokens[idx].kind.as_str()) {
+    if !classes.is_identifier(tokens[idx].kind.as_str()) {
         return false;
     }
 
@@ -142,14 +149,14 @@ fn is_axiom_name_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usi
     // chain originates at the `axiom` keyword/identifier.
     let mut j = idx;
     loop {
-        match prev_non_comment_index(lang, &tokens, j) {
+        match prev_non_comment_index(classes, &tokens, j) {
             // Directly preceded by `axiom` — this is the first segment.
             Some(pi) if tokens[pi].text == "axiom" => return true,
             // Preceded by `.` — a later segment of a dotted axiom name; the
             // token before the dot must be an identifier to continue.
-            Some(pi) if lang.token_is(&tokens[pi].kind, TC::Dot) => {
-                match prev_non_comment_index(lang, &tokens, pi) {
-                    Some(qi) if is_identifier_kind(lang, tokens[qi].kind.as_str()) => {
+            Some(pi) if classes.is_label(&tokens[pi].kind, ".") => {
+                match prev_non_comment_index(classes, &tokens, pi) {
+                    Some(qi) if classes.is_identifier(tokens[qi].kind.as_str()) => {
                         j = qi;
                         continue;
                     }
@@ -163,11 +170,15 @@ fn is_axiom_name_at_cursor(lang: &Language, tokens: &[SpannedToken], offset: usi
 
 /// Return the index of the previous non-comment token before `from`, or
 /// `None` when there is none.
-fn prev_non_comment_index(lang: &Language, tokens: &[SpannedToken], from: usize) -> Option<usize> {
+fn prev_non_comment_index(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    from: usize,
+) -> Option<usize> {
     let mut j = from;
     while j > 0 {
         j -= 1;
-        if !is_comment_kind(lang, tokens[j].kind.as_str()) {
+        if !classes.is_comment(tokens[j].kind.as_str()) {
             return Some(j);
         }
     }

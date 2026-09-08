@@ -71,11 +71,18 @@ pub fn collect_diagnostics(source: &str) -> Vec<Value> {
             let stripped = strip_comments(source);
             match kit.parse_module(&stripped) {
                 Err(e) => {
-                    // Suppress "unexpected token: token.comment" errors —
-                    // these are caused by comments the parser doesn't handle,
-                    // not actual syntax errors in the source.
+                    // Suppress "unexpected token" errors naming a trivia
+                    // (comment) token kind — these are caused by comments the
+                    // parser doesn't handle, not actual syntax errors in the
+                    // source. The kinds are read from the language's token
+                    // data, not hardcoded.
                     let msg = e.to_string();
-                    if msg.contains("token.comment") {
+                    let mentions_trivia = kit
+                        .language()
+                        .tokens
+                        .iter()
+                        .any(|d| d.trivia && msg.contains(d.id.as_str()));
+                    if mentions_trivia {
                         return Vec::new();
                     }
                     vec![json!({

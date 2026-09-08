@@ -4,9 +4,14 @@
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
 # Retained: axiom (compatible alias for law).
-# `category:` (ADR-0081) is the host-facing classification hosts (LSP,
-# tooling) read via `Language::token_category` instead of `kind ==`
-# string heuristics.
+#
+# `category` is the tooling classification consumed by host-lsp /
+# host-tooling via `Language::token_category` (ADR-0044 — no hardcoded
+# kind-string checks in tooling). Vocabulary: keyword, identifier, number,
+# string, bool, null, template, operator, punctuation, open-bracket,
+# close-bracket, comment, doc-comment, eof.
+# `pair` links a bracket kind to its matching counterpart; `doc` is the
+# hover markdown surfaced by the LSP.
 - id: token.and
   label: "&&"
   category: operator
@@ -19,16 +24,16 @@
 - id: token.bool
   label: bool
   literal: Bool
-  category: boolean
+  category: bool
 - id: token.choice
   label: "|||"
   category: operator
 - id: token.colon
   label: ":"
-  category: colon
+  category: punctuation
 - id: token.comma
   label: ","
-  category: comma
+  category: punctuation
 - id: token.comment
   label: comment
   trivia: true
@@ -39,12 +44,13 @@
   category: doc-comment
 - id: token.dot
   label: .
-  category: dot
+  category: punctuation
 - id: token.ellipsis
   label: "..."
-  category: ellipsis
+  category: operator
 - id: token.eof
   label: eof
+  category: eof
 - id: token.eqeq
   # Retained: `==` is lexed to the equality token (`token.equal`) so existing
   # `a == b` sources keep working while `=` is now also equality. No grammar
@@ -53,7 +59,7 @@
   category: operator
 - id: token.bind
   label: "::"
-  category: bind
+  category: operator
 - id: token.equal
   label: =
   category: operator
@@ -74,6 +80,7 @@
   category: identifier
 - id: token.if
   label: null
+  category: keyword
 - id: token.json
   label: json
   literal: !StripAffix
@@ -82,7 +89,7 @@
     wrap:
       - "{"
       - "}"
-  category: json
+  category: string
 - id: token.keyword.as
   label: as
   category: keyword
@@ -95,69 +102,88 @@
 - id: token.keyword.do
   label: do
   category: keyword
+  doc: "**Do-while loop body** `do`\n\n```\ndo { `body` } while `cond`\n```"
 - id: token.keyword.else
   label: else
   category: keyword
+  doc: "**Else-branch of `if`** `else`\n\n```\nelse { `expr` }\n```"
 - id: token.keyword.export
   label: export
   category: keyword
 - id: token.keyword.for
   label: for
   category: keyword
+  doc: "**For loop — iterate over a collection** `for`\n\n```\nfor `x` in `coll` { `body` }\n```"
 - id: token.keyword.from
   label: from
   category: keyword
+  doc: "**Module source for an import** `from`\n\n```\nimport `name` from `module`\n```"
 - id: token.keyword.if
   label: if
   category: keyword
+  doc: "**Conditional expression** `if`\n\n```\nif `cond` { `a` } else { `b` }\n```"
 - id: token.keyword.impl
   label: impl
   category: keyword
+  doc: "**Implementation of a trait** `impl`\n\n```\nimpl `Trait` for `Type` { `members` }\n```"
 - id: token.keyword.import
   label: import
   category: keyword
+  doc: "**Import a module / arrow** `import`\n\n```\nimport `name` from `module`\n```"
 - id: token.keyword.in
   label: in
   category: keyword
+  doc: "**Iterator binding — used with `for`** `in`\n\n```\nfor `x` in `coll` { `body` }\n```"
 - id: token.keyword.infer
   label: infer
   category: keyword
+  doc: "**Infer a type or contract** `infer`\n\n```\ninfer `name` : `signature`\n```"
 - id: token.keyword.law
   label: law
   category: keyword
+  doc: "**Law declaration — assert a contract signature** `law`\n\n```\nlaw `name` : `signature`\n```"
 - id: token.keyword.match
   label: match
   category: keyword
+  doc: "**Pattern-match on a value** `match`\n\n```\nmatch `expr` { `pat` { `body` }, … }\n```"
 - id: token.keyword.rec
   label: rec
   category: keyword
+  doc: "**Feedback loop — arrow `Loop` combinator in surface syntax** `rec`\n\n```\nrec { `state` } { `body` }\n```"
 - id: token.keyword.return
   label: return
   category: keyword
+  doc: "**Return a value from an arrow** `return`\n\n```\nreturn `expr`\n```"
 - id: token.keyword.then
   label: then
   category: keyword
 - id: token.keyword.trait
   label: trait
   category: keyword
+  doc: "**Trait declaration — a set of laws / operations** `trait`\n\n```\ntrait `Name` { `members` }\n```"
 - id: token.keyword.type
   label: type
   category: keyword
+  doc: "**Type declaration** `type`\n\n```\ntype `Name` = `definition`\n```"
 - id: token.keyword.while
   label: while
   category: keyword
+  doc: "**While loop — iterate while a condition holds** `while`\n\n```\nwhile `cond` { `body` }\n```"
 - id: token.keyword.with
   label: with
   category: keyword
 - id: token.lbrace
   label: "{"
-  category: open-brace
+  category: open-bracket
+  pair: token.rbrace
 - id: token.lbracket
   label: "["
   category: open-bracket
+  pair: token.rbracket
 - id: token.lparen
   label: (
-  category: open-paren
+  category: open-bracket
+  pair: token.rparen
 - id: token.lt
   label: <
   category: operator
@@ -207,16 +233,19 @@
   category: operator
 - id: token.rbrace
   label: "}"
-  category: close-brace
+  category: close-bracket
+  pair: token.lbrace
 - id: token.rbracket
   label: "]"
   category: close-bracket
+  pair: token.lbracket
 - id: token.rparen
   label: )
-  category: close-paren
+  category: close-bracket
+  pair: token.lparen
 - id: token.semicolon
   label: ;
-  category: semicolon
+  category: punctuation
 - id: token.slash
   label: /
   category: operator

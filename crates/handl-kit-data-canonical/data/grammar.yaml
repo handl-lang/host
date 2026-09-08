@@ -251,8 +251,9 @@
     node_kind: stmt.import
     arity: 1
 # `from` is not fully expressible in a single grammar row because the path
-# is a child expression and `import * as alias` is a trailing clause, so the
-# parser handles this form contextually (like `match` and `data`).
+# is a child expression and `import * as alias` is a trailing clause with
+# multiple required keyword/punctuation tokens, so the parser handles this
+# form contextually.
 - id: grammar.stmt-from.prefix
   token: token.keyword.from
   position: Prefix
@@ -267,9 +268,10 @@
 #   match scrutinee { arms }
 #   match scrutinee return motive with { arms }
 #   match (scrutinee : Type(indices...)) return motive with { arms }
-# The parser special-cases this (the grammar row only declares the 2-child
-# delimited-block form because a single arity cannot express the optional
-# `return`/`with` clause).
+# The motive clause is expressed generically via `keyword_clauses`: after
+# fixed child 0 (the scrutinee), if the next token is `return`, a motive
+# expression is parsed and `with` is required; the motive is spliced in as
+# an extra child before the delimited arm block (ADR-0053).
 - id: grammar.match.prefix
   token: token.keyword.match
   position: Prefix
@@ -279,6 +281,11 @@
   child_shape:
     node_kind: match
     arity: 2
+    keyword_clauses:
+      - after_child: 0
+        open: token.keyword.return
+        close: token.keyword.with
+        binding_power: 0
     delimited:
       open: token.lbrace
       close: token.rbrace
@@ -418,14 +425,24 @@
   token: token.keyword.data
   position: Prefix
   binding_power:
-    # Left binding power is passed to the type-expression child; it must be
-    # higher than `::` (bind) so `data Vec(n : Nat, a : Type) :: ...` stops
-    # parsing the type expression before the separating `::`.
     - 6
     - 0
   child_shape:
     node_kind: data
     arity: 2
+    # Per-child right binding powers (ADR-0053): the type-expression child
+    # parses at rbp 6 so it stops before the separating `::` (bind, lbp 5),
+    # while the constructor list parses at rbp 0 so the low-precedence `|`
+    # infix (lbp 1) still binds into `alt` nodes.
+    child_binding_powers:
+      - 6
+      - 0
+    # The family name is lifted out of the type-expression child into
+    # `payload.name` (`var` payload, `name` property, or `callee`-role child
+    # of a `call` node for `data Name(params...)`).
+    payload_extract:
+      - child: 0
+        field: name
     child_separators:
       - !Required token.bind
 # `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.

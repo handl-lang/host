@@ -131,7 +131,6 @@ fn references_any_stem(source: &str, stems: &HashSet<String>, own_stem: Option<&
                 .any(|s| Some(s.as_str()) != own_stem && source.contains(s));
         }
     };
-    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => {
@@ -141,8 +140,9 @@ fn references_any_stem(source: &str, stems: &HashSet<String>, own_stem: Option<&
         }
     };
 
+    let classes = handl_kit_canonical::TokenClasses::new(kit.language());
     for t in &tokens {
-        if handl_kit_canonical::is_identifier_kind(lang, &t.kind)
+        if classes.is_identifier(&t.kind)
             && stems.contains(&t.text)
             && Some(t.text.as_str()) != own_stem
         {

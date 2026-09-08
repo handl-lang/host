@@ -169,12 +169,17 @@ impl TypecheckReport {
 pub enum CheckError {
     /// Source failed to parse. The string carries the parse error message.
     Parse(String),
+    /// The `Language` the checker assembled is invalid — e.g. transform-rule
+    /// validation (ADR-0094) reported Error-severity diagnostics. The string
+    /// carries the validation messages.
+    Language(String),
 }
 
 impl std::fmt::Display for CheckError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CheckError::Parse(msg) => write!(f, "parse error: {msg}"),
+            CheckError::Language(msg) => write!(f, "language error: {msg}"),
         }
     }
 }
@@ -201,7 +206,9 @@ impl From<LangError> for CheckError {
 ///
 /// # Errors
 ///
-/// Returns [`CheckError::Parse`] if the source cannot be parsed.
+/// Returns [`CheckError::Parse`] if the source cannot be parsed, or
+/// [`CheckError::Language`] if the canonical `Language` fails to assemble
+/// (including transform-rule validation errors, ADR-0094).
 pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
     bootstrap::check_module(src)
 }

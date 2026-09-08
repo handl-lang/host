@@ -11,6 +11,17 @@
 //! [`NativeRewrite`] registry; the abstraction crate makes both `NativeRewrite`
 //! and [`RuleSource`] `Send + Sync` so that [`RewriteEngine`] can be cloned and
 //! moved into worker threads.
+//!
+//! # Parallel threshold
+//!
+//! Real workloads up to ~200 k AST nodes (50 k top-level statements) remain
+//! slower in parallel than sequential because of thread spawn, subtree
+//! extraction, and arena-merge overhead. The default threshold is therefore set
+//! high (1 000 000 nodes), which keeps `ParallelEngine` on the sequential
+//! fallback for all currently reachable inputs. It is still correct and behind
+//! the same `TransformEngine` trait; lowering the threshold or redesigning the
+//! merge step are future levers if a workload large enough to justify the
+//! overhead appears.
 
 #![warn(missing_docs)]
 
@@ -48,7 +59,7 @@ impl ParallelEngine {
                 .map(|n| n.get())
                 .unwrap_or(1)
                 .max(1),
-            threshold: 64,
+            threshold: 1_000_000,
         }
     }
 
@@ -60,8 +71,12 @@ impl ParallelEngine {
 
     /// Set the node-count threshold below which the pass runs sequentially.
     ///
-    /// The default is 64. The overhead of partitioning and merging is not worth
-    /// it for tiny arenas.
+    /// The default is 1 000 000 nodes. Benchmarked synthetic modules up to
+    /// ~200 000 AST nodes (50 000 top-level statements) are still slower in
+    /// parallel than sequential due to thread/partition/merge overhead, so the
+    /// default is set high enough to keep `ParallelEngine` on the sequential
+    /// fallback for currently reachable inputs. Lower this value to re-enable
+    /// parallel partitioning for a specific large workload.
     pub fn with_threshold(mut self, threshold: usize) -> Self {
         self.threshold = threshold.max(1);
         self

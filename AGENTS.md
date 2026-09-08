@@ -21,13 +21,14 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared diagnostics     | `plugin-ext-diag`                        | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                          |
 | Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
+| AST formatter          | `plugin-engine-fmt`                      | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                   |
 | Linter                 | `plugin-ext-lint`                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`                                                                                                                                                           |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                               |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
 | Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the moved `try_rust_desugar` handlers as named `desugar.*` natives) |
-| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json]` — ADR-0094)                              |
+| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json|source] [--write]` — ADR-0094)               |
 
 ### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
 
@@ -40,7 +41,10 @@ field is still lowered at merge for third-party backward compat); kinds
 with no declarative rule fall back to the
 named `desugar.*` native registry. `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
-diagnostics fail assembly.
+diagnostics fail assembly — and under `hnl typecheck`, whose bootstrap
+`Language` assembly in `plugin-engine-typecheck::bootstrap` mirrors
+`merge_fragments` (embedded `transforms.yaml` + `merge_ast_fragment`
+lowering + validation; errors surface as `CheckError::Language`).
 
 `.hnl`-authored rewrites are supported via the `Native("handl:<mod>.<fn>")`
 spelling: `handl_plugin_lib_handl::transform::HandlNativeRewrite` is a
@@ -83,16 +87,32 @@ and linter all split source into top-level statements at bracket-depth zero
 
 ### Known issues
 
-- `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
-  (pre-existing, unrelated to ADR 0085-0091 work).
-- `plugin-engine-parse-pratt` has an unused import warning (`PayloadTokenSpec`).
+- `handl-defining-handl`: `let`/`stmt.let` corpus cases
+  (`let_var`/`stmt_let`/`nested_let`/`if_with_let`) are `tree_walk_only`
+  because the bytecode and cranelift engines do not implement the `Bind`
+  scheme — an engine-coverage gap, not a test failure; the compiled-engine
+  tests skip them and `self_host_tree_walk_only_cases` covers them on the
+  tree-walk engine. `let` has **no surface syntax**: `token.let`,
+  `token.keyword.let`, `lex.let`, `lex.keyword.let`, and
+  `grammar.let.prefix` were removed — source text `let` lexes as a
+  `token.identifier`. The `let`/`stmt.let` node kinds remain as internal
+  binding kinds (`ast.let`, `eval.let`, `eval.stmt-let`) used by
+  self-host/conformance fixtures; the `let ... in` expression form was
+  removed in ADR-0079 (block bindings `do { x = y; ... }` cover it).
 - **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
   hits — these are debt to close via `Language` data, not patterns to extend):
-  - `plugin-engine-parse-pratt/src/lib.rs` ~L293/337: `match`/`data` special
-    parse branches remain. Closing them needs new generic grammar-row fields:
-    an optional keyword clause (`return ... with`) between a fixed child and a
-    delimited block for `match`, and per-child binding powers plus a
-    `payload_extract` step for `data`.
+  - `plugin-engine-parse-pratt/src/lib.rs` `match`/`data` special parse
+    branches: **closed**. `AstShapeRef` gained three generic fields (all
+    serde-defaulted, third-party rows unaffected): `child_binding_powers`
+    (per-child rbp overrides — `data` parses its type child at rbp 6 to stop
+    before `::` and its constructor list at rbp 0 so `|` binds),
+    `keyword_clauses` (optional `open <expr> close` clauses spliced in after
+    fixed child `after_child` — `match`'s `return motive with`), and
+    `payload_extract` (lift a name-like string from a child into the payload
+    — `data`'s `payload.name`). The `grammar.match.prefix`/
+    `grammar.data.prefix` rows in `data/grammar.yaml` carry the fields; the
+    `kind == "match"`/`kind == "data"` branches are deleted. See ADR-0053's
+    amendment section.
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
     `plugin-engine-exec-cranelift/src/lib.rs` (+ `plugin-engine-exec-tree-walk`):
     object-key `var`/`string` heuristic — **closed**. Resolved via `entry`
@@ -120,25 +140,32 @@ and linter all split source into top-level statements at bracket-depth zero
   - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
     **closed**. Both now use `Language::param_name` (guarded by
     `pattern_role: leaf`/`subject` role metadata).
-  - `host-lsp/src/*` + `host-tooling` token-kind checks: **closed**.
-    `TokenKindDef` gained an optional `category: TokenCategory` field
-    (keyword/identifier/number/string/template/json/boolean/null/comment/
-    doc-comment/operator/open-paren/close-paren/open-bracket/close-bracket/
-    open-brace/close-brace/comma/semicolon/colon/dot/bind/ellipsis) with
-    `is_open_bracket`/`is_close_bracket`/`is_bracket`/`matching_open`/
-    `matching_close`/`is_operator_like`/`is_delimiter_like`/`is_comment_like`
-    predicates; `Language::token_category`/`token_is` are the accessors.
-    `kit-canonical`'s `is_*_kind` helpers now take `&Language` and read
-    `lang.tokens` categories; host-lsp and host-tooling (semantic tokens +
-    TextMate grammar generation) classify via them. Bracket matching is
-    category-driven; the two `<`-`-` (`<-`) checks compare lexeme text, and
-    `keyword_hover` dispatches on the keyword's text rather than kind ids.
+  - `host-lsp/src/*` (~20): **closed**. `TokenKindDef` gained optional
+    `category`/`pair`/`doc` fields (serde-compatible, free-form strings —
+    third-party kits unaffected); `handl-kit-data-canonical/data/tokens.yaml`
+    populates them for every canonical kind, `Language` exposes
+    `token_category`/`token_in_category`/`token_pair`/`token_doc`/
+    `token_kind_for_label`, and `handl-kit-canonical::TokenClasses` is the
+    shared classifier. host-LSP, `host-tooling` (semantic tokens +
+    TextMate grammar generation), `plugin-ext-fmt` and `plugin-ext-lint`
+    now classify via `lang.tokens` — no `token.*` kind strings or
+    `is_*_kind` helpers remain outside `kit-canonical`'s legacy shims
+    (kept for bootstrap paths and third-party kits that declare no
+    categories). Residual
+    *identity-specific* checks (not category-answerable, so intentionally
+    kept): keyword text matches (`rec`/`law`/`match`/`do`/`return`/
+    `axiom`/`color`/snippet+completion tables) — these name a *specific*
+    keyword, not a token class; punctuation spellings resolve through
+    `is_label`/`token_kind_for_label` rather than kind strings.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
-  - `data/eval.yaml`/`data/types.yaml` have **no `let` row** →
-    `full_language_parity`/`parity_block_*` failures (7 tests). Needs an eval
-    scheme that can read `name`/`value` payload fields (`payload_field`
-    combinator or native `let` op) + a `TypeRuleDef`.
+  - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed** for the
+    internal binding kinds. `ast.let` (`target`/`value` roles), `eval.let`
+    (native `assign` op), `eval.stmt-let`, and `type.let` exist for the
+    self-host/conformance `let`/`stmt.let` node kinds, but there is no
+    `grammar.let.prefix` — `let` has no surface syntax (it lexes as an
+    identifier). `parity_block_*` (in
+    `plugin-engine-typecheck-nbe/tests/parity.rs`) pass.
 - **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
   (`plugin-engine-test/data/test-language.yaml`) declares

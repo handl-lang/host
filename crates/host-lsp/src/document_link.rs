@@ -29,7 +29,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::is_comment_kind;
+use handl_kit_canonical::TokenClasses;
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -59,15 +59,15 @@ pub fn document_links(source: &str, file_path: Option<&str>) -> Vec<Value> {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };
-    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
     };
 
+    let classes = TokenClasses::new(kit.language());
     let mut links = Vec::new();
     for token in &tokens {
-        if !is_comment_kind(lang, &token.kind) {
+        if !classes.is_comment(&token.kind) {
             continue;
         }
         let comment_start = token.span.start;
@@ -361,4 +361,5 @@ fn overlaps_any(start: usize, end: usize, spans: &[(usize, usize)]) -> bool {
     spans.iter().any(|&(s, e)| start < e && end > s)
 }
 
-
+// `TokenClasses::is_comment` covers both comment flavours (`comment` and
+// `doc-comment` categories) — doc comments are link-scannable too.

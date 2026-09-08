@@ -1,7 +1,6 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
-use handl_language::{Language, TokenCategory as TC};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -97,22 +96,22 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
 /// call.
 pub fn signature_help(source: &str, offset: usize) -> Option<Value> {
     let kit = kit_for_file(None).ok()?;
-    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
+    let classes = TokenClasses::new(kit.language());
 
     // Locate the unmatched `(` that encloses the cursor.
-    let lparen_idx = find_enclosing_lparen(lang, &tokens, offset)?;
+    let lparen_idx = find_enclosing_lparen(&classes, &tokens, offset)?;
 
     // The identifier immediately before the `(` is the callee name.
     let name_idx = lparen_idx.checked_sub(1)?;
     let name_token = tokens.get(name_idx)?;
-    if !is_identifier_kind(lang, &name_token.kind) {
+    if !classes.is_identifier(&name_token.kind) {
         return None;
     }
     let name = name_token.text.as_str();
 
     // Determine which parameter the cursor is currently on.
-    let active_param = count_active_parameter(lang, &tokens, lparen_idx, offset);
+    let active_param = count_active_parameter(&classes, &tokens, lparen_idx, offset);
 
     let (label, documentation, parameters): (String, String, Vec<(String, String)>) =
         match known_combinator(name) {
@@ -127,7 +126,7 @@ pub fn signature_help(source: &str, offset: usize) -> Option<Value> {
             None => {
                 // Unknown function: synthesize a signature from the arguments
                 // actually present in the source.
-                let n = count_args(lang, &tokens, lparen_idx);
+                let n = count_args(&classes, &tokens, lparen_idx);
                 let labels: Vec<String> = (1..=n).map(|i| format!("arg{}", i)).collect();
                 let label = if labels.is_empty() {
                     format!("{}()", name)
@@ -172,7 +171,7 @@ pub fn signature_help(source: &str, offset: usize) -> Option<Value> {
 /// that encloses `offset`. Returns the index of that `(`, or `None` if the
 /// cursor is not inside any parenthesized group.
 fn find_enclosing_lparen(
-    lang: &Language,
+    classes: &TokenClasses,
     tokens: &[SpannedToken],
     offset: usize,
 ) -> Option<usize> {
@@ -188,9 +187,9 @@ fn find_enclosing_lparen(
     let mut i = start_idx;
     loop {
         let k = tokens[i].kind.as_str();
-        if lang.token_is(k, TC::CloseParen) {
+        if classes.is_label(k, ")") {
             depth += 1;
-        } else if lang.token_is(k, TC::OpenParen) {
+        } else if classes.is_label(k, "(") {
             if depth == 0 {
                 return Some(i);
             }
@@ -208,11 +207,13 @@ fn find_enclosing_lparen(
 /// `lparen_idx` and the cursor `offset`. The result is the zero-based index of
 /// the parameter the cursor is on.
 fn count_active_parameter(
-    lang: &Language,
+    classes: &TokenClasses,
     tokens: &[SpannedToken],
     lparen_idx: usize,
     offset: usize,
 ) -> usize {
+    // The closer that terminates this argument list is the `(` token's `pair`.
+    let closing = classes.pair_of(&tokens[lparen_idx].kind);
     let mut depth: i32 = 0;
     let mut commas: usize = 0;
     let mut j = lparen_idx + 1;
@@ -223,15 +224,14 @@ fn count_active_parameter(
             break;
         }
         let k = t.kind.as_str();
-        let cat = lang.token_category(k);
-        if cat.map(|c| c.is_open_bracket()).unwrap_or(false) {
+        if classes.is_open_bracket(k) {
             depth += 1;
-        } else if cat.map(|c| c.is_close_bracket()).unwrap_or(false) {
-            if cat == Some(TC::CloseParen) && depth == 0 {
+        } else if classes.is_close_bracket(k) {
+            if Some(k) == closing && depth == 0 {
                 break;
             }
             depth -= 1;
-        } else if depth == 0 && cat == Some(TC::Comma) {
+        } else if depth == 0 && classes.is_label(k, ",") {
             commas += 1;
         }
         j += 1;
@@ -241,24 +241,24 @@ fn count_active_parameter(
 
 /// Count the number of top-level arguments inside the call whose `(` is at
 /// `lparen_idx`. Used to synthesize signatures for unknown functions.
-fn count_args(lang: &Language, tokens: &[SpannedToken], lparen_idx: usize) -> usize {
+fn count_args(classes: &TokenClasses, tokens: &[SpannedToken], lparen_idx: usize) -> usize {
+    let closing = classes.pair_of(&tokens[lparen_idx].kind);
     let mut depth: i32 = 0;
     let mut commas: usize = 0;
     let mut has_content = false;
     let mut j = lparen_idx + 1;
     while j < tokens.len() {
         let k = tokens[j].kind.as_str();
-        let cat = lang.token_category(k);
-        if cat.map(|c| c.is_open_bracket()).unwrap_or(false) {
+        if classes.is_open_bracket(k) {
             depth += 1;
-        } else if cat.map(|c| c.is_close_bracket()).unwrap_or(false) {
-            if cat == Some(TC::CloseParen) && depth == 0 {
+        } else if classes.is_close_bracket(k) {
+            if Some(k) == closing && depth == 0 {
                 break;
             }
             depth -= 1;
-        } else if depth == 0 && cat == Some(TC::Comma) {
+        } else if depth == 0 && classes.is_label(k, ",") {
             commas += 1;
-        } else if depth == 0 && !is_comment_kind(lang, k) {
+        } else if depth == 0 && !classes.is_comment(k) {
             has_content = true;
         }
         j += 1;

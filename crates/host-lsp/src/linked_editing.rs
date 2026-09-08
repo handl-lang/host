@@ -20,8 +20,7 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::SpannedToken;
-use handl_language::{Language, TokenCategory as TC};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -39,12 +38,12 @@ pub fn linked_editing_ranges(source: &str, offset: usize) -> Option<Value> {
     }
 
     let kit = kit_for_file(None).ok()?;
-    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
+    let classes = TokenClasses::new(kit.language());
 
     // 1. Bracket case: cursor on a bracket token.
-    if let Some(bracket_token) = bracket_at(lang, &tokens, offset) {
-        let pairs = bracket_pairs(lang, &tokens);
+    if let Some(bracket_token) = bracket_at(&classes, &tokens, offset) {
+        let pairs = bracket_pairs(&classes, &tokens);
         // Find the pair that involves this bracket token.
         for p in &pairs {
             let (other_start, other_end) = if bracket_token.span.start == p.open_start {
@@ -94,51 +93,46 @@ struct Pair {
 }
 
 /// Return the bracket token whose span contains `offset`, if any.
+/// Bracket kinds come from the language's `open-bracket`/`close-bracket`
+/// categories — no hardcoded kind strings.
 fn bracket_at<'a>(
-    lang: &Language,
+    classes: &TokenClasses,
     tokens: &'a [SpannedToken],
     offset: usize,
 ) -> Option<&'a SpannedToken> {
     for t in tokens {
-        let is_bracket = lang
-            .token_category(&t.kind)
-            .map(|c| c.is_bracket())
-            .unwrap_or(false);
-        if is_bracket && t.span.start <= offset && offset < t.span.end {
+        if classes.is_bracket(&t.kind) && t.span.start <= offset && offset < t.span.end {
             return Some(t);
         }
     }
     // Fall back to a bracket whose end is exactly the cursor.
     for t in tokens {
-        let is_bracket = lang
-            .token_category(&t.kind)
-            .map(|c| c.is_bracket())
-            .unwrap_or(false);
-        if is_bracket && t.span.end == offset && t.span.start < t.span.end {
+        if classes.is_bracket(&t.kind) && t.span.end == offset && t.span.start < t.span.end {
             return Some(t);
         }
     }
     None
 }
 
-/// Walk the token stream with a stack and collect every matching bracket pair.
-fn bracket_pairs(lang: &Language, tokens: &[SpannedToken]) -> Vec<Pair> {
+/// Walk the token stream with a stack and collect every matching bracket
+/// pair, resolved via `open-bracket`/`close-bracket` categories and `pair`
+/// links.
+fn bracket_pairs(classes: &TokenClasses, tokens: &[SpannedToken]) -> Vec<Pair> {
     let mut out = Vec::new();
-    let mut stack: Vec<(TC, usize, usize)> = Vec::new();
+    // (open kind, open_start, open_end)
+    let mut stack: Vec<(String, usize, usize)> = Vec::new();
 
     for t in tokens {
-        let Some(cat) = lang.token_category(&t.kind) else {
-            continue;
-        };
+        let kind = t.kind.as_str();
 
-        if cat.is_open_bracket() {
-            stack.push((cat, t.span.start, t.span.end));
+        if classes.is_open_bracket(kind) {
+            stack.push((kind.to_string(), t.span.start, t.span.end));
             continue;
         }
 
-        if cat.is_close_bracket() {
-            while let Some(&(open_cat, open_start, open_end)) = stack.last() {
-                if open_cat.matching_close() == Some(cat) {
+        if classes.is_close_bracket(kind) {
+            while let Some((open_kind, open_start, open_end)) = stack.last().cloned() {
+                if classes.pair_of(kind) == Some(open_kind.as_str()) {
                     stack.pop();
                     out.push(Pair {
                         open_start,

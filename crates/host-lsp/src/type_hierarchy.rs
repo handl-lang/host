@@ -30,7 +30,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -227,15 +227,21 @@ pub fn subtypes(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Val
 // Lexing / token helpers
 // ---------------------------------------------------------------------------
 
+/// Lex `source` into spanned tokens, returning `None` on failure.
+fn lex(source: &str) -> Option<Vec<SpannedToken>> {
+    let kit = kit_for_file(None).ok()?;
+    kit.lex_with_spans(source).ok()
+}
+
 /// Return the identifier at `offset`, as `(name, start, end)`, or `None` when
 /// the cursor is not on an identifier (or is on a keyword).
 fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, usize, usize)> {
     let kit = kit_for_file(None).ok()?;
-    let lang = kit.lang();
-    let tokens = kit.lex_with_spans(source).ok()?;
+    let tokens = lex(source)?;
+    let classes = TokenClasses::new(kit.language());
     for t in &tokens {
-        if is_identifier_kind(lang, &t.kind)
-            && !is_keyword_kind(lang, &t.kind)
+        if classes.is_identifier(&t.kind)
+            && !classes.is_keyword(&t.kind)
             && t.span.start <= offset
             && offset < t.span.end
         {
