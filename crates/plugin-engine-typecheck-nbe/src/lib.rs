@@ -491,6 +491,60 @@ impl NbeTypecheckEngine {
                 let child = child_ref(ast, node_ref, idx)?;
                 self.synth_node(lang, ast, child, ctx)
             }
+            "synth_child_or" => {
+                // Like `synth_child`, but tolerates an absent child (e.g.
+                // the missing `else` of an else-less `if`, produced by an
+                // `optional_children` grammar row): when the child index is
+                // out of range, the fallback sub-scheme `args[0]` is
+                // evaluated instead.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "typecheck: {} requires a u64 lit (child index)",
+                        op
+                    ))
+                })?;
+                match try_child_ref(ast, node_ref, idx)? {
+                    Some(child) => self.synth_node(lang, ast, child, ctx),
+                    None => {
+                        let fallback = args.first().ok_or_else(|| {
+                            LangError::engine(format!(
+                                "typecheck: {} requires a fallback scheme arg",
+                                op
+                            ))
+                        })?;
+                        self.eval_type_scheme(lang, ast, node_ref, fallback, ctx, incoming)
+                    }
+                }
+            }
+            "check_child_or" => {
+                // Like `check_child`, but tolerates an absent child: when
+                // the child index is out of range the check is a no-op.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "typecheck: {} requires a u64 lit (child index)",
+                        op
+                    ))
+                })?;
+                match try_child_ref(ast, node_ref, idx)? {
+                    Some(child) => {
+                        let expected = if args.is_empty() {
+                            incoming.clone().unwrap_or(Value::Null)
+                        } else {
+                            self.eval_type_scheme(
+                                lang,
+                                ast,
+                                node_ref,
+                                &args[0],
+                                ctx,
+                                incoming.clone(),
+                            )?
+                        };
+                        self.check_node(lang, ast, child, &expected, ctx)?;
+                        Ok(Value::Null)
+                    }
+                    None => Ok(Value::Null),
+                }
+            }
             "check_child" => {
                 let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
                     LangError::engine("typecheck: check_child requires a u64 lit (child index)")
@@ -1605,62 +1659,91 @@ impl NbeTypecheckEngine {
                         params_ref.index()
                     ))
                 })?;
-                // Unwrap the params wrapper (paren{body}) by role, falling
-                // back to its first child; a bare var params node carries the
-                // name directly in its payload.
-                let param_name = if is_paren_node(lang, &params_node) {
-                    let var_ref = role_child_ref(lang, &params_node, "body")
-                        .or_else(|| {
-                            params_node
-                                .payload
-                                .get("children")?
-                                .as_array()?
-                                .first()
-                                .and_then(|v| v.as_u64())
-                                .map(|i| AstRef::new(i as usize))
-                        })
+                // `param_names` resolves the fixed params and an optional
+                // rest param (`[a, ...rest] ~> body`) data-driven via
+                // `pattern_role`/variadic-role metadata (ADR-0081). A
+                // single param (`x ~> body` or `(x) ~> body`) keeps the
+                // unary `type.function{param: meta, body}` shape; a
+                // multi-param/rest arrow gets a positional
+                // `type.array{elements: [...]}` param (the same encoding
+                // `flow`/`fanout` use for tuples — ADR-0074 §3), with the
+                // rest binding typed `type.array{element: meta}`.
+                let (param_names, rest_name) = lang
+                    .param_names(ast, &params_node)
+                    .map_err(|e| LangError::engine_node(e.to_string(), node))?;
+                if param_names.len() == 1 && rest_name.is_none() {
+                    let param_meta = ctx.fresh_meta();
+                    let param_type = meta_value(param_meta);
+                    ctx.extend(param_names[0].clone(), param_type.clone());
+                    let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
+                    // Zonk so callers see solved parameter types (e.g. `flow`
+                    // can extract a concrete param type from the function
+                    // value).
+                    let param_type = self.zonk(&param_type, ctx);
+                    let body_type = self.zonk(&body_type, ctx);
+                    let payload = serde_json::json!({"param": param_type, "body": body_type});
+                    ctx.registry
+                        .construct("type.function", &payload)
                         .ok_or_else(|| {
-                            LangError::engine("synth_function: paren node has no param children")
-                        })?;
-                    let var_node = ast.get(var_ref).ok_or_else(|| {
-                        LangError::engine(format!(
-                            "synth_function: var node {} out of bounds",
-                            var_ref.index()
-                        ))
-                    })?;
-                    var_node.payload.as_str().ok_or_else(|| {
-                        LangError::engine_node(
-                            "synth_function: var node payload is not a string",
-                            node,
-                        )
-                    })?
+                            LangError::engine_node(
+                                "synth_function: construct failed for type.function",
+                                node,
+                            )
+                        })
                 } else {
-                    // Any other single leaf param (e.g. bare var, or a
-                    // renamed kind): read the name from the payload string.
-                    params_node.payload.as_str().ok_or_else(|| {
-                        LangError::engine_node(
-                            "synth_function: param node payload is not a string",
-                            node,
+                    // Multi-param / rest arrow: bind each fixed param to a
+                    // fresh meta and the rest param to
+                    // `type.array{element: meta}`; the arrow's param side
+                    // is the positional `type.array{elements: [...]}`.
+                    let mut elems: Vec<Value> = Vec::with_capacity(param_names.len() + 1);
+                    for name in &param_names {
+                        let m = meta_value(ctx.fresh_meta());
+                        ctx.extend(name.clone(), m.clone());
+                        elems.push(m);
+                    }
+                    if let Some(rest_name) = &rest_name {
+                        let elem_meta = meta_value(ctx.fresh_meta());
+                        let rest_ty = ctx
+                            .registry
+                            .construct(
+                                "type.array",
+                                &serde_json::json!({"element": elem_meta}),
+                            )
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "synth_function: construct failed for type.array",
+                                    node,
+                                )
+                            })?;
+                        ctx.extend(rest_name.clone(), rest_ty.clone());
+                        elems.push(rest_ty);
+                    }
+                    let param_type = ctx
+                        .registry
+                        .construct(
+                            "type.array",
+                            &serde_json::json!({"elements": elems}),
                         )
-                    })?
-                };
-                let param_meta = ctx.fresh_meta();
-                let param_type = meta_value(param_meta);
-                ctx.extend(param_name.to_string(), param_type.clone());
-                let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
-                // Zonk so callers see solved parameter types (e.g. `flow` can
-                // extract a concrete param type from the function value).
-                let param_type = self.zonk(&param_type, ctx);
-                let body_type = self.zonk(&body_type, ctx);
-                let payload = serde_json::json!({"param": param_type, "body": body_type});
-                ctx.registry
-                    .construct("type.function", &payload)
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "synth_function: construct failed for type.function",
-                            node,
-                        )
-                    })
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_function: construct failed for type.array",
+                                node,
+                            )
+                        })?;
+                    let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
+                    let param_type = self.zonk(&param_type, ctx);
+                    let body_type = self.zonk(&body_type, ctx);
+                    let payload =
+                        serde_json::json!({"param": param_type, "body": body_type});
+                    ctx.registry
+                        .construct("type.function", &payload)
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_function: construct failed for type.function",
+                                node,
+                            )
+                        })
+                }
             }
             "synth_type_annot" => {
                 // Typecheck a `type-annot` node (`expr: T`). Child 0 is the
@@ -4358,6 +4441,33 @@ fn child_ref(ast: &Ast, node_ref: AstRef, idx: u64) -> Result<AstRef, LangError>
             ))
         })?;
     Ok(AstRef::new(child_idx as usize))
+}
+
+/// Like [`child_ref`], but returns `Ok(None)` when the child index is absent
+/// (e.g. an `optional_children` child that was not produced) instead of
+/// erroring. Errors only when the node itself or its children array is
+/// missing.
+fn try_child_ref(ast: &Ast, node_ref: AstRef, idx: u64) -> Result<Option<AstRef>, LangError> {
+    let node: &AstNode = ast.get(node_ref).ok_or_else(|| {
+        LangError::engine(format!(
+            "typecheck: try_child_ref: node index {} out of bounds",
+            node_ref.index()
+        ))
+    })?;
+    let children = node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .ok_or_else(|| {
+            LangError::engine(format!(
+                "typecheck: try_child_ref: node kind '{}' has no children array",
+                node.kind
+            ))
+        })?;
+    Ok(children
+        .get(idx as usize)
+        .and_then(|v| v.as_u64())
+        .map(|i| AstRef::new(i as usize)))
 }
 
 // --- ADR-0081 data-driven child roles --------------------------------------

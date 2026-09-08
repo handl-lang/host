@@ -34,6 +34,9 @@
     type: object
 - id: ast.arm
   node_kind: arm
+  children:
+    - role: pattern
+    - role: body
   payload_schema:
     properties:
       children:
@@ -183,6 +186,9 @@
     type: object
 - id: ast.binary.lt
   node_kind: binary.lt
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -196,6 +202,9 @@
     type: object
 - id: ast.binary.lte
   node_kind: binary.lte
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -287,6 +296,10 @@
     type: object
 - id: ast.call
   node_kind: call
+  children:
+    - role: callee
+    - role: args
+      variadic: true
   payload_schema:
     properties:
       args:
@@ -316,6 +329,9 @@
     type: object
 - id: ast.field-access
   node_kind: field-access
+  children:
+    - role: target
+    - role: field
   payload_schema:
     properties:
       field:
@@ -325,6 +341,22 @@
     required:
       - target
       - field
+    type: object
+- id: ast.flow
+  node_kind: flow
+  children:
+    - role: left
+    - role: right
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
     type: object
 - id: ast.forall
   node_kind: forall
@@ -365,13 +397,20 @@
     type: object
 - id: ast.if
   node_kind: if
+  # Roles: `condition`/`then`/`else`. The `else` child is optional — a
+  # else-less `if` has 2 children and evaluates to null when the condition
+  # is false.
+  children:
+    - role: condition
+    - role: then
+    - role: else
   payload_schema:
     properties:
       children:
         items:
           type: integer
         maxItems: 3
-        minItems: 3
+        minItems: 2
         type: array
     required:
       - children
@@ -410,6 +449,29 @@
       expr:
         type: string
     type: object
+# `let` — internal binding kind. There is NO `let` surface syntax (the
+# `grammar.let.prefix` row was removed; `let` lexes as an identifier).
+# The `let`/`stmt.let` kinds are produced by self-host/conformance
+# fixtures and internal desugar/block contexts, not by parsing. Children
+# are `[target, value]` where `target` is a `var` (or `type-annot`) node —
+# the same shape as `assign`, so the generic `target`/`value` role
+# convention binds it in block/rec statement position.
+- id: ast.let
+  node_kind: let
+  children:
+    - role: target
+    - role: value
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.match
   node_kind: match
   payload_schema:
@@ -445,6 +507,9 @@
 - id: ast.object
   node_kind: object
   pattern_role: entries
+  children:
+    - role: entries
+      variadic: true
   payload_schema:
     properties:
       entries:
@@ -617,13 +682,16 @@
 # `rec` — recursive region (like `loop` but with 1 child: the block).
 - id: ast.rec
   node_kind: rec
+  children:
+    - role: state
+    - role: body
   payload_schema:
     properties:
       children:
         items:
           type: integer
-        maxItems: 1
-        minItems: 1
+        maxItems: 2
+        minItems: 2
         type: array
     required:
       - children

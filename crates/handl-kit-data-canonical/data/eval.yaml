@@ -422,8 +422,10 @@
         args: []
         source: Native
         lit: 1
+      # `proj_child_or`: the else child is optional (`optional_children` on
+      # `grammar.if.prefix`) — an else-less `if` evaluates to null.
       r: !Arr
-        op: proj_child
+        op: proj_child_or
         args: []
         source: Native
         lit: 2
@@ -453,6 +455,18 @@
   node_kind: block
   scheme: !Arr
     op: eval_block
+    args: []
+    source: Native
+# `let` — internal binding kind (no `let` surface syntax; the grammar
+# row was removed). The `let` node has
+# `assign` shape (children `[target, value]` with `target`/`value` roles),
+# so block/rec statement position binds it via the generic role convention
+# (`eval_block`/`eval_rec` intercept target+value shapes); evaluated
+# directly it mirrors `assign` — evaluates the value child and returns it.
+- id: eval.let
+  node_kind: let
+  scheme: !Arr
+    op: assign
     args: []
     source: Native
 - id: eval.match

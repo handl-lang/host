@@ -146,10 +146,12 @@ pub struct CorpusCase {
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `function_call`      | `do { f :: [x, y] ~> x + y; f(3, 4) }` | function, call, assign, block, var, binary.add|
-/// | `pipe_call`          | `do { f :: (x ~> x + 1); 5 | f }`      | function, pipe, assign, block, var, binary.add|
-/// | `nested_bind`        | `do { x = 3; y = 4; x + y }`          | assign, block, var, binary.add      |
-/// | `if_with_bind`       | `if (true) (do { x = 1; x }) else 0`  | if, assign, block, var, value       |
+/// | `function_call`      | `let f = [x, y] ~> x + y in f(3, 4)`    | function, call, let, var, binary.add|
+/// | `pipe_call`          | `let f = (x ~> x + 1) in 5 | f`         | function, pipe, let, var, binary.add|
+/// | `rest_params`        | `let f = [a, ...rest] ~> rest in f(1,2,3)` | function(rest param), call, let, var |
+/// | `rest_params_empty`  | `let f = [a, ...rest] ~> rest in f(1)`  | function(rest param), call, let, var |
+/// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
+/// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
 /// | `array_index`        | `[10, 20, 30][1]`                     | index                               |
 /// | `object_literal`     | `{"a": 1, "b": 2}`                    | object                              |
@@ -404,6 +406,21 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(2),
             tree_walk_only: false,
         },
+        // 16b. If without else: `if (false) 1` — the `else` child is optional
+        // (grammar `optional_children`); the arity-2 node evaluates to null.
+        CorpusCase {
+            name: "if_no_else",
+            source: "if (false) 1",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(false)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("if").with_payload(json!({"children": [0, 1]})));
+                a
+            },
+            expected: json!(null),
+            tree_walk_only: false,
+        },
         // 17. Ternary true: true ? 1 : 2  (ternary uses the same Branch scheme as if)
         CorpusCase {
             name: "ternary_true",
@@ -540,7 +557,64 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(6),
             tree_walk_only: true,
         },
-        // 24. Two block bindings + add: do { x = 3; y = 4; x + y }
+        // 23b. Rest params: let f = [a, ...rest] ~> rest in f(1, 2, 3).
+        //     The `rest` payload field marks the variadic parameter; surplus
+        //     args bind to it as an array.
+        CorpusCase {
+            name: "rest_params",
+            source: "let f = [a, ...rest] ~> rest in f(1, 2, 3)",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
+                a.push(
+                    AstNode::new("function") // 1: [a, ...rest] ~> rest
+                        .with_payload(json!({"params": ["a"], "rest": "rest", "body": 0})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(1))); // 2
+                a.push(AstNode::new("value").with_payload(json!(2))); // 3
+                a.push(AstNode::new("value").with_payload(json!(3))); // 4
+                a.push(AstNode::new("var").with_payload(json!("f"))); // 5
+                a.push(
+                    AstNode::new("call") // 6: f(1, 2, 3)
+                        .with_payload(json!({"children": [5, 2, 3, 4]})),
+                );
+                a.push(
+                    AstNode::new("stmt.let") // 7: let f = function in call
+                        .with_payload(json!({"name": "f", "children": [1, 6]})),
+                );
+                a
+            },
+            expected: json!([2, 3]),
+            tree_walk_only: true,
+        },
+        // 23c. Rest params, empty tail: let f = [a, ...rest] ~> rest in f(1).
+        //     With no surplus args the rest binding is the empty array.
+        CorpusCase {
+            name: "rest_params_empty",
+            source: "let f = [a, ...rest] ~> rest in f(1)",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
+                a.push(
+                    AstNode::new("function") // 1: [a, ...rest] ~> rest
+                        .with_payload(json!({"params": ["a"], "rest": "rest", "body": 0})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(1))); // 2
+                a.push(AstNode::new("var").with_payload(json!("f"))); // 3
+                a.push(
+                    AstNode::new("call") // 4: f(1)
+                        .with_payload(json!({"children": [3, 2]})),
+                );
+                a.push(
+                    AstNode::new("stmt.let") // 5: let f = function in call
+                        .with_payload(json!({"name": "f", "children": [1, 4]})),
+                );
+                a
+            },
+            expected: json!([]),
+            tree_walk_only: true,
+        },
+        // 24. Nested let + add: let x = 3 in let y = 4 in x + y
         CorpusCase {
             name: "nested_bind",
             source: "do { x = 3; y = 4; x + y }",

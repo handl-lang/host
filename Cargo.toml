@@ -39,7 +39,6 @@ members = [
   "crates/plugin-lib-http-server",
   "crates/plugin-lib-http-server-std",
   "crates/plugin-lib-intl",
-  "crates/plugin-lib-ip",
   "crates/plugin-lib-lang-lex",
   "crates/plugin-lib-lang-parse",
   "crates/plugin-lib-lang-eval",
@@ -180,7 +179,6 @@ handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" 
 handl-plugin-lib-http-server = { path = "crates/plugin-lib-http-server" }
 handl-plugin-lib-http-server-std = { path = "crates/plugin-lib-http-server-std" }
 handl-plugin-lib-intl = { path = "crates/plugin-lib-intl" }
-handl-plugin-lib-ip = { path = "crates/plugin-lib-ip" }
 handl-plugin-lib-lang-lex = { path = "crates/plugin-lib-lang-lex" }
 handl-plugin-lib-lang-parse = { path = "crates/plugin-lib-lang-parse" }
 handl-plugin-lib-lang-eval = { path = "crates/plugin-lib-lang-eval" }
@@ -245,6 +243,7 @@ handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode
 handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
+handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }

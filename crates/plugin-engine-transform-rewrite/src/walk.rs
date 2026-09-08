@@ -94,6 +94,8 @@ pub(crate) struct PassRun<'a> {
     pub(crate) trace: RewriteTrace,
     /// Pass statistics.
     pub(crate) stats: PassStats,
+    /// Monotonic fresh-name counter for [`RewriteStep::Fresh`] (ADR-0094).
+    pub(crate) fresh_id: usize,
 }
 
 impl<'a> PassRun<'a> {
@@ -120,6 +122,7 @@ impl<'a> PassRun<'a> {
             visiting: HashSet::new(),
             trace: RewriteTrace::new(),
             stats: PassStats::new(),
+            fresh_id: 0,
         }
     }
 
@@ -375,7 +378,8 @@ impl<'a> PassRun<'a> {
             } => {
                 let lang = self.lang;
                 let ast = self.ast;
-                let r = step::build_rewrite(
+                let fresh_in = self.fresh_id;
+                let (r, fresh_out) = step::build_rewrite(
                     self,
                     lang,
                     target_kind,
@@ -384,7 +388,9 @@ impl<'a> PassRun<'a> {
                     node,
                     ast,
                     out,
+                    fresh_in,
                 )?;
+                self.fresh_id = fresh_out;
                 Ok(r.index())
             }
             TransformRule::Native(name) => self.fire_native(name, node, out),

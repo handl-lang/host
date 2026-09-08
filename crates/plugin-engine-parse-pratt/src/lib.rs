@@ -420,7 +420,35 @@ impl PrattEngine {
                 // Consume separator between children (not after the last
                 // normal child — the delimited block follows).
                 if i + 1 < normal {
-                    if let Some(sep) = shape.child_separators.get(i) {
+                    if shape.optional_children.contains(&(i + 1)) {
+                        // Optional child (ADR-0053 `optional_children`):
+                        // parse it only when its separator is present —
+                        // the separator token (e.g. `else`) is the
+                        // disambiguator, so a following statement is never
+                        // swallowed as the child. Absent separator → stop
+                        // parsing children (optional children are a trailing
+                        // suffix).
+                        match shape.child_separators.get(i) {
+                            Some(sep) => {
+                                if !Self::peek_separator(cursor, sep) {
+                                    break;
+                                }
+                                let _ = cursor.advance()?;
+                            }
+                            None => {
+                                return Err(LangError::engine_at(
+                                    format!(
+                                        "grammar row {}: optional child {} requires \
+                                         a separator guard",
+                                        prefix_row.id,
+                                        i + 1
+                                    ),
+                                    cursor.last_span(),
+                                    Some("token".to_string()),
+                                ));
+                            }
+                        }
+                    } else if let Some(sep) = shape.child_separators.get(i) {
                         Self::consume_separator(cursor, sep)?;
                     }
                 }
@@ -557,7 +585,30 @@ impl PrattEngine {
                 self.try_keyword_clauses(lang, cursor, shape, child_idx, &mut children)?;
                 // Consume separator between children (not after the last).
                 if i + 1 < normal {
-                    if let Some(sep) = shape.child_separators.get(i) {
+                    if shape.optional_children.contains(&(child_idx + 1)) {
+                        // Optional child (ADR-0053 `optional_children`) —
+                        // see the prefix loop: gated on its separator.
+                        match shape.child_separators.get(i) {
+                            Some(sep) => {
+                                if !Self::peek_separator(cursor, sep) {
+                                    break;
+                                }
+                                let _ = cursor.advance()?;
+                            }
+                            None => {
+                                return Err(LangError::engine_at(
+                                    format!(
+                                        "grammar row {}: optional child {} requires \
+                                         a separator guard",
+                                        infix_row.id,
+                                        child_idx + 1
+                                    ),
+                                    cursor.last_span(),
+                                    Some("token".to_string()),
+                                ));
+                            }
+                        }
+                    } else if let Some(sep) = shape.child_separators.get(i) {
                         Self::consume_separator(cursor, sep)?;
                     }
                 }
@@ -784,6 +835,20 @@ impl PrattEngine {
             }
         }
         Ok(())
+    }
+
+    /// Peek whether the next token matches a [`ChildSeparator`] without
+    /// consuming it. Used to gate [`AstShapeRef::optional_children`]: the
+    /// optional child parses only when its separator token is present.
+    fn peek_separator(cursor: &mut Cursor<'_>, sep: &ChildSeparator) -> bool {
+        let kind = match cursor.peek() {
+            Some(t) => t.kind.as_str(),
+            None => return false,
+        };
+        match sep {
+            ChildSeparator::Required(k) | ChildSeparator::Optional(k) => kind == k.as_str(),
+            ChildSeparator::OneOf(kinds) => kinds.iter().any(|k| k == kind),
+        }
     }
 
     /// Parse a delimited block (ADR-0053). Consumes the `open` token (unless
@@ -1496,6 +1561,90 @@ mod tests {
         assert_eq!(ast.len(), 4);
         assert_eq!(ast.nodes()[3].kind, "ternary");
         assert_eq!(ast.nodes()[3].payload, json!({"children": [0, 1, 2]}));
+    }
+
+    /// A language modelling `if cond then else`: `kw` prefix arity 3,
+    /// child_separators [Optional(then), Required(else)], with child 2
+    /// declared optional via `optional_children`.
+    fn optional_else_lang() -> Language {
+        let mut lang = arith_lang();
+        for k in ["token.keyword.if", "token.keyword.then", "token.keyword.else"] {
+            lang.tokens.merge(TokenKindDef::new(k)).unwrap();
+        }
+        let shape = AstShapeRef::new("if", 3)
+            .with_child_separators(vec![
+                ChildSeparator::Optional("token.keyword.then".into()),
+                ChildSeparator::Required("token.keyword.else".into()),
+            ])
+            .with_optional_children(vec![2]);
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.if",
+                    "token.keyword.if",
+                    GrammarPosition::Prefix,
+                    shape,
+                )
+                .with_binding_power(0, 0),
+            )
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn optional_child_present_when_separator_fires() {
+        // `if 1 then 2 else 3` — the `else` separator is present, so child 2
+        // parses normally (arity 3).
+        let engine = PrattEngine::new();
+        let lang = optional_else_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.if", "if"),
+            tok("token.number", "1"),
+            tok("token.keyword.then", "then"),
+            tok("token.number", "2"),
+            tok("token.keyword.else", "else"),
+            tok("token.number", "3"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "if");
+        assert_eq!(root.payload, json!({"children": [0, 1, 2]}));
+    }
+
+    #[test]
+    fn optional_child_absent_when_separator_missing() {
+        // `if 1 2` — no `else` token, so child 2 is skipped (arity 2). The
+        // trailing `2` after the `if` is NOT swallowed: it is left for the
+        // enclosing context.
+        let engine = PrattEngine::new();
+        let lang = optional_else_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.if", "if"),
+            tok("token.number", "1"),
+            tok("token.number", "2"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "if");
+        assert_eq!(root.payload, json!({"children": [0, 1]}));
+    }
+
+    #[test]
+    fn optional_child_does_not_swallow_following_expression() {
+        // `if 1 2 3` — the `3` is not an `else` token, so the `if` node is
+        // arity 2 and `3` is left unconsumed (next statement).
+        let engine = PrattEngine::new();
+        let lang = optional_else_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.if", "if"),
+            tok("token.number", "1"),
+            tok("token.number", "2"),
+            tok("token.number", "3"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "if");
+        assert_eq!(root.payload, json!({"children": [0, 1]}));
     }
 
     #[test]

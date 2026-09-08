@@ -12,6 +12,8 @@
 //! walker resolves by visiting the child lazily. The interpreter therefore
 //! never touches the `remap` table itself.
 
+use std::collections::HashMap;
+
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, RewriteStep};
 use serde_json::{Map, Value};
 
@@ -41,6 +43,33 @@ pub(crate) trait Resolver {
     ) -> Result<Option<usize>, LangError>;
 }
 
+/// Per-rule-application state for [`RewriteStep::Fresh`] (ADR-0094).
+///
+/// `counter` is a per-pass counter passed in from the walker; `names`
+/// records which output-arena `var` node was minted for each hint in the
+/// current rule application, so repeated `Fresh(hint)` steps reuse it.
+struct FreshState {
+    counter: usize,
+    names: HashMap<String, usize>,
+}
+
+impl FreshState {
+    /// Allocate or reuse a `var` leaf for `hint`.
+    fn get_or_make(&mut self, hint: &str, out: &mut Ast) -> usize {
+        if let Some(&idx) = self.names.get(hint) {
+            return idx;
+        }
+        let id = self.counter;
+        self.counter += 1;
+        let name = format!("__fresh_{hint}_{id}");
+        let idx = out
+            .push(AstNode::new("var").with_payload(Value::from(name)))
+            .index();
+        self.names.insert(hint.to_string(), idx);
+        idx
+    }
+}
+
 /// The input-arena index of `original`'s child `i`, if present.
 fn child_index(original: &AstNode, i: usize) -> Option<usize> {
     original
@@ -68,10 +97,15 @@ pub(crate) fn build_rewrite(
     original: &AstNode,
     ast: &Ast,
     out: &mut Ast,
-) -> Result<AstRef, LangError> {
+    fresh_counter: usize,
+) -> Result<(AstRef, usize), LangError> {
+    let mut fresh = FreshState {
+        counter: fresh_counter,
+        names: HashMap::new(),
+    };
     let children: Vec<Value> = steps
         .iter()
-        .map(|spec| build_step(spec, resolver, lang, original, ast, out))
+        .map(|spec| build_step(spec, &mut fresh, resolver, lang, original, ast, out))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .flatten()
@@ -124,7 +158,8 @@ pub(crate) fn build_rewrite(
         span: original.span,
         payload,
     };
-    Ok(out.push(node))
+    let ast_ref = out.push(node);
+    Ok((ast_ref, fresh.counter))
 }
 
 /// Build the output children contributed by a single [`RewriteStep`].
@@ -133,6 +168,7 @@ pub(crate) fn build_rewrite(
 /// children; all other variants produce exactly one.
 fn build_step(
     spec: &RewriteStep,
+    fresh: &mut FreshState,
     resolver: &mut dyn Resolver,
     lang: &Language,
     original: &AstNode,
@@ -140,6 +176,7 @@ fn build_step(
     out: &mut Ast,
 ) -> Result<Vec<Value>, LangError> {
     match spec {
+        RewriteStep::Fresh(hint) => Ok(vec![Value::from(fresh.get_or_make(hint, out))]),
         RewriteStep::Keep(i) => keep_at(resolver, out, original, *i),
         RewriteStep::KeepRole(role) => {
             // ADR-0081: resolve the named role through the original node's
@@ -241,7 +278,7 @@ fn build_step(
         } => {
             let child_indices: Vec<Value> = children
                 .iter()
-                .map(|c| build_step(c, resolver, lang, original, ast, out))
+                .map(|c| build_step(c, fresh, resolver, lang, original, ast, out))
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
                 .flatten()

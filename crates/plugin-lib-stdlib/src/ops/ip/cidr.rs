@@ -1,4 +1,4 @@
-use crate::{IpAddr, IpError, Ipv4, Ipv6};
+use super::{IpAddr, IpError, Ipv4, Ipv6};
 use core::fmt;
 
 /// An IPv4 CIDR prefix.

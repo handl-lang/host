@@ -1265,6 +1265,16 @@ pub struct ModuleLoader {
     eval_engine: RefCell<Option<Rc<dyn EvalEngine>>>,
     /// The base directory for resolving relative import paths.
     module_root: Option<PathBuf>,
+    /// Project dependencies declared in `.handl.toml`'s `[dependencies]`
+    /// table: import-name → absolute package root directory. An import path
+    /// whose first `/`-separated segment names a dependency resolves inside
+    /// that directory (`import "arrows/fn/map.hnl"` →
+    /// `<deps["arrows"]>/fn/map.hnl`).
+    dependencies: HashMap<String, PathBuf>,
+    /// Directory stack for nested imports: while a module is being
+    /// evaluated, its own directory is the resolution base for relative
+    /// import paths inside it.
+    dir_stack: RefCell<Vec<PathBuf>>,
     /// Cache of evaluated module bindings, keyed by canonical path.
     cache: RefCell<HashMap<String, Value>>,
     /// Paths currently being loaded (cycle detection).
@@ -1289,9 +1299,19 @@ impl ModuleLoader {
             parse_engine,
             eval_engine: RefCell::new(None),
             module_root,
+            dependencies: HashMap::new(),
+            dir_stack: RefCell::new(Vec::new()),
             cache: RefCell::new(HashMap::new()),
             loading: RefCell::new(HashSet::new()),
         }
+    }
+
+    /// Declare project dependencies (`.handl.toml` `[dependencies]`):
+    /// import-name → absolute package root directory. See
+    /// [`ModuleLoader::resolve_path`] for the resolution semantics.
+    pub fn with_dependencies(mut self, deps: HashMap<String, PathBuf>) -> Self {
+        self.dependencies = deps;
+        self
     }
 
     /// Late-bind the eval engine (two-phase construction). Requires a
@@ -1306,16 +1326,41 @@ impl ModuleLoader {
         *self.eval_engine.borrow_mut() = Some(Rc::from(engine));
     }
 
-    /// Resolve a (possibly relative) import path to a canonical absolute
-    /// path string, used as the cache key.
+    /// Resolve an import path to a canonical absolute path string, used as
+    /// the cache key.
+    ///
+    /// # Resolution semantics
+    ///
+    /// 1. **Dependency specifier.** If the first `/`-separated segment of
+    ///    `path` names a declared `[dependencies]` entry, the remainder of
+    ///    the path resolves inside that package's root directory:
+    ///    `import "arrows/fn/map.hnl"` → `<deps["arrows"]>/fn/map.hnl`.
+    ///    Dependency names shadow a same-named directory relative to the
+    ///    module root.
+    /// 2. **Relative path.** Otherwise `path` resolves against the directory
+    ///    of the module currently being loaded (nested imports), falling
+    ///    back to `module_root`, then to the process working directory.
     fn resolve_path(&self, path: &str) -> Result<String, LangError> {
-        let base = self
-            .module_root
-            .as_deref()
-            .map(Path::to_path_buf)
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
-        let joined = base.join(path);
+        let (first, rest) = match path.split_once('/') {
+            Some((f, r)) => (f, Some(r)),
+            None => (path, None),
+        };
+        let joined = if let Some(dep_dir) = self.dependencies.get(first) {
+            match rest {
+                Some(r) if !r.is_empty() => dep_dir.join(r),
+                _ => dep_dir.clone(),
+            }
+        } else {
+            let base = self
+                .dir_stack
+                .borrow()
+                .last()
+                .cloned()
+                .or_else(|| self.module_root.clone())
+                .or_else(|| std::env::current_dir().ok())
+                .unwrap_or_else(|| PathBuf::from("."));
+            base.join(path)
+        };
         // `canonicalize` fails if the file does not exist; in that case use
         // the joined path so the subsequent read error is clear.
         let resolved = std::fs::canonicalize(&joined)
@@ -1347,9 +1392,33 @@ impl ModuleLoader {
         }
         self.loading.borrow_mut().insert(resolved.clone());
 
+        // Do the fallible load in a helper so the `loading` entry is always
+        // removed — including on error paths (a failed load may be retried
+        // and must not trip the cycle detector).
+        let result = self.load_module_uncached(&resolved, path);
+        self.loading.borrow_mut().remove(&resolved);
+        let bindings = result?;
+
+        // Cache the result.
+        self.cache.borrow_mut().insert(resolved, bindings.clone());
+        Ok(bindings)
+    }
+
+    /// Read, parse, desugar, and evaluate the module at the already-resolved
+    /// path `resolved`, returning its collected top-level bindings.
+    /// `display_path` is the path as written in the `import` statement, used
+    /// in error messages.
+    fn load_module_uncached(
+        &self,
+        resolved: &str,
+        display_path: &str,
+    ) -> Result<Value, LangError> {
         // Read the module source.
-        let src = std::fs::read_to_string(&resolved).map_err(|e| {
-            LangError::engine(format!("import \"{}\": cannot read module: {}", path, e))
+        let src = std::fs::read_to_string(resolved).map_err(|e| {
+            LangError::engine(format!(
+                "import \"{}\": cannot read module: {}",
+                display_path, e
+            ))
         })?;
         let source = Source::new(&src);
         let toks = {
@@ -1364,13 +1433,27 @@ impl ModuleLoader {
         // (ADR-0082), so imported modules see the same AST shape.
         let ast = desugar_pass::apply_desugar(&self.lang, &ast)?;
 
+        // While this module is being evaluated, its own directory becomes
+        // the base for resolving nested relative imports. The guard pops
+        // the entry on every exit path (including eval errors).
+        struct DirStackGuard<'a>(&'a RefCell<Vec<PathBuf>>);
+        impl Drop for DirStackGuard<'_> {
+            fn drop(&mut self) {
+                self.0.borrow_mut().pop();
+            }
+        }
+        let _dir_guard = Path::new(resolved).parent().map(|dir| {
+            self.dir_stack.borrow_mut().push(dir.to_path_buf());
+            DirStackGuard(&self.dir_stack)
+        });
+
         // Evaluate the module. Clone the eval engine out of the RefCell
         // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
         // imports) can independently borrow the cell without panic.
+        let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
+            LangError::engine("import: module loader has no eval engine configured")
+        })?;
         let value = {
-            let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
-                LangError::engine("import: module loader has no eval engine configured")
-            })?;
             let req = EvalRequest::new(ast.clone());
             engine_rc.eval(&self.lang, &req)?
         };
@@ -1378,10 +1461,12 @@ impl ModuleLoader {
         // Collect the module's top-level bindings into a Value::Object.
         let bindings = collect_module_bindings(self.lang.as_ref(), &ast, value);
 
-        // Remove from the loading set and cache the result.
-        self.loading.borrow_mut().remove(&resolved);
-        self.cache.borrow_mut().insert(resolved, bindings.clone());
-        Ok(bindings)
+        // Seal the exported bindings for the cross-boundary handoff: arrow
+        // values minted by this module's eval carry `body` indices into
+        // *this* AST, so the engine stamps them with a home frame (see
+        // `EvalEngine::seal_module_value`; identity for engines whose
+        // values carry no ambient-eval references).
+        engine_rc.seal_module_value(&ast, &self.lang, bindings)
     }
 }
 

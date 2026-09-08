@@ -35,9 +35,9 @@
 --- and would reject `data`. The declaration must stay on ONE line: the
 --- top-level statement splitter breaks at newlines, and wrapping the
 --- alternatives in parens defeats `collect_constructors` (verified with
---- `hnl check` / `hnl eval`).
+--- `hnl typecheck` / `hnl eval`).
 ---
---- NOTE (eval WIP): `hnl check` passes on this file and `hnl eval` handles
+--- NOTE (eval WIP): `hnl typecheck` passes on this file and `hnl eval` handles
 --- any 17-constructor prefix, but evaluating all 18 constructors at once
 --- currently OOMs — the desugared constructors each capture the growing
 --- env, and serializing those captured envs is exponential in constructor

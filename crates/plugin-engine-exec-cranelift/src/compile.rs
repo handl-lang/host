@@ -613,11 +613,12 @@ fn declare_helper_imports_v2<M: Module>(
     sig_pair.params.push(AbiParam::new(ptr_type));
     sig_pair.returns.push(AbiParam::new(ptr_type));
 
-    // (ctx, child_n, incoming) -> ptr  (eval_child)
+    // (ctx, child_n, incoming, or_null) -> ptr  (eval_child)
     let mut sig_eval_child = module.make_signature();
     sig_eval_child.params.push(AbiParam::new(ptr_type));
     sig_eval_child.params.push(AbiParam::new(types::I64));
     sig_eval_child.params.push(AbiParam::new(ptr_type));
+    sig_eval_child.params.push(AbiParam::new(types::I64));
     sig_eval_child.returns.push(AbiParam::new(ptr_type));
 
     // (ctx, callee, args, n) -> ptr  (apply_closure)
@@ -1274,12 +1275,19 @@ fn compile_arr(
                 .call(helpers.load_var, &[ctx_param, name_idx_val]);
             return Ok((builder.inst_results(call)[0], false));
         }
-        "proj_child" => {
+        "proj_child" | "proj_child_or" => {
             let idx = lit.and_then(|v| v.as_u64()).unwrap_or(0) as i64;
             let idx_val = builder.ins().iconst(types::I64, idx);
-            let call = builder
-                .ins()
-                .call(helpers.eval_child, &[ctx_param, idx_val, incoming_val]);
+            // `proj_child_or` tolerates an absent child (evaluates to null);
+            // `proj_child` errors.
+            let or_null = builder.ins().iconst(
+                types::I64,
+                if op == "proj_child_or" { 1 } else { 0 },
+            );
+            let call = builder.ins().call(
+                helpers.eval_child,
+                &[ctx_param, idx_val, incoming_val, or_null],
+            );
             return Ok((builder.inst_results(call)[0], false));
         }
         "extend_env" => {

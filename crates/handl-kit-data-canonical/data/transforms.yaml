@@ -14,6 +14,7 @@
 #             | !KeepRest <index> | !Splice <index>
 #             | !Create { kind, payload?, children }
 #             | !Apply { rule_id, index }
+#             | !Fresh <hint>
 #   when:     !KindAt { index?, role?, kind } | !PayloadEq { path, value }
 #             | !ChildCount <n> | !And […] | !Or […] | !Not <cond>
 
@@ -311,3 +312,178 @@
     role: key
     kind: string
   rule: !Native "lower.object_key"
+
+# `nullish` — `a ?? b` → `match a { { _tag: "Some", value: rec_v }: rec_v, _: b }`.
+- id: transform.desugar.nullish
+  pass: desugar
+  node_kind: nullish
+  rule: !Declarative
+    target_kind: match
+    children:
+      - !Keep 0
+      - !Create
+        kind: block
+        children:
+          - !Create
+            kind: arm
+            children:
+              - !Create
+                kind: object
+                children:
+                  - !Create
+                    kind: entry
+                    children:
+                      - !Create { kind: var, payload: "_tag" }
+                      - !Create { kind: lit, payload: "Some" }
+                  - !Create
+                    kind: entry
+                    children:
+                      - !Create { kind: var, payload: "value" }
+                      - !Fresh "rec_v"
+              - !Fresh "rec_v"
+          - !Create
+            kind: arm
+            children:
+              - !Create { kind: var, payload: "_" }
+              - !Keep 1
+
+# `opt-chain` — `a?.field` → `match a { { _tag: "Some", value: rec_v }: rec_v.field, _: {"_tag":"None"} }`.
+- id: transform.desugar.opt-chain
+  pass: desugar
+  node_kind: opt-chain
+  rule: !Declarative
+    target_kind: match
+    children:
+      - !Keep 0
+      - !Create
+        kind: block
+        children:
+          - !Create
+            kind: arm
+            children:
+              - !Create
+                kind: object
+                children:
+                  - !Create
+                    kind: entry
+                    children:
+                      - !Create { kind: var, payload: "_tag" }
+                      - !Create { kind: lit, payload: "Some" }
+                  - !Create
+                    kind: entry
+                    children:
+                      - !Create { kind: var, payload: "value" }
+                      - !Fresh "rec_v"
+              - !Create
+                kind: field-access
+                children:
+                  - !Fresh "rec_v"
+                  - !Keep 1
+          - !Create
+            kind: arm
+            children:
+              - !Create { kind: var, payload: "_" }
+              - !Create { kind: lit, payload: { "_tag": "None" } }
+
+# State-passing `while { state } { closure }` form (child 1 is a `function`)
+# is left untouched so the `loop_step` eval protocol can handle it.
+- id: transform.desugar.while.state
+  pass: desugar
+  node_kind: while
+  priority: -1
+  when: !KindAt { index: 1, kind: function }
+  rule: !Declarative
+    target_kind: while
+    children:
+      - !Keep 0
+      - !KeepRest 1
+
+# `while cond { body }` → `rec { __continue = cond, __result = if __continue { body; __continue = cond } else { __result } }`.
+- id: transform.desugar.while
+  pass: desugar
+  node_kind: while
+  priority: 1
+  rule: !Declarative
+    target_kind: rec
+    children:
+      - !Create
+        kind: assign
+        children:
+          - !Fresh "__continue"
+          - !Keep 0
+      - !Create
+        kind: assign
+        children:
+          - !Fresh "__result"
+          - !Create
+            kind: if
+            children:
+              - !Fresh "__continue"
+              - !Create
+                kind: block
+                children:
+                  - !KeepRest 1
+                  - !Create
+                    kind: assign
+                    children:
+                      - !Fresh "__continue"
+                      - !Keep 0
+              - !Fresh "__result"
+
+# `for x in xs { body }` → `rec` over destructured iteration.
+- id: transform.desugar.for
+  pass: desugar
+  node_kind: for
+  rule: !Declarative
+    target_kind: rec
+    children:
+      - !Create
+        kind: assign
+        children:
+          - !Fresh "__xs"
+          - !Keep 1
+      - !Create
+        kind: assign
+        children:
+          - !Fresh "__result"
+          - !Create
+            kind: array
+            payload: { "children": [] }
+      - !Create
+        kind: assign
+        children:
+          - !Fresh "__result"
+          - !Create
+            kind: match
+            children:
+              - !Fresh "__xs"
+              - !Create
+                kind: block
+                children:
+                  - !Create
+                    kind: arm
+                    children:
+                      - !Create
+                        kind: array
+                        payload: { "children": [] }
+                      - !Fresh "__result"
+                  - !Create
+                    kind: arm
+                    children:
+                      - !Create
+                        kind: array
+                        children:
+                          - !Keep 0
+                          - !Create
+                            kind: rest
+                            children:
+                              - !Fresh "rec_tail"
+                      - !Create
+                        kind: block
+                        children:
+                          - !KeepRest 2
+                          - !Create
+                            kind: assign
+                            children:
+                              - !Fresh "__xs"
+                              - !Fresh "rec_tail"

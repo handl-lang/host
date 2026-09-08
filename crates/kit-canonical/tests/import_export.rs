@@ -116,3 +116,135 @@ fn export_passes_through() {
     let val2 = kit.eval("export 6 * 7").expect("eval should succeed");
     assert_eq!(val2, json!(42));
 }
+// ---------------------------------------------------------------------------
+// `.handl.toml` `[dependencies]` — project dependency resolution (Phase 9.5)
+// ---------------------------------------------------------------------------
+
+/// `import "arrows/fn/map.hnl"` resolves inside the `arrows` dependency's
+/// directory declared in the project manifest's `[dependencies]` table.
+///
+/// Fixture layout (built in a tempdir, mirroring `hnl run`):
+///
+/// ```text
+/// <root>/.handl.toml               [dependencies] arrows = "vendor/arrows"
+/// <root>/vendor/arrows/fn/map.hnl  double :: x ~> x * 2
+/// <root>/main.hnl                  import "arrows/fn/map.hnl" ... double(21)
+/// ```
+///
+/// `Kit::discover` finds the manifest from the entry file's directory and
+/// wires the dep map into the `ModuleLoader`.
+#[test]
+fn import_resolves_handl_toml_dependencies() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+
+    fs::write(
+        root.join(".handl.toml"),
+        "[dependencies]\narrows = \"vendor/arrows\"\n",
+    )
+    .expect("write manifest");
+    let dep_dir = root.join("vendor/arrows/fn");
+    fs::create_dir_all(&dep_dir).expect("create dep dir");
+    write_module(&dep_dir, "map.hnl", "double :: x ~> x * 2");
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { import \"arrows/fn/map.hnl\"; double(21) }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!(42));
+}
+
+/// A `[dependencies]` table entry in `{ path = "..." }` table form resolves
+/// the same way as the bare-string form.
+#[test]
+fn import_resolves_table_form_dependencies() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+
+    fs::write(
+        root.join(".handl.toml"),
+        "[dependencies]\nutil = { path = \"vendor/util\" }\n",
+    )
+    .expect("write manifest");
+    let dep_dir = root.join("vendor/util");
+    fs::create_dir_all(&dep_dir).expect("create dep dir");
+    write_module(&dep_dir, "answer.hnl", "answer :: 42");
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { import \"util/answer.hnl\"; answer }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!(42));
+}
+
+/// Nested relative imports resolve against the importing module's own
+/// directory: `vendor/arrows/fn/map.hnl` can `import "../consts.hnl"` to
+/// reach `vendor/arrows/consts.hnl`.
+#[test]
+fn import_nested_relative_resolves_against_module_dir() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+
+    fs::write(
+        root.join(".handl.toml"),
+        "[dependencies]\narrows = \"vendor/arrows\"\n",
+    )
+    .expect("write manifest");
+    let dep_dir = root.join("vendor/arrows/fn");
+    fs::create_dir_all(&dep_dir).expect("create dep dir");
+    // `map.hnl` must keep its export as the single root statement (the
+    // Pratt parser yields one top-level node per module), so the nested
+    // import happens inside the bound `do` block and `two` is captured
+    // into the exported arrow's env.
+    write_module(&root.join("vendor/arrows"), "consts.hnl", "two :: 2");
+    write_module(
+        &dep_dir,
+        "map.hnl",
+        "double :: do { import \"../consts.hnl\"; x ~> x * two }",
+    );
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { import \"arrows/fn/map.hnl\"; double(21) }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!(42));
+}
+
+/// Without a manifest (or without a matching `[dependencies]` entry), an
+/// import path falls back to module-root-relative resolution and errors
+/// clearly when the file does not exist.
+#[test]
+fn import_dependency_fallback_to_module_root() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    // Plain relative import still works with no `.handl.toml`.
+    write_module(dir.path(), "local.hnl", "x :: 7");
+    let kit = Kit::discover(dir.path()).expect("kit");
+    let val = kit
+        .eval("do { import \"local.hnl\"; x }")
+        .expect("relative import should succeed");
+    assert_eq!(val, json!(7));
+
+    // A path that looks like a dep specifier but matches nothing resolves
+    // module-root-relative and fails with a read error naming the path.
+    let err = kit
+        .eval("do { import \"arrows/fn/map.hnl\"; x }")
+        .expect_err("undeclared dep path should error");
+    let msg = format!("{}", err);
+    assert!(
+        msg.contains("arrows/fn/map.hnl") || msg.contains("cannot read module"),
+        "error should mention the unresolved path: {}",
+        msg
+    );
+}

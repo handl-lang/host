@@ -80,6 +80,10 @@ pub const HANDL_PREFIX: &str = "handl:";
 /// the matched node: `{ "__keep__": n }`.
 pub const KEEP_KEY: &str = "__keep__";
 
+/// The marker key a `.hnl` transform returns to request a fresh `var` leaf:
+/// `{ "__fresh__": "hint" }`.
+pub const FRESH_KEY: &str = "__fresh__";
+
 /// A [`NativeRewrite`] that resolves `handl:<module>.<fn>` rule names
 /// against registered [`HandlModule`]s and invokes the `.hnl` function.
 ///
@@ -177,7 +181,9 @@ impl NativeRewrite for HandlNativeRewrite {
         if result.is_null() {
             return Ok(ctx.pass_through());
         }
-        let idx = realize(&result, ctx)
+        let mut fresh_counter = 0usize;
+        let mut fresh_names = HashMap::new();
+        let idx = realize(&result, ctx, &mut fresh_counter, &mut fresh_names)
             .map_err(|e| LangError::engine(format!("handl transform '{name}': {e}")))?;
         Ok(AstRef::new(idx))
     }
@@ -211,10 +217,17 @@ fn serialize_node_at(ast: &Ast, node: &AstNode) -> Value {
 /// Realize a returned node spec into the output arena.
 ///
 /// `{"__keep__": n}` reuses the matched node's remapped child `n`;
+/// `{"__fresh__": "hint"}` mints a unique `var` leaf (reused for the same
+/// hint within one rule application);
 /// otherwise `{kind, payload?, children?}` builds a fresh node
-/// (children realized recursively, `__keep__` still indexing the matched
-/// node's children). Realized nodes inherit the matched node's span.
-fn realize(spec: &Value, ctx: &mut RewriteCtx<'_>) -> Result<usize, LangError> {
+/// (children realized recursively, `__keep__` / `__fresh__` still indexing
+/// the matched node's children). Realized nodes inherit the matched node's span.
+fn realize(
+    spec: &Value,
+    ctx: &mut RewriteCtx<'_>,
+    fresh_counter: &mut usize,
+    fresh_names: &mut HashMap<String, usize>,
+) -> Result<usize, LangError> {
     if let Some(keep) = spec.get(KEEP_KEY) {
         let i = keep.as_u64().ok_or_else(|| {
             LangError::engine(format!("'{KEEP_KEY}' marker must be a child index, got {keep}"))
@@ -225,9 +238,24 @@ fn realize(spec: &Value, ctx: &mut RewriteCtx<'_>) -> Result<usize, LangError> {
             ))
         });
     }
+    if let Some(hint) = spec.get(FRESH_KEY) {
+        let hint = hint.as_str().ok_or_else(|| {
+            LangError::engine(format!("'{FRESH_KEY}' marker must be a string hint, got {hint}"))
+        })?;
+        if let Some(&idx) = fresh_names.get(hint) {
+            return Ok(idx);
+        }
+        let name = format!("__fresh_{hint}_{fresh_counter}");
+        *fresh_counter += 1;
+        let mut node = AstNode::new("var").with_payload(Value::from(name));
+        node.span = ctx.node().span;
+        let idx = ctx.out().push(node).index();
+        fresh_names.insert(hint.to_string(), idx);
+        return Ok(idx);
+    }
     let obj = spec.as_object().ok_or_else(|| {
         LangError::engine(format!(
-            "handl transform must return null, a node spec record, or a '{KEEP_KEY}' marker; got {spec}"
+            "handl transform must return null, a node spec record, a '{KEEP_KEY}' marker, or a '{FRESH_KEY}' marker; got {spec}"
         ))
     })?;
     let kind = obj
@@ -240,7 +268,7 @@ fn realize(spec: &Value, ctx: &mut RewriteCtx<'_>) -> Result<usize, LangError> {
     let mut child_indices = Vec::new();
     if let Some(children) = obj.get("children").and_then(Value::as_array) {
         for child in children {
-            child_indices.push(realize(child, ctx)?);
+            child_indices.push(realize(child, ctx, fresh_counter, fresh_names)?);
         }
     }
     let mut payload = obj.get("payload").cloned().unwrap_or(Value::Null);

@@ -1,4 +1,4 @@
-use crate::IpError;
+use super::IpError;
 use core::fmt;
 
 /// An IPv4 address.

@@ -1,23 +1,32 @@
 # The config kit: canonical language plus the configuration/edge module set.
 extends: canonical
-# Pure-library capability declarations (the pure stdlib surface: no OS, no
-# network, no RNG) — kit composition is data, so these are authored here
-# rather than produced by a Rust emitter. Merged on top of the canonical
-# kit's caps via `extends` (union/idempotent).
 caps:
-  - { id: lib.math, description: pure library capability }
-  - { id: lib.str, description: pure library capability }
-  - { id: lib.array, description: pure library capability }
-  - { id: lib.set, description: pure library capability }
-  - { id: lib.bool, description: pure library capability }
-  - { id: lib.cmp, description: pure library capability }
-  - { id: lib.obj, description: pure library capability }
-  - { id: lib.fn, description: pure library capability }
-  - { id: lib.type, description: pure library capability }
-  - { id: lib.crypto, description: pure library capability }
-  - { id: lib.datetime, description: pure library capability }
-  - { id: lib.intl, description: pure library capability }
-  - { id: lib.kv, description: pure library capability }
+  - id: lib.math
+    description: pure library capability
+  - id: lib.str
+    description: pure library capability
+  - id: lib.array
+    description: pure library capability
+  - id: lib.set
+    description: pure library capability
+  - id: lib.bool
+    description: pure library capability
+  - id: lib.cmp
+    description: pure library capability
+  - id: lib.obj
+    description: pure library capability
+  - id: lib.fn
+    description: pure library capability
+  - id: lib.type
+    description: pure library capability
+  - id: lib.crypto
+    description: pure library capability
+  - id: lib.datetime
+    description: pure library capability
+  - id: lib.intl
+    description: pure library capability
+  - id: lib.kv
+    description: pure library capability
 modules:
   - module-runtime
   - utils

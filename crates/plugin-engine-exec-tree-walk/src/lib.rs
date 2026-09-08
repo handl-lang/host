@@ -1342,6 +1342,31 @@ impl TreeWalkEngine {
                 let val = self.eval_node_inner(ast, target_ref, lang, env)?;
                 Ok((val, false))
             }
+            "proj_child_or" => {
+                // Like `proj_child`, but tolerates an absent child (e.g. the
+                // missing `else` of a else-less `if`): when the child index
+                // is out of range the result is `Null` instead of an error.
+                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                    LangError::engine_node(
+                        "proj_child_or: missing index literal".to_string(),
+                        current_node,
+                    )
+                })?;
+                let arena_idx = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .and_then(|children| children.get(idx as usize))
+                    .and_then(|v| v.as_u64());
+                match arena_idx {
+                    Some(i) => {
+                        let val =
+                            self.eval_node_inner(ast, AstRef::new(i as usize), lang, env)?;
+                        Ok((val, false))
+                    }
+                    None => Ok((TaggedValue::Null, false)),
+                }
+            }
             "extend_env" => {
                 let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
                     LangError::engine_node("extend_env: missing name literal", current_node)
@@ -1383,7 +1408,7 @@ impl TreeWalkEngine {
                 // Read params/body from the current node's payload (rich
                 // or Pratt-parsed shapes).
                 let payload = &current_node.payload;
-                let (params, body) = if let (Some(p), Some(b)) = (
+                let (params, rest, body) = if let (Some(p), Some(b)) = (
                     payload.get("params").and_then(|v| v.as_array()),
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
@@ -1400,7 +1425,11 @@ impl TreeWalkEngine {
                                 .map(String::from)
                         })
                         .collect::<Result<_, _>>()?;
-                    (p_names, b as usize)
+                    let rest_name = payload
+                        .get("rest")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    (p_names, rest_name, b as usize)
                 } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
                     let param_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
                         LangError::engine_node(
@@ -1415,44 +1444,13 @@ impl TreeWalkEngine {
                         )
                     })? as usize;
                     let param_node = ast.at(AstRef::new(param_idx))?;
-                    // Collection-vs-single params is a shape question
-                    // (ADR-0081): a shape declaring a variadic role (e.g.
-                    // `params`) is a param list; the legacy `paren`/`array`
-                    // kinds remain only as the role-less fallback.
-                    let param_names: Vec<String> =
-                        if shape_has_variadic_role(lang, &param_node.kind) {
-                            let param_children = param_node
-                                .payload
-                                .get("children")
-                                .and_then(|c| c.as_array())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "closure: params missing children".to_string(),
-                                        current_node,
-                                    )
-                                })?;
-                            let mut names = Vec::with_capacity(param_children.len());
-                            for pc in param_children {
-                                let pidx = pc.as_u64().ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "closure: param index must be a number".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
-                                let pnode = ast.at(AstRef::new(pidx))?;
-                                let pname = lang.param_name(ast, pnode).map_err(|e| {
-                                    LangError::engine_node(e.to_string(), current_node)
-                                })?;
-                                names.push(pname);
-                            }
-                            names
-                        } else {
-                            let pname = lang
-                                .param_name(ast, param_node)
-                                .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                            vec![pname]
-                        };
-                    (param_names, body_idx)
+                    // `param_names` resolves the fixed params and an
+                    // optional rest param (`...name`) data-driven via
+                    // `pattern_role`/variadic-role metadata (ADR-0081).
+                    let (param_names, rest_name) = lang.param_names(ast, param_node).map_err(|e| {
+                        LangError::engine_node(e.to_string(), current_node)
+                    })?;
+                    (param_names, rest_name, body_idx)
                 } else {
                     return Err(LangError::engine_node(
                         "closure: missing params/body in payload".to_string(),
@@ -1462,6 +1460,7 @@ impl TreeWalkEngine {
                 let captured = env.capture();
                 let closure = TaggedValue::Arrow {
                     params: Rc::from(params),
+                    rest: rest.map(Rc::from),
                     body,
                     env: captured,
                     home: None,
@@ -1550,12 +1549,15 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
+                    let start = lang
+                        .child_role_index(&current_node.kind, "entries")?
+                        .unwrap_or(0);
                     // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs
-                    // `{ key: val }` (object). When ALL children are non-entry
-                    // nodes (bare expressions), treat as a block: evaluate
-                    // each and return the last value. When any child is an
-                    // `entry` node, treat as an object.
-                    let all_bare = children.iter().all(|c| {
+                    // `{ key: val }` (object). When ALL children from the
+                    // `entries` role are non-`entry` nodes (bare expressions),
+                    // treat as a block: evaluate each and return the last value.
+                    // When any child is an `entry` node, treat as an object.
+                    let all_bare = children.iter().skip(start).all(|c| {
                         c.as_u64()
                             .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
                             .map(|n| n.kind != "entry")
@@ -1564,7 +1566,7 @@ impl TreeWalkEngine {
                     if all_bare && !children.is_empty() {
                         // Block semantics: evaluate all, return last.
                         let mut last = TaggedValue::Null;
-                        for entry in children {
+                        for entry in children.iter().skip(start) {
                             let idx = entry.as_u64().ok_or_else(|| {
                                 LangError::engine_node(
                                     "object: entry index must be a number".to_string(),
@@ -1576,7 +1578,7 @@ impl TreeWalkEngine {
                         return Ok((last, false));
                     }
                     let mut obj = FxHashMap::default();
-                    for entry in children {
+                    for entry in children.iter().skip(start) {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::engine_node(
                                 "object: entry index must be a number".to_string(),
@@ -1607,26 +1609,30 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        let key_idx =
-                            entry_children
-                                .get(0)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing key child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
-                        let val_idx =
-                            entry_children
-                                .get(1)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing value child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
+                        let key_role = lang
+                            .child_role_index(&entry_node.kind, "key")?
+                            .unwrap_or(0);
+                        let val_role = lang
+                            .child_role_index(&entry_node.kind, "value")?
+                            .unwrap_or(1);
+                        let key_idx = entry_children
+                            .get(key_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing key child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
+                        let val_idx = entry_children
+                            .get(val_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing value child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
                         let key_node = ast.at(AstRef::new(key_idx))?;
                         // Static vs computed key is declared data-driven:
                         // the `entry` shape's `literal_children` list for
@@ -2532,13 +2538,14 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
-        let (params, body_idx, captured_env, home) = match callee {
+        let (params, rest_param, body_idx, captured_env, home) = match callee {
             TaggedValue::Arrow {
                 params,
+                rest,
                 body,
                 env,
                 home,
-            } => (params.clone(), *body, Rc::clone(env), *home),
+            } => (params.clone(), rest.clone(), *body, Rc::clone(env), *home),
             _ => {
                 return Err(LangError::engine(
                     "callee is not an arrow-value".to_string(),
@@ -2580,6 +2587,7 @@ impl TreeWalkEngine {
             engine.modules = frame.modules.clone();
             let local_callee = TaggedValue::Arrow {
                 params,
+                rest: rest_param,
                 body: body_idx,
                 env: captured_env,
                 home: None,
@@ -2603,12 +2611,32 @@ impl TreeWalkEngine {
         // list binds the first `params.len()` args, evaluates the body,
         // and applies the result to the remainder. `f(1, 5)` on a curried
         // arrow is `(f 1) 5`.
+        //
+        // Rest params (`[a, ...rest] ~> body`) change this: when the arrow
+        // declares a rest param, the surplus args bind to it as an array
+        // instead of currying, and the call consumes all args at once.
+        if let Some(rest_name) = &rest_param {
+            let (head, tail) = actual_args.split_at(params.len());
+            return self.apply_arrow_body(
+                &params,
+                Some(rest_name),
+                body_idx,
+                captured_env,
+                head,
+                tail,
+                ast,
+                lang,
+                Some(Rc::clone(&env.globals)),
+            );
+        }
         let (head, mut rest) = actual_args.split_at(params.len());
         let mut val = self.apply_arrow_body(
             &params,
+            None,
             body_idx,
             captured_env,
             head,
+            &[],
             ast,
             lang,
             Some(Rc::clone(&env.globals)),
@@ -2636,9 +2664,11 @@ impl TreeWalkEngine {
     fn apply_arrow_body(
         &self,
         params: &[String],
+        rest_param: Option<&Rc<str>>,
         body_idx: usize,
         captured_env: Rc<FxHashMap<Rc<str>, TaggedValue>>,
         actual_args: &[TaggedValue],
+        rest_args: &[TaggedValue],
         ast: &Ast,
         lang: &Language,
         globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
@@ -2652,6 +2682,13 @@ impl TreeWalkEngine {
         arrow_env.push_scope();
         for (param, arg) in params.iter().zip(actual_args.iter()) {
             arrow_env.define(param, arg.clone());
+        }
+        // Rest param: bind the surplus args as an array (possibly empty).
+        if let Some(name) = rest_param {
+            arrow_env.define(
+                name.as_ref(),
+                TaggedValue::Arr(Rc::from(rest_args.to_vec())),
+            );
         }
         self.eval_node_inner(ast, body_ref, lang, &mut arrow_env)
     }
@@ -3462,6 +3499,81 @@ impl EvalEngine for TreeWalkEngine {
     fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_import_resolver(resolver))
     }
+
+    fn seal_module_value(&self, ast: &Ast, lang: &Language, value: Value) -> Result<Value, LangError> {
+        if !contains_unhomed_arrow(&value) {
+            return Ok(value);
+        }
+        // Register the module's eval frame so the arrow's `body` index
+        // remains meaningful in the importer's scope: `apply_app` /
+        // `call_value` route `__home__`-stamped arrows back to this frame
+        // (its AST, `Language`, module chain, and globals).
+        let frame_id = register_home_frame(
+            Rc::new(ast.clone()),
+            Rc::new(lang.clone()),
+            self.modules.clone(),
+            if self.globals.is_empty() {
+                None
+            } else {
+                Some(self.globals.clone())
+            },
+        );
+        let mut value = value;
+        stamp_home(&mut value, frame_id);
+        Ok(value)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arrow-value sealing helpers (Phase 9.5 module import)
+// ---------------------------------------------------------------------------
+//
+// Mirrors of the private helpers in `plugin-lib-handl` (which stamp arrow
+// arguments/results crossing `HandlFunction` boundaries); kept local so the
+// sealing hook needs no cross-crate plumbing.
+
+/// Whether `value` contains an arrow value (`{"__arrow__": true, ...}`)
+/// that carries no `__home__` frame id — i.e. an arrow whose `body` index
+/// refers to the ambient eval's AST and must be stamped before it crosses
+/// into an importer's scope.
+fn contains_unhomed_arrow(value: &Value) -> bool {
+    match value {
+        Value::Array(a) => a.iter().any(contains_unhomed_arrow),
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
+                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
+                    || o.values().any(contains_unhomed_arrow);
+            }
+            o.values().any(contains_unhomed_arrow)
+        }
+        _ => false,
+    }
+}
+
+/// Stamp every arrow value inside `value` that lacks a `__home__` frame id
+/// with `frame_id` — recursively, including arrows nested inside a
+/// closure's captured `env` (their `body` indices refer to the same AST).
+/// Arrows that already carry a `__home__` keep it: their provenance is
+/// elsewhere.
+fn stamp_home(value: &mut Value, frame_id: u64) {
+    match value {
+        Value::Array(a) => {
+            for v in a.iter_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        Value::Object(o) => {
+            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
+                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
+            {
+                o.insert("__home__".to_string(), Value::from(frame_id));
+            }
+            for v in o.values_mut() {
+                stamp_home(v, frame_id);
+            }
+        }
+        _ => {}
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3936,16 +4048,6 @@ fn role_index_of(lang: &Language, node_kind: &str, role: &str) -> Option<usize> 
 /// Whether `node_kind`'s shape declares the given child role.
 fn role_declared(lang: &Language, node_kind: &str, role: &str) -> bool {
     role_index_of(lang, node_kind, role).is_some()
-}
-
-/// Whether `node_kind`'s shape declares any variadic role (a role that spans
-/// all children from its start index onward, e.g. a statement or param list).
-fn shape_has_variadic_role(lang: &Language, node_kind: &str) -> bool {
-    lang.ast
-        .get_by_identity(node_kind)
-        .and_then(|def| def.children.as_ref())
-        .map(|children| children.iter().any(|spec| spec.variadic))
-        .unwrap_or(false)
 }
 
 /// Project the child arena index at `role` from `node`'s payload children.

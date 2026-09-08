@@ -196,6 +196,13 @@
   pattern: !Literal
     text: import
   priority: 15
+# NOTE: `let` is not a keyword — both `lex.keyword.let` and `lex.let` (and
+# the `token.keyword.let`/`token.let` kinds and `grammar.let.prefix` row)
+# were removed. Source text `let` lexes as a `token.identifier` like any
+# other name; bindings use `x = y` / `x :: y` or graph blocks. The
+# `let`/`stmt.let` node kinds remain as internal binding kinds (eval/type
+# schemes only) produced by self-host/conformance fixtures, not by any
+# surface syntax.
 - id: lex.keyword.in
   token_kind: token.keyword.in
   pattern: !Literal

@@ -1,11 +1,11 @@
 //! Plugin integration: `Refine` operation, `RefinementBehavior` trait,
 //! `BasicRefiner` rule acceptor, and `RefinementCore` plugin.
 //!
-//! This mirrors the platform's generic `RuleAcceptor` pattern:
+//! This follows the standard `RuleAcceptor` plugin pattern:
 //! - `Refine` is the operation marker.
 //! - `RefineRequest` / `RefineResult` are the request/response types.
-//! - `RefinementBehavior` is the behavior trait.
-//! - `BasicRefiner` is the `RuleAcceptor` plugin.
+//! - `RefinementBehavior` is the behavior trait for refinement rules.
+//! - `BasicRefiner` is the `RuleAcceptor` plugin that accepts those rules.
 //! - `RefinementCore` is a `Plugin` that contributes the canonical refinement rule.
 
 use serde_json::Value;
@@ -54,7 +54,7 @@ impl Contribution for Box<dyn RefinementBehavior> {
 
 /// Basic `RuleAcceptor` plugin for the `Refine` operation.
 ///
-/// Like other `RuleAcceptor` plugins, this has no knowledge of concrete refinement logic;
+/// A generic `RuleAcceptor` has no knowledge of concrete refinement logic;
 /// it dispatches to registered `RefinementBehavior` rules keyed by operation kind.
 pub struct BasicRefiner {
     /// Capabilities provided by this plugin.

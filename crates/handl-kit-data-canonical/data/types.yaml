@@ -124,9 +124,17 @@
                     args: []
                     source: Judgment
                     lit: tthen
+                  # `synth_child_or`: the else child is optional — an
+                  # else-less `if` unifies the then-type with itself, so
+                  # the expression keeps the then branch's type.
                   - !Arr
-                    op: synth_child
-                    args: []
+                    op: synth_child_or
+                    args:
+                      - !Arr
+                        op: result
+                        args: []
+                        source: Judgment
+                        lit: tthen
                     source: Judgment
                     lit: 2
                 source: Judgment
@@ -170,8 +178,11 @@
               lit: expected
           source: Judgment
           lit: 1
+        # `check_child_or`: an absent else branch is a no-op check (the
+        # else-less `if` produces null, which is checked by callers if the
+        # result is used).
         snd: !Arr
-          op: check_child
+          op: check_child_or
           args:
             - !Arr
               op: result
@@ -2046,6 +2057,19 @@
               lit: funtype
           source: Judgment
           lit: body
+
+# `let` — internal binding kind (no `let` surface syntax; the grammar
+# row was removed). In block/rec statement
+# position the generic `target`/`value` role convention binds it in Γ
+# (`synth_block`/`check_block`/`synth_rec`); as a standalone expression it
+# mirrors `assign` — a statement with side effects, returning type.unit.
+- id: type.let
+  node_kind: let
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
 
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown

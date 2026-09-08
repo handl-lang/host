@@ -1,4 +1,4 @@
-use crate::{IpAddr, IpError, Ipv6};
+use super::{IpAddr, IpError, Ipv6};
 use core::fmt;
 
 /// A socket address (IP + port).

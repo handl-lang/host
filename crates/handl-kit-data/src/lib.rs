@@ -153,19 +153,17 @@ pub struct DataKitManifest {
     /// Runtime engine selection (ADR §7).
     #[serde(default)]
     pub runtime: RuntimeConfig,
+    /// Capability declarations contributed directly by this kit. Merged into
+    /// the assembled `Language` using the same `lang.caps.merge` path as
+    /// fragment-sourced capabilities (ADR-0044 §5).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub caps: Vec<CapabilityDecl>,
     /// Ordered library module plugin names, resolved at load time via a
     /// [`LibraryRegistry`] populated by the host (e.g. `handl-plugin-ext-kit`).
     /// When `extends` is set, the parent's module list comes first and this
     /// list appends to it, preserving contribution order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<String>,
-    /// Capability declarations this kit contributes directly as data
-    /// (e.g. the `config` kit's pure-library `lib.*` capabilities). Caps use
-    /// union/idempotent merge, so they merge on top of the `extends` parent's
-    /// caps without collisions. The include/exclude filter applies to these
-    /// by `id`, the same as fragment-source caps.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub caps: Vec<CapabilityDecl>,
 }
 
 impl DataKitManifest {
@@ -178,8 +176,8 @@ impl DataKitManifest {
             exclude: Vec::new(),
             extends: None,
             runtime: RuntimeConfig::new(),
-            modules: Vec::new(),
             caps: Vec::new(),
+            modules: Vec::new(),
         }
     }
 
@@ -213,16 +211,15 @@ impl DataKitManifest {
         self
     }
 
-    /// Set the ordered library module plugin names (builder style).
-    pub fn with_modules(mut self, modules: Vec<String>) -> Self {
-        self.modules = modules;
+    /// Set the direct capability declarations (builder style).
+    pub fn with_caps(mut self, caps: Vec<CapabilityDecl>) -> Self {
+        self.caps = caps;
         self
     }
 
-    /// Set the capability declarations contributed directly as data
-    /// (builder style).
-    pub fn with_caps(mut self, caps: Vec<CapabilityDecl>) -> Self {
-        self.caps = caps;
+    /// Set the ordered library module plugin names (builder style).
+    pub fn with_modules(mut self, modules: Vec<String>) -> Self {
+        self.modules = modules;
         self
     }
 }
@@ -363,18 +360,17 @@ impl DataKit {
         manifest: &DataKitManifest,
         registry: &EmitterRegistry,
     ) -> Result<Self, LangError> {
-        // 1. Resolve the `extends` chain: assemble the parent first
-        //    (recursively — the parent may itself `extends` another kit).
-        let mut lang = Language::new();
-        let mut parent_runtime: Option<RuntimeConfig> = None;
-        if let Some(parent_name) = &manifest.extends {
+        // 1. Resolve the `extends` chain: assemble the parent first (one level
+        //    supported in Phase 5).
+        let (mut lang, parent_runtime) = if let Some(parent_name) = &manifest.extends {
             let parent_manifest = registry
                 .resolve_kit(parent_name)
                 .ok_or_else(|| LangError::engine(format!("unknown parent kit: {}", parent_name)))?;
             let parent = DataKit::assemble(parent_manifest, registry)?;
-            lang = parent.lang;
-            parent_runtime = Some(parent.runtime_config);
-        }
+            (parent.lang, parent.runtime_config)
+        } else {
+            (Language::new(), RuntimeConfig::default())
+        };
 
         // 2 + 3. Merge each fragment source's fragments, applying the filter.
         for entry in &manifest.fragments {
@@ -388,21 +384,17 @@ impl DataKit {
             )?;
         }
 
-        // Merge the manifest's own capability declarations (data-level caps,
-        // e.g. `data/kits/config.yaml`'s pure-library `lib.*` list) through
-        // the same include/exclude filter as fragment-source caps.
-        if !manifest.caps.is_empty() {
-            let mut caps_lang = Language::new();
-            for cap in &manifest.caps {
-                caps_lang.caps.merge(cap.clone())?;
-            }
-            merge_filtered(&mut lang, &caps_lang, &manifest.include, &manifest.exclude)?;
+        // 4. Merge direct capability declarations contributed by this kit
+        //    using the same `lang.caps.merge` path as fragment-sourced caps.
+        for cap in &manifest.caps {
+            lang.caps.merge(cap.clone())?;
         }
 
-        // A child with no explicit runtime selection inherits its parent's
-        // (`extends` is inheritance, not just a base language).
-        let runtime_config = if manifest.runtime == RuntimeConfig::new() {
-            parent_runtime.unwrap_or_else(|| manifest.runtime.clone())
+        // Runtime config: a child with no explicit selection inherits its
+        // parent's `RuntimeConfig` so that `extends: canonical` preserves e.g.
+        // `runtime.typecheck: nbe`.
+        let runtime_config = if manifest.runtime == RuntimeConfig::default() {
+            parent_runtime
         } else {
             manifest.runtime.clone()
         };

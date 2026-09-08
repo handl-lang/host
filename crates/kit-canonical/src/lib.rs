@@ -23,6 +23,7 @@ pub mod handl_module {
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
+use handl_platform::config::HostConfig;
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
 use handl_plugin_engine_exec::ImportResolver;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
@@ -45,6 +46,7 @@ use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -216,6 +218,7 @@ impl ModuleResolver for StdlibResolver {
             "result" => stdlib::module_with("result", &StdlibResolver).map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
+            "ip" => Some(std::sync::Arc::new(stdlib::ops::ip::IpModule)),
             _ => None,
         }
     }
@@ -966,6 +969,55 @@ pub struct SpannedToken {
     pub span: Span,
 }
 
+/// Read `<project_root>/.handl.toml` (if present) and resolve its
+/// `[dependencies]` table into an import-name → absolute package directory
+/// map for [`ModuleLoader::with_dependencies`].
+///
+/// Dependency paths are relative to the manifest directory; absolute paths
+/// are honored as-is. A missing manifest yields an empty map (no
+/// dependencies). A present-but-unparseable manifest is an error — silent
+/// fallback would make `import` failures look like missing files rather
+/// than a broken manifest.
+fn load_project_dependencies(
+    project_root: &Path,
+) -> Result<HashMap<String, PathBuf>, LangError> {
+    let manifest_path = project_root.join(".handl.toml");
+    if !manifest_path.is_file() {
+        return Ok(HashMap::new());
+    }
+    let src = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        LangError::engine(format!(
+            "cannot read {}: {}",
+            manifest_path.display(),
+            e
+        ))
+    })?;
+    let config = HostConfig::from_toml(&src).map_err(|e| {
+        LangError::engine(format!(
+            "invalid {}: {}",
+            manifest_path.display(),
+            e
+        ))
+    })?;
+    let deps = config
+        .dependencies
+        .into_iter()
+        .map(|(name, spec)| {
+            let p = PathBuf::from(&spec.path);
+            let abs = if p.is_absolute() {
+                p
+            } else {
+                project_root.join(p)
+            };
+            // Canonicalize when possible so the module cache keys are
+            // stable; fall back to the joined path otherwise.
+            let abs = std::fs::canonicalize(&abs).unwrap_or(abs);
+            (name, abs)
+        })
+        .collect();
+    Ok(deps)
+}
+
 /// The canonical kit: a thin wrapper around the data-driven [`Runtime`].
 ///
 /// [`Kit::new`] assembles the data-driven canonical language
@@ -1012,7 +1064,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone();
-        Self::build_kit(lang, config, None)
+        Self::build_kit(lang, config, None, HashMap::new())
     }
 
     /// Build the canonical kit with a specific eval engine name
@@ -1027,7 +1079,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_eval(eval_name);
-        Self::build_kit(lang, config, None)
+        Self::build_kit(lang, config, None, HashMap::new())
     }
 
     /// Build the canonical kit with a `module_root` directory for resolving
@@ -1042,7 +1094,93 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone();
-        Self::build_kit(lang, config, Some(module_root))
+        Self::build_kit(lang, config, Some(module_root), HashMap::new())
+    }
+
+    /// Build the canonical kit for a project directory: reads
+    /// `<project_root>/.handl.toml` (if present) and wires its
+    /// `[dependencies]` table into the module loader, with `project_root`
+    /// as the module root for relative `import "path"` resolution.
+    ///
+    /// Each `[dependencies]` entry maps an import name to a package
+    /// directory: `import "<name>/<rest>"` resolves `<rest>` inside
+    /// `<project_root>/<dep.path>` (absolute dep paths are honored as-is).
+    /// Vendored/path dependencies only — no registry (ADR-0010 is the
+    /// content-addressed future).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if the manifest exists but fails to parse, or
+    /// if fragment assembly / engine binding fails.
+    pub fn new_with_project(project_root: PathBuf) -> Result<Self, LangError> {
+        let kit = handl_kit_data_canonical::assemble()?;
+        let lang = kit.lang().clone();
+        let config = kit.runtime_config().clone();
+        let deps = load_project_dependencies(&project_root)?;
+        Self::build_kit(lang, config, Some(project_root), deps)
+    }
+
+    /// Build the canonical kit for a project, discovering its `.handl.toml`
+    /// manifest by walking up the directory tree from `start` (a file or
+    /// directory). This is the `hnl run`/`hnl eval` entry point for
+    /// project-aware imports.
+    ///
+    /// - If a `.handl.toml` is found in `start` or any ancestor, the
+    ///   manifest's directory becomes the module root and its
+    ///   `[dependencies]` table is wired into the module loader.
+    /// - Otherwise the module root is `start` itself (its parent directory
+    ///   when `start` is a file) and no dependencies are declared.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if a discovered manifest fails to parse, or if
+    /// fragment assembly / engine binding fails.
+    pub fn discover(start: &Path) -> Result<Self, LangError> {
+        Self::discover_inner(start, None)
+    }
+
+    /// Like [`Kit::discover`] but with a specific eval engine name
+    /// (e.g. `"bytecode"`).
+    ///
+    /// # Errors
+    ///
+    /// See [`Kit::discover`]; additionally returns [`LangError::Engine`] for
+    /// an unknown engine name.
+    pub fn discover_with_eval(start: &Path, eval_name: &str) -> Result<Self, LangError> {
+        Self::discover_inner(start, Some(eval_name))
+    }
+
+    fn discover_inner(start: &Path, eval_name: Option<&str>) -> Result<Self, LangError> {
+        let kit = handl_kit_data_canonical::assemble()?;
+        let lang = kit.lang().clone();
+        let mut config = kit.runtime_config().clone();
+        if let Some(name) = eval_name {
+            config = config.with_eval(name);
+        }
+
+        // Normalize `start` to a directory: a file path contributes its
+        // parent directory.
+        let start_dir = if start.is_file() {
+            start.parent().map(Path::to_path_buf)
+        } else {
+            Some(start.to_path_buf())
+        }
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+        // Walk up looking for `.handl.toml`.
+        let manifest_dir = start_dir
+            .ancestors()
+            .find(|dir| dir.join(".handl.toml").is_file())
+            .map(Path::to_path_buf);
+
+        match manifest_dir {
+            Some(root) => {
+                let deps = load_project_dependencies(&root)?;
+                Self::build_kit(lang, config, Some(root), deps)
+            }
+            None => Self::build_kit(lang, config, Some(start_dir), HashMap::new()),
+        }
     }
 
     /// Build a [`Kit`] from a caller-supplied [`Language`] and
@@ -1060,6 +1198,7 @@ impl Kit {
         lang: Language,
         config: RuntimeConfig,
         module_root: Option<PathBuf>,
+        dependencies: HashMap<String, PathBuf>,
     ) -> Result<Self, LangError> {
         // Build the engine registry with all available engine impls
         // (ADR-0047 §2). The host (this crate) registers the engines;
@@ -1107,6 +1246,19 @@ impl Kit {
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
+        // NOTE (ADR-0094 loader self-hosting): the pure-handl loader
+        // (`handl-packages/loader/loader.hnl`) is fully implemented and
+        // parity-tested against the Rust bootstrap transforms
+        // (`plugin-lib-handl/tests/loader.rs`), but it is deliberately NOT
+        // installed here: every nested `str.*`/`char.*` call inside the
+        // interpreted transforms re-lexes/parses the ~740-line `str-handl`
+        // bridge source, making whole-file processing take minutes per
+        // kit build.  Hosts may opt in via
+        // `handl_plugin_lib_handl::install_loader(HandlLoader::new(vec![
+        // char_backend, str_backend]))`; the bootstrap path remains the
+        // default until the bridge stops re-parsing sources per call or a
+        // compiled eval engine runs the transforms.
+
         let mut stdlib_registry = ModuleRegistry::new();
         stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
         stdlib_registry.register(stdlib::module("math").expect("math"));
@@ -1164,6 +1316,7 @@ impl Kit {
         // seeded RNG for `property`/`fuzz`, ADR-0092).
         stdlib_registry.register(TimeModule);
         stdlib_registry.register(RandModule);
+        stdlib_registry.register(stdlib::ops::ip::IpModule);
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
@@ -1243,18 +1396,25 @@ impl Kit {
         // the loader, build its engine holding an `Rc` clone of the loader,
         // then late-bind the engine.
         let lang_rc = Rc::new(lang.clone());
-        let loader = Rc::new(ModuleLoader::new(
-            Rc::clone(&lang_rc),
-            registry
-                .lex_engine("data")
-                .ok_or_else(|| LangError::engine("missing lex engine 'data' for module loader"))?
-                .box_clone(),
-            registry
-                .parse_engine("pratt")
-                .ok_or_else(|| LangError::engine("missing parse engine 'pratt' for module loader"))?
-                .box_clone(),
-            module_root.clone(),
-        ));
+        let loader = Rc::new(
+            ModuleLoader::new(
+                Rc::clone(&lang_rc),
+                registry
+                    .lex_engine("data")
+                    .ok_or_else(|| {
+                        LangError::engine("missing lex engine 'data' for module loader")
+                    })?
+                    .box_clone(),
+                registry
+                    .parse_engine("pratt")
+                    .ok_or_else(|| {
+                        LangError::engine("missing parse engine 'pratt' for module loader")
+                    })?
+                    .box_clone(),
+                module_root.clone(),
+            )
+            .with_dependencies(dependencies),
+        );
         let loader_eval_engine = TreeWalkEngine::new()
             .with_modules(Rc::clone(&meta_chain) as Rc<dyn handl_platform::ModuleLookup>)
             .with_global("self", handl_language::language_value(&lang))
@@ -1315,7 +1475,7 @@ impl Kit {
         if path.is_dir() {
             let config = handl_kit_data_canonical::manifest().runtime.clone();
             match handl_kit_data_canonical::language_from_yaml() {
-                Ok(lang) => return Self::build_kit(lang, config, None),
+                Ok(lang) => return Self::build_kit(lang, config, None, HashMap::new()),
                 Err(e) => {
                     eprintln!(
                         "kit-canonical: from_path: failed to load canonical language: {}; \
@@ -1485,9 +1645,16 @@ impl Kit {
         &self.runtime
     }
 
+    /// Returns the [`Language`] this kit is bound to — the data hosts use
+    /// for token classification, AST child roles, etc. (ADR-0081).
+    pub fn lang(&self) -> &Language {
+        self.runtime.lang()
+    }
+
     /// Returns the [`Language`](handl_language::Language) this kit was built
     /// from — the data source for token classification
     /// ([`TokenClasses`]), grammar, and AST-shape queries.
+    /// Alias for [`Kit::lang`].
     pub fn language(&self) -> &Language {
         self.runtime.lang()
     }
@@ -2319,11 +2486,11 @@ mod tests {
         assert_eq!(typ["__tag__"], serde_json::json!("type.bool"));
     }
 
-    // NOTE: `let` is fully removed from the language (ADR-0079 completed):
-    // bindings are plain `x = y` / `x :: y`, and `do { ... }` graph blocks
-    // cover the old `let ... in` form. Type-annotated block bindings
-    // (`do { x: T = e; ... }`) are future work — the block binding target
-    // would need to parse `x: T` as a `type-annot` child.
+    // NOTE: `let` is not a keyword — `grammar.let.prefix` and the `let`
+    // token/lexer rows were removed; bindings are `x = y` / `x :: y` or
+    // graph blocks `do { x :: v; ... }`. Typed bindings (`x : T :: v`)
+    // parse the LHS as a `type-annot` via the `:` infix. The following
+    // tests exercise block bindings instead.
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type

@@ -2,15 +2,16 @@
 //!
 //! The **abstraction** crate for the typecheck operation (ADR-0054 §3).
 //!
-//! This crate is the typecheck operation abstraction (operation marker +
-//! trait, no engine). This crate defines the
-//! [`Typecheck`] operation marker, [`TypecheckRequest`],
-//! [`TypecheckResult`], and the [`TypecheckEngine`] trait. `Foreign`
-//! scheme dispatch uses [`handl_platform::ModuleLookup`] from the
-//! `handl-platform` crate (type rules may call host functions).
+//! This crate defines the [`Typecheck`] operation marker,
+//! [`TypecheckRequest`], [`TypecheckResult`], and the [`TypecheckEngine`]
+//! trait, plus the convenience [`check_module`] entry point used by
+//! `hnl typecheck`. `Foreign` scheme dispatch uses
+//! [`handl_platform::ModuleLookup`] from the `handl-platform` crate (type
+//! rules may call host functions).
 //! **No typecheck engine code lives here** — the abstraction is the
-//! contract; a concrete engine (e.g. `handl-plugin-engine-typecheck-nbe`)
-//! implements it.
+//! contract; the concrete engine is `handl-plugin-engine-typecheck-nbe`
+//! (a normalization-based checker), selected via `runtime.typecheck` in
+//! the kit data.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
 //! `lang.types[node.kind]` to find a [`handl_language::Scheme`] and

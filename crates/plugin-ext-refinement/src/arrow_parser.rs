@@ -1154,34 +1154,30 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     })?;
     let kind = &node.kind;
 
-    // Special-case `named_arrow` (pre-v0.1) and `assign` (v0.1): the eval
+    // Data-drive v0.1 `assign` and legacy `named_arrow` bindings: the eval
     // scheme uses `extend_env`/`assign` for runtime evaluation, but for
-    // static materialization we just materialize the expression (child 1).
-    // The name binding is handled at the file level.
-    if lang
-        .child_role_index(kind, "target")
-        .ok()
-        .flatten()
-        .is_some()
-        || kind == "named_arrow"
-        || kind == "assign"
-    {
+    // static materialization we just materialize the `value` child. The
+    // `target` role identifies a binding shape; the expression lives under
+    // the `value` role. `named_arrow` is pre-v0.1 bootstrap with no
+    // AstShapeDef, so it falls through to the positional fallback.
+    if child_role_start(lang, kind, "target").is_some() || kind == "named_arrow" {
         let children = get_children(&node.payload)?;
+        let value_idx = child_role_start(lang, kind, "value").unwrap_or(1);
         let expr_idx = children
-            .get(1)
+            .get(value_idx)
             .and_then(|v| v.as_u64())
-            .ok_or("named_arrow: missing expression child")? as usize;
+            .ok_or("binding: missing expression child")? as usize;
         return materialize_node(ast, expr_idx, lang);
     }
 
     // Special-case `function` (v0.1 replacement for `arrow_proc`): a lambda
-    // `params ~> body`. For refinement, we materialize the body (child 1);
-    // the params are the input binding pattern, not a runtime concern.
+    // `params ~> body`. For refinement, we materialize the `body`; the
+    // params are the input binding pattern, not a runtime concern. The
+    // `body` child is resolved via the canonical `function` AstShapeDef.
     if kind == "function" {
         let children = get_children(&node.payload)?;
-        let body_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
+        let body_idx = child_role_start(lang, kind, "body")
+            .and_then(|idx| children.get(idx).and_then(|v| v.as_u64()))
             .ok_or("function: missing body child")? as usize;
         return materialize_node(ast, body_idx, lang);
     }
@@ -1194,7 +1190,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     // `analyze_branch`, but operating on the AST instead of raw text. The
     // `function` node (from `params ~> body`) has children [params, body].
     if kind == "loop_rich" || kind == "rec" {
-        return rich_loop_to_scheme(ast, node);
+        return rich_loop_to_scheme(ast, node, lang);
     }
 
     // --- Canonical node-kind handling (ADR-0079) ---
@@ -1205,23 +1201,10 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     // or `call` nodes. We intercept these canonical node kinds and produce
     // the corresponding arrow `Scheme` directly, bypassing the canonical
     // eval schemes (which produce runtime dispatch IR, not arrow IR).
-
-    // `flow` (>>> operator) → Seq in arrow (canonical eval produces App).
-    if kind == "flow" {
-        let children = get_children(&node.payload)?;
-        let fst_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or("flow: missing left child")? as usize;
-        let snd_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or("flow: missing right child")? as usize;
-        return Ok(Scheme::Seq {
-            fst: Box::new(materialize_node(ast, fst_idx, lang)?),
-            snd: Box::new(materialize_node(ast, snd_idx, lang)?),
-        });
-    }
+    //
+    // `flow` and `binary.lt`/`binary.lte` are no longer special-cased:
+    // the arrow `Language` overrides the canonical eval schemes with
+    // arrow-calculus `Scheme` templates that `walk_scheme` materializes.
 
     // `var` — bare identifier. `id` → arr_native("id"); other names →
     // App reference (matching the legacy parser's bare-identifier behavior).
@@ -1249,33 +1232,16 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
         });
     }
 
-    // `binary.lte` / `binary.lt` — comparison operators. Produce App with
-    // the corresponding native op as callee.
-    if kind == "binary.lte" || kind == "binary.lt" {
-        let op_name = if kind == "binary.lte" { "lte" } else { "lt" };
-        let children = get_children(&node.payload)?;
-        let l_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or("binary: missing left child")? as usize;
-        let r_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or("binary: missing right child")? as usize;
-        return Ok(Scheme::App {
-            callee: Box::new(Scheme::arr_native(op_name, vec![])),
-            args: vec![
-                materialize_node(ast, l_idx, lang)?,
-                materialize_node(ast, r_idx, lang)?,
-            ],
-        });
-    }
+    // `binary.lte` / `binary.lt` are handled by the arrow `Language`'s
+    // data-driven eval-scheme overrides for `binary.lte` / `binary.lt`.
 
     // `call` — function call. Dispatch on callee name for arrow combinators.
     if kind == "call" {
         let children = get_children(&node.payload)?;
+        let callee_start = child_role_start(lang, kind, "callee").unwrap_or(0);
+        let args_start = child_role_start(lang, kind, "args").unwrap_or(1);
         let callee_idx = children
-            .first()
+            .get(callee_start)
             .and_then(|v| v.as_u64())
             .ok_or("call: missing callee child")? as usize;
         let callee_node = ast
@@ -1295,7 +1261,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "arr" => {
                     // arr("op_name", ...extra_args) → Arr { op, args, Native }
                     let arg_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("arr: missing string arg")?
                         as usize;
@@ -1309,7 +1275,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .ok_or("arr: arg payload is not a string")?
                         .to_string();
                     let mut args = Vec::new();
-                    for i in 2..children.len() {
+                    for i in (args_start + 1)..children.len() {
                         let idx = children[i]
                             .as_u64()
                             .ok_or("arr: child index not a number")?
@@ -1321,11 +1287,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "comp" => {
                     // comp(a, b) → Seq { fst: a, snd: b }
                     let a_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("comp: missing first arg")? as usize;
                     let b_idx = children
-                        .get(2)
+                        .get(args_start + 1)
                         .and_then(|v| v.as_u64())
                         .ok_or("comp: missing second arg")?
                         as usize;
@@ -1337,7 +1303,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "first" => {
                     // first(a) → First { inner: a }
                     let a_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("first: missing arg")? as usize;
                     return Ok(Scheme::First {
@@ -1347,12 +1313,12 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "choice" => {
                     // choice(a, b) → Choice { l: a, r: b }
                     let a_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("choice: missing first arg")?
                         as usize;
                     let b_idx = children
-                        .get(2)
+                        .get(args_start + 1)
                         .and_then(|v| v.as_u64())
                         .ok_or("choice: missing second arg")?
                         as usize;
@@ -1364,7 +1330,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "loop" => {
                     // loop(body) → Loop { body }
                     let body_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("loop: missing body arg")?
                         as usize;
@@ -1375,7 +1341,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                 "app" => {
                     // app("name", ...args) → App { callee: arr_native("name"), args }
                     let arg_idx = children
-                        .get(1)
+                        .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("app: missing string arg")?
                         as usize;
@@ -1389,7 +1355,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .ok_or("app: arg payload is not a string")?
                         .to_string();
                     let mut args = Vec::new();
-                    for i in 2..children.len() {
+                    for i in (args_start + 1)..children.len() {
                         let idx = children[i]
                             .as_u64()
                             .ok_or("app: child index not a number")?
@@ -1405,7 +1371,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                     // Non-combinator call with var callee — treat as App
                     // reference with materialized arguments (arrow semantics).
                     let mut args = Vec::new();
-                    for i in 1..children.len() {
+                    for i in args_start..children.len() {
                         let idx = children[i]
                             .as_u64()
                             .ok_or("call: child index not a number")?
@@ -1606,6 +1572,18 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
         .ok_or("expected 'children' array in node payload".to_string())
 }
 
+/// Resolve a named child role to its positional index, if declared.
+fn child_role_start(lang: &Language, kind: &str, role: &str) -> Option<usize> {
+    lang.child_role_index(kind, role).ok().flatten()
+}
+
+/// Resolve a pattern-role tag for a node kind, if any.
+fn pattern_role<'a>(lang: &'a Language, kind: &str) -> Option<&'a str> {
+    lang.ast
+        .get_by_identity(kind)
+        .and_then(|s| s.pattern_role.as_deref())
+}
+
 // ============================================================================
 // Rich-loop AST-to-Scheme conversion (pattern matching on arrow body)
 // ============================================================================
@@ -1634,12 +1612,14 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
 /// This navigates the AST to find the `[h, ...t]:` arm (the recursive case),
 /// then calls [`analyze_branch_ast`] to determine which `Scheme` graph the
 /// arm body corresponds to.
-fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
+fn rich_loop_to_scheme(ast: &Ast, node: &AstNode, lang: &Language) -> Result<Scheme, String> {
     let children = get_children(&node.payload)?;
 
-    // Child 1 is the arrow expression (child 0 is the declaration block).
+    // The arrow expression is the `body` child (child 1 for the canonical
+    // `rec` shape and for the legacy `loop_rich` shape).
+    let body_idx = child_role_start(lang, &node.kind, "body").unwrap_or(1);
     let arrow_idx = children
-        .get(1)
+        .get(body_idx)
         .and_then(|v| v.as_u64())
         .ok_or("loop_rich: missing arrow child")? as usize;
     let arrow_node = ast
@@ -1655,9 +1635,10 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
     }
 
     let arrow_children = get_children(&arrow_node.payload)?;
-    // Child 1 of arrow is the body (child 0 is params).
+    // The arrow's `body` child (child 1 in the canonical `function` shape).
+    let fn_body_idx = child_role_start(lang, &arrow_node.kind, "body").unwrap_or(1);
     let body_idx = arrow_children
-        .get(1)
+        .get(fn_body_idx)
         .and_then(|v| v.as_u64())
         .ok_or("loop_rich: missing arrow body")? as usize;
     let body_node = ast
@@ -1701,8 +1682,10 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
             continue;
         }
         let arm_children = get_children(&arm_node.payload)?;
+        let pattern_start = child_role_start(lang, &arm_node.kind, "pattern").unwrap_or(0);
+        let body_start = child_role_start(lang, &arm_node.kind, "body").unwrap_or(1);
         let pattern_idx = arm_children
-            .first()
+            .get(pattern_start)
             .and_then(|v| v.as_u64())
             .ok_or("loop_rich: missing pattern")? as usize;
         let pattern_node = ast
@@ -1710,10 +1693,13 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
             .get(pattern_idx)
             .ok_or("loop_rich: pattern node out of bounds")?;
 
-        // Check if the pattern is an array.
-        if pattern_node.kind == "arrow_array" || pattern_node.kind == "array" {
+        // Check if the pattern is a sequence (array). The legacy
+        // `arrow_array` kind has no AstShapeDef, so it is kept as a fallback.
+        if pattern_role(lang, &pattern_node.kind) == Some("sequence")
+            || pattern_node.kind == "arrow_array"
+        {
             let arm_body_idx = arm_children
-                .get(1)
+                .get(body_start)
                 .and_then(|v| v.as_u64())
                 .ok_or("loop_rich: missing arm body")? as usize;
             if let Ok(pattern_children) = get_children(&pattern_node.payload) {
@@ -1733,7 +1719,7 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
     // Analyze the recursive body AST to determine the Scheme graph.
     // The base case body is also collected to detect projection patterns
     // (e.g. `id(state.acc)` in the base case signals reduce vs fold).
-    let body_scheme = analyze_branch_ast(ast, body_idx, base_body_idx)?;
+    let body_scheme = analyze_branch_ast(ast, body_idx, base_body_idx, lang)?;
 
     Ok(Scheme::Loop {
         body: Box::new(body_scheme),
@@ -1772,6 +1758,7 @@ fn analyze_branch_ast(
     ast: &Ast,
     root_idx: usize,
     base_case_idx: Option<usize>,
+    lang: &Language,
 ) -> Result<Scheme, String> {
     let mut collector = PatternCollector::default();
     collector.collect(ast, root_idx);
@@ -1796,7 +1783,7 @@ fn analyze_branch_ast(
                 .nodes()
                 .get(nested_idx)
                 .ok_or("nested loop_rich/rec node out of bounds")?;
-            return rich_loop_to_scheme(ast, nested_node);
+            return rich_loop_to_scheme(ast, nested_node, lang);
         }
     }
 

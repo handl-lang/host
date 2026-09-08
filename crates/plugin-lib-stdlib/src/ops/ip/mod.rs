@@ -53,7 +53,7 @@ pub use socket::SocketAddr;
 /// The handl source declaring the ip `op` interface — the single source
 /// of truth for the ip API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const IP_HNL: &str = include_str!("../../../handl-packages/ip/ip.hnl");
+const IP_HNL: &str = include_str!("../../../../../handl-packages/ip/ip.hnl");
 
 /// The op names declared in `ip.hnl`.
 const IP_OPS: &[&str] = &[
