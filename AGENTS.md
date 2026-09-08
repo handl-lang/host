@@ -125,15 +125,20 @@ and linter all split source into top-level statements at bracket-depth zero
   - `plugin-engine-transform-rewrite/src/native/desugar.rs` (moved from
     `handl-runtime/src/desugar_pass.rs`, ADR-0094): `type-annot`/`paren`
     checks in `desugar_match_to_recursor`/`parse_type_param` are data-driven
-    via `subject`/`annot`/`body` roles. Remaining `kind ==` in
-    `node_to_type_string`, `collect_constructors`, and the
-    `while`/`if`/`for`/`nullish`/`opt-chain`/`data`/`match` natives
-    (formerly the `try_rust_desugar` registry — now named `desugar.*`
-    entries behind `DESUGAR_NATIVES`, still Rust, still bootstrap desugar
-    code) are documented as out-of-scope for ADR-0081 unless/until
-    declarative desugar rules grow fresh-name generation and recursive
-    structure building. The dispatch is now data-driven; the Rust impls
-    remain the flagged debt.
+    via `subject`/`annot`/`body` roles. A fresh-name calculus vocabulary
+    was added: `RewriteStep::Fresh` in `transforms.yaml` and `__fresh__`
+    markers in `.hnl` transform outputs (`plugin-lib-handl` realize).
+    With that, the `nullish`/`opt-chain`/`while`/`for` desugar bodies
+    moved to `handl-kit-data-canonical/data/transforms.yaml`; the
+    `while.state` guard is expressed as a higher-priority pass-through
+    rule. `do-while` is still behind `DESUGAR_NATIVES` (same pattern);
+    `if` remains intentionally unregistered in the desugar pass so the
+    `type.if` rule can typecheck the condition. `data` and `match`
+    stay Rust: `data` needs `node_to_type_string`, `collect_constructors`,
+    strict-positivity checking, and recursive predicate/recursor generation;
+    `match` needs constructor-pattern parsing and recursive recursor
+    building against parsed `data` declarations. These two remain the
+    residual `kind ==` desugar debt.
   - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: **closed**.
     Dispatch uses `AstShapeDef::pattern_role` (`leaf`/`sequence`/`entries`/
     `entry`/`rest`) with a role-less fallback for tests.

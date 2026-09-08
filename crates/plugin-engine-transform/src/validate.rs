@@ -200,6 +200,7 @@ fn validate_step(
                 validate_step(child, lang, shape, rule_id, diags);
             }
         }
+        RewriteStep::Fresh(_) => {}
         RewriteStep::Apply { rule_id: target, index } => {
             if lang.transforms.get_by_id(target).is_none() {
                 diags.push(Diagnostic::new(
