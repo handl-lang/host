@@ -564,12 +564,26 @@ fn check_expr(
     if let (Some(pi), Some(bi)) = (params_idx, body_idx) {
         let children = children_of(node);
         let mut inner_scope = scope.clone();
-        // The params child is a `var` node carrying the parameter name.
-        // v0.1 arrows are single-parameter (`x ~> body`).
+        // `param_names` resolves the fixed params and an optional rest
+        // param (`[a, ...rest] ~> body`) data-driven via `pattern_role`/
+        // variadic-role metadata (ADR-0081); single-param arrows
+        // (`x ~> body`) come back as a one-element list.
         if let Some(&params_raw) = children.get(pi) {
             if let Ok(params_node) = ast.at(AstRef::new(params_raw)) {
-                if let Some(name) = var_name(params_node) {
-                    inner_scope.insert(name);
+                match lang.param_names(ast, params_node) {
+                    Ok((names, rest)) => {
+                        for name in names {
+                            inner_scope.insert(name);
+                        }
+                        if let Some(name) = rest {
+                            inner_scope.insert(name);
+                        }
+                    }
+                    Err(_) => {
+                        if let Some(name) = var_name(params_node) {
+                            inner_scope.insert(name);
+                        }
+                    }
                 }
             }
         }

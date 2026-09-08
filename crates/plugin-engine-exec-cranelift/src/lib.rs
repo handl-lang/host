@@ -995,10 +995,14 @@ pub unsafe extern "C" fn helper_apply_closure(
 
         // Parse closure. Share the captured env via Rc::clone instead of
         // deep-cloning the HashMap (Fix #8).
-        let (params, body_idx, captured_env) = match &closure_val {
+        let (params, rest_param, body_idx, captured_env) = match &closure_val {
             TaggedValue::Arrow {
-                params, body, env, ..
-            } => (params.clone(), *body, Rc::clone(env)),
+                params,
+                rest,
+                body,
+                env,
+                ..
+            } => (params.clone(), rest.clone(), *body, Rc::clone(env)),
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
@@ -1006,7 +1010,14 @@ pub unsafe extern "C" fn helper_apply_closure(
             }
         };
 
-        if params.len() != arg_vals.len() {
+        // Rest param (`[a, ...rest] ~> body`): surplus args bind to the
+        // rest name as an array, so `arg_vals.len() >= params.len()`.
+        let arity_ok = if rest_param.is_some() {
+            arg_vals.len() >= params.len()
+        } else {
+            params.len() == arg_vals.len()
+        };
+        if !arity_ok {
             return ctx.set_error(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
@@ -1031,6 +1042,13 @@ pub unsafe extern "C" fn helper_apply_closure(
         ctx.env.push_scope();
         for (param, arg) in params.iter().zip(arg_vals.iter()) {
             ctx.env.define(param, arg.clone());
+        }
+        // Bind the rest param to the surplus args as an array.
+        if let Some(rest_name) = &rest_param {
+            ctx.env.define(
+                rest_name.as_ref(),
+                TaggedValue::Arr(Rc::from(arg_vals[params.len()..].to_vec())),
+            );
         }
 
         // Save and set current_ref for the body.
@@ -1871,10 +1889,14 @@ fn apply_closure_value(
         // Closure application — must be a TaggedValue::Arrow.
         // Share the captured env via Rc::clone instead of deep-cloning the
         // HashMap (Fix #8).
-        let (params, body_idx, captured_env) = match &closure_val {
+        let (params, rest_param, body_idx, captured_env) = match &closure_val {
             TaggedValue::Arrow {
-                params, body, env, ..
-            } => (params.clone(), *body, Rc::clone(env)),
+                params,
+                rest,
+                body,
+                env,
+                ..
+            } => (params.clone(), rest.clone(), *body, Rc::clone(env)),
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
@@ -1884,7 +1906,14 @@ fn apply_closure_value(
 
         let param_names: Vec<String> = params.iter().map(|s| s.to_string()).collect();
 
-        if param_names.len() != arg_vals.len() {
+        // Rest param (`[a, ...rest] ~> body`): surplus args bind to the
+        // rest name as an array, so `arg_vals.len() >= params.len()`.
+        let arity_ok = if rest_param.is_some() {
+            arg_vals.len() >= params.len()
+        } else {
+            param_names.len() == arg_vals.len()
+        };
+        if !arity_ok {
             return ctx.set_error(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 param_names.len(),
@@ -1908,6 +1937,13 @@ fn apply_closure_value(
         ctx.env.push_scope();
         for (param, arg) in param_names.iter().zip(arg_vals.iter()) {
             ctx.env.define(param, arg.clone());
+        }
+        // Bind the rest param to the surplus args as an array.
+        if let Some(rest_name) = &rest_param {
+            ctx.env.define(
+                rest_name.as_ref(),
+                TaggedValue::Arr(Rc::from(arg_vals[param_names.len()..].to_vec())),
+            );
         }
 
         let saved_ref = ctx.current_ref;
@@ -2734,7 +2770,9 @@ pub unsafe extern "C" fn helper_v2_loop_check(ctx: *mut EvalCtx, result: *mut Ta
 /// Mirrors the v2 tree-walk's `closure` op: reads `params`/`body` from the
 /// payload (rich shape), or falls back to the `children` array (Pratt-parsed
 /// shape). Returns `(params_as_values, body_arena_index)`.
-fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize), LangError> {
+fn resolve_closure_params_body(
+    ctx: &mut EvalCtx,
+) -> Result<(Vec<String>, Option<String>, usize), LangError> {
     let node = ctx.current_node()?;
     let payload = &node.payload;
     if let (Some(p), Some(b)) = (
@@ -2745,7 +2783,11 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
             .iter()
             .map(|v| v.as_str().map(String::from).unwrap_or_default())
             .collect();
-        return Ok((names, b as usize));
+        let rest_name = payload
+            .get("rest")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        return Ok((names, rest_name, b as usize));
     }
     let children = payload
         .get("children")
@@ -2764,42 +2806,13 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
     let ast = unsafe { &*ctx.ast };
     let lang = unsafe { &*ctx.lang };
     let param_node = ast.at(AstRef::new(param_idx))?;
-    // Collection-vs-single params is a shape question (ADR-0081): a shape
-    // declaring a variadic role (e.g. `params`) is a param list; the legacy
-    // `paren`/`array` kinds remain only as the role-less fallback.
-    let param_names: Vec<String> = if lang.has_variadic_role(&param_node.kind) {
-        let param_children = param_node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| {
-                LangError::engine_node("closure: params missing children".to_string(), node)
-            })?;
-        let mut names = Vec::with_capacity(param_children.len());
-        for pc in param_children {
-            let pidx = pc.as_u64().ok_or_else(|| {
-                LangError::engine_node("closure: param index must be a number".to_string(), node)
-            })? as usize;
-            let pnode = ast.at(AstRef::new(pidx))?;
-            let pname = pnode.payload.as_str().ok_or_else(|| {
-                LangError::engine_node(
-                    "closure: param must be a var with string payload".to_string(),
-                    node,
-                )
-            })?;
-            names.push(pname.to_string());
-        }
-        names
-    } else {
-        let pname = param_node.payload.as_str().ok_or_else(|| {
-            LangError::engine_node(
-                "closure: param node must be a var with string payload".to_string(),
-                node,
-            )
-        })?;
-        vec![pname.to_string()]
-    };
-    Ok((param_names, body_idx))
+    // `param_names` resolves fixed params plus an optional rest param
+    // (`...name`) data-driven via `pattern_role`/variadic metadata
+    // (ADR-0081).
+    let (param_names, rest_name) = lang
+        .param_names(ast, param_node)
+        .map_err(|e| LangError::engine_node(e.to_string(), node))?;
+    Ok((param_names, rest_name, body_idx))
 }
 
 /// v2 `array` prim: construct an array value from the current node's payload.
@@ -3187,10 +3200,11 @@ fn apply_native_v2(
             }
         }
         "closure" => match resolve_closure_params_body(ctx) {
-            Ok((params, body)) => {
+            Ok((params, rest, body)) => {
                 let captured = ctx.env.capture();
                 Ok(TaggedValue::Arrow {
                     params: Rc::from(params),
+                    rest: rest.map(Rc::from),
                     body,
                     env: Rc::new(captured),
                     home: None,

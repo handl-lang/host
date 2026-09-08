@@ -148,6 +148,8 @@ pub struct CorpusCase {
 /// | `apply`              | `apply 42`                            | value, apply                        |
 /// | `function_call`      | `let f = [x, y] ~> x + y in f(3, 4)`    | function, call, let, var, binary.add|
 /// | `pipe_call`          | `let f = (x ~> x + 1) in 5 | f`         | function, pipe, let, var, binary.add|
+/// | `rest_params`        | `let f = [a, ...rest] ~> rest in f(1,2,3)` | function(rest param), call, let, var |
+/// | `rest_params_empty`  | `let f = [a, ...rest] ~> rest in f(1)`  | function(rest param), call, let, var |
 /// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
 /// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
@@ -530,6 +532,63 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(6),
+            tree_walk_only: true,
+        },
+        // 23b. Rest params: let f = [a, ...rest] ~> rest in f(1, 2, 3).
+        //     The `rest` payload field marks the variadic parameter; surplus
+        //     args bind to it as an array.
+        CorpusCase {
+            name: "rest_params",
+            source: "let f = [a, ...rest] ~> rest in f(1, 2, 3)",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
+                a.push(
+                    AstNode::new("function") // 1: [a, ...rest] ~> rest
+                        .with_payload(json!({"params": ["a"], "rest": "rest", "body": 0})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(1))); // 2
+                a.push(AstNode::new("value").with_payload(json!(2))); // 3
+                a.push(AstNode::new("value").with_payload(json!(3))); // 4
+                a.push(AstNode::new("var").with_payload(json!("f"))); // 5
+                a.push(
+                    AstNode::new("call") // 6: f(1, 2, 3)
+                        .with_payload(json!({"children": [5, 2, 3, 4]})),
+                );
+                a.push(
+                    AstNode::new("stmt.let") // 7: let f = function in call
+                        .with_payload(json!({"name": "f", "children": [1, 6]})),
+                );
+                a
+            },
+            expected: json!([2, 3]),
+            tree_walk_only: true,
+        },
+        // 23c. Rest params, empty tail: let f = [a, ...rest] ~> rest in f(1).
+        //     With no surplus args the rest binding is the empty array.
+        CorpusCase {
+            name: "rest_params_empty",
+            source: "let f = [a, ...rest] ~> rest in f(1)",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
+                a.push(
+                    AstNode::new("function") // 1: [a, ...rest] ~> rest
+                        .with_payload(json!({"params": ["a"], "rest": "rest", "body": 0})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(1))); // 2
+                a.push(AstNode::new("var").with_payload(json!("f"))); // 3
+                a.push(
+                    AstNode::new("call") // 4: f(1)
+                        .with_payload(json!({"children": [3, 2]})),
+                );
+                a.push(
+                    AstNode::new("stmt.let") // 5: let f = function in call
+                        .with_payload(json!({"name": "f", "children": [1, 4]})),
+                );
+                a
+            },
+            expected: json!([]),
             tree_walk_only: true,
         },
         // 24. Nested let + add: let x = 3 in let y = 4 in x + y
