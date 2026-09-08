@@ -1,73 +1,71 @@
-Flag: type.object = {
-  name: type.string,
-  short: type.string,
-  description: type.string,
-  default: type.string,
-  required: type.bool
-};
+Flag :: {
+  name: String,
+  short: String,
+  description: String,
+  default: String,
+  required: Bool
+}
 
-Command: type.object = {
-  name: type.string,
-  description: type.string,
-  flags: type.arr,
-  subcommands: type.arr,
-  handler: type.string
-};
+Command :: {
+  name: String,
+  description: String,
+  flags: List,
+  subcommands: List,
+  handler: String
+}
 
-make_flag :: (name: type.string, short: type.string, desc: type.string, default: type.string): Flag ->
-  { name: name, short: short, description: desc, default: default, required: false };
+make_flag :: (name: String, short: String, desc: String, default: String) ~> {
+   name: name, short: short, description: desc, default: default, required: false }
 
-make_required_flag :: (name: type.string, short: type.string, desc: type.string): Flag ->
-  { name: name, short: short, description: desc, default: "", required: true };
+make_required_flag :: (name: String, short: String, desc: String) ~> {
+   name: name, short: short, description: desc, default: "", required: true }
 
-make_command :: (name: type.string, desc: type.string, flags: type.arr, subs: type.arr): Command ->
-  { name: name, description: desc, flags: flags, subcommands: subs, handler: "" };
+make_command :: (name: String, desc: String, flags: List, subs: List) ~> {
+   name: name, description: desc, flags: flags, subcommands: subs, handler: "" }
 
-format_flag_line :: (flag: Flag): type.string ->
-  str.concat(
+format_flag_line :: (flag: Flag) ~> str.concat(
     str.concat("  --", str.concat(flag.name, str.concat(", -", str.concat(flag.short, "    ")))),
     str.concat(flag.description, str.concat(" (default: ", str.concat(flag.default, ")")))
-  );
+  )
 
-build_usage :: (cmd: Command): type.string ->
-  str.concat("Usage: ", str.concat(cmd.name, " [options] <command>"));
+build_usage :: (cmd: Command) ~> str.concat("Usage: ", str.concat(cmd.name, " [options] <command>"))
 
-build_help :: (cmd: Command): type.string ->
-  build_usage(cmd)
-  |> (s) -> str.concat(s, "\n\n")
-  |> (s) -> str.concat(s, str.concat(cmd.description, "\n\nOptions:\n"))
-  |> (s) -> str.concat(s, str.join(array.map(cmd.flags, (f: Flag) -> format_flag_line(f)), "\n"))
-  |> (s) -> bool.when(
-      array.is_empty(cmd.subcommands),
-      false,
-      str.concat(s, str.concat("\n\nCommands:\n", str.join(
-        array.map(cmd.subcommands, (c: Command) -> str.concat("  ", str.concat(c.name, str.concat("    ", c.description)))),
+build_help :: (cmd: Command) ~> bool.when(
+    array.is_empty(cmd.subcommands),
+    false,
+    str.concat(
+      str.concat(
+        str.concat(
+          str.concat(build_usage(cmd), "\n\n"),
+          str.concat(cmd.description, "\n\nOptions:\n")
+        ),
+        str.join(array.map(cmd.flags, (f: Flag) ~> format_flag_line(f)), "\n")
+      ),
+      str.concat("\n\nCommands:\n", str.join(
+        array.map(cmd.subcommands, (c: Command) ~> str.concat("  ", str.concat(c.name, str.concat("    ", c.description)))),
         "\n"
-      )))
-    );
+      ))
+    )
+  )
 
-parse_positional :: (args: type.arr): type.arr ->
-  array.filter(args, (token: type.string) ->
-    bool.and(
+parse_positional :: (args: List) ~> array.filter(args, (token: String) ~> bool.and(
       bool.not(str.starts_with(token, "--")),
       bool.not(bool.and(str.starts_with(token, "-"), cmp.gt(str.length(token), 1)))
     )
-  );
+  )
 
-resolve_command :: (root: Command, args: type.arr): type.object ->
-  {
+resolve_command :: (root: Command, args: List) ~> {
+  
     command: option.unwrap_or(array.first(parse_positional(args)), ""),
     matched: root,
     remaining: parse_positional(args)
-  };
+  }
 
-run_cli :: (root: Command, args: type.arr): type.string ->
-  resolve_command(root, args)
-  |> (result) -> bool.when(
-      cmp.eq(result.command, ""),
-      false,
-      build_help(result.matched)
-    );
+run_cli :: (root: Command, args: List) ~> bool.when(
+    cmp.eq(resolve_command(root, args).command, ""),
+    false,
+    build_help(resolve_command(root, args).matched)
+  )
 
 {
   make_flag: make_flag,
