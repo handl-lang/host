@@ -26,11 +26,14 @@ has a module loader. The remaining blockers are dependency resolution in
 ## High priority — handl stdlib in handl (ADR-0092)
 
 `plugin-lib-test` is deleted; the test runner is now `plugin-engine-test`
-(ADR-0089). `error.raise`/`error.try` and the clock/RNG primitives the
-framework needs are wired. The remaining blocker is moving the framework's
-`handl "..."` bindings to pure-handl source files.
+(ADR-0089). The framework is now pure handl: `handl-packages/test/` holds
+`assert.hnl`/`property.hnl`/`benchmark.hnl`/`fuzz.hnl`/`snapshot.hnl`/
+`test.hnl` and the canonical kit registers them. The pure-handl ops use the
+result pattern (`ok`/`err` tagged values) and do not rely on `error.raise`/
+`error.try`; the runner's per-case `EvalError` → failed `TestOutcome` path
+remains unchanged.
 
-- [ ] Rewrite the `handl "..."` bindings in `plugin-engine-test::framework` as
+- [x] Rewrite the temporary `plugin-engine-test::framework` Rust handls as
       pure-handl `assert.hnl`/`property.hnl`/etc. (per ADR-0092 target layout)
 - [~] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
       `handl-packages/` and `examples/` (workflow + script added; currently
