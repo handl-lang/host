@@ -1,0 +1,75 @@
+--- Pure-handl assertion helpers (ADR-0092).
+---
+--- All helpers build `ok`/`err` result values directly; they do not use
+--- the engine's `assert` keyword and never raise.
+
+cap "assert.equal"
+cap "assert.not_equal"
+cap "assert.true"
+cap "assert.false"
+cap "assert.contains"
+
+op "assert.equal" : (Value, Value) -> Value
+
+op "assert.not_equal" : (Value, Value) -> Value
+
+op "assert.true" : Value -> Value
+
+op "assert.false" : Value -> Value
+
+op "assert.contains" : (Array, Value) -> Value
+
+{
+  equal: [a, b] ~> if a == b {
+    tag.tag("ok", { value: b })
+  } else {
+    tag.tag("err", { value: {
+      message: "assertion failed: " + json.stringify(a) + " != " + json.stringify(b),
+      assertion: "equal",
+      expected: json.stringify(b),
+      actual: json.stringify(a)
+    }})
+  },
+
+  not_equal: [a, b] ~> if a != b {
+    tag.tag("ok", { value: b })
+  } else {
+    tag.tag("err", { value: {
+      message: "assertion failed: " + json.stringify(a) + " == " + json.stringify(b),
+      assertion: "not_equal",
+      expected: "values to differ",
+      actual: json.stringify(a)
+    }})
+  },
+
+  "true": x ~> if x == true {
+    tag.tag("ok", { value: x })
+  } else {
+    tag.tag("err", { value: {
+      message: "assertion failed: expected true",
+      assertion: "true",
+      actual: json.stringify(x)
+    }})
+  },
+
+  "false": x ~> if x == false {
+    tag.tag("ok", { value: x })
+  } else {
+    tag.tag("err", { value: {
+      message: "assertion failed: expected false",
+      assertion: "false",
+      actual: json.stringify(x)
+    }})
+  },
+
+  contains: [xs, x] ~> if array.contains(xs, x) {
+    tag.tag("ok", { value: x })
+  } else {
+    tag.tag("err", { value: {
+      message: "assertion failed: " + json.stringify(x) + " not in " + json.stringify(xs),
+      assertion: "contains",
+      expected: json.stringify(x),
+      actual: json.stringify(xs)
+    }})
+  }
+}

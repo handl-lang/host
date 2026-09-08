@@ -1,44 +1,50 @@
---- Test framework contract (ADR-0092).
+--- Test framework — suite execution (ADR-0092).
 ---
---- This file is the stable op/cap contract for the handl test framework:
---- `test.run`, `property.for_all`, `benchmark.run`, `fuzz.run`,
---- `snapshot.*`. `assert` is a keyword, not a library op, and is handled
---- directly by the eval engine.
---- `handl-plugin-lib-test` is deleted; the `handl "..." = rust_*` bindings
---- below resolve to the temporary Rust handls hosted in
---- `plugin-engine-test::framework` (`src/framework/`) until the stdlib
---- primitives the pure-handl implementations need land:
---- error raise/capture (snapshot.match, test.run), a seeded RNG reachable
---- from handl (property/fuzz), and a clock (benchmark).
----
---- test.run — run a test suite (array of test cases) and return a report.
---- property.for_all — run a property-based test with seeded RNG for count iterations.
---- benchmark.run — benchmark a function for a number of iterations and return a timing report.
---- fuzz.run — run a function with random inputs for count iterations and report failures.
---- snapshot.format — serialize a value to a pretty-printed JSON string.
---- snapshot.match — assert that an actual value matches an expected snapshot.
-cap "test.run"
-cap "property.for_all"
-cap "benchmark.run"
-cap "fuzz.run"
-cap "snapshot.format"
-cap "snapshot.match"
-op "test.run" : Array -> Value
-  guarantee: True
-op "property.for_all" : (Function, Number) -> Bool
-  guarantee: True
-op "benchmark.run" : (Function, Number) -> Value
-  guarantee: True
-op "fuzz.run" : (Function, Number) -> Value
-  guarantee: True
-op "snapshot.format" : Value -> String
-  guarantee: IsString(output)
-op "snapshot.match" : (String, Value, Value) -> Bool
-  guarantee: True
+--- `test.run` executes an array of test cases and returns a report.
+--- Each case is `{ name, body, args? }`; the body is a function value
+--- and must return a non-`err` value to pass.  An `err`-tagged result
+--- is treated as a failure and its payload is serialized into the
+--- `error` field.
 
-handl "test.run" = rust_test_run
-handl "property.for_all" = rust_property_for_all
-handl "benchmark.run" = rust_benchmark_run
-handl "fuzz.run" = rust_fuzz_run
-handl "snapshot.format" = rust_snapshot_format
-handl "snapshot.match" = rust_snapshot_match
+cap "test.run"
+
+op "test.run" : Array -> Value
+
+handl "test.run" = run
+
+do {
+  run_case :: [c, t, i, results, passed, failed] ~> {
+    name :: if c.name == null { "case " + type.to_string(i) } else { c.name }
+    body :: c.body
+    args :: if c.args == null { [] } else { c.args }
+    result :: combinators.apply(body, args)
+    pass :: tag.tag_of(result) != "err"
+    error :: if pass { null } else { json.stringify(tag.untag(result).value) }
+    new_results :: [...results, { name: name, pass: pass, error: error }]
+    new_passed :: if pass { passed + 1 } else { passed }
+    new_failed :: if pass { failed } else { failed + 1 }
+    { state: {
+      xs: t,
+      i: i + 1,
+      results: new_results,
+      passed: new_passed,
+      failed: new_failed
+    }}
+  }
+
+  {
+    run: [suite] ~> {
+      while { xs: suite, i: 0, results: [], passed: 0, failed: 0 } {
+        [xs, i, results, passed, failed] ~> match xs {
+          []: { out: {
+            total: passed + failed,
+            passed: passed,
+            failed: failed,
+            results: results
+          }},
+          [c, ...t]: run_case(c, t, i, results, passed, failed)
+        }
+      }
+    }
+  }
+}

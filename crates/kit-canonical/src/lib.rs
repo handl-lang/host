@@ -75,6 +75,28 @@ const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl
 const DEDENT_FUNCS: &[&str] = &["dedent"];
 
 // ---------------------------------------------------------------------------
+// test framework modules (pure Handl — ADR-0092)
+// ---------------------------------------------------------------------------
+
+const TEST_HNL: &str = include_str!("../../../handl-packages/test/test.hnl");
+const TEST_FUNCS: &[&str] = &["run"];
+
+const PROPERTY_HNL: &str = include_str!("../../../handl-packages/test/property.hnl");
+const PROPERTY_FUNCS: &[&str] = &["for_all"];
+
+const BENCHMARK_HNL: &str = include_str!("../../../handl-packages/test/benchmark.hnl");
+const BENCHMARK_FUNCS: &[&str] = &["run"];
+
+const FUZZ_HNL: &str = include_str!("../../../handl-packages/test/fuzz.hnl");
+const FUZZ_FUNCS: &[&str] = &["run"];
+
+const SNAPSHOT_HNL: &str = include_str!("../../../handl-packages/test/snapshot.hnl");
+const SNAPSHOT_FUNCS: &[&str] = &["format", "match"];
+
+const ASSERT_HNL: &str = include_str!("../../../handl-packages/test/assert.hnl");
+const ASSERT_FUNCS: &[&str] = &["equal", "not_equal", "true", "false", "contains"];
+
+// ---------------------------------------------------------------------------
 // str-handl module (pure Handl over the `char` floor — the `str` impl)
 // ---------------------------------------------------------------------------
 
@@ -203,6 +225,60 @@ impl ModuleResolver for StdlibResolver {
 
 fn build_dedent_module() -> HandlModule {
     HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_resolver(&StdlibResolver)
+}
+
+// ---------------------------------------------------------------------------
+// test framework module builders (ADR-0092)
+// ---------------------------------------------------------------------------
+
+fn build_test_module() -> HandlModule {
+    HandlModule::new("test", TEST_HNL, TEST_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(TimeModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+        .with_dependency_arc(std::sync::Arc::new(build_type_module()))
+}
+
+fn build_property_module() -> HandlModule {
+    HandlModule::new("property", PROPERTY_HNL, PROPERTY_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+}
+
+fn build_benchmark_module() -> HandlModule {
+    HandlModule::new("benchmark", BENCHMARK_HNL, BENCHMARK_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(TimeModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+}
+
+fn build_fuzz_module() -> HandlModule {
+    HandlModule::new("fuzz", FUZZ_HNL, FUZZ_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+}
+
+fn build_snapshot_module() -> HandlModule {
+    HandlModule::new("snapshot", SNAPSHOT_HNL, SNAPSHOT_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+}
+
+fn build_assert_module() -> HandlModule {
+    HandlModule::new("assert", ASSERT_HNL, ASSERT_FUNCS)
+        .with_dependency_arc(std::sync::Arc::new(TagModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
 }
 
 /// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
@@ -1209,6 +1285,14 @@ impl Kit {
         stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
         stdlib_registry.register(TagModule);
         stdlib_registry.register(build_dedent_module());
+        // `test` framework modules — pure handl over tag/json/rand/time/
+        // combinators (ADR-0092).
+        stdlib_registry.register(build_test_module());
+        stdlib_registry.register(build_property_module());
+        stdlib_registry.register(build_benchmark_module());
+        stdlib_registry.register(build_fuzz_module());
+        stdlib_registry.register(build_snapshot_module());
+        stdlib_registry.register(build_assert_module());
         stdlib_registry.register(TransformModule::new());
         stdlib_registry.register(CombModule::new());
         // `prim` — the atom layer: all four functions are pure handl

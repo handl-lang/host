@@ -1,0 +1,30 @@
+--- Snapshot formatting and matching (ADR-0092).
+---
+--- `snapshot.format` serializes a value to JSON; `snapshot.match`
+--- compares an actual value to an expected snapshot and returns an
+--- `ok` result on a match or an `err` result describing the mismatch.
+
+cap "snapshot.format"
+cap "snapshot.match"
+
+op "snapshot.format" : Value -> String
+
+op "snapshot.match" : (String, Value, Value) -> Value
+
+handl "snapshot.format" = format
+handl "snapshot.match" = match
+
+{
+  format: [v] ~> json.stringify(v),
+
+  match: [name, actual, expected] ~> if actual == expected {
+    tag.tag("ok", { value: true })
+  } else {
+    tag.tag("err", { value: {
+      message: "snapshot " + name + " mismatch",
+      assertion: "snapshot",
+      expected: json.stringify(expected),
+      actual: json.stringify(actual)
+    }})
+  }
+}
