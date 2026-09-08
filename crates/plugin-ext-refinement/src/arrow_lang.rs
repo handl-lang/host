@@ -16,7 +16,8 @@
 use std::sync::OnceLock;
 
 use handl_language::{
-    AstShapeRef, DelimitedShape, GrammarPosition, GrammarRow, Language, PairShape,
+    AstShapeRef, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow, Language, PairShape,
+    Scheme,
 };
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
@@ -98,6 +99,73 @@ pub fn arrow_language() -> &'static Language {
             )
             .expect("override block grammar row");
 
+        // Override the runtime-oriented eval schemes for `>>>` and comparison
+        // operators with arrow-calculus `Scheme` templates. This lets the arrow
+        // materializer avoid hardcoded `kind == "flow"` / `kind == "binary.*"`
+        // branches: it walks the data-driven eval scheme instead.
+        let flow = Scheme::Seq {
+            fst: Box::new(Scheme::arr_native_lit(
+                "proj_child",
+                vec![],
+                serde_json::Value::from(0u64),
+            )),
+            snd: Box::new(Scheme::arr_native_lit(
+                "proj_child",
+                vec![],
+                serde_json::Value::from(1u64),
+            )),
+        };
+        lang.eval
+            .merge(
+                EvalSchemeDef::new("eval.flow.arrow", "flow", flow)
+                    .with_replaces(vec!["eval.flow".to_string()]),
+            )
+            .expect("override flow eval scheme");
+
+        let bin_lt = Scheme::App {
+            callee: Box::new(Scheme::arr_native("lt", vec![])),
+            args: vec![
+                Scheme::arr_native_lit(
+                    "proj_child",
+                    vec![],
+                    serde_json::Value::from(0u64),
+                ),
+                Scheme::arr_native_lit(
+                    "proj_child",
+                    vec![],
+                    serde_json::Value::from(1u64),
+                ),
+            ],
+        };
+        lang.eval
+            .merge(
+                EvalSchemeDef::new("eval.binary.lt.arrow", "binary.lt", bin_lt)
+                    .with_replaces(vec!["eval.binary.lt".to_string()]),
+            )
+            .expect("override binary.lt eval scheme");
+
+        let bin_lte = Scheme::App {
+            callee: Box::new(Scheme::arr_native("lte", vec![])),
+            args: vec![
+                Scheme::arr_native_lit(
+                    "proj_child",
+                    vec![],
+                    serde_json::Value::from(0u64),
+                ),
+                Scheme::arr_native_lit(
+                    "proj_child",
+                    vec![],
+                    serde_json::Value::from(1u64),
+                ),
+            ],
+        };
+        lang.eval
+            .merge(
+                EvalSchemeDef::new("eval.binary.lte.arrow", "binary.lte", bin_lte)
+                    .with_replaces(vec!["eval.binary.lte".to_string()]),
+            )
+            .expect("override binary.lte eval scheme");
+
         lang
     })
 }
@@ -157,6 +225,41 @@ mod tests {
             row.child_shape.node_kind, "block",
             "lbrace should produce 'block' in arrow DSL, got '{}'",
             row.child_shape.node_kind
+        );
+    }
+
+    #[test]
+    fn arrow_eval_overrides_exist() {
+        // The arrow `Language` overrides the canonical runtime-oriented
+        // eval schemes for `flow` and `binary.lt`/`binary.lte` with
+        // arrow-calculus `Scheme` templates.
+        let lang = arrow_language();
+
+        let flow = lang.eval.get_by_identity("flow").expect("flow eval");
+        assert!(
+            matches!(flow.scheme, Scheme::Seq { .. }),
+            "arrow eval.flow should be a Seq scheme, got {:?}",
+            flow.scheme
+        );
+
+        let bin_lt = lang
+            .eval
+            .get_by_identity("binary.lt")
+            .expect("binary.lt eval");
+        assert!(
+            matches!(bin_lt.scheme, Scheme::App { .. }),
+            "arrow eval.binary.lt should be an App scheme, got {:?}",
+            bin_lt.scheme
+        );
+
+        let bin_lte = lang
+            .eval
+            .get_by_identity("binary.lte")
+            .expect("binary.lte eval");
+        assert!(
+            matches!(bin_lte.scheme, Scheme::App { .. }),
+            "arrow eval.binary.lte should be an App scheme, got {:?}",
+            bin_lte.scheme
         );
     }
 }

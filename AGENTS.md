@@ -163,7 +163,18 @@ and linter all split source into top-level statements at bracket-depth zero
     keyword, not a token class; punctuation spellings resolve through
     `is_label`/`token_kind_for_label` rather than kind strings.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
-    treat as bootstrap or move arrow-grammar into `Language` data.
+    **partially closed**. The canonical v0.1 arrow-surface child positions are
+    now data-driven via `Language::child_role_index` (`target`/`value`,
+    `callee`/`args`, `body`, `pattern`/`body`, `state`/`body`, `left`/`right`)
+    and arrow-specific eval schemes (`flow` → `Seq`, `binary.lt`/`binary.lte`
+    → `App`) are merged into the arrow `Language`. Residual `kind ==` checks
+    (≈20) remain in `PatternCollector`, `extract_dotted_name`, and the
+    `loop_rich`/`arrow_*` bootstrap paths — these are the crate's own
+    refinement-pattern vocabulary and pre-v0.1 node kinds, not generic
+    language surface roles. Documented as bootstrap debt; a full migration
+    would require either adding AstShapeDef entries for the legacy
+    `arrow_*` node kinds or replacing the pattern-matching heuristic with
+    a data-driven arrow-recognition grammar.
   - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed**. `ast.let`
     (`target`/`value` roles), `grammar.let.prefix` (`let x :: v`),
     `eval.let` (native `assign` op), and `type.let` (synth `type.unit`)
