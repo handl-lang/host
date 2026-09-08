@@ -1,4 +1,4 @@
-# Module Resolution: Path-Based Imports + `.handl.toml` Path Dependencies
+# ADR-0096: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies
 
 ## Context
 
