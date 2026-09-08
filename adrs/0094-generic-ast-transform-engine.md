@@ -274,6 +274,9 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
   `plugin-engine-transform-rewrite::native::desugar` behind
   `NativeRewrite`. Each gets a `TransformDef { node_kind, rule:
   Native("desugar.<form>") }` — dispatch data-driven, implementation Rust.
+  (The five fixed-shape forms were later migrated to declarative
+  `TransformDef`s in `transforms.yaml`; only `data`/`match` remain native
+  — see the addendum below.)
 - Two behaviors are preserved exactly: bottom-up insertion-order walk, and
   **span inheritance** — a rewritten node keeps the original node's `span`
   (today's `build_desugar` does this; it becomes the engine's documented
@@ -423,6 +426,39 @@ by the `transforms:` section of sectioned fragment docs (e.g.
 `!Create`, `!KeepPath`, `!KindAt {index, kind}`). `AstShapeDef.desugar` and
 its merge-time lowering are kept — third-party fragments may still declare
 `desugar:` on a shape.
+
+Landed after initial merge: **the fixed-shape desugar natives went
+declarative.** `while`, `do-while`, `for`, `nullish`, and `opt-chain` were
+migrated from Rust `desugar.*` handlers to `TransformDef`s in
+`transforms.yaml` — the audit's assumption that they needed
+fresh-name generation was wrong (their `__continue`/`__result`/`__xs`/
+`rec_v`/`rec_tail` binders are fixed `__`-namespace names, not gensyms)
+and no `Apply`-style recursion was needed either (bottom-up
+`Keep`/`KeepRest` already resolves children to their *rewritten*
+counterparts via the `remap` table). Two findings of note:
+
+- serde_yaml cannot deserialize an enum nested inside
+  `TransformCondition::Not` (a newtype-variant limitation), so the
+  `while` state-passing guard is expressed as a higher-priority
+  identity rule (`transform.desugar.while.state_form`, `priority: -1`,
+  `when: KindAt{index:1, kind:"function"}` → `while → while [Keep 0,
+  Keep 1]`), which produces output identical to a pass-through.
+- The unregistered `desugar_if` (`if`→`match`, never part of the pass
+  because `type.if` must observe `if` nodes) was deleted — it is
+  trivially a `Declarative` rule and its coverage was duplicated by the
+  declarative `if`→`match` lowering tests.
+
+`DESUGAR_NATIVES` now holds only `data` and `match`→recursor
+(`desugar.data`, `desugar.match_recursor`). Those two are **irreducibly
+semantic**: `desugar_data` parses type expressions out of node payloads,
+iterates a variable-length constructor list to generate predicate /
+constructor / recursor functions (including `termination` metadata and
+strict-positivity rejection), and `desugar_match_to_recursor` searches
+the whole input arena for `data` declarations to resolve constructor
+names and arity-check arms. Expressing either would require
+constructor-list iteration, payload-string parsing, and environment
+lookup — a macro system, not a rewrite step. They stay native behind the
+same disciplined `desugar.<form>` registry.
 
 Implemented at landing (originally deferred): `Traversal::TopDown`,
 `Traversal::Fixpoint` (with `max` iterations + a node-count budget —
