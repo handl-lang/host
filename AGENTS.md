@@ -39,11 +39,11 @@ Declarative rules live in `lang.transforms`, authored as first-class
 `TransformDef`s in `data/transforms.yaml` (the `AstShapeDef` `desugar:`
 field is still lowered at merge for third-party backward compat) — that
 includes the five fixed-shape sugar forms (`while`, `do-while`, `for`,
-`nullish`, `opt-chain`), which migrated out of Rust once it became clear
-they need neither fresh-name generation (their `__continue`/`__result`/
-`rec_v`/`rec_tail` binders are fixed `__`-namespace names) nor
-`Apply`-style recursion (bottom-up `Keep`/`KeepRest` already supplies
-rewritten subterms). Only `data` and `match` still fall back to the
+`nullish`, `opt-chain`), which migrated out of Rust once `RewriteStep::
+Fresh` landed (their `__continue`/`__result`/`rec_v`/`rec_tail` binders
+are minted per-application as `__fresh_<hint>_<n>` names) — no
+`Apply`-style recursion is needed either (bottom-up `Keep`/`KeepRest`
+already supplies rewritten subterms). Only `data` and `match` still fall back to the
 named `desugar.*` native registry (`desugar.data`,
 `desugar.match_recursor`): they parse type expressions out of payloads,
 iterate a variable number of constructors, run strict-positivity
@@ -96,6 +96,61 @@ The Pratt parser parses one statement per call. The typechecker, test runner,
 and linter all split source into top-level statements at bracket-depth zero
 (respecting strings and `--` comments) before parsing each chunk individually.
 
+### Dogfood gate status
+
+The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
+`handl-packages/` and `examples/` is scripted in `scripts/dogfood-gate.sh`
+and wired in `.github/workflows/dogfood-gate.yml` as an informational CI job
+(`continue-on-error: true`).
+
+Measured numbers from this session:
+
+- parse failures: 0 (down from 30)
+- typecheck failures: ~57, all `[unbound-wire]` (binder/match-arm scoping and module-env gaps)
+- lint failures: ~135
+
+The gate is not yet green, so it stays informational. Remove
+`continue-on-error: true` once `hnl fmt --check`, `hnl lint`, `hnl typecheck`,
+and `hnl test` are clean over the dogfood corpus.
+
+### Unified import model (ADR-0096)
+
+- **Canonical surface forms** (all → `stmt.import`):
+  `import "<spec>"`, `from "<spec>" import *`, `from "<spec>" import * as
+  <alias>`, `from "<spec>" import <name> [as <alias>]`. The `from` tail is
+  `AstShapeRef::trailing_tokens` on `grammar.stmt-from.prefix`: `import`,
+  then `*` or an identifier captured into `payload.names`, then an optional
+  `as <alias>` gated by `TokenStep::requires_prev_match` (new flag — a
+  gated step is only attempted when the previous step matched, so the alias
+  never swallows a following statement's leading identifier).
+- **Path vs module-name specifiers**: a `<spec>` resolving to a file
+  (`.handl.toml` `[dependencies]` first segment → package dir; else module
+  dir → module root → CWD) is the executable import op — `prim_import` in
+  all three eval engines splices exports, binds the module record under
+  `* as`, or projects a named export (missing name → `module has no
+  export`). A spec that does **not** resolve to a file (bare host-module
+  names like `str`, extension-less siblings like `./dedent`) denotes a
+  module on the host chain: `HandlModule::with_resolver` auto-wires it for
+  `.hnl` module sources, and whole-program/file-loader hosts strip the
+  declaration line (`host-cli::strip_import_declarations`,
+  `ModuleLoader::strip_module_decl_lines`, the test runner's `push_chunk`)
+  because the kit's module chain already supplies the bindings. A
+  `resolve_import` module-name fallback (registry → module-namespace
+  value) is deferred pending `loader.hnl` default install.
+- **`hnl typecheck`** scopes every `stmt.import`'s bound names (child var,
+  `payload.names`, `payload.alias`) at module level and inside `do { ... }`
+  blocks — statements bind sequentially, so block-level imports and
+  `assign` targets are in scope for following siblings.
+  `from "<bare-name>" import *` scopes the module name itself; path splice
+  imports bind statically unknown names (still flagged — use `* as` or the
+  named form).
+- **Arrow-module dialect** (`plugin-ext-refinement`): `import x from "p"`,
+  `import a, b from "p"`, `export ... from` are the arrow-module line
+  scanner's syntax — dialect-fixed, not canonical. Canonical Pratt parses
+  `import x from "p"` as `import (x)` and silently drops the `from "p"`
+  tail (no cursor-exhaustion check); `hnl run`/the test runner strip the
+  line.
+
 ### Known issues
 
 - `let` is **fully removed** from the language (completes ADR-0079):
@@ -108,12 +163,30 @@ and linter all split source into top-level statements at bracket-depth zero
   `do { x = y; ... }` blocks cover the old `let ... in` form. The internal
   `stmt.let` kind is also gone — nothing produced it (no grammar row, no
   desugar native, no transform); block bindings eval directly as `assign`
-  children of `block` via `eval_block`.
+  children of `block` via `eval_block`. `x = y` in a block is
+  **update-or-define** (`ScopeStack::assign` in all three engines —
+  tree-walk, bytecode, cranelift): it updates the nearest enclosing
+  binding when `x` is already bound, else defines a block-local binding —
+  that is what lets `while`/`do-while`/`for` bodies rebind outer
+  variables (`x = x + 1`) and lets the desugars' `__continue`/`__xs`
+  feedback wires reach the `rec` region's bindings. `rec` fixpoint
+  convergence observes those cross-scope writes via
+  `ScopeStack::enclosing_updated` plus an end-of-pass comparison of each
+  rec binding's env value (nested writes are invisible to assign-time
+  change detection); the `eval_rec` native op is implemented in all
+  three engines (`prim_eval_rec` / `prim_v2_eval_rec`), so the
+  `rec`+`assign` structures the `desugar` pass produces for
+  `while`/`do-while`/`for` run identically on the compiled engines.
   The `handl-defining-handl` corpus cases that modelled `let`/`stmt.let`
   were rewritten to `block`+`assign` form
-  (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body` —
-  still `tree_walk_only` since block binding is the tree-walk coverage
-  path). Note: several engine/test crates still use a kind literally
+  (`bind_var`/`bind_stmt`/`nested_bind`/`if_with_bind`/`proc_bind_body`,
+  plus `rest_params`/`rest_params_empty` — **no corpus case is
+  `tree_walk_only` any more**; `function_call`/`pipe_call`/`if_true`
+  were stale flags). `tests/bind_rec_parity.rs` gates the semantics
+  end-to-end: real `do {}` rebinding and `while`/`do-while`/`for`
+  sources are parsed (desugar runs at parse time) and run through
+  tree-walk, bytecode, and cranelift with identical results. Note:
+  several engine/test crates still use a kind literally
   named `"let"` inside **self-contained toy `Language`s** (e.g.
   `plugin-engine-exec-*` unit tests, `handl-test-utils` conformance
   corpus, `plugin-engine-lint`/`plugin-engine-fmt` fixtures,
@@ -146,9 +219,10 @@ and linter all split source into top-level statements at bracket-depth zero
       rewritten to canonical `from "./dedent" import * as dedent`, so the
       divergence is **closed**. Note the import line in `.test.hnl` files is
       still skipped textually by the test runner (and stripped by `hnl
-      run`) — the stdlib module chain supplies the bindings — but the line
-      now also parses under canonical Pratt, so `hnl typecheck`/`lint`/`fmt`
-      accept the file.
+      run` when its specifier does not resolve to a file) — the stdlib
+      module chain supplies the bindings — but the line now also parses
+      under canonical Pratt, so `hnl typecheck`/`lint`/`fmt` accept the
+      file. See "Unified import model (ADR-0096)" below.
     - `plugin-engine-transform-rewrite/src/native/desugar.rs`: only the
       `data` and `match`→recursor desugar natives
       (`node_to_type_string`, `collect_constructors`, strict positivity,
@@ -157,8 +231,7 @@ and linter all split source into top-level statements at bracket-depth zero
       that the `RewriteStep` vocabulary cannot express without growing
       into a macro system. The fixed-shape forms (`while`/`do-while`/
       `for`/`nullish`/`opt-chain`) are declarative `TransformDef`s in
-      `transforms.yaml` — the "fresh-name generation" the audit assumed
-      they needed turned out to be fixed `__`-namespace binders, and
+      `transforms.yaml` — `RewriteStep::Fresh` mints their binders, and
       bottom-up `Keep` supplies the recursion. The unregistered
       `desugar_if` (never in the pass; `type.if` must observe `if` nodes)
       was deleted — the identical rewrite is covered by the declarative
@@ -296,18 +369,26 @@ implementation** of the `.hnl` text transforms: `strip_comments`,
 - `plugin-lib-handl/tests/loader.rs` is a parity test (handl vs bootstrap,
   small corpus) — **all transforms agree**.
 
-**Why the handl loader is not the default yet:** every `Function::call` on
-a `HandlModule` re-lexes/parses the full module source
-(`(source).f(__arg_N)`), and the transforms run on the tree-walk
-interpreter — so each `str.*`/`char.*` op inside the interpreted loader
-costs a re-parse of the ~740-line `str-handl` source. Whole-file
-transforms take ~1.7s per call on *small* sources and minutes across a
-kit's ~30 modules — `kit-canonical` measured this and deliberately does
-**not** `install_loader` (see the NOTE in `build_kit`). Promotion to the
-default path awaits either a parsed-AST cache in `HandlFunction::call`
-(applied-form sources are per-module constants) or a compiled eval engine
-for the transform pass. Until then the Rust `bootstrap` seam is the
-minimal *active* implementation and `loader.hnl` is the verified spec.
+**Why the handl loader is not the default yet:** `HandlFunction::call`
+now caches the parsed applied-form `Ast` per (module, function, arity) in
+a thread-local `AST_CACHE` and evaluates it via
+`Runtime::eval_shared_with_globals` / `EvalEngine::eval_shared` (an
+`Rc<Ast>` seam that eliminates both per-call arena clones on the
+tree-walk engine), so parsing is no longer the bottleneck. Measured on
+`examples/loader_bench.rs` (release): a warm `str.length` call went
+~6.5ms → ~0.33ms (~19×); `loader.strip_decls` on `dedent.hnl` (2.7k
+chars) ~6.7s → ~0.93s (~7×); but on `str-handl.hnl` (22k chars) ~91s →
+~43s. The residual cost is the *interpreted* `str.*`/`char.*` body eval
+over every input character (record caching is impossible across the
+`serde_json::Value` boundary — arrows' captured `env`s expand
+exponentially for `do {}`-block modules like `str-handl`). ~43s for one
+22k-char transform — minutes across a kit's ~30 modules — is still far
+too slow, so `kit-canonical` deliberately does **not** `install_loader`
+(see the NOTE in `build_kit`). Promotion to the default path awaits a
+compiled eval engine (bytecode/cranelift) for the transform pass, or a
+`TaggedValue`-level cache that never serializes captured envs. Until then
+the Rust `bootstrap` seam is the minimal *active* implementation and
+`loader.hnl` is the verified spec.
 
 ## String / Char / Unicode layering (ADR-0093)
 
@@ -381,6 +462,59 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   `str.*` through `plugin-ext-kit::populate` → `library("utils")` without
   wiring the `char` resolver, so the FFI ops stay the non-canonical
   fallback. The canonical `"str"` is `str-handl`.
+- **`hnl typecheck` dialect routing (dogfood-sweep reconciliation).** Not
+  every `.hnl` file is canonical surface syntax: `handl-packages/` mixes
+  three dialects — (a) canonical handl, (b) **contract files**
+  (`axiom <name> : T -> T` + indented `requires:`/`guarantee:`/
+  `termination:` clauses; `contracts/*.hnl`, `str`, `char`, `time`,
+  `unicode`), and (c) **arrow-module files** (top-level `cap`/`op`/`handl`/
+  `tag` declarations and arrow-graph expressions — `arr(`/`first(`/
+  `choice(`/`loop(`/`comp(`/`app(`/`|||`/`rec { ... }` simple form — e.g.
+  `state/*`, `fn/*`, `collection/*`, `parse-*`). `typecheck_one` in
+  `host-cli` now routes: contract files (first top-level line starts with
+  `axiom `) go to `plugin_ext_refinement::parse_contracts`; canonical
+  parse failures or canonical-files-with-arrow-markers-that-error are
+  retried through `parse_arrow_module` (which itself runs the canonical
+  grammar data-driven, then a legacy arrow fallback). Routing lives in
+  `host-cli` because `plugin-engine-typecheck` → `plugin-ext-refinement`
+  would cycle (`refinement` → `kit-data-canonical` → `handl-runtime` →
+  `typecheck`). Sweep result: **30 → 0 parse failures** across the 177-file
+  corpus; typecheck failures 128 → 57, all remaining `[unbound-wire]`
+  (binder/match-arm scoping and module-env gaps — a separate class).
+  - `axiom` is no longer a pure tombstone in the canonical language:
+    `grammar.axiom.prefix` parses `axiom name body` to a `law` node (the
+    documented alias). The contract-file `axiom name : sig` dialect still
+    belongs to `parse_contracts`, which now also accepts the Unicode
+    spellings `→` (arrow), `×` (product), `∧`/`∨` (and/or) used by
+    `handl-packages/contracts/*.hnl`. Note `handl-packages/contracts/` and
+    the crate-bundled `plugin-ext-refinement/contracts/` have **diverged
+    semantically** (the bundled copies are older ASCII variants — e.g.
+    `axiom cons` vs `axiom list.cons`); the loader accepts both spellings
+    but the contents differ — reconciling them is a contract-content
+    decision left open.
+  - `->` and `|>` never lexed in any dialect — dead syntax. The five
+    `cli-framework` files that used the speculative `f :: (p: T): R ->`
+    signature / `x |> (p) -> body` pipe dialect were rewritten to canonical
+    `f :: (p: T) ~> body` + direct calls; `examples/handl/composition.hnl`
+    was rejoined to a single `5 >>> ...` statement (the statement splitter
+    breaks at depth-0 newlines).
+  - `:=` appears only inside `--` comments — no token needed.
+  - Call-site spread `f(...xs)` is **deferred**: no live source uses it
+    (only doc comments); `...` (token.ellipsis) already parses in
+    array/object/rest positions. `...` and `>>>` are distinct tokens — the
+    claimed prefix ambiguity does not exist. Real support needs an
+    eval-scheme splice (a `proj_rest`/apply-path op that expands `rest`
+    children into the arg list), not just a `rest_token` row on `call` —
+    a language-design decision, not a sweep fix.
+  - The arrow parser's named-arrow path now actually splits ` :: ` (it was
+    detected by `has_named_arrows` but never split — `name :: rec {...}`
+    files failed with "no named arrows found") and routes bodies through
+    `parse_arrow_expr` so `rec { ... }` bodies work in named arrows.
+  - Match-arm `{ stmt; stmt }` multi-statement bodies (`fn/*`,
+    `collection/*` rich-rec files) were left in arrow-dialect form — they
+    parse via `parse_arrow_module`'s legacy path and are consumed by the
+    refinement pipeline today (`state_tests` asserts their `Scheme`s).
+    Canonical multi-statement bodies remain `do { ... }`.
 
 ## Stashes
 

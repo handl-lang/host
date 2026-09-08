@@ -98,7 +98,7 @@ pub struct CorpusCase {
 
 /// Build the self-hosting corpus: a set of programs using the data-driven
 /// subset constructs that all three eval engines (tree-walk, bytecode,
-/// cranelift) can evaluate, plus a small set of tree-walk-only cases.
+/// cranelift) can evaluate.
 ///
 /// Each case's [`Ast`] is constructed manually using the canonical data-driven
 /// node kinds and the payload conventions documented by the Phase 4
@@ -146,12 +146,12 @@ pub struct CorpusCase {
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `function_call`      | `let f = [x, y] ~> x + y in f(3, 4)`    | function, call, let, var, binary.add|
-/// | `pipe_call`          | `let f = (x ~> x + 1) in 5 | f`         | function, pipe, let, var, binary.add|
-/// | `rest_params`        | `let f = [a, ...rest] ~> rest in f(1,2,3)` | function(rest param), call, let, var |
-/// | `rest_params_empty`  | `let f = [a, ...rest] ~> rest in f(1)`  | function(rest param), call, let, var |
-/// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
-/// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
+/// | `function_call`      | `do { f :: [x, y] ~> x + y; f(3, 4) }`  | function, call, block, assign, var, binary.add|
+/// | `pipe_call`          | `do { f :: (x ~> x + 1); 5 | f }`       | function, pipe, block, assign, var, binary.add|
+/// | `rest_params`        | `do { f :: [a, ...rest] ~> rest; f(1,2,3) }` | function(rest param), call, block, assign, var |
+/// | `rest_params_empty`  | `do { f :: [a, ...rest] ~> rest; f(1) }` | function(rest param), call, block, assign, var |
+/// | `nested_bind`        | `do { x = 3; y = 4; x + y }`            | block, assign, var, binary.add      |
+/// | `if_with_bind`       | `if (true) (do { x = 1; x }) else 0`    | if, block, assign, var, value       |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
 /// | `array_index`        | `[10, 20, 30][1]`                     | index                               |
 /// | `object_literal`     | `{"a": 1, "b": 2}`                    | object                              |
@@ -351,8 +351,9 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(5),
-            // Block binding is implemented in the tree-walk engine only.
-            tree_walk_only: true,
+            // Block binding (update-or-define `assign`) is implemented in
+            // all three engines.
+            tree_walk_only: false,
         },
         // 14. Block bind via `::`: do { x :: 6; x }
         //     `=` and `::` both lex to `token.bind` → `assign` nodes.
@@ -374,7 +375,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(6),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 15. If true: if (true) 1 else 2
         CorpusCase {
@@ -389,7 +390,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(1),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 16. If false: if (false) 1 else 2
         CorpusCase {
@@ -518,7 +519,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 23. Pipe: do { f :: (x ~> x + 1); 5 | f }
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
@@ -555,14 +556,14 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(6),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
-        // 23b. Rest params: let f = [a, ...rest] ~> rest in f(1, 2, 3).
+        // 23b. Rest params: do { f :: [a, ...rest] ~> rest; f(1, 2, 3) }.
         //     The `rest` payload field marks the variadic parameter; surplus
         //     args bind to it as an array.
         CorpusCase {
             name: "rest_params",
-            source: "let f = [a, ...rest] ~> rest in f(1, 2, 3)",
+            source: "do { f :: [a, ...rest] ~> rest; f(1, 2, 3) }",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
@@ -579,19 +580,23 @@ pub fn corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [5, 2, 3, 4]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 7: let f = function in call
-                        .with_payload(json!({"name": "f", "children": [1, 6]})),
+                    AstNode::new("assign") // 7: f :: function
+                        .with_payload(json!({"children": [5, 1]})),
+                );
+                a.push(
+                    AstNode::new("block") // 8: do { f :: fn; f(1, 2, 3) }
+                        .with_payload(json!({"children": [7, 6]})),
                 );
                 a
             },
             expected: json!([2, 3]),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
-        // 23c. Rest params, empty tail: let f = [a, ...rest] ~> rest in f(1).
+        // 23c. Rest params, empty tail: do { f :: [a, ...rest] ~> rest; f(1) }.
         //     With no surplus args the rest binding is the empty array.
         CorpusCase {
             name: "rest_params_empty",
-            source: "let f = [a, ...rest] ~> rest in f(1)",
+            source: "do { f :: [a, ...rest] ~> rest; f(1) }",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("rest"))); // 0
@@ -606,15 +611,19 @@ pub fn corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [3, 2]})),
                 );
                 a.push(
-                    AstNode::new("stmt.let") // 5: let f = function in call
-                        .with_payload(json!({"name": "f", "children": [1, 4]})),
+                    AstNode::new("assign") // 5: f :: function
+                        .with_payload(json!({"children": [3, 1]})),
+                );
+                a.push(
+                    AstNode::new("block") // 6: do { f :: fn; f(1) }
+                        .with_payload(json!({"children": [5, 4]})),
                 );
                 a
             },
             expected: json!([]),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
-        // 24. Nested let + add: let x = 3 in let y = 4 in x + y
+        // 24. Nested block bindings + add: do { x = 3; y = 4; x + y }
         CorpusCase {
             name: "nested_bind",
             source: "do { x = 3; y = 4; x + y }",
@@ -643,7 +652,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 25. If with block binding in branch:
         //     if (true) (do { x = 1; x }) else 0
@@ -671,7 +680,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(1),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 26. Greater-than-or-equal true: 2 >= 2
         CorpusCase {
@@ -1111,7 +1120,7 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(8),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
     ]
 }

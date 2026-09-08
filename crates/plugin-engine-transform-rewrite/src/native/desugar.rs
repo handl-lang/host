@@ -31,11 +31,12 @@ use std::sync::OnceLock;
 // macro system, not a rewrite step).
 //
 // The fixed-shape sugar forms (`while`, `do-while`, `for`, `nullish`,
-// `opt-chain`, and the unregistered `if`→`match` rewrite) turned out to
-// need neither fresh-name generation (their `__continue`/`__result`/`rec_v`
-// binders are fixed `__`-namespace names) nor `Apply`-style recursion —
-// bottom-up `Keep`/`KeepRest` already supplies the rewritten subterms.
-// They live as `TransformDef`s in `data/transforms.yaml`.
+// `opt-chain`, and the unregistered `if`→`match` rewrite) need no
+// `Apply`-style recursion — bottom-up `Keep`/`KeepRest` already supplies
+// the rewritten subterms — and their `__continue`/`__result`/`rec_v`/
+// `rec_tail` binders are minted by `RewriteStep::Fresh` (per-application
+// `__fresh_<hint>_<n>` names), so no fresh-name machinery is needed here
+// either. They live as `TransformDef`s in `data/transforms.yaml`.
 // ---------------------------------------------------------------------------
 
 /// Get the remapped new arena index of `original`'s child `i`.

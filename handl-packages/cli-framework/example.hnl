@@ -4,7 +4,7 @@ verbose_flag :: {
   description: "Enable verbose output",
   default: "false",
   required: false
-};
+}
 
 output_flag :: {
   name: "output",
@@ -12,7 +12,7 @@ output_flag :: {
   description: "Output file path",
   default: "stdout",
   required: false
-};
+}
 
 config_flag :: {
   name: "config",
@@ -20,7 +20,7 @@ config_flag :: {
   description: "Path to config file",
   default: ".handl.toml",
   required: false
-};
+}
 
 build_cmd :: {
   name: "build",
@@ -28,7 +28,7 @@ build_cmd :: {
   flags: [verbose_flag, output_flag, config_flag],
   subcommands: [],
   handler: "build"
-};
+}
 
 init_cmd :: {
   name: "init",
@@ -36,7 +36,7 @@ init_cmd :: {
   flags: [config_flag],
   subcommands: [],
   handler: "init"
-};
+}
 
 test_cmd :: {
   name: "test",
@@ -44,7 +44,7 @@ test_cmd :: {
   flags: [verbose_flag],
   subcommands: [],
   handler: "test"
-};
+}
 
 root_cmd :: {
   name: "hnl",
@@ -52,19 +52,28 @@ root_cmd :: {
   flags: [verbose_flag, config_flag],
   subcommands: [build_cmd, init_cmd, test_cmd],
   handler: ""
-};
+}
 
-usage_text :: str.concat("Usage: ", str.concat(root_cmd.name, " [options] <command>"));
+usage_text :: str.concat("Usage: ", str.concat(root_cmd.name, " [options] <command>"))
 
-help_text =
-  usage_text
-  |> (s) -> str.concat(s, "\n\n")
-  |> (s) -> str.concat(s, str.concat(root_cmd.description, "\n\nOptions:\n"))
-  |> (s) -> str.concat(s, "  --verbose, -v    Enable verbose output (default: false)\n")
-  |> (s) -> str.concat(s, "  --config, -c     Path to config file (default: .handl.toml)\n")
-  |> (s) -> str.concat(s, "\nCommands:\n")
-  |> (s) -> str.concat(s, "  build    Build the project\n")
-  |> (s) -> str.concat(s, "  init     Initialize a new project\n")
-  |> (s) -> str.concat(s, "  test     Run tests");
+help_text :: str.concat(
+    str.concat(
+      str.concat(
+        str.concat(
+          str.concat(
+            str.concat(
+              str.concat(usage_text, "\n\n"),
+              str.concat(root_cmd.description, "\n\nOptions:\n")
+            ),
+            "  --verbose, -v    Enable verbose output (default: false)\n"
+          ),
+          "  --config, -c     Path to config file (default: .handl.toml)\n"
+        ),
+        "\nCommands:\n"
+      ),
+      "  build    Build the project\n"
+    ),
+    str.concat("  init     Initialize a new project\n", "  test     Run tests")
+  )
 
 help_text

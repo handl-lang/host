@@ -296,6 +296,14 @@ pub struct ScopeStack {
     /// invocations. Accessible via `lookup()` as a fallback but excluded
     /// from `capture()`.
     pub(crate) globals: Rc<FxHashMap<Rc<str>, TaggedValue>>,
+    /// Set when `assign` updates a binding in an *enclosing* scope (not the
+    /// innermost one) with a different value. Read and cleared by
+    /// `rec` fixpoint detection (`prim_eval_rec`) — such writes are the
+    /// ADR-0074 feedback wires: the `while`/`do-while`/`for` desugars
+    /// update `__continue`/`__xs` (and user bindings like `x = x + 1`)
+    /// from inside `if`/`match` branch blocks, and a pass that produces
+    /// any such write must not count as converged.
+    pub(crate) enclosing_updated: bool,
 }
 
 #[allow(clippy::new_without_default)]
@@ -307,6 +315,7 @@ impl ScopeStack {
             scopes: vec![FxHashMap::default()],
             captured: None,
             globals: Rc::new(FxHashMap::default()),
+            enclosing_updated: false,
         }
     }
 
@@ -339,6 +348,39 @@ impl ScopeStack {
         // empty during evaluation.
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(Rc::from(name), value);
+    }
+
+    /// Assign `name = value`: update the nearest existing binding in the
+    /// enclosing local scopes (innermost-first), or define it in the
+    /// innermost scope when the name is not already bound.
+    ///
+    /// This is the `x = y` statement semantics for blocks (ADR-0074): a
+    /// binding that shadows a name bound in an enclosing scope *updates*
+    /// that binding — this is what lets the `while`/`do-while` desugar's
+    /// feedback wires (`__continue = cond` inside the `if` branch block)
+    /// reach the `rec` region's bindings, and what lets loop-body
+    /// rebindings such as `x = x + 1` be observed after the loop. Only
+    /// the local scope stack is searched; `captured` and `globals` are
+    /// read-only snapshots, so a name visible only through them is
+    /// shadowed by a fresh local definition (matching `define`).
+    pub fn assign(&mut self, name: &str, value: TaggedValue) {
+        let last = self.scopes.len() - 1;
+        for (i, scope) in self.scopes.iter_mut().enumerate().rev() {
+            if let Some(slot) = scope.get_mut(name) {
+                if !handl_value::eq(slot, &value) {
+                    *slot = value;
+                    // Only cross-scope writes are fixpoint-relevant: an
+                    // update to a binding defined earlier in the *same*
+                    // innermost scope is ordinary sequencing and must not
+                    // keep a `rec` pass alive.
+                    if i < last {
+                        self.enclosing_updated = true;
+                    }
+                }
+                return;
+            }
+        }
+        self.define(name, value);
     }
 
     /// Push a new empty scope.
@@ -2040,7 +2082,12 @@ impl TreeWalkEngine {
                                 )?;
                                 match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                     Ok(value) => {
-                                        env.define(&var_name, value.clone());
+                                        // `x = y` updates the nearest
+                                        // enclosing binding when `x` is
+                                        // already bound (ADR-0074 feedback
+                                        // wires); otherwise it defines a
+                                        // block-local binding.
+                                        env.assign(&var_name, value.clone());
                                         result = value;
                                         continue 'block;
                                     }
@@ -2819,10 +2866,13 @@ impl TreeWalkEngine {
     /// fallback, the path is also read from `current_node.payload["path"]`
     /// (the `ast.import` shape declares a `path` field).
     ///
-    /// The resolver returns a `Value::Object` of `{name: value, ...}`; each
-    /// entry is bound into the current (innermost) scope via
-    /// [`ScopeStack::define`]. No new scope is pushed (`did_push = false`):
-    /// imported bindings share the importer's scope.
+    /// The resolver returns a `Value::Object` of `{name: value, ...}`. The
+    /// node's `payload.names`/`payload.alias` (set by the `from "path"
+    /// import ...` grammar tail) select the binding mode: a named import
+    /// projects a single export, `* as alias` binds the whole object, and
+    /// `*`/bare `import "path"` splices each export into the current
+    /// (innermost) scope via [`ScopeStack::define`]. No new scope is pushed
+    /// (`did_push = false`): imported bindings share the importer's scope.
     ///
     /// If no resolver is configured, the op errors gracefully.
     fn prim_import(
@@ -2862,10 +2912,35 @@ impl TreeWalkEngine {
             // is a bare engine error.
             LangError::engine_node(format!("import \"{}\": {}", path, e), current_node)
         })?;
-        // If an alias is present (`from "path" import * as alias`), bind the
-        // whole module object to that name. Otherwise bind each top-level
-        // export into the current scope.
-        if let Some(alias) = current_node.payload.get("alias").and_then(|v| v.as_str()) {
+        // Binding semantics (`payload.names` / `payload.alias`, ADR-0096):
+        // - `import "path"` / `from "path" import *` (no alias): splice each
+        //   top-level export into the current scope.
+        // - `from "path" import * as alias`: bind the whole module object to
+        //   `alias`.
+        // - `from "path" import name [as alias]`: project `name` out of the
+        //   module's exports and bind it under `alias` (or `name`).
+        let names = current_node
+            .payload
+            .get("names")
+            .and_then(|v| v.as_str())
+            .filter(|n| *n != "*");
+        let alias = current_node
+            .payload
+            .get("alias")
+            .and_then(|v| v.as_str());
+        if let Some(imported) = names {
+            let exported = match &bindings {
+                Value::Object(map) => map.get(imported).cloned(),
+                _ => None,
+            };
+            let value = exported.ok_or_else(|| {
+                LangError::engine_node(
+                    format!("import \"{}\": module has no export `{}`", path, imported),
+                    current_node,
+                )
+            })?;
+            env.define(alias.unwrap_or(imported), TaggedValue::from(value));
+        } else if let Some(alias) = alias {
             env.define(alias, TaggedValue::from(bindings.clone()));
         } else if let Value::Object(map) = bindings {
             for (name, val) in map {
@@ -3270,6 +3345,7 @@ impl TreeWalkEngine {
         // Initialize from the enclosing scope so we can detect the first
         // change correctly.
         let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+        let mut binding_names: Vec<Rc<str>> = Vec::new();
         for entry in children {
             let child_idx = entry.as_u64().ok_or_else(|| {
                 LangError::engine_node(
@@ -3301,7 +3377,9 @@ impl TreeWalkEngine {
                             // search innermost-first, but the inner scope is
                             // empty at this point, so it falls through.
                             let outer_val = env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
-                            prev_values.insert(Rc::from(name.as_str()), outer_val);
+                            let name_rc = Rc::from(name.as_str());
+                            prev_values.insert(Rc::clone(&name_rc), outer_val);
+                            binding_names.push(name_rc);
                         }
                     }
                 }
@@ -3382,16 +3460,7 @@ impl TreeWalkEngine {
 
                             match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                 Ok(new_val) => {
-                                    let prev = prev_values
-                                        .get(var_name.as_str())
-                                        .cloned()
-                                        .unwrap_or(TaggedValue::Null);
                                     env.define(&var_name, new_val.clone());
-                                    if !rec_value_eq(&new_val, &prev) {
-                                        changed = true;
-                                        prev_values
-                                            .insert(Rc::from(var_name.as_str()), new_val.clone());
-                                    }
                                     result = new_val;
                                 }
                                 Err(_) => {
@@ -3408,6 +3477,33 @@ impl TreeWalkEngine {
 
                 // Non-binding expression — evaluate normally.
                 result = self.eval_node_inner(ast, AstRef::new(child_idx), lang, env)?;
+            }
+
+            // End-of-pass fixpoint check. A binding's value can also change
+            // via a nested update — `x = y` inside a block updates the
+            // nearest enclosing binding (`ScopeStack::assign`), which is how
+            // the `while`/`do-while`/`for` desugars rewrite the rec-scope
+            // `__continue`/`__xs` slots from inside the `if`/`match` branch
+            // blocks. Comparing only at rec-level assign-eval time misses
+            // those writes and converges one pass early (or oscillates), so
+            // compare each tracked binding's *current* env value against
+            // the value it held at the end of the previous pass — and treat
+            // any cross-scope write observed this pass (e.g. a body rebinding
+            // an outer variable) as a change.
+            if env.enclosing_updated {
+                changed = true;
+                env.enclosing_updated = false;
+            }
+            for name in &binding_names {
+                let cur = env.lookup(name).cloned().unwrap_or(TaggedValue::Null);
+                let prev = prev_values
+                    .get(name.as_ref())
+                    .cloned()
+                    .unwrap_or(TaggedValue::Null);
+                prev_values.insert(Rc::clone(name), cur.clone());
+                if !rec_value_eq(&cur, &prev) {
+                    changed = true;
+                }
             }
 
             if !changed {
@@ -3435,10 +3531,12 @@ impl Default for TreeWalkEngine {
     }
 }
 
-impl EvalEngine for TreeWalkEngine {
-    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
-        let ast = &req.ast;
-        if ast.is_empty() {
+impl TreeWalkEngine {
+    /// Shared eval body for [`EvalEngine::eval`] / [`EvalEngine::eval_shared`]:
+    /// install `ast_rc`/`lang_rc`/modules in the thread-locals (saving the
+    /// previous values for nested evals), then evaluate the arena root.
+    fn eval_ast_rc(&self, lang: &Language, ast_rc: Rc<Ast>) -> Result<Value, LangError> {
+        if ast_rc.is_empty() {
             return Ok(Value::Null);
         }
         // Set thread-locals so host functions can call arrow-values via
@@ -3447,7 +3545,6 @@ impl EvalEngine for TreeWalkEngine {
         // another `HandlFunction` — e.g. `dedent` → `str.*` → `str-handl` →
         // `char.*` runs a nested `Runtime::run` → `eval`) restores them on
         // return instead of clobbering the outer runtime's state.
-        let ast_rc = Rc::new(ast.clone());
         let lang_rc = Rc::new(lang.clone());
         let modules_rc = self.modules.clone();
         let prev_ast =
@@ -3482,6 +3579,19 @@ impl EvalEngine for TreeWalkEngine {
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
         result
+    }
+}
+
+impl EvalEngine for TreeWalkEngine {
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
+        self.eval_ast_rc(lang, Rc::new(req.ast.clone()))
+    }
+
+    /// `Rc`-carrying entry point (e.g. `plugin-lib-handl`'s per-thread
+    /// parsed-AST cache): installs the caller's `Rc<Ast>` directly as
+    /// `CURRENT_AST`, avoiding the per-call arena deep clone entirely.
+    fn eval_shared(&self, lang: &Language, ast: &Rc<Ast>) -> Result<Value, LangError> {
+        self.eval_ast_rc(lang, Rc::clone(ast))
     }
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {

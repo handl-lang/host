@@ -383,6 +383,19 @@ fn chunk_span(src: &str, stmt: &Stmt) -> Span {
     Span::from_byte_range(stmt.offset, stmt.offset + stmt.text.len(), src)
 }
 
+/// Whether a module specifier is a bare host-module name (e.g. `"str"`,
+/// `"str-handl"`) rather than a path. A bare name is a single segment of
+/// identifier/`kebab` characters — no `/`, `\`, `.`, or leading `./`.
+/// See ADR-0096: bare names resolve via the host module chain, not the
+/// file loader.
+fn is_bare_module_name(spec: &str) -> bool {
+    !spec.is_empty()
+        && spec
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        && spec.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
 /// Whether a byte is an identifier continuation character
 /// (`[A-Za-z0-9_]`).
 fn is_ident_byte(b: u8) -> bool {
@@ -483,22 +496,8 @@ fn collect_decls(
 
         // Import: `stmt.import` (no roles → positional child 0).
         if root.kind == KIND_IMPORT {
-            let children = children_of(root);
-            if let Some(&child_raw) = children.first() {
-                if let Ok(child_node) = stmt.ast.at(AstRef::new(child_raw)) {
-                    if let Some(name) = var_name(child_node) {
-                        imports.push(Import { name, stmt_idx: i });
-                    }
-                }
-            }
-            // `from "path" import * as alias` stores the alias in the payload.
-            if let Some(name) = root.payload.get("alias").and_then(|v| v.as_str()) {
-                if !name.is_empty() {
-                    imports.push(Import {
-                        name: name.to_string(),
-                        stmt_idx: i,
-                    });
-                }
+            for name in stmt_import_bound_names(&stmt.ast, root) {
+                imports.push(Import { name, stmt_idx: i });
             }
             continue;
         }
@@ -518,6 +517,57 @@ fn collect_decls(
     }
 
     (bindings, imports, exports)
+}
+
+/// Names bound into scope by a `stmt.import` node (ADR-0096).
+///
+/// Covers all import surface forms:
+/// - `import <name>` (and the `import <name> from "path"` module-declaration
+///   order, which parses as `import (<name>)`) — the child `var` is bound;
+/// - `from "<spec>" import <name>` — `name` is bound (named projection);
+/// - `from "<spec>" import <name> as <alias>` — `alias` is bound;
+/// - `from "<spec>" import * as <alias>` — `alias` is bound;
+/// - `from "<bare-name>" import *` — the bare module name itself is bound
+///   (host-module names like `str` resolve qualified calls through the
+///   module chain);
+/// - `import "<spec>"` and `from "<spec>" import *` with a path specifier
+///   splice exports statically unknown here — they bind no name.
+fn stmt_import_bound_names(ast: &Ast, root: &AstNode) -> Vec<String> {
+    let mut bound = Vec::new();
+    // `import <name>` — the single child is a `var` carrying the name (the
+    // `from`-form child is the path string, which `var_name` rejects).
+    let children = children_of(root);
+    if let Some(&child_raw) = children.first() {
+        if let Ok(child_node) = ast.at(AstRef::new(child_raw)) {
+            if let Some(name) = var_name(child_node) {
+                bound.push(name);
+            }
+        }
+    }
+    let alias = root.payload.get("alias").and_then(|v| v.as_str());
+    let names = root.payload.get("names").and_then(|v| v.as_str());
+    let path = root.payload.get("path").and_then(|v| v.as_str());
+    if let Some(a) = alias {
+        if !a.is_empty() {
+            bound.push(a.to_string());
+        }
+    } else {
+        match names {
+            Some(n) if n != "*" => bound.push(n.to_string()),
+            // `from "str" import *` — bare module-name spec: the module
+            // name is usable qualified (`str.trim`) via the host module
+            // chain.
+            Some("*") => {
+                if let Some(p) = path {
+                    if is_bare_module_name(p) {
+                        bound.push(p.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    bound
 }
 
 // ---------------------------------------------------------------------------
@@ -653,6 +703,64 @@ fn check_expr(
                 stmt,
                 diags,
                 references,
+            );
+        }
+        return;
+    }
+
+    // Sequential-statement containers: a node declaring a variadic
+    // `statements` role (`block` from `do { ... }`) binds names
+    // left-to-right — an `assign` target or an import declaration's bound
+    // names are in scope for all following siblings, mirroring
+    // `eval_block`/`prim_import` runtime semantics (ADR-0096).
+    if let Ok(Some(stmts_idx)) = lang.child_role_index(&node.kind, "statements") {
+        let children = children_of(node);
+        let mut block_scope = scope.clone();
+        for &child_raw in children.iter().skip(stmts_idx) {
+            let child_ref = AstRef::new(child_raw);
+            let child = match ast.at(child_ref) {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+            // `stmt.import`: its bound names enter the sibling scope; the
+            // statement itself carries no checkable expression (the child
+            // is a specifier string or bound name, not a reference).
+            if child.kind == KIND_IMPORT {
+                for name in stmt_import_bound_names(ast, child) {
+                    block_scope.insert(name);
+                }
+                continue;
+            }
+            // Binding (`assign`-like: `target` + `value` roles): check the
+            // value in the current scope, then bind the target for the
+            // remaining siblings.
+            let target_idx = lang.child_role_index(&child.kind, "target").ok().flatten();
+            let value_idx = lang.child_role_index(&child.kind, "value").ok().flatten();
+            if let (Some(ti), Some(vi)) = (target_idx, value_idx) {
+                let grandchildren = children_of(child);
+                if let Some(&value_raw) = grandchildren.get(vi) {
+                    check_expr(
+                        lang,
+                        src,
+                        ast,
+                        AstRef::new(value_raw),
+                        &block_scope,
+                        stmt,
+                        diags,
+                        references,
+                    );
+                }
+                if let Some(&target_raw) = grandchildren.get(ti) {
+                    if let Ok(target_node) = ast.at(AstRef::new(target_raw)) {
+                        if let Some(name) = var_name(target_node) {
+                            block_scope.insert(name);
+                        }
+                    }
+                }
+                continue;
+            }
+            check_expr(
+                lang, src, ast, child_ref, &block_scope, stmt, diags, references,
             );
         }
         return;

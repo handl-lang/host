@@ -473,9 +473,13 @@ mod tests {
         // and rewrite steps).
         use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
-        // 3 baseline rules (call, entry, lower.entry) + 5 new desugar rules
-        // (nullish, opt-chain, while, while.state, for).
-        assert_eq!(lang.transforms.len(), 8);
+        // 3 baseline rules (call, entry, lower.entry) + 6 desugar rules
+        // (do_while, nullish, opt-chain, while, while.state, for).
+        assert_eq!(lang.transforms.len(), 9);
+        assert_eq!(
+            lang.transforms_for("desugar", "do-while")[0].id,
+            "transform.desugar.do_while"
+        );
 
         let call = &lang.transforms_for("desugar", "call")[0];
         assert_eq!(call.id, "transform.desugar.call");

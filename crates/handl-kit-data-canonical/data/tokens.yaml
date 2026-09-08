@@ -3,7 +3,7 @@
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
-# Retained: axiom (compatible alias for law).
+# Retained: axiom (compatible alias for law — grammar.axiom.prefix).
 #
 # `category` is the tooling classification consumed by host-lsp /
 # host-tooling via `Language::token_category` (ADR-0044 — no hardcoded

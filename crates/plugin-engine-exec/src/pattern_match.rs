@@ -50,6 +50,16 @@ pub trait PatternMatchCtx {
     fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<Value, LangError>;
 }
 
+/// Whether a `var` name in pattern position is a wildcard (binds nothing).
+///
+/// The surface convention is `_`/`_*`. `__fresh_`-prefixed names are
+/// exempt: they are minted by the transform engine (`RewriteStep::Fresh`)
+/// as desugar-internal binders — e.g. the `for` desugar's `...rec_tail`
+/// rest binder — and must bind even though they start with `_`.
+fn is_wildcard_name(name: &str) -> bool {
+    name.starts_with('_') && !name.starts_with("__fresh_")
+}
+
 /// Interpret a pattern AST node structurally against a scrutinee value.
 ///
 /// Returns `Ok(true)` if the pattern matches, `Ok(false)` if it does not.
@@ -70,7 +80,7 @@ pub fn try_pattern(
     // `var` node (identifier pattern).
     if pattern_node.kind == "var" {
         if let Some(name) = pattern_node.payload.as_str() {
-            if name == "_" || name.starts_with('_') {
+            if is_wildcard_name(name) {
                 // Wildcard — always matches, binds nothing.
                 return Ok(true);
             }
@@ -118,7 +128,7 @@ fn rest_binder_name(ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangE
     let var_node = ast.at(AstRef::new(var_idx as usize))?;
     if var_node.kind == "var" {
         if let Some(name) = var_node.payload.as_str() {
-            if name == "_" || name.starts_with('_') {
+            if is_wildcard_name(name) {
                 return Ok(None); // Wildcard rest — binds nothing.
             }
             return Ok(Some(name.to_string()));
@@ -370,7 +380,7 @@ fn try_tag_pattern(
         let binder_node = ast.at(AstRef::new(binder_idx))?;
         if binder_node.kind == "var" {
             if let Some(name) = binder_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
+                if is_wildcard_name(name) {
                     return Ok(true); // Wildcard
                 }
                 ctx.define_binding(name, payload_fields[0].1.clone());
@@ -383,7 +393,7 @@ fn try_tag_pattern(
         let binder_node = ast.at(AstRef::new(binder_idx))?;
         if binder_node.kind == "var" {
             if let Some(name) = binder_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
+                if is_wildcard_name(name) {
                     continue; // Wildcard
                 }
                 if let Some(&(_, val)) = payload_fields.get(i) {

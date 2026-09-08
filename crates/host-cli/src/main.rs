@@ -417,12 +417,109 @@ fn typecheck_command(args: &[String]) -> i32 {
     if had_failure { 1 } else { 0 }
 }
 
+// ---------------------------------------------------------------------------
+// Dialect detection (ADR-0077)
+// ---------------------------------------------------------------------------
+//
+// Not every `.hnl` file is written in the canonical surface language. Two
+// sibling dialects are parsed by `plugin-ext-refinement` instead:
+//
+// - **Contract files**: `axiom <name> : <type> -> <type>` headers plus
+//   indented `requires:`/`guarantee:`/`termination:` clauses — validated by
+//   `loader::parse_contracts`.
+// - **Arrow-module files**: top-level `cap`/`op`/`handl`/`tag` declarations
+//   and arrow-graph expressions (`arr(...)`, `a >>> b`, `a ||| b`,
+//   `first(...)`, `loop(...)`, `rec { ... }`, `comp(...)`, `app(...)`) —
+//   validated by `arrow_parser::parse_arrow_module`, which runs the
+//   canonical-grammar data-driven parser with a legacy arrow fallback.
+//
+// `hnl typecheck` is the canonical-language checker, so these files are
+// routed to their own loaders: a successful dialect parse means the file is
+// valid in the dialect that owns it.
+
+/// A top-level (column-0) source line, with `--` line comments removed.
+/// Returns `None` for blank lines, comments, and indented lines (contract
+/// clause lines are indented and never carry a directive keyword).
+fn top_level_line(line: &str) -> Option<&str> {
+    if line.chars().next().is_none_or(|c| c.is_whitespace()) {
+        return None;
+    }
+    let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
+    let t = code.trim_end();
+    (!t.is_empty()).then_some(t)
+}
+
+/// True when the source is a contract-dialect file: the first top-level
+/// statement line starts with `axiom `.
+fn is_contract_source(src: &str) -> bool {
+    src.lines()
+        .filter_map(top_level_line)
+        .next()
+        .is_some_and(|l| l.starts_with("axiom "))
+}
+
+/// True when the source shows arrow-dialect markers: top-level
+/// `cap`/`op`/`handl`/`tag` declaration lines or arrow-combinator
+/// expressions (`arr(`, `first(`, `choice(`, `loop(`, `comp(`, `app(`,
+/// `|||`, `rec {`).
+fn has_arrow_markers(src: &str) -> bool {
+    const DIRECTIVES: [&str; 4] = ["cap ", "op ", "handl ", "tag "];
+    const COMBINATORS: [&str; 8] = [
+        "arr(",
+        "first(",
+        "choice(",
+        "loop(",
+        "comp(",
+        "app(",
+        "|||",
+        "rec {",
+    ];
+    src.lines().any(|line| {
+        let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
+        if let Some(top) = top_level_line(line) {
+            if DIRECTIVES.iter().any(|d| top.starts_with(d)) {
+                return true;
+            }
+        }
+        COMBINATORS.iter().any(|c| code.contains(c))
+    })
+}
+
+/// Try to validate `src` as an arrow-module dialect file. Returns `true`
+/// when `parse_arrow_module` accepts it.
+fn parses_as_arrow_module(src: &str) -> bool {
+    handl_plugin_ext_refinement::parse_arrow_module(src).is_ok()
+}
+
 /// Typecheck a single source. Returns 2 on parse error; sets `had_failure`
 /// for Error diagnostics.
 fn typecheck_one(src: &str, path: &str, had_failure: &mut bool) -> i32 {
+    // Contract dialect (ADR-0077): `axiom`/`requires:`/`guarantee:` files are
+    // validated by the refinement contract loader, not the canonical
+    // grammar — they carry `->`/`→`/`×`/`∧`/`∨` syntax that is not part of
+    // the canonical surface language.
+    if is_contract_source(src) {
+        return match handl_plugin_ext_refinement::parse_contracts(src) {
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("{path}: contract error: {e}");
+                2
+            }
+        };
+    }
+
+    let arrow_markers = has_arrow_markers(src);
+
     let report = match handl_plugin_engine_typecheck::check_module(src) {
         Ok(r) => r,
         Err(err) => {
+            // Canonical parse failed — the file may belong to the arrow
+            // dialect (`rec { ... }` simple form, `>>>` arrow graphs,
+            // directive lines that canonical parsed as calls). Route it to
+            // the arrow-module parser before reporting an error.
+            if parses_as_arrow_module(src) {
+                return 0;
+            }
             // `CheckError`'s Display already carries its category prefix
             // ("parse error: …" / "language error: …" — the latter covers
             // transform-rule validation failures at Language build, ADR-0094).
@@ -430,6 +527,21 @@ fn typecheck_one(src: &str, path: &str, had_failure: &mut bool) -> i32 {
             return 2;
         }
     };
+
+    // Canonical parse succeeded but produced errors — if the file is an
+    // arrow-dialect module (directive lines or arrow combinators) that its
+    // own parser accepts, the canonical diagnostics are a dialect mismatch,
+    // not real errors (e.g. `cap`/`op`/`handl`/`tag` reported as unbound
+    // wires).
+    if report
+        .diagnostics
+        .iter()
+        .any(|d| d.severity == Severity::Error)
+        && arrow_markers
+        && parses_as_arrow_module(src)
+    {
+        return 0;
+    }
 
     let rendered = render_diagnostics(&report.diagnostics, path);
     if !rendered.is_empty() {
@@ -665,26 +777,38 @@ fn test_command(args: &[String]) -> i32 {
 // Import declaration stripping for `hnl run`
 // ---------------------------------------------------------------------------
 
-/// Remove top-level `from ... import ...` and `import <name> from ...`
-/// declaration lines — the module-declaration forms that name *modules*
-/// (resolved via the host module chain / `HandlModule` wiring), which the
-/// file-based module loader does not resolve yet.
+/// Remove top-level import *declaration* lines — the forms that name a
+/// *host module* (resolved via the module chain / `HandlModule` wiring),
+/// which the file-based `ModuleLoader` does not resolve (ADR-0096
+/// §"Module-name imports"). The canonical kit's module chain already
+/// supplies those bindings, so the lines are decorative here.
 ///
-/// A bare `import "path"` statement is a real executable op in all three
-/// eval engines and is **kept**: it resolves `path` through the
-/// `ModuleLoader` (relative to the module root, or via a `[dependencies]`
-/// entry from `.handl.toml`).
-fn strip_import_declarations(src: &str) -> String {
+/// Kept (executable import ops resolved through the `ModuleLoader`):
+/// - `import "<spec>"` — always;
+/// - `from "<spec>" import ...` when `<spec>` resolves to an existing
+///   file under `bases` (the entry directory, then the module root, then
+///   the process working directory — mirroring `ModuleLoader`
+///   resolution) — e.g. a `from "./m.hnl" import * as m` line inside a
+///   multi-line `do { ... }` block is a real statement.
+///
+/// Stripped (host-module declarations):
+/// - `import <name> ...` / `import <name> from "<spec>"` — the
+///   module-declaration / arrow-dialect order, which the canonical grammar
+///   cannot execute;
+/// - `from "<bare-name>" import ...` — `<spec>` names a host module
+///   (`str`, `fn`, `dedent`, ...) or a specifier with no backing file —
+///   the module chain supplies the bindings either way.
+fn strip_import_declarations(src: &str, bases: &[&Path]) -> String {
     src.lines()
-        .filter(|line| !is_import_line(line.trim_start()))
+        .filter(|line| !is_import_line(line.trim_start(), bases))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-fn is_import_line(trimmed: &str) -> bool {
+fn is_import_line(trimmed: &str, bases: &[&Path]) -> bool {
     if let Some(rest) = trimmed.strip_prefix("import") {
         if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-            // `import "path"` / `import 'path'` is the executable form —
+            // `import "spec"` / `import 'spec'` is the executable form —
             // keep it. `import <name> ...` (e.g. `import insert from
             // "collection/insert"`) is a module declaration — strip it.
             let inner = rest.trim_start();
@@ -695,10 +819,41 @@ fn is_import_line(trimmed: &str) -> bool {
     }
     if let Some(rest) = trimmed.strip_prefix("from") {
         if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-            return true;
+            // Strip iff the specifier names a host module — i.e. does not
+            // resolve to an existing file. An unparseable line is kept so
+            // the parser reports the error.
+            return match first_quoted_spec(rest) {
+                Some(spec) => !spec_resolves_to_file(spec, bases),
+                None => false,
+            };
         }
     }
     false
+}
+
+/// Whether `<spec>` resolves to an existing file under any of `bases`
+/// (checked in order — mirroring `ModuleLoader` relative resolution:
+/// importing module's directory, module root, working directory). A
+/// `.handl.toml` `[dependencies]` specifier that resolves outside these
+/// bases is stripped like any other host-module declaration; the
+/// declaration is decorative here either way and a referenced name fails
+/// loudly downstream.
+fn spec_resolves_to_file(spec: &str, bases: &[&Path]) -> bool {
+    if Path::new(spec).is_absolute() {
+        return Path::new(spec).is_file();
+    }
+    bases.iter().any(|base| base.join(spec).is_file())
+}
+
+/// Extract the first `'`- or `"`-quoted string literal's contents from a
+/// source fragment (e.g. the specifier in `from "..." import ...`).
+fn first_quoted_spec(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    let start = bytes.iter().position(|&b| b == b'"' || b == b'\'')?;
+    let quote = bytes[start];
+    let rest = &s[start + 1..];
+    let end = rest.as_bytes().iter().position(|&b| b == quote)?;
+    Some(&rest[..end])
 }
 
 // ---------------------------------------------------------------------------
@@ -743,7 +898,28 @@ fn run_file(path: Option<&str>, engine: Option<&str>) -> i32 {
         },
     };
 
-    match kit.eval(&strip_import_declarations(&source)) {
+    // Resolution bases for `from "<spec>"` declaration lines, mirroring
+    // `ModuleLoader` order: the entry file's directory, the module root,
+    // then the process working directory. A `from` line whose specifier
+    // resolves to a file under one of these is kept (it is the executable
+    // import op); one that names a host module is stripped.
+    let mut bases: Vec<&Path> = Vec::new();
+    let dot = Path::new(".");
+    match start.parent() {
+        Some(dir) if !dir.as_os_str().is_empty() => bases.push(dir),
+        _ => bases.push(dot),
+    }
+    if let Some(root) = kit.module_root() {
+        if !bases.contains(&root) {
+            bases.push(root);
+        }
+    }
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    if !bases.iter().any(|b| *b == cwd.as_path()) {
+        bases.push(&cwd);
+    }
+
+    match kit.eval(&strip_import_declarations(&source, &bases)) {
         Ok(value) => {
             print_value(&value);
             0

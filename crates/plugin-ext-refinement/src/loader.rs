@@ -10,7 +10,7 @@
 //! Each axiom has the form:
 //!
 //! ```text
-//! axiom <name> : <input-type> -> <output-type>
+//! axiom <name> : <input-type> -> <output-type>   (or `→`)
 //!   requires: <predicate>      // optional, defaults to True
 //!   guarantee: <predicate>     // required
 //!   termination: <effect>      // optional
@@ -23,7 +23,7 @@
 //! Bool                           -> Plain(Bool)
 //! a, b, c (type variables)       -> Plain(Var("a"))
 //! List T                         -> List(T)
-//! (T * T)                        -> Prod(T, T)
+//! (T * T) or (T × T)             -> Prod(T, T)
 //! (T + T)                        -> Sum(T, T)
 //! { x : T | pred }               -> Refine(T, pred)
 //! ```
@@ -42,8 +42,8 @@
 //! LengthPlusOne(a, b)            -> LengthPlusOne("a", "b")
 //! LengthSubOne(a, b)             -> LengthSubOne("a", "b")
 //! IsPerm(a, b)                   -> IsPerm("a", "b")
-//! p && q                         -> And(p, q)
-//! p || q                         -> Or(p, q)
+//! p && q  or  p ∧ q              -> And(p, q)
+//! p || q  or  p ∨ q              -> Or(p, q)
 //! p ==> q                        -> Implies(p, q)
 //! forall x in list, pred         -> Forall("x", "list", "pred")
 //! ```
@@ -254,7 +254,7 @@ struct ParsedHeader {
 
 /// Parse an `axiom <name> : <type> -> <type>` header line.
 ///
-/// Accepts both ASCII `->` and Unicode `->` as the arrow separator.
+/// Accepts both ASCII `->` and Unicode `→` as the arrow separator.
 fn parse_axiom_header(line: &str) -> Result<ParsedHeader, String> {
     let rest = line
         .strip_prefix("axiom ")
@@ -271,13 +271,19 @@ fn parse_axiom_header(line: &str) -> Result<ParsedHeader, String> {
     }
     let sig = rest[colon + 1..].trim();
 
-    // Split on the arrow `->`.
-    let (input_src, output_src) = if let Some(idx) = sig.find("->") {
+    // Split on the arrow: ASCII `->` or Unicode `→`.
+    let arrow = sig
+        .find("->")
+        .map(|i| (i, 2))
+        .into_iter()
+        .chain(sig.find('→').map(|i| (i, '→'.len_utf8())))
+        .min_by_key(|(i, _)| *i);
+    let (input_src, output_src) = if let Some((idx, len)) = arrow {
         let input = sig[..idx].trim();
-        let output = sig[idx + 2..].trim();
+        let output = sig[idx + len..].trim();
         (input, output)
     } else {
-        return Err(format!("axiom header missing `->`: {}", line));
+        return Err(format!("axiom header missing `->`/`→`: {}", line));
     };
     if input_src.is_empty() || output_src.is_empty() {
         return Err(format!("axiom header has empty type: {}", line));
@@ -428,23 +434,23 @@ fn parse_type_inner(p: &mut Parser) -> Result<RefTy, String> {
     }
 }
 
-/// Parse a parenthesized type: either `(T * T)` (product) or `(T + T)` (sum).
-///
-/// Accepts both ASCII `*` and Unicode `*` as the product separator.
+/// Parse a parenthesized type: either `(T * T)`/`(T × T)` (product) or
+/// `(T + T)` (sum). Accepts both ASCII `*` and Unicode `×` as the product
+/// separator.
 fn parse_paren_type(p: &mut Parser) -> Result<RefTy, String> {
     p.expect("(")?;
     p.skip_ws();
     let lhs = parse_type_inner(p)?;
     p.skip_ws();
-    // Look for the separator: `*` (product) or `+` (sum).
+    // Look for the separator: `*`/`×` (product) or `+` (sum).
     let sep = p
         .peek()
-        .ok_or("expected `*` or `+` in parenthesized type")?;
-    let is_prod = sep == '*';
+        .ok_or("expected `*`/`×` or `+` in parenthesized type")?;
+    let is_prod = sep == '*' || sep == '×';
     let is_sum = sep == '+';
     if !is_prod && !is_sum {
         return Err(format!(
-            "expected `*` or `+` in parenthesized type: {}",
+            "expected `*`/`×` or `+` in parenthesized type: {}",
             p.tail()
         ));
     }
@@ -572,12 +578,12 @@ fn parse_pred_implies(p: &mut Parser) -> Result<Pred, String> {
     }
 }
 
-/// `||` is next.
+/// `||`/`∨` is next.
 fn parse_pred_or(p: &mut Parser) -> Result<Pred, String> {
     let mut lhs = parse_pred_and(p)?;
     loop {
         p.skip_ws();
-        if p.try_consume("||") {
+        if p.try_consume("||") || p.try_consume("∨") {
             p.skip_ws();
             let rhs = parse_pred_and(p)?;
             lhs = Pred::Or(Box::new(lhs), Box::new(rhs));
@@ -588,12 +594,12 @@ fn parse_pred_or(p: &mut Parser) -> Result<Pred, String> {
     Ok(lhs)
 }
 
-/// `&&` is next.
+/// `&&`/`∧` is next.
 fn parse_pred_and(p: &mut Parser) -> Result<Pred, String> {
     let mut lhs = parse_pred_atom(p)?;
     loop {
         p.skip_ws();
-        if p.try_consume("&&") {
+        if p.try_consume("&&") || p.try_consume("∧") {
             p.skip_ws();
             let rhs = parse_pred_atom(p)?;
             lhs = Pred::And(Box::new(lhs), Box::new(rhs));

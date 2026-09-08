@@ -862,6 +862,33 @@ impl Runtime {
         engine.eval(&self.lang, &req)
     }
 
+    /// Like [`eval_with_globals`](Self::eval_with_globals), but takes the
+    /// [`Ast`] behind an `Rc` and dispatches to
+    /// [`EvalEngine::eval_shared`], so engines that hold the arena by `Rc`
+    /// internally (the tree-walk engine) reuse the caller's allocation
+    /// instead of deep-cloning it into an [`EvalRequest`].
+    ///
+    /// This is the per-call seam for hosts that cache a parsed AST and
+    /// re-evaluate it many times with different globals — e.g.
+    /// `plugin-lib-handl`'s `HandlFunction` bridge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
+    /// propagates the engine's error.
+    pub fn eval_shared_with_globals(
+        &self,
+        ast: &Rc<Ast>,
+        globals: &HashMap<String, Value>,
+    ) -> Result<Value, LangError> {
+        let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
+        let mut engine = engine.box_clone();
+        for (name, val) in globals {
+            engine = engine.with_global(name, val.clone());
+        }
+        engine.eval_shared(&self.lang, ast)
+    }
+
     /// Convenience: `eval(parse(lex(src)?)?)`.
     ///
     /// Composes all three stages. If any stage's engine is missing, returns
@@ -1420,6 +1447,15 @@ impl ModuleLoader {
                 display_path, e
             ))
         })?;
+        // Drop module-declaration header lines that name a *host module*
+        // rather than a resolvable file (`from "str" import ...`,
+        // `import x from "str"`) — those resolve via the host module chain,
+        // which the loader's eval engine already shares, so the
+        // declarations are decorative (the same convention `hnl run`/
+        // `hnl test` apply). Path-specifier declarations are kept: they
+        // are the executable import op and resolve through this loader.
+        // See ADR-0096 §"Module-name imports".
+        let src = self.strip_module_decl_lines(&src, resolved);
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
@@ -1468,6 +1504,108 @@ impl ModuleLoader {
         // values carry no ambient-eval references).
         engine_rc.seal_module_value(&ast, &self.lang, bindings)
     }
+
+    /// Remove module-declaration header lines that name a *host module*
+    /// rather than a resolvable file — `from "<spec>" import ...` where
+    /// `<spec>` does not resolve to an existing file, and `import <name>
+    /// ...`/`import <name> from "..."` unconditionally.
+    ///
+    /// A non-file specifier (a bare host-module name like `str`, or an
+    /// extension-less sibling like `./dedent`) denotes a module resolved by
+    /// the `ModuleResolver`/module chain, which the loader's eval engine
+    /// already shares — so the line is decorative and would otherwise fail
+    /// as a missing file. Specifiers that do resolve to a file are left in
+    /// place: `import "path"` and `from "path" import ...` are the
+    /// executable import op and must resolve (or error honestly) through
+    /// this loader.
+    ///
+    /// `resolved` is the canonical path of the module being loaded; its
+    /// parent directory is the first resolution base, matching
+    /// [`ModuleLoader::resolve_path`].
+    fn strip_module_decl_lines(&self, src: &str, resolved: &str) -> String {
+        src.lines()
+            .filter(|line| {
+                let trimmed = line.trim_start();
+                if let Some(rest) = trimmed.strip_prefix("import") {
+                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                        let inner = rest.trim_start();
+                        if inner.starts_with('"') || inner.starts_with('\'') {
+                            // `import "<spec>"` — keep: the executable op.
+                            return true;
+                        }
+                        // `import <name> ...` — a declaration the canonical
+                        // grammar cannot execute; always decorative here.
+                        return false;
+                    }
+                    return true;
+                }
+                if let Some(rest) = trimmed.strip_prefix("from") {
+                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                        // `from "<spec>" import ...` — keep iff <spec>
+                        // resolves to a file (the executable import op);
+                        // strip when it names a host module.
+                        return match first_quoted_spec(rest) {
+                            Some(spec) => self.spec_resolves_to_file(spec, resolved),
+                            // Unparseable declaration — keep it so the
+                            // parser reports the error.
+                            None => true,
+                        };
+                    }
+                }
+                true
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Whether `spec` resolves to an existing file, using the same bases as
+    /// [`ModuleLoader::resolve_path`]: a `[dependencies]` first segment
+    /// resolves inside the package directory; otherwise the directory of
+    /// the module being loaded (`resolved`'s parent), then the module
+    /// root, then the process working directory.
+    fn spec_resolves_to_file(&self, spec: &str, resolved: &str) -> bool {
+        let spec_path = Path::new(spec);
+        if spec_path.is_absolute() {
+            return spec_path.is_file();
+        }
+        let (first, rest) = match spec.split_once('/') {
+            Some((f, r)) => (f, Some(r)),
+            None => (spec, None),
+        };
+        if let Some(dep_dir) = self.dependencies.get(first) {
+            return match rest {
+                Some(r) if !r.is_empty() => dep_dir.join(r).is_file(),
+                _ => dep_dir.is_file(),
+            };
+        }
+        Path::new(resolved)
+            .parent()
+            .map(|dir| dir.join(spec).is_file())
+            .unwrap_or(false)
+            || self
+                .module_root
+                .as_ref()
+                .map(|root| root.join(spec).is_file())
+                .unwrap_or(false)
+            || std::env::current_dir()
+                .map(|cwd| cwd.join(spec).is_file())
+                .unwrap_or(false)
+    }
+}
+
+/// Extract the first `'`- or `"`-quoted string literal's contents from a
+/// source fragment (e.g. the specifier in `from "..." import ...`).
+/// Returns `None` when no complete quoted string is present. Quotes are not
+/// escapable here — module specifiers never contain them.
+fn first_quoted_spec(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    let start = bytes
+        .iter()
+        .position(|&b| b == b'"' || b == b'\'')?;
+    let quote = bytes[start];
+    let rest = &s[start + 1..];
+    let end = rest.as_bytes().iter().position(|&b| b == quote)?;
+    Some(&rest[..end])
 }
 
 impl ImportResolver for ModuleLoader {

@@ -1,36 +1,26 @@
-Command: type.object = {
-  name: type.string,
-  description: type.string,
-  flags: type.arr,
-  subcommands: type.arr,
-  handler: type.string
-};
+Command :: {
+  name: String,
+  description: String,
+  flags: List,
+  subcommands: List,
+  handler: String
+}
 
-find_subcommand :: (cmd: Command, name: type.string): type.string ->
-  cmd.subcommands
-  |> (subs) -> array.find(subs, (sub: Command) -> cmp.eq(sub.name, name))
-  |> (sub) -> option.unwrap_or(sub, { name: "" });
+find_subcommand :: (cmd: Command, name: String) ~> option.unwrap_or(array.find(cmd.subcommands, (sub: Command) ~> cmp.eq(sub.name, name)), { name: "" })
 
-has_subcommands :: (cmd: Command): type.bool ->
-  bool.not(array.is_empty(cmd.subcommands));
+has_subcommands :: (cmd: Command) ~> bool.not(array.is_empty(cmd.subcommands))
 
-route :: (cmd: Command, args: type.arr): type.object ->
-  args
-  |> (a) -> option.unwrap_or(array.first(a), "")
-  |> (first) -> bool.when(
-      cmp.eq(first, ""),
-      false,
-      { command: cmd.name, matched: cmd, remaining: [] }
-    );
+route :: (cmd: Command, args: List) ~> bool.when(
+    cmp.eq(option.unwrap_or(array.first(args), ""), ""),
+    false,
+    { command: cmd.name, matched: cmd, remaining: [] }
+  )
 
-resolve_command :: (root: Command, args: type.arr): type.object ->
-  args
-  |> (a) -> option.unwrap_or(array.first(a), "")
-  |> (first) -> bool.when(
-      cmp.eq(first, ""),
-      false,
-      { command: root.name, matched: root, remaining: a }
-    );
+resolve_command :: (root: Command, args: List) ~> bool.when(
+    cmp.eq(option.unwrap_or(array.first(args), ""), ""),
+    false,
+    { command: root.name, matched: root, remaining: args }
+  )
 
 {
   find_subcommand: find_subcommand,
