@@ -22,7 +22,7 @@ pub mod handl_module {
 }
 
 use handl_kit_data_canonical;
-use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
+use handl_language::{Ast, LangError, Language, Source, Span, TokenCategory, Tokens, Value};
 use handl_platform::config::HostConfig;
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
 use handl_plugin_engine_exec::ImportResolver;
@@ -1546,6 +1546,13 @@ impl Kit {
         &self.runtime
     }
 
+    /// Returns the [`Language`] this kit is bound to — the data hosts use
+    /// for token classification (`token_category`), AST child roles, etc.
+    /// (ADR-0081).
+    pub fn lang(&self) -> &Language {
+        self.runtime.lang()
+    }
+
     /// Returns the configured module root for resolving relative
     /// `import "path"` paths (Phase 9.5). `None` → resolve against the
     /// process CWD.
@@ -1682,99 +1689,73 @@ pub fn ast_to_platform_nodes(ast: &Ast) -> Vec<handl_platform::AstNode> {
 }
 
 // ---------------------------------------------------------------------------
-// Token classification helpers (string-based kind matching)
+// Token classification helpers (data-driven via `Language::token_category`,
+// ADR-0081 — no `kind == "token.*"` string matching)
 // ---------------------------------------------------------------------------
 
-/// Whether a token kind string represents an identifier.
-pub fn is_identifier_kind(kind: &str) -> bool {
-    kind == "token.identifier"
+/// Whether a token kind is classified `identifier` in `lang`.
+pub fn is_identifier_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Identifier)
 }
 
-/// Whether a token kind string represents a keyword.
-pub fn is_keyword_kind(kind: &str) -> bool {
-    kind.starts_with("token.keyword")
+/// Whether a token kind is classified `keyword` in `lang`.
+pub fn is_keyword_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Keyword)
 }
 
-/// Whether a token kind string represents a number literal.
-pub fn is_number_kind(kind: &str) -> bool {
-    kind == "token.number"
+/// Whether a token kind is classified `number` in `lang`.
+pub fn is_number_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Number)
 }
 
-/// Whether a token kind string represents a string literal.
-pub fn is_string_kind(kind: &str) -> bool {
-    kind == "token.string"
+/// Whether a token kind is classified `string` in `lang`.
+pub fn is_string_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::String)
 }
 
-/// Whether a token kind string represents a boolean literal.
-pub fn is_bool_kind(kind: &str) -> bool {
-    kind == "token.bool"
+/// Whether a token kind is classified `boolean` in `lang`.
+pub fn is_bool_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Boolean)
 }
 
-/// Whether a token kind string represents the null literal.
-pub fn is_null_kind(kind: &str) -> bool {
-    kind == "token.null"
+/// Whether a token kind is classified `null` in `lang`.
+pub fn is_null_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Null)
 }
 
-/// Whether a token kind string represents a comment.
-pub fn is_comment_kind(kind: &str) -> bool {
-    kind == "token.comment" || kind == "token.doc_comment"
+/// Whether a token kind is classified as comment trivia (`comment` or
+/// `doc-comment`) in `lang`.
+pub fn is_comment_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_category(kind)
+        .map(|c| c.is_comment_like())
+        .unwrap_or(false)
 }
 
-/// Whether a token kind string represents a doc comment.
-pub fn is_doc_comment_kind(kind: &str) -> bool {
-    kind == "token.doc_comment"
+/// Whether a token kind is classified `doc-comment` in `lang`.
+pub fn is_doc_comment_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::DocComment)
 }
 
-/// Whether a token kind string represents an operator.
-pub fn is_operator_kind(kind: &str) -> bool {
-    matches!(
-        kind,
-        "token.bind"
-            | "token.equal"
-            | "token.plus"
-            | "token.minus"
-            | "token.star"
-            | "token.pow"
-            | "token.slash"
-            | "token.lt"
-            | "token.gt"
-            | "token.eqeq"
-            | "token.neq"
-            | "token.lte"
-            | "token.gte"
-            | "token.spaceship"
-            | "token.flow"
-            | "token.fanout"
-            | "token.pipe"
-            | "token.arrow"
-            | "token.and"
-            | "token.or"
-            | "token.bang"
-            | "token.choice"
-            | "token.percent"
-            | "token.question"
-            | "token.ellipsis"
-    )
+/// Whether a token kind is classified as an operator in `lang` (covers the
+/// symbolic separator categories `bind`/`ellipsis`, which historically sat
+/// in the operator set).
+pub fn is_operator_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_category(kind)
+        .map(|c| c.is_operator_like())
+        .unwrap_or(false)
 }
 
-/// Whether a token kind string represents a delimiter/punctuation.
-pub fn is_delimiter_kind(kind: &str) -> bool {
-    kind.starts_with("token.lparen")
-        || kind.starts_with("token.rparen")
-        || kind.starts_with("token.lbracket")
-        || kind.starts_with("token.rbracket")
-        || kind.starts_with("token.lbrace")
-        || kind.starts_with("token.rbrace")
-        || kind == "token.comma"
-        || kind == "token.dot"
-        || kind == "token.colon"
-        || kind == "token.semicolon"
-        || kind == "token.arrow"
+/// Whether a token kind is classified as a delimiter/punctuation in `lang`
+/// (brackets plus `,` `;` `:` `.`).
+pub fn is_delimiter_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_category(kind)
+        .map(|c| c.is_delimiter_like())
+        .unwrap_or(false)
 }
 
-/// Whether a token kind string represents a template string.
-pub fn is_template_kind(kind: &str) -> bool {
-    kind == "token.template"
+/// Whether a token kind is classified `template` in `lang`.
+pub fn is_template_kind(lang: &Language, kind: &str) -> bool {
+    lang.token_is(kind, TokenCategory::Template)
 }
 
 #[cfg(test)]
@@ -2077,21 +2058,24 @@ mod tests {
 
     #[test]
     fn is_identifier_kind_works() {
-        assert!(is_identifier_kind("token.identifier"));
-        assert!(!is_identifier_kind("token.number"));
+        let lang = Kit::new().unwrap().lang().clone();
+        assert!(is_identifier_kind(&lang, "token.identifier"));
+        assert!(!is_identifier_kind(&lang, "token.number"));
     }
 
     #[test]
     fn is_keyword_kind_works() {
-        assert!(is_keyword_kind("token.keyword.if"));
-        assert!(is_keyword_kind("token.keyword.match"));
-        assert!(!is_keyword_kind("token.identifier"));
+        let lang = Kit::new().unwrap().lang().clone();
+        assert!(is_keyword_kind(&lang, "token.keyword.if"));
+        assert!(is_keyword_kind(&lang, "token.keyword.match"));
+        assert!(!is_keyword_kind(&lang, "token.identifier"));
     }
 
     #[test]
     fn is_number_kind_works() {
-        assert!(is_number_kind("token.number"));
-        assert!(!is_number_kind("token.string"));
+        let lang = Kit::new().unwrap().lang().clone();
+        assert!(is_number_kind(&lang, "token.number"));
+        assert!(!is_number_kind(&lang, "token.string"));
     }
 
     // --- ADR-0054 typecheck stage ---

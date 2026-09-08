@@ -17,6 +17,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_doc_comment_kind};
+use handl_language::{Language, TokenCategory as TC};
 
 use crate::kit_resolver::kit_for_file;
 use crate::line_map::LineMap;
@@ -33,6 +34,7 @@ pub fn folding_ranges(source: &str) -> Vec<Value> {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };
+    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
@@ -45,10 +47,10 @@ pub fn folding_ranges(source: &str) -> Vec<Value> {
     let lines = LineMap::new(source);
 
     // Bracket-pair folding ranges.
-    ranges.extend(bracket_ranges(&lines, &tokens));
+    ranges.extend(bracket_ranges(lang, &lines, &tokens));
 
     // Comment-block folding ranges.
-    ranges.extend(comment_ranges(source, &lines, &tokens));
+    ranges.extend(comment_ranges(lang, source, &lines, &tokens));
 
     // Sort by start line (then start character for stability).
     ranges.sort_by(|a, b| {
@@ -66,57 +68,30 @@ pub fn folding_ranges(source: &str) -> Vec<Value> {
 // Bracket pairs
 // ---------------------------------------------------------------------------
 
-/// The kind of bracket currently open on the stack.
-#[derive(Clone, Copy, PartialEq)]
-enum Bracket {
-    Brace,
-    Paren,
-    Bracket,
-}
-
-impl Bracket {
-    /// Whether `kind` is an opening bracket, returning its variant.
-    fn from_open(kind: &str) -> Option<Bracket> {
-        match kind {
-            "token.lbrace" => Some(Bracket::Brace),
-            "token.lparen" => Some(Bracket::Paren),
-            "token.lbracket" => Some(Bracket::Bracket),
-            _ => None,
-        }
-    }
-
-    /// Whether `kind` is the closing bracket matching `self`.
-    fn matches_close(self, kind: &str) -> bool {
-        match self {
-            Bracket::Brace => kind == "token.rbrace",
-            Bracket::Paren => kind == "token.rparen",
-            Bracket::Bracket => kind == "token.rbracket",
-        }
-    }
-}
-
 /// Walk the token stream tracking matching bracket pairs with a stack and
 /// return a folding range for every pair that spans more than one line.
-fn bracket_ranges(lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+/// Bracket identity comes from `lang.tokens` categories (ADR-0081).
+fn bracket_ranges(lang: &Language, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
-    // Stack of (bracket variant, byte offset of the opening token).
-    let mut stack: Vec<(Bracket, usize)> = Vec::new();
+    // Stack of (open bracket category, byte offset of the opening token).
+    let mut stack: Vec<(TC, usize)> = Vec::new();
 
     for t in tokens {
-        let kind = t.kind.as_str();
+        let Some(cat) = lang.token_category(&t.kind) else {
+            continue;
+        };
 
-        if let Some(bracket) = Bracket::from_open(kind) {
-            stack.push((bracket, t.span.start));
+        if cat.is_open_bracket() {
+            stack.push((cat, t.span.start));
             continue;
         }
 
         // On a closing bracket, pop the nearest matching opener. If the top
         // of the stack does not match we simply drop it (the source is
         // malformed); well-formed input is the common case.
-        let is_close = kind == "token.rbrace" || kind == "token.rparen" || kind == "token.rbracket";
-        if is_close {
-            while let Some(&(bracket, open_offset)) = stack.last() {
-                if bracket.matches_close(kind) {
+        if cat.is_close_bracket() {
+            while let Some(&(open_cat, open_offset)) = stack.last() {
+                if open_cat.matching_close() == Some(cat) {
                     stack.pop();
                     let (start_line, start_char) = lines.position(open_offset);
                     let (end_line, end_char) = lines.position(t.span.end);
@@ -148,25 +123,30 @@ fn bracket_ranges(lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
 /// Group consecutive comment tokens of the same flavour (doc-comment vs
 /// regular comment) and emit a `"comment"` folding range for each run that
 /// spans more than one line.
-fn comment_ranges(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn comment_ranges(
+    lang: &Language,
+    source: &str,
+    lines: &LineMap,
+    tokens: &[SpannedToken],
+) -> Vec<Value> {
     let mut out = Vec::new();
 
     let mut i = 0;
     while i < tokens.len() {
-        let kind = tokens[i].kind.as_str();
-        if !is_comment_kind_str(kind) {
+        let cat = lang.token_category(&tokens[i].kind);
+        if !cat.map(|c| c.is_comment_like()).unwrap_or(false) {
             i += 1;
             continue;
         }
 
-        let is_doc = is_doc_comment_kind(kind);
+        let is_doc = is_doc_comment_kind(lang, &tokens[i].kind);
         // Collect the contiguous run of comment tokens with the same flavour.
         let run_start = tokens[i].span.start;
         let mut run_end = tokens[i].span.end;
         let mut j = i;
         while j < tokens.len() {
-            let kj = tokens[j].kind.as_str();
-            if !is_comment_kind_str(kj) || is_doc_comment_kind(kj) != is_doc {
+            let kj = &tokens[j].kind;
+            if !is_comment_like(lang, kj) || is_doc_comment_kind(lang, kj) != is_doc {
                 break;
             }
             run_end = tokens[j].span.end;
@@ -204,9 +184,12 @@ fn comment_ranges(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec
     out
 }
 
-/// Whether a token kind string represents any comment (doc or regular).
-fn is_comment_kind_str(kind: &str) -> bool {
-    kind == "token.comment" || kind == "token.doc_comment"
+/// Whether a token kind is classified as comment trivia (doc or regular)
+/// in `lang` (ADR-0081).
+fn is_comment_like(lang: &Language, kind: &str) -> bool {
+    lang.token_category(kind)
+        .map(|c| c.is_comment_like())
+        .unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------

@@ -227,19 +227,15 @@ pub fn subtypes(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Val
 // Lexing / token helpers
 // ---------------------------------------------------------------------------
 
-/// Lex `source` into spanned tokens, returning `None` on failure.
-fn lex(source: &str) -> Option<Vec<SpannedToken>> {
-    let kit = kit_for_file(None).ok()?;
-    kit.lex_with_spans(source).ok()
-}
-
 /// Return the identifier at `offset`, as `(name, start, end)`, or `None` when
 /// the cursor is not on an identifier (or is on a keyword).
 fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, usize, usize)> {
-    let tokens = lex(source)?;
+    let kit = kit_for_file(None).ok()?;
+    let lang = kit.lang();
+    let tokens = kit.lex_with_spans(source).ok()?;
     for t in &tokens {
-        if is_identifier_kind(&t.kind)
-            && !is_keyword_kind(&t.kind)
+        if is_identifier_kind(lang, &t.kind)
+            && !is_keyword_kind(lang, &t.kind)
             && t.span.start <= offset
             && offset < t.span.end
         {

@@ -7,6 +7,7 @@ use handl_kit_canonical::{
     is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind,
     is_string_kind, is_template_kind,
 };
+use handl_language::{Language, TokenCategory as TC};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -19,6 +20,7 @@ pub fn hover_at(source: &str, offset: usize) -> Option<Value> {
 /// return the property name. Otherwise return `None`.
 pub fn property_at_offset(source: &str, offset: usize) -> Option<String> {
     let kit = kit_for_file(None).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens
@@ -26,12 +28,12 @@ pub fn property_at_offset(source: &str, offset: usize) -> Option<String> {
         .enumerate()
         .find(|(_, t)| t.span.start <= offset && offset < t.span.end)?;
 
-    if !is_identifier_kind(token.kind.as_str()) {
+    if !is_identifier_kind(lang, token.kind.as_str()) {
         return None;
     }
 
     // Check if preceded by `.`
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && lang.token_is(&tokens[index - 1].kind, TC::Dot) {
         return Some(token.text.clone());
     }
 
@@ -40,6 +42,7 @@ pub fn property_at_offset(source: &str, offset: usize) -> Option<String> {
 
 pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) -> Option<Value> {
     let kit = kit_for_file(file_path).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     // Find the token at the cursor position.
@@ -49,7 +52,7 @@ pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) 
         .find(|(_, t)| t.span.start <= offset && offset < t.span.end)?;
 
     // Try doc-comment-aware hover first (cross-file arrow docs).
-    if let Some(md) = doc_comment_hover(&tokens, index, token, source, file_path) {
+    if let Some(md) = doc_comment_hover(lang, &tokens, index, token, source, file_path) {
         let (start_line, start_char) = offset_to_position(source, token.span.start);
         let (end_line, end_char) = offset_to_position(source, token.span.end);
         return Some(json!({
@@ -61,7 +64,7 @@ pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) 
         }));
     }
 
-    let markdown = classify_token(&tokens, index, token).or_else(|| {
+    let markdown = classify_token(lang, &tokens, index, token).or_else(|| {
         // Fallback: if we can't classify the token but the file has doc
         // comments, show those instead.
         extract_doc_comments(source)
@@ -85,16 +88,17 @@ pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) 
 /// Returns `None` if there are no doc comments at the top of the file.
 pub fn extract_doc_comments(source: &str) -> Option<String> {
     let kit = kit_for_file(None).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let mut doc_lines: Vec<String> = Vec::new();
     for token in &tokens {
-        if is_doc_comment_kind(token.kind.as_str()) {
+        if is_doc_comment_kind(lang, token.kind.as_str()) {
             // Strip the `---` prefix and one optional leading space.
             let text = token.text.strip_prefix("---").unwrap_or(&token.text);
             let text = text.strip_prefix(' ').unwrap_or(text);
             doc_lines.push(text.to_string());
-        } else if is_comment_kind(token.kind.as_str()) {
+        } else if is_comment_kind(lang, token.kind.as_str()) {
             // Skip regular comments — they're not doc comments.
             continue;
         } else {
@@ -116,6 +120,7 @@ pub fn extract_doc_comments(source: &str) -> Option<String> {
 /// 2. If hovering over the `rec` keyword in an arrow file, show the current
 ///    file's own doc comments.
 fn doc_comment_hover(
+    lang: &Language,
     tokens: &[SpannedToken],
     index: usize,
     token: &SpannedToken,
@@ -123,20 +128,22 @@ fn doc_comment_hover(
     file_path: Option<&str>,
 ) -> Option<String> {
     // Case 2: hovering over `rec` or `while` keyword → show this file's doc comments.
-    if is_keyword_kind(token.kind.as_str()) && (token.text == "rec" || token.text == "while") {
+    if is_keyword_kind(lang, token.kind.as_str())
+        && (token.text == "rec" || token.text == "while")
+    {
         if let Some(docs) = extract_doc_comments(source) {
             return Some(format_doc_comment_hover(&docs, &token.text));
         }
     }
 
     // Case 1: hovering over an identifier that matches an arrow file name.
-    if !is_identifier_kind(token.kind.as_str()) {
+    if !is_identifier_kind(lang, token.kind.as_str()) {
         return None;
     }
 
     // Skip if this is a property access (preceded by `.`) — those are fields,
     // not arrow references.
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && lang.token_is(&tokens[index - 1].kind, TC::Dot) {
         return None;
     }
 
@@ -169,6 +176,7 @@ pub fn cross_arrow_hover(
     refinement: &crate::refinement::RefinementEngine,
 ) -> Option<String> {
     let kit = kit_for_file(file_path).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens
@@ -176,12 +184,12 @@ pub fn cross_arrow_hover(
         .enumerate()
         .find(|(_, t)| t.span.start <= offset && offset < t.span.end)?;
 
-    if !is_identifier_kind(token.kind.as_str()) {
+    if !is_identifier_kind(lang, token.kind.as_str()) {
         return None;
     }
 
     // Skip property access (preceded by `.`).
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && lang.token_is(&tokens[index - 1].kind, TC::Dot) {
         return None;
     }
 
@@ -238,56 +246,62 @@ fn search_dir(dir: &Path, file_name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-fn classify_token(tokens: &[SpannedToken], index: usize, token: &SpannedToken) -> Option<String> {
+fn classify_token(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    index: usize,
+    token: &SpannedToken,
+) -> Option<String> {
     let kind = token.kind.as_str();
 
-    // Brackets / braces / parens — context-aware.
-    match kind {
-        "token.lbracket" | "token.rbracket" => {
-            return Some(bracket_hover(tokens, index, token, "square"));
+    // Brackets / braces / parens — context-aware (classified via
+    // `lang.tokens` categories, ADR-0081).
+    match lang.token_category(kind) {
+        Some(TC::OpenBracket) | Some(TC::CloseBracket) => {
+            return Some(bracket_hover(lang, tokens, index, token, "square"));
         }
-        "token.lbrace" | "token.rbrace" => {
-            return Some(bracket_hover(tokens, index, token, "curly"));
+        Some(TC::OpenBrace) | Some(TC::CloseBrace) => {
+            return Some(bracket_hover(lang, tokens, index, token, "curly"));
         }
-        "token.lparen" | "token.rparen" => {
-            return Some(bracket_hover(tokens, index, token, "paren"));
+        Some(TC::OpenParen) | Some(TC::CloseParen) => {
+            return Some(bracket_hover(lang, tokens, index, token, "paren"));
         }
-        "token.ellipsis" => {
-            return Some(spread_hover(tokens, index, token));
+        Some(TC::Ellipsis) => {
+            return Some(spread_hover(lang, tokens, index, token));
         }
-        "token.dot" => {
-            return Some(dot_hover(tokens, index, token));
+        Some(TC::Dot) => {
+            return Some(dot_hover(lang, tokens, index, token));
         }
         _ => {}
     }
 
-    if is_number_kind(kind) {
+    if is_number_kind(lang, kind) {
         Some(format!("**number** `{}`", token.text))
-    } else if is_string_kind(kind) {
+    } else if is_string_kind(lang, kind) {
         let s = &token.text;
         let inner = &s[1..s.len().saturating_sub(1)];
         Some(format!("**string** `{}`", escape_string(inner)))
-    } else if is_bool_kind(kind) {
+    } else if is_bool_kind(lang, kind) {
         Some(format!("**boolean** `{}`", token.text))
-    } else if is_null_kind(kind) {
+    } else if is_null_kind(lang, kind) {
         Some("**null** literal".to_string())
-    } else if is_keyword_kind(kind) {
-        Some(keyword_hover(kind, &token.text))
-    } else if is_identifier_kind(kind) {
+    } else if is_keyword_kind(lang, kind) {
+        Some(keyword_hover(&token.text))
+    } else if is_identifier_kind(lang, kind) {
         // Arrow combinator calls get specialized hovers.
-        if let Some(md) = arrow_combinator_hover(tokens, index, token) {
+        if let Some(md) = arrow_combinator_hover(lang, tokens, index, token) {
             return Some(md);
         }
-        Some(identifier_hover(tokens, index, token))
-    } else if is_operator_kind(kind) {
+        Some(identifier_hover(lang, tokens, index, token))
+    } else if is_operator_kind(lang, kind) {
         Some(operator_hover(&token.text))
-    } else if is_delimiter_kind(kind) {
+    } else if is_delimiter_kind(lang, kind) {
         Some(format!("**punctuation** `{}`", token.text))
-    } else if is_doc_comment_kind(kind) {
+    } else if is_doc_comment_kind(lang, kind) {
         Some("**doc comment**".to_string())
-    } else if is_comment_kind(kind) {
+    } else if is_comment_kind(lang, kind) {
         Some("**comment**".to_string())
-    } else if is_template_kind(kind) {
+    } else if is_template_kind(lang, kind) {
         Some("**template string**".to_string())
     } else {
         None
@@ -297,15 +311,17 @@ fn classify_token(tokens: &[SpannedToken], index: usize, token: &SpannedToken) -
 /// If the identifier is an arrow combinator call (followed by `(`), return
 /// a specialized hover with documentation and signature. Otherwise `None`.
 fn arrow_combinator_hover(
+    lang: &Language,
     tokens: &[SpannedToken],
     index: usize,
     token: &SpannedToken,
 ) -> Option<String> {
-    let is_kind =
-        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
+    let is_kind = |i: usize, c: TC| -> bool {
+        tokens.get(i).map(|t| lang.token_is(&t.kind, c)).unwrap_or(false)
+    };
 
     // Must be a call: followed by `(`. Exception: `id` is used without parens.
-    let is_call = is_kind(index + 1, "token.lparen");
+    let is_call = is_kind(index + 1, TC::OpenParen);
     if !is_call && token.text != "id" {
         return None;
     }
@@ -360,28 +376,30 @@ fn arrow_combinator_hover(
 
 /// Hover for brackets/braces/parens, showing what they delimit.
 fn bracket_hover(
+    lang: &Language,
     tokens: &[SpannedToken],
     index: usize,
     token: &SpannedToken,
     bracket_type: &str,
 ) -> String {
-    let (label, open_kind, close_kind) = match bracket_type {
-        "square" => ("Array / list", "token.lbracket", "token.rbracket"),
-        "curly" => ("Record / object", "token.lbrace", "token.rbrace"),
-        "paren" => ("Group / call", "token.lparen", "token.rparen"),
-        _ => ("Group", "", ""),
+    let (label, open_cat, close_cat) = match bracket_type {
+        "square" => ("Array / list", TC::OpenBracket, TC::CloseBracket),
+        "curly" => ("Record / object", TC::OpenBrace, TC::CloseBrace),
+        "paren" => ("Group / call", TC::OpenParen, TC::CloseParen),
+        _ => ("Group", TC::OpenParen, TC::CloseParen),
     };
 
     // Count elements inside the brackets for opening brackets.
-    if token.kind == open_kind {
-        let (count, kind_desc) = count_bracket_contents(tokens, index, open_kind, close_kind);
+    if lang.token_is(&token.kind, open_cat) {
+        let (count, kind_desc) =
+            count_bracket_contents(lang, tokens, index, open_cat, close_cat);
         if count > 0 {
             return format!("**{}** — {} {}", label, count, kind_desc);
         }
-        if token.kind == "token.lbracket" {
+        if lang.token_is(&token.kind, TC::OpenBracket) {
             return format!("**{}** — empty list `[]`", label);
         }
-        if token.kind == "token.lbrace" {
+        if lang.token_is(&token.kind, TC::OpenBrace) {
             return format!("**{}** — empty record `{{}}`", label);
         }
         return format!("**{}**", label);
@@ -391,10 +409,11 @@ fn bracket_hover(
 
 /// Count the top-level elements between an opening and closing bracket.
 fn count_bracket_contents(
+    lang: &Language,
     tokens: &[SpannedToken],
     open_index: usize,
-    open_kind: &str,
-    close_kind: &str,
+    open_cat: TC,
+    close_cat: TC,
 ) -> (usize, &'static str) {
     let mut depth = 1;
     let mut commas = 0;
@@ -402,24 +421,24 @@ fn count_bracket_contents(
     let mut i = open_index + 1;
     while i < tokens.len() && depth > 0 {
         let k = tokens[i].kind.as_str();
-        if k == open_kind {
+        if lang.token_is(k, open_cat) {
             depth += 1;
-        } else if k == close_kind {
+        } else if lang.token_is(k, close_cat) {
             depth -= 1;
             if depth == 0 {
                 break;
             }
-        } else if depth == 1 && k == "token.comma" {
+        } else if depth == 1 && lang.token_is(k, TC::Comma) {
             commas += 1;
-        } else if depth == 1 && !is_comment_kind(k) {
+        } else if depth == 1 && !is_comment_kind(lang, k) {
             has_content = true;
         }
         i += 1;
     }
     let count = if has_content { commas + 1 } else { 0 };
-    let desc = if open_kind == "token.lbrace" {
+    let desc = if open_cat == TC::OpenBrace {
         "fields"
-    } else if open_kind == "token.lbracket" {
+    } else if open_cat == TC::OpenBracket {
         "elements"
     } else {
         "arguments"
@@ -428,19 +447,26 @@ fn count_bracket_contents(
 }
 
 /// Hover for the spread/rest operator `...`.
-fn spread_hover(tokens: &[SpannedToken], _index: usize, _token: &SpannedToken) -> String {
+fn spread_hover(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    _index: usize,
+    _token: &SpannedToken,
+) -> String {
     // Check context: inside brackets → spread, inside pattern → rest
     let in_brackets = tokens
         .iter()
         .take(_index)
         .rev()
         .take_while(|t| {
-            t.kind != "token.lbracket"
-                && t.kind != "token.rbracket"
-                && t.kind != "token.lbrace"
-                && t.kind != "token.rbrace"
+            !lang.token_is(&t.kind, TC::OpenBracket)
+                && !lang.token_is(&t.kind, TC::CloseBracket)
+                && !lang.token_is(&t.kind, TC::OpenBrace)
+                && !lang.token_is(&t.kind, TC::CloseBrace)
         })
-        .any(|t| t.kind == "token.lbracket" || t.kind == "token.lbrace");
+        .any(|t| {
+            lang.token_is(&t.kind, TC::OpenBracket) || lang.token_is(&t.kind, TC::OpenBrace)
+        });
 
     if in_brackets {
         "**Spread / rest** `...`\n\nSpreads elements into an array, or collects remaining elements in a pattern.".to_string()
@@ -450,15 +476,20 @@ fn spread_hover(tokens: &[SpannedToken], _index: usize, _token: &SpannedToken) -
 }
 
 /// Hover for the dot accessor `.`.
-fn dot_hover(tokens: &[SpannedToken], index: usize, _token: &SpannedToken) -> String {
+fn dot_hover(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    index: usize,
+    _token: &SpannedToken,
+) -> String {
     // Check what follows: `ident` → property access, `ident(` → method call
     let next_is_ident = tokens
         .get(index + 1)
-        .map(|t| is_identifier_kind(&t.kind))
+        .map(|t| is_identifier_kind(lang, &t.kind))
         .unwrap_or(false);
     let next_is_call = tokens
         .get(index + 2)
-        .map(|t| t.kind == "token.lparen")
+        .map(|t| lang.token_is(&t.kind, TC::OpenParen))
         .unwrap_or(false);
 
     if next_is_ident && next_is_call {
@@ -470,51 +501,53 @@ fn dot_hover(tokens: &[SpannedToken], index: usize, _token: &SpannedToken) -> St
     "**Accessor** `.`".to_string()
 }
 
-/// Produce a granular hover for a keyword, with documentation and syntax hint.
-fn keyword_hover(kind: &str, text: &str) -> String {
-    let (synopsis, syntax) = match kind {
-        "token.keyword.match" => (
+/// Produce a granular hover for a keyword, with documentation and syntax
+/// hint. Dispatches on the keyword's lexeme text (the keyword's surface
+/// spelling), not the token kind id (ADR-0081).
+fn keyword_hover(text: &str) -> String {
+    let (synopsis, syntax) = match text {
+        "match" => (
             "Pattern-match on a value",
             "match `expr` { `pat` { `body` }, … }",
         ),
-        "token.keyword.if" => ("Conditional expression", "if `cond` { `a` } else { `b` }"),
-        "token.keyword.else" => ("Else-branch of `if`", "else { `expr` }"),
-        "token.keyword.rec" => (
+        "if" => ("Conditional expression", "if `cond` { `a` } else { `b` }"),
+        "else" => ("Else-branch of `if`", "else { `expr` }"),
+        "rec" => (
             "Feedback loop — arrow `Loop` combinator in surface syntax",
             "rec { `state` } { `body` }",
         ),
-        "token.keyword.while" => (
+        "while" => (
             "While loop — iterate while a condition holds",
             "while `cond` { `body` }",
         ),
-        "token.keyword.for" => (
+        "for" => (
             "For loop — iterate over a collection",
             "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.do" => ("Do-while loop body", "do { `body` } while `cond`"),
-        "token.keyword.in" => (
+        "do" => ("Do-while loop body", "do { `body` } while `cond`"),
+        "in" => (
             "Iterator binding — used with `for`",
             "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.return" => ("Return a value from an arrow", "return `expr`"),
-        "token.keyword.import" => ("Import a module / arrow", "import `name` from `module`"),
-        "token.keyword.from" => ("Module source for an import", "import `name` from `module`"),
-        "token.keyword.infer" => ("Infer a type or contract", "infer `name` : `signature`"),
-        "token.keyword.type" => ("Type declaration", "type `Name` = `definition`"),
-        "token.keyword.trait" => (
+        "return" => ("Return a value from an arrow", "return `expr`"),
+        "import" => ("Import a module / arrow", "import `name` from `module`"),
+        "from" => ("Module source for an import", "import `name` from `module`"),
+        "infer" => ("Infer a type or contract", "infer `name` : `signature`"),
+        "type" => ("Type declaration", "type `Name` = `definition`"),
+        "trait" => (
             "Trait declaration — a set of laws / operations",
             "trait `Name` { `members` }",
         ),
-        "token.keyword.impl" => (
+        "impl" => (
             "Implementation of a trait",
             "impl `Trait` for `Type` { `members` }",
         ),
-        "token.keyword.law" => (
+        "law" => (
             "Law declaration — assert a contract signature",
             "law `name` : `signature`",
         ),
-        "token.keyword.true" => ("Boolean literal", "true"),
-        "token.keyword.false" => ("Boolean literal", "false"),
+        "true" => ("Boolean literal", "true"),
+        "false" => ("Boolean literal", "false"),
         _ => return format!("`keyword` — `{}`", text),
     };
     format!("**{}** `{}`\n\n```\n{}\n```", synopsis, text, syntax)
@@ -522,11 +555,16 @@ fn keyword_hover(kind: &str, text: &str) -> String {
 
 /// Produce a granular hover for an identifier, showing its syntactic role
 /// (binding, property, parameter, function, type) and usage count.
-fn identifier_hover(tokens: &[SpannedToken], index: usize, token: &SpannedToken) -> String {
-    let role = classify_identifier_role(tokens, index);
+fn identifier_hover(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    index: usize,
+    token: &SpannedToken,
+) -> String {
+    let role = classify_identifier_role(lang, tokens, index);
     let usage_count = tokens
         .iter()
-        .filter(|t| is_identifier_kind(&t.kind) && t.text == token.text)
+        .filter(|t| is_identifier_kind(lang, &t.kind) && t.text == token.text)
         .count();
 
     let mut md = format!("**{}** `{}`", role.label, token.text);
@@ -585,17 +623,22 @@ struct IdentifierRole {
     detail: Option<String>,
 }
 
-fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> IdentifierRole {
-    let is_kind =
-        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
+fn classify_identifier_role(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    index: usize,
+) -> IdentifierRole {
+    let is_kind = |i: usize, c: TC| -> bool {
+        tokens.get(i).map(|t| lang.token_is(&t.kind, c)).unwrap_or(false)
+    };
 
     let ident = tokens[index].text.as_str();
 
     // Property access: preceded by `.` → this is a member/field.
     // e.g. `state.acc`, `state.remaining`, `input.0`
-    if index > 0 && is_kind(index - 1, "token.dot") {
+    if index > 0 && is_kind(index - 1, TC::Dot) {
         // If followed by `(`, it's a method call: `state.f(h)`, `arr.map(...)`
-        if is_kind(index + 1, "token.lparen") {
+        if is_kind(index + 1, TC::OpenParen) {
             return IdentifierRole {
                 label: "method",
                 detail: Some(format!("Called via `.` — method on the receiver")),
@@ -623,7 +666,7 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // `type.foo` → type reference
-    if ident == "type" && is_kind(index + 1, "token.dot") {
+    if ident == "type" && is_kind(index + 1, TC::Dot) {
         return IdentifierRole {
             label: "type reference",
             detail: None,
@@ -631,7 +674,7 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // Function call: next token is `(`
-    if is_kind(index + 1, "token.lparen") {
+    if is_kind(index + 1, TC::OpenParen) {
         return IdentifierRole {
             label: "function",
             detail: Some(format!("Called with `(` — function or callable")),
@@ -639,12 +682,12 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // Dotted call: `ident . ident (`
-    if is_kind(index + 1, "token.dot")
+    if is_kind(index + 1, TC::Dot)
         && tokens
             .get(index + 2)
-            .map(|t| is_identifier_kind(&t.kind))
+            .map(|t| is_identifier_kind(lang, &t.kind))
             .unwrap_or(false)
-        && is_kind(index + 3, "token.lparen")
+        && is_kind(index + 3, TC::OpenParen)
     {
         let callee = tokens
             .get(index + 2)
@@ -657,13 +700,13 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // `key:` inside parens → parameter; inside braces → property
-    if is_kind(index + 1, "token.colon") {
-        return match enclosing_open_delim(tokens, index) {
-            Some("token.lparen") => IdentifierRole {
+    if is_kind(index + 1, TC::Colon) {
+        return match enclosing_open_delim(lang, tokens, index) {
+            Some(TC::OpenParen) => IdentifierRole {
                 label: "parameter",
                 detail: Some("Named field in `(…)` — a parameter".to_string()),
             },
-            Some("token.lbrace") => IdentifierRole {
+            Some(TC::OpenBrace) => IdentifierRole {
                 label: "property",
                 detail: Some("Named field in `{ … }` — a record property".to_string()),
             },
@@ -675,7 +718,7 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // Binding declaration: followed by `::`
-    if is_kind(index + 1, "token.bind") {
+    if is_kind(index + 1, TC::Bind) {
         return IdentifierRole {
             label: "binding",
             detail: Some("Followed by `::` — a binding declaration".to_string()),
@@ -683,7 +726,7 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 
     // Dotted access: `x.y` — x is a value/module, y is a field/member
-    if is_kind(index + 1, "token.dot") {
+    if is_kind(index + 1, TC::Dot) {
         return IdentifierRole {
             label: "value",
             detail: Some("Followed by `.` — a value or module".to_string()),
@@ -696,20 +739,26 @@ fn classify_identifier_role(tokens: &[SpannedToken], index: usize) -> Identifier
     }
 }
 
-/// Find the nearest unmatched opening delimiter enclosing `index`.
-fn enclosing_open_delim(tokens: &[SpannedToken], index: usize) -> Option<&'static str> {
+/// Find the category of the nearest unmatched opening delimiter enclosing
+/// `index` (paren or brace tracked; other bracket categories are ignored,
+/// matching the original two-counter scan).
+fn enclosing_open_delim(
+    lang: &Language,
+    tokens: &[SpannedToken],
+    index: usize,
+) -> Option<TC> {
     let mut depth_paren: i32 = 0;
     let mut depth_brace: i32 = 0;
     let mut i = index;
     while i > 0 {
         i -= 1;
-        match tokens[i].kind.as_str() {
-            "token.rparen" => depth_paren += 1,
-            "token.rbrace" => depth_brace += 1,
-            "token.lparen" if depth_paren == 0 => return Some("token.lparen"),
-            "token.lparen" => depth_paren -= 1,
-            "token.lbrace" if depth_brace == 0 => return Some("token.lbrace"),
-            "token.lbrace" => depth_brace -= 1,
+        match lang.token_category(tokens[i].kind.as_str()) {
+            Some(TC::CloseParen) => depth_paren += 1,
+            Some(TC::CloseBrace) => depth_brace += 1,
+            Some(TC::OpenParen) if depth_paren == 0 => return Some(TC::OpenParen),
+            Some(TC::OpenParen) => depth_paren -= 1,
+            Some(TC::OpenBrace) if depth_brace == 0 => return Some(TC::OpenBrace),
+            Some(TC::OpenBrace) => depth_brace -= 1,
             _ => {}
         }
     }

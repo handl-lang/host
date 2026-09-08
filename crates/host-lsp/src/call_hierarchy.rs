@@ -37,10 +37,12 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{
-    SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind, is_string_kind,
+    Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind, is_string_kind,
 };
+use handl_language::Language;
 
 use crate::diagnostics::offset_to_position;
+
 use crate::kit_resolver::kit_for_file;
 use crate::refinement::find_arrows_root;
 
@@ -226,10 +228,11 @@ pub fn outgoing_calls(arrow_name: &str, file_path: Option<&str>) -> Vec<Value> {
     // Scan the current arrow's body for references to other arrows.
     let body = &source[current.body_start..current.body_end];
     let body_offset = current.body_start;
-    let body_tokens = match lex(body) {
-        Some(t) => t,
+    let (body_kit, body_tokens) = match lex(body) {
+        Some(kt) => kt,
         None => return Vec::new(),
     };
+    let lang = body_kit.lang();
 
     // Collect, per referenced arrow, the list of source-relative ranges where
     // the reference occurs. Preserve first-seen order for deterministic
@@ -237,11 +240,11 @@ pub fn outgoing_calls(arrow_name: &str, file_path: Option<&str>) -> Vec<Value> {
     let mut calls: Vec<(String, Vec<Value>)> = Vec::new();
     let mut seen: HashMap<String, usize> = HashMap::new();
     for t in &body_tokens {
-        if is_comment_kind(&t.kind) {
+        if is_comment_kind(lang, &t.kind) {
             continue;
         }
 
-        let ref_name = reference_name(t);
+        let ref_name = reference_name(lang, t);
         if ref_name.is_empty() {
             continue;
         }
@@ -290,17 +293,19 @@ pub fn outgoing_calls(arrow_name: &str, file_path: Option<&str>) -> Vec<Value> {
 // ---------------------------------------------------------------------------
 
 /// Lex `source` into spanned tokens, returning `None` on failure.
-fn lex(source: &str) -> Option<Vec<SpannedToken>> {
+fn lex(source: &str) -> Option<(Kit, Vec<SpannedToken>)> {
     let kit = kit_for_file(None).ok()?;
-    kit.lex_with_spans(source).ok()
+    let tokens = kit.lex_with_spans(source).ok()?;
+    Some((kit, tokens))
 }
 
 /// Return the identifier at `offset`, as `(name, start, end)`, or `None` when
 /// the cursor is not on an identifier.
 fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, usize, usize)> {
-    let tokens = lex(source)?;
+    let (kit, tokens) = lex(source)?;
+    let lang = kit.lang();
     for t in &tokens {
-        if is_identifier_kind(&t.kind) && t.span.start <= offset && offset < t.span.end {
+        if is_identifier_kind(lang, &t.kind) && t.span.start <= offset && offset < t.span.end {
             return Some((t.text.clone(), t.span.start, t.span.end));
         }
     }
@@ -312,17 +317,17 @@ fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, usize, u
 /// Identifiers contribute their own text. String literals (used inside
 /// `arr("name")` / `app("name", ...)`) contribute their unquoted content.
 /// Keywords, operators, and other tokens contribute `None`.
-fn reference_name(t: &SpannedToken) -> String {
-    if is_identifier_kind(&t.kind) {
+fn reference_name(lang: &Language, t: &SpannedToken) -> String {
+    if is_identifier_kind(lang, &t.kind) {
         // Keywords are a distinct kind, so identifiers here are never
         // keywords — but guard defensively in case of future grammar
         // changes that fold keywords into the identifier kind.
-        if is_keyword_kind(&t.kind) {
+        if is_keyword_kind(lang, &t.kind) {
             return String::new();
         }
         return t.text.clone();
     }
-    if is_string_kind(&t.kind) {
+    if is_string_kind(lang, &t.kind) {
         return unquote_string(&t.text);
     }
     String::new()
@@ -352,10 +357,11 @@ fn unquote_string(text: &str) -> String {
 /// the entire source. Returns an empty vector when there are no named arrows
 /// and no `file_path` is available.
 fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef> {
-    let tokens = match lex(source) {
-        Some(t) => t,
+    let (kit, tokens) = match lex(source) {
+        Some(kt) => kt,
         None => return Vec::new(),
     };
+    let lang = kit.lang();
 
     let mut defs = Vec::new();
     let mut depth: i32 = 0;
@@ -364,7 +370,7 @@ fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef
         let t = &tokens[i];
         let kind = t.kind.as_str();
 
-        if is_comment_kind(kind) {
+        if is_comment_kind(lang, kind) {
             i += 1;
             continue;
         }
@@ -372,9 +378,9 @@ fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef
         // Track bracket depth so that let-bindings inside arrow bodies
         // (`cmp = ... in` within `loop { ... } (...)`) are not mistaken for
         // top-level named-arrow definitions.
-        match kind {
-            "token.lparen" | "token.lbrace" | "token.lbracket" => depth += 1,
-            "token.rparen" | "token.rbrace" | "token.rbracket" => {
+        match lang.token_category(kind) {
+            Some(c) if c.is_open_bracket() => depth += 1,
+            Some(c) if c.is_close_bracket() => {
                 if depth > 0 {
                     depth -= 1;
                 }
@@ -382,11 +388,11 @@ fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef
             _ => {}
         }
 
-        if depth == 0 && is_identifier_kind(kind) {
+        if depth == 0 && is_identifier_kind(lang, kind) {
             // Look for the next non-comment token; if it is `::`, this is a
             // named-arrow definition.
             let mut j = i + 1;
-            while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
+            while j < tokens.len() && is_comment_kind(lang, &tokens[j].kind) {
                 j += 1;
             }
             if j < tokens.len() && tokens[j].text == "::" {
@@ -429,17 +435,18 @@ fn find_arrow_definitions(source: &str, file_path: Option<&str>) -> Vec<ArrowDef
 fn find_references_in_body(source: &str, def: &ArrowDef, name: &str) -> Vec<Value> {
     let body = &source[def.body_start..def.body_end];
     let body_offset = def.body_start;
-    let tokens = match lex(body) {
-        Some(t) => t,
+    let (kit, tokens) = match lex(body) {
+        Some(kt) => kt,
         None => return Vec::new(),
     };
+    let lang = kit.lang();
 
     let mut ranges = Vec::new();
     for t in &tokens {
-        if is_comment_kind(&t.kind) {
+        if is_comment_kind(lang, &t.kind) {
             continue;
         }
-        if reference_name(t) == name {
+        if reference_name(lang, t) == name {
             ranges.push(range_from_span(
                 source,
                 body_offset + t.span.start,

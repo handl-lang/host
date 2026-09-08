@@ -119,10 +119,19 @@ and linter all split source into top-level statements at bracket-depth zero
   - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
     **closed**. Both now use `Language::param_name` (guarded by
     `pattern_role: leaf`/`subject` role metadata).
-  - `host-lsp/src/*` (~20): token-kind/keyword checks remain. Closing them
-    needs a `category`/`class` field on `TokenKindDef` (keyword/open-bracket/
-    close-bracket/operator/identifier/etc.) plus host-LSP using
-    `lang.tokens` classification instead of string helpers.
+  - `host-lsp/src/*` + `host-tooling` token-kind checks: **closed**.
+    `TokenKindDef` gained an optional `category: TokenCategory` field
+    (keyword/identifier/number/string/template/json/boolean/null/comment/
+    doc-comment/operator/open-paren/close-paren/open-bracket/close-bracket/
+    open-brace/close-brace/comma/semicolon/colon/dot/bind/ellipsis) with
+    `is_open_bracket`/`is_close_bracket`/`is_bracket`/`matching_open`/
+    `matching_close`/`is_operator_like`/`is_delimiter_like`/`is_comment_like`
+    predicates; `Language::token_category`/`token_is` are the accessors.
+    `kit-canonical`'s `is_*_kind` helpers now take `&Language` and read
+    `lang.tokens` categories; host-lsp and host-tooling (semantic tokens +
+    TextMate grammar generation) classify via them. Bracket matching is
+    category-driven; the two `<`-`-` (`<-`) checks compare lexeme text, and
+    `keyword_hover` dispatches on the keyword's text rather than kind ids.
   - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
     treat as bootstrap or move arrow-grammar into `Language` data.
   - `data/eval.yaml`/`data/types.yaml` have **no `let` row** →

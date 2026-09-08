@@ -16,6 +16,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_string_kind};
+use handl_language::Language;
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -157,6 +158,7 @@ fn named_color_infos(source: &str) -> Vec<Value> {
         .chars()
         .map(|c| if c == '#' { ' ' } else { c })
         .collect();
+    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(&stripped) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
@@ -166,15 +168,15 @@ fn named_color_infos(source: &str) -> Vec<Value> {
     let mut i = 0;
     while i < tokens.len() {
         // Look for an identifier `color` ...
-        if is_identifier_kind(&tokens[i].kind) && tokens[i].text == "color" {
+        if is_identifier_kind(lang, &tokens[i].kind) && tokens[i].text == "color" {
             // ... immediately followed by `(` (skipping comments) ...
-            if let Some(open_paren) = next_significant(&tokens, i + 1) {
+            if let Some(open_paren) = next_significant(lang, &tokens, i + 1) {
                 if tokens[open_paren].text == "(" {
                     // ... then a string literal ...
-                    if let Some(str_idx) = next_significant(&tokens, open_paren + 1) {
-                        if is_string_kind(&tokens[str_idx].kind) {
+                    if let Some(str_idx) = next_significant(lang, &tokens, open_paren + 1) {
+                        if is_string_kind(lang, &tokens[str_idx].kind) {
                             // ... then `)`.
-                            if let Some(close_idx) = next_significant(&tokens, str_idx + 1) {
+                            if let Some(close_idx) = next_significant(lang, &tokens, str_idx + 1) {
                                 if tokens[close_idx].text == ")" {
                                     let inner = string_inner(&tokens[str_idx]);
                                     if let Some((r, g, b)) =
@@ -203,10 +205,10 @@ fn named_color_infos(source: &str) -> Vec<Value> {
 }
 
 /// Return the index of the next non-comment token after `start`, or `None`.
-fn next_significant(tokens: &[SpannedToken], start: usize) -> Option<usize> {
+fn next_significant(lang: &Language, tokens: &[SpannedToken], start: usize) -> Option<usize> {
     let mut j = start;
     while j < tokens.len() {
-        if !is_comment_kind(&tokens[j].kind) {
+        if !is_comment_kind(lang, &tokens[j].kind) {
             return Some(j);
         }
         j += 1;

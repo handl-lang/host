@@ -19,6 +19,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::SpannedToken;
+use handl_language::{Language, TokenCategory as TC};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -40,7 +41,19 @@ pub fn selection_ranges(source: &str, positions: &[usize]) -> Vec<Value> {
     }
 
     // Lex once and reuse for every position.
-    let tokens = match kit_for_file(None).and_then(|k| k.lex_with_spans(source)) {
+    let kit = match kit_for_file(None) {
+        Ok(k) => k,
+        Err(_) => {
+            // If the kit cannot be built, fall back to line/document-only
+            // hierarchies so the feature still degrades gracefully.
+            return positions
+                .iter()
+                .map(|&pos| build_chain(source, &[], pos, &[]))
+                .collect();
+        }
+    };
+    let lang = kit.lang();
+    let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => {
             // If the source cannot be lexed, fall back to line/document-only
@@ -53,7 +66,7 @@ pub fn selection_ranges(source: &str, positions: &[usize]) -> Vec<Value> {
     };
 
     // Pre-compute every matching bracket pair in the file.
-    let pairs = bracket_pairs(&tokens);
+    let pairs = bracket_pairs(lang, &tokens);
 
     positions
         .iter()
@@ -90,51 +103,27 @@ impl Pair {
     }
 }
 
-/// The flavour of bracket currently open on the stack.
-#[derive(Clone, Copy, PartialEq)]
-enum Bracket {
-    Brace,
-    Paren,
-    Bracket,
-}
-
-impl Bracket {
-    fn from_open(kind: &str) -> Option<Bracket> {
-        match kind {
-            "token.lbrace" => Some(Bracket::Brace),
-            "token.lparen" => Some(Bracket::Paren),
-            "token.lbracket" => Some(Bracket::Bracket),
-            _ => None,
-        }
-    }
-
-    fn matches_close(self, kind: &str) -> bool {
-        match self {
-            Bracket::Brace => kind == "token.rbrace",
-            Bracket::Paren => kind == "token.rparen",
-            Bracket::Bracket => kind == "token.rbracket",
-        }
-    }
-}
-
-/// Walk the token stream with a stack and collect every matching bracket pair.
-fn bracket_pairs(tokens: &[SpannedToken]) -> Vec<Pair> {
+/// Walk the token stream with a stack and collect every matching bracket
+/// pair. Bracket identity comes from `lang.tokens` categories (ADR-0081).
+fn bracket_pairs(lang: &Language, tokens: &[SpannedToken]) -> Vec<Pair> {
     let mut out = Vec::new();
-    let mut stack: Vec<(Bracket, usize, usize)> = Vec::new(); // (variant, open_start, open_end)
+    // (open category, open_start, open_end)
+    let mut stack: Vec<(TC, usize, usize)> = Vec::new();
 
     for t in tokens {
-        let kind = t.kind.as_str();
+        let Some(cat) = lang.token_category(&t.kind) else {
+            continue;
+        };
 
-        if let Some(bracket) = Bracket::from_open(kind) {
-            stack.push((bracket, t.span.start, t.span.end));
+        if cat.is_open_bracket() {
+            stack.push((cat, t.span.start, t.span.end));
             continue;
         }
 
-        let is_close = kind == "token.rbrace" || kind == "token.rparen" || kind == "token.rbracket";
-        if is_close {
+        if cat.is_close_bracket() {
             // Pop until we find the matching opener; discard mismatched ones.
-            while let Some(&(bracket, open_start, open_end)) = stack.last() {
-                if bracket.matches_close(kind) {
+            while let Some(&(open_cat, open_start, open_end)) = stack.last() {
+                if open_cat.matching_close() == Some(cat) {
                     stack.pop();
                     out.push(Pair {
                         open_start,

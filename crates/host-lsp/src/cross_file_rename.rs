@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_language::TokenCategory as TC;
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
@@ -159,31 +160,32 @@ pub fn rename(
 ///   an arrow reference (matches a `.hnl` file name)
 fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(String, Span)> {
     let kit = kit_for_file(None).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens.iter().enumerate().find(|(_, t)| {
-        is_identifier_kind(t.kind.as_str()) && t.span.start <= offset && offset < t.span.end
+        is_identifier_kind(lang, t.kind.as_str()) && t.span.start <= offset && offset < t.span.end
     })?;
 
     // Not a property access (preceded by `.`).
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && lang.token_is(&tokens[index - 1].kind, TC::Dot) {
         return None;
     }
 
     // Find the next non-comment token to see if this is a binding name.
     let mut j = index + 1;
-    while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
+    while j < tokens.len() && is_comment_kind(lang, &tokens[j].kind) {
         j += 1;
     }
     let is_binding = j < tokens.len()
-        && ((tokens[j].kind == "token.bind" && tokens[j].text == "::")
-            || tokens[j].kind == "token.colon");
+        && ((lang.token_is(&tokens[j].kind, TC::Bind) && tokens[j].text == "::")
+            || lang.token_is(&tokens[j].kind, TC::Colon));
 
     // Check if it matches an arrow file name. We can't know the file path
     // here (prepare_rename has no path), so we accept identifiers that are
     // either bindings or look like arrow references. For arrow references,
     // any identifier that is followed by `(` is a candidate call.
-    let is_arrow_call = j < tokens.len() && tokens[j].kind == "token.lparen";
+    let is_arrow_call = j < tokens.len() && lang.token_is(&tokens[j].kind, TC::OpenParen);
 
     if is_binding || is_arrow_call {
         return Some((token.text.clone(), token.span));

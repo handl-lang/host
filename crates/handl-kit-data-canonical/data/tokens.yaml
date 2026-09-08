@@ -4,31 +4,45 @@
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
 # Retained: axiom (compatible alias for law).
+# `category:` (ADR-0081) is the host-facing classification hosts (LSP,
+# tooling) read via `Language::token_category` instead of `kind ==`
+# string heuristics.
 - id: token.and
   label: "&&"
+  category: operator
 - id: token.arrow
   label: ~>
+  category: operator
 - id: token.bang
   label: null
+  category: operator
 - id: token.bool
   label: bool
   literal: Bool
+  category: boolean
 - id: token.choice
   label: "|||"
+  category: operator
 - id: token.colon
   label: ":"
+  category: colon
 - id: token.comma
   label: ","
+  category: comma
 - id: token.comment
   label: comment
   trivia: true
+  category: comment
 - id: token.doc_comment
   label: doc_comment
   trivia: true
+  category: doc-comment
 - id: token.dot
   label: .
+  category: dot
 - id: token.ellipsis
   label: "..."
+  category: ellipsis
 - id: token.eof
   label: eof
 - id: token.eqeq
@@ -36,20 +50,28 @@
   # `a == b` sources keep working while `=` is now also equality. No grammar
   # row references `token.eqeq` anymore.
   label: ==
+  category: operator
 - id: token.bind
   label: "::"
+  category: bind
 - id: token.equal
   label: =
+  category: operator
 - id: token.fanout
   label: "&&&"
+  category: operator
 - id: token.flow
   label: ">>>"
+  category: operator
 - id: token.gt
   label: ">"
+  category: operator
 - id: token.gte
   label: ">="
+  category: operator
 - id: token.identifier
   label: identifier
+  category: identifier
 - id: token.if
   label: null
 - id: token.json
@@ -60,102 +82,150 @@
     wrap:
       - "{"
       - "}"
+  category: json
 - id: token.keyword.as
   label: as
+  category: keyword
 - id: token.keyword.axiom
   label: axiom
+  category: keyword
 - id: token.keyword.data
   label: data
+  category: keyword
 - id: token.keyword.do
   label: do
+  category: keyword
 - id: token.keyword.else
   label: else
+  category: keyword
 - id: token.keyword.export
   label: export
+  category: keyword
 - id: token.keyword.for
   label: for
+  category: keyword
 - id: token.keyword.from
   label: from
+  category: keyword
 - id: token.keyword.if
   label: if
+  category: keyword
 - id: token.keyword.impl
   label: impl
+  category: keyword
 - id: token.keyword.import
   label: import
+  category: keyword
 - id: token.keyword.in
   label: in
+  category: keyword
 - id: token.keyword.infer
   label: infer
+  category: keyword
 - id: token.keyword.law
   label: law
+  category: keyword
 - id: token.keyword.match
   label: match
+  category: keyword
 - id: token.keyword.rec
   label: rec
+  category: keyword
 - id: token.keyword.return
   label: return
+  category: keyword
 - id: token.keyword.then
   label: then
+  category: keyword
 - id: token.keyword.trait
   label: trait
+  category: keyword
 - id: token.keyword.type
   label: type
+  category: keyword
 - id: token.keyword.while
   label: while
+  category: keyword
 - id: token.keyword.with
   label: with
+  category: keyword
 - id: token.lbrace
   label: "{"
+  category: open-brace
 - id: token.lbracket
   label: "["
+  category: open-bracket
 - id: token.lparen
   label: (
+  category: open-paren
 - id: token.lt
   label: <
+  category: operator
 - id: token.lte
   label: <=
+  category: operator
 - id: token.minus
   label: "-"
+  category: operator
 - id: token.neq
   label: "!="
+  category: operator
 - id: token.null
   label: "null"
   literal: "Null"
+  category: "null"
 - id: token.nullish
   label: "??"
+  category: operator
 - id: token.number
   label: number
   literal: Number
+  category: number
 - id: token.opt_chain
   label: "?."
+  category: operator
 - id: token.or
   label: "||"
+  category: operator
 - id: token.pipe
   label: "|"
+  category: operator
 - id: token.percent
   label: "%"
+  category: operator
 - id: token.plus
   label: +
+  category: operator
 - id: token.pow
   label: "**"
+  category: operator
 - id: token.product
   label: "***"
+  category: operator
 - id: token.question
   label: null
+  category: operator
 - id: token.rbrace
   label: "}"
+  category: close-brace
 - id: token.rbracket
   label: "]"
+  category: close-bracket
 - id: token.rparen
   label: )
+  category: close-paren
 - id: token.semicolon
   label: ;
+  category: semicolon
 - id: token.slash
   label: /
+  category: operator
 - id: token.spaceship
   label: <=>
+  category: operator
 - id: token.star
   label: "*"
+  category: operator
 - id: token.string
   label: string
   literal: !String
@@ -171,5 +241,7 @@
         - '"'
       - - '\\'
         - '\'
+  category: string
 - id: token.template
   label: null
+  category: template

@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_language::TokenCategory as TC;
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -59,19 +60,23 @@ fn declaration_spans(source: &str, name: &str) -> std::collections::HashSet<(usi
         Ok(k) => k,
         Err(_) => return spans,
     };
+    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => return spans,
     };
     let mut i = 0;
     while i < tokens.len() {
-        if is_identifier_kind(&tokens[i].kind) && tokens[i].text == name {
+        if is_identifier_kind(lang, &tokens[i].kind) && tokens[i].text == name {
             // Find the next non-comment token.
             let mut j = i + 1;
-            while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
+            while j < tokens.len() && is_comment_kind(lang, &tokens[j].kind) {
                 j += 1;
             }
-            if j < tokens.len() && (&tokens[j].text == "::" || &tokens[j].text == ":") {
+            if j < tokens.len()
+                && (lang.token_is(&tokens[j].kind, TC::Bind)
+                    || lang.token_is(&tokens[j].kind, TC::Colon))
+            {
                 spans.insert((tokens[i].span.start, tokens[i].span.end));
             }
         }

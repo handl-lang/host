@@ -18,6 +18,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind};
+use handl_language::{Language, TokenCategory as TC};
 
 use crate::kit_resolver::kit_for_file;
 use crate::line_map::LineMap;
@@ -47,6 +48,7 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };
+    let lang = kit.lang();
     let tokens = match kit.lex_with_spans(source) {
         Ok(t) => t,
         Err(_) => return Vec::new(),
@@ -60,21 +62,21 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
     // arrow file (it starts with the `rec` keyword).
     let is_arrow = tokens
         .iter()
-        .find(|t| !is_comment_kind(&t.kind))
-        .map(|t| is_keyword_kind(&t.kind) && t.text == "rec")
+        .find(|t| !is_comment_kind(lang, &t.kind))
+        .map(|t| is_keyword_kind(lang, &t.kind) && t.text == "rec")
         .unwrap_or(false);
 
     // Contract files are identified by the presence of a `law` keyword.
     let is_contract = tokens
         .iter()
-        .any(|t| is_keyword_kind(&t.kind) && t.text == "law");
+        .any(|t| is_keyword_kind(lang, &t.kind) && t.text == "law");
 
     if is_arrow {
-        arrow_symbols(source, &lines, &tokens)
+        arrow_symbols(lang, source, &lines, &tokens)
     } else if is_contract {
-        contract_symbols(source, &lines, &tokens)
+        contract_symbols(lang, source, &lines, &tokens)
     } else {
-        general_symbols(source, &lines, &tokens)
+        general_symbols(lang, source, &lines, &tokens)
     }
 }
 
@@ -94,7 +96,7 @@ enum Frame {
     BraceObject,
 }
 
-fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn arrow_symbols(lang: &Language, source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     // Set by the `match` keyword, consumed by the next `{` (which opens a
@@ -109,13 +111,13 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
         let t = &tokens[i];
         let kind = t.kind.as_str();
 
-        if is_comment_kind(kind) {
+        if is_comment_kind(lang, kind) {
             i += 1;
             continue;
         }
 
         // Keywords -----------------------------------------------------------
-        if is_keyword_kind(kind) {
+        if is_keyword_kind(lang, kind) {
             match t.text.as_str() {
                 "rec" => out.push(sym(
                     "rec",
@@ -154,34 +156,34 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
         }
 
         // Brackets / braces / parens ----------------------------------------
-        match kind {
-            "token.lbrace" => {
+        match lang.token_category(kind) {
+            Some(TC::OpenBrace) => {
                 let frame = if expect_match_body {
                     expect_match_body = false;
-                    pattern_start = next_sig_idx(tokens, i + 1);
+                    pattern_start = next_sig_idx(lang, tokens, i + 1);
                     Frame::BraceMatch
                 } else {
                     Frame::BraceObject
                 };
                 stack.push(frame);
             }
-            "token.rbrace" => {
+            Some(TC::CloseBrace) => {
                 stack.pop();
                 pattern_start = None;
             }
-            "token.lparen" => {
+            Some(TC::OpenParen) => {
                 stack.push(Frame::Paren);
             }
-            "token.rparen" => {
+            Some(TC::CloseParen) => {
                 stack.pop();
             }
-            "token.lbracket" => {
+            Some(TC::OpenBracket) => {
                 stack.push(Frame::Bracket);
             }
-            "token.rbracket" => {
+            Some(TC::CloseBracket) => {
                 stack.pop();
             }
-            "token.colon" => {
+            Some(TC::Colon) => {
                 // A `:` directly inside a match body separates the arm
                 // pattern from the arm body.
                 if matches!(stack.last(), Some(Frame::BraceMatch)) {
@@ -190,7 +192,7 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
                             let pstart = tokens[start_idx].span.start;
                             let mut pend = pstart;
                             for j in start_idx..i {
-                                if !is_comment_kind(&tokens[j].kind) {
+                                if !is_comment_kind(lang, &tokens[j].kind) {
                                     pend = tokens[j].span.end;
                                 }
                             }
@@ -203,21 +205,22 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
                     }
                 }
             }
-            "token.comma" => {
+            Some(TC::Comma) => {
                 // A `,` directly inside a match body ends an arm body and
                 // returns to pattern position for the next arm.
                 if matches!(stack.last(), Some(Frame::BraceMatch)) {
-                    pattern_start = next_sig_idx(tokens, i + 1);
+                    pattern_start = next_sig_idx(lang, tokens, i + 1);
                 }
             }
             _ => {
                 // Object key: an identifier directly inside a record literal
                 // followed by `:` or `::` is a field name. v0.1 syntax uses
                 // `::` for field assignment while `:` is used for typed fields.
-                if is_identifier_kind(kind) {
+                if is_identifier_kind(lang, kind) {
                     if matches!(stack.last(), Some(Frame::BraceObject)) {
-                        if let Some(ni) = next_sig_idx(tokens, i + 1) {
-                            if tokens[ni].kind == "token.colon" || tokens[ni].kind == "token.bind"
+                        if let Some(ni) = next_sig_idx(lang, tokens, i + 1) {
+                            if lang.token_is(&tokens[ni].kind, TC::Colon)
+                                || lang.token_is(&tokens[ni].kind, TC::Bind)
                             {
                                 out.push(sym(
                                     &t.text,
@@ -243,12 +246,12 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
 // Contract files
 // ---------------------------------------------------------------------------
 
-fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn contract_symbols(lang: &Language, source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
         let t = &tokens[i];
-        if is_keyword_kind(&t.kind) && t.text == "law" {
+        if is_keyword_kind(lang, &t.kind) && t.text == "law" {
             // Collect the law name (possibly dotted, e.g. `list.head`) up
             // to the `:` that introduces the signature.
             let mut j = i + 1;
@@ -257,19 +260,19 @@ fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> V
             let mut colon_end: Option<usize> = None;
             while j < tokens.len() {
                 let tj = &tokens[j];
-                if is_comment_kind(&tj.kind) {
+                if is_comment_kind(lang, &tj.kind) {
                     j += 1;
                     continue;
                 }
-                if tj.kind == "token.colon" {
+                if lang.token_is(&tj.kind, TC::Colon) {
                     colon_end = Some(tj.span.end);
                     break;
                 }
                 // Another `law` without a colon — bail out.
-                if is_keyword_kind(&tj.kind) && tj.text == "law" {
+                if is_keyword_kind(lang, &tj.kind) && tj.text == "law" {
                     break;
                 }
-                if is_identifier_kind(&tj.kind) || tj.kind == "token.dot" {
+                if is_identifier_kind(lang, &tj.kind) || lang.token_is(&tj.kind, TC::Dot) {
                     if name_start.is_none() {
                         name_start = Some(tj.span.start);
                     }
@@ -305,14 +308,14 @@ fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> V
 // General .hnl files
 // ---------------------------------------------------------------------------
 
-fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
+fn general_symbols(lang: &Language, source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     for (i, t) in tokens.iter().enumerate() {
         let kind = t.kind.as_str();
-        if is_comment_kind(kind) {
+        if is_comment_kind(lang, kind) {
             continue;
         }
-        if is_keyword_kind(kind) {
+        if is_keyword_kind(lang, kind) {
             match t.text.as_str() {
                 "match" => out.push(sym(
                     "match",
@@ -349,9 +352,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "import" => {
                     // `import name from module` — the next significant token
                     // is the imported name.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(lang, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if is_identifier_kind(lang, &nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_VARIABLE,
@@ -366,9 +369,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "trait" => {
                     // `trait Name { … }` — the next significant token is the
                     // trait name.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(lang, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if is_identifier_kind(lang, &nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_INTERFACE,
@@ -383,9 +386,9 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
                 "impl" => {
                     // `impl Trait for Type { … }` — the next significant token
                     // is the trait being implemented.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                    if let Some(ni) = next_sig_idx(lang, tokens, i + 1) {
                         let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
+                        if is_identifier_kind(lang, &nt.kind) {
                             out.push(sym(
                                 &nt.text,
                                 KIND_INTERFACE,
@@ -401,13 +404,13 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
             }
             continue;
         }
-        if is_identifier_kind(kind) {
+        if is_identifier_kind(lang, kind) {
             // A binding declaration at the start of a line: `name :: value` or
             // `name: type`.
             if lines.is_at_line_start(t.span.start) {
-                if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                if let Some(ni) = next_sig_idx(lang, tokens, i + 1) {
                     let nk = tokens[ni].kind.as_str();
-                    if nk == "token.bind" || nk == "token.colon" {
+                    if lang.token_is(nk, TC::Bind) || lang.token_is(nk, TC::Colon) {
                         out.push(sym(
                             &t.text,
                             KIND_VARIABLE,
@@ -429,12 +432,12 @@ fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Ve
 // ---------------------------------------------------------------------------
 
 /// Index of the next non-comment token at or after `from`, or `None`.
-fn next_sig_idx(tokens: &[SpannedToken], from: usize) -> Option<usize> {
+fn next_sig_idx(lang: &Language, tokens: &[SpannedToken], from: usize) -> Option<usize> {
     tokens
         .iter()
         .enumerate()
         .skip(from)
-        .find(|(_, t)| !is_comment_kind(&t.kind))
+        .find(|(_, t)| !is_comment_kind(lang, &t.kind))
         .map(|(idx, _)| idx)
 }
 

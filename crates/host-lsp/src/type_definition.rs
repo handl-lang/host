@@ -18,6 +18,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{SpannedToken, is_identifier_kind};
+use handl_language::TokenCategory as TC;
 use handl_plugin_ext_refinement::RefTy;
 
 use crate::diagnostics::offset_to_position;
@@ -71,6 +72,7 @@ pub fn type_definition(
 ) -> Option<Value> {
     // Lex the source and find the token at the cursor position.
     let kit = kit_for_file(file_path).ok()?;
+    let lang = kit.lang();
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens
@@ -79,7 +81,7 @@ pub fn type_definition(
         .find(|(_, t)| t.span.start <= offset && offset < t.span.end)?;
 
     // The cursor must be on an identifier.
-    if !is_identifier_kind(token.kind.as_str()) {
+    if !is_identifier_kind(lang, token.kind.as_str()) {
         return None;
     }
 
@@ -88,7 +90,7 @@ pub fn type_definition(
     // Case 1: Property access (e.g. `state.acc`).
     // The token is preceded by `.` — infer the property's refinement type
     // and search for where its predicates are defined.
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && lang.token_is(&tokens[index - 1].kind, TC::Dot) {
         return type_definition_for_property(source, file_path, refinement, &name);
     }
 
