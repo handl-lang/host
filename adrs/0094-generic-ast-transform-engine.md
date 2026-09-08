@@ -516,8 +516,10 @@ of the decision, not follow-ups.
 
 The canonical v0.1 linter (`handl-plugin-ext-lint`) was the first non-desugar
 use of the transform engine.  The exercise confirmed the engine generalizes as
-a **pattern matcher** but also exposed why lint fixes cannot (yet) be pure
-AST rewrites in this codebase.
+a **pattern matcher**; with `AstNode::span` now populated by the Pratt parser,
+the lint-to-fix chain is fully AST-derived for pattern-based rules, even though
+lint fixes remain text edits because a layout-preserving AST→source renderer is
+not yet available.
 
 ### Findings
 
@@ -532,11 +534,11 @@ text-level edits:
 None of them is a structural rewrite that can be expressed with the current
 `RewriteStep` vocabulary.  `naming-convention` needs payload string
 manipulation (`snake_case`); `unused-import` needs statement deletion;
-`fmt` is a token-stream operation.  More importantly, the v0.1 Pratt AST
-carries **no source spans**, and there is no span-preserving AST→source
-renderer (the formatter emits canonical text, not the original layout).  A
-pure `run_pass("lint")` + re-print would therefore discard comments,
-whitespace, and line breaks.
+`fmt` is a token-stream operation.  There is still no span-preserving
+AST→source renderer (the formatter emits canonical text, not the original
+layout), so a pure `run_pass("lint")` + re-print would discard comments,
+whitespace, and line breaks.  The `simplify-paren` rule therefore stays a
+text replacement, but the text is now cut directly from the matched node spans.
 
 ### Chosen bridge
 
@@ -549,16 +551,17 @@ pattern-based rules.  This satisfies the engine-genericity rule: dispatch is
 A demonstrative rule, `lint.simplify-paren`, lives in the embedded
 `crates/plugin-ext-lint/data/lint_transforms.yaml` file and is merged into the
 canonical `Language` at lint time.  It matches `paren` nodes with a single
-`var`/`value` child via `find_matches`; the actual source edit is then a
-span-preserving text replacement.  This proves the engine generalizes beyond
-desugar without forcing a bad fit for the existing text-based fix rules.
+`var`/`value` child via `find_matches`; the source fix then replaces the
+`paren` node's `span` with the source text under the matched child's `span`.
+This proves the engine generalizes beyond desugar and that the match
+→ span → edit chain is now genuinely AST-derived.
 
 ### Consequence
 
 When an AST-level lint fix eventually becomes desirable (e.g. a structural
 codemod), the path is: define a `lint` pass rule and use `find_matches` (or
-`RewriteEngine::run_pass` once the AST carries spans and a formatting-preserving
-renderer exists).  The existing v0.1 rules remain text edits.
+`RewriteEngine::run_pass` once a formatting-preserving renderer exists).  The
+existing v0.1 rules remain text edits.
 
 ## LSP consumer: code actions
 
@@ -574,12 +577,14 @@ apply at node" loop end to end: the action is titled "Remove redundant
 parentheses" and its edit replaces the parenthesized span with the inner
 atom's text.
 
-Span limitation (same caveat as the lint consumer): the v0.1 Pratt AST
-nodes carry no source spans, so the `TextEdit` range is taken from the
-`Fix`/`Span` the linter computes from the token stream, not from
-`AstNode::span`.  A direct `find_matches` → `apply_rule` → AST-diff edit
-bridge remains blocked on AST spans plus a layout-preserving renderer; when
-those land, the same `lint`-pass rules can drive precise node-level codemods
+The match comes from `RewriteEngine::find_matches`; the edit is still a
+span→text replacement rather than an AST rewrite, because a
+layout-preserving AST→source renderer does not yet exist.  The edit range is
+taken from the `Fix`/`Span` the linter computes from `AstNode::span` (the
+matched `paren` node and its inner child), so the match → span → edit chain
+is now fully AST-derived.  A direct `find_matches` → `apply_rule` → AST-diff
+edit bridge remains blocked on a formatting-preserving renderer; when that
+lands, the same `lint`-pass rules can drive precise node-level codemods
 through `apply_rule`/`RewriteTrace`.
 
 ## Open questions
