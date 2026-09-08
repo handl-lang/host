@@ -1532,12 +1532,15 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
+                    let start = lang
+                        .child_role_index(&current_node.kind, "entries")?
+                        .unwrap_or(0);
                     // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs
-                    // `{ key: val }` (object). When ALL children are non-entry
-                    // nodes (bare expressions), treat as a block: evaluate
-                    // each and return the last value. When any child is an
-                    // `entry` node, treat as an object.
-                    let all_bare = children.iter().all(|c| {
+                    // `{ key: val }` (object). When ALL children from the
+                    // `entries` role are non-`entry` nodes (bare expressions),
+                    // treat as a block: evaluate each and return the last value.
+                    // When any child is an `entry` node, treat as an object.
+                    let all_bare = children.iter().skip(start).all(|c| {
                         c.as_u64()
                             .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
                             .map(|n| n.kind != "entry")
@@ -1546,7 +1549,7 @@ impl TreeWalkEngine {
                     if all_bare && !children.is_empty() {
                         // Block semantics: evaluate all, return last.
                         let mut last = TaggedValue::Null;
-                        for entry in children {
+                        for entry in children.iter().skip(start) {
                             let idx = entry.as_u64().ok_or_else(|| {
                                 LangError::engine_node(
                                     "object: entry index must be a number".to_string(),
@@ -1558,7 +1561,7 @@ impl TreeWalkEngine {
                         return Ok((last, false));
                     }
                     let mut obj = FxHashMap::default();
-                    for entry in children {
+                    for entry in children.iter().skip(start) {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::engine_node(
                                 "object: entry index must be a number".to_string(),
@@ -1589,26 +1592,30 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        let key_idx =
-                            entry_children
-                                .get(0)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing key child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
-                        let val_idx =
-                            entry_children
-                                .get(1)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "object: entry missing value child".to_string(),
-                                        current_node,
-                                    )
-                                })? as usize;
+                        let key_role = lang
+                            .child_role_index(&entry_node.kind, "key")?
+                            .unwrap_or(0);
+                        let val_role = lang
+                            .child_role_index(&entry_node.kind, "value")?
+                            .unwrap_or(1);
+                        let key_idx = entry_children
+                            .get(key_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing key child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
+                        let val_idx = entry_children
+                            .get(val_role)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "object: entry missing value child".to_string(),
+                                    current_node,
+                                )
+                            })? as usize;
                         let key_node = ast.at(AstRef::new(key_idx))?;
                         // Static vs computed key is declared data-driven:
                         // the `entry` shape's `literal_children` list for

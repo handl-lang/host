@@ -1938,7 +1938,7 @@ mod tests {
 
     #[test]
     fn is_keyword_kind_works() {
-        assert!(is_keyword_kind("token.keyword.let"));
+        assert!(is_keyword_kind("token.keyword.if"));
         assert!(is_keyword_kind("token.keyword.match"));
         assert!(!is_keyword_kind("token.identifier"));
     }
@@ -2049,17 +2049,11 @@ mod tests {
         assert_eq!(typ["__tag__"], serde_json::json!("type.bool"));
     }
 
-    // NOTE: typed `let` bindings (`let x: T = e in body`) are specified by
-    // ADR-0074 ("explicit `name: Type` annotations") but are NOT yet supported
-    // by the v0.1 Pratt grammar: `grammar.let.prefix` uses `payload_tokens`
-    // that consume a single `token.identifier` then `token.equal`, so a `: T`
-    // type expression between the name and `=` cannot be parsed (payload_tokens
-    // only consume individual tokens, not sub-expressions). The typechecker's
-    // `synth_let` already has a legacy path that handles `type-annot` LHS
-    // bindings, but the v0.1 grammar does not produce that shape. Supporting
-    // typed `let` requires a grammar enhancement (e.g. parsing the binding LHS
-    // as a child expression so `x: T` parses as a `type-annot`) and is tracked
-    // as future work. These two tests are ignored until that lands.
+    // NOTE: `let` is not a keyword — `grammar.let.prefix` and the `let`
+    // token/lexer rows were removed; bindings are `x = y` / `x :: y` or
+    // graph blocks `do { x :: v; ... }`. Typed bindings (`x : T :: v`)
+    // parse the LHS as a `type-annot` via the `:` infix. The following
+    // tests exercise block bindings instead.
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type

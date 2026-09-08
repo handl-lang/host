@@ -511,24 +511,12 @@
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
-# `let <name> :: <value>` — statement binding (reinstated). The old
-# `let ... in` expression form was removed in ADR-0079 (graph blocks
-# `{ x = y; ... }` cover that); this row parses the statement form, which
-# produces a `let` node with `assign` shape: children `[target, value]`.
-# `binding_power [6, 0]` parses the name child at rbp 6 so it stops before
-# `::` (token.bind, lbp 5) — the same trick `data` uses — while `:` (lbp
-# 12) still binds, so `let x : T :: v` parses the target as a `type-annot`.
-- id: grammar.let.prefix
-  token: token.let
-  position: Prefix
-  binding_power:
-    - 6
-    - 0
-  child_shape:
-    node_kind: let
-    arity: 2
-    child_separators:
-      - !Required token.bind
+# REMOVED: `let` is not a keyword — there is no `let` surface syntax. The
+# language binds with `x = y` / `x :: y` (`grammar.assign.infix` /
+# `grammar.bind.infix`); graph blocks `{ x = y; ... }` cover the old
+# `let ... in` form (ADR-0079). The `let`/`stmt.let` node kinds remain as
+# internal binding kinds (see `ast.let`, `eval.let`, `eval.stmt-let`) used
+# by self-host/conformance fixtures — no grammar row produces them.
 - id: grammar.do-block.prefix
   token: token.keyword.do
   position: Prefix

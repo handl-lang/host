@@ -93,9 +93,11 @@ and linter all split source into top-level statements at bracket-depth zero
     delimited block for `match`, and per-child binding powers plus a
     `payload_extract` step for `data`.
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
-    `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
-    heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
-    `AstShapeDef`.
+    `plugin-engine-exec-cranelift/src/lib.rs` (+ `plugin-engine-exec-tree-walk`):
+    object-key `var`/`string` heuristic — **closed**. Resolved via `entry`
+    `children` `key`/`value` roles and `literal_children` (var/string); all
+    sites use `Language::child_role_index` / `literal_child` with no `kind ==`
+    fallback. `object` also declares the `entries` child role.
   - `handl-runtime/src/lib.rs` `collect_module_bindings`: **closed**. Now
     data-driven via `Language::binding_target` using `target` role/`name`
     payload.
