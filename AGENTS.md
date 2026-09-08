@@ -211,7 +211,7 @@ and linter all split source into top-level statements at bracket-depth zero
     `token.keyword.let`/`lex.keyword.let` remain only as a reserved-word
     tombstone); `parity_block_*` (46 tests in
     `plugin-engine-typecheck-nbe/tests/parity.rs`) all pass.
-- **ADR-0089 prerequisite (in progress):** (a) `plugin-engine-test` exists as
+- **ADR-0089 prerequisite (done):** (a) `plugin-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
   (`plugin-engine-test/data/test-language.yaml`) declares
   `test`/`property`/`integration_test`/`bench` `AstShapeDef`s (with
@@ -232,10 +232,21 @@ and linter all split source into top-level statements at bracket-depth zero
   single `--filter`/`--jobs`/`--cache` entry point, `TestEvent` covers the
   ADR event vocabulary (Vec sink — no event bus until a second consumer),
   `TestProvider`/`Reporter` are the provider and reporter seams, and
-  `TestOutcome` carries `duration` + `FailureDetail`. **Remaining:** wiring
-  `hnl test` in `host-cli`, suite grouping (`SuiteStarted`/`SuiteFinished`
-  unemitted), structured `expected`/`actual`/`diff` once assert errors carry
-  them. ADR-0074 grammar is **not** amended.
+  `TestOutcome` carries `duration` + `FailureDetail`. `hnl test` is wired
+  in `host-cli` (`--filter`/`--tag`/`--jobs`/`--cache`/`--report
+  human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
+  `SuiteStarted`/`SuiteFinished` bracket each **module** (the suite
+  boundary — `TestPlan` has no `Suite` concept; a suite is a contiguous
+  run of one module's cases in canonical plan order). Structured
+  `expected`/`actual`/`diff` flow from both failure paths into
+  `FailureDetail`: the engine `assert` keyword via the
+  `TestAssertHandler` thread-local side-channel, and the pure-handl
+  `assert.*` helpers (`handl-packages/test/assert.hnl`) via their `err`
+  payload (`failure_detail_from_value`); both reporters render them
+  (human: `== <module> ==` suite headers + indented detail lines; json:
+  `suites` array + per-test fields). `diff` is only produced by the
+  engine `assert` path — the `.hnl` helpers don't emit one yet.
+  ADR-0074 grammar is **not** amended.
 - **ADR-0092 (pure-handl migration done):**
   `plugin-lib-test` is **deleted**. The framework now lives as pure handl
   in `handl-packages/test/` (`assert.hnl`, `property.hnl`, `benchmark.hnl`,

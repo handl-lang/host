@@ -93,7 +93,11 @@ pub trait Reporter {
 }
 
 /// Human-readable console reporter: one `PASS`/`FAIL`/`SKIP` line per
-/// test, then a summary line.
+/// test grouped under a `== <suite> ==` header per module (the suite
+/// boundary — see [`crate::events::TestEvent::SuiteStarted`]), then a
+/// summary line. Failures print their populated
+/// [`crate::runner::FailureDetail`] fields (`assertion`, `expected`,
+/// `actual`, `diff`, `cause`) on indented detail lines.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct HumanReporter;
 
@@ -104,9 +108,19 @@ impl Reporter for HumanReporter {
 
     fn format(&self, report: &RunReport, _summary: &Summary) -> String {
         let mut out = String::new();
+        let mut current_suite = String::new();
 
         for outcome in &report.outcomes {
             let module = outcome.case.module.display().to_string();
+            // Suite boundary: outcomes are in canonical plan order, so a
+            // module change opens a new suite group.
+            if current_suite != module {
+                if !current_suite.is_empty() {
+                    out.push('\n');
+                }
+                out.push_str(&format!("== {module} ==\n"));
+                current_suite = module.clone();
+            }
             match &outcome.result {
                 TestResult::Pass => {
                     out.push_str(&format!("PASS  {} ({})\n", outcome.case.name, module));
@@ -116,6 +130,20 @@ impl Reporter for HumanReporter {
                         "FAIL  {} ({}): {}\n",
                         outcome.case.name, module, message
                     ));
+                    // Structured failure detail (ADR-0089 §"Structured
+                    // failures"): emitted only when populated.
+                    let detail = &outcome.failure;
+                    for (key, value) in [
+                        ("assertion", &detail.assertion),
+                        ("expected", &detail.expected),
+                        ("actual", &detail.actual),
+                        ("diff", &detail.diff),
+                        ("cause", &detail.cause),
+                    ] {
+                        if let Some(v) = value {
+                            out.push_str(&format!("      {key}: {v}\n"));
+                        }
+                    }
                 }
                 TestResult::Skip => {
                     out.push_str(&format!("SKIP  {} ({})\n", outcome.case.name, module));
@@ -138,11 +166,13 @@ impl Reporter for HumanReporter {
 
 /// Machine-readable JSON reporter for CI consumers.
 ///
-/// Emits the same per-test information as [`HumanReporter`] plus the
-/// structured fields: per-test `duration_ms` and, for failures, any
-/// populated [`crate::runner::FailureDetail`] fields (`expected`,
-/// `actual`, `diff`, `cause`, `assertion`) — no information is lost
-/// crossing the report boundary (ADR-0089 §"Structured failures").
+/// Emits a `suites` array (per-module grouping mirroring
+/// `SuiteStarted`/`SuiteFinished`, with per-suite counts), the same
+/// per-test information as [`HumanReporter`], plus the structured fields:
+/// per-test `duration_ms` and, for failures, any populated
+/// [`crate::runner::FailureDetail`] fields (`expected`, `actual`, `diff`,
+/// `cause`, `assertion`) — no information is lost crossing the report
+/// boundary (ADR-0089 §"Structured failures").
 #[derive(Debug, Default, Clone, Copy)]
 pub struct JsonReporter;
 
@@ -171,8 +201,9 @@ impl Reporter for JsonReporter {
                     entry["message"] = serde_json::Value::String(message.clone());
                 }
                 // Structured failure fields (ADR-0089). Only emitted when
-                // populated; assertion errors today are unstructured, so
-                // these may be absent.
+                // populated — the pure-handl `assert.*` helpers
+                // (`handl-packages/test/assert.hnl`) and the engine's
+                // `assert` keyword both carry them.
                 let detail = &outcome.failure;
                 for (key, value) in [
                     ("assertion", &detail.assertion),
@@ -189,6 +220,32 @@ impl Reporter for JsonReporter {
             })
             .collect();
 
+        // Suite grouping (ADR-0089 `SuiteStarted`/`SuiteFinished`): the
+        // suite boundary is the module — outcomes are in canonical plan
+        // order, so contiguous runs of equal `module` form one suite.
+        let mut suites: Vec<serde_json::Value> = Vec::new();
+        for outcome in &report.outcomes {
+            let module = outcome.case.module.display().to_string();
+            let status = match &outcome.result {
+                TestResult::Pass => "passed",
+                TestResult::Fail { .. } => "failed",
+                TestResult::Skip => "skipped",
+            };
+            let needs_new = suites.last().and_then(|s| s["name"].as_str()) != Some(module.as_str());
+            if needs_new {
+                suites.push(serde_json::json!({
+                    "name": module,
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                }));
+            }
+            let suite = suites.last_mut().expect("suite pushed above");
+            suite["total"] = serde_json::json!(suite["total"].as_u64().unwrap_or(0) + 1);
+            suite[status] = serde_json::json!(suite[status].as_u64().unwrap_or(0) + 1);
+        }
+
         let mut summary_json = serde_json::json!({
             "total": summary.total,
             "passed": summary.passed,
@@ -204,6 +261,7 @@ impl Reporter for JsonReporter {
         }
 
         serde_json::json!({
+            "suites": suites,
             "tests": tests,
             "summary": summary_json,
         })

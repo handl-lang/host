@@ -352,6 +352,41 @@ fn format_report_json_valid() {
 }
 
 #[test]
+fn format_report_human_groups_by_suite_and_shows_failure_detail() {
+    // Two modules → two suite headers; the failing test's structured
+    // detail (assertion/expected/actual) is rendered on indented lines.
+    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let report = run(&plan);
+    let output = format_report_human(&report);
+
+    let mixed = fixture("mixed.handl").display().to_string();
+    let pass = fixture("pass.handl").display().to_string();
+    assert!(output.contains(&format!("== {mixed} ==")));
+    assert!(output.contains(&format!("== {pass} ==")));
+    // `test_fail = assert false` carries structured detail.
+    assert!(output.contains("assertion: assert"));
+    assert!(output.contains("actual: false"));
+}
+
+#[test]
+fn format_report_json_includes_suites() {
+    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let report = run(&plan);
+    let json = format_report_json(&report);
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+
+    let suites = parsed["suites"].as_array().expect("suites array");
+    assert_eq!(suites.len(), 2, "one suite per module");
+    assert_eq!(suites[0]["name"], fixture("mixed.handl").display().to_string());
+    assert_eq!(suites[0]["total"], 3);
+    assert_eq!(suites[0]["passed"], 2);
+    assert_eq!(suites[0]["failed"], 1);
+    assert_eq!(suites[1]["name"], fixture("pass.handl").display().to_string());
+    assert_eq!(suites[1]["total"], 3);
+    assert_eq!(suites[1]["passed"], 3);
+}
+
+#[test]
 fn report_counts() {
     let plan = discover(&[fixture("mixed.handl")]).unwrap();
     let report = run(&plan);
