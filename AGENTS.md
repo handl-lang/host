@@ -96,6 +96,23 @@ The Pratt parser parses one statement per call. The typechecker, test runner,
 and linter all split source into top-level statements at bracket-depth zero
 (respecting strings and `--` comments) before parsing each chunk individually.
 
+### Dogfood gate status
+
+The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
+`handl-packages/` and `examples/` is scripted in `scripts/dogfood-gate.sh`
+and wired in `.github/workflows/dogfood-gate.yml` as an informational CI job
+(`continue-on-error: true`).
+
+Measured numbers from this session:
+
+- parse failures: 0 (down from 30)
+- typecheck failures: ~57, all `[unbound-wire]` (binder/match-arm scoping and module-env gaps)
+- lint failures: ~135
+
+The gate is not yet green, so it stays informational. Remove
+`continue-on-error: true` once `hnl fmt --check`, `hnl lint`, `hnl typecheck`,
+and `hnl test` are clean over the dogfood corpus.
+
 ### Unified import model (ADR-0096)
 
 - **Canonical surface forms** (all → `stmt.import`):
