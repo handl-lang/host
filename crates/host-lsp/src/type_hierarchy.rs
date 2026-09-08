@@ -30,7 +30,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -236,10 +236,12 @@ fn lex(source: &str) -> Option<Vec<SpannedToken>> {
 /// Return the identifier at `offset`, as `(name, start, end)`, or `None` when
 /// the cursor is not on an identifier (or is on a keyword).
 fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, usize, usize)> {
+    let kit = kit_for_file(None).ok()?;
     let tokens = lex(source)?;
+    let classes = TokenClasses::new(kit.language());
     for t in &tokens {
-        if is_identifier_kind(&t.kind)
-            && !is_keyword_kind(&t.kind)
+        if classes.is_identifier(&t.kind)
+            && !classes.is_keyword(&t.kind)
             && t.span.start <= offset
             && offset < t.span.end
         {

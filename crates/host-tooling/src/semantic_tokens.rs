@@ -1,8 +1,4 @@
-use handl_kit_canonical::{
-    Kit, SpannedToken, is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind,
-    is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind,
-    is_string_kind, is_template_kind,
-};
+use handl_kit_canonical::{Kit, SpannedToken, TokenClasses};
 use handl_platform::PlatformError;
 
 /// LSP semantic token type names and modifier names, in protocol order.
@@ -121,45 +117,65 @@ pub trait ContextClassifier {
     ) -> Option<(u32, u32)>;
 }
 
-/// Classifier for canonical token kinds — maps string token kinds to LSP
-/// semantic token types using the legend's named indices.
+/// Classifier that maps token kinds to LSP semantic token types using the
+/// legend's named indices, driven by the [`TokenClasses`] tables built from
+/// the language's `TokenKindDef::category`/`pair` data (ADR-0044 — no
+/// hardcoded kind strings).
 ///
 /// Implements both [`TokenClassifier`] (context-unaware, for backward
 /// compatibility with unit tests that classify a single kind in isolation)
 /// and [`ContextClassifier`] (context-aware, used by [`BasicSemanticTokens`]).
-pub struct CanonicalTokenClassifier;
+pub struct CanonicalTokenClassifier {
+    classes: TokenClasses,
+}
 
 impl CanonicalTokenClassifier {
-    /// Context-unaware classification based solely on the token kind string.
+    /// Build a classifier over the given token classification tables.
+    pub fn new(classes: TokenClasses) -> Self {
+        Self { classes }
+    }
+
+    /// Build a classifier from a [`handl_language::Language`]'s token data.
+    pub fn for_language(lang: &handl_language::Language) -> Self {
+        Self::new(TokenClasses::new(lang))
+    }
+
+    /// Build a classifier for the compiled-in canonical kit's language.
+    pub fn canonical() -> Self {
+        let kit = Kit::new().expect("canonical kit should assemble");
+        Self::new(TokenClasses::new(kit.language()))
+    }
+
+    /// Context-unaware classification based solely on the token kind's
+    /// category.
     ///
     /// All identifiers map to `"variable"` here; the context-aware
     /// [`ContextClassifier`] impl refines identifiers by role.
     fn classify_simple(&self, kind: &str, legend: &SemanticTokenLegend) -> Option<(u32, u32)> {
-        let type_name = if is_number_kind(kind) {
+        let c = &self.classes;
+        let type_name = if c.is_number(kind) {
             "number"
-        } else if is_string_kind(kind) {
+        } else if c.is_string(kind) || c.is_template(kind) {
             "string"
-        } else if is_comment_kind(kind) {
+        } else if c.is_comment(kind) {
             "comment"
-        } else if is_bool_kind(kind) || is_null_kind(kind) {
+        } else if c.is_bool(kind) || c.is_null(kind) {
             "constant"
-        } else if is_keyword_kind(kind) {
+        } else if c.is_keyword(kind) {
             "keyword"
-        } else if is_operator_kind(kind) {
+        } else if c.is_operator(kind) {
             "operator"
-        } else if is_delimiter_kind(kind) {
+        } else if c.is_delimiter(kind) {
             "punctuation"
-        } else if is_identifier_kind(kind) {
+        } else if c.is_identifier(kind) {
             "variable"
-        } else if is_template_kind(kind) {
-            "string"
         } else {
             return None;
         };
 
         let ty = legend.token_type_index(type_name)?;
 
-        let mods = if is_doc_comment_kind(kind) {
+        let mods = if c.is_doc_comment(kind) {
             legend.modifier_bit("documentation").unwrap_or(0)
         } else {
             0
@@ -186,33 +202,27 @@ impl ContextClassifier for CanonicalTokenClassifier {
         let token = &tokens[index];
         let kind = token.kind.as_str();
 
-        // Non-identifier tokens use the simple, context-unaware mapping.
-        if !is_identifier_kind(kind) {
-            // Classify brackets/braces/parens as punctuation (not operator).
-            if kind == "token.lbrace"
-                || kind == "token.rbrace"
-                || kind == "token.lbracket"
-                || kind == "token.rbracket"
-                || kind == "token.lparen"
-                || kind == "token.rparen"
-            {
-                let ty = legend.token_type_index("punctuation")?;
-                return Some((ty, 0));
-            }
+        let classes = &self.classes;
+
+        // Non-identifier tokens use the simple, context-unaware mapping
+        // (brackets classify as punctuation via `is_delimiter`).
+        if !classes.is_identifier(kind) {
             return self.classify_simple(kind, legend);
         }
 
         let ident = token.text.as_str();
 
-        // Helper: check if token at index has a specific kind.
-        let is_kind =
-            |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
+        // Helper: check if the token at index spells `label` (resolved
+        // against the language's token labels — e.g. `"."` → the
+        // member-access token kind, however it is named).
+        let is_label =
+            |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
 
         // Property access: preceded by a dot → this is a property/member.
         // e.g. `state.acc`, `state.remaining`, `input.0`
-        if index > 0 && is_kind(index - 1, "token.dot") {
+        if index > 0 && is_label(index - 1, ".") {
             // If followed by `(`, it's a method call: `state.f(h)`, `arr.map(...)`
-            if is_kind(index + 1, "token.lparen") {
+            if is_label(index + 1, "(") {
                 let ty = legend.token_type_index("method")?;
                 return Some((ty, 0));
             }
@@ -224,7 +234,7 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Type reference: the identifier `type` followed by a dot (e.g.
         // `type.str`, `type.string`). The lexer splits `type.str` into
         // separate tokens, so we check the lookahead pattern.
-        if ident == "type" && is_kind(index + 1, "token.dot") {
+        if ident == "type" && is_label(index + 1, ".") {
             let ty = legend.token_type_index("type")?;
             return Some((ty, 0));
         }
@@ -244,7 +254,7 @@ impl ContextClassifier for CanonicalTokenClassifier {
         }
 
         // Function call: the next token is an opening parenthesis.
-        if is_kind(index + 1, "token.lparen") {
+        if is_label(index + 1, "(") {
             let ty = legend.token_type_index("function")?;
             return Some((ty, 0));
         }
@@ -252,12 +262,12 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Dotted function call: `ident . ident (` — the first identifier
         // is a module name in a qualified call like `crypto.sha256(...)`.
         // Classify the module as `variable`, the callee as `method`.
-        if is_kind(index + 1, "token.dot")
+        if is_label(index + 1, ".")
             && tokens
                 .get(index + 2)
-                .map(|t| is_identifier_kind(&t.kind))
+                .map(|t| classes.is_identifier(&t.kind))
                 .unwrap_or(false)
-            && is_kind(index + 3, "token.lparen")
+            && is_label(index + 3, "(")
         {
             // The callee (index+2) is a method call on this module.
             // This identifier is the module/namespace.
@@ -269,13 +279,13 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // a property. We determine the enclosing bracket by scanning backwards
         // for the nearest unmatched opening delimiter, which disambiguates
         // comma-separated pairs in `(a: T, b: T)` vs `{ a: T, b: T }`.
-        if is_kind(index + 1, "token.colon") {
-            match enclosing_open_delim(tokens, index) {
-                Some("token.lparen") => {
+        if is_label(index + 1, ":") {
+            match enclosing_open_delim(classes, tokens, index) {
+                Some(open) if classes.is_label(open, "(") => {
                     let ty = legend.token_type_index("parameter")?;
                     return Some((ty, 0));
                 }
-                Some("token.lbrace") => {
+                Some(open) if classes.is_label(open, "{") => {
                     let ty = legend.token_type_index("property")?;
                     return Some((ty, 0));
                 }
@@ -286,7 +296,7 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Binding declaration: at the start of a line and followed by `:` or `::`
         // (and not inside a paren/brace list, which is handled above).
         if is_at_line_start(tokens, index, source)
-            && (is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.bind"))
+            && (is_label(index + 1, ":") || is_label(index + 1, "::"))
         {
             let ty = legend.token_type_index("variable")?;
             let mods = legend.modifier_bit("declaration").unwrap_or(0);
@@ -300,34 +310,32 @@ impl ContextClassifier for CanonicalTokenClassifier {
 }
 
 /// Returns the kind of the nearest unmatched opening delimiter enclosing the
-/// token at `index`, by scanning backwards through `tokens`.
+/// token at `index`, by scanning backwards through `tokens`, resolved via the
+/// language's `open-bracket`/`close-bracket` categories and `pair` links.
 ///
 /// Used to decide whether a `key:` pair is a parameter (inside `(...)`) or a
 /// property (inside `{ ... }`). Returns `None` if the token is not inside any
-/// parenthesis or brace group.
-fn enclosing_open_delim(tokens: &[SpannedToken], index: usize) -> Option<&str> {
-    let mut depth_paren: i32 = 0;
-    let mut depth_brace: i32 = 0;
+/// bracket group.
+fn enclosing_open_delim<'a>(
+    classes: &TokenClasses,
+    tokens: &'a [SpannedToken],
+    index: usize,
+) -> Option<&'a str> {
+    // open-kind → count of seen closers expecting it.
+    let mut depth: std::collections::HashMap<&str, i32> = std::collections::HashMap::new();
     let mut i = index;
     while i > 0 {
         i -= 1;
         let kind = tokens[i].kind.as_str();
-        match kind {
-            "token.rparen" => depth_paren += 1,
-            "token.rbrace" => depth_brace += 1,
-            "token.lparen" => {
-                if depth_paren == 0 {
-                    return Some("token.lparen");
-                }
-                depth_paren -= 1;
+        if classes.is_close_bracket(kind) {
+            if let Some(open) = classes.pair_of(kind) {
+                *depth.entry(open).or_insert(0) += 1;
             }
-            "token.lbrace" => {
-                if depth_brace == 0 {
-                    return Some("token.lbrace");
-                }
-                depth_brace -= 1;
+        } else if classes.is_open_bracket(kind) {
+            match depth.get_mut(kind) {
+                Some(d) if *d > 0 => *d -= 1,
+                _ => return Some(kind),
             }
-            _ => {}
         }
     }
     None
@@ -423,7 +431,10 @@ impl SemanticTokensPlugin for BasicSemanticTokens {
 
 /// Convenience constructor for the default canonical semantic tokens provider.
 pub fn canonical_semantic_tokens() -> BasicSemanticTokens {
-    BasicSemanticTokens::new(CanonicalTokenClassifier, SemanticTokenLegend::default())
+    BasicSemanticTokens::new(
+        CanonicalTokenClassifier::canonical(),
+        SemanticTokenLegend::default(),
+    )
 }
 
 /// Precomputed line start offsets for O(log n) line:column lookup.

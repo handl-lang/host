@@ -30,7 +30,7 @@ use handl_plugin_engine_transform::native::{NativeRewriteRegistry, RewriteCtx};
 use handl_plugin_engine_transform_rewrite::RewriteEngine;
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
@@ -76,9 +76,11 @@ pub fn code_actions(
     };
 
     // Range-based actions for the user's selection / cursor position.
-    actions.extend(wrap_in_do_actions(source, &tokens, range_start, range_end));
-    actions.extend(add_return_actions(source, &tokens, range_start, range_end));
+    let classes = TokenClasses::new(kit.language());
+    actions.extend(wrap_in_do_actions(&classes, source, &tokens, range_start, range_end));
+    actions.extend(add_return_actions(&classes, source, &tokens, range_start, range_end));
     actions.extend(convert_comment_actions(
+        &classes,
         source,
         &tokens,
         range_start,
@@ -91,7 +93,7 @@ pub fn code_actions(
         let msg = diag.get("message").and_then(|m| m.as_str()).unwrap_or("");
         if let Some((ds, de)) = diag_range_to_offsets(source, diag) {
             if msg.contains("return") {
-                actions.extend(add_return_actions(source, &tokens, ds, de));
+                actions.extend(add_return_actions(&classes, source, &tokens, ds, de));
             }
         }
     }
@@ -190,7 +192,7 @@ fn diag_range_to_offsets(source: &str, diag: &Value) -> Option<(usize, usize)> {
 /// Walks tokens before `offset`, tracking brace depth.  A `do` keyword
 /// followed by `{` pushes the depth onto a stack; the matching `}` pops it.
 /// If the stack is non-empty at `offset`, we are inside a do block.
-fn is_inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
+fn is_inside_do_block(classes: &TokenClasses, tokens: &[SpannedToken], offset: usize) -> bool {
     let mut depth: i32 = 0;
     let mut do_depths: Vec<i32> = Vec::new();
     let mut pending_do = false;
@@ -198,27 +200,23 @@ fn is_inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
         if t.span.start >= offset {
             break;
         }
-        match t.kind.as_str() {
-            "token.lbrace" => {
-                depth += 1;
-                if pending_do {
-                    do_depths.push(depth);
-                    pending_do = false;
-                }
+        let kind = t.kind.as_str();
+        if classes.is_label(kind, "{") {
+            depth += 1;
+            if pending_do {
+                do_depths.push(depth);
+                pending_do = false;
             }
-            "token.rbrace" => {
-                if do_depths.last() == Some(&depth) {
-                    do_depths.pop();
-                }
-                depth -= 1;
+        } else if classes.is_label(kind, "}") {
+            if do_depths.last() == Some(&depth) {
+                do_depths.pop();
             }
-            _ => {
-                if is_keyword_kind(t.kind.as_str()) && t.text == "do" {
-                    pending_do = true;
-                } else {
-                    pending_do = false;
-                }
-            }
+            depth -= 1;
+        } else if classes.is_keyword(kind) && t.text == "do" {
+            // `do` is a specific keyword identity — not a category answer.
+            pending_do = true;
+        } else {
+            pending_do = false;
         }
     }
     !do_depths.is_empty()
@@ -227,6 +225,7 @@ fn is_inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
 /// Offer to wrap a `<-` binding (that is not already inside a `do` block) in
 /// `do { … }`.
 fn wrap_in_do_actions(
+    classes: &TokenClasses,
     source: &str,
     tokens: &[SpannedToken],
     range_start: usize,
@@ -234,9 +233,12 @@ fn wrap_in_do_actions(
 ) -> Vec<Value> {
     let mut actions = Vec::new();
     for i in 0..tokens.len() {
-        // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
+        // `<-` is lexed as two tokens: the `<` token followed by `-`.
         let t = &tokens[i];
-        if !(t.kind == "token.lt" && i + 1 < tokens.len() && tokens[i + 1].kind == "token.minus") {
+        if !(classes.is_label(&t.kind, "<")
+            && i + 1 < tokens.len()
+            && classes.is_label(&tokens[i + 1].kind, "-"))
+        {
             continue;
         }
         // The binding must be on the cursor / selection's line.
@@ -244,7 +246,7 @@ fn wrap_in_do_actions(
             continue;
         }
         // Skip if already inside a do block.
-        if is_inside_do_block(tokens, t.span.start) {
+        if is_inside_do_block(classes, tokens, t.span.start) {
             continue;
         }
         // Wrap the entire line in `do { … }`, preserving indentation.
@@ -279,6 +281,7 @@ fn wrap_in_do_actions(
 /// `return` keyword.
 #[allow(non_snake_case)]
 fn add_return_actions(
+    classes: &TokenClasses,
     source: &str,
     tokens: &[SpannedToken],
     range_start: usize,
@@ -286,7 +289,7 @@ fn add_return_actions(
 ) -> Vec<Value> {
     let mut actions = Vec::new();
     for (i, t) in tokens.iter().enumerate() {
-        if t.kind != "token.lbrace" {
+        if !classes.is_label(&t.kind, "{") {
             continue;
         }
         // Must be on the cursor / selection's line.
@@ -297,13 +300,13 @@ fn add_return_actions(
 
         // Already has `return` prefix → skip.
         let has_return =
-            prev1.map(|p| is_keyword_kind(p.kind.as_str()) && p.text == "return") == Some(true);
+            prev1.map(|p| classes.is_keyword(p.kind.as_str()) && p.text == "return") == Some(true);
         if has_return {
             continue;
         }
 
         // Must be a match-arm body: preceded by `:`.
-        if prev1.map(|p| p.kind.as_str()) != Some("token.colon") {
+        if !prev1.map(|p| classes.is_label(&p.kind, ":")).unwrap_or(false) {
             continue;
         }
 
@@ -326,15 +329,16 @@ fn add_return_actions(
 
 /// Whether the comment at `index` is at the top of the file — i.e. every
 /// token before it is also a comment (doc or regular).
-fn is_top_of_file_comment(tokens: &[SpannedToken], index: usize) -> bool {
+fn is_top_of_file_comment(classes: &TokenClasses, tokens: &[SpannedToken], index: usize) -> bool {
     tokens
         .iter()
         .take(index)
-        .all(|t| is_comment_kind(t.kind.as_str()))
+        .all(|t| classes.is_comment(t.kind.as_str()))
 }
 
 /// Offer to convert a top-of-file `--` comment into a `---` doc comment.
 fn convert_comment_actions(
+    classes: &TokenClasses,
     source: &str,
     tokens: &[SpannedToken],
     range_start: usize,
@@ -343,11 +347,11 @@ fn convert_comment_actions(
     let mut actions = Vec::new();
     for (i, t) in tokens.iter().enumerate() {
         // Only regular comments (not already doc comments).
-        if t.kind != "token.comment" {
+        if !classes.is(&t.kind, "comment") {
             continue;
         }
         // Must be at the top of the file (before any non-comment code).
-        if !is_top_of_file_comment(tokens, i) {
+        if !is_top_of_file_comment(classes, tokens, i) {
             continue;
         }
         // Must be on the cursor / selection's line.

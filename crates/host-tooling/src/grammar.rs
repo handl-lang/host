@@ -38,44 +38,48 @@ enum TokenCategory {
 }
 
 /// Classify a lexer rule into a [`TokenCategory`].
-fn classify_token(kind: &str, pattern: &LexerPattern) -> TokenCategory {
-    match kind {
-        "token.comment" => {
-            if let LexerPattern::Delimited {
-                close_at_eof: true, ..
-            } = pattern
-            {
+///
+/// The primary classification is the token kind's `category` from
+/// `lang.tokens` (ADR-0044). Kinds without a declared category fall back to
+/// pattern-shape heuristics so third-party kits that don't set `category`
+/// still classify sensibly.
+fn classify_token(lang: &Language, kind: &str, pattern: &LexerPattern) -> TokenCategory {
+    let is_line_comment = matches!(
+        pattern,
+        LexerPattern::Delimited {
+            close_at_eof: true,
+            ..
+        }
+    );
+    match lang.token_category(kind) {
+        Some("comment") => {
+            if is_line_comment {
                 TokenCategory::LineComment
             } else {
                 TokenCategory::BlockComment
             }
         }
-        "token.doc_comment" => {
-            if let LexerPattern::Delimited {
-                close_at_eof: true, ..
-            } = pattern
-            {
+        Some("doc-comment") => {
+            if is_line_comment {
                 TokenCategory::DocComment
             } else {
                 TokenCategory::BlockComment
             }
         }
-        "token.string" | "token.template" | "token.json" => TokenCategory::String,
-        "token.number" => TokenCategory::Number,
-        "token.bool" => TokenCategory::Boolean,
-        "token.null" => TokenCategory::Null,
-        "token.identifier" => TokenCategory::Identifier,
-        _ => {
-            // Keyword token kinds.
-            if kind.starts_with("token.keyword.") {
-                return TokenCategory::Keyword;
-            }
-            // Structural delimiters.
-            if is_structural_delimiter(kind) {
-                return TokenCategory::Delimiter;
-            }
-            // Literal patterns with identifier-like text are keywords
-            // (e.g. `token.let` → "let", `token.vau` → "vau").
+        Some("string") | Some("template") => TokenCategory::String,
+        Some("number") => TokenCategory::Number,
+        Some("bool") => TokenCategory::Boolean,
+        Some("null") => TokenCategory::Null,
+        Some("identifier") => TokenCategory::Identifier,
+        Some("keyword") => TokenCategory::Keyword,
+        Some("punctuation") | Some("open-bracket") | Some("close-bracket") => {
+            TokenCategory::Delimiter
+        }
+        Some("operator") => TokenCategory::Operator,
+        Some(_) => TokenCategory::Other,
+        None => {
+            // Undeclared category (third-party kits): fall back to
+            // pattern-shape heuristics.
             if let LexerPattern::Literal { text } = pattern {
                 if text.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
                     && text
@@ -87,7 +91,6 @@ fn classify_token(kind: &str, pattern: &LexerPattern) -> TokenCategory {
                     return TokenCategory::Keyword;
                 }
             }
-            // Everything else with a literal pattern is an operator.
             if matches!(pattern, LexerPattern::Literal { .. }) {
                 TokenCategory::Operator
             } else {
@@ -95,23 +98,6 @@ fn classify_token(kind: &str, pattern: &LexerPattern) -> TokenCategory {
             }
         }
     }
-}
-
-/// Whether a token kind is a structural delimiter (parens, brackets, braces,
-/// comma, semicolon, colon).
-fn is_structural_delimiter(kind: &str) -> bool {
-    matches!(
-        kind,
-        "token.lparen"
-            | "token.rparen"
-            | "token.lbracket"
-            | "token.rbracket"
-            | "token.lbrace"
-            | "token.rbrace"
-            | "token.comma"
-            | "token.semicolon"
-            | "token.colon"
-    )
 }
 
 /// Escape regex metacharacters in a literal string.
@@ -168,7 +154,7 @@ pub fn grammar_rules_from_language(lang: &Language) -> Vec<GrammarRule> {
 
     for rule in &lex_rules {
         let kind = rule.token_kind.as_str();
-        let category = classify_token(kind, &rule.pattern);
+        let category = classify_token(lang, kind, &rule.pattern);
 
         match category {
             TokenCategory::DocComment | TokenCategory::LineComment => {
@@ -202,12 +188,17 @@ pub fn grammar_rules_from_language(lang: &Language) -> Vec<GrammarRule> {
             }
             TokenCategory::String => {
                 if let LexerPattern::Delimited { open, close, .. } = &rule.pattern {
-                    let (name, scope) = if kind == "token.template" {
-                        ("templates", "string.template")
-                    } else if kind == "token.json" {
-                        ("json_blocks", "string.interpolated")
-                    } else {
-                        ("strings", "string.quoted.double")
+                    let (name, scope) = match lang.token_category(kind) {
+                        Some("template") => ("templates", "string.template"),
+                        // Non-`String` literal kinds (e.g. `json{...}` blocks
+                        // via `StripAffix`) get the interpolated scope.
+                        Some(_) => match lang.token_kind(kind).and_then(|d| d.literal.as_ref()) {
+                            Some(handl_language::LiteralKind::String { .. }) | None => {
+                                ("strings", "string.quoted.double")
+                            }
+                            Some(_) => ("json_blocks", "string.interpolated"),
+                        },
+                        None => ("strings", "string.quoted.double"),
                     };
                     result.push(GrammarRule::begin_end_rule(
                         name,

@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
@@ -160,30 +160,31 @@ pub fn rename(
 fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(String, Span)> {
     let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
+    let classes = TokenClasses::new(kit.language());
 
     let (index, token) = tokens.iter().enumerate().find(|(_, t)| {
-        is_identifier_kind(t.kind.as_str()) && t.span.start <= offset && offset < t.span.end
+        classes.is_identifier(t.kind.as_str()) && t.span.start <= offset && offset < t.span.end
     })?;
 
     // Not a property access (preceded by `.`).
-    if index > 0 && tokens[index - 1].kind == "token.dot" {
+    if index > 0 && classes.is_label(&tokens[index - 1].kind, ".") {
         return None;
     }
 
     // Find the next non-comment token to see if this is a binding name.
     let mut j = index + 1;
-    while j < tokens.len() && is_comment_kind(&tokens[j].kind) {
+    while j < tokens.len() && classes.is_comment(&tokens[j].kind) {
         j += 1;
     }
     let is_binding = j < tokens.len()
-        && ((tokens[j].kind == "token.bind" && tokens[j].text == "::")
-            || tokens[j].kind == "token.colon");
+        && (classes.is_label(&tokens[j].kind, "::")
+            || classes.is_label(&tokens[j].kind, ":"));
 
     // Check if it matches an arrow file name. We can't know the file path
     // here (prepare_rename has no path), so we accept identifiers that are
     // either bindings or look like arrow references. For arrow references,
     // any identifier that is followed by `(` is a candidate call.
-    let is_arrow_call = j < tokens.len() && tokens[j].kind == "token.lparen";
+    let is_arrow_call = j < tokens.len() && classes.is_label(&tokens[j].kind, "(");
 
     if is_binding || is_arrow_call {
         return Some((token.text.clone(), token.span));

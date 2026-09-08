@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::kit_resolver::kit_for_file;
 
@@ -282,13 +282,17 @@ const COMBINATORS: &[(&str, &str, &str)] = &[
 
 /// Classify an identifier token by its syntactic role, returning
 /// `(kind, detail)` for the completion item.
-fn classify_identifier(tokens: &[SpannedToken], index: usize) -> (i64, &'static str) {
-    let is_kind =
-        |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
+fn classify_identifier(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    index: usize,
+) -> (i64, &'static str) {
+    let is_label =
+        |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
 
     // Property access: preceded by `.` → property or method
-    if index > 0 && is_kind(index - 1, "token.dot") {
-        if is_kind(index + 1, "token.lparen") {
+    if index > 0 && is_label(index - 1, ".") {
+        if is_label(index + 1, "(") {
             return (KIND_FUNCTION, "method");
         }
         return (KIND_PROPERTY, "property");
@@ -308,58 +312,66 @@ fn classify_identifier(tokens: &[SpannedToken], index: usize) -> (i64, &'static 
     }
 
     // `type.foo` → type reference (handled by lookahead for dot)
-    if ident == "type" && is_kind(index + 1, "token.dot") {
+    if ident == "type" && is_label(index + 1, ".") {
         return (KIND_CLASS, "type");
     }
 
     // Function call: next token is `(`
-    if is_kind(index + 1, "token.lparen") {
+    if is_label(index + 1, "(") {
         return (KIND_FUNCTION, "function");
     }
 
     // Dotted call: `ident . ident (`
-    if is_kind(index + 1, "token.dot")
+    if is_label(index + 1, ".")
         && tokens
             .get(index + 2)
-            .map(|t| is_identifier_kind(&t.kind))
+            .map(|t| classes.is_identifier(&t.kind))
             .unwrap_or(false)
-        && is_kind(index + 3, "token.lparen")
+        && is_label(index + 3, "(")
     {
         return (KIND_FUNCTION, "function");
     }
 
     // `key:` inside parens → parameter; inside braces → property
-    if is_kind(index + 1, "token.colon") {
-        return match enclosing_open_delim(tokens, index) {
-            Some("token.lparen") => (KIND_PARAMETER, "parameter"),
-            Some("token.lbrace") => (KIND_PROPERTY, "property"),
+    if is_label(index + 1, ":") {
+        return match enclosing_open_delim(classes, tokens, index) {
+            Some(open) if classes.is_label(open, "(") => (KIND_PARAMETER, "parameter"),
+            Some(open) if classes.is_label(open, "{") => (KIND_PROPERTY, "property"),
             _ => (KIND_VARIABLE, "binding"),
         };
     }
 
     // Binding declaration: at line start, followed by `:` or `::`
-    if is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.bind") {
+    if is_label(index + 1, ":") || is_label(index + 1, "::") {
         return (KIND_VARIABLE, "binding");
     }
 
     (KIND_VARIABLE, "variable")
 }
 
-/// Find the nearest unmatched opening delimiter enclosing `index`.
-fn enclosing_open_delim(tokens: &[SpannedToken], index: usize) -> Option<&'static str> {
-    let mut depth_paren: i32 = 0;
-    let mut depth_brace: i32 = 0;
+/// Find the kind of the nearest unmatched opening delimiter enclosing
+/// `index`, resolved via the language's `open-bracket`/`close-bracket`
+/// categories and `pair` links.
+fn enclosing_open_delim<'a>(
+    classes: &TokenClasses,
+    tokens: &'a [SpannedToken],
+    index: usize,
+) -> Option<&'a str> {
+    // open-kind → count of seen closers expecting it.
+    let mut depth: std::collections::HashMap<&str, i32> = std::collections::HashMap::new();
     let mut i = index;
     while i > 0 {
         i -= 1;
-        match tokens[i].kind.as_str() {
-            "token.rparen" => depth_paren += 1,
-            "token.rbrace" => depth_brace += 1,
-            "token.lparen" if depth_paren == 0 => return Some("token.lparen"),
-            "token.lparen" => depth_paren -= 1,
-            "token.lbrace" if depth_brace == 0 => return Some("token.lbrace"),
-            "token.lbrace" => depth_brace -= 1,
-            _ => {}
+        let kind = tokens[i].kind.as_str();
+        if classes.is_close_bracket(kind) {
+            if let Some(open) = classes.pair_of(kind) {
+                *depth.entry(open).or_insert(0) += 1;
+            }
+        } else if classes.is_open_bracket(kind) {
+            match depth.get_mut(kind) {
+                Some(d) if *d > 0 => *d -= 1,
+                _ => return Some(kind),
+            }
         }
     }
     None
@@ -421,15 +433,16 @@ pub fn completions(source: &str) -> Vec<Value> {
 
     // 3. Identifier completions, classified by role.
     if let Ok(kit) = kit_for_file(None) {
+        let classes = TokenClasses::new(kit.language());
         if let Ok(tokens) = kit.lex_with_spans(source) {
             // Collect unique names with their best (most specific) role.
             // Prefer function > type > parameter/property > binding > variable.
             let mut seen: BTreeMap<String, (i64, &'static str)> = BTreeMap::new();
             for (i, token) in tokens.as_slice().iter().enumerate() {
-                if !is_identifier_kind(&token.kind) {
+                if !classes.is_identifier(&token.kind) {
                     continue;
                 }
-                let role = classify_identifier(&tokens, i);
+                let role = classify_identifier(&classes, &tokens, i);
                 let entry = seen.entry(token.text.clone()).or_insert(role);
                 // Upgrade: function > class > parameter/property > binding > variable
                 if role.0 == KIND_FUNCTION
@@ -507,7 +520,11 @@ fn preceding_index(tokens: &[SpannedToken], offset: usize) -> Option<usize> {
 /// Index of the unmatched `{` that encloses the cursor position, scanning only
 /// tokens that begin before `offset`. Returns `None` when the cursor is not
 /// inside any brace block.
-fn enclosing_lbrace_index_before(tokens: &[SpannedToken], offset: usize) -> Option<usize> {
+fn enclosing_lbrace_index_before(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    offset: usize,
+) -> Option<usize> {
     let mut depth: i32 = 0;
     let mut i = tokens.len();
     while i > 0 {
@@ -515,11 +532,14 @@ fn enclosing_lbrace_index_before(tokens: &[SpannedToken], offset: usize) -> Opti
         if tokens[i].span.start >= offset {
             continue;
         }
-        match tokens[i].kind.as_str() {
-            "token.rbrace" => depth += 1,
-            "token.lbrace" if depth == 0 => return Some(i),
-            "token.lbrace" => depth -= 1,
-            _ => {}
+        let kind = tokens[i].kind.as_str();
+        if classes.is_label(kind, "}") {
+            depth += 1;
+        } else if classes.is_label(kind, "{") {
+            if depth == 0 {
+                return Some(i);
+            }
+            depth -= 1;
         }
     }
     None
@@ -528,48 +548,58 @@ fn enclosing_lbrace_index_before(tokens: &[SpannedToken], offset: usize) -> Opti
 /// Whether a given keyword text appears immediately before a `{` brace (with
 /// no intervening nested braces). Used to recognise `match … {` and `do {`
 /// blocks by inspecting the brace's opening token.
-fn keyword_before_brace(tokens: &[SpannedToken], brace_idx: usize, kw: &str) -> bool {
+fn keyword_before_brace(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    brace_idx: usize,
+    kw: &str,
+) -> bool {
     let mut depth: i32 = 0;
     let mut j = brace_idx;
     while j > 0 {
         j -= 1;
-        match tokens[j].kind.as_str() {
-            "token.rbrace" => depth += 1,
-            "token.lbrace" => {
-                if depth == 0 {
-                    return false;
-                }
-                depth -= 1;
+        let kind = tokens[j].kind.as_str();
+        if classes.is_label(kind, "}") {
+            depth += 1;
+        } else if classes.is_label(kind, "{") {
+            if depth == 0 {
+                return false;
             }
-            _ if depth == 0 && is_keyword_kind(&tokens[j].kind) && tokens[j].text == kw => {
-                return true;
-            }
-            _ => {}
+            depth -= 1;
+        } else if depth == 0 && classes.is_keyword(&tokens[j].kind) && tokens[j].text == kw {
+            return true;
         }
     }
     false
 }
 
 /// Whether the cursor sits inside a `do { … }` or `rec { … }` block.
-fn inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
-    enclosing_lbrace_index_before(tokens, offset)
-        .map(|lb| keyword_before_brace(tokens, lb, "do") || keyword_before_brace(tokens, lb, "rec"))
+fn inside_do_block(classes: &TokenClasses, tokens: &[SpannedToken], offset: usize) -> bool {
+    enclosing_lbrace_index_before(classes, tokens, offset)
+        .map(|lb| {
+            keyword_before_brace(classes, tokens, lb, "do")
+                || keyword_before_brace(classes, tokens, lb, "rec")
+        })
         .unwrap_or(false)
 }
 
 /// Whether the colon at `colon_idx` is a pattern colon inside a `match` block
 /// (i.e. the token preceding the colon is `]` and the enclosing brace belongs
 /// to a `match` expression).
-fn is_match_pattern_colon(tokens: &[SpannedToken], colon_idx: usize) -> bool {
+fn is_match_pattern_colon(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    colon_idx: usize,
+) -> bool {
     if colon_idx == 0 {
         return false;
     }
-    if tokens[colon_idx - 1].kind != "token.rbracket" {
+    if !classes.is_label(&tokens[colon_idx - 1].kind, "]") {
         return false;
     }
     let offset = tokens[colon_idx].span.end;
-    enclosing_lbrace_index_before(tokens, offset)
-        .map(|lb| keyword_before_brace(tokens, lb, "match"))
+    enclosing_lbrace_index_before(classes, tokens, offset)
+        .map(|lb| keyword_before_brace(classes, tokens, lb, "match"))
         .unwrap_or(false)
 }
 
@@ -577,30 +607,31 @@ fn is_match_pattern_colon(tokens: &[SpannedToken], colon_idx: usize) -> bool {
 /// (`rec { name = value, … }`). Scans every `rec` keyword in the source and
 /// collects the identifiers that are immediately followed by `=` inside the
 /// state block's braces. (v0.1 uses `=` for bindings, not `:`.)
-fn rec_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
+fn rec_state_fields(classes: &TokenClasses, tokens: &[SpannedToken]) -> Vec<String> {
     let mut fields: Vec<String> = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
-        let is_rec = is_keyword_kind(&tokens[i].kind) && tokens[i].text == "rec";
+        let is_rec = classes.is_keyword(&tokens[i].kind) && tokens[i].text == "rec";
         let next_is_brace = tokens
             .get(i + 1)
-            .map(|t| t.kind == "token.lbrace")
+            .map(|t| classes.is_label(&t.kind, "{"))
             .unwrap_or(false);
         if is_rec && next_is_brace {
             let mut j = i + 2;
             let mut depth: i32 = 1;
             while j < tokens.len() && depth > 0 {
-                match tokens[j].kind.as_str() {
-                    "token.lbrace" => depth += 1,
-                    "token.rbrace" => depth -= 1,
-                    _ => {}
+                let k = tokens[j].kind.as_str();
+                if classes.is_label(k, "{") {
+                    depth += 1;
+                } else if classes.is_label(k, "}") {
+                    depth -= 1;
                 }
-                if depth > 0 && is_identifier_kind(&tokens[j].kind) {
-                    // Rec state fields are `name : init` entries (`token.colon`);
-                    // `token.bind` (`::`) is also accepted for resilience.
+                if depth > 0 && classes.is_identifier(&tokens[j].kind) {
+                    // Rec state fields are `name : init` entries (`:`);
+                    // `::` is also accepted for resilience.
                     let followed_by_field_sep = tokens
                         .get(j + 1)
-                        .map(|t| t.kind == "token.colon" || t.kind == "token.bind")
+                        .map(|t| classes.is_label(&t.kind, ":") || classes.is_label(&t.kind, "::"))
                         .unwrap_or(false);
                     if followed_by_field_sep {
                         let name = tokens[j].text.clone();
@@ -618,13 +649,18 @@ fn rec_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
 }
 
 /// Classify the syntactic context at `offset` within the token stream.
-fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Context {
+fn detect_context(
+    classes: &TokenClasses,
+    tokens: &[SpannedToken],
+    offset: usize,
+    source: &str,
+) -> Context {
     let idx = match preceding_index(tokens, offset) {
         Some(i) => i,
         None => {
             // Cursor before any token: only suggest combinators if we are
             // inside a `do {}` block (start of a statement).
-            return if inside_do_block(tokens, offset) {
+            return if inside_do_block(classes, tokens, offset) {
                 Context::ArrowExpr
             } else {
                 Context::None
@@ -635,7 +671,7 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
     let text = tokens[idx].text.as_str();
 
     // 1. Right after a structural keyword.
-    if is_keyword_kind(kind) {
+    if classes.is_keyword(kind) {
         match text {
             "rec" => return Context::AfterRec,
             "match" => return Context::AfterMatch,
@@ -646,45 +682,47 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
     }
 
     // 2. Field access `state.` → suggest in-scope rec state fields.
-    if kind == "token.dot"
+    if classes.is_label(kind, ".")
         && idx > 0
-        && is_identifier_kind(&tokens[idx - 1].kind)
+        && classes.is_identifier(&tokens[idx - 1].kind)
         && tokens[idx - 1].text == "state"
     {
         return Context::StateField;
     }
 
     // 2b. Right after the `{` opening a rec state block → field names.
-    if kind == "token.lbrace"
+    if classes.is_label(kind, "{")
         && idx > 0
-        && is_keyword_kind(&tokens[idx - 1].kind)
+        && classes.is_keyword(&tokens[idx - 1].kind)
         && tokens[idx - 1].text == "rec"
     {
         return Context::StateField;
     }
 
     // 3. After a pattern colon inside a `match` block → list patterns.
-    if kind == "token.colon" && is_match_pattern_colon(tokens, idx) {
+    if classes.is_label(kind, ":") && is_match_pattern_colon(classes, tokens, idx) {
         return Context::MatchPattern;
     }
 
     // 4. Arrow expression position: after `<-` (always arrow-specific) or
     //    after `::` when in a binding context.
-    // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
-    if kind == "token.minus" && idx > 0 && tokens[idx - 1].kind == "token.lt" {
+    // `<-` is lexed as two tokens: `<` followed by `-`.
+    if classes.is_label(kind, "-") && idx > 0 && classes.is_label(&tokens[idx - 1].kind, "<") {
         return Context::ArrowExpr;
     }
-    if kind == "token.bind" && (looks_like_arrow_file(source) || inside_do_block(tokens, offset)) {
+    if classes.is_label(kind, "::")
+        && (looks_like_arrow_file(source) || inside_do_block(classes, tokens, offset))
+    {
         return Context::ArrowExpr;
     }
 
     // 4b. Start of a new line inside a `do {}` or `rec {}` block (after `;`,
     //     `}`, or the block's opening `{`) → arrow expression position.
-    if (kind == "token.semicolon" || kind == "token.rbrace" || kind == "token.lbrace")
-        && inside_do_block(tokens, offset)
-        && !(kind == "token.lbrace"
+    if (classes.is_label(kind, ";") || classes.is_label(kind, "}") || classes.is_label(kind, "{"))
+        && inside_do_block(classes, tokens, offset)
+        && !(classes.is_label(kind, "{")
             && idx > 0
-            && is_keyword_kind(&tokens[idx - 1].kind)
+            && classes.is_keyword(&tokens[idx - 1].kind)
             && tokens[idx - 1].text == "rec")
     {
         return Context::ArrowExpr;
@@ -702,12 +740,14 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
 pub fn completion(source: &str, offset: usize) -> Value {
     let mut items = completions(source);
 
-    let tokens = match kit_for_file(None).and_then(|kit| kit.lex_with_spans(source)) {
-        Ok(t) => t,
+    let (tokens, classes) = match kit_for_file(None)
+        .and_then(|kit| kit.lex_with_spans(source).map(|t| (t, kit)))
+    {
+        Ok((t, kit)) => (t, TokenClasses::new(kit.language())),
         Err(_) => return json!(items),
     };
 
-    match detect_context(&tokens, offset, source) {
+    match detect_context(&classes, &tokens, offset, source) {
         Context::None => {}
         Context::AfterRec => items.push(json!({
             "label": "{",
@@ -738,7 +778,7 @@ pub fn completion(source: &str, offset: usize) -> Value {
             "insertTextFormat": 2,
         })),
         Context::StateField => {
-            for field in rec_state_fields(&tokens) {
+            for field in rec_state_fields(&classes, &tokens) {
                 items.push(json!({
                     "label": field,
                     "kind": KIND_PROPERTY,

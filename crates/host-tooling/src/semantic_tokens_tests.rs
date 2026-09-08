@@ -54,7 +54,7 @@ fn legend_modifier_bit_returns_correct_bit_flag() {
 #[test]
 fn classifier_maps_number_to_number_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.number", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("number").unwrap());
     assert_eq!(mods, 0);
@@ -63,7 +63,7 @@ fn classifier_maps_number_to_number_type() {
 #[test]
 fn classifier_maps_string_to_string_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.string", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("string").unwrap());
     assert_eq!(mods, 0);
@@ -72,7 +72,7 @@ fn classifier_maps_string_to_string_type() {
 #[test]
 fn classifier_maps_keyword_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.keyword.let", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
     assert_eq!(mods, 0);
@@ -81,7 +81,7 @@ fn classifier_maps_keyword_to_keyword_type() {
 #[test]
 fn classifier_maps_bool_to_constant_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, _mods) = classifier.classify("token.bool", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("constant").unwrap());
 }
@@ -89,7 +89,7 @@ fn classifier_maps_bool_to_constant_type() {
 #[test]
 fn classifier_maps_null_to_constant_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, _mods) = classifier.classify("token.null", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("constant").unwrap());
 }
@@ -97,7 +97,7 @@ fn classifier_maps_null_to_constant_type() {
 #[test]
 fn classifier_maps_operator_to_operator_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.plus", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("operator").unwrap());
     assert_eq!(mods, 0);
@@ -106,7 +106,7 @@ fn classifier_maps_operator_to_operator_type() {
 #[test]
 fn classifier_maps_delimiter_to_punctuation_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, _mods) = classifier.classify("token.lparen", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("punctuation").unwrap());
 }
@@ -114,7 +114,7 @@ fn classifier_maps_delimiter_to_punctuation_type() {
 #[test]
 fn classifier_maps_identifier_to_variable_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.identifier", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("variable").unwrap());
     assert_eq!(mods, 0);
@@ -123,7 +123,7 @@ fn classifier_maps_identifier_to_variable_type() {
 #[test]
 fn classifier_maps_doc_comment_with_documentation_modifier() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.doc_comment", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("comment").unwrap());
     assert_eq!(mods, legend.modifier_bit("documentation").unwrap());
@@ -132,7 +132,7 @@ fn classifier_maps_doc_comment_with_documentation_modifier() {
 #[test]
 fn classifier_maps_comment_without_modifiers() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, mods) = classifier.classify("token.comment", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("comment").unwrap());
     assert_eq!(mods, 0);
@@ -141,7 +141,7 @@ fn classifier_maps_comment_without_modifiers() {
 #[test]
 fn classifier_maps_template_to_string_type() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let (ty, _mods) = classifier.classify("token.template", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("string").unwrap());
 }
@@ -149,7 +149,7 @@ fn classifier_maps_template_to_string_type() {
 #[test]
 fn classifier_returns_none_for_unknown_kind() {
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     assert!(classifier.classify("token.unknown", &legend).is_none());
 }
 
@@ -159,7 +159,7 @@ fn classifier_returns_none_for_unknown_type_name() {
         token_types: vec!["keyword".to_string()],
         token_modifiers: vec![],
     };
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     assert!(classifier.classify("token.number", &legend).is_none());
 }
 
@@ -243,7 +243,7 @@ fn canonical_semantic_tokens_empty_source_returns_empty() {
 fn classify_first_identifier(source: &str) -> (u32, u32) {
     let tokens = lex(source);
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     for (i, token) in tokens.iter().enumerate() {
         if token.kind == "token.identifier" {
             return crate::semantic_tokens::ContextClassifier::classify(
@@ -264,7 +264,7 @@ fn classify_first_identifier(source: &str) -> (u32, u32) {
 fn classify_all_identifiers(source: &str) -> Vec<(String, u32, u32)> {
     let tokens = lex(source);
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier;
+    let classifier = CanonicalTokenClassifier::canonical();
     let mut out = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
         if token.kind == "token.identifier" {

@@ -311,24 +311,25 @@ struct TokenPos {
     end: usize,
 }
 
-/// Compute the byte positions of all `token.identifier` tokens in a chunk,
-/// as absolute offsets in the original source.
+/// Compute the byte positions of all `identifier`-category tokens in a
+/// chunk, as absolute offsets in the original source.
 fn identifier_positions(lang: &Language, chunk_text: &str, chunk_offset: usize) -> Vec<TokenPos> {
-    token_positions(lang, chunk_text, chunk_offset, "token.identifier")
+    token_positions(lang, chunk_text, chunk_offset, "identifier")
 }
 
-/// Compute the byte positions of all `token.bool` tokens in a chunk.
+/// Compute the byte positions of all `bool`-category tokens in a chunk.
 fn bool_positions(lang: &Language, chunk_text: &str, chunk_offset: usize) -> Vec<TokenPos> {
-    token_positions(lang, chunk_text, chunk_offset, "token.bool")
+    token_positions(lang, chunk_text, chunk_offset, "bool")
 }
 
-/// Compute the byte positions of all tokens of `kind` in a chunk by scanning
-/// the source forward, skipping whitespace (mirrors the formatter's approach).
+/// Compute the byte positions of all tokens in `category` in a chunk by
+/// scanning the source forward, skipping whitespace (mirrors the formatter's
+/// approach). Classification comes from `lang.tokens` `category` data.
 fn token_positions(
     lang: &Language,
     chunk_text: &str,
     chunk_offset: usize,
-    kind: &str,
+    category: &str,
 ) -> Vec<TokenPos> {
     let tokens = match lex(lang, chunk_text) {
         Ok(t) => t,
@@ -352,7 +353,7 @@ fn token_positions(
         }
         let start = pos;
         pos += token.text.len();
-        if token.kind == kind {
+        if lang.token_in_category(&token.kind, category) {
             out.push(TokenPos {
                 start: chunk_offset + start,
                 end: chunk_offset + pos,
@@ -389,10 +390,10 @@ impl LangInfo {
 
         for row in lang.grammar.iter() {
             let kind = &row.child_shape.node_kind;
-            if row.token == "token.keyword.import" {
+            if Some(row.token.as_str()) == lang.token_kind_for_label("import") {
                 import_kinds.insert(kind.clone());
             }
-            if row.token == "token.keyword.export" {
+            if Some(row.token.as_str()) == lang.token_kind_for_label("export") {
                 export_kinds.insert(kind.clone());
             }
             // Conditionals: arity 3 with at least one child separator (then/else
