@@ -442,11 +442,16 @@ of the decision, not follow-ups.
   registry; `Apply` targets an existing rule id. Runs at `Language` build
   (wired in `handl-kit-data-canonical::merge_fragments` — Error-severity
   diagnostics fail assembly; warnings do not, since shapes and native
-  registries may arrive from other fragments/engines). Wiring `hnl check`
-  to re-report these diagnostics remains a follow-up — its bootstrap path
-  in `plugin-engine-typecheck` merges `ast.yaml` shapes directly (without
-  transform lowering), so the build-time check in `merge_fragments` is the
-  enforcing site today.
+  registries may arrive from other fragments/engines) *and* under the CLI
+  check path: `hnl typecheck` (the `hnl check` surface) builds its
+  `Language` in `plugin-engine-typecheck::bootstrap`, which cannot depend
+  on `handl-kit-data-canonical` (cycle via `handl-runtime`), so it embeds
+  the same nine YAML files and mirrors `merge_fragments` —
+  `merge_ast_fragment` lowering, the `transforms.yaml` merge, and
+  `validate_transforms`. Error-severity diagnostics there surface as
+  `CheckError::Language` ("language error: transform rule validation
+  failed: …") on stderr with exit code 2, instead of a panic or a check
+  run against a malformed language.
 
 ### Errors & diagnostics
 

@@ -40,7 +40,10 @@ field is still lowered at merge for third-party backward compat); kinds
 with no declarative rule fall back to the
 named `desugar.*` native registry. `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
-diagnostics fail assembly.
+diagnostics fail assembly — and under `hnl typecheck`, whose bootstrap
+`Language` assembly in `plugin-engine-typecheck::bootstrap` mirrors
+`merge_fragments` (embedded `transforms.yaml` + `merge_ast_fragment`
+lowering + validation; errors surface as `CheckError::Language`).
 
 `.hnl`-authored rewrites are supported via the `Native("handl:<mod>.<fn>")`
 spelling: `handl_plugin_lib_handl::transform::HandlNativeRewrite` is a

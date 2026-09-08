@@ -1385,6 +1385,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform",
  "handl-plugin-ext-diag",
  "handl-plugin-module",
  "serde_json",
@@ -2052,7 +2053,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "tar",
  "toml",
  "url",
 ]
