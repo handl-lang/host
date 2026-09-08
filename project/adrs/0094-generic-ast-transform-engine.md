@@ -356,6 +356,9 @@ handl-runtime                    calls RewriteEngine (drops
 `plugin-engine-transform-parallel` has been implemented and is no longer
 outstanding.
 
+The layout-preserving AST→source emitter has been implemented in
+`handl-plugin-engine-fmt` as `PreserveEmitter` and is no longer out of scope.
+
 ### Implemented: `plugin-engine-transform-parallel`
 
 `plugin-engine-transform-parallel` provides a parallel `TransformEngine`
@@ -391,16 +394,18 @@ subcommand (`host-cli`):
 
 ```text
 hnl transform <pass> <file.hnl> [--pipeline a,b,c] [--plan] [--trace]
-          [--stats] [--emit tree|json]
+          [--stats] [--emit tree|json|source] [--write]
 ```
 
 It parses each top-level statement RAW (bracket-depth-zero split + Pratt
 engine — no `Runtime::parse`, which would pre-desugar per ADR-0082), runs
 the pass via `RewriteEngine::run_pass`/`run_pipeline` with
 `with_desugar_natives`, and renders the output arena as an indented tree
-(`kind` + payload summary) or `--emit json`. `--plan` lists match sites
-(kind + rule id, incl. `native:desugar.*` fallback sites) without
-applying; `--trace` prints each `Rewrite`; `--stats` prints `PassStats`.
+(`kind` + payload summary), `--emit json`, or a preserving source rendering
+(`--emit source` / `--write`) using `handl-plugin-engine-fmt::PreserveEmitter`.
+`--plan` lists match sites (kind + rule id, incl. `native:desugar.*` fallback
+sites) without applying; `--trace` prints each `Rewrite`; `--stats` prints
+`PassStats`.
 Exit codes: 0 success, 1 transform failure, 2 usage/parse error — an
 unknown pass name (no `TransformDef` declares it) is a usage error, not a
 silent no-op. A regression test asserts raw-parse + `desugar` produces an
@@ -512,6 +517,32 @@ of the decision, not follow-ups.
   shape version that changes arity is caught by `validate_transforms`,
   not silently misapplied.
 
+### Splice-preserving emitter
+
+The `PreserveEmitter` in `handl-plugin-engine-fmt` renders a transformed AST
+back to surface syntax while keeping the user's original formatting and
+comments wherever possible. It reuses the data-driven `FormatEngine` for all
+layout decisions and walks the output AST top-down:
+
+- A node that is not in the `RewriteTrace` and whose entire subtree also
+  contains no rewritten node, and that still carries a Pratt-parser span, is
+  emitted as `src[span.start..span.end]` — copying the original bytes,
+  including any comments or whitespace inside the span.
+- Any node that was produced by a rewrite, has `span: None` (created by a
+  `Create` step), or has a changed descendant is routed through the same
+  data-driven `FormatEngine` formatting as a plain format call. The recursive
+  child rendering still consults the preserving emitter, so unchanged children
+  of a rewritten outer node are spliced while the changed children are
+  reformatted.
+
+Change detection is trace-driven: `PreserveEmitter::new` is passed the set of
+`to` `AstRef`s from `TransformOutput.trace.rewrites` and precomputes a
+`has_changed` flag for every reachable node (itself in the set or any
+transitive child in the set). This is safe because ADR-0094's span policy
+already guarantees that `Keep`-derived and declarative rewrites inherit the
+original source span; only created sub-trees and explicit rewrite targets are
+formatted.
+
 ## Migration sequence
 
 1. `handl-language`: `TransformDef` fragment + `TransformRule`/
@@ -534,9 +565,10 @@ of the decision, not follow-ups.
 The canonical v0.1 linter (`handl-plugin-ext-lint`) was the first non-desugar
 use of the transform engine.  The exercise confirmed the engine generalizes as
 a **pattern matcher**; with `AstNode::span` now populated by the Pratt parser,
-the lint-to-fix chain is fully AST-derived for pattern-based rules, even though
-lint fixes remain text edits because a layout-preserving AST→source renderer is
-not yet available.
+the lint-to-fix chain is fully AST-derived for pattern-based rules. A
+layout-preserving AST→source emitter is now available in
+`handl-plugin-engine-fmt::PreserveEmitter` for use by the transform CLI and
+can be adopted by the LSP lint fix path.
 
 ### Findings
 
