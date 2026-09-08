@@ -17,7 +17,7 @@ handl-plugin-lib-kv-hashmap = { workspace = true }
 handl-plugin-lib-unicode = { workspace = true }
 handl-plugin-lib-ws-rfc-memory = { workspace = true }
 handl-plugin-lib-ws-whatwg-native = { workspace = true }
-handl-plugin-lib-ip = { workspace = true }
+
 handl-plugin-lib-compress-gzip = { workspace = true }
 handl-plugin-lib-archive-tar = { workspace = true }
 handl-plugin-lib-rand-native = { workspace = true }

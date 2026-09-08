@@ -1,4 +1,4 @@
-use crate::{Cidr, Cidr4, Cidr6, IpAddr, IpError, Ipv4, Ipv6, SocketAddr};
+use super::{Cidr, Cidr4, Cidr6, IpAddr, IpError, Ipv4, Ipv6, SocketAddr};
 
 #[test]
 fn error_display() {

@@ -56,7 +56,7 @@ pub fn populate(reg: &mut LibraryRegistry) {
         Box::new(handl_plugin_lib_ws_whatwg_native::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("ip", || {
-        Box::new(handl_plugin_lib_ip::LibraryPlugin::new()) as LibraryPlugin
+        Box::new(handl_plugin_lib_stdlib::ops::ip::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("compress-gzip", || {
         Box::new(handl_plugin_lib_compress_gzip::LibraryPlugin::new()) as LibraryPlugin

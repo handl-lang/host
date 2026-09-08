@@ -18,12 +18,12 @@ use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_handl::HandlModule;
 use serde_json::Value as JsonValue;
 
-use crate::{Cidr, IpAddr, IpError, SocketAddr};
+use super::{Cidr, IpAddr, IpError, SocketAddr};
 
 /// The handl source declaring the ip `op` interface — the single source
 /// of truth for the ip API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const IP_HNL: &str = include_str!("../../../handl-packages/ip/ip.hnl");
+const IP_HNL: &str = include_str!("../../../../../handl-packages/ip/ip.hnl");
 
 // ---------------------------------------------------------------------------
 // Op names per sub-module prefix
@@ -69,7 +69,7 @@ struct IpModules {
 /// Build the [`IpModules`] from the shared [`OpRegistry`] and the `.hnl`
 /// source.
 fn build_modules() -> IpModules {
-    let registry = Arc::new(crate::ip_op_registry());
+    let registry = Arc::new(super::ip_op_registry());
     IpModules {
         ip: HandlModule::new("ip", IP_HNL, &[]).with_ops(IP_OPS, Arc::clone(&registry)),
         cidr: HandlModule::new("cidr", IP_HNL, &[]).with_ops(CIDR_OPS, Arc::clone(&registry)),

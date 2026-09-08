@@ -1572,7 +1572,6 @@ dependencies = [
  "handl-plugin-lib-datetime",
  "handl-plugin-lib-http-client-std",
  "handl-plugin-lib-intl",
- "handl-plugin-lib-ip",
  "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
@@ -1841,16 +1840,6 @@ dependencies = [
  "icu_provider_blob",
  "serde_json",
  "writeable",
-]
-
-[[package]]
-name = "handl-plugin-lib-ip"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "serde_json",
 ]
 
 [[package]]

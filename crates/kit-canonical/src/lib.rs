@@ -194,6 +194,7 @@ impl ModuleResolver for StdlibResolver {
             "result" => stdlib::module_with("result", &StdlibResolver).map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
+            "ip" => Some(std::sync::Arc::new(stdlib::ops::ip::IpModule)),
             _ => None,
         }
     }
@@ -1080,6 +1081,7 @@ impl Kit {
         // seeded RNG for `property`/`fuzz`, ADR-0092).
         stdlib_registry.register(TimeModule);
         stdlib_registry.register(RandModule);
+        stdlib_registry.register(stdlib::ops::ip::IpModule);
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
