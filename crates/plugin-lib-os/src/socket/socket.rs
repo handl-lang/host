@@ -35,7 +35,8 @@ impl SocketModule {
         let mut registry = OpRegistry::new();
         register_socket_ops(&mut registry, socket);
         Self {
-            module: HandlModule::new("socket", OS_HNL, &[]).with_ops(SOCKET_OPS, Arc::new(registry)),
+            module: HandlModule::new("socket", OS_HNL, &[])
+                .with_ops(SOCKET_OPS, Arc::new(registry)),
         }
     }
 }
@@ -190,8 +191,23 @@ pub const SOCKET_OPS: &[&str] = &[
 /// given [`Socket`] implementation.
 pub fn register_socket_ops(registry: &mut OpRegistry, socket: impl Socket + 'static) {
     let socket: Arc<dyn Socket> = Arc::new(socket);
-    registry.register("socket.connect", Arc::new(ConnectFn { socket: socket.clone() }));
-    registry.register("socket.send", Arc::new(SendFn { socket: socket.clone() }));
-    registry.register("socket.recv", Arc::new(RecvFn { socket: socket.clone() }));
+    registry.register(
+        "socket.connect",
+        Arc::new(ConnectFn {
+            socket: socket.clone(),
+        }),
+    );
+    registry.register(
+        "socket.send",
+        Arc::new(SendFn {
+            socket: socket.clone(),
+        }),
+    );
+    registry.register(
+        "socket.recv",
+        Arc::new(RecvFn {
+            socket: socket.clone(),
+        }),
+    );
     registry.register("socket.close", Arc::new(CloseFn { socket }));
 }

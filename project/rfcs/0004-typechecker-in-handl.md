@@ -42,7 +42,7 @@ the language it checks.
    corpus (same fixtures, same expected reports).
 2. Add the deferred scope (traits, refinements, invariants, row variables)
    incrementally, each with its own test corpus.
-3. Flip `hnl check`; retire `crates/plugin-engine-typecheck` as the primary
+3. Flip `hnl typecheck`; retire `crates/plugin-engine-typecheck` as the primary
    (Rust version remains the fallback per ADR-0085 rule 6), and re-host the
    `plugin-engine-typecheck*` engine path once its consumers move too.
 

@@ -44,7 +44,7 @@ use std::sync::Arc;
 use handl_plugin_lib_handl::HandlLibraryPlugin;
 
 pub use error::TlsError;
-pub use module::{tls_op_registry, TlsModule, TLS_OPS};
+pub use module::{TLS_OPS, TlsModule, tls_op_registry};
 pub use service::TlsService;
 pub use stub::StubTls;
 
@@ -78,14 +78,8 @@ impl TlsLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(tls_op_registry(StubTls::new()));
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "tls",
-                "lib.tls",
-                "lib-tls",
-                TLS_HNL,
-                &[],
-            )
-            .with_ops(TLS_OPS, registry),
+            inner: HandlLibraryPlugin::new_with_caps("tls", "lib.tls", "lib-tls", TLS_HNL, &[])
+                .with_ops(TLS_OPS, registry),
         }
     }
 }

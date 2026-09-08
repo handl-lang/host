@@ -88,8 +88,14 @@ fn run_checked_erases_proof_typed_root() {
         .with_typecheck_engine(Box::new(StubTypecheck { node_types }))
         .with_eval_engine(Box::new(TreeWalkEngine::new()));
 
-    let result = rt.run_checked(&Source::new("42")).expect("run_checked should succeed");
-    assert!(result.is_null(), "proof-typed root should be erased to null, got {:?}", result);
+    let result = rt
+        .run_checked(&Source::new("42"))
+        .expect("run_checked should succeed");
+    assert!(
+        result.is_null(),
+        "proof-typed root should be erased to null, got {:?}",
+        result
+    );
 }
 
 #[test]
@@ -110,6 +116,8 @@ fn run_checked_preserves_computational_nodes() {
         .with_typecheck_engine(Box::new(StubTypecheck { node_types }))
         .with_eval_engine(Box::new(TreeWalkEngine::new()));
 
-    let result = rt.run_checked(&Source::new("42")).expect("run_checked should succeed");
+    let result = rt
+        .run_checked(&Source::new("42"))
+        .expect("run_checked should succeed");
     assert_eq!(result, Value::from(42));
 }

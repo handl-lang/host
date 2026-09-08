@@ -1516,8 +1516,7 @@ mod error_tests;
 /// The handl source declaring the concurrent interface — the single
 /// source of truth for the concurrent API surface. Loaded at compile
 /// time from the kit-stdlib data dir.
-const CONCURRENT_HNL: &str =
-    include_str!("../../../handl-packages/concurrent/concurrent.hnl");
+const CONCURRENT_HNL: &str = include_str!("../../../handl-packages/concurrent/concurrent.hnl");
 
 /// A `Library` plugin that registers the `concurrent` module into the
 /// [`ModuleRuntime`] and declares the interface via a

@@ -152,14 +152,8 @@ impl RandLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(rand_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "rand",
-                "lib.rand",
-                "lib-rand",
-                RAND_HNL,
-                &[],
-            )
-            .with_ops(RAND_OPS, registry),
+            inner: HandlLibraryPlugin::new_with_caps("rand", "lib.rand", "lib-rand", RAND_HNL, &[])
+                .with_ops(RAND_OPS, registry),
         }
     }
 }

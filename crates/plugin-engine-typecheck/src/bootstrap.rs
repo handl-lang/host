@@ -494,7 +494,10 @@ fn collect_decls(
             // `from "path" import * as alias` stores the alias in the payload.
             if let Some(name) = root.payload.get("alias").and_then(|v| v.as_str()) {
                 if !name.is_empty() {
-                    imports.push(Import { name: name.to_string(), stmt_idx: i });
+                    imports.push(Import {
+                        name: name.to_string(),
+                        stmt_idx: i,
+                    });
                 }
             }
             continue;

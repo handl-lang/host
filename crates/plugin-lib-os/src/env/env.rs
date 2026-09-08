@@ -122,11 +122,7 @@ impl Function for KeysFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `env` module.
-pub const ENV_OPS: &[&str] = &[
-    "env.get",
-    "env.has",
-    "env.keys",
-];
+pub const ENV_OPS: &[&str] = &["env.get", "env.has", "env.keys"];
 
 /// Register the `env` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Env`] implementation.

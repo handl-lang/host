@@ -21,7 +21,7 @@ mod http_server;
 use std::sync::Arc;
 
 use handl_plugin_lib_handl::HandlLibraryPlugin;
-use handl_plugin_lib_http_server::{http_server_op_registry, HttpServer, HTTP_SERVER_OPS};
+use handl_plugin_lib_http_server::{HTTP_SERVER_OPS, HttpServer, http_server_op_registry};
 
 pub use handl_plugin_lib_http_server::{
     HttpMethod, HttpServerError, HttpServerRequest, HttpServerResponse,
@@ -38,9 +38,7 @@ const HTTP_SERVER_STD_HNL: &str =
 /// http-server-std, registering the Rust handls (wrapping [`StdHttpServer`])
 /// under the op names declared in the http-server interface.
 pub fn http_server_std_op_registry() -> handl_plugin_lib_handl::OpRegistry {
-    http_server_op_registry(|| {
-        Arc::new(StdHttpServer::new()) as Arc<dyn HttpServer>
-    })
+    http_server_op_registry(|| Arc::new(StdHttpServer::new()) as Arc<dyn HttpServer>)
 }
 
 // ---------------------------------------------------------------------------

@@ -126,13 +126,7 @@ impl IntlLibraryPlugin {
     /// Create a new `IntlLibraryPlugin`.
     pub fn new() -> Self {
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "intl",
-                "lib.intl",
-                "lib-intl",
-                INTL_HNL,
-                &[],
-            ),
+            inner: HandlLibraryPlugin::new_with_caps("intl", "lib.intl", "lib-intl", INTL_HNL, &[]),
         }
     }
 }

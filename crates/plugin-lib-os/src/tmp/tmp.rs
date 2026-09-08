@@ -91,10 +91,7 @@ impl Function for DirFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `tmp` module.
-pub const TMP_OPS: &[&str] = &[
-    "tmp.file",
-    "tmp.dir",
-];
+pub const TMP_OPS: &[&str] = &["tmp.file", "tmp.dir"];
 
 /// Register the `tmp` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Tmp`] implementation.

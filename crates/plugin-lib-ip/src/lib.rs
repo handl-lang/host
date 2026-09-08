@@ -45,7 +45,7 @@ pub use cidr::{Cidr, Cidr4, Cidr6};
 pub use error::IpError;
 pub use module::{
     CidrBroadcast, CidrContains, CidrFormat, CidrNetwork, CidrParse, IpFormat, IpIsLinkLocal,
-    IpIsLoopback, IpIsMulticast, IpIsPrivate, IpIsUnspecified, IpParse, IpModule, SocketFormat,
+    IpIsLoopback, IpIsMulticast, IpIsPrivate, IpIsUnspecified, IpModule, IpParse, SocketFormat,
     SocketParse,
 };
 pub use socket::SocketAddr;
@@ -134,14 +134,8 @@ impl IpLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(ip_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "ip",
-                "lib.ip",
-                "lib-ip",
-                IP_HNL,
-                &[],
-            )
-            .with_ops(IP_OPS, registry),
+            inner: HandlLibraryPlugin::new_with_caps("ip", "lib.ip", "lib-ip", IP_HNL, &[])
+                .with_ops(IP_OPS, registry),
         }
     }
 }

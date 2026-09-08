@@ -27,7 +27,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 
 pub use error::{OtlpError, OtlpResult};
 pub use id::{gen_span_id, gen_trace_id, now_ns};
-pub use otlp_module::{register_otlp_ops, OtlpModule, OTLP_OPS};
+pub use otlp_module::{OTLP_OPS, OtlpModule, register_otlp_ops};
 pub use state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
 pub use stub::{OtlpEvent, RecordedEvent, RecordedSpan, StubOtlpState};
 
@@ -68,14 +68,8 @@ impl OtlpLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(otlp_op_registry(Arc::new(StubOtlpState::default())));
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "otlp",
-                "lib.otlp",
-                "lib-otlp",
-                OTLP_HNL,
-                &[],
-            )
-            .with_ops(OTLP_OPS, registry),
+            inner: HandlLibraryPlugin::new_with_caps("otlp", "lib.otlp", "lib-otlp", OTLP_HNL, &[])
+                .with_ops(OTLP_OPS, registry),
         }
     }
 }
@@ -126,14 +120,8 @@ impl handl_platform::Plugin for OtlpLibraryPlugin {
 /// (backed by [`StubOtlpState`]).
 pub fn otlp_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(otlp_op_registry(Arc::new(StubOtlpState::default())));
-    HandlLibraryPlugin::new_with_caps(
-        "otlp",
-        "lib.otlp",
-        "lib-otlp",
-        OTLP_HNL,
-        &[],
-    )
-    .with_ops(OTLP_OPS, registry)
+    HandlLibraryPlugin::new_with_caps("otlp", "lib.otlp", "lib-otlp", OTLP_HNL, &[])
+        .with_ops(OTLP_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

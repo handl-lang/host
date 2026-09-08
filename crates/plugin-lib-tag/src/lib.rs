@@ -53,7 +53,7 @@
 
 use std::sync::Arc;
 
-use handl_language::{as_tag, is_tag_value, tag_value, Value};
+use handl_language::{Value, as_tag, is_tag_value, tag_value};
 use handl_platform::{EvalContext, EvalError, Function, Module};
 use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 
@@ -110,8 +110,7 @@ impl Function for Tag {
             .ok_or_else(|| EvalError::Other("tag.tag: name must be a string".to_string()))?;
         tag_value(name, &args[1]).ok_or_else(|| {
             EvalError::Other(
-                "tag.tag: payload contains a reserved __tag__ key (forgery prevention)"
-                    .to_string(),
+                "tag.tag: payload contains a reserved __tag__ key (forgery prevention)".to_string(),
             )
         })
     }
@@ -231,9 +230,9 @@ impl Function for Construct {
                 args.len()
             )));
         }
-        let tag_name = args[0]
-            .as_str()
-            .ok_or_else(|| EvalError::Other("tag.construct: tag_name must be a string".to_string()))?;
+        let tag_name = args[0].as_str().ok_or_else(|| {
+            EvalError::Other("tag.construct: tag_name must be a string".to_string())
+        })?;
         let registry = TypeRegistry::new(CANONICAL_REGISTRY_ID);
         registry.construct(tag_name, &args[1]).ok_or_else(|| {
             EvalError::Other(
@@ -267,7 +266,9 @@ impl Function for MatchType {
             )));
         }
         let registry = TypeRegistry::new(CANONICAL_REGISTRY_ID);
-        Ok(registry.match_type(&args[0], &args[1]).unwrap_or(Value::Null))
+        Ok(registry
+            .match_type(&args[0], &args[1])
+            .unwrap_or(Value::Null))
     }
 }
 
@@ -378,14 +379,8 @@ impl TagLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(tag_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
-                "tag",
-                "lib.tag",
-                "lib-tag",
-                TAG_HNL,
-                &[],
-            )
-            .with_ops(TAG_OPS, registry),
+            inner: HandlLibraryPlugin::new_with_caps("tag", "lib.tag", "lib-tag", TAG_HNL, &[])
+                .with_ops(TAG_OPS, registry),
         }
     }
 }

@@ -47,18 +47,9 @@ fn constantly_returns_arrow() {
 /// invocable inside the `.hnl` implementation.
 #[test]
 fn pipe_and_compose_route_arrows() {
-    assert_eq!(
-        eval("comb.pipe([3, x ~> x + 1, x ~> x * 2])"),
-        json!(8)
-    );
-    assert_eq!(
-        eval("comb.compose([x ~> x + 1, x ~> x * 2])(3)"),
-        json!(7)
-    );
-    assert_eq!(
-        eval("comb.flow([x ~> x + 1, x ~> x * 2])(3)"),
-        json!(8)
-    );
+    assert_eq!(eval("comb.pipe([3, x ~> x + 1, x ~> x * 2])"), json!(8));
+    assert_eq!(eval("comb.compose([x ~> x + 1, x ~> x * 2])(3)"), json!(7));
+    assert_eq!(eval("comb.flow([x ~> x + 1, x ~> x * 2])(3)"), json!(8));
 }
 
 /// Native higher-order functions keep working: the arrow arg reaches the

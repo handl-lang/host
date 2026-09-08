@@ -373,14 +373,54 @@ pub const OTLP_OPS: &[&str] = &[
 /// Register the `otlp` ops into the given [`OpRegistry`], dispatching to
 /// the given [`OtlpState`] implementation.
 pub fn register_otlp_ops(registry: &mut OpRegistry, state: Arc<dyn OtlpState>) {
-    registry.register("otlp.configure", Arc::new(ConfigureFn { state: state.clone() }));
-    registry.register("otlp.start_span", Arc::new(StartSpanFn { state: state.clone() }));
-    registry.register("otlp.end_span", Arc::new(EndSpanFn { state: state.clone() }));
-    registry.register("otlp.set_attribute", Arc::new(SetAttributeFn { state: state.clone() }));
-    registry.register("otlp.add_event", Arc::new(AddEventFn { state: state.clone() }));
-    registry.register("otlp.record_log", Arc::new(RecordLogFn { state: state.clone() }));
-    registry.register("otlp.record_metric", Arc::new(RecordMetricFn { state: state.clone() }));
-    registry.register("otlp.flush", Arc::new(FlushFn { state: state.clone() }));
+    registry.register(
+        "otlp.configure",
+        Arc::new(ConfigureFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.start_span",
+        Arc::new(StartSpanFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.end_span",
+        Arc::new(EndSpanFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.set_attribute",
+        Arc::new(SetAttributeFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.add_event",
+        Arc::new(AddEventFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.record_log",
+        Arc::new(RecordLogFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.record_metric",
+        Arc::new(RecordMetricFn {
+            state: state.clone(),
+        }),
+    );
+    registry.register(
+        "otlp.flush",
+        Arc::new(FlushFn {
+            state: state.clone(),
+        }),
+    );
     registry.register("otlp.shutdown", Arc::new(ShutdownFn { state }));
 }
 

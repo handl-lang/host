@@ -59,7 +59,9 @@ impl Function for NowMs {
         let millis = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| {
-                EvalError::Other(format!("time.now_ms: wall clock is before the Unix epoch: {e}"))
+                EvalError::Other(format!(
+                    "time.now_ms: wall clock is before the Unix epoch: {e}"
+                ))
             })?
             .as_millis();
         Ok(num(millis as f64))

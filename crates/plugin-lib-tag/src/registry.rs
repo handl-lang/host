@@ -18,7 +18,7 @@
 //! This module provides [`TypeRegistry`] — the host primitive that mints,
 //! recognizes, and dispatches on registry-scoped type values.
 
-use handl_language::{is_tag_value, REGISTRY_VALUE_KEY, TAG_VALUE_KEY, Value};
+use handl_language::{REGISTRY_VALUE_KEY, TAG_VALUE_KEY, Value, is_tag_value};
 
 /// The `type.` prefix carried by every type-value tag name.
 const TYPE_TAG_PREFIX: &str = "type.";
@@ -91,9 +91,7 @@ impl TypeRegistry {
             return false;
         }
         let tag = v.get(TAG_VALUE_KEY).and_then(|t| t.as_str());
-        let matches_prefix = tag
-            .map(|t| t.starts_with(TYPE_TAG_PREFIX))
-            .unwrap_or(false);
+        let matches_prefix = tag.map(|t| t.starts_with(TYPE_TAG_PREFIX)).unwrap_or(false);
         if !matches_prefix {
             return false;
         }

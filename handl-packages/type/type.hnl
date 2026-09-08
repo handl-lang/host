@@ -38,9 +38,9 @@
 --- ## Typecheck engine (Rust)
 ---
 --- The compile-time typecheck engine (NbE-based type synthesis, JSON
---- Schema interpretation) lives in `handl-plugin-typecheck-nbe` +
---- `handl-kit-type-schema-json` and is consumed directly by
---- `plugin-typecheck-core`; it is not declared as `op`/`handl` here
+--- Schema interpretation) lives in `handl-plugin-engine-typecheck`
+--- (abstraction, `check_module`) and `handl-plugin-engine-typecheck-nbe`
+--- (NBE engine); it is not declared as `op`/`handl` here
 --- because it operates at the inference layer, not the eval-time dispatch
 --- layer.
 cap "type.of"

@@ -12,6 +12,7 @@ handl-plugin-lib-encoding = { path = "../plugin-lib-encoding" }
 handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
 handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
 base64 = "0.22"
+tar = "0.4"
 hex = "0.4"
 iri-string = "=0.7.12"
 serde = "1"

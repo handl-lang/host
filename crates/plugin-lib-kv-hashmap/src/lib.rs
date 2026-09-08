@@ -34,8 +34,7 @@ use handl_plugin_lib_kv::{KeyValueStore, KvError};
 /// The handl source declaring the kv_hashmap `op` interface — the single
 /// source of truth for the kv-hashmap API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
-const KV_HASHMAP_HNL: &str =
-    include_str!("../../../handl-packages/kv_hashmap/kv_hashmap.hnl");
+const KV_HASHMAP_HNL: &str = include_str!("../../../handl-packages/kv_hashmap/kv_hashmap.hnl");
 
 /// The op names declared in `kv_hashmap.hnl`.
 const KV_HASHMAP_OPS: &[&str] = &[
@@ -268,11 +267,36 @@ impl Function for KvSize {
 pub fn kv_hashmap_op_registry() -> OpRegistry {
     let store = shared_store();
     let mut registry = OpRegistry::new();
-    registry.register("kv.get", Arc::new(KvGet { store: store.clone() }));
-    registry.register("kv.set", Arc::new(KvSet { store: store.clone() }));
-    registry.register("kv.remove", Arc::new(KvRemove { store: store.clone() }));
-    registry.register("kv.clear", Arc::new(KvClear { store: store.clone() }));
-    registry.register("kv.has", Arc::new(KvHas { store: store.clone() }));
+    registry.register(
+        "kv.get",
+        Arc::new(KvGet {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.set",
+        Arc::new(KvSet {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.remove",
+        Arc::new(KvRemove {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.clear",
+        Arc::new(KvClear {
+            store: store.clone(),
+        }),
+    );
+    registry.register(
+        "kv.has",
+        Arc::new(KvHas {
+            store: store.clone(),
+        }),
+    );
     registry.register("kv.size", Arc::new(KvSize { store }));
     registry
 }

@@ -45,7 +45,8 @@ impl ProcessModule {
         let mut registry = OpRegistry::new();
         register_process_ops(&mut registry, process);
         Self {
-            module: HandlModule::new("process", OS_HNL, &[]).with_ops(PROCESS_OPS, Arc::new(registry)),
+            module: HandlModule::new("process", OS_HNL, &[])
+                .with_ops(PROCESS_OPS, Arc::new(registry)),
         }
     }
 }
@@ -207,8 +208,23 @@ pub const PROCESS_OPS: &[&str] = &[
 /// given [`Process`] implementation.
 pub fn register_process_ops(registry: &mut OpRegistry, process: impl Process + 'static) {
     let process: Arc<dyn Process> = Arc::new(process);
-    registry.register("process.spawn", Arc::new(SpawnFn { process: process.clone() }));
-    registry.register("process.kill", Arc::new(KillFn { process: process.clone() }));
-    registry.register("process.wait", Arc::new(WaitFn { process: process.clone() }));
+    registry.register(
+        "process.spawn",
+        Arc::new(SpawnFn {
+            process: process.clone(),
+        }),
+    );
+    registry.register(
+        "process.kill",
+        Arc::new(KillFn {
+            process: process.clone(),
+        }),
+    );
+    registry.register(
+        "process.wait",
+        Arc::new(WaitFn {
+            process: process.clone(),
+        }),
+    );
     registry.register("process.status", Arc::new(StatusFn { process }));
 }

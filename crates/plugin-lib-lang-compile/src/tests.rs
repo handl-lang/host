@@ -11,13 +11,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use handl_language::LangError;
-use handl_language::{ast_value, language_value, Ast, AstNode, Language};
+use handl_language::{Ast, AstNode, Language, ast_value, language_value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{
-    as_compiled_id, as_compiled_target, compiled_value, CompiledHandle, RuntimeFactory,
-    RuntimeHandle,
+    CompiledHandle, RuntimeFactory, RuntimeHandle, as_compiled_id, as_compiled_target,
+    compiled_value,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::CompileModule;
 

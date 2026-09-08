@@ -21,7 +21,7 @@ mod http_state;
 use std::sync::Arc;
 
 use handl_plugin_lib_handl::HandlLibraryPlugin;
-use handl_plugin_lib_otlp::{otlp_op_registry, OtlpState, OTLP_OPS};
+use handl_plugin_lib_otlp::{OTLP_OPS, OtlpState, otlp_op_registry};
 
 pub use handl_plugin_lib_otlp::{
     MetricKind, MetricOptions, OtlpConfig, OtlpError, OtlpEvent, OtlpModule, OtlpResult,
@@ -118,14 +118,8 @@ impl handl_platform::Plugin for OtlpStdLibraryPlugin {
 /// (backed by [`HttpOtlpState`]).
 pub fn otlp_std_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(otlp_std_op_registry());
-    HandlLibraryPlugin::new_with_caps(
-        "otlp",
-        "lib.otlp-std",
-        "lib-otlp-std",
-        OTLP_STD_HNL,
-        &[],
-    )
-    .with_ops(OTLP_OPS, registry)
+    HandlLibraryPlugin::new_with_caps("otlp", "lib.otlp-std", "lib-otlp-std", OTLP_STD_HNL, &[])
+        .with_ops(OTLP_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

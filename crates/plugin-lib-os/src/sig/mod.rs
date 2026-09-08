@@ -1,6 +1,6 @@
 mod sig;
 
-pub use sig::{register_sig_ops, Sig, SigModule, SIG_OPS};
+pub use sig::{SIG_OPS, Sig, SigModule, register_sig_ops};
 
 pub mod sig_stub;
 

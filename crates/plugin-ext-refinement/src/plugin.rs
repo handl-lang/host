@@ -1,11 +1,11 @@
 //! Plugin integration: `Refine` operation, `RefinementBehavior` trait,
 //! `BasicRefiner` rule acceptor, and `RefinementCore` plugin.
 //!
-//! This mirrors the `BasicTypechecker` pattern in `crates/platform/src/typecheck.rs`:
-//! - `Refine` is the operation marker (like `Typecheck`).
+//! This mirrors the platform's generic `RuleAcceptor` pattern:
+//! - `Refine` is the operation marker.
 //! - `RefineRequest` / `RefineResult` are the request/response types.
-//! - `RefinementBehavior` is the behavior trait (like `TypecheckBehavior`).
-//! - `BasicRefiner` is the `RuleAcceptor` plugin (like `BasicTypechecker`).
+//! - `RefinementBehavior` is the behavior trait.
+//! - `BasicRefiner` is the `RuleAcceptor` plugin.
 //! - `RefinementCore` is a `Plugin` that contributes the canonical refinement rule.
 
 use serde_json::Value;
@@ -54,7 +54,7 @@ impl Contribution for Box<dyn RefinementBehavior> {
 
 /// Basic `RuleAcceptor` plugin for the `Refine` operation.
 ///
-/// Like `BasicTypechecker`, this has no knowledge of concrete refinement logic;
+/// Like other `RuleAcceptor` plugins, this has no knowledge of concrete refinement logic;
 /// it dispatches to registered `RefinementBehavior` rules keyed by operation kind.
 pub struct BasicRefiner {
     /// Capabilities provided by this plugin.

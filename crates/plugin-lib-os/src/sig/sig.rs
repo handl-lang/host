@@ -104,10 +104,7 @@ impl Function for ListFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `sig` module.
-pub const SIG_OPS: &[&str] = &[
-    "sig.send",
-    "sig.list",
-];
+pub const SIG_OPS: &[&str] = &["sig.send", "sig.list"];
 
 /// Register the `sig` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Sig`] implementation.

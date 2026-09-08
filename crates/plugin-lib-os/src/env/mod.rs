@@ -1,6 +1,6 @@
 mod env;
 
-pub use env::{register_env_ops, Env, EnvModule, ENV_OPS};
+pub use env::{ENV_OPS, Env, EnvModule, register_env_ops};
 
 pub mod env_stub;
 

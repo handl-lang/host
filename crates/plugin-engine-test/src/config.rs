@@ -16,7 +16,7 @@ use handl_plugin_lib_scheduler::SchedulePolicy;
 
 use crate::events::TestEvent;
 use crate::runner::{
-    self, filter_predicate, tag_predicate, Filter, RunReport, TestPlan, TestRunCache,
+    self, Filter, RunReport, TestPlan, TestRunCache, filter_predicate, tag_predicate,
 };
 
 /// Configuration for a single test run.

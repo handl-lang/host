@@ -8,7 +8,7 @@ The handl platform is a workspace of Rust crates organised around one goal: ever
 handl-host-cli, handl-host-lsp     # executable hosts
 handl-ext-fmt, handl-ext-lint,    # concrete operations
   handl-ext-lexer, handl-ext-parser,
-  handl-ext-type, handl-ext-cli,
+  handl-plugin-engine-typecheck, handl-ext-cli,
   handl-ext-lsp, handl-ext-doc,
   handl-ext-eval
 handl-plugin-*                    # rule and library plugins

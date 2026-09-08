@@ -60,7 +60,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_lib_handl::{parse_cap_declarations, HandlLibraryPlugin, HandlModule};
+use handl_plugin_lib_handl::{HandlLibraryPlugin, HandlModule, parse_cap_declarations};
 use handl_plugin_lib_os::os_op_registry;
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
@@ -78,8 +78,8 @@ pub use tmp::StdTmp;
 
 // Re-export OS interface types for convenience.
 pub use handl_plugin_lib_os::{
-    AsyncSocket, Cmd, CmdOutput, Env, Fs, OsError, Path, Process, ProcessStatus, Sig, Socket,
-    Time, Tmp, OS_OPS,
+    AsyncSocket, Cmd, CmdOutput, Env, Fs, OS_OPS, OsError, Path, Process, ProcessStatus, Sig,
+    Socket, Time, Tmp,
 };
 pub use handl_plugin_lib_os::{
     CMD_OPS, ENV_OPS, FS_OPS, PATH_OPS, PROCESS_OPS, SIG_OPS, SOCKET_OPS, TIME_OPS, TMP_OPS,
@@ -179,11 +179,13 @@ impl Plugin for OsStdLibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(time_module))?;
         let cmd_module = HandlModule::new("cmd", OS_STD_HNL, &[]).with_ops(CMD_OPS, reg.clone());
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(cmd_module))?;
-        let process_module = HandlModule::new("process", OS_STD_HNL, &[]).with_ops(PROCESS_OPS, reg.clone());
+        let process_module =
+            HandlModule::new("process", OS_STD_HNL, &[]).with_ops(PROCESS_OPS, reg.clone());
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(process_module))?;
         let tmp_module = HandlModule::new("tmp", OS_STD_HNL, &[]).with_ops(TMP_OPS, reg.clone());
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(tmp_module))?;
-        let socket_module = HandlModule::new("socket", OS_STD_HNL, &[]).with_ops(SOCKET_OPS, reg.clone());
+        let socket_module =
+            HandlModule::new("socket", OS_STD_HNL, &[]).with_ops(SOCKET_OPS, reg.clone());
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(socket_module))?;
         let sig_module = HandlModule::new("sig", OS_STD_HNL, &[]).with_ops(SIG_OPS, reg.clone());
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(sig_module))?;
@@ -208,15 +210,24 @@ impl Plugin for OsStdLibraryPlugin {
 pub fn os_std_handl_plugins() -> Vec<HandlLibraryPlugin> {
     let registry = Arc::new(os_std_op_registry());
     vec![
-        HandlLibraryPlugin::new_with_caps("fs", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(FS_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("env", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(ENV_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("path", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(PATH_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("time", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(TIME_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("cmd", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(CMD_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("process", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(PROCESS_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("tmp", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(TMP_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("socket", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(SOCKET_OPS, registry.clone()),
-        HandlLibraryPlugin::new_with_caps("sig", "lib.os-std", "lib-os-std", OS_STD_HNL, &[]).with_ops(SIG_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("fs", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(FS_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("env", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(ENV_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("path", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(PATH_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("time", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(TIME_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("cmd", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(CMD_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("process", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(PROCESS_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("tmp", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(TMP_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("socket", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(SOCKET_OPS, registry.clone()),
+        HandlLibraryPlugin::new_with_caps("sig", "lib.os-std", "lib-os-std", OS_STD_HNL, &[])
+            .with_ops(SIG_OPS, registry.clone()),
     ]
 }
 

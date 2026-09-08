@@ -1,17 +1,23 @@
 use handl_platform::Function;
 use handl_platform::Module;
 
-use handl_plugin_lib_stdlib::module_ref;
 use handl_platform::{EvalContext, EvalError};
+use handl_plugin_lib_stdlib::module_ref;
 
 fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
-    let func = module_ref("str").unwrap().function(name).expect("function exists");
+    let func = module_ref("str")
+        .unwrap()
+        .function(name)
+        .expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
 fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
-    let func = module_ref("str").unwrap().function(name).expect("function exists");
+    let func = module_ref("str")
+        .unwrap()
+        .function(name)
+        .expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }

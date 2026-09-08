@@ -21,7 +21,7 @@ mod http_client;
 use std::sync::Arc;
 
 use handl_plugin_lib_handl::HandlLibraryPlugin;
-use handl_plugin_lib_http_client::{http_client_op_registry, HTTP_CLIENT_OPS};
+use handl_plugin_lib_http_client::{HTTP_CLIENT_OPS, http_client_op_registry};
 
 pub use http_client::StdHttpClient;
 

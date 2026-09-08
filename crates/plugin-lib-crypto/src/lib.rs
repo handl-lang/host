@@ -33,8 +33,8 @@ mod hash;
 pub mod module;
 
 pub use error::CryptoError;
-pub use module::CryptoModule;
 pub use hash::{Md5, Sha256};
+pub use module::CryptoModule;
 
 use std::sync::Arc;
 
@@ -145,14 +145,8 @@ impl handl_platform::Plugin for CryptoLibraryPlugin {
 /// directly instead of [`CryptoLibraryPlugin`].
 pub fn crypto_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(crypto_op_registry());
-    HandlLibraryPlugin::new_with_caps(
-        "crypto",
-        "lib.crypto",
-        "lib-crypto",
-        CRYPTO_HNL,
-        &[],
-    )
-    .with_ops(CRYPTO_OPS, registry)
+    HandlLibraryPlugin::new_with_caps("crypto", "lib.crypto", "lib-crypto", CRYPTO_HNL, &[])
+        .with_ops(CRYPTO_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

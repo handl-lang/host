@@ -55,7 +55,10 @@ const UNICODE_OPS: &[&str] = &[
 /// their op names.
 pub fn unicode_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
-    registry.register("unicode.is_valid_identifier", Arc::new(module::IsValidIdentifier));
+    registry.register(
+        "unicode.is_valid_identifier",
+        Arc::new(module::IsValidIdentifier),
+    );
     registry.register("unicode.is_xid_start", Arc::new(module::IsXidStart));
     registry.register("unicode.is_xid_continue", Arc::new(module::IsXidContinue));
     registry.register("unicode.code_points", Arc::new(module::CodePoints));

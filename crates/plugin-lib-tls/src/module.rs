@@ -393,20 +393,72 @@ pub const TLS_OPS: &[&str] = &[
 pub fn tls_op_registry(service: impl TlsService + 'static) -> OpRegistry {
     let service: Arc<dyn TlsService> = Arc::new(service);
     let mut registry = OpRegistry::new();
-    registry.register("tls.version", Arc::new(VersionFn { service: service.clone() }));
+    registry.register(
+        "tls.version",
+        Arc::new(VersionFn {
+            service: service.clone(),
+        }),
+    );
     registry.register(
         "tls.generate_self_signed",
-        Arc::new(GenerateSelfSignedFn { service: service.clone() }),
+        Arc::new(GenerateSelfSignedFn {
+            service: service.clone(),
+        }),
     );
-    registry.register("tls.parse_cert", Arc::new(ParseCertFn { service: service.clone() }));
-    registry.register("tls.fingerprint", Arc::new(FingerprintFn { service: service.clone() }));
-    registry.register("tls.client_config", Arc::new(ClientConfigFn { service: service.clone() }));
-    registry.register("tls.server_config", Arc::new(ServerConfigFn { service: service.clone() }));
-    registry.register("tls.connect", Arc::new(ConnectFn { service: service.clone() }));
-    registry.register("tls.accept", Arc::new(AcceptFn { service: service.clone() }));
-    registry.register("tls.read", Arc::new(ReadFn { service: service.clone() }));
-    registry.register("tls.write", Arc::new(WriteFn { service: service.clone() }));
-    registry.register("tls.close_conn", Arc::new(CloseConnFn { service: service.clone() }));
+    registry.register(
+        "tls.parse_cert",
+        Arc::new(ParseCertFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.fingerprint",
+        Arc::new(FingerprintFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.client_config",
+        Arc::new(ClientConfigFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.server_config",
+        Arc::new(ServerConfigFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.connect",
+        Arc::new(ConnectFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.accept",
+        Arc::new(AcceptFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.read",
+        Arc::new(ReadFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.write",
+        Arc::new(WriteFn {
+            service: service.clone(),
+        }),
+    );
+    registry.register(
+        "tls.close_conn",
+        Arc::new(CloseConnFn {
+            service: service.clone(),
+        }),
+    );
     registry.register("tls.close_listener", Arc::new(CloseListenerFn { service }));
     registry
 }

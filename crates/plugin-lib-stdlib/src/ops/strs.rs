@@ -967,8 +967,8 @@ impl Function for WordWrap {
     }
 }
 
-use std::sync::Arc;
 use handl_plugin_lib_handl::OpRegistry;
+use std::sync::Arc;
 
 pub const STR_OPS: &[&str] = &[
     "str.upper",

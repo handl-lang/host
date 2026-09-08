@@ -69,10 +69,7 @@ pub struct TypecheckModule {
 impl TypecheckModule {
     /// Create a `typecheck` module backed by `factory`, with an optional
     /// `delegate` for user host functions.
-    pub fn new(
-        factory: Rc<dyn RuntimeFactory>,
-        delegate: Option<Rc<dyn ModuleLookup>>,
-    ) -> Self {
+    pub fn new(factory: Rc<dyn RuntimeFactory>, delegate: Option<Rc<dyn ModuleLookup>>) -> Self {
         let typecheck_fn = TypecheckFn {
             factory: Rc::clone(&factory),
             delegate: delegate.clone(),

@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use handl_plugin_lib_handl::HandlLibraryPlugin;
-use handl_plugin_lib_tls::{tls_op_registry, TlsError, TlsService, TLS_OPS};
+use handl_plugin_lib_tls::{TLS_OPS, TlsError, TlsService, tls_op_registry};
 use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{
@@ -494,8 +494,14 @@ impl handl_platform::Plugin for TlsNativeLibraryPlugin {
 /// directly instead of [`TlsNativeLibraryPlugin`].
 pub fn tls_native_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(tls_native_op_registry());
-    HandlLibraryPlugin::new_with_caps("tls", "lib.tls-native", "lib-tls-native", TLS_NATIVE_HNL, &[])
-        .with_ops(TLS_OPS, registry)
+    HandlLibraryPlugin::new_with_caps(
+        "tls",
+        "lib.tls-native",
+        "lib-tls-native",
+        TLS_NATIVE_HNL,
+        &[],
+    )
+    .with_ops(TLS_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

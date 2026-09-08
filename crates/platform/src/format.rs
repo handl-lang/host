@@ -4,6 +4,18 @@
 //! and a default `BasicFormatter` `RuleAcceptor` plugin. The `BasicFormatter`
 //! has no knowledge of concrete surface syntax; it dispatches to registered
 //! `FormatBehavior` rules keyed by `AstNode.kind`.
+//!
+//! # Role after ADR-0095
+//!
+//! The canonical formatter is the **staged engine pipeline** in
+//! `handl-plugin-engine-fmt` (layout → render → post-process), surfaced by
+//! `handl-plugin-ext-fmt` (`format_source`/`check_source`/`format_ast`). Those
+//! crates depend on this crate, so `platform` **cannot** dispatch to the engine
+//! here (dependency direction). This `Format` capability therefore remains the
+//! **generic per-node contribution seam** of ADR-0014/ADR-0029: hosts and kits
+//! register `FormatBehavior` rules for individual node kinds. It is not the
+//! canonical formatting path — that is `FormatEngine`/`plugin-ext-fmt`. Keeping
+//! the two honest (documented) avoids a disconnected facade.
 
 use serde_json::Value;
 

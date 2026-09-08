@@ -25,8 +25,6 @@ members = [
   "crates/plugin-loader-native/tests/fixtures/native-echo",
   "crates/plugin-loader-wasm",
   "crates/plugin-loader-web",
-  "crates/plugin-lib-archive",
-  "crates/plugin-lib-archive-tar",
   "crates/plugin-lib-char-native",
   "crates/plugin-lib-compress",
   "crates/plugin-lib-compress-gzip",
@@ -117,7 +115,6 @@ members = [
   "crates/handl-emitters",
   "crates/handl-kit-data",
   "crates/handl-kit-data-canonical",
-  "crates/handl-kit-data-config",
   "crates/handl-defining-handl",
   "crates/handl-value",
 ]
@@ -169,8 +166,6 @@ handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
 handl-plugin-loader-web = { path = "crates/plugin-loader-web" }
-handl-plugin-lib-archive = { path = "crates/plugin-lib-archive" }
-handl-plugin-lib-archive-tar = { path = "crates/plugin-lib-archive-tar" }
 handl-plugin-lib-char-native = { path = "crates/plugin-lib-char-native" }
 handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
 handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
@@ -254,7 +249,6 @@ handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
-handl-kit-data-config = { path = "crates/handl-kit-data-config" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 

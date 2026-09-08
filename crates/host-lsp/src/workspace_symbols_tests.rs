@@ -44,7 +44,11 @@ fn find_named<'a>(results: &'a [serde_json::Value], name: &str) -> Option<&'a se
 fn workspace_symbols_finds_arrow_by_name() {
     let dir = unique_temp_dir("arrow-by-name");
     // A general .hnl file whose top-level binding is named `insert`.
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
 
     let results = workspace_symbols(
         "insert",
@@ -82,7 +86,11 @@ fn workspace_symbols_finds_law_in_contracts() {
 #[test]
 fn workspace_symbols_empty_query_returns_all() {
     let dir = unique_temp_dir("empty-query");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
     write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
@@ -103,7 +111,11 @@ fn workspace_symbols_empty_query_returns_all() {
 #[test]
 fn workspace_symbols_no_match_returns_empty() {
     let dir = unique_temp_dir("no-match");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
 
     let results = workspace_symbols(
         "does-not-exist",
@@ -120,7 +132,11 @@ fn workspace_symbols_no_match_returns_empty() {
 #[test]
 fn workspace_symbols_case_insensitive() {
     let dir = unique_temp_dir("case-insensitive");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
 
     let results = workspace_symbols(
         "INSERT",
@@ -137,7 +153,11 @@ fn workspace_symbols_case_insensitive() {
 #[test]
 fn workspace_symbols_includes_container_name() {
     let dir = unique_temp_dir("container-name");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
     write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
@@ -168,7 +188,11 @@ fn workspace_symbols_includes_container_name() {
 #[test]
 fn workspace_symbols_returns_valid_json() {
     let dir = unique_temp_dir("valid-json");
-    write_file(&dir, "handl-packages/collection/insert.hnl", "insert :: 1\n");
+    write_file(
+        &dir,
+        "handl-packages/collection/insert.hnl",
+        "insert :: 1\n",
+    );
 
     let results = workspace_symbols(
         "insert",

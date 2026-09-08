@@ -1137,18 +1137,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-kit-data-config"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-kit-data",
- "handl-kit-data-canonical",
- "handl-language",
- "handl-runtime",
- "serde_json",
-]
-
-[[package]]
 name = "handl-language"
 version = "0.1.0"
 dependencies = [
@@ -1566,7 +1554,6 @@ dependencies = [
  "handl-kit-data",
  "handl-kit-data-canonical",
  "handl-platform",
- "handl-plugin-lib-archive-tar",
  "handl-plugin-lib-compress-gzip",
  "handl-plugin-lib-crypto",
  "handl-plugin-lib-datetime",
@@ -1650,28 +1637,6 @@ dependencies = [
  "handl-value",
  "libloading",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-archive"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "handl-plugin-lib-archive-tar"
-version = "0.1.0"
-dependencies = [
- "base64",
- "handl-platform",
- "handl-plugin-lib-archive",
- "handl-plugin-lib-handl",
- "serde_json",
- "tar",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2060,6 +2025,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tar",
  "toml",
  "url",
 ]

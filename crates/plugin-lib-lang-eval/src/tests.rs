@@ -10,10 +10,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use handl_language::LangError;
-use handl_language::{ast_value, language_value, Ast, AstNode, Language};
+use handl_language::{Ast, AstNode, Language, ast_value, language_value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{RuntimeFactory, RuntimeHandle};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::EvalModule;
 

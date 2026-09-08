@@ -134,16 +134,18 @@ impl RuntimePredicateChecker for Base64GuaranteeChecker {
         // that decodes as valid base64 and re-encodes to the same value
         // (round-trip). For decode, the output is an arbitrary string with no
         // specific guarantee, so we only require it be a string.
-        let s = output.as_str().ok_or_else(|| {
-            "expected a string output".to_string()
-        })?;
+        let s = output
+            .as_str()
+            .ok_or_else(|| "expected a string output".to_string())?;
         // Verify the output is valid base64 by attempting a decode. We accept
         // any string for the decode-op output (no IsBase64 guarantee there),
         // but for the encode-op output this enforces IsBase64. Since this
         // checker is attached to base64.encode, we apply the strict check.
         match BASE64_STANDARD.decode(s.as_bytes()) {
             Ok(_) => Ok(()),
-            Err(e) => Err(format!("IsBase64 violated: output is not valid base64: {e}")),
+            Err(e) => Err(format!(
+                "IsBase64 violated: output is not valid base64: {e}"
+            )),
         }
     }
 }

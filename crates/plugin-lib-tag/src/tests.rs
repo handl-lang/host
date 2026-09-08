@@ -5,8 +5,7 @@ use handl_platform::{EvalContext, Function, Module};
 use serde_json::{Value, json};
 
 use crate::{
-    Construct, IsTag, MatchType, Tag, TagModule, TagOf, TypeRegistry, Untag,
-    CANONICAL_REGISTRY_ID,
+    CANONICAL_REGISTRY_ID, Construct, IsTag, MatchType, Tag, TagModule, TagOf, TypeRegistry, Untag,
 };
 
 /// Call a `Function` with a fresh `EvalContext`.
@@ -21,7 +20,11 @@ fn call_fn(f: &dyn Function, args: &[Value]) -> Result<Value, handl_platform::Ev
 
 #[test]
 fn tag_mints_tagged_value() {
-    let v = call_fn(&Tag, &[json!("type.collection"), json!({ "name": "number" })]).unwrap();
+    let v = call_fn(
+        &Tag,
+        &[json!("type.collection"), json!({ "name": "number" })],
+    )
+    .unwrap();
     assert!(is_tag_value(&v));
     assert_eq!(as_tag(&v), Some("type.collection"));
     assert_eq!(v["name"], json!("number"));
@@ -54,8 +57,11 @@ fn tag_wraps_non_object_payload_in_value() {
 fn tag_rejects_smuggled_tag_key() {
     // Forgery prevention (ADR-0055 §3): a payload carrying `__tag__` cannot
     // be re-tagged through the payload.
-    let err = call_fn(&Tag, &[json!("type.pi"), json!({ "__tag__": "type.collection" })])
-        .unwrap_err();
+    let err = call_fn(
+        &Tag,
+        &[json!("type.pi"), json!({ "__tag__": "type.collection" })],
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("reserved __tag__ key"));
 }
 
@@ -100,7 +106,10 @@ fn is_tag_recognizes_tagged_value() {
     let v = tag_value("capability", &json!({ "name": "fs" })).unwrap();
     assert_eq!(call_fn(&IsTag, &[v]).unwrap(), json!(true));
     assert_eq!(call_fn(&IsTag, &[json!("number")]).unwrap(), json!(false));
-    assert_eq!(call_fn(&IsTag, &[json!({ "__tag__": 5 })]).unwrap(), json!(false));
+    assert_eq!(
+        call_fn(&IsTag, &[json!({ "__tag__": 5 })]).unwrap(),
+        json!(false)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +132,14 @@ fn module_exposes_all_callables() {
     let names: Vec<&str> = fns.iter().map(|(n, _)| *n).collect();
     assert_eq!(
         names,
-        vec!["tag", "untag", "tag_of", "is_tag", "construct", "match_type"]
+        vec![
+            "tag",
+            "untag",
+            "tag_of",
+            "is_tag",
+            "construct",
+            "match_type"
+        ]
     );
 }
 
@@ -161,17 +177,19 @@ fn registry_construct_rejects_non_object_payload() {
 #[test]
 fn registry_construct_rejects_smuggled_tag_key() {
     let reg = TypeRegistry::new("handl.canonical");
-    assert!(reg
-        .construct("type.pi", &json!({ "__tag__": "type.collection" }))
-        .is_none());
+    assert!(
+        reg.construct("type.pi", &json!({ "__tag__": "type.collection" }))
+            .is_none()
+    );
 }
 
 #[test]
 fn registry_construct_rejects_smuggled_registry_key() {
     let reg = TypeRegistry::new("handl.canonical");
-    assert!(reg
-        .construct("type.pi", &json!({ "__registry__": "evil" }))
-        .is_none());
+    assert!(
+        reg.construct("type.pi", &json!({ "__registry__": "evil" }))
+            .is_none()
+    );
 }
 
 #[test]
@@ -290,14 +308,20 @@ fn construct_host_function_rejects_smuggled_keys() {
         &[json!("type.pi"), json!({ "__tag__": "type.collection" })],
     )
     .unwrap_err();
-    assert!(err.to_string().contains("reserved __tag__/__registry__ keys"));
+    assert!(
+        err.to_string()
+            .contains("reserved __tag__/__registry__ keys")
+    );
 
     let err = call_fn(
         &Construct,
         &[json!("type.pi"), json!({ "__registry__": "evil" })],
     )
     .unwrap_err();
-    assert!(err.to_string().contains("reserved __tag__/__registry__ keys"));
+    assert!(
+        err.to_string()
+            .contains("reserved __tag__/__registry__ keys")
+    );
 }
 
 #[test]
@@ -332,11 +356,7 @@ fn match_type_host_function_dispatches() {
 
 #[test]
 fn match_type_host_function_returns_null_when_no_case() {
-    let v = call_fn(
-        &Construct,
-        &[json!("type.sigma"), json!({ "name": "x" })],
-    )
-    .unwrap();
+    let v = call_fn(&Construct, &[json!("type.sigma"), json!({ "name": "x" })]).unwrap();
     let cases = json!({ "type.collection": "is-collection" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);
@@ -351,11 +371,7 @@ fn match_type_host_function_returns_null_for_non_type_value() {
 
 #[test]
 fn match_type_host_function_no_default_fallback() {
-    let v = call_fn(
-        &Construct,
-        &[json!("type.sigma"), json!({ "name": "x" })],
-    )
-    .unwrap();
+    let v = call_fn(&Construct, &[json!("type.sigma"), json!({ "name": "x" })]).unwrap();
     let cases = json!({ "type.collection": "is-collection", "_": "fallback" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);

@@ -456,9 +456,11 @@ pub fn apply_callable(
 ) -> Result<serde_json::Value, EvalError> {
     if is_arrow_value(fn_arg) {
         ctx.try_call_value(fn_arg, std::slice::from_ref(value))
-            .unwrap_or_else(|| Err(EvalError::TypeMismatch(
-                "call_value: no value callable set in context".to_string(),
-            )))
+            .unwrap_or_else(|| {
+                Err(EvalError::TypeMismatch(
+                    "call_value: no value callable set in context".to_string(),
+                ))
+            })
     } else {
         let fn_val = require_function_value(fn_arg)?;
         apply_fn(ctx, &fn_val, value)
@@ -474,9 +476,11 @@ pub fn apply_callable2(
 ) -> Result<serde_json::Value, EvalError> {
     if is_arrow_value(fn_arg) {
         ctx.try_call_value(fn_arg, &[a.clone(), b.clone()])
-            .unwrap_or_else(|| Err(EvalError::TypeMismatch(
-                "call_value: no value callable set in context".to_string(),
-            )))
+            .unwrap_or_else(|| {
+                Err(EvalError::TypeMismatch(
+                    "call_value: no value callable set in context".to_string(),
+                ))
+            })
     } else {
         let fn_val = require_function_value(fn_arg)?;
         apply_fn2(ctx, &fn_val, a, b)

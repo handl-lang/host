@@ -50,7 +50,9 @@ fn append_ast(base: &mut Ast, other: &Ast) -> usize {
 fn append_parsed(combined: &mut Ast, other: &Ast) -> Vec<usize> {
     let offset = append_ast(combined, other);
     let root_idx = other.len() - 1 + offset;
-    let root = combined.get(AstRef::new(root_idx)).expect("root must exist");
+    let root = combined
+        .get(AstRef::new(root_idx))
+        .expect("root must exist");
     if root.kind == "block" {
         root.payload
             .get("children")
@@ -65,7 +67,8 @@ fn append_parsed(combined: &mut Ast, other: &Ast) -> Vec<usize> {
 }
 
 fn push_var(out: &mut Ast, name: &str) -> usize {
-    out.push(AstNode::new("var").with_payload(json!(name))).index()
+    out.push(AstNode::new("var").with_payload(json!(name)))
+        .index()
 }
 
 fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
@@ -75,10 +78,8 @@ fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
 
 fn push_assign(out: &mut Ast, name: &str, value: usize) -> usize {
     let target = push_var(out, name);
-    out.push(
-        AstNode::new("assign").with_payload(json!({ "children": [target, value] })),
-    )
-    .index()
+    out.push(AstNode::new("assign").with_payload(json!({ "children": [target, value] })))
+        .index()
 }
 
 /// After desugaring, each `data` declaration has become a `block` of
@@ -138,12 +139,24 @@ fn fin_indexed_family_predicate_and_match() {
 
     // Construct some `Fin` values.
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0 :: FZ")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f1 :: FS(FZ)")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0_in_Fin0_bad :: FS(FZ)")));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, "f1 :: FS(FZ)"),
+    ));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, "f0_in_Fin0_bad :: FS(FZ)"),
+    ));
 
     // Predicate membership checks: Fin(n, value).
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p0 :: Fin(0, f0)")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "p1 :: Fin(1, f1)")));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, "p0 :: Fin(0, f0)"),
+    ));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, "p1 :: Fin(1, f1)"),
+    ));
     children.extend(append_parsed(
         &mut combined,
         &parse_raw(&kit, "p_bad :: Fin(0, f0_in_Fin0_bad)"),
@@ -152,11 +165,17 @@ fn fin_indexed_family_predicate_and_match() {
     // Surface `match` without a motive.
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "m0 :: match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }"),
+        &parse_raw(
+            &kit,
+            "m0 :: match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }",
+        ),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "m1 :: match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }"),
+        &parse_raw(
+            &kit,
+            "m1 :: match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }",
+        ),
     ));
 
     // Surface `match` with an explicit motive.
@@ -188,10 +207,7 @@ fn fin_indexed_family_predicate_and_match() {
         apply_desugar(kit.runtime().lang(), &combined).expect("desugar failed");
     flatten_top_level_blocks(&mut combined);
 
-    let val = kit
-        .runtime()
-        .eval(&combined)
-        .expect("eval must succeed");
+    let val = kit.runtime().eval(&combined).expect("eval must succeed");
 
     let arr = val.as_array().expect("result must be an array");
     assert_eq!(arr.len(), 6);

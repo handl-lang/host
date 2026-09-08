@@ -93,10 +93,7 @@ impl Function for EpochFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `time` module.
-pub const TIME_OPS: &[&str] = &[
-    "time.now",
-    "time.epoch",
-];
+pub const TIME_OPS: &[&str] = &["time.now", "time.epoch"];
 
 /// Register the `time` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Time`] implementation.

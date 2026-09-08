@@ -102,7 +102,9 @@ use std::rc::Rc;
 
 use rustc_hash::FxHashMap;
 
-use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value, tag_value};
+use handl_language::{
+    ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value, tag_value,
+};
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
@@ -166,10 +168,10 @@ impl EvalFrame {
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.ast))));
         let prev_lang = CURRENT_LANG
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.lang))));
-        let prev_modules = CURRENT_MODULES
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.modules.clone()));
-        let prev_globals = CURRENT_GLOBALS
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
+        let prev_modules =
+            CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.modules.clone()));
+        let prev_globals =
+            CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
         let out = f();
         CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
@@ -214,7 +216,15 @@ pub fn current_home_frame() -> Option<u64> {
     let lang = CURRENT_LANG.with(|c| c.borrow().clone())?;
     let modules = CURRENT_MODULES.with(|c| c.borrow().clone());
     let globals = CURRENT_GLOBALS.with(|c| c.borrow().clone());
-    Some(register_frame_at(id, EvalFrame { ast, lang, modules, globals }))
+    Some(register_frame_at(
+        id,
+        EvalFrame {
+            ast,
+            lang,
+            modules,
+            globals,
+        },
+    ))
 }
 
 /// Register a home [`EvalFrame`] for an eval performed outside the
@@ -243,7 +253,15 @@ pub fn register_home_frame(
         )
     });
     let id = Rc::as_ptr(&ast) as usize as u64;
-    register_frame_at(id, EvalFrame { ast, lang, modules, globals })
+    register_frame_at(
+        id,
+        EvalFrame {
+            ast,
+            lang,
+            modules,
+            globals,
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -2312,10 +2330,7 @@ impl TreeWalkEngine {
                 // returns `result.err({message, expected, actual, diff})`
                 // (ADR-0077, ADR-0089).
                 let expr_idx = role_child_arena(lang, current_node, "expr").ok_or_else(|| {
-                    LangError::engine_node(
-                        "assert: missing expr child".to_string(),
-                        current_node,
-                    )
+                    LangError::engine_node("assert: missing expr child".to_string(), current_node)
                 })?;
                 let expr_node = ast.at(AstRef::new(expr_idx)).map_err(|e| {
                     LangError::engine_node(
@@ -2350,7 +2365,8 @@ impl TreeWalkEngine {
                     role_child_arena(lang, expr_node, "target"),
                     role_child_arena(lang, expr_node, "value"),
                 ) {
-                    let target_val = self.eval_node_inner(ast, AstRef::new(target_idx), lang, env)?;
+                    let target_val =
+                        self.eval_node_inner(ast, AstRef::new(target_idx), lang, env)?;
                     let value_val = self.eval_node_inner(ast, AstRef::new(value_idx), lang, env)?;
                     if target_val == value_val {
                         Ok((ok_value(), false))
@@ -2369,7 +2385,10 @@ impl TreeWalkEngine {
                             expected: expected_json,
                             actual: actual_json,
                             diff: diff,
-                            message: format!("assertion failed: {:?} != {:?}", target_val, value_val),
+                            message: format!(
+                                "assertion failed: {:?} != {:?}",
+                                target_val, value_val
+                            ),
                         };
                         Ok((err_value(failure), false))
                     }
@@ -2570,7 +2589,13 @@ impl TreeWalkEngine {
                 frame_env.set_globals(Rc::clone(g));
             }
             return frame.enter(|| {
-                engine.apply_app(&local_callee, &actual_args, &frame.ast, &frame.lang, &mut frame_env)
+                engine.apply_app(
+                    &local_callee,
+                    &actual_args,
+                    &frame.ast,
+                    &frame.lang,
+                    &mut frame_env,
+                )
             });
         }
         // Curried application: arrows are unary-under-the-hood (`f :: x ~>
@@ -3238,8 +3263,7 @@ impl TreeWalkEngine {
                             // Since we already pushed a scope, lookup will
                             // search innermost-first, but the inner scope is
                             // empty at this point, so it falls through.
-                            let outer_val =
-                                env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
+                            let outer_val = env.lookup(&name).cloned().unwrap_or(TaggedValue::Null);
                             prev_values.insert(Rc::from(name.as_str()), outer_val);
                         }
                     }
@@ -3316,13 +3340,8 @@ impl TreeWalkEngine {
                                         current_node,
                                     )
                                 })?;
-                            let var_name = binding_target_name(
-                                lang,
-                                ast,
-                                var_idx,
-                                "eval_rec",
-                                current_node,
-                            )?;
+                            let var_name =
+                                binding_target_name(lang, ast, var_idx, "eval_rec", current_node)?;
 
                             match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
                                 Ok(new_val) => {

@@ -1,6 +1,6 @@
 mod fs;
 
-pub use fs::{register_fs_ops, Fs, FsModule, FS_OPS};
+pub use fs::{FS_OPS, Fs, FsModule, register_fs_ops};
 
 pub mod fs_stub;
 

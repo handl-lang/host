@@ -115,7 +115,9 @@ impl TestProvider for ChangedProvider {
         let changed = match changed_files(&abs_paths) {
             Ok(files) => files,
             Err(e) => {
-                eprintln!("test: warning: failed to determine changed files ({e}); running all discovered tests");
+                eprintln!(
+                    "test: warning: failed to determine changed files ({e}); running all discovered tests"
+                );
                 if let Some(events) = events {
                     for case in &plan.tests {
                         events.push(TestEvent::TestDiscovered {
@@ -128,7 +130,8 @@ impl TestProvider for ChangedProvider {
             }
         };
 
-        plan.tests.retain(|case: &TestCase| changed.contains(&case.module));
+        plan.tests
+            .retain(|case: &TestCase| changed.contains(&case.module));
         plan.parse_errors.retain(|(path, _)| changed.contains(path));
 
         if let Some(events) = events {
@@ -280,10 +283,7 @@ fn parse_quoted(s: &str) -> Option<(String, &str)> {
     while let Some((i, c)) = chars.next() {
         match c {
             '"' => {
-                return Some((
-                    String::from_utf8_lossy(&bytes).into_owned(),
-                    &s[i + 1..],
-                ));
+                return Some((String::from_utf8_lossy(&bytes).into_owned(), &s[i + 1..]));
             }
             '\\' => {
                 let (_, esc) = chars.next()?;

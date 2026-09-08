@@ -19,8 +19,7 @@ use crate::ops::{ElapsedNs, InstantNs, NowMs};
 
 /// The handl source declaring the `time` op interface — the single
 /// source of truth for the time API surface. Loaded at compile time.
-const TIME_NATIVE_HNL: &str =
-    include_str!("../../../handl-packages/time-native/time-native.hnl");
+const TIME_NATIVE_HNL: &str = include_str!("../../../handl-packages/time-native/time-native.hnl");
 
 /// The op names declared in `time-native.hnl` — each maps to a Rust
 /// `Function` impl registered in the [`OpRegistry`].

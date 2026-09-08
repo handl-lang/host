@@ -62,7 +62,8 @@ pub fn populate(reg: &mut LibraryRegistry) {
         Box::new(handl_plugin_lib_compress_gzip::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("archive-tar", || {
-        Box::new(handl_plugin_lib_archive_tar::LibraryPlugin::new()) as LibraryPlugin
+        handl_plugin_lib_stdlib::library("archive-tar")
+            .unwrap_or_else(|| panic!("unknown stdlib package 'archive-tar'"))
     });
     reg.register("rand-native", || {
         Box::new(handl_plugin_lib_rand_native::LibraryPlugin::new()) as LibraryPlugin

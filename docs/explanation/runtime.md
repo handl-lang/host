@@ -6,7 +6,7 @@ The handl runtime is not a single, hard-coded VM. It is the set of operation plu
 
 A `Host` loads kits, resolves dependencies, and runs `contribute` to a fixed point. After loading, `Host::execute` dispatches a `CapabilityRequest` to the plugin that provides the requested capability.
 
-The language pipeline is also a set of operation executions. A host that loads `handl-ext-lexer`, `handl-ext-parser`, `handl-ext-type`, `handl-ext-lint`, `handl-ext-fmt`, and `handl-ext-eval` can run `lex`, `parse`, `typecheck`, `lint`, `format`, and `eval` by executing the corresponding operation plugin.
+The language pipeline is also a set of operation executions. A host that loads `handl-ext-lexer`, `handl-ext-parser`, `handl-plugin-engine-typecheck`, `handl-ext-lint`, `handl-ext-fmt`, and `handl-ext-eval` can run `lex`, `parse`, `typecheck`, `lint`, `format`, and `eval` by executing the corresponding operation plugin.
 
 ## Values
 

@@ -22,7 +22,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 mod function_value;
 mod module;
 
-pub use module::{ws_rfc_native_op_registry, WsRfcNativeModule, WS_RFC_NATIVE_OPS};
+pub use module::{WS_RFC_NATIVE_OPS, WsRfcNativeModule, ws_rfc_native_op_registry};
 
 /// The handl source declaring the ws_rfc_native `handl` bindings — the
 /// implementation-side declarations for the ws_rfc ops. Loaded at compile

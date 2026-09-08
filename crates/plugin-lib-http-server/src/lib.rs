@@ -39,8 +39,8 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 pub use error::HttpServerError;
 pub use http_method::HttpMethod;
 pub use http_server::{
-    register_http_server_ops, Handler, HttpServer, HttpServerModule, StubHttpServer,
-    HTTP_SERVER_OPS,
+    HTTP_SERVER_OPS, Handler, HttpServer, HttpServerModule, StubHttpServer,
+    register_http_server_ops,
 };
 pub use request::HttpServerRequest;
 pub use response::HttpServerResponse;
@@ -48,8 +48,7 @@ pub use response::HttpServerResponse;
 /// The handl source declaring the http-server `op` interface — the single
 /// source of truth for the HTTP server API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
-const HTTP_SERVER_HNL: &str =
-    include_str!("../../../handl-packages/http_server/http_server.hnl");
+const HTTP_SERVER_HNL: &str = include_str!("../../../handl-packages/http_server/http_server.hnl");
 
 /// Build an [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for the
 /// HTTP server ops, registering Rust handls that delegate to

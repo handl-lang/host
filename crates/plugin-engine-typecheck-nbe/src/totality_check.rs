@@ -58,7 +58,12 @@ pub fn check_totality(ast: &Ast, expr_ref: AstRef, lang: &Language) -> Proof {
                     let assign_node = ast.get(assign_ref)?;
                     let fn_name = extract_assign_name(ast, lang, assign_node);
                     let fn_node = extract_assign_value(ast, lang, assign_node)?;
-                    Some(check_function_totality(ast, fn_node, fn_name.as_deref(), lang))
+                    Some(check_function_totality(
+                        ast,
+                        fn_node,
+                        fn_name.as_deref(),
+                        lang,
+                    ))
                 })
                 .unwrap_or_else(|| {
                     Proof::blocked("totality: could not find function definition for var")
@@ -79,7 +84,12 @@ pub fn check_totality(ast: &Ast, expr_ref: AstRef, lang: &Language) -> Proof {
 /// `fn_name` is the name of the function (if named via `assign`), used to
 /// find recursive calls. If `None`, the function is anonymous and has no
 /// recursive calls (trivially total).
-fn check_function_totality(ast: &Ast, fn_node: &AstNode, fn_name: Option<&str>, lang: &Language) -> Proof {
+fn check_function_totality(
+    ast: &Ast,
+    fn_node: &AstNode,
+    fn_name: Option<&str>,
+    lang: &Language,
+) -> Proof {
     // 1. Check for termination metadata (generated recursors).
     if let Some(info) = read_termination_metadata(fn_node) {
         return Proof::ok(format!(
@@ -169,7 +179,11 @@ fn extract_assign_name(ast: &Ast, lang: &Language, assign_node: &AstNode) -> Opt
 }
 
 /// Extract the value (function) node from a binding node.
-fn extract_assign_value<'a>(ast: &'a Ast, lang: &Language, assign_node: &'a AstNode) -> Option<&'a AstNode> {
+fn extract_assign_value<'a>(
+    ast: &'a Ast,
+    lang: &Language,
+    assign_node: &'a AstNode,
+) -> Option<&'a AstNode> {
     // Resolve the `value` child by role (ADR-0081), falling back to
     // positional 1 for role-less shapes.
     let children = assign_node.payload.get("children")?.as_array()?;
@@ -189,8 +203,16 @@ fn find_assign_for_name(ast: &Ast, lang: &Language, name: &str) -> Option<AstRef
         let is_binding = if lang.ast.get_by_identity(&node.kind).is_some() {
             // Data-driven: a binding is any shape that declares both
             // `target` and `value` child roles.
-            let has_target = lang.child_role_index(&node.kind, "target").ok().flatten().is_some();
-            let has_value = lang.child_role_index(&node.kind, "value").ok().flatten().is_some();
+            let has_target = lang
+                .child_role_index(&node.kind, "target")
+                .ok()
+                .flatten()
+                .is_some();
+            let has_value = lang
+                .child_role_index(&node.kind, "value")
+                .ok()
+                .flatten()
+                .is_some();
             has_target && has_value
         } else {
             // Role-less shape fallback: the canonical `assign` kind.

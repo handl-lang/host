@@ -371,7 +371,10 @@ pub const WS_WHATWG_NATIVE_OPS: &[&str] = &[
 /// handls under their op names.
 pub fn ws_whatwg_native_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
-    registry.register("ws_whatwg_native.ws_whatwg_native", Arc::new(WebsocketWhatwgName));
+    registry.register(
+        "ws_whatwg_native.ws_whatwg_native",
+        Arc::new(WebsocketWhatwgName),
+    );
     registry.register("ws_whatwg_native.connect", Arc::new(ConnectionConnect));
     registry.register("ws_whatwg_native.send", Arc::new(ConnectionSend));
     registry.register("ws_whatwg_native.recv", Arc::new(ConnectionRecv));

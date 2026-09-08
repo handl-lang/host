@@ -3,14 +3,14 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use handl_plugin_engine_test::config::{run_with_config, RunConfig};
+use handl_plugin_engine_test::config::{RunConfig, run_with_config};
 use handl_plugin_engine_test::events::TestEvent;
-use handl_plugin_engine_test::provider::{discover_with, FileSystemProvider, TestProvider};
-use handl_plugin_engine_test::report::{summarize, HumanReporter, JsonReporter, Reporter};
+use handl_plugin_engine_test::provider::{FileSystemProvider, TestProvider, discover_with};
+use handl_plugin_engine_test::report::{HumanReporter, JsonReporter, Reporter, summarize};
 use handl_plugin_engine_test::runner::{
-    discover, filter_predicate, format_report_human, format_report_json, run, run_selected,
-    run_selected_cached, run_with_filter, tag_predicate, DiscoverError, TestPlan, TestResult,
-    TestRunCache,
+    DiscoverError, TestPlan, TestResult, TestRunCache, discover, filter_predicate,
+    format_report_human, format_report_json, run, run_selected, run_selected_cached,
+    run_with_filter, tag_predicate,
 };
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
@@ -805,16 +805,20 @@ fn cached_hit_emits_test_cached() {
     });
     assert_eq!(cached.len(), 3, "every test replayed from cache");
     // Cached tests are not dispatched: no TestStarted/TestFinished.
-    assert!(event_positions(&config.events, |e| matches!(
-        e,
-        TestEvent::TestStarted { .. }
-    ))
-    .is_empty());
-    assert!(event_positions(&config.events, |e| matches!(
-        e,
-        TestEvent::TestFinished { .. }
-    ))
-    .is_empty());
+    assert!(
+        event_positions(&config.events, |e| matches!(
+            e,
+            TestEvent::TestStarted { .. }
+        ))
+        .is_empty()
+    );
+    assert!(
+        event_positions(&config.events, |e| matches!(
+            e,
+            TestEvent::TestFinished { .. }
+        ))
+        .is_empty()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -861,9 +865,21 @@ fn reporters_via_trait_match_legacy_formatters() {
 fn discover_tagged_tests() {
     let plan = discover(&[fixture("tagged.handl")]).unwrap();
     assert_eq!(plan.tests.len(), 3);
-    assert!(plan.tests.iter().any(|t| t.name == "tagged_slow" && t.tags == vec!["slow", "net", "flaky"]));
-    assert!(plan.tests.iter().any(|t| t.name == "tagged_fast" && t.tags.is_empty()));
-    assert!(plan.tests.iter().any(|t| t.name == "tagged_net" && t.tags == vec!["net"]));
+    assert!(
+        plan.tests
+            .iter()
+            .any(|t| t.name == "tagged_slow" && t.tags == vec!["slow", "net", "flaky"])
+    );
+    assert!(
+        plan.tests
+            .iter()
+            .any(|t| t.name == "tagged_fast" && t.tags.is_empty())
+    );
+    assert!(
+        plan.tests
+            .iter()
+            .any(|t| t.name == "tagged_net" && t.tags == vec!["net"])
+    );
 }
 
 #[test]
@@ -899,10 +915,7 @@ fn test_run_cache_save_and_load_round_trip() {
     let cache = config.cache.unwrap();
     assert!(!cache.is_empty());
 
-    let tmp = std::env::temp_dir().join(format!(
-        "handl-test-cache-{}",
-        std::process::id()
-    ));
+    let tmp = std::env::temp_dir().join(format!("handl-test-cache-{}", std::process::id()));
     if tmp.exists() {
         let _ = std::fs::remove_file(&tmp);
     }

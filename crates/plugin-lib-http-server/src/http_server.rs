@@ -410,12 +410,40 @@ where
     F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static,
 {
     let inner = Arc::new(Inner::new(factory));
-    registry.register("http_server.new", Arc::new(NewFn { inner: inner.clone() }));
-    registry.register("http_server.start", Arc::new(StartFn { inner: inner.clone() }));
-    registry.register("http_server.stop", Arc::new(StopFn { inner: inner.clone() }));
-    registry.register("http_server.join", Arc::new(JoinFn { inner: inner.clone() }));
-    registry.register("http_server.route", Arc::new(RouteFn { inner: inner.clone() }));
-    registry.register("http_server.serve_static", Arc::new(ServeStaticFn { inner }));
+    registry.register(
+        "http_server.new",
+        Arc::new(NewFn {
+            inner: inner.clone(),
+        }),
+    );
+    registry.register(
+        "http_server.start",
+        Arc::new(StartFn {
+            inner: inner.clone(),
+        }),
+    );
+    registry.register(
+        "http_server.stop",
+        Arc::new(StopFn {
+            inner: inner.clone(),
+        }),
+    );
+    registry.register(
+        "http_server.join",
+        Arc::new(JoinFn {
+            inner: inner.clone(),
+        }),
+    );
+    registry.register(
+        "http_server.route",
+        Arc::new(RouteFn {
+            inner: inner.clone(),
+        }),
+    );
+    registry.register(
+        "http_server.serve_static",
+        Arc::new(ServeStaticFn { inner }),
+    );
 }
 
 #[cfg(test)]

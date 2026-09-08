@@ -106,8 +106,7 @@ impl Function for UrlRfcParse {
         let s = args[0]
             .as_str()
             .ok_or_else(|| EvalError::Other("url_rfc.parse expects a string".to_string()))?;
-        DynParser::parse(&Rfc, s)
-            .map_err(|e| EvalError::Other(format!("url_rfc parse error: {e}")))
+        DynParser::parse(&Rfc, s).map_err(|e| EvalError::Other(format!("url_rfc parse error: {e}")))
     }
 }
 

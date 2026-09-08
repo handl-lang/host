@@ -8553,14 +8553,23 @@ fn rec_test_lang() -> Language {
     // AST shape roles: assign has target/value, return has value.
     lang.ast
         .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
-            ChildRoleSpec { role: "target".into(), variadic: false },
-            ChildRoleSpec { role: "value".into(), variadic: false },
+            ChildRoleSpec {
+                role: "target".into(),
+                variadic: false,
+            },
+            ChildRoleSpec {
+                role: "value".into(),
+                variadic: false,
+            },
         ]))
         .unwrap();
     lang.ast
-        .merge(AstShapeDef::new("ast.return", "return").with_children(vec![
-            ChildRoleSpec { role: "value".into(), variadic: false },
-        ]))
+        .merge(
+            AstShapeDef::new("ast.return", "return").with_children(vec![ChildRoleSpec {
+                role: "value".into(),
+                variadic: false,
+            }]),
+        )
         .unwrap();
     lang
 }
@@ -8626,23 +8635,23 @@ fn rec_countdown_is_int() {
     // Build the if expression: if n > 0 then n - 1 else n
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(5))); // 0: n initial
-                                                            // n > 0
+    // n > 0
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 1: n in n>0
     ast.push(AstNode::new("value").with_payload(json!(0))); // 2: 0 in n>0
     ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [1, 2]}))); // 3: n>0
-                                                                                   // n - 1
+    // n - 1
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 4: n in n-1
     ast.push(AstNode::new("value").with_payload(json!(1))); // 5: 1 in n-1
     ast.push(AstNode::new("binary.sub").with_payload(json!({"children": [4, 5]}))); // 6: n-1
-                                                                                    // else: n
+    // else: n
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 7: n (else)
     ast.push(AstNode::new("if").with_payload(json!({"children": [3, 6, 7]}))); // 8: if ...
-                                                                               // n = if ...
+    // n = if ...
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 9: LHS n
     ast.push(AstNode::new("assign").with_payload(json!({"children": [9, 8]}))); // 10: n = if ...
-                                                                                // result: n
+    // result: n
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 11: result
-                                                            // rec { n = if ...; n }
+    // rec { n = if ...; n }
     ast.push(AstNode::new("rec").with_payload(json!({"children": [10, 11]}))); // 12: rec
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -8664,11 +8673,11 @@ fn rec_mutual_dependency_is_int() {
     ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]}))); // 2: b+1
     ast.push(AstNode::new("var").with_payload(json!("a"))); // 3: LHS a
     ast.push(AstNode::new("assign").with_payload(json!({"children": [3, 2]}))); // 4: a = b+1
-                                                                                // b = 0
+    // b = 0
     ast.push(AstNode::new("value").with_payload(json!(0))); // 5: 0
     ast.push(AstNode::new("var").with_payload(json!("b"))); // 6: LHS b
     ast.push(AstNode::new("assign").with_payload(json!({"children": [6, 5]}))); // 7: b = 0
-                                                                                // result: a
+    // result: a
     ast.push(AstNode::new("var").with_payload(json!("a"))); // 8: result
     ast.push(AstNode::new("rec").with_payload(json!({"children": [4, 7, 8]}))); // 9: root
     let req = TypecheckRequest::new(ast);
@@ -9199,7 +9208,6 @@ fn effect_row_nested_handles_union_ops() {
     assert_eq!(effects.get("rest"), Some(&Value::Null));
 }
 
-
 // ===========================================================================
 // ADR-0068 step B1: Predicate annotation checking
 //
@@ -9240,7 +9248,11 @@ fn predicate_lang() -> Language {
             "call",
             Scheme::app(
                 Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))],
+                vec![Scheme::arr_native_lit(
+                    "proj_child",
+                    vec![],
+                    Value::from(1u64),
+                )],
             ),
         ))
         .unwrap();
@@ -9325,10 +9337,18 @@ fn predicate_lang() -> Language {
 
     // AST shape roles: function has params/body (ADR-0081).
     lang.ast
-        .merge(AstShapeDef::new("ast.function", "function").with_children(vec![
-            ChildRoleSpec { role: "params".into(), variadic: false },
-            ChildRoleSpec { role: "body".into(), variadic: false },
-        ]))
+        .merge(
+            AstShapeDef::new("ast.function", "function").with_children(vec![
+                ChildRoleSpec {
+                    role: "params".into(),
+                    variadic: false,
+                },
+                ChildRoleSpec {
+                    role: "body".into(),
+                    variadic: false,
+                },
+            ]),
+        )
         .unwrap();
     lang
 }
@@ -9347,22 +9367,14 @@ fn predicate_lang() -> Language {
 ///   7: type-annot{children:[6,5]}        — expr: (n) -> n % 3 == 0
 fn divisibility_ast(expr_val: i64) -> Ast {
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));           // 0
-    ast.push(AstNode::new("lit").with_payload(json!(3)));             // 1
-    ast.push(
-        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
-    ); // 2
-    ast.push(AstNode::new("lit").with_payload(json!(0)));             // 3
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
-    ); // 4
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
-    ); // 5
-    ast.push(AstNode::new("lit").with_payload(json!(expr_val)));      // 6
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [6, 5]})),
-    ); // 7
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 1
+    ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5
+    ast.push(AstNode::new("lit").with_payload(json!(expr_val))); // 6
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [6, 5]}))); // 7
     ast
 }
 
@@ -9559,7 +9571,6 @@ fn foreign_type_errors_when_op_has_no_signature() {
     assert!(
         matches!(err, LangError::Engine { ref message, .. } if message.contains("no registered type signature")),
         "expected no-signature error, got {:?}",
-
         err
     );
 }
@@ -9581,15 +9592,11 @@ fn predicate_annotation_blocked() {
     let engine = engine();
     let lang = predicate_lang();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));            // 0
-    ast.push(AstNode::new("var").with_payload(json!("unknown")));      // 1
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 1]})),
-    ); // 2
-    ast.push(AstNode::new("lit").with_payload(json!(9)));              // 3
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [3, 2]})),
-    ); // 4
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("unknown"))); // 1
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]}))); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(9))); // 3
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [3, 2]}))); // 4
     let req = TypecheckRequest::new(ast);
     // Blocked → accepted (not rejected), with a runtime_assert diagnostic.
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -9598,7 +9605,9 @@ fn predicate_annotation_blocked() {
     assert_eq!(result.diagnostics.len(), 1, "expected 1 diagnostic");
     assert_eq!(result.diagnostics[0].severity, "runtime_assert");
     assert!(
-        result.diagnostics[0].message.contains("runtime assert required"),
+        result.diagnostics[0]
+            .message
+            .contains("runtime assert required"),
         "diagnostic message: {}",
         result.diagnostics[0].message
     );
@@ -9623,7 +9632,6 @@ fn foreign_type_errors_without_module_registry() {
         matches!(err, LangError::Engine { ref message, .. } if message.contains("requires a module registry")),
         "expected no-registry error, got {:?}",
         err
-
     );
 }
 
@@ -9664,11 +9672,12 @@ fn type_signature_trait_works_with_mock() {
     }
     let op = MockOp;
     let func: &dyn Function = &op;
-    let ts = func.as_type_signature().expect("should expose TypeSignature");
+    let ts = func
+        .as_type_signature()
+        .expect("should expose TypeSignature");
     assert_eq!(
         ts.type_signature().get("__tag__").and_then(|t| t.as_str()),
         Some("type.function")
-
     );
 }
 
@@ -9694,15 +9703,11 @@ fn non_predicate_annotation_regression() {
     let _ = &mut lang; // suppress unused mut warning
 
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("type")));         // 0
-    ast.push(AstNode::new("var").with_payload(json!("number")));       // 1
-    ast.push(
-        AstNode::new("field-access").with_payload(json!({"children": [0, 1]})),
-    ); // 2
-    ast.push(AstNode::new("lit").with_payload(json!(42)));             // 3
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [3, 2]})),
-    ); // 4
+    ast.push(AstNode::new("var").with_payload(json!("type"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("number"))); // 1
+    ast.push(AstNode::new("field-access").with_payload(json!({"children": [0, 1]}))); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 3
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [3, 2]}))); // 4
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
@@ -9728,12 +9733,8 @@ fn b2_symbolic_reflexivity_proven() {
     let engine = engine();
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [0, 0]})),
-    ); // 1: n == n
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 1]})),
-    ); // 2: (n) -> n == n
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 0]}))); // 1: n == n
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]}))); // 2: (n) -> n == n
     ast.push(AstNode::new("var").with_payload(json!("x"))); // 3: var("x")
 
     let proof = engine.check_predicate_symbolic(
@@ -9755,16 +9756,10 @@ fn b2_symbolic_arithmetic_normalization() {
     let engine = engine();
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
-    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 1: lit(0)
-    ast.push(
-        AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
-    ); // 2: n + 0
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [0, 2]})),
-    ); // 3: n == n + 0
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 3]})),
-    ); // 4: (n) -> n == n + 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1: lit(0)
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]}))); // 2: n + 0
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 2]}))); // 3: n == n + 0
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 3]}))); // 4: (n) -> n == n + 0
     ast.push(AstNode::new("var").with_payload(json!("x"))); // 5
 
     let proof = engine.check_predicate_symbolic(
@@ -9784,18 +9779,12 @@ fn b2_symbolic_concrete_disproved() {
     let engine = engine();
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
-    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
-    ast.push(
-        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
-    ); // 2: n % 3
-    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
-    ); // 4: n % 3 == 0
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
-    ); // 5: (n) -> n % 3 == 0
-    ast.push(AstNode::new("lit").with_payload(json!(10)));  // 6: lit(10)
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 1: lit(3)
+    ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3: lit(0)
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4: n % 3 == 0
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 6: lit(10)
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -9814,18 +9803,12 @@ fn b2_symbolic_concrete_proven() {
     let engine = engine();
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
-    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
-    ast.push(
-        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
-    ); // 2: n % 3
-    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
-    ); // 4: n % 3 == 0
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
-    ); // 5: (n) -> n % 3 == 0
-    ast.push(AstNode::new("lit").with_payload(json!(9)));   // 6: lit(9)
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 1: lit(3)
+    ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3: lit(0)
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4: n % 3 == 0
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("lit").with_payload(json!(9))); // 6: lit(9)
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -9847,17 +9830,11 @@ fn b2_symbolic_free_variable_blocked() {
     let engine = engine();
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
-    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
-    ast.push(
-        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
-    ); // 2: n % 3
-    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
-    ast.push(
-        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
-    ); // 4: n % 3 == 0
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
-    ); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 1: lit(3)
+    ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3: lit(0)
+    ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4: n % 3 == 0
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5: (n) -> n % 3 == 0
     ast.push(AstNode::new("var").with_payload(json!("x"))); // 6: var("x")
 
     let proof = engine.check_predicate_symbolic(
@@ -9878,13 +9855,9 @@ fn b2_symbolic_unsupported_op_blocked() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
     ast.push(AstNode::new("lit").with_payload(json!("field"))); // 1
-    ast.push(
-        AstNode::new("field-access").with_payload(json!({"children": [0, 1]})),
-    ); // 2: n.field
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 2]})),
-    ); // 3: (n) -> n.field
-    ast.push(AstNode::new("lit").with_payload(json!(42)));  // 4
+    ast.push(AstNode::new("field-access").with_payload(json!({"children": [0, 1]}))); // 2: n.field
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3: (n) -> n.field
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -9931,16 +9904,16 @@ fn module_registry_lookup_type_signature_returns_signature() {
 ///   9: <expr_node>                       — the annotated expression
 fn divisible_by_call_ast(expr_val: i64) -> Ast {
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("k")));           // 0
-    ast.push(AstNode::new("var").with_payload(json!("n")));           // 1
+    ast.push(AstNode::new("var").with_payload(json!("k"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 1
     ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [1, 0]}))); // 2
-    ast.push(AstNode::new("lit").with_payload(json!(0)));             // 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4
     ast.push(AstNode::new("function").with_payload(json!({"children": [1, 4]}))); // 5
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 5]}))); // 6
-    ast.push(AstNode::new("lit").with_payload(json!(3)));             // 7
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 7
     ast.push(AstNode::new("call").with_payload(json!({"children": [6, 7]}))); // 8
-    ast.push(AstNode::new("lit").with_payload(json!(expr_val)));      // 9
+    ast.push(AstNode::new("lit").with_payload(json!(expr_val))); // 9
     ast
 }
 
@@ -9954,13 +9927,8 @@ fn b2_parametric_predicate_call_proven() {
     let engine = engine();
     let lang = predicate_lang();
     let ast = divisible_by_call_ast(6);
-    let proof = engine.check_predicate_symbolic(
-        &lang,
-        &ast,
-        AstRef::new(8),
-        AstRef::new(9),
-        100_000,
-    );
+    let proof =
+        engine.check_predicate_symbolic(&lang, &ast, AstRef::new(8), AstRef::new(9), 100_000);
     assert_eq!(proof.verdict, Verdict::Proven);
 }
 
@@ -9970,13 +9938,8 @@ fn b2_parametric_predicate_call_disproved() {
     let engine = engine();
     let lang = predicate_lang();
     let ast = divisible_by_call_ast(7);
-    let proof = engine.check_predicate_symbolic(
-        &lang,
-        &ast,
-        AstRef::new(8),
-        AstRef::new(9),
-        100_000,
-    );
+    let proof =
+        engine.check_predicate_symbolic(&lang, &ast, AstRef::new(8), AstRef::new(9), 100_000);
     assert_eq!(proof.verdict, Verdict::Disproved);
 }
 
@@ -9989,13 +9952,8 @@ fn b2_parametric_predicate_call_free_var_blocked() {
     let mut ast = divisible_by_call_ast(0);
     // Replace the expression (node 9) with var("y").
     ast.push(AstNode::new("var").with_payload(json!("y"))); // 10
-    let proof = engine.check_predicate_symbolic(
-        &lang,
-        &ast,
-        AstRef::new(8),
-        AstRef::new(10),
-        100_000,
-    );
+    let proof =
+        engine.check_predicate_symbolic(&lang, &ast, AstRef::new(8), AstRef::new(10), 100_000);
     assert_eq!(proof.verdict, Verdict::Blocked);
 }
 
@@ -10010,14 +9968,14 @@ fn b2_params_body_payload_shape() {
     // Predicate: (n) -> n % 3 == 0, expression: lit(9) → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));           // 0
-    ast.push(AstNode::new("lit").with_payload(json!(3)));             // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 1
     ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2
-    ast.push(AstNode::new("lit").with_payload(json!(0)));             // 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4
     // Rich payload: params + body (not children array)
     ast.push(AstNode::new("function").with_payload(json!({"params": ["n"], "body": 4}))); // 5
-    ast.push(AstNode::new("lit").with_payload(json!(9)));             // 6
+    ast.push(AstNode::new("lit").with_payload(json!(9))); // 6
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10038,11 +9996,11 @@ fn b2_neq_proven() {
     // (n) -> n != 0, expression: lit(5) → 5 != 0 → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.neq").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(5)));       // 4
+    ast.push(AstNode::new("lit").with_payload(json!(5))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10059,11 +10017,11 @@ fn b2_neq_disproved() {
     // (n) -> n != 0, expression: lit(0) → 0 != 0 → false → Disproved.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.neq").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 4
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10080,11 +10038,11 @@ fn b2_lt_proven() {
     // (n) -> n < 10, expression: lit(5) → 5 < 10 → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(10)));      // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 1
     ast.push(AstNode::new("binary.lt").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(5)));       // 4
+    ast.push(AstNode::new("lit").with_payload(json!(5))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10101,11 +10059,11 @@ fn b2_gt_proven() {
     // (n) -> n > 0, expression: lit(5) → 5 > 0 → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(5)));       // 4
+    ast.push(AstNode::new("lit").with_payload(json!(5))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10122,11 +10080,11 @@ fn b2_lte_proven() {
     // (n) -> n <= 10, expression: lit(10) → 10 <= 10 → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(10)));      // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 1
     ast.push(AstNode::new("binary.lte").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(10)));      // 4
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10143,11 +10101,11 @@ fn b2_gte_proven() {
     // (n) -> n >= 10, expression: lit(10) → 10 >= 10 → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(10)));      // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 1
     ast.push(AstNode::new("binary.gte").with_payload(json!({"children": [0, 1]}))); // 2
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(10)));      // 4
+    ast.push(AstNode::new("lit").with_payload(json!(10))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10165,14 +10123,14 @@ fn b2_if_proven() {
     // expression: lit(0) → if true then true else false → true → Proven.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 1]}))); // 2: n == 0
-    ast.push(AstNode::new("lit").with_payload(json!(true)));    // 3: true
-    ast.push(AstNode::new("lit").with_payload(json!(false)));   // 4: false
+    ast.push(AstNode::new("lit").with_payload(json!(true))); // 3: true
+    ast.push(AstNode::new("lit").with_payload(json!(false))); // 4: false
     ast.push(AstNode::new("if").with_payload(json!({"children": [2, 3, 4]}))); // 5
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 5]}))); // 6
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 7: expr = 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 7: expr = 0
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10190,14 +10148,14 @@ fn b2_if_disproved() {
     // expression: lit(5) → if false then true else false → false → Disproved.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));       // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 1]}))); // 2: n == 0
-    ast.push(AstNode::new("lit").with_payload(json!(true)));    // 3: true
-    ast.push(AstNode::new("lit").with_payload(json!(false)));   // 4: false
+    ast.push(AstNode::new("lit").with_payload(json!(true))); // 3: true
+    ast.push(AstNode::new("lit").with_payload(json!(false))); // 4: false
     ast.push(AstNode::new("if").with_payload(json!({"children": [2, 3, 4]}))); // 5
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 5]}))); // 6
-    ast.push(AstNode::new("lit").with_payload(json!(5)));       // 7: expr = 5
+    ast.push(AstNode::new("lit").with_payload(json!(5))); // 7: expr = 5
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10214,11 +10172,11 @@ fn b2_call_blocked() {
     // (n) -> f(n) where f is a free variable — call can't beta-reduce → Stuck.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));     // 0
-    ast.push(AstNode::new("var").with_payload(json!("f")));     // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("f"))); // 1
     ast.push(AstNode::new("call").with_payload(json!({"children": [1, 0]}))); // 2: f(n)
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(42)));      // 4
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 4
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10253,15 +10211,15 @@ fn b2_stuck_propagates_through_add() {
     // inside an Add: field-access produces Stuck, which should propagate.
     let engine = engine();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));          // 0
-    ast.push(AstNode::new("lit").with_payload(json!("field")));      // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!("field"))); // 1
     ast.push(AstNode::new("field-access").with_payload(json!({"children": [0, 1]}))); // 2: n.field → Stuck
-    ast.push(AstNode::new("lit").with_payload(json!(1)));            // 3
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 3
     ast.push(AstNode::new("binary.add").with_payload(json!({"children": [2, 3]}))); // 4: n.field + 1
-    ast.push(AstNode::new("lit").with_payload(json!(1)));            // 5
+    ast.push(AstNode::new("lit").with_payload(json!(1))); // 5
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [4, 5]}))); // 6: n.field + 1 == 1
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 6]}))); // 7
-    ast.push(AstNode::new("lit").with_payload(json!(42)));           // 8
+    ast.push(AstNode::new("lit").with_payload(json!(42))); // 8
 
     let proof = engine.check_predicate_symbolic(
         &Language::new(),
@@ -10325,11 +10283,11 @@ fn b1_b2_fallback_b1_blocked_b2_proven() {
         .unwrap();
 
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));          // 0
-    ast.push(AstNode::new("lit").with_payload(json!(0)));            // 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 1
     ast.push(AstNode::new("binary.neq").with_payload(json!({"children": [0, 1]}))); // 2: n != 0
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 2]}))); // 3
-    ast.push(AstNode::new("lit").with_payload(json!(5)));            // 4: expr = 5
+    ast.push(AstNode::new("lit").with_payload(json!(5))); // 4: expr = 5
     ast.push(AstNode::new("type-annot").with_payload(json!({"children": [4, 3]}))); // 5
 
     let req = TypecheckRequest::new(ast);
@@ -10353,13 +10311,13 @@ fn b1_b2_fallback_b1_blocked_b2_blocked() {
     let engine = engine();
     let lang = predicate_lang();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("n")));          // 0
-    ast.push(AstNode::new("var").with_payload(json!("unknown")));    // 1: unbound
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("unknown"))); // 1: unbound
     ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2: n % unknown
-    ast.push(AstNode::new("lit").with_payload(json!(0)));            // 3
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 3
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5
-    ast.push(AstNode::new("lit").with_payload(json!(9)));            // 6: expr = 9
+    ast.push(AstNode::new("lit").with_payload(json!(9))); // 6: expr = 9
     ast.push(AstNode::new("type-annot").with_payload(json!({"children": [6, 5]}))); // 7
 
     let req = TypecheckRequest::new(ast);
@@ -10430,17 +10388,17 @@ fn b1_b2_fallback_parametric_predicate_blocked() {
     let engine = engine();
     let lang = predicate_lang();
     let mut ast = Ast::new();
-    ast.push(AstNode::new("var").with_payload(json!("k")));           // 0
-    ast.push(AstNode::new("var").with_payload(json!("n")));           // 1
+    ast.push(AstNode::new("var").with_payload(json!("k"))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 1
     ast.push(AstNode::new("var").with_payload(json!("unknown_var"))); // 2: unbound
     ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [2, 0]}))); // 3: unknown_var % k
-    ast.push(AstNode::new("lit").with_payload(json!(0)));             // 4
+    ast.push(AstNode::new("lit").with_payload(json!(0))); // 4
     ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [3, 4]}))); // 5: unknown_var % k == 0
     ast.push(AstNode::new("function").with_payload(json!({"children": [1, 5]}))); // 6: (n) -> ...
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 6]}))); // 7: (k) -> ...
-    ast.push(AstNode::new("lit").with_payload(json!(3)));             // 8
+    ast.push(AstNode::new("lit").with_payload(json!(3))); // 8
     ast.push(AstNode::new("call").with_payload(json!({"children": [7, 8]}))); // 9: DivisibleBy(3)
-    ast.push(AstNode::new("lit").with_payload(json!(6)));             // 10: expr = 6
+    ast.push(AstNode::new("lit").with_payload(json!(6))); // 10: expr = 6
     ast.push(AstNode::new("type-annot").with_payload(json!({"children": [10, 9]}))); // 11
 
     let req = TypecheckRequest::new(ast);
@@ -10476,43 +10434,60 @@ fn b1_b2_agreement_concrete_cases() {
             AstRef::new(6), // expr (lit)
             100_000,
         );
-        let b2_proof = engine.check_predicate_symbolic(
-            &lang,
-            &ast,
-            AstRef::new(5),
-            AstRef::new(6),
-            100_000,
-        );
+        let b2_proof =
+            engine.check_predicate_symbolic(&lang, &ast, AstRef::new(5), AstRef::new(6), 100_000);
         // They must agree (never one Proven and the other Disproved).
         assert_ne!(
-            (b1_proof.verdict == Verdict::Proven, b2_proof.verdict == Verdict::Proven),
+            (
+                b1_proof.verdict == Verdict::Proven,
+                b2_proof.verdict == Verdict::Proven
+            ),
             (true, false),
             "B1/B2 disagreement at val={}: B1={:?}, B2={:?}",
-            val, b1_proof.verdict, b2_proof.verdict
+            val,
+            b1_proof.verdict,
+            b2_proof.verdict
         );
         assert_ne!(
-            (b1_proof.verdict == Verdict::Proven, b2_proof.verdict == Verdict::Proven),
+            (
+                b1_proof.verdict == Verdict::Proven,
+                b2_proof.verdict == Verdict::Proven
+            ),
             (false, true),
             "B1/B2 disagreement at val={}: B1={:?}, B2={:?}",
-            val, b1_proof.verdict, b2_proof.verdict
+            val,
+            b1_proof.verdict,
+            b2_proof.verdict
         );
         assert_ne!(
-            (b1_proof.verdict == Verdict::Disproved, b2_proof.verdict == Verdict::Disproved),
+            (
+                b1_proof.verdict == Verdict::Disproved,
+                b2_proof.verdict == Verdict::Disproved
+            ),
             (true, false),
             "B1/B2 disagreement at val={}: B1={:?}, B2={:?}",
-            val, b1_proof.verdict, b2_proof.verdict
+            val,
+            b1_proof.verdict,
+            b2_proof.verdict
         );
         assert_ne!(
-            (b1_proof.verdict == Verdict::Disproved, b2_proof.verdict == Verdict::Disproved),
+            (
+                b1_proof.verdict == Verdict::Disproved,
+                b2_proof.verdict == Verdict::Disproved
+            ),
             (false, true),
             "B1/B2 disagreement at val={}: B1={:?}, B2={:?}",
-            val, b1_proof.verdict, b2_proof.verdict
+            val,
+            b1_proof.verdict,
+            b2_proof.verdict
         );
         // Both should give a definitive verdict for concrete values.
         assert!(
             b1_proof.verdict != Verdict::Blocked && b2_proof.verdict != Verdict::Blocked,
             "B1/B2 should not block on concrete value {}: B1={:?}, B2={:?}",
-            val, b1_proof.verdict, b2_proof.verdict
+            val,
+            b1_proof.verdict,
+            b2_proof.verdict
         );
     }
 }
@@ -10531,7 +10506,9 @@ fn b1_b2_agreement_property_test() {
         .unwrap()
         .as_nanos() as u64;
     let mut next_rand = || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         state >> 33
     };
 
@@ -10541,20 +10518,23 @@ fn b1_b2_agreement_property_test() {
 
         // Build AST for (n) -> n % k == 0 with expression lit(n).
         let mut ast = Ast::new();
-        ast.push(AstNode::new("var").with_payload(json!("n")));           // 0
-        ast.push(AstNode::new("lit").with_payload(json!(k)));             // 1
+        ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+        ast.push(AstNode::new("lit").with_payload(json!(k))); // 1
         ast.push(AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]}))); // 2
-        ast.push(AstNode::new("lit").with_payload(json!(0)));             // 3
+        ast.push(AstNode::new("lit").with_payload(json!(0))); // 3
         ast.push(AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]}))); // 4
         ast.push(AstNode::new("function").with_payload(json!({"children": [0, 4]}))); // 5
-        ast.push(AstNode::new("lit").with_payload(json!(n)));             // 6
+        ast.push(AstNode::new("lit").with_payload(json!(n))); // 6
 
         let b1_proof = engine.check_predicate_application(
-            &lang, &ast, AstRef::new(5), AstRef::new(6), 100_000,
+            &lang,
+            &ast,
+            AstRef::new(5),
+            AstRef::new(6),
+            100_000,
         );
-        let b2_proof = engine.check_predicate_symbolic(
-            &lang, &ast, AstRef::new(5), AstRef::new(6), 100_000,
-        );
+        let b2_proof =
+            engine.check_predicate_symbolic(&lang, &ast, AstRef::new(5), AstRef::new(6), 100_000);
 
         // Compute expected result independently.
         let expected = if k != 0 { n % k == 0 } else { false };
@@ -10700,9 +10680,12 @@ fn meta_predicate_lang() -> Language {
         .unwrap();
 
     lang.ast
-        .merge(AstShapeDef::new("ast.paren", "paren").with_children(vec![
-            ChildRoleSpec { role: "body".into(), variadic: true },
-        ]))
+        .merge(
+            AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
+                role: "body".into(),
+                variadic: true,
+            }]),
+        )
         .unwrap();
     lang
 }
@@ -10743,15 +10726,13 @@ fn total_recursor_with_termination_metadata_is_total() {
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
     ast.push(AstNode::new("paren").with_payload(json!({"children": [0]}))); // 1: params
     ast.push(AstNode::new("lit").with_payload(json!(0))); // 2: body (placeholder)
-    ast.push(
-        AstNode::new("function").with_payload(json!({
-            "children": [1, 2],
-            "termination": {
-                "decreasing_arg": 0,
-                "decreasing_field": "pred"
-            }
-        })),
-    ); // 3: recursor function
+    ast.push(AstNode::new("function").with_payload(json!({
+        "children": [1, 2],
+        "termination": {
+            "decreasing_arg": 0,
+            "decreasing_field": "pred"
+        }
+    }))); // 3: recursor function
 
     let lang = Language::new();
     let proof = totality_check::check_totality(&ast, AstRef::new(3), &lang);
@@ -10821,9 +10802,7 @@ fn total_recursive_function_with_field_access_decreasing_is_proven() {
     ast.push(AstNode::new("var").with_payload(json!("f"))); // 2
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 3
     ast.push(AstNode::new("var").with_payload(json!("pred"))); // 4
-    ast.push(
-        AstNode::new("field-access").with_payload(json!({"children": [3, 4]})),
-    ); // 5
+    ast.push(AstNode::new("field-access").with_payload(json!({"children": [3, 4]}))); // 5
     ast.push(AstNode::new("call").with_payload(json!({"children": [2, 5]}))); // 6
     ast.push(AstNode::new("function").with_payload(json!({"children": [1, 6]}))); // 7
     ast.push(AstNode::new("var").with_payload(json!("f"))); // 8
@@ -10987,16 +10966,12 @@ fn total_annotation_on_nonrecursive_function_proven() {
     // --- type expression: Total(type.number -> type.number) ---
     let param_fa = push_type_number_expr(&mut ast, 5); // 5,6,7 → 7
     let body_fa = push_type_number_expr(&mut ast, 8); // 8,9,10 → 10
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
-    ); // 11: type.number -> type.number
+    ast.push(AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]}))); // 11: type.number -> type.number
     ast.push(AstNode::new("var").with_payload(json!("Total"))); // 12: callee
     ast.push(AstNode::new("call").with_payload(json!({"children": [12, 11]}))); // 13: Total(...)
 
     // --- annotation ---
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [4, 13]})),
-    ); // 14
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [4, 13]}))); // 14
 
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -11007,10 +10982,7 @@ fn total_annotation_on_nonrecursive_function_proven() {
         result.diagnostics
     );
     // The accepted type is the annotation type (type.Total).
-    let tag = result
-        .typ
-        .get("__tag__")
-        .and_then(|t| t.as_str());
+    let tag = result.typ.get("__tag__").and_then(|t| t.as_str());
     assert_eq!(tag, Some("type.Total"));
 }
 
@@ -11032,16 +11004,12 @@ fn pure_annotation_on_pure_function_proven() {
     // --- type expression: Pure(type.number -> type.number) ---
     let param_fa = push_type_number_expr(&mut ast, 5); // 7
     let body_fa = push_type_number_expr(&mut ast, 8); // 10
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
-    ); // 11
+    ast.push(AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]}))); // 11
     ast.push(AstNode::new("var").with_payload(json!("Pure"))); // 12
     ast.push(AstNode::new("call").with_payload(json!({"children": [12, 11]}))); // 13
 
     // --- annotation ---
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [4, 13]})),
-    ); // 14
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [4, 13]}))); // 14
 
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -11050,10 +11018,7 @@ fn pure_annotation_on_pure_function_proven() {
         "expected no diagnostics, got: {:?}",
         result.diagnostics
     );
-    let tag = result
-        .typ
-        .get("__tag__")
-        .and_then(|t| t.as_str());
+    let tag = result.typ.get("__tag__").and_then(|t| t.as_str());
     assert_eq!(tag, Some("type.Pure"));
 }
 
@@ -11080,16 +11045,12 @@ fn total_annotation_on_non_decreasing_recursion_disproved() {
     // --- type expression: Total(type.number -> type.number) ---
     let param_fa = push_type_number_expr(&mut ast, 8); // 10
     let body_fa = push_type_number_expr(&mut ast, 11); // 13
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]})),
-    ); // 14
+    ast.push(AstNode::new("function").with_payload(json!({"children": [param_fa, body_fa]}))); // 14
     ast.push(AstNode::new("var").with_payload(json!("Total"))); // 15
     ast.push(AstNode::new("call").with_payload(json!({"children": [15, 14]}))); // 16
 
     // --- annotation ---
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [7, 16]})),
-    ); // 17
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [7, 16]}))); // 17
 
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
@@ -11124,9 +11085,7 @@ fn push_type_expr(ast: &mut Ast, offset: usize, type_name: &str) -> usize {
     let fa_idx = type_idx + 2;
     ast.push(AstNode::new("var").with_payload(json!("type"))); // type_idx
     ast.push(AstNode::new("var").with_payload(json!(type_name))); // name_idx
-    ast.push(
-        AstNode::new("field-access").with_payload(json!({"children": [type_idx, name_idx]})),
-    ); // fa_idx
+    ast.push(AstNode::new("field-access").with_payload(json!({"children": [type_idx, name_idx]}))); // fa_idx
     fa_idx
 }
 
@@ -11153,9 +11112,7 @@ fn marshalable_predicate_proven_for_ffi_type() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
     let annot_idx = push_marshalable_annotation(&mut ast, 1, "i32"); // 5
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
-    ); // 6
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]}))); // 6
 
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -11180,9 +11137,7 @@ fn marshalable_predicate_disproved_for_non_ffi_type() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
     let annot_idx = push_marshalable_annotation(&mut ast, 1, "string"); // 5
-    ast.push(
-        AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
-    ); // 6
+    ast.push(AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]}))); // 6
 
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
@@ -11212,9 +11167,7 @@ fn marshalable_predicate_for_each_ffi_type() {
         let mut ast = Ast::new();
         ast.push(AstNode::new("lit").with_payload(json!(42))); // 0: expression
         let annot_idx = push_marshalable_annotation(&mut ast, 1, type_name); // 5
-        ast.push(
-            AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]})),
-        ); // 6
+        ast.push(AstNode::new("type-annot").with_payload(json!({"children": [0, annot_idx]}))); // 6
 
         let req = TypecheckRequest::new(ast);
         let result = engine.typecheck(&lang, &req).unwrap_or_else(|e| {

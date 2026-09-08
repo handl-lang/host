@@ -49,7 +49,10 @@ fn elapsed_ns_measures_since_reading() {
     let elapsed = call("elapsed_ns", &[json!(start)]).as_f64().unwrap();
     assert!(elapsed >= 0.0);
     // A fresh elapsed reading is tiny — well under a minute.
-    assert!(elapsed < 60_000_000_000.0, "elapsed_ns too large: {elapsed}");
+    assert!(
+        elapsed < 60_000_000_000.0,
+        "elapsed_ns too large: {elapsed}"
+    );
 
     // A reading far in the past yields a large elapsed time (nonzero).
     let past = start - 1_000_000.0;

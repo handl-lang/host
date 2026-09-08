@@ -266,9 +266,12 @@ impl Plugin for ModuleKit {
         if self.registers_module_runtime {
             ctx.register_plugin(handl_plugin_module::ModuleRuntime::default())?;
         }
-        let modules = std::mem::take(&mut *self.modules.lock().map_err(|_| {
-            PlatformError::Plugin("module kit lock poisoned".into())
-        })?);
+        let modules = std::mem::take(
+            &mut *self
+                .modules
+                .lock()
+                .map_err(|_| PlatformError::Plugin("module kit lock poisoned".into()))?,
+        );
         for plugin in modules {
             ctx.register_plugin(plugin)?;
         }

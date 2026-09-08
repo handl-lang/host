@@ -53,7 +53,6 @@
 //! `HandlModule::new_raw` is provided for loading the `loader` itself raw,
 //! without applying those transforms to its own source.
 
-
 pub mod op_registry;
 pub mod transform;
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
@@ -834,7 +833,12 @@ impl Function for HandlFunction {
             globals.insert(name.clone(), v);
             arg_names.push(name);
         }
-        let source = format!("({}).{}({})", self.source, self.func_name, arg_names.join(", "));
+        let source = format!(
+            "({}).{}({})",
+            self.source,
+            self.func_name,
+            arg_names.join(", ")
+        );
         let module_id = self.module_id;
         let builder = Arc::clone(&self.builder);
         let module_name = &self.module_name;

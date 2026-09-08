@@ -386,11 +386,41 @@ pub const HTTP_CLIENT_OPS: &[&str] = &[
 /// given [`HttpClient`] implementation.
 pub fn register_http_client_ops(registry: &mut OpRegistry, client: impl HttpClient + 'static) {
     let client: Arc<dyn HttpClient> = Arc::new(client);
-    registry.register("http.get", Arc::new(GetFn { client: client.clone() }));
-    registry.register("http.post", Arc::new(PostFn { client: client.clone() }));
-    registry.register("http.put", Arc::new(PutFn { client: client.clone() }));
-    registry.register("http.patch", Arc::new(PatchFn { client: client.clone() }));
-    registry.register("http.delete", Arc::new(DeleteFn { client: client.clone() }));
-    registry.register("http.head", Arc::new(HeadFn { client: client.clone() }));
+    registry.register(
+        "http.get",
+        Arc::new(GetFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.post",
+        Arc::new(PostFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.put",
+        Arc::new(PutFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.patch",
+        Arc::new(PatchFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.delete",
+        Arc::new(DeleteFn {
+            client: client.clone(),
+        }),
+    );
+    registry.register(
+        "http.head",
+        Arc::new(HeadFn {
+            client: client.clone(),
+        }),
+    );
     registry.register("http.request", Arc::new(RequestFn { client }));
 }

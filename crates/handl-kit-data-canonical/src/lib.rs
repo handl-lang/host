@@ -51,7 +51,7 @@ use handl_language::{
 };
 
 /// The kit name under which this kit registers itself (for `extends`
-/// resolution by child kits like `handl-kit-data-config`).
+/// resolution by child kits).
 pub const KIT_NAME: &str = "kit-data-canonical";
 
 /// Fragment ids that were excluded when generating the YAML files.
@@ -317,11 +317,22 @@ pub fn manifest() -> DataKitManifest {
 }
 
 /// Build an [`EmitterRegistry`] pre-populated with the canonical YAML data
-/// emitter and this kit's manifest registered under [`KIT_NAME`].
+/// emitter, this kit's manifest registered under [`KIT_NAME`], and every
+/// embedded `data/kits/*.yaml` manifest registered under its kit name — so
+/// `extends:` chains in the data manifests (e.g. `config` → `canonical`)
+/// resolve through [`DataKit::assemble`].
+///
+/// Kit manifests that fail to parse are skipped here; [`load_kit`] surfaces
+/// the parse error when the kit is loaded directly.
 pub fn registry() -> EmitterRegistry {
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("canonical-yaml", || Box::new(YamlDataEmitter::new()));
     reg.register_kit(KIT_NAME, manifest());
+    for (name, _) in KIT_MANIFESTS {
+        if let Ok(m) = load_kit(name) {
+            reg.register_kit(name, m);
+        }
+    }
     reg
 }
 
@@ -598,6 +609,74 @@ mod tests {
     #[test]
     fn load_kit_unknown_name_errors() {
         assert!(load_kit("bogus").is_err());
+    }
+
+    #[test]
+    fn load_kit_config_declares_pure_library_caps() {
+        // The `config` kit's pure-library capabilities are authored data in
+        // `data/kits/config.yaml` (they used to come from the deleted
+        // `handl-kit-data-config` crate's `PureCapsEmitter`).
+        let config = load_kit("config").unwrap();
+        assert_eq!(config.extends.as_deref(), Some("canonical"));
+        let ids: Vec<&str> = config.caps.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "lib.math",
+                "lib.str",
+                "lib.array",
+                "lib.set",
+                "lib.bool",
+                "lib.cmp",
+                "lib.obj",
+                "lib.fn",
+                "lib.type",
+                "lib.crypto",
+                "lib.datetime",
+                "lib.intl",
+                "lib.kv",
+            ]
+        );
+        assert!(config
+            .caps
+            .iter()
+            .all(|c| c.description.as_deref() == Some("pure library capability")));
+    }
+
+    #[test]
+    fn assemble_config_kit_merges_caps_via_extends() {
+        // `extends` resolves through the registry: the `config` manifest
+        // (extends `canonical`) assembles the canonical language plus its 13
+        // authored `lib.*` capabilities, and inherits the parent's runtime
+        // selection (its manifest declares no `runtime:`).
+        let reg = registry();
+        let config = load_kit("config").unwrap();
+        let kit = DataKit::assemble(&config, &reg).unwrap();
+        let lang = kit.lang();
+        assert!(lang.tokens.len() > 0);
+        assert!(lang.grammar.len() > 0);
+        assert!(lang.eval.len() > 0);
+        let canonical_caps = assemble().unwrap().lang().caps.len();
+        assert_eq!(lang.caps.len(), canonical_caps + 13);
+        for id in [
+            "lib.math",
+            "lib.str",
+            "lib.array",
+            "lib.set",
+            "lib.bool",
+            "lib.cmp",
+            "lib.obj",
+            "lib.fn",
+            "lib.type",
+            "lib.crypto",
+            "lib.datetime",
+            "lib.intl",
+            "lib.kv",
+        ] {
+            assert!(lang.caps.get_by_id(id).is_some(), "missing {}", id);
+        }
+        assert_eq!(kit.runtime_config().parse, "pratt");
+        assert_eq!(kit.runtime_config().eval, "tree-walk");
     }
 
     #[test]

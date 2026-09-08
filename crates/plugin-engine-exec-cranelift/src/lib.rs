@@ -2129,8 +2129,7 @@ fn prim_v2_eval_block(ctx: &mut EvalCtx) -> *mut TaggedValue {
                     Ok(None) => {
                         ctx.env.pop_scope();
                         return ctx.set_error(LangError::engine_node(
-                            "eval_block: binding target must be an identifier"
-                                .to_string(),
+                            "eval_block: binding target must be an identifier".to_string(),
                             &node,
                         ));
                     }
@@ -3020,9 +3019,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Children(usize, usize),
         Legacy(TaggedValue, TaggedValue),
     }
-    let src = if let Some(children) =
-        node.payload.get("children").and_then(|c| c.as_array())
-    {
+    let src = if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
         if children.len() < 2 {
             return ctx.set_error(LangError::engine(
                 "index: expected at least 2 children".to_string(),
@@ -6150,7 +6147,7 @@ mod tests {
         let lang = import_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!("m")), // 0
-            AstNode::new("var").with_payload(json!("x")),     // 1
+            AstNode::new("var").with_payload(json!("x")),   // 1
             AstNode::new("stmt.import").with_payload(json!({"children": [0]})), // 2
             AstNode::new("block").with_payload(json!({"children": [2, 1]})), // 3
         ]);
@@ -6165,9 +6162,8 @@ mod tests {
         let lang = import_lang();
         let ast = make_ast(vec![
             AstNode::new("value").with_payload(json!("m")), // 0
-            AstNode::new("var").with_payload(json!("m")),     // 1
-            AstNode::new("stmt.import")
-                .with_payload(json!({"children": [0], "alias": "m"})), // 2
+            AstNode::new("var").with_payload(json!("m")),   // 1
+            AstNode::new("stmt.import").with_payload(json!({"children": [0], "alias": "m"})), // 2
             AstNode::new("block").with_payload(json!({"children": [2, 1]})), // 3
         ]);
         let engine: Box<dyn EvalEngine> =

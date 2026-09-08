@@ -20,16 +20,36 @@ use handl_language::{
 };
 use serde_json::Value;
 
-/// Formatting options for the [`FormatEngine`].
+// ---------------------------------------------------------------------------
+// Pipeline stages (ADR-0095): this crate hosts the staged formatter engine.
+//   stage 1 · parse      // lex + Pratt, reused by the surface (`plugin-ext-fmt`)
+//   stage 2 · layout     // [`layout`] — spacing/indent rules, a [`FormattingRule`] seam
+//   stage 3 · render     // [`token`] token-stream renderer; [`FormatEngine`] AST renderer
+//   stage 4 · post-process // [`post_process`] — [`PostProcessRule`] seam
+// ---------------------------------------------------------------------------
+
+pub mod layout;
+pub mod post_process;
+pub mod token;
+
+pub use layout::*;
+pub use post_process::*;
+pub use token::*;
+
+/// Formatting options for the [`FormatEngine`] and the token-stream renderer.
 #[derive(Debug, Clone)]
 pub struct FormatOptions {
     /// Number of spaces per indentation level.
     pub indent_size: usize,
+    /// Maximum line width in columns for chain-breaking (`>>>`), per
+    /// ADR-0086 style rule 4. The canonical v0.1 layout currently preserves
+    /// chain structure; this field is the config seam new rules consume.
+    pub width: usize,
 }
 
 impl Default for FormatOptions {
     fn default() -> Self {
-        Self { indent_size: 2 }
+        Self { indent_size: 2, width: 100 }
     }
 }
 

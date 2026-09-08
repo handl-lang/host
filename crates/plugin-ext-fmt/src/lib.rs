@@ -1,22 +1,31 @@
 //! `handl-plugin-ext-fmt` — canonical bootstrap formatter for the v0.1 arrow
-//! surface syntax (ADR-0086).
+//! surface syntax (ADR-0086), composed over the staged engine pipeline
+//! (ADR-0095).
 //!
-//! This crate provides the canonical formatter API:
+//! This crate is a **thin surface** over the language-generic engine in
+//! `handl-plugin-engine-fmt`. It owns only what is canonical to the v0.1
+//! surface:
+//! - the canonical [`Language`] assembly [`canonical_language`],
+//! - the **parse** stage (lex + Pratt) that validates and tokenizes source,
+//! - the selection of the canonical v0.1 layout/post-process rule sets,
+//! - the [`FormatError`]/diagnostics (ADR-0091) surface.
+//!
+//! The engine owns the pipeline stages:
+//! ```text
+//! source → parse → layout → render → post-process → canonical source
+//! ```
+//! where **layout** ([`TokenCat`]/[`FormattingRule`]), **render**
+//! ([`TokenFormatter`] for the token stream, [`FormatEngine`] for an `Ast`),
+//! and **post-process** ([`PostProcessRule`]) all live in
+//! `handl-plugin-engine-fmt` and are reusable/replaceable.
+//!
+//! Public API (unchanged, thin wrappers over the pipeline):
 //! - [`format_source`] — parse + canonical layout + source text out.
 //! - [`check_source`] — true iff the source is already canonical.
+//! - [`format_ast`] — data-driven `Ast` → source via [`FormatEngine`].
+//! - [`format_error_to_diagnostic`] — shared diagnostics (ADR-0091).
 //!
-//! Formatting is AST-validated: the source must parse successfully via the
-//! data-driven Pratt parser over the canonical [`Language`]. The canonical
-//! style layer then operates on the token stream (which preserves comments
-//! and exact token text) to produce the canonical layout — two-space
-//! indentation, single trailing newline, no trailing whitespace, collapsed
-//! blank lines, and blank lines between top-level declaration groups.
-//!
-//! The data-driven [`FormatEngine`] is re-exported for callers that have a
-//! full [`Ast`] arena and want data-driven AST→syntax rendering. The
-//! [`format_ast`] helper wraps it for convenience.
-//!
-//! # Canonical style (hardcoded, no configuration)
+//! # Canonical style (v0.1, ADR-0086; selected here, implemented in the engine)
 //!
 //! 1. Two-space indentation; continuation lines align with enclosing arrows.
 //! 2. One statement per line inside graph blocks; a blank line between
@@ -24,14 +33,17 @@
 //! 3. Single trailing newline; no trailing whitespace; no more than one
 //!    consecutive blank line.
 //! 4. `>>>` chains break *before* the operator, one segment per line, when a
-//!    chain does not fit in 100 columns.
+//!    chain does not fit in `FormatOptions::width` columns.
 //! 5. No spaces inside brackets; single spaces around binary operators per
 //!    the ADR-0074 precedence table.
 //!
 //! Idempotence: `fmt(fmt(src)) == fmt(src)` — tested exhaustively.
 
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
-pub use handl_plugin_engine_fmt::FormatEngine;
+pub use handl_plugin_engine_fmt::{
+    CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule, TokenCat,
+    TokenFormatter, canonical_post_process, classify_token, needs_space,
+};
 
 use handl_language::{Ast, AstRef, LangError, Language};
 use handl_plugin_engine_lex_pattern::lex;
@@ -75,29 +87,30 @@ impl From<LangError> for FormatError {
 /// Format handl source text into canonical form.
 ///
 /// Parses the source, formats canonically, and returns the canonical source
-/// text with a single trailing newline.
+/// text with a single trailing newline. Composes the staged engine pipeline:
+/// parse → layout (canonical [`FormattingRule`]) → render
+/// ([`TokenFormatter`]) → post-process ([`canonical_post_process`]).
 ///
 /// # Errors
 ///
 /// Returns [`FormatError::Parse`] if the source cannot be parsed.
 pub fn format_source(src: &str) -> Result<String, FormatError> {
     let lang = canonical_language()?;
-    // 1. Validate: the source must parse successfully.
+    // Stage 1 · parse: the source must parse successfully (AST-validated).
     let _ast = parse_source(&lang, src)?;
-
-    // 2. Lex into tokens (the token stream preserves comments and exact text).
+    // Stage 1 (cont.) · lex: the token stream preserves comments and exact text.
     let tokens = lex(&lang, src)?;
-
-    // 3. If there are no tokens, the source is empty/whitespace-only.
+    // If there are no tokens, the source is empty/whitespace-only.
     if tokens.as_slice().is_empty() {
         return Ok(String::new());
     }
-
-    // 4. Reconstruct canonical source from the token stream.
-    let formatted = format_tokens(src, tokens.as_slice(), &lang);
-
-    // 5. Post-process: blank lines, trailing whitespace, trailing newline.
-    Ok(post_process(&formatted))
+    // Stages 2+3 · layout + render over the token stream with the canonical
+    // v0.1 rule set.
+    let opts = FormatOptions::default();
+    let formatter = TokenFormatter::canonical(opts.indent_size);
+    let rendered = formatter.format(src, tokens.as_slice(), &lang);
+    // Stage 4 · post-process: blank lines, trailing whitespace, trailing newline.
+    Ok(canonical_post_process(&rendered))
 }
 
 /// Check whether source text is already in canonical form.
@@ -144,17 +157,13 @@ pub fn format_error_to_diagnostic(
     use handl_plugin_ext_diag::{Diagnostic, Severity, Span};
     let span = Span::from_byte_range(0, source.len(), source);
     match err {
-        FormatError::Parse(msg) => {
-            Diagnostic::new("fmt-parse", Severity::Error, span, msg.clone())
-        }
-        FormatError::Ast(msg) => {
-            Diagnostic::new("fmt-ast", Severity::Error, span, msg.clone())
-        }
+        FormatError::Parse(msg) => Diagnostic::new("fmt-parse", Severity::Error, span, msg.clone()),
+        FormatError::Ast(msg) => Diagnostic::new("fmt-ast", Severity::Error, span, msg.clone()),
     }
 }
 
 // ---------------------------------------------------------------------------
-// Internal: language assembly + parsing
+// Internal: language assembly + parsing (the pipeline's parse stage)
 // ---------------------------------------------------------------------------
 
 /// Assemble the canonical language once (cheap after the first call thanks to
@@ -176,370 +185,8 @@ fn parse_source(lang: &Language, src: &str) -> Result<Ast, FormatError> {
 }
 
 // ---------------------------------------------------------------------------
-// Internal: token-stream formatting
+// Internal: normalization for `check_source` comparison
 // ---------------------------------------------------------------------------
-
-/// Token categories for canonical spacing rules.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TokenCat {
-    /// `(`, `[`
-    OpenBracket,
-    /// `)`
-    CloseParen,
-    /// `]`
-    CloseBracket,
-    /// `{`
-    OpenBrace,
-    /// `}`
-    CloseBrace,
-    /// `,`
-    Comma,
-    /// `:`
-    Colon,
-    /// `.`
-    Dot,
-    /// Binary operator (space around).
-    BinaryOp,
-    /// Keyword (space after).
-    Keyword,
-    /// `--` or `---` comment.
-    Comment,
-    /// Identifier, number, string, bool, null.
-    Atom,
-    /// Anything else.
-    Other,
-}
-
-/// Classify a token kind into a spacing category.
-///
-/// Driven by the language's `TokenKindDef::category`/`label` data
-/// (ADR-0044): brackets resolve via `open-bracket`/`close-bracket` +
-/// spelling, binary operators via the `operator` category minus the
-/// non-infix spellings (`!`, `?`, `...`, `|` — prefix/nullary or
-/// non-spacing operators in v0.1 surface).
-fn classify_token(lang: &Language, kind: &str) -> TokenCat {
-    let is_label = |l: &str| lang.token_kind_for_label(l) == Some(kind);
-    match lang.token_category(kind) {
-        Some("open-bracket") => {
-            if is_label("{") {
-                TokenCat::OpenBrace
-            } else {
-                TokenCat::OpenBracket
-            }
-        }
-        Some("close-bracket") => {
-            if is_label("}") {
-                TokenCat::CloseBrace
-            } else if is_label(")") {
-                TokenCat::CloseParen
-            } else {
-                TokenCat::CloseBracket
-            }
-        }
-        Some("comment") | Some("doc-comment") => TokenCat::Comment,
-        // Binary (infix, space-around) operators: the `operator` category
-        // minus the non-infix spellings.
-        Some("operator") => {
-            match lang.token_kind(kind).and_then(|d| d.label.as_deref()) {
-                // Non-infix spellings (plus unlabeled legacy kinds like
-                // `token.bang`/`token.question`) are not binary operators.
-                Some("!") | Some("?") | Some("...") | Some("|") | None => TokenCat::Other,
-                Some(_) => TokenCat::BinaryOp,
-            }
-        }
-        Some("keyword") => TokenCat::Keyword,
-        Some("identifier") | Some("number") | Some("string") | Some("bool") | Some("null")
-        | Some("template") => TokenCat::Atom,
-        Some("punctuation") => {
-            if is_label(",") {
-                TokenCat::Comma
-            } else if is_label(":") {
-                TokenCat::Colon
-            } else if is_label(".") {
-                TokenCat::Dot
-            } else {
-                TokenCat::Other
-            }
-        }
-        _ => TokenCat::Other,
-    }
-}
-
-/// Decide whether a single space should appear between two adjacent inline
-/// tokens.
-fn needs_space(prev: TokenCat, curr: TokenCat) -> bool {
-    use TokenCat::*;
-    // No space inside () and [].
-    if prev == OpenBracket {
-        return false;
-    }
-    if curr == CloseParen || curr == CloseBracket {
-        return false;
-    }
-    // Space before closing brace (inline record: value }), but not for
-    // empty {} or when the brace opened a block (line-start handled elsewhere).
-    if curr == CloseBrace {
-        if prev == OpenBrace {
-            return false; // empty {}
-        }
-        return true;
-    }
-    // No space before comma / colon / dot.
-    if curr == Comma || curr == Colon || curr == Dot {
-        return false;
-    }
-    // No space after dot (field access: c.sort).
-    if prev == Dot {
-        return false;
-    }
-    // Space after comma.
-    if prev == Comma {
-        return true;
-    }
-    // Space after colon (record entry: key: value).
-    if prev == Colon {
-        return true;
-    }
-    // Space around binary operators.
-    if prev == BinaryOp || curr == BinaryOp {
-        return true;
-    }
-    // Space after keywords.
-    if prev == Keyword || curr == Keyword {
-        return true;
-    }
-    // Space before { (if x {, match x {).
-    if curr == OpenBrace {
-        return true;
-    }
-    // Space after { (inline record: { key).
-    if prev == OpenBrace {
-        return true;
-    }
-    // No space before ( in function calls: sort(...), loop(...).
-    if curr == OpenBracket && (prev == Atom || prev == CloseParen || prev == CloseBracket) {
-        return false;
-    }
-    // Default: no space.
-    false
-}
-
-/// Compute the byte start position of each token in the source by scanning
-/// forward, skipping whitespace.
-fn compute_token_starts(src: &str, tokens: &[handl_language::Token]) -> Vec<usize> {
-    let mut starts = Vec::with_capacity(tokens.len());
-    let bytes = src.as_bytes();
-    let mut pos = 0;
-    for token in tokens {
-        // Skip whitespace.
-        while pos < bytes.len() {
-            let ch = match src[pos..].chars().next() {
-                Some(c) => c,
-                None => break,
-            };
-            if ch.is_whitespace() {
-                pos += ch.len_utf8();
-            } else {
-                break;
-            }
-        }
-        starts.push(pos);
-        // Advance past the token text.
-        pos += token.text.len();
-    }
-    starts
-}
-
-/// Check whether the source text between two byte offsets contains a newline.
-fn gap_has_newline(src: &str, from: usize, to: usize) -> bool {
-    let from = from.min(src.len());
-    let to = to.min(src.len());
-    src[from..to].contains('\n')
-}
-
-/// Format the token stream into canonical source text.
-///
-/// Walks tokens in order, preserving the original line structure (newlines
-/// between tokens) while applying canonical spacing rules for inline tokens
-/// and 2-space indentation for continuation lines.
-fn format_tokens(src: &str, tokens: &[handl_language::Token], lang: &Language) -> String {
-    let starts = compute_token_starts(src, tokens);
-    let mut out = String::new();
-    let mut depth: usize = 0;
-    let mut at_line_start = true;
-    let mut prev_cat: Option<TokenCat> = None;
-
-    for (i, token) in tokens.iter().enumerate() {
-        let cat = classify_token(lang, &token.kind);
-        let token_start = starts[i];
-        let prev_end = if i > 0 {
-            starts[i - 1] + tokens[i - 1].text.len()
-        } else {
-            0
-        };
-        let has_newline = gap_has_newline(src, prev_end, token_start);
-
-        // Comments carry their own trailing newline; emit them as-is with
-        // indentation, and force the next token to a new line.
-        if cat == TokenCat::Comment {
-            if !at_line_start {
-                out.push('\n');
-            }
-            out.push_str(&indent_str(depth));
-            out.push_str(&token.text);
-            at_line_start = token.text.ends_with('\n');
-            prev_cat = Some(cat);
-            continue;
-        }
-
-        // Closing brackets decrease depth before emitting.
-        if cat == TokenCat::CloseBrace
-            || cat == TokenCat::CloseParen
-            || cat == TokenCat::CloseBracket
-        {
-            depth = depth.saturating_sub(1);
-        }
-
-        if at_line_start {
-            out.push_str(&indent_str(depth));
-            at_line_start = false;
-        } else if has_newline {
-            out.push('\n');
-            out.push_str(&indent_str(depth));
-        } else if let Some(prev) = prev_cat {
-            if needs_space(prev, cat) {
-                out.push(' ');
-            }
-        }
-
-        out.push_str(&token.text);
-
-        // Opening brackets increase depth after emitting.
-        if cat == TokenCat::OpenBrace || cat == TokenCat::OpenBracket {
-            depth += 1;
-        }
-
-        prev_cat = Some(cat);
-    }
-
-    out
-}
-
-/// Produce the indentation string for the given depth (2 spaces per level).
-fn indent_str(depth: usize) -> String {
-    " ".repeat(depth * 2)
-}
-
-// ---------------------------------------------------------------------------
-// Internal: post-processing (blank lines, trailing whitespace, trailing NL)
-// ---------------------------------------------------------------------------
-
-/// Post-process the formatted text:
-/// 1. Remove trailing whitespace from every line.
-/// 2. Collapse 2+ consecutive blank lines into 1.
-/// 3. Insert blank lines between top-level declaration groups.
-/// 4. Ensure a single trailing newline.
-fn post_process(text: &str) -> String {
-    // Split into lines (without trailing newlines).
-    let lines: Vec<String> = text.lines().map(|l| l.trim_end().to_string()).collect();
-
-    // Collapse 2+ blank lines into 1.
-    let mut collapsed: Vec<String> = Vec::with_capacity(lines.len());
-    let mut prev_blank = false;
-    for line in &lines {
-        let is_blank = line.trim().is_empty();
-        if is_blank && prev_blank {
-            continue;
-        }
-        collapsed.push(line.clone());
-        prev_blank = is_blank;
-    }
-
-    // Insert blank lines between top-level declaration groups.
-    let mut with_blanks: Vec<String> = Vec::with_capacity(collapsed.len());
-    for (i, line) in collapsed.iter().enumerate() {
-        // Look at the previous non-blank line to decide if we need a separator.
-        if i > 0 {
-            let curr_type = decl_type(line);
-            if let Some(prev_idx) = (0..i).rev().find(|&j| !collapsed[j].trim().is_empty()) {
-                let prev_type = decl_type(&collapsed[prev_idx]);
-                // Insert a blank line when transitioning between groups:
-                // - binding → binding
-                // - import/export → binding
-                // - binding → import/export
-                // But NOT between consecutive imports or consecutive exports.
-                if let (Some(pt), Some(ct)) = (prev_type, curr_type) {
-                    let needs_blank = match (pt, ct) {
-                        (DeclType::Import, DeclType::Import) => false,
-                        (DeclType::Export, DeclType::Export) => false,
-                        (DeclType::Import, DeclType::Export)
-                        | (DeclType::Export, DeclType::Import) => false,
-                        (DeclType::Comment, _) | (_, DeclType::Comment) => false,
-                        _ => true,
-                    };
-                    if needs_blank
-                        && with_blanks
-                            .last()
-                            .map_or(true, |l| !l.trim().is_empty())
-                    {
-                        with_blanks.push(String::new());
-                    }
-                }
-            }
-        }
-        with_blanks.push(line.clone());
-    }
-
-    // Join with newlines and ensure a single trailing newline.
-    let mut result = with_blanks.join("\n");
-    // Remove any trailing blank lines, then add exactly one newline.
-    while result.ends_with('\n') {
-        result.pop();
-    }
-    if !result.is_empty() {
-        result.push('\n');
-    }
-    result
-}
-
-/// Top-level declaration type for blank-line decisions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DeclType {
-    Import,
-    Export,
-    Binding,
-    Comment,
-}
-
-/// Classify a line's declaration type. Returns `None` for non-declaration
-/// lines (e.g. continuation lines, block content).
-fn decl_type(line: &str) -> Option<DeclType> {
-    let trimmed = line.trim_start();
-    if trimmed.starts_with("--") {
-        return Some(DeclType::Comment);
-    }
-    if trimmed.starts_with("import")
-        && (trimmed.len() == 6 || !trimmed[6..].chars().next().unwrap().is_alphanumeric())
-    {
-        return Some(DeclType::Import);
-    }
-    if trimmed.starts_with("export")
-        && (trimmed.len() == 6 || !trimmed[6..].chars().next().unwrap().is_alphanumeric())
-    {
-        return Some(DeclType::Export);
-    }
-    // Binding: `identifier ::` at the start of the line (indent 0).
-    if !line.starts_with(' ') && !line.starts_with('\t') {
-        if let Some(bind_pos) = trimmed.find("::") {
-            let name = trimmed[..bind_pos].trim();
-            // The name must be a simple identifier (all word chars).
-            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                return Some(DeclType::Binding);
-            }
-        }
-    }
-    None
-}
 
 /// Normalize source for comparison in `check_source`: trim trailing whitespace
 /// per line and ensure a single trailing newline.

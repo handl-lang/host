@@ -90,8 +90,8 @@ impl Function for TomlParse {
         let s = args[0]
             .as_str()
             .ok_or_else(|| EvalError::Other("toml.parse expects a string".to_string()))?;
-        let value: Value = toml::from_str(s)
-            .map_err(|e| EvalError::Other(format!("toml parse error: {e}")))?;
+        let value: Value =
+            toml::from_str(s).map_err(|e| EvalError::Other(format!("toml parse error: {e}")))?;
         Ok(value)
     }
 }

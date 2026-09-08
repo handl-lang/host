@@ -1,6 +1,6 @@
 mod tmp;
 
-pub use tmp::{register_tmp_ops, Tmp, TmpModule, TMP_OPS};
+pub use tmp::{TMP_OPS, Tmp, TmpModule, register_tmp_ops};
 
 pub mod tmp_stub;
 

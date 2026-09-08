@@ -52,7 +52,9 @@ fn append_ast(base: &mut Ast, other: &Ast) -> usize {
 fn append_parsed(combined: &mut Ast, other: &Ast) -> Vec<usize> {
     let offset = append_ast(combined, other);
     let root_idx = other.len() - 1 + offset;
-    let root = combined.get(AstRef::new(root_idx)).expect("root must exist");
+    let root = combined
+        .get(AstRef::new(root_idx))
+        .expect("root must exist");
     if root.kind == "block" {
         root.payload
             .get("children")
@@ -67,7 +69,8 @@ fn append_parsed(combined: &mut Ast, other: &Ast) -> Vec<usize> {
 }
 
 fn push_var(out: &mut Ast, name: &str) -> usize {
-    out.push(AstNode::new("var").with_payload(json!(name))).index()
+    out.push(AstNode::new("var").with_payload(json!(name)))
+        .index()
 }
 
 fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
@@ -77,10 +80,8 @@ fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
 
 fn push_assign(out: &mut Ast, name: &str, value: usize) -> usize {
     let target = push_var(out, name);
-    out.push(
-        AstNode::new("assign").with_payload(json!({ "children": [target, value] })),
-    )
-    .index()
+    out.push(AstNode::new("assign").with_payload(json!({ "children": [target, value] })))
+        .index()
 }
 
 /// After desugaring, each `data` declaration has become a `block` of
@@ -134,9 +135,7 @@ fn vec_indexed_family_match_with_and_without_motive() {
                                        | VCons(x: a, xs: Vec(n - 1, a)) : Vec(n, a)";
 
     let match_src = |name, v, n| {
-        format!(
-            "{name} :: match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
-        )
+        format!("{name} :: match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}")
     };
     let match_motive_src = |name, v, n| {
         format!(
@@ -156,11 +155,23 @@ fn vec_indexed_family_match_with_and_without_motive() {
 
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, "a :: 0")));
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v0 :: VNil")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v1 :: VCons(42, v0)")));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, "v1 :: VCons(42, v0)"),
+    ));
 
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, &match_src("len0", "v0", "0"))));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, &match_src("len1", "v1", "1"))));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, &match_motive_src("len_m", "v1", "1"))));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, &match_src("len0", "v0", "0")),
+    ));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, &match_src("len1", "v1", "1")),
+    ));
+    children.extend(append_parsed(
+        &mut combined,
+        &parse_raw(&kit, &match_motive_src("len_m", "v1", "1")),
+    ));
 
     // result = [len0, len1, len_m]
     let len0_var = push_var(&mut combined, "len0");
@@ -176,14 +187,15 @@ fn vec_indexed_family_match_with_and_without_motive() {
         apply_desugar(kit.runtime().lang(), &combined).expect("desugar failed");
     flatten_top_level_blocks(&mut combined);
 
-    let val = kit
-        .runtime()
-        .eval(&combined)
-        .expect("eval must succeed");
+    let val = kit.runtime().eval(&combined).expect("eval must succeed");
 
     let arr = val.as_array().expect("result must be an array");
     assert_eq!(arr.len(), 3);
     assert_eq!(arr[0], json!(0), "length of Vec(0, ...) must be 0");
     assert_eq!(arr[1], json!(1), "length of Vec(1, ...) must be 1");
-    assert_eq!(arr[2], json!(1), "motive-bearing match on Vec(1, ...) must be 1");
+    assert_eq!(
+        arr[2],
+        json!(1),
+        "motive-bearing match on Vec(1, ...) must be 1"
+    );
 }

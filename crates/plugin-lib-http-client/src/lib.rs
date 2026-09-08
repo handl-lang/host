@@ -36,8 +36,8 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 pub use error::HttpError;
 
 pub use http_client::{
-    register_http_client_ops, HttpClient, HttpClientModule, HttpMethod, HttpRequest,
-    HttpResponse, HTTP_CLIENT_OPS,
+    HTTP_CLIENT_OPS, HttpClient, HttpClientModule, HttpMethod, HttpRequest, HttpResponse,
+    register_http_client_ops,
 };
 
 // Re-export stub for convenience.
@@ -46,13 +46,14 @@ pub use http_client::http_client_stub::StubHttpClient;
 /// The handl source declaring the http-client `op` interface — the single
 /// source of truth for the HTTP client API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
-const HTTP_CLIENT_HNL: &str =
-    include_str!("../../../handl-packages/http_client/http_client.hnl");
+const HTTP_CLIENT_HNL: &str = include_str!("../../../handl-packages/http_client/http_client.hnl");
 
 /// Build an [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for the
 /// HTTP client ops, registering Rust handls that delegate to the given
 /// [`HttpClient`] under their op names.
-pub fn http_client_op_registry(client: impl HttpClient + 'static) -> handl_plugin_lib_handl::OpRegistry {
+pub fn http_client_op_registry(
+    client: impl HttpClient + 'static,
+) -> handl_plugin_lib_handl::OpRegistry {
     let mut registry = handl_plugin_lib_handl::OpRegistry::new();
     register_http_client_ops(&mut registry, client);
     registry

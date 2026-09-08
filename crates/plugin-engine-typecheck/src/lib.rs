@@ -2,14 +2,14 @@
 //!
 //! The **abstraction** crate for the typecheck operation (ADR-0054 §3).
 //!
-//! Splits `plugin-ext-typecheck` into an abstraction (operation marker +
-//! trait, no engine) and an engine crate. This crate defines the
+//! This crate is the typecheck operation abstraction (operation marker +
+//! trait, no engine). This crate defines the
 //! [`Typecheck`] operation marker, [`TypecheckRequest`],
 //! [`TypecheckResult`], and the [`TypecheckEngine`] trait. `Foreign`
 //! scheme dispatch uses [`handl_platform::ModuleLookup`] from the
 //! `handl-platform` crate (type rules may call host functions).
 //! **No typecheck engine code lives here** — the abstraction is the
-//! contract; a concrete engine (e.g. a normalization-based checker)
+//! contract; a concrete engine (e.g. `handl-plugin-engine-typecheck-nbe`)
 //! implements it.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
@@ -321,11 +321,8 @@ mod tests {
     fn check_module_unbound_wire_errors() {
         let report = check_module("main = foo").unwrap();
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.rule == "unbound-wire"
-                    && d.severity == handl_plugin_ext_diag::Severity::Error),
+            report.diagnostics.iter().any(|d| d.rule == "unbound-wire"
+                && d.severity == handl_plugin_ext_diag::Severity::Error),
             "expected unbound-wire error, got: {:?}",
             report.diagnostics
         );

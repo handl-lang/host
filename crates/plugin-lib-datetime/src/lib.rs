@@ -121,7 +121,10 @@ pub fn datetime_op_registry() -> OpRegistry {
     registry.register("datetime.is_after", Arc::new(IsAfter));
     registry.register("datetime.is_equal", Arc::new(IsEqual));
     registry.register("datetime.is_between", Arc::new(IsBetween));
-    registry.register("datetime.is_between_inclusive", Arc::new(IsBetweenInclusive));
+    registry.register(
+        "datetime.is_between_inclusive",
+        Arc::new(IsBetweenInclusive),
+    );
     registry.register("datetime.duration_between", Arc::new(DurationBetween));
     registry.register("datetime.duration_seconds", Arc::new(DurationSeconds));
     registry.register("datetime.duration_minutes", Arc::new(DurationMinutes));
@@ -213,8 +216,14 @@ impl handl_platform::Plugin for DatetimeLibraryPlugin {
 /// Build a [`HandlLibraryPlugin`] for datetime with the op registry.
 pub fn datetime_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(datetime_op_registry());
-    HandlLibraryPlugin::new_with_caps("datetime", "lib.datetime", "lib-datetime", DATETIME_HNL, &[])
-        .with_ops(DATETIME_OPS, registry)
+    HandlLibraryPlugin::new_with_caps(
+        "datetime",
+        "lib.datetime",
+        "lib-datetime",
+        DATETIME_HNL,
+        &[],
+    )
+    .with_ops(DATETIME_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

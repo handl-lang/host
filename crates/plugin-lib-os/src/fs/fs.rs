@@ -170,13 +170,7 @@ impl Function for ListDirFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `fs` module.
-pub const FS_OPS: &[&str] = &[
-    "fs.read",
-    "fs.write",
-    "fs.exists",
-    "fs.remove",
-    "fs.list",
-];
+pub const FS_OPS: &[&str] = &["fs.read", "fs.write", "fs.exists", "fs.remove", "fs.list"];
 
 /// Register the `fs` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Fs`] implementation.

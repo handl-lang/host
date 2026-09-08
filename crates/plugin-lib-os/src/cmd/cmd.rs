@@ -114,9 +114,7 @@ impl Function for RunFn {
 // ---------------------------------------------------------------------------
 
 /// The op names declared in `os.hnl` for the `cmd` module.
-pub const CMD_OPS: &[&str] = &[
-    "cmd.run",
-];
+pub const CMD_OPS: &[&str] = &["cmd.run"];
 
 /// Register the `cmd` ops into the given [`OpRegistry`], dispatching to the
 /// given [`Cmd`] implementation.

@@ -414,8 +414,8 @@ impl Function for Xor {
     }
 }
 
-use std::sync::Arc;
 use handl_plugin_lib_handl::OpRegistry;
+use std::sync::Arc;
 
 pub const OPTION_OPS: &[&str] = &[
     "option.some",

@@ -1,7 +1,7 @@
 use super::*;
 use handl_language::{
     Ast, AstNode, AstRef, AstShapeDef, AstShapeRef, ChildRoleSpec, DelimitedShape, GrammarPosition,
-    GrammarRow, Language, LiteralKind, PairShape, PayloadTokenSpec, Span, TokenKindDef,
+    GrammarRow, Language, LiteralKind, PairShape, PayloadTokenSpec, Span, Token, TokenKindDef,
 };
 use serde_json::Value;
 
@@ -612,4 +612,182 @@ fn preserve_nested_change_inside_unchanged_block() {
     let emitter = PreserveEmitter::new(src, &ast, block, &changed).unwrap();
     let out = emitter.format(&lang, &ast, block).unwrap();
     assert_eq!(out, "{\n  let x = 1 + 2;\n  let y = 3 * 4\n}");
+}
+// ---------------------------------------------------------------------------
+// ADR-0095 pipeline: layout (stage 2), render (stage 3), post-process (stage 4)
+// ---------------------------------------------------------------------------
+
+/// A categorized language covering the [`TokenCat`] classifications.
+fn categorized_lang() -> Language {
+    let mut lang = Language::new();
+    lang.tokens
+        .merge(TokenKindDef::new("token.lparen").with_category("open-bracket").with_label("("))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.lbrace").with_category("open-bracket").with_label("{"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.rparen").with_category("close-bracket").with_label(")"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.rbrace").with_category("close-bracket").with_label("}"))
+        .unwrap();
+    lang.tokens
+        .merge(
+            TokenKindDef::new("token.rbracket")
+                .with_category("close-bracket")
+                .with_label("]"),
+        )
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.comma").with_category("punctuation").with_label(","))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.colon").with_category("punctuation").with_label(":"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.dot").with_category("punctuation").with_label("."))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.plus").with_category("operator").with_label("+"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.bang").with_category("operator").with_label("!"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.keyword.if").with_category("keyword").with_label("if"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.identifier").with_category("identifier"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.number").with_category("number"))
+        .unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.comment").with_category("comment"))
+        .unwrap();
+    lang
+}
+
+#[test]
+fn classify_token_by_category() {
+    let lang = categorized_lang();
+    assert_eq!(classify_token(&lang, "token.lparen"), TokenCat::OpenBracket);
+    assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
+    assert_eq!(classify_token(&lang, "token.rparen"), TokenCat::CloseParen);
+    assert_eq!(classify_token(&lang, "token.rbrace"), TokenCat::CloseBrace);
+    assert_eq!(classify_token(&lang, "token.rbracket"), TokenCat::CloseBracket);
+    assert_eq!(classify_token(&lang, "token.comma"), TokenCat::Comma);
+    assert_eq!(classify_token(&lang, "token.colon"), TokenCat::Colon);
+    assert_eq!(classify_token(&lang, "token.dot"), TokenCat::Dot);
+    assert_eq!(classify_token(&lang, "token.plus"), TokenCat::BinaryOp);
+    // `!` is an operator with a non-infix spelling → Other.
+    assert_eq!(classify_token(&lang, "token.bang"), TokenCat::Other);
+    assert_eq!(classify_token(&lang, "token.keyword.if"), TokenCat::Keyword);
+    assert_eq!(classify_token(&lang, "token.number"), TokenCat::Atom);
+    assert_eq!(classify_token(&lang, "token.identifier"), TokenCat::Atom);
+    assert_eq!(classify_token(&lang, "token.comment"), TokenCat::Comment);
+    // Unknown kind → Other.
+    assert_eq!(classify_token(&lang, "token.unknown"), TokenCat::Other);
+}
+
+#[test]
+fn canonical_formatting_rule_and_needs_space() {
+    use TokenCat::*;
+    let rule = CanonicalFormattingRule;
+    assert_eq!(rule.name(), "canonical-spacing");
+    assert!(rule.needs_space(Atom, BinaryOp));
+    assert!(rule.needs_space(BinaryOp, Atom));
+    assert!(needs_space(Atom, BinaryOp));
+    assert!(!needs_space(OpenBracket, Atom));
+    assert!(!needs_space(Atom, CloseParen));
+    assert!(!needs_space(Atom, Comma));
+    assert!(!needs_space(Dot, Atom));
+    assert!(!needs_space(OpenBrace, CloseBrace)); // empty {}
+    assert!(needs_space(Keyword, Atom));
+}
+
+#[test]
+fn indent_bias_classifies_brackets() {
+    use TokenCat::*;
+    assert_eq!(indent_bias(OpenBracket), IndentBias::Open);
+    assert_eq!(indent_bias(OpenBrace), IndentBias::Open);
+    assert_eq!(indent_bias(CloseParen), IndentBias::Close);
+    assert_eq!(indent_bias(CloseBracket), IndentBias::Close);
+    assert_eq!(indent_bias(CloseBrace), IndentBias::Close);
+    assert_eq!(indent_bias(Atom), IndentBias::None);
+}
+
+#[test]
+fn format_options_default_has_indent_and_width() {
+    let o = FormatOptions::default();
+    assert_eq!(o.indent_size, 2);
+    assert_eq!(o.width, 100);
+}
+#[test]
+fn token_formatter_spacing_and_custom_rule() {
+    let lang = categorized_lang();
+    let tokens: Vec<Token> = vec![
+        Token { kind: "token.identifier".into(), text: "x".into(), ..Default::default() },
+        Token { kind: "token.plus".into(), text: "+".into(), ..Default::default() },
+        Token { kind: "token.number".into(), text: "2".into(), ..Default::default() },
+    ];
+    // Canonical spacer → `x + 2`.
+    let canonical = TokenFormatter::canonical(2);
+    assert_eq!(canonical.format("x + 2", &tokens, &lang), "x + 2");
+    // A replaced rule (the ADR-0095 seam) changes output without touching the
+    // render loop: a no-space rule joins tokens tightly.
+    struct NoSpace;
+    impl FormattingRule for NoSpace {
+        fn name(&self) -> &str {
+            "no-space"
+        }
+
+        fn needs_space(&self, _prev: TokenCat, _curr: TokenCat) -> bool {
+            false
+        }
+    }
+    let tight = TokenFormatter::new(Box::new(NoSpace), 2);
+    assert_eq!(tight.format("x + 2", &tokens, &lang), "x+2");
+}
+
+#[test]
+fn token_formatter_indents_to_depth() {
+    let lang = categorized_lang();
+    // A leading `{` then a newline-gapped token → depth 1 → two-space indent.
+    let tokens: Vec<Token> = vec![
+        Token { kind: "token.lbrace".into(), text: "{".into(), ..Default::default() },
+        Token { kind: "token.identifier".into(), text: "x".into(), ..Default::default() },
+        Token { kind: "token.rbrace".into(), text: "}".into(), ..Default::default() },
+    ];
+    let formatter = TokenFormatter::canonical(2);
+    let out = formatter.format("{\nx\n}", &tokens, &lang);
+    assert_eq!(out, "{\n  x\n}");
+}
+
+#[test]
+fn post_process_individual_rules() {
+    let rule = TrailingWhitespaceRule;
+    assert_eq!(rule.apply("a   \nb \n"), "a\nb");
+    let collapse = CollapseBlankLinesRule;
+    assert_eq!(collapse.apply("a\n\n\nb"), "a\n\nb");
+    let groups = BlankLineBetweenDeclGroupsRule;
+    assert_eq!(
+        groups.apply("import a from \"x\"\nmain :: f"),
+        "import a from \"x\"\n\nmain :: f"
+    );
+    assert_eq!(
+        groups.apply("import a from \"x\"\nimport b from \"y\""),
+        "import a from \"x\"\nimport b from \"y\""
+    );
+    let newline = SingleTrailingNewlineRule;
+    assert_eq!(newline.apply("x\n\n"), "x\n");
+    assert_eq!(newline.apply(""), "");
+}
+
+#[test]
+fn canonical_post_process_full_chain() {
+    let out = canonical_post_process("import sort from \"c\"   \nmain :: f([1])   \n\n");
+    assert_eq!(out, "import sort from \"c\"\n\nmain :: f([1])\n");
+    assert_eq!(canonical_post_process(""), "");
 }
