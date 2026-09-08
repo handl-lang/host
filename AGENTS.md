@@ -97,11 +97,18 @@ and linter all split source into top-level statements at bracket-depth zero
   removed in ADR-0079 (block bindings `do { x = y; ... }` cover it).
 - **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
   hits — these are debt to close via `Language` data, not patterns to extend):
-  - `plugin-engine-parse-pratt/src/lib.rs` ~L293/337: `match`/`data` special
-    parse branches remain. Closing them needs new generic grammar-row fields:
-    an optional keyword clause (`return ... with`) between a fixed child and a
-    delimited block for `match`, and per-child binding powers plus a
-    `payload_extract` step for `data`.
+  - `plugin-engine-parse-pratt/src/lib.rs` `match`/`data` special parse
+    branches: **closed**. `AstShapeRef` gained three generic fields (all
+    serde-defaulted, third-party rows unaffected): `child_binding_powers`
+    (per-child rbp overrides — `data` parses its type child at rbp 6 to stop
+    before `::` and its constructor list at rbp 0 so `|` binds),
+    `keyword_clauses` (optional `open <expr> close` clauses spliced in after
+    fixed child `after_child` — `match`'s `return motive with`), and
+    `payload_extract` (lift a name-like string from a child into the payload
+    — `data`'s `payload.name`). The `grammar.match.prefix`/
+    `grammar.data.prefix` rows in `data/grammar.yaml` carry the fields; the
+    `kind == "match"`/`kind == "data"` branches are deleted. See ADR-0053's
+    amendment section.
   - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
     `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
     heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
