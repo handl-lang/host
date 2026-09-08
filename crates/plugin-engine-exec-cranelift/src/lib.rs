@@ -2070,7 +2070,29 @@ fn prim_v2_import(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
         }
     };
 
-    if let Some(alias) = node.payload.get("alias").and_then(|v| v.as_str()) {
+    // Binding semantics mirror the tree-walk `prim_import` (ADR-0096):
+    // `names` (non-"*") projects a single export, `alias` alone binds the
+    // whole module object, otherwise each export is spliced into scope.
+    let names = node
+        .payload
+        .get("names")
+        .and_then(|v| v.as_str())
+        .filter(|n| *n != "*");
+    let alias = node.payload.get("alias").and_then(|v| v.as_str());
+    if let Some(imported) = names {
+        let exported = bindings
+            .as_object()
+            .and_then(|map| map.get(imported).cloned());
+        match exported {
+            Some(value) => ctx.env.define(alias.unwrap_or(imported), value),
+            None => {
+                return ctx.set_error(LangError::engine_node(
+                    format!("import \"{}\": module has no export `{}`", path, imported),
+                    &node,
+                ));
+            }
+        }
+    } else if let Some(alias) = alias {
         ctx.env.define(alias, bindings);
     } else if let Some(map) = bindings.as_object() {
         for (name, val) in map.iter() {

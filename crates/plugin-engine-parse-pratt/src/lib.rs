@@ -656,12 +656,21 @@ impl PrattEngine {
         shape: &AstShapeRef,
         payload_fields: &mut serde_json::Map<String, Value>,
     ) -> Result<(), LangError> {
+        let mut prev_matched = true;
         for step in &shape.trailing_tokens {
+            // Gated steps (`TokenStep::requires_prev_match`) are attempted
+            // only when the previous step matched — e.g. `from "p" import
+            // name as alias` consumes the alias only after `as`, so a
+            // following statement's leading identifier is never swallowed.
+            if step.requires_prev_match && !prev_matched {
+                continue;
+            }
             let matches = cursor
                 .peek()
                 .map(|t| step.kinds.iter().any(|k| k == &t.kind))
                 .unwrap_or(false);
             if !matches {
+                prev_matched = false;
                 if step.optional {
                     continue;
                 }
@@ -675,6 +684,7 @@ impl PrattEngine {
                 ));
             }
             let tok = cursor.advance()?;
+            prev_matched = true;
             if let Some(field) = &step.field {
                 payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
             }

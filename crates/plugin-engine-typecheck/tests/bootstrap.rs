@@ -439,3 +439,68 @@ fn object_value_unbound_wire_detected() {
         "only `foo` (value) should be flagged, not `x` (key)"
     );
 }
+
+// ---------------------------------------------------------------------------
+// `from "<spec>" import ...` — canonical import surface (ADR-0096)
+// ---------------------------------------------------------------------------
+
+/// `from "str" import * as str` scopes the alias — qualified calls like
+/// `str.trim` are not flagged as unbound wires.
+#[test]
+fn from_import_star_as_scopes_alias() {
+    let report =
+        check_module("from \"str\" import * as str; main = str.trim(\"x\")").unwrap();
+    assert_clean(&report);
+}
+
+/// `from "str" import name` (named projection, no `as`) scopes the name.
+#[test]
+fn from_import_named_scopes_name() {
+    let report =
+        check_module("from \"str\" import reverse; main = reverse(\"ab\")").unwrap();
+    assert_clean(&report);
+}
+
+/// `from "str" import name as local` scopes the alias, not the remote name.
+#[test]
+fn from_import_named_as_scopes_alias_not_name() {
+    let report =
+        check_module("from \"str\" import reverse as rev; main = rev(\"ab\")").unwrap();
+    assert_clean(&report);
+
+    // The remote name itself is not bound.
+    let report =
+        check_module("from \"str\" import reverse as rev; main = reverse(\"ab\")").unwrap();
+    assert!(
+        has_diag(&report, "unbound-wire", Severity::Error),
+        "expected unbound-wire for `reverse`, got: {:?}",
+        report.diagnostics
+    );
+}
+
+/// `from "str" import *` (no alias) with a bare module-name specifier binds
+/// the module name itself — `str.trim` resolves qualified via the module
+/// chain at runtime, so `str` is in scope.
+#[test]
+fn from_import_star_bare_name_scopes_module_name() {
+    let report = check_module("from \"str\" import *; main = str.trim(\"x\")").unwrap();
+    assert_clean(&report);
+}
+
+/// `from "m" import name` where the name is used inside a `do { ... }`
+/// block: the block-level import scopes its bound names for following
+/// siblings (mirroring `prim_import` runtime semantics).
+#[test]
+fn block_level_import_scopes_siblings() {
+    let src = "do { from \"str\" import reverse\nreverse(\"ab\") }";
+    let report = check_module(src).unwrap();
+    assert_clean(&report);
+}
+
+/// A `do { ... }` block binds `assign` targets sequentially — a sibling
+/// referring to an earlier block binding is not an unbound wire.
+#[test]
+fn block_assign_binds_for_siblings() {
+    let report = check_module("do { x :: 1\nx + 1 }").unwrap();
+    assert_clean(&report);
+}

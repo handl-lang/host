@@ -2866,10 +2866,13 @@ impl TreeWalkEngine {
     /// fallback, the path is also read from `current_node.payload["path"]`
     /// (the `ast.import` shape declares a `path` field).
     ///
-    /// The resolver returns a `Value::Object` of `{name: value, ...}`; each
-    /// entry is bound into the current (innermost) scope via
-    /// [`ScopeStack::define`]. No new scope is pushed (`did_push = false`):
-    /// imported bindings share the importer's scope.
+    /// The resolver returns a `Value::Object` of `{name: value, ...}`. The
+    /// node's `payload.names`/`payload.alias` (set by the `from "path"
+    /// import ...` grammar tail) select the binding mode: a named import
+    /// projects a single export, `* as alias` binds the whole object, and
+    /// `*`/bare `import "path"` splices each export into the current
+    /// (innermost) scope via [`ScopeStack::define`]. No new scope is pushed
+    /// (`did_push = false`): imported bindings share the importer's scope.
     ///
     /// If no resolver is configured, the op errors gracefully.
     fn prim_import(
@@ -2909,10 +2912,35 @@ impl TreeWalkEngine {
             // is a bare engine error.
             LangError::engine_node(format!("import \"{}\": {}", path, e), current_node)
         })?;
-        // If an alias is present (`from "path" import * as alias`), bind the
-        // whole module object to that name. Otherwise bind each top-level
-        // export into the current scope.
-        if let Some(alias) = current_node.payload.get("alias").and_then(|v| v.as_str()) {
+        // Binding semantics (`payload.names` / `payload.alias`, ADR-0096):
+        // - `import "path"` / `from "path" import *` (no alias): splice each
+        //   top-level export into the current scope.
+        // - `from "path" import * as alias`: bind the whole module object to
+        //   `alias`.
+        // - `from "path" import name [as alias]`: project `name` out of the
+        //   module's exports and bind it under `alias` (or `name`).
+        let names = current_node
+            .payload
+            .get("names")
+            .and_then(|v| v.as_str())
+            .filter(|n| *n != "*");
+        let alias = current_node
+            .payload
+            .get("alias")
+            .and_then(|v| v.as_str());
+        if let Some(imported) = names {
+            let exported = match &bindings {
+                Value::Object(map) => map.get(imported).cloned(),
+                _ => None,
+            };
+            let value = exported.ok_or_else(|| {
+                LangError::engine_node(
+                    format!("import \"{}\": module has no export `{}`", path, imported),
+                    current_node,
+                )
+            })?;
+            env.define(alias.unwrap_or(imported), TaggedValue::from(value));
+        } else if let Some(alias) = alias {
             env.define(alias, TaggedValue::from(bindings.clone()));
         } else if let Value::Object(map) = bindings {
             for (name, val) in map {

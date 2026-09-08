@@ -256,13 +256,16 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
-# `from "path" import * as alias` — the path is a child expression and the
-# `import * as <alias>` tail is a sequence of required trailing tokens
-# (`AstShapeRef::trailing_tokens`, ADR-0053): `import`, `*`, `as` are
-# consumed verbatim and the alias (identifier or string) is captured into
-# `payload.alias`. The path string is lifted out of the child into
-# `payload.path` via a required `payload_extract` step — a non-string path
-# child is a parse error.
+# `from "path" import <names> [as <alias>]` — the path is a child
+# expression and the `import ...` tail is a sequence of trailing tokens
+# (`AstShapeRef::trailing_tokens`, ADR-0053): `import` is required, then
+# either `*` (whole module) or a single exported name — captured into
+# `payload.names` — then an optional `as <alias>` (identifier or string)
+# captured into `payload.alias`. This covers `from "p" import *`,
+# `from "p" import * as m`, `from "p" import name`, and
+# `from "p" import name as local`. The path string is lifted out of the
+# child into `payload.path` via a required `payload_extract` step — a
+# non-string path child is a parse error.
 - id: grammar.stmt-from.prefix
   token: token.keyword.from
   position: Prefix
@@ -281,12 +284,18 @@
           - token.keyword.import
       - kinds:
           - token.star
+          - token.identifier
+        field: names
       - kinds:
           - token.keyword.as
+        optional: true
+      # The alias is consumed only when `as` matched — otherwise a
+      # following statement's leading identifier would be swallowed.
       - kinds:
           - token.identifier
           - token.string
         field: alias
+        requires_prev_match: true
 # `match` supports an optional `return ... with` motive clause and produces a
 # `match` node with 2 or 3 children: [scrutinee, (motive,) arms]. Surface forms:
 #   match scrutinee { arms }

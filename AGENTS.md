@@ -96,6 +96,44 @@ The Pratt parser parses one statement per call. The typechecker, test runner,
 and linter all split source into top-level statements at bracket-depth zero
 (respecting strings and `--` comments) before parsing each chunk individually.
 
+### Unified import model (ADR-0096)
+
+- **Canonical surface forms** (all → `stmt.import`):
+  `import "<spec>"`, `from "<spec>" import *`, `from "<spec>" import * as
+  <alias>`, `from "<spec>" import <name> [as <alias>]`. The `from` tail is
+  `AstShapeRef::trailing_tokens` on `grammar.stmt-from.prefix`: `import`,
+  then `*` or an identifier captured into `payload.names`, then an optional
+  `as <alias>` gated by `TokenStep::requires_prev_match` (new flag — a
+  gated step is only attempted when the previous step matched, so the alias
+  never swallows a following statement's leading identifier).
+- **Path vs module-name specifiers**: a `<spec>` resolving to a file
+  (`.handl.toml` `[dependencies]` first segment → package dir; else module
+  dir → module root → CWD) is the executable import op — `prim_import` in
+  all three eval engines splices exports, binds the module record under
+  `* as`, or projects a named export (missing name → `module has no
+  export`). A spec that does **not** resolve to a file (bare host-module
+  names like `str`, extension-less siblings like `./dedent`) denotes a
+  module on the host chain: `HandlModule::with_resolver` auto-wires it for
+  `.hnl` module sources, and whole-program/file-loader hosts strip the
+  declaration line (`host-cli::strip_import_declarations`,
+  `ModuleLoader::strip_module_decl_lines`, the test runner's `push_chunk`)
+  because the kit's module chain already supplies the bindings. A
+  `resolve_import` module-name fallback (registry → module-namespace
+  value) is deferred pending `loader.hnl` default install.
+- **`hnl typecheck`** scopes every `stmt.import`'s bound names (child var,
+  `payload.names`, `payload.alias`) at module level and inside `do { ... }`
+  blocks — statements bind sequentially, so block-level imports and
+  `assign` targets are in scope for following siblings.
+  `from "<bare-name>" import *` scopes the module name itself; path splice
+  imports bind statically unknown names (still flagged — use `* as` or the
+  named form).
+- **Arrow-module dialect** (`plugin-ext-refinement`): `import x from "p"`,
+  `import a, b from "p"`, `export ... from` are the arrow-module line
+  scanner's syntax — dialect-fixed, not canonical. Canonical Pratt parses
+  `import x from "p"` as `import (x)` and silently drops the `from "p"`
+  tail (no cursor-exhaustion check); `hnl run`/the test runner strip the
+  line.
+
 ### Known issues
 
 - `let` is **fully removed** from the language (completes ADR-0079):
@@ -155,9 +193,10 @@ and linter all split source into top-level statements at bracket-depth zero
       rewritten to canonical `from "./dedent" import * as dedent`, so the
       divergence is **closed**. Note the import line in `.test.hnl` files is
       still skipped textually by the test runner (and stripped by `hnl
-      run`) — the stdlib module chain supplies the bindings — but the line
-      now also parses under canonical Pratt, so `hnl typecheck`/`lint`/`fmt`
-      accept the file.
+      run` when its specifier does not resolve to a file) — the stdlib
+      module chain supplies the bindings — but the line now also parses
+      under canonical Pratt, so `hnl typecheck`/`lint`/`fmt` accept the
+      file. See "Unified import model (ADR-0096)" below.
     - `plugin-engine-transform-rewrite/src/native/desugar.rs`: only the
       `data` and `match`→recursor desugar natives
       (`node_to_type_string`, `collect_constructors`, strict positivity,

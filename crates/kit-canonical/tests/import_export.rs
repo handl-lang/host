@@ -248,3 +248,135 @@ fn import_dependency_fallback_to_module_root() {
         msg
     );
 }
+
+// ---------------------------------------------------------------------------
+// `from "path" import ...` — the full canonical import surface (ADR-0096)
+// ---------------------------------------------------------------------------
+
+/// `from "mod.hnl" import *` splices the module's exports into scope — the
+/// same binding mode as bare `import "mod.hnl"`.
+#[test]
+fn from_import_star_splices_bindings() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "x :: 42");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { from \"mod.hnl\" import *; x }")
+        .expect("from-import * should splice bindings");
+    assert_eq!(val, json!(42));
+}
+
+/// `from "mod.hnl" import * as m` binds the whole module bindings object
+/// to `m`.
+#[test]
+fn from_import_star_as_alias_binds_module_object() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "x :: 42");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { from \"mod.hnl\" import * as m; m }")
+        .expect("from-import * as should bind the module object");
+    assert_eq!(val, json!({"x": 42}));
+}
+
+/// `from "mod.hnl" import name` projects a single export and binds it
+/// under its own name.
+#[test]
+fn from_import_named_binds_single_export() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "double :: (x) ~> x * 2");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { from \"mod.hnl\" import double; double(21) }")
+        .expect("named import should bind the export");
+    assert_eq!(val, json!(42));
+}
+
+/// `from "mod.hnl" import name as local` binds the projected export under
+/// the alias.
+#[test]
+fn from_import_named_as_alias() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "double :: (x) ~> x * 2");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { from \"mod.hnl\" import double as d; d(21) }")
+        .expect("named import with alias should bind the alias");
+    assert_eq!(val, json!(42));
+}
+
+/// A named import for a missing export errors with a clear message.
+#[test]
+fn from_import_missing_export_errors() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "x :: 42");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let err = kit
+        .eval("do { from \"mod.hnl\" import missing; missing }")
+        .expect_err("missing export should error");
+    let msg = format!("{}", err);
+    assert!(
+        msg.contains("no export `missing`"),
+        "error should name the missing export: {}",
+        msg
+    );
+}
+
+/// The `as`-gated alias tail must not swallow a following statement's
+/// leading identifier: `from "m" import name` on its own line followed by
+/// a statement starting with an identifier keeps the two statements
+/// separate.
+#[test]
+fn from_import_alias_does_not_swallow_next_statement() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(dir.path(), "mod.hnl", "x :: 7");
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { from \"mod.hnl\" import x\nx + 1 }")
+        .expect("next statement must not be consumed as alias");
+    assert_eq!(val, json!(8));
+}
+
+/// A file-loaded module may carry host-module declaration headers
+/// (`from "str" import * as str`): the specifier names a module resolved
+/// via the shared module chain, so the loader strips the line and the
+/// module body's `str.*` calls still dispatch.
+#[test]
+fn nested_module_with_host_module_header() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(
+        dir.path(),
+        "inner.hnl",
+        "from \"str\" import * as str\nx :: str.trim(\"  hi  \")",
+    );
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { import \"inner.hnl\"; x }")
+        .expect("module with host-module header should load");
+    assert_eq!(val, json!("hi"));
+}
+
+/// `import <name> ...` declaration lines inside a file-loaded module are
+/// stripped (the canonical grammar cannot execute the name-first order).
+#[test]
+fn nested_module_with_name_first_decl_header() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_module(
+        dir.path(),
+        "inner.hnl",
+        "import str from \"str\"\nx :: 5",
+    );
+    let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
+
+    let val = kit
+        .eval("do { import \"inner.hnl\"; x }")
+        .expect("module with name-first decl header should load");
+    assert_eq!(val, json!(5));
+}
