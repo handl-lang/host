@@ -374,10 +374,10 @@ fn lint_action_title(rule: &str, message: &str) -> String {
 /// ADR-0094 transform engine's `find_matches`, so these actions are genuinely
 /// engine-driven: find pattern → show diff (the `edit`) → apply at node.
 ///
-/// Span caveat: the v0.1 Pratt AST nodes carry no source spans, so the edit
-/// range comes from the `Fix` span lint computes from the token stream, not
-/// from `AstNode::span`.  Only diagnostics whose fix span intersects the
-/// requested range are offered.
+/// The match comes from `find_matches`; the edit is a span→text replacement
+/// using `AstNode::span` (the `Fix` span that `lint_source` now derives from
+/// the matched `paren` and inner-atom node spans).  Only diagnostics whose
+/// fix span intersects the requested range are offered.
 fn lint_fix_actions(source: &str, range_start: usize, range_end: usize) -> Vec<Value> {
     if source.trim().is_empty() {
         return Vec::new();

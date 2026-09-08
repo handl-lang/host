@@ -21,11 +21,12 @@
 
 use handl_language::{
     Ast, AstNode, AstRef, AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, Language,
-    LexerRuleDef, OptionSchema, TokenKindDef, TypeRuleDef,
+    LexerRuleDef, OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
 };
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
+use handl_plugin_engine_transform::validate::validate_transforms;
 use handl_plugin_ext_diag::{Diagnostic, Severity, Span};
 
 use std::collections::{HashMap, HashSet};
@@ -40,10 +41,13 @@ use crate::{CheckError, TypecheckReport};
 // The bootstrap checker cannot depend on `handl-kit-data-canonical` because
 // that crate pulls in `handl-runtime`, which depends on this crate
 // (`handl-plugin-engine-typecheck`) for the `TypecheckEngine` trait — a
-// cyclic dependency. Instead, the eight canonical YAML data files are
+// cyclic dependency. Instead, the nine canonical YAML data files are
 // embedded directly via `include_str!` and merged into a `Language` using
 // the `handl-language` fragment API, exactly as
-// `handl_kit_data_canonical::language_from_yaml` does. The language is
+// `handl_kit_data_canonical::language_from_yaml` does — including the
+// `desugar:` → `TransformDef` lowering (`Language::merge_ast_fragment`),
+// the `transforms.yaml` merge, and transform-rule validation
+// (`validate_transforms`, ADR-0094 "Production readiness"). The language is
 // assembled once and cached for the process lifetime.
 
 const TOKENS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/tokens.yaml");
@@ -54,12 +58,42 @@ const AST_YAML: &str = include_str!("../../handl-kit-data-canonical/data/ast.yam
 const CAPS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/options.yaml");
 const LEXER_RULES_YAML: &str = include_str!("../../handl-kit-data-canonical/data/lexer_rules.yaml");
+const TRANSFORMS_YAML: &str =
+    include_str!("../../handl-kit-data-canonical/data/transforms.yaml");
 
-/// Merge the eight embedded YAML fragment strings into a single [`Language`].
+/// Merge the nine embedded YAML fragment strings into a single [`Language`].
 fn assemble_language() -> Result<Language, CheckError> {
+    assemble_language_fragments(
+        TOKENS_YAML,
+        GRAMMAR_YAML,
+        EVAL_YAML,
+        TYPES_YAML,
+        AST_YAML,
+        CAPS_YAML,
+        OPTIONS_YAML,
+        LEXER_RULES_YAML,
+        TRANSFORMS_YAML,
+    )
+}
+
+/// Merge nine YAML fragment strings into a single [`Language`], mirroring
+/// `handl_kit_data_canonical::merge_fragments`: `desugar:`-field lowering via
+/// [`Language::merge_ast_fragment`], the first-class `transforms` merge, then
+/// transform-rule validation (Error-severity diagnostics fail assembly).
+fn assemble_language_fragments(
+    tokens_yaml: &str,
+    grammar_yaml: &str,
+    eval_yaml: &str,
+    types_yaml: &str,
+    ast_yaml: &str,
+    caps_yaml: &str,
+    options_yaml: &str,
+    lexer_rules_yaml: &str,
+    transforms_yaml: &str,
+) -> Result<Language, CheckError> {
     let mut lang = Language::new();
 
-    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(TOKENS_YAML)
+    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(tokens_yaml)
         .map_err(|e| CheckError::Parse(format!("tokens.yaml: {e}")))?;
     for frag in tokens {
         lang.tokens
@@ -67,7 +101,7 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("tokens.yaml: {e}")))?;
     }
 
-    let grammar: Vec<GrammarRow> = serde_yaml::from_str(GRAMMAR_YAML)
+    let grammar: Vec<GrammarRow> = serde_yaml::from_str(grammar_yaml)
         .map_err(|e| CheckError::Parse(format!("grammar.yaml: {e}")))?;
     for frag in grammar {
         lang.grammar
@@ -75,7 +109,7 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("grammar.yaml: {e}")))?;
     }
 
-    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(EVAL_YAML)
+    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(eval_yaml)
         .map_err(|e| CheckError::Parse(format!("eval.yaml: {e}")))?;
     for frag in eval {
         lang.eval
@@ -83,7 +117,7 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("eval.yaml: {e}")))?;
     }
 
-    let types: Vec<TypeRuleDef> = serde_yaml::from_str(TYPES_YAML)
+    let types: Vec<TypeRuleDef> = serde_yaml::from_str(types_yaml)
         .map_err(|e| CheckError::Parse(format!("types.yaml: {e}")))?;
     for frag in types {
         lang.types
@@ -91,15 +125,17 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("types.yaml: {e}")))?;
     }
 
+    // AST shapes (union). `merge_ast_fragment` also lowers any `desugar:`
+    // rule a shape carries into a `TransformDef` in `lang.transforms`
+    // (pass "desugar", ADR-0094 §6) — same as `merge_fragments`.
     let ast: Vec<AstShapeDef> =
-        serde_yaml::from_str(AST_YAML).map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
+        serde_yaml::from_str(ast_yaml).map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
     for frag in ast {
-        lang.ast
-            .merge(frag)
+        lang.merge_ast_fragment(frag)
             .map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
     }
 
-    let caps: Vec<CapabilityDecl> = serde_yaml::from_str(CAPS_YAML)
+    let caps: Vec<CapabilityDecl> = serde_yaml::from_str(caps_yaml)
         .map_err(|e| CheckError::Parse(format!("caps.yaml: {e}")))?;
     for frag in caps {
         lang.caps
@@ -107,7 +143,7 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("caps.yaml: {e}")))?;
     }
 
-    let options: Vec<OptionSchema> = serde_yaml::from_str(OPTIONS_YAML)
+    let options: Vec<OptionSchema> = serde_yaml::from_str(options_yaml)
         .map_err(|e| CheckError::Parse(format!("options.yaml: {e}")))?;
     for frag in options {
         lang.options
@@ -115,7 +151,7 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("options.yaml: {e}")))?;
     }
 
-    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(LEXER_RULES_YAML)
+    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(lexer_rules_yaml)
         .map_err(|e| CheckError::Parse(format!("lexer_rules.yaml: {e}")))?;
     for frag in lexer_rules {
         lang.lexer_rules
@@ -123,22 +159,48 @@ fn assemble_language() -> Result<Language, CheckError> {
             .map_err(|e| CheckError::Parse(format!("lexer_rules.yaml: {e}")))?;
     }
 
+    // Transform rules (ADR-0094). Merged *after* the ast pass so a
+    // first-class rule may `replaces:` a `desugar:`-lowered
+    // `transform.desugar.*` rule synthesized above.
+    let transforms: Vec<TransformDef> = serde_yaml::from_str(transforms_yaml)
+        .map_err(|e| CheckError::Parse(format!("transforms.yaml: {e}")))?;
+    for frag in transforms {
+        lang.transforms
+            .merge(frag)
+            .map_err(|e| CheckError::Parse(format!("transforms.yaml: {e}")))?;
+    }
+
+    // ADR-0094 "Production readiness": transform-rule validation runs at
+    // `Language` build *and* under `hnl typecheck`. Error-severity
+    // diagnostics fail assembly — the check path must not run against a
+    // language whose transform rules are malformed.
+    let errors: Vec<String> = validate_transforms(&lang)
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .map(|d| d.message.clone())
+        .collect();
+    if !errors.is_empty() {
+        return Err(CheckError::Language(format!(
+            "transform rule validation failed: {}",
+            errors.join("; ")
+        )));
+    }
+
     Ok(lang)
 }
 
 /// Return a reference to the process-wide cached canonical [`Language`].
 ///
-/// The eight YAML data files are compiled in and pre-resolved (verified by
-/// the `handl-kit-data-canonical` test suite), so assembly cannot fail at
-/// runtime; `expect` is appropriate for a data-consistency invariant.
+/// The nine YAML data files are compiled in and pre-resolved (verified by
+/// the `handl-kit-data-canonical` test suite), so assembly should not fail
+/// at runtime — but if it does (e.g. a malformed transform rule slipped in),
+/// the failure is propagated as a [`CheckError::Language`] so `hnl typecheck`
+/// prints a readable diagnostic instead of panicking.
 fn canonical_language() -> Result<&'static Language, CheckError> {
-    static LANG: OnceLock<Language> = OnceLock::new();
-    Ok(LANG.get_or_init(|| {
-        assemble_language().expect(
-            "canonical YAML data files are pre-resolved and must assemble \
-             successfully",
-        )
-    }))
+    static LANG: OnceLock<Result<Language, CheckError>> = OnceLock::new();
+    LANG.get_or_init(assemble_language)
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 // ---------------------------------------------------------------------------
@@ -747,4 +809,97 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
     check_pass(lang, src, &stmts, &mut diags);
 
     Ok(TypecheckReport { diagnostics: diags })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The canonical embedded data files must assemble cleanly — including
+    /// `transforms.yaml` and `desugar:`-field lowering — with no
+    /// Error-severity validation diagnostics (ADR-0094).
+    #[test]
+    fn canonical_language_assembles_with_transforms() {
+        let lang = assemble_language().expect("canonical language assembles");
+        assert!(
+            !lang.transforms.is_empty(),
+            "transforms.yaml rules should land in lang.transforms"
+        );
+        assert!(
+            validate_transforms(&lang)
+                .iter()
+                .all(|d| d.severity != Severity::Error),
+            "canonical language must have no Error-severity transform diagnostics"
+        );
+    }
+
+    /// A transform rule whose `Keep` step is out of bounds for the target
+    /// shape is an Error-severity diagnostic and must fail assembly with a
+    /// readable `CheckError::Language` — this is what `hnl typecheck`
+    /// reports instead of checking against a malformed language.
+    #[test]
+    fn broken_transform_rule_fails_assembly() {
+        let broken_transforms = r#"
+- id: transform.desugar.paren-bogus
+  pass: desugar
+  node_kind: paren
+  rule: !Declarative
+    target_kind: paren
+    children:
+      - !Keep 9
+"#;
+        let err = assemble_language_fragments(
+            TOKENS_YAML,
+            GRAMMAR_YAML,
+            EVAL_YAML,
+            TYPES_YAML,
+            AST_YAML,
+            CAPS_YAML,
+            OPTIONS_YAML,
+            LEXER_RULES_YAML,
+            broken_transforms,
+        )
+        .expect_err("out-of-bounds Keep step must fail assembly");
+        match err {
+            CheckError::Language(msg) => {
+                assert!(
+                    msg.contains("transform rule validation failed"),
+                    "expected validation failure message, got: {msg}"
+                );
+                assert!(
+                    msg.contains("transform.desugar.paren-bogus"),
+                    "expected the offending rule id in the message, got: {msg}"
+                );
+            }
+            other => panic!("expected CheckError::Language, got: {other:?}"),
+        }
+        // And the rendered error is readable for the CLI path.
+        let shown = CheckError::Language("x".into()).to_string();
+        assert!(shown.starts_with("language error:"), "got: {shown}");
+    }
+
+    /// A `desugar:` field on an `AstShapeDef` still lowers into a
+    /// `TransformDef` (backward compat, ADR-0094 §6) on this merge path too.
+    #[test]
+    fn desugar_field_lowers_into_transforms() {
+        let ast_yaml = r#"
+- id: ast.sugared
+  node_kind: sugared
+  children:
+    - role: body
+  desugar:
+    target_kind: value
+    children: []
+"#;
+        let lang = assemble_language_fragments(
+            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]",
+        )
+        .expect("shape with desugar field assembles");
+        assert!(
+            lang.transforms
+                .get_by_id("transform.desugar.sugared")
+                .is_some(),
+            "desugar field should lower into lang.transforms"
+        );
+    }
 }

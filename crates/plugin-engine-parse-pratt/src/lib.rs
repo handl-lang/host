@@ -133,6 +133,38 @@ impl PrattEngine {
         let key = format!("{}@{}", token_kind, position.as_str());
         lang.grammar.get_by_identity(&key)
     }
+
+    /// Push an [`AstNode`] with an optional source span onto the arena.
+    fn push_spanned(
+        &self,
+        kind: impl Into<String>,
+        payload: Value,
+        span: Option<Span>,
+    ) -> AstRef {
+        let mut node = AstNode::new(kind).with_payload(payload);
+        if let Some(s) = span {
+            node = node.with_span(s);
+        }
+        self.ast.borrow_mut().push(node)
+    }
+
+    /// Return the span of an existing arena node, if any.
+    fn child_span(&self, idx: AstRef) -> Option<Span> {
+        self.ast.borrow().get(idx).and_then(|n| n.span)
+    }
+
+    /// Combine two optional spans into the smallest bounding span.
+    fn span_union(a: Option<Span>, b: Option<Span>) -> Option<Span> {
+        match (a, b) {
+            (Some(a), Some(b)) => Some(Span {
+                start: a.start.min(b.start),
+                end: a.end.max(b.end),
+            }),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        }
+    }
 }
 
 impl Default for PrattEngine {
@@ -344,8 +376,11 @@ impl PrattEngine {
                 match_children.push(block_idx);
             }
             let payload = serde_json::json!({ "children": match_children });
-            let node = AstNode::new("match").with_payload(payload);
-            self.ast.borrow_mut().push(node)
+            let span = Self::span_union(
+                token.span(),
+                self.child_span(AstRef::new(*match_children.last().unwrap())),
+            );
+            self.push_spanned("match", payload, span)
         } else if kind == "data" {
             // Phase 6.3: `data` declarations support parameters:
             //   data Name(params) = constructors
@@ -377,8 +412,8 @@ impl PrattEngine {
                 ]),
             );
             let payload = Value::Object(payload_fields);
-            let node = AstNode::new("data").with_payload(payload);
-            self.ast.borrow_mut().push(node)
+            let span = Self::span_union(token.span(), self.child_span(cons_expr));
+            self.push_spanned("data", payload, span)
         } else if token.kind.as_str() == "token.keyword.from" {
             // `from "path" import * as alias` — not expressible as a single
             // grammar row (path is a child expression, `import * as alias` is a
@@ -443,14 +478,13 @@ impl PrattEngine {
             payload_fields.insert("path".to_string(), Value::from(path_text));
             payload_fields.insert("alias".to_string(), Value::from(alias.to_string()));
             let payload = Value::Object(payload_fields);
-            let node = AstNode::new("stmt.import").with_payload(payload);
-            self.ast.borrow_mut().push(node)
+            let span = Self::span_union(token.span(), alias_tok.span());
+            self.push_spanned("stmt.import", payload, span)
         } else if arity == 0 && delim.is_none() && shape.payload_tokens.is_empty() {
             // Atom: payload is the token's interpreted value (dispatches on
             // LiteralKind — no substring matching).
             let payload = self.atom_payload(lang, &token);
-            let node = AstNode::new(kind).with_payload(payload);
-            self.ast.borrow_mut().push(node)
+            self.push_spanned(kind.as_str(), payload, token.span())
         } else {
             // Prefix operator: parse normal children + optional delimited block.
             let mut children: Vec<usize> = Vec::with_capacity(arity);
@@ -536,8 +570,8 @@ impl PrattEngine {
                 Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
             );
             let payload = Value::Object(payload_fields);
-            let node = AstNode::new(kind).with_payload(payload);
-            self.ast.borrow_mut().push(node)
+            let span = Self::span_union(token.span(), cursor.last_span());
+            self.push_spanned(kind.as_str(), payload, span)
         };
 
         // 3. Infix (left-denotation) loop.
@@ -644,8 +678,9 @@ impl PrattEngine {
                 }
             }
             let payload = serde_json::json!({ "children": children });
-            let node = AstNode::new(infix_kind).with_payload(payload);
-            left = self.ast.borrow_mut().push(node);
+            let start = self.child_span(left);
+            let span = Self::span_union(start, cursor.last_span());
+            left = self.push_spanned(infix_kind.as_str(), payload, span);
         }
 
         Ok(left)
@@ -737,7 +772,7 @@ impl PrattEngine {
     ) -> Result<DelimitedResult, LangError> {
         // Consume the opening delimiter, unless the open IS the operator
         // token (already consumed by the caller).
-        if !delim.open_is_operator_token {
+        let start = if !delim.open_is_operator_token {
             let open = cursor.advance()?;
             if open.kind != delim.open {
                 return Err(LangError::engine_at(
@@ -749,7 +784,10 @@ impl PrattEngine {
                     Some("token".to_string()),
                 ));
             }
-        }
+            open.span()
+        } else {
+            cursor.last_span()
+        };
 
         // The right binding power for a pair's left operand: one above the
         // pair separator's infix left binding power (so the separator is not
@@ -771,15 +809,15 @@ impl PrattEngine {
         // Empty block: `open close` (or just `close` when open_is_operator).
         if let Some(next) = cursor.peek() {
             if next.kind == delim.close {
-                let _ = cursor.advance()?;
+                let close = cursor.advance()?;
+                let span = Self::span_union(start, close.span());
                 return if delim.flatten {
                     Ok(DelimitedResult::Elements(elements))
                 } else {
-                    let node = AstNode::new(&delim.container_kind)
-                        .with_payload(serde_json::json!({ "children": elements }));
-                    Ok(DelimitedResult::Container(
-                        self.ast.borrow_mut().push(node).index(),
-                    ))
+                    let idx = self
+                        .push_spanned(delim.container_kind.as_str(), serde_json::json!({ "children": elements }), span)
+                        .index();
+                    Ok(DelimitedResult::Container(idx))
                 };
             }
         }
@@ -811,10 +849,12 @@ impl PrattEngine {
                 if is_pair_sep {
                     let _ = cursor.advance()?; // consume pair separator
                     let rhs = self.expression_inner(lang, cursor, 0)?;
-                    let node = AstNode::new(&pair.node_kind).with_payload(
+                    let span = Self::span_union(self.child_span(lhs), self.child_span(rhs));
+                    let arm_ref = self.push_spanned(
+                        pair.node_kind.as_str(),
                         serde_json::json!({ "children": [lhs.index(), rhs.index()] }),
+                        span,
                     );
-                    let arm_ref = self.ast.borrow_mut().push(node);
                     elements.push(arm_ref.index());
                 } else {
                     // Bare expression (not a pair) — use the lhs directly.
@@ -893,14 +933,14 @@ impl PrattEngine {
             ));
         }
 
+        let span = Self::span_union(start, close.span());
         if delim.flatten {
             Ok(DelimitedResult::Elements(elements))
         } else {
-            let node = AstNode::new(&delim.container_kind)
-                .with_payload(serde_json::json!({ "children": elements }));
-            Ok(DelimitedResult::Container(
-                self.ast.borrow_mut().push(node).index(),
-            ))
+            let idx = self
+                .push_spanned(delim.container_kind.as_str(), serde_json::json!({ "children": elements }), span)
+                .index();
+            Ok(DelimitedResult::Container(idx))
         }
     }
 }
@@ -2011,5 +2051,84 @@ mod tests {
         assert_eq!(ast.len(), 1);
         assert_eq!(ast.nodes()[0].kind, "object");
         assert_eq!(ast.nodes()[0].payload, json!({"children": []}));
+    }
+
+    fn spanned_tok(kind: &str, text: &str, start: usize, end: usize) -> Token {
+        Token {
+            kind: kind.into(),
+            text: text.into(),
+            start,
+            end,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn spans_binary_expression() {
+        // "1 + 2" — tokens include spaces for realistic byte offsets.
+        let engine = PrattEngine::new();
+        let lang = arith_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            spanned_tok("token.number", "1", 0, 1),
+            spanned_tok("token.plus", "+", 2, 3),
+            spanned_tok("token.number", "2", 4, 5),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 3);
+        assert_eq!(ast.nodes()[0].span, Some(Span { start: 0, end: 1 }));
+        assert_eq!(ast.nodes()[1].span, Some(Span { start: 4, end: 5 }));
+        assert_eq!(ast.nodes()[2].span, Some(Span { start: 0, end: 5 }));
+    }
+
+    #[test]
+    fn spans_match_block_and_arms() {
+        // "match x { a: 1 }"
+        let engine = PrattEngine::new();
+        let lang = match_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            spanned_tok("token.keyword.match", "match", 0, 5),
+            spanned_tok("token.identifier", "x", 6, 7),
+            spanned_tok("token.lbrace", "{", 8, 9),
+            spanned_tok("token.identifier", "a", 10, 11),
+            spanned_tok("token.colon", ":", 12, 13),
+            spanned_tok("token.number", "1", 14, 15),
+            spanned_tok("token.rbrace", "}", 16, 17),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 6);
+        assert_eq!(ast.nodes()[0].span, Some(Span { start: 6, end: 7 })); // var x
+        assert_eq!(ast.nodes()[3].span, Some(Span { start: 10, end: 15 })); // arm a:1
+        assert_eq!(ast.nodes()[4].span, Some(Span { start: 8, end: 17 })); // block
+        assert_eq!(ast.nodes()[5].span, Some(Span { start: 0, end: 17 })); // match
+    }
+
+    #[test]
+    fn spans_string_and_nested_parens() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // "((x))"
+        let req = ParserRequest::new(Tokens(vec![
+            spanned_tok("token.lparen", "(", 0, 1),
+            spanned_tok("token.lparen", "(", 1, 2),
+            spanned_tok("token.identifier", "x", 2, 3),
+            spanned_tok("token.rparen", ")", 3, 4),
+            spanned_tok("token.rparen", ")", 4, 5),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 3);
+        assert_eq!(ast.nodes()[0].span, Some(Span { start: 2, end: 3 })); // var x
+        assert_eq!(ast.nodes()[1].span, Some(Span { start: 1, end: 4 })); // inner paren
+        assert_eq!(ast.nodes()[2].span, Some(Span { start: 0, end: 5 })); // outer paren
+
+        // '"hello"'
+        let req2 = ParserRequest::new(Tokens(vec![spanned_tok(
+            "token.string",
+            "\"hello\"",
+            0,
+            7,
+        )]));
+        let ast2 = engine.parse(&lang, &req2).unwrap();
+        assert_eq!(ast2.len(), 1);
+        assert_eq!(ast2.nodes()[0].span, Some(Span { start: 0, end: 7 }));
     }
 }
