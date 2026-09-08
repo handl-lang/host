@@ -16,6 +16,12 @@ handl-language.workspace = true
 handl-host-tooling.workspace = true
 handl-plugin-ext-diag.workspace = true
 handl-plugin-ext-lint.workspace = true
+handl-plugin-engine-fmt.workspace = true
+handl-plugin-engine-lex-pattern.workspace = true
+handl-plugin-engine-parse.workspace = true
+handl-plugin-engine-parse-pratt.workspace = true
+handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
+handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 serde.workspace = true
 serde_json.workspace = true
 

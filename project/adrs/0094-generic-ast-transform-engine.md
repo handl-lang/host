@@ -640,15 +640,20 @@ apply at node" loop end to end: the action is titled "Remove redundant
 parentheses" and its edit replaces the parenthesized span with the inner
 atom's text.
 
-The match comes from `RewriteEngine::find_matches`; the edit is still a
-span→text replacement rather than an AST rewrite, because a
-layout-preserving AST→source renderer does not yet exist.  The edit range is
-taken from the `Fix`/`Span` the linter computes from `AstNode::span` (the
-matched `paren` node and its inner child), so the match → span → edit chain
-is now fully AST-derived.  A direct `find_matches` → `apply_rule` → AST-diff
-edit bridge remains blocked on a formatting-preserving renderer; when that
-lands, the same `lint`-pass rules can drive precise node-level codemods
-through `apply_rule`/`RewriteTrace`.
+The match comes from `RewriteEngine::find_matches`; the default fix is still
+a span→text replacement for speed.  The edit range is taken from the
+`Fix`/`Span` the linter computes from `AstNode::span` (the matched `paren`
+node and its inner child), so the match → span → edit chain is now fully
+AST-derived.
+
+A second `quickfix` action is also offered for `lint.simplify-paren`:
+`RewriteEngine::find_matches` locates the matched `paren` site, then
+`RewriteEngine::apply_rule` is run against a companion `lsp-rewrite` pass
+rule and the transformed statement is re-emitted with
+`handl-plugin-engine-fmt::PreserveEmitter`, producing a `WorkspaceEdit` that
+replaces the whole statement.  This exercises the `find_matches` →
+`apply_rule` → `RewriteTrace` → `PreserveEmitter` bridge end-to-end while
+leaving the existing text fix in place as a lighter-weight alternative.
 
 ## Open questions
 

@@ -179,7 +179,7 @@ fn compute_fixes(src: &str) -> Vec<Fix> {
 
 /// Assemble the lint language once: canonical data plus the embedded
 /// ADR-0094 `lint` pass transform rules.
-fn lint_language() -> Result<&'static Language, LintError> {
+pub fn lint_language() -> Result<&'static Language, LintError> {
     static LANG: OnceLock<Language> = OnceLock::new();
     let lang = LANG.get_or_init(|| {
         let mut lang = handl_kit_data_canonical::assemble()
