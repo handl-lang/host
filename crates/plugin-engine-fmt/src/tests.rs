@@ -1,7 +1,7 @@
 use super::*;
 use handl_language::{
     Ast, AstNode, AstRef, AstShapeDef, AstShapeRef, ChildRoleSpec, DelimitedShape, GrammarPosition,
-    GrammarRow, Language, LiteralKind, PairShape, PayloadTokenSpec, TokenKindDef,
+    GrammarRow, Language, LiteralKind, PairShape, PayloadTokenSpec, Span, TokenKindDef,
 };
 use serde_json::Value;
 
@@ -468,4 +468,148 @@ fn format_match_arms_with_pairs() {
     let engine = FormatEngine::new();
     let out = engine.format(&lang, &ast, r).unwrap();
     assert_eq!(out, "match x {\n  1 : 2,\n  3 : 4\n}");
+}
+
+#[test]
+fn preserve_unchanged_round_trip() {
+    // 1 + 2 — the whole add node is unchanged and carries the original span,
+    // so it should splice back exactly.
+    let lang = arith_lang();
+    let mut ast = Ast::new();
+    let one = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(1))
+            .with_span(Span { start: 0, end: 1 }),
+    );
+    let two = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(2))
+            .with_span(Span { start: 4, end: 5 }),
+    );
+    let add = ast.push(
+        AstNode::new("binary.add")
+            .with_payload(serde_json::json!({"children": [one.index(), two.index()]}))
+            .with_span(Span { start: 0, end: 5 }),
+    );
+    let src = "1 + 2";
+    let emitter = PreserveEmitter::new(src, &ast, add, &[]).unwrap();
+    let out = emitter.format(&lang, &ast, add).unwrap();
+    assert_eq!(out, "1 + 2");
+}
+
+#[test]
+fn preserve_changed_child_reformats_only_that_region() {
+    // Change the rhs literal to 99; only that child should reformat, the lhs
+    // is spliced from the original span.
+    let lang = arith_lang();
+    let mut ast = Ast::new();
+    let one = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(1))
+            .with_span(Span { start: 0, end: 1 }),
+    );
+    let two = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(99))
+            .with_span(Span { start: 4, end: 5 }),
+    );
+    let add = ast.push(
+        AstNode::new("binary.add")
+            .with_payload(serde_json::json!({"children": [one.index(), two.index()]}))
+            .with_span(Span { start: 0, end: 5 }),
+    );
+    let src = "1 + 2";
+    let changed: Vec<AstRef> = vec![two];
+    let emitter = PreserveEmitter::new(src, &ast, add, &changed).unwrap();
+    let out = emitter.format(&lang, &ast, add).unwrap();
+    assert_eq!(out, "1 + 99");
+}
+
+#[test]
+fn preserve_comments_in_unchanged_subtree() {
+    // Unchanged let node with a trailing comment should be spliced verbatim.
+    let lang = arith_lang();
+    let src = "let x = 1 + 2 -- keep";
+    let mut ast = Ast::new();
+    let one = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(1))
+            .with_span(Span { start: 8, end: 9 }),
+    );
+    let two = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(2))
+            .with_span(Span { start: 12, end: 13 }),
+    );
+    let add = ast.push(
+        AstNode::new("binary.add")
+            .with_payload(serde_json::json!({"children": [one.index(), two.index()]}))
+            .with_span(Span { start: 8, end: 13 }),
+    );
+    let let_node = ast.push(
+        AstNode::new("let")
+            .with_payload(serde_json::json!({"name": "x", "children": [add.index()]}))
+            .with_span(Span { start: 0, end: 21 }),
+    );
+    let emitter = PreserveEmitter::new(src, &ast, let_node, &[]).unwrap();
+    let out = emitter.format(&lang, &ast, let_node).unwrap();
+    assert_eq!(out, "let x = 1 + 2 -- keep");
+}
+
+#[test]
+fn preserve_nested_change_inside_unchanged_block() {
+    // First let is spliced verbatim; second let was rewritten and its new
+    // multiply node (span: None) is reformatted, while its literal children
+    // are still spliced from the original source.
+    let lang = arith_lang();
+    let src = "{let x = 1 + 2;let y = 3 + 4}";
+    let mut ast = Ast::new();
+    let one = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(1))
+            .with_span(Span { start: 9, end: 10 }),
+    );
+    let two = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(2))
+            .with_span(Span { start: 13, end: 14 }),
+    );
+    let add1 = ast.push(
+        AstNode::new("binary.add")
+            .with_payload(serde_json::json!({"children": [one.index(), two.index()]}))
+            .with_span(Span { start: 9, end: 14 }),
+    );
+    let let1 = ast.push(
+        AstNode::new("let")
+            .with_payload(serde_json::json!({"name": "x", "children": [add1.index()]}))
+            .with_span(Span { start: 1, end: 14 }),
+    );
+    let three = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(3))
+            .with_span(Span { start: 23, end: 24 }),
+    );
+    let four = ast.push(
+        AstNode::new("lit")
+            .with_payload(Value::from(4))
+            .with_span(Span { start: 27, end: 28 }),
+    );
+    let mul = ast.push(
+        AstNode::new("binary.mul")
+            .with_payload(serde_json::json!({"children": [three.index(), four.index()]}))
+    );
+    let let2 = ast.push(
+        AstNode::new("let")
+            .with_payload(serde_json::json!({"name": "y", "children": [mul.index()]}))
+            .with_span(Span { start: 15, end: 28 }),
+    );
+    let block = ast.push(
+        AstNode::new("block")
+            .with_payload(serde_json::json!({"children": [let1.index(), let2.index()]}))
+            .with_span(Span { start: 0, end: 29 }),
+    );
+    let changed: Vec<AstRef> = vec![let2];
+    let emitter = PreserveEmitter::new(src, &ast, block, &changed).unwrap();
+    let out = emitter.format(&lang, &ast, block).unwrap();
+    assert_eq!(out, "{\n  let x = 1 + 2;\n  let y = 3 * 4\n}");
 }

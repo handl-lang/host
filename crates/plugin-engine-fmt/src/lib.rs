@@ -7,6 +7,10 @@
 //! `Language` data. Only the rendering strategy (infix / prefix / delimited)
 //! is fixed Rust, part of the calculus vocabulary like the Pratt parser's
 //! prefix/infix loop.
+//!
+//! The [`PreserveEmitter`] reuses the same data-driven formatting but
+//! splices unchanged subtrees from the original source, preserving comments
+//! and formatting for everything a transform did not touch.
 
 use std::collections::HashMap;
 
@@ -69,13 +73,15 @@ impl FormatEngine {
     /// bounds or the AST is malformed.
     pub fn format(&self, lang: &Language, ast: &Ast, root: AstRef) -> Result<String, LangError> {
         let index = build_grammar_index(lang);
+        let plain = PlainEmitter;
         let ctx = FormatCtx {
             lang,
             ast,
             index: &index,
             indent_size: self.options.indent_size,
+            emitter: &plain,
         };
-        ctx.format_node(root, 0)
+        ctx.emit(root, 0)
     }
 }
 
@@ -89,12 +95,128 @@ fn build_grammar_index(lang: &Language) -> GrammarIndex<'_> {
         .collect()
 }
 
+/// A node emission callback used by [`FormatCtx`] to render a single node.
+///
+/// [`PlainEmitter`] just formats; [`PreserveEmitter`] splices unchanged
+/// subtrees from the original source and formats only the changed ones.
+pub(crate) trait NodeEmitter {
+    /// Emit the node at `r` at the given indentation level.
+    fn emit(&self, ctx: &FormatCtx, r: AstRef, indent: usize) -> Result<String, LangError>;
+}
+
+/// The default, non-preserving emitter.
+struct PlainEmitter;
+
+impl NodeEmitter for PlainEmitter {
+    fn emit(&self, ctx: &FormatCtx, r: AstRef, indent: usize) -> Result<String, LangError> {
+        ctx.format_node_internal(r, indent)
+    }
+}
+
+/// A preserving AST→source emitter.
+///
+/// Walks a transformed AST and splices source text for every unchanged
+/// subtree (using the spans recorded by the Pratt parser), falling back to
+/// the data-driven formatter for any node produced by a rewrite or created by
+/// one. Children of changed nodes are still emitted preserving where their own
+/// spans indicate they came from the original source.
+#[derive(Debug, Clone)]
+pub struct PreserveEmitter<'a> {
+    src: &'a str,
+    changed: Vec<bool>,
+}
+
+impl<'a> PreserveEmitter<'a> {
+    /// Create a preserving emitter for `ast` rooted at `root`.
+    ///
+    /// `changed` is the list of output-node references that rewrites produced
+    /// (e.g. `output.trace.rewrites.iter().map(|r| r.to)`). A node that is not
+    /// in `changed` and has no changed descendant, and that still carries a
+    /// parser-populated span, is emitted as `src[span.start..span.end]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if the AST contains an out-of-bounds child
+    /// reference.
+    pub fn new(src: &'a str, ast: &Ast, root: AstRef, changed: &[AstRef]) -> Result<Self, LangError> {
+        let mut changed_flags = vec![false; ast.len()];
+        for r in changed {
+            if r.index() < changed_flags.len() {
+                changed_flags[r.index()] = true;
+            }
+        }
+        let mut memo: Vec<Option<bool>> = vec![None; ast.len()];
+        let mut has_changed = vec![false; ast.len()];
+        Self::mark_subtree(ast, root, &changed_flags, &mut memo)?;
+        for (i, v) in memo.iter().enumerate() {
+            has_changed[i] = v.unwrap_or(false);
+        }
+        Ok(Self { src, changed: has_changed })
+    }
+
+    /// Recursively compute whether each node is changed or contains a changed
+    /// descendant, memoized by arena index.
+    fn mark_subtree(
+        ast: &Ast,
+        r: AstRef,
+        changed: &[bool],
+        memo: &mut [Option<bool>],
+    ) -> Result<bool, LangError> {
+        if r.index() >= ast.len() {
+            return Ok(false);
+        }
+        if let Some(v) = memo[r.index()] {
+            return Ok(v);
+        }
+        let node = ast.at(r)?;
+        let mut flag = changed.get(r.index()).copied().unwrap_or(false);
+        for c in children_refs(node) {
+            flag = flag || Self::mark_subtree(ast, c, changed, memo)?;
+        }
+        memo[r.index()] = Some(flag);
+        Ok(flag)
+    }
+
+    /// Render the transformed AST back to preserving source text.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] for the same reasons as [`FormatEngine::format`].
+    pub fn format<'b>(&'b self, lang: &'b Language, ast: &'b Ast, root: AstRef) -> Result<String, LangError> {
+        let index = build_grammar_index(lang);
+        let ctx = FormatCtx {
+            lang,
+            ast,
+            index: &index,
+            indent_size: 2,
+            emitter: self,
+        };
+        ctx.emit(root, 0)
+    }
+}
+
+impl<'a> NodeEmitter for PreserveEmitter<'a> {
+    fn emit(&self, ctx: &FormatCtx, r: AstRef, indent: usize) -> Result<String, LangError> {
+        let node = ctx.ast.at(r)?;
+        if let Some(span) = node.span {
+            if r.index() < self.changed.len()
+                && !self.changed[r.index()]
+                && span.end <= self.src.len()
+            {
+                return Ok(self.src[span.start..span.end].to_string());
+            }
+        }
+        ctx.format_node_internal(r, indent)
+    }
+}
+
 /// Internal formatting context.
 struct FormatCtx<'a> {
     lang: &'a Language,
     ast: &'a Ast,
     index: &'a GrammarIndex<'a>,
     indent_size: usize,
+    emitter: &'a dyn NodeEmitter,
 }
 
 impl<'a> FormatCtx<'a> {
@@ -102,17 +224,14 @@ impl<'a> FormatCtx<'a> {
         " ".repeat(level * self.indent_size)
     }
 
+    /// Entry point for rendering a node through the configured emitter.
+    fn emit(&self, r: AstRef, indent: usize) -> Result<String, LangError> {
+        self.emitter.emit(self, r, indent)
+    }
+
     /// Resolve the children array of a node into `AstRef`s.
     fn children_of(&self, node: &AstNode) -> Vec<AstRef> {
-        node.payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_u64().map(|i| AstRef::new(i as usize)))
-                    .collect()
-            })
-            .unwrap_or_default()
+        children_refs(node)
     }
 
     /// Look up a token's label (surface text) from `lang.tokens`.
@@ -124,7 +243,7 @@ impl<'a> FormatCtx<'a> {
     }
 
     /// Recursively format a node at the given indent level.
-    fn format_node(&self, r: AstRef, indent: usize) -> Result<String, LangError> {
+    fn format_node_internal(&self, r: AstRef, indent: usize) -> Result<String, LangError> {
         let node = self.ast.at(r)?;
 
         // Atoms: a node with no children and a scalar (non-object, non-null,
@@ -193,7 +312,7 @@ impl<'a> FormatCtx<'a> {
             // Fallback: render operator + all children joined.
             let mut parts: Vec<String> = Vec::new();
             for c in children {
-                parts.push(self.format_node(*c, indent)?);
+                parts.push(self.emit(*c, indent)?);
             }
             Ok(parts.join(&format!(" {op} ")))
         }
@@ -212,7 +331,7 @@ impl<'a> FormatCtx<'a> {
         if children.is_empty() {
             return Ok(op.to_string());
         }
-        let child = self.format_node(children[0], indent)?;
+        let child = self.emit(children[0], indent)?;
         Ok(format!("{op}{child}"))
     }
 
@@ -259,7 +378,7 @@ impl<'a> FormatCtx<'a> {
                 out.push_str(&sep_label);
             }
             out.push(' ');
-            out.push_str(&self.format_node(*child, indent)?);
+            out.push_str(&self.emit(*child, indent)?);
         }
         Ok(out.trim_end().to_string())
     }
@@ -297,7 +416,7 @@ impl<'a> FormatCtx<'a> {
                 if !out.is_empty() && !out.ends_with(' ') {
                     out.push(' ');
                 }
-                out.push_str(&self.format_node(*child, indent)?);
+                out.push_str(&self.emit(*child, indent)?);
             }
         }
 
@@ -353,7 +472,7 @@ impl<'a> FormatCtx<'a> {
         // Inline rendering: a single element with no separator and no pair
         // shape renders on one line (e.g. `( expr )`).
         if elements.len() == 1 && sep_label.is_none() && delimited.pair.is_none() {
-            let rendered = self.format_node(elements[0], indent)?;
+            let rendered = self.emit(elements[0], indent)?;
             // If the rendered content is multi-line, fall through to the
             // multi-line path below.
             if !rendered.contains('\n') {
@@ -374,13 +493,13 @@ impl<'a> FormatCtx<'a> {
                 let pair_children = self.children_of(elem);
                 let pair_sep = self.token_label(&pair.separator).unwrap_or("");
                 if pair_children.len() == 2 {
-                    let lhs = self.format_node(pair_children[0], inner_indent)?;
-                    let rhs = self.format_node(pair_children[1], inner_indent)?;
+                    let lhs = self.emit(pair_children[0], inner_indent)?;
+                    let rhs = self.emit(pair_children[1], inner_indent)?;
                     lines.push(format!("{pad}{lhs} {pair_sep} {rhs}"));
                     continue;
                 }
             }
-            let rendered = self.format_node(*elem_ref, inner_indent)?;
+            let rendered = self.emit(*elem_ref, inner_indent)?;
             // The recursive call already produces correctly-indented output
             // for nested structures; we only need to pad the first line.
             lines.push(format!("{pad}{rendered}"));
@@ -405,7 +524,7 @@ impl<'a> FormatCtx<'a> {
         is_left: bool,
         indent: usize,
     ) -> Result<String, LangError> {
-        let rendered = self.format_node(child, indent)?;
+        let rendered = self.emit(child, indent)?;
         let child_node = self.ast.at(child)?;
         let Some(child_row) = self.index.get(&child_node.kind) else {
             return Ok(rendered);
@@ -459,6 +578,19 @@ impl<'a> FormatCtx<'a> {
         }
         node.kind.clone()
     }
+}
+
+/// Extract child `AstRef`s from a node's `payload["children"]` array.
+fn children_refs(node: &AstNode) -> Vec<AstRef> {
+    node.payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_u64().map(|i| AstRef::new(i as usize)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Check whether a node's payload is a scalar value (string, number, or
