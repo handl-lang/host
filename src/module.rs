@@ -28,7 +28,10 @@ use crate::ops::{
 /// module for `at`.
 fn char_ops() -> Vec<(&'static str, Arc<dyn Function + Send + Sync>)> {
     vec![
-        ("is_whitespace", Arc::new(IsWhitespace) as Arc<dyn Function + Send + Sync>),
+        (
+            "is_whitespace",
+            Arc::new(IsWhitespace) as Arc<dyn Function + Send + Sync>,
+        ),
         ("is_alpha", Arc::new(IsAlpha)),
         ("is_numeric", Arc::new(IsNumeric)),
         ("is_alnum", Arc::new(IsAlnum)),
