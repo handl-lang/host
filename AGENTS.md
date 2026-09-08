@@ -107,70 +107,78 @@ and linter all split source into top-level statements at bracket-depth zero
   corpus, `plugin-engine-lint`/`plugin-engine-fmt` fixtures,
   `handl-runtime/tests/runtime_eval_only.rs`) — those kinds are local to
   their test languages and unrelated to canonical surface syntax.
-- **Engine-genericity debt** (audit; ~70 residual `kind ==`/positional-child
-  hits — these are debt to close via `Language` data, not patterns to extend):
-  - `plugin-engine-parse-pratt/src/lib.rs` `match`/`data` special parse
-    branches: **closed**. `AstShapeRef` gained three generic fields (all
-    serde-defaulted, third-party rows unaffected): `child_binding_powers`
-    (per-child rbp overrides — `data` parses its type child at rbp 6 to stop
-    before `::` and its constructor list at rbp 0 so `|` binds),
-    `keyword_clauses` (optional `open <expr> close` clauses spliced in after
-    fixed child `after_child` — `match`'s `return motive with`), and
-    `payload_extract` (lift a name-like string from a child into the payload
-    — `data`'s `payload.name`). The `grammar.match.prefix`/
-    `grammar.data.prefix` rows in `data/grammar.yaml` carry the fields; the
-    `kind == "match"`/`kind == "data"` branches are deleted. The last
-    branch, `token.keyword.from`, is **closed** too: `AstShapeRef` gained
-    `trailing_tokens: Vec<TokenStep>` (ordered required/optional token steps
-    consumed after all children, one-of `kinds` per step, optional `field`
-    payload capture) and `PayloadExtractSpec` gained `required: bool`;
-    `grammar.stmt-from.prefix` now carries the `import * as <alias>` tail
-    and the `payload.path` lift. No `from`/`import` token-string checks
-    remain in the parse dispatch. See ADR-0053's amendment sections.
-  - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
-    `plugin-engine-exec-cranelift/src/lib.rs`: object-key `var`/`string`
-    heuristic — needs a `key` role or `key_is_literal` flag in `object`/`entry`
-    `AstShapeDef`.
-  - `handl-runtime/src/lib.rs` `collect_module_bindings`: **closed**. Now
-    data-driven via `Language::binding_target` using `target` role/`name`
-    payload.
-  - `plugin-engine-transform-rewrite/src/native/desugar.rs` (moved from
-    `handl-runtime/src/desugar_pass.rs`, ADR-0094): `type-annot`/`paren`
-    checks in `desugar_match_to_recursor`/`parse_type_param` are data-driven
-    via `subject`/`annot`/`body` roles. Remaining `kind ==` in
-    `node_to_type_string`, `collect_constructors`, and the
-    `while`/`if`/`for`/`nullish`/`opt-chain`/`data`/`match` natives
-    (formerly the `try_rust_desugar` registry — now named `desugar.*`
-    entries behind `DESUGAR_NATIVES`, still Rust, still bootstrap desugar
-    code) are documented as out-of-scope for ADR-0081 unless/until
-    declarative desugar rules grow fresh-name generation and recursive
-    structure building. The dispatch is now data-driven; the Rust impls
-    remain the flagged debt.
-  - `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars`: **closed**.
-    Dispatch uses `AstShapeDef::pattern_role` (`leaf`/`sequence`/`entries`/
-    `entry`/`rest`) with a role-less fallback for tests.
-  - `plugin-ext-lint` (`var_name_at`), `plugin-engine-test` (`var_name`):
-    **closed**. Both now use `Language::param_name` (guarded by
-    `pattern_role: leaf`/`subject` role metadata).
-  - `host-lsp/src/*` (~20): **closed**. `TokenKindDef` gained optional
-    `category`/`pair`/`doc` fields (serde-compatible, free-form strings —
-    third-party kits unaffected); `handl-kit-data-canonical/data/tokens.yaml`
-    populates them for every canonical kind, `Language` exposes
-    `token_category`/`token_in_category`/`token_pair`/`token_doc`/
-    `token_kind_for_label`, and `handl-kit-canonical::TokenClasses` is the
-    shared classifier. host-LSP, `host-tooling` (semantic tokens +
-    TextMate grammar generation), `plugin-ext-fmt` and `plugin-ext-lint`
-    now classify via `lang.tokens` — no `token.*` kind strings or
-    `is_*_kind` helpers remain outside `kit-canonical`'s legacy shims
-    (kept for bootstrap paths and third-party kits that declare no
-    categories). Residual
-    *identity-specific* checks (not category-answerable, so intentionally
-    kept): keyword text matches (`rec`/`law`/`match`/`do`/`return`/
-    `axiom`/`color`/snippet+completion tables) — these name a *specific*
-    keyword, not a token class; punctuation spellings resolve through
-    `is_label`/`token_kind_for_label` rather than kind strings.
-  - `plugin-ext-refinement/src/arrow_parser.rs`: arrow-syntax parser —
-    treat as bootstrap or move arrow-grammar into `Language` data.
+- **Engine-genericity residual audit (final)**. A fresh sweep of `crates/`
+  for `kind == "`, `== "token.`, `starts_with("token.`, and `.kind.*==`
+  (excluding test fixtures, toy `Language`s, and the documented bootstrap
+  exceptions) leaves **~30 residual hits**. The previous ~70 count was stale;
+  the major role/token/grammar work is closed. The remainder is deliberate
+  bootstrap/identity-specific/role-less-fallback code. Per-item rationale:
+  - **(a) Closed in this pass:**
+    - `plugin-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
+      the bare `param_node.kind == "var"` check is now `Language::param_name`,
+      which unwraps `type-annot.subject` role data as well as bare `var`.
+  - **(b) Intentionally kept (bootstrap or identity-specific):**
+    - `plugin-ext-refinement/src/arrow_parser.rs` **= bootstrap**. The arrow
+      combinator vocabulary (`arr`, `comp`, `first`, `choice`, `loop`, `app`,
+      `id`, `flow`) is calculus-kernel syntax, not surface-language syntax,
+      so materializing it into `Scheme` in Rust is allowed per the rule
+      "adding a calculus combinator = engine edit". The hand-rolled
+      import/export/`op`/`handl`/`cap`/`tag` line scanner is also intentional
+      bootstrap: arrow modules use `import x from "path"` (and
+      `export ... from`) which is the inverse order of the canonical Pratt
+      `stmt-from`/`stmt-import` rows, and the loader must resolve imports
+      before arrow expressions are parsed. The
+      `from "./x" import { dedent }` brace form is **not** handled by either
+      the arrow-loader line scanner or the canonical `stmt-from` row; it is a
+      known surface-syntax mismatch to be resolved through `Language` data if
+      arrow modules ever converge with canonical import grammar.
+    - `plugin-engine-transform-rewrite/src/native/desugar.rs`: `while`/`if`/
+      `for`/`nullish`/`opt-chain`/`data`/`match` desugar natives,
+      `node_to_type_string`, `collect_constructors` stay Rust. Dispatch is
+      data-driven, but the implementations need fresh-name generation and
+      recursive structure building not yet in declarative transforms.
+    - `plugin-engine-typecheck/src/bootstrap.rs` and related YAML-assembly
+      paths: these are the bootstrap `Language` builder (cyclic-dependency
+      workaround) and are allowed to name canonical top-level kinds such as
+      `var`, `import`, `export`, `rec`, `entry`, `field-access`.
+    - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
+      `plugin-engine-exec-cranelift/src/lib.rs`: object-entry key literal
+      detection is now data-driven for canonical `entry` via
+      `Language::literal_child` (`literal_children: { key: [var, string] }`);
+      the `var`/`string` fallback only fires for role-less shapes and is an
+      acceptable legacy/test-language fallback.
+    - `plugin-engine-exec/src/pattern_match.rs`,
+      `plugin-engine-exec-tree-walk/src/lib.rs`,
+      `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars_legacy`:
+      canonical pattern dispatch is already `AstShapeDef::pattern_role`-driven;
+      residual `kind == "var"/"array"/"object"/"call"/"rest"/"entry"` are
+      role-less fallbacks for test/legacy languages plus `call` tag-pattern
+      recognition, which names a specific construct.
+    - `plugin-engine-typecheck-nbe/src/totality_check.rs`:
+      `node.kind == "assign"` is a role-less binding fallback;
+      `node.kind == "call"` in `find_recursive_calls` is identity-specific
+      recursion detection.
+    - `plugin-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
+      the legacy `children: [param, body]` layout is still guarded by
+      `node.kind == "function"`. `function` is a core calculus combinator
+      and the role-less `Language::new()` used in NBE unit tests has no
+      `AstShapeDef` for it, so the identity guard remains; only the inner
+      `param_node.kind == "var"` was closed (replaced by `Language::param_name`).
+    - `plugin-exec-map/src/lib.rs`, `plugin-exec-logging/src/lib.rs`: small
+      exec-control plugins that extract a `call` callee name from a `var`;
+      identity-specific.
+    - `host-lsp/src/*` and `crates/kit-canonical/src/lib.rs`: residual
+      keyword text matches (`rec`/`law`/`match`/...) and legacy token-class
+      shims are identity-specific or for bootstrap/third-party kits.
+    - `plugin-engine-parse-pratt/src/lib.rs`: the generic Pratt interpreter
+      still inspects token kind strings supplied by grammar data; the handful
+      of `token.lbrace`/`token.comma`/`token.arrow.comma` checks are
+      structural delimiter detection, not language-specific dispatch.
+  - **(c) Genuinely blocked on missing vocabulary:**
+    - None of the remaining hits are cheaply closable; the few that could move
+      into `Language` data (e.g. a `pattern_role: tag` for `call` patterns,
+      or a generic `is_call`/`is_binder` role) would add new vocabulary and
+      are out of scope for this cleanup.
   - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed by removal**.
     `let` is gone end-to-end (`token.let`, `lex.let`, `grammar.let.prefix`,
     `ast.let`, `eval.let`, `eval.stmt-let`, `type.let` all deleted;

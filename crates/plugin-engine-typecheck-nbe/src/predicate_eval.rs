@@ -712,7 +712,7 @@ fn call_children(node: &AstNode) -> (usize, Vec<usize>) {
 fn function_param_body(
     ast: &Ast,
     node: &AstNode,
-    _lang: &Language,
+    lang: &Language,
 ) -> Option<(Vec<String>, usize)> {
     // Rich format: {params: ["name", ...], body: idx}
     if let (Some(params), Some(body)) = (
@@ -725,9 +725,9 @@ fn function_param_body(
             .collect();
         return Some((names, body as usize));
     }
-    // Legacy format: {children: [param_idx, body_idx]} — only for `function`
-    // nodes (a core calculus primitive). A `call` node also has `children`
-    // but is not a function.
+    // Legacy format: {children: [param_idx, body_idx]} — only `function`
+    // nodes (a core calculus primitive) carry this layout. A `call` node
+    // also has two children, but is not a function.
     if node.kind != "function" {
         return None;
     }
@@ -738,10 +738,10 @@ fn function_param_body(
     let param_idx = children[0].as_u64()? as usize;
     let body_idx = children[1].as_u64()? as usize;
     let param_node = ast.get(AstRef::new(param_idx))?;
-    // A bare `var` node carries the name directly; a `paren`/`array` wrapper
-    // holds multiple `var` children.
-    let names = if param_node.kind == "var" {
-        vec![param_node.payload.as_str()?.to_string()]
+    // A bare `var` (or `type-annot` wrapping one) carries the name directly;
+    // a `paren`/`array` wrapper holds multiple `var` children.
+    let names = if let Ok(name) = lang.param_name(ast, param_node) {
+        vec![name]
     } else {
         let param_children = param_node
             .payload
