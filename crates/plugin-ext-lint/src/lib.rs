@@ -362,49 +362,6 @@ fn token_positions(
     out
 }
 
-/// A token's absolute byte range and surface text.
-#[derive(Clone, Debug)]
-struct TokenInfo {
-    kind: String,
-    text: String,
-    start: usize,
-    end: usize,
-}
-
-/// Lex a chunk and recover each token's absolute byte range and text.
-fn chunk_tokens(lang: &Language, chunk_text: &str, chunk_offset: usize) -> Vec<TokenInfo> {
-    let tokens = match lex(lang, chunk_text) {
-        Ok(t) => t,
-        Err(_) => return Vec::new(),
-    };
-    let bytes = chunk_text.as_bytes();
-    let mut pos = 0usize;
-    let mut out = Vec::new();
-    for token in tokens.as_slice() {
-        // Skip whitespace.
-        while pos < bytes.len() {
-            let ch = match chunk_text[pos..].chars().next() {
-                Some(c) => c,
-                None => break,
-            };
-            if ch.is_whitespace() {
-                pos += ch.len_utf8();
-            } else {
-                break;
-            }
-        }
-        let start = pos;
-        pos += token.text.len();
-        out.push(TokenInfo {
-            kind: token.kind.clone(),
-            text: token.text.clone(),
-            start: chunk_offset + start,
-            end: chunk_offset + pos,
-        });
-    }
-    out
-}
-
 // ---------------------------------------------------------------------------
 // Internal: language classification (data-driven, ADR-0081)
 // ---------------------------------------------------------------------------
@@ -1037,29 +994,26 @@ fn rule_unbound_wire(parsed: &[ParsedChunk]) -> Vec<Diagnostic> {
 
 /// `simplify-paren` (Warning, fixable) — a `paren` node around a single
 /// `var`/`value` atom.  The match is found via the ADR-0094 `lint` pass
-/// `find_matches`; the source fix is a span-preserving text deletion.
-fn rule_simplify_paren(_src: &str, parsed: &[ParsedChunk], lang: &Language) -> Vec<Diagnostic> {
+/// `find_matches`; the source fix is a span-preserving text deletion that
+/// replaces the `paren` node span with the source text of its single child.
+fn rule_simplify_paren(src: &str, parsed: &[ParsedChunk], lang: &Language) -> Vec<Diagnostic> {
     let engine = RewriteEngine::new();
     let mut diags = Vec::new();
     for p in parsed {
         if p.chunk.text.is_empty() {
             continue;
         }
-        let tokens = chunk_tokens(lang, &p.chunk.text, p.chunk.offset);
-        if tokens.is_empty() {
-            continue;
-        }
         let root = AstRef::new(p.ast.len().saturating_sub(1));
         let matches = engine.find_matches(lang, &p.ast, root, "lint");
-        let mut used: Vec<bool> = vec![false; tokens.len()];
         for m in matches {
             if m.rule_id != "lint.simplify-paren" {
                 continue;
             }
-            let Some(fix) = paren_text_fix(&p.ast, m.at, &tokens, &mut used) else {
+            let Some((span, replacement, inner_text)) =
+                paren_text_fix(src, p.chunk.offset, &p.ast, m.at)
+            else {
                 continue;
             };
-            let (span, replacement, inner_text) = fix;
             diags.push(
                 Diagnostic::new(
                     "simplify-paren",
@@ -1074,67 +1028,34 @@ fn rule_simplify_paren(_src: &str, parsed: &[ParsedChunk], lang: &Language) -> V
     diags
 }
 
-/// Extract the source text of an atom inside a `paren` node.
+/// Compute a text fix for a matched `paren` node using `AstNode::span`.
 ///
-/// Handles the bare-scalar payloads used by `var` and the canonical `value`
-/// atom shape, plus the object payload used by some `value` rows.
-fn paren_atom_text(node: &AstNode) -> Option<String> {
-    if let Some(s) = node.payload.as_str() {
-        return Some(s.to_string());
-    }
-    if node.payload.is_null() {
-        return Some("null".to_string());
-    }
-    if !node.payload.is_object() {
-        // Numbers and booleans render as their surface text.
-        return Some(node.payload.to_string());
-    }
-    if let Some(v) = node.payload.get("value").or_else(|| node.payload.get("name")) {
-        return Some(if let Some(s) = v.as_str() {
-            s.to_string()
-        } else {
-            v.to_string()
-        });
-    }
-    None
-}
-
-/// Compute a text fix for a matched `paren` node.
-///
-/// Returns `(span, replacement, inner_text)` on success.  The `tokens` are the
-/// chunk's token stream; `used` tracks which tokens have already been consumed
-/// so duplicate names don't get matched to the wrong paren.
+/// `chunk_offset` is the byte offset of the trimmed chunk in `src`.  Spans
+/// produced by the Pratt parser are relative to the chunk, so this offset is
+/// added to produce absolute source ranges.
 fn paren_text_fix(
+    src: &str,
+    chunk_offset: usize,
     ast: &Ast,
     paren_ref: AstRef,
-    tokens: &[TokenInfo],
-    used: &mut [bool],
 ) -> Option<(Span, String, String)> {
     let paren = ast.at(paren_ref).ok()?;
+    let paren_span = paren.span?;
     let children = child_indices(&paren);
     if children.len() != 1 {
         return None;
     }
     let child = ast.at(AstRef::new(children[0])).ok()?;
-    let inner_text = paren_atom_text(child)?;
+    let child_span = child.span?;
 
-    // Find a `(` token whose next token is the inner literal and whose
-    // following token is `)`.  Mark the three tokens used.
-    for i in 0..tokens.len().saturating_sub(2) {
-        if used[i]
-            || tokens[i].kind != "token.lparen"
-            || tokens[i + 1].text != inner_text
-            || tokens[i + 2].kind != "token.rparen"
-        {
-            continue;
-        }
-        used[i] = true;
-        used[i + 1] = true;
-        used[i + 2] = true;
-        let span = Span::from_byte_range(tokens[i].start, tokens[i + 2].end, "");
-        return Some((span, inner_text.clone(), inner_text));
-    }
-    None
+    let outer_start = chunk_offset + paren_span.start;
+    let outer_end = chunk_offset + paren_span.end;
+    let inner_start = chunk_offset + child_span.start;
+    let inner_end = chunk_offset + child_span.end;
+
+    let replacement = src.get(inner_start..inner_end)?.to_string();
+    let span = Span::from_byte_range(outer_start, outer_end, src);
+    Some((span, replacement.clone(), replacement))
 }
 
 // ---------------------------------------------------------------------------

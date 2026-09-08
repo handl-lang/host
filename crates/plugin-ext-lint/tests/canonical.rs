@@ -247,6 +247,28 @@ fn simplify_paren_var() {
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
 
+#[test]
+fn simplify_paren_nested() {
+    // `find_matches` reports both paren layers; the fixpoint removes all
+    // redundant parens, converging on the bare atom.
+    let src = "-- doc\nmain = ((x))\n";
+    let fixed = fix_source(src).unwrap();
+    assert_eq!(fixed, "-- doc\nmain = x\n");
+    let diags = lint_source(&fixed).unwrap();
+    assert!(for_rule(&diags, "simplify-paren").is_empty());
+}
+
+#[test]
+fn simplify_paren_inner_value() {
+    // The inner fix comes from the `paren` node span and the child's span,
+    // not a token walk, so a single-atom value works too.
+    let src = "-- doc\nmain = ((42))\n";
+    let fixed = fix_source(src).unwrap();
+    assert_eq!(fixed, "-- doc\nmain = 42\n");
+    let diags = lint_source(&fixed).unwrap();
+    assert!(for_rule(&diags, "simplify-paren").is_empty());
+}
+
 // ---------------------------------------------------------------------------
 // missing-module-doc
 // ---------------------------------------------------------------------------
