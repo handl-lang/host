@@ -1243,6 +1243,7 @@ dependencies = [
 name = "handl-plugin-engine-exec-tree-walk"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-exec",
