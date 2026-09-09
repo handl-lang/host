@@ -41,8 +41,8 @@
 
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
 pub use handl_plugin_engine_fmt::{
-    CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule, TokenCat,
-    TokenFormatter, canonical_post_process, classify_token, needs_space,
+    CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule,
+    TokenCat, TokenFormatter, canonical_post_process, classify_token, needs_space,
 };
 
 use handl_language::{Ast, AstRef, LangError, Language};
@@ -172,8 +172,6 @@ fn canonical_language() -> Result<Language, FormatError> {
     Ok(kit.lang().clone())
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Internal: normalization for `check_source` comparison
 // ---------------------------------------------------------------------------
@@ -244,10 +242,7 @@ mod tests {
     #[test]
     fn format_composition() {
         let result = format_source("main :: map(double) >>> filter(is_even) >>> sort\n").unwrap();
-        assert_eq!(
-            result,
-            "main :: map(double) >>> filter(is_even) >>> sort\n"
-        );
+        assert_eq!(result, "main :: map(double) >>> filter(is_even) >>> sort\n");
     }
 
     #[test]
@@ -410,7 +405,10 @@ mod tests {
         // formatted source still parses, while keyword calls like `first(...)`
         // and juxtaposed application `assert dedent(...)` stay tight.
         let cases = [
-            ("match [1, 2, 3] { []: 0, [h, ...t]: h }", "match [1, 2, 3] { []: 0, [h, ...t]: h }\n"),
+            (
+                "match [1, 2, 3] { []: 0, [h, ...t]: h }",
+                "match [1, 2, 3] { []: 0, [h, ...t]: h }\n",
+            ),
             ("match [] { []: 0 }", "match [] { []: 0 }\n"),
             ("first(id)", "first(id)\n"),
             ("assert dedent(\"...\")", "assert dedent(\"...\")\n"),
@@ -488,26 +486,14 @@ mod tests {
     #[test]
     fn classify_known_tokens() {
         let lang = canonical_language().expect("canonical language assembles");
-        assert_eq!(
-            classify_token(&lang, "token.lparen"),
-            TokenCat::OpenParen
-        );
-        assert_eq!(
-            classify_token(&lang, "token.rparen"),
-            TokenCat::CloseParen
-        );
+        assert_eq!(classify_token(&lang, "token.lparen"), TokenCat::OpenParen);
+        assert_eq!(classify_token(&lang, "token.rparen"), TokenCat::CloseParen);
         assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
-        assert_eq!(
-            classify_token(&lang, "token.rbrace"),
-            TokenCat::CloseBrace
-        );
+        assert_eq!(classify_token(&lang, "token.rbrace"), TokenCat::CloseBrace);
         assert_eq!(classify_token(&lang, "token.comma"), TokenCat::Comma);
         assert_eq!(classify_token(&lang, "token.equal"), TokenCat::BinaryOp);
         assert_eq!(classify_token(&lang, "token.flow"), TokenCat::BinaryOp);
-        assert_eq!(
-            classify_token(&lang, "token.keyword.if"),
-            TokenCat::Keyword
-        );
+        assert_eq!(classify_token(&lang, "token.keyword.if"), TokenCat::Keyword);
         assert_eq!(classify_token(&lang, "token.identifier"), TokenCat::Atom);
         assert_eq!(classify_token(&lang, "token.comment"), TokenCat::Comment);
     }

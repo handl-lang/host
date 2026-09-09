@@ -10,10 +10,9 @@ use std::sync::Arc;
 use handl_platform::Module;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
-    HandlLoader, ModuleResolver, build_str_handl_module, expand_tag_declarations,
-    install_loader, parse_cap_declarations, parse_import_declarations,
-    parse_tag_declarations, strip_comment_lines, strip_declaration_lines,
-    transform_export_to_object,
+    HandlLoader, ModuleResolver, build_str_handl_module, expand_tag_declarations, install_loader,
+    parse_cap_declarations, parse_import_declarations, parse_tag_declarations, strip_comment_lines,
+    strip_declaration_lines, transform_export_to_object,
 };
 
 /// Bootstrap implementations, re-exposed for parity checking.
@@ -81,10 +80,7 @@ mod bootstrap {
         let mut current: Option<(String, Vec<String>)> = None;
         for line in src.lines() {
             let trimmed = line.trim_start();
-            if !line.starts_with(' ')
-                && !line.starts_with('\t')
-                && trimmed.starts_with("export ")
-            {
+            if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
                 if let Some(entry) = current.take() {
                     entries.push(entry);
                 }
@@ -141,7 +137,8 @@ mod bootstrap {
                 b'=' if depth == 0 => {
                     let prev = if i > 0 { bytes[i - 1] } else { 0 };
                     let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                    if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
+                    if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
+                    {
                         i += 1;
                         continue;
                     }

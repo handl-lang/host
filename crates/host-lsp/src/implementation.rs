@@ -129,11 +129,7 @@ fn identifier_at_cursor(
 /// `axiom` may be tokenized as either a keyword or a plain identifier
 /// depending on the data-driven lexer configuration, so the check is on the
 /// token *text* rather than its kind.
-fn is_axiom_name_at_cursor(
-    classes: &TokenClasses,
-    tokens: &[SpannedToken],
-    offset: usize,
-) -> bool {
+fn is_axiom_name_at_cursor(classes: &TokenClasses, tokens: &[SpannedToken], offset: usize) -> bool {
     let idx = match tokens
         .iter()
         .position(|t| t.span.start <= offset && offset < t.span.end)

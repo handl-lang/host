@@ -49,7 +49,10 @@ pub struct FormatOptions {
 
 impl Default for FormatOptions {
     fn default() -> Self {
-        Self { indent_size: 2, width: 100 }
+        Self {
+            indent_size: 2,
+            width: 100,
+        }
     }
 }
 
@@ -158,7 +161,12 @@ impl<'a> PreserveEmitter<'a> {
     ///
     /// Returns [`LangError`] if the AST contains an out-of-bounds child
     /// reference.
-    pub fn new(src: &'a str, ast: &Ast, root: AstRef, changed: &[AstRef]) -> Result<Self, LangError> {
+    pub fn new(
+        src: &'a str,
+        ast: &Ast,
+        root: AstRef,
+        changed: &[AstRef],
+    ) -> Result<Self, LangError> {
         let mut changed_flags = vec![false; ast.len()];
         for r in changed {
             if r.index() < changed_flags.len() {
@@ -171,7 +179,10 @@ impl<'a> PreserveEmitter<'a> {
         for (i, v) in memo.iter().enumerate() {
             has_changed[i] = v.unwrap_or(false);
         }
-        Ok(Self { src, changed: has_changed })
+        Ok(Self {
+            src,
+            changed: has_changed,
+        })
     }
 
     /// Recursively compute whether each node is changed or contains a changed
@@ -202,7 +213,12 @@ impl<'a> PreserveEmitter<'a> {
     /// # Errors
     ///
     /// Returns [`LangError`] for the same reasons as [`FormatEngine::format`].
-    pub fn format<'b>(&'b self, lang: &'b Language, ast: &'b Ast, root: AstRef) -> Result<String, LangError> {
+    pub fn format<'b>(
+        &'b self,
+        lang: &'b Language,
+        ast: &'b Ast,
+        root: AstRef,
+    ) -> Result<String, LangError> {
         let index = build_grammar_index(lang);
         let ctx = FormatCtx {
             lang,

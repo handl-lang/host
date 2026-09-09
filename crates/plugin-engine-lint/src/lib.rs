@@ -891,9 +891,7 @@ mod tests {
             ))
             .unwrap();
         let module = paren_module("x = (y)");
-        let err = LintEngine::new()
-            .lint_module(&lang, &module)
-            .unwrap_err();
+        let err = LintEngine::new().lint_module(&lang, &module).unwrap_err();
         assert!(format!("{err}").contains("test.missing"), "{err}");
     }
 
@@ -913,9 +911,7 @@ mod tests {
             ))
             .unwrap();
         let module = paren_module("x = (y)");
-        let err = LintEngine::new()
-            .lint_module(&lang, &module)
-            .unwrap_err();
+        let err = LintEngine::new().lint_module(&lang, &module).unwrap_err();
         assert!(format!("{err}").contains("bogus"), "{err}");
     }
 }

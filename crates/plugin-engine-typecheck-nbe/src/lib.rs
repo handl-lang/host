@@ -340,7 +340,8 @@ impl NbeTypecheckEngine {
     ) -> Result<Value, LangError> {
         match scheme {
             Term::Arr { value } => Ok(value.clone()),
-            Term::Op { name: op,
+            Term::Op {
+                name: op,
                 args,
                 source,
                 lit,
@@ -1713,10 +1714,7 @@ impl NbeTypecheckEngine {
                         let elem_meta = meta_value(ctx.fresh_meta());
                         let rest_ty = ctx
                             .registry
-                            .construct(
-                                "type.array",
-                                &serde_json::json!({"element": elem_meta}),
-                            )
+                            .construct("type.array", &serde_json::json!({"element": elem_meta}))
                             .ok_or_else(|| {
                                 LangError::engine_node(
                                     "synth_function: construct failed for type.array",
@@ -1728,10 +1726,7 @@ impl NbeTypecheckEngine {
                     }
                     let param_type = ctx
                         .registry
-                        .construct(
-                            "type.array",
-                            &serde_json::json!({"elements": elems}),
-                        )
+                        .construct("type.array", &serde_json::json!({"elements": elems}))
                         .ok_or_else(|| {
                             LangError::engine_node(
                                 "synth_function: construct failed for type.array",
@@ -1741,8 +1736,7 @@ impl NbeTypecheckEngine {
                     let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
                     let param_type = self.zonk(&param_type, ctx);
                     let body_type = self.zonk(&body_type, ctx);
-                    let payload =
-                        serde_json::json!({"param": param_type, "body": body_type});
+                    let payload = serde_json::json!({"param": param_type, "body": body_type});
                     ctx.registry
                         .construct("type.function", &payload)
                         .ok_or_else(|| {
@@ -4968,8 +4962,7 @@ impl plugin_engine::Model for TypeModel {
                     .lang
                     .type_rule(child_kind)
                     .ok_or(plugin_engine::LangError::NotImplemented)?;
-                let mut tctx =
-                    TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                let mut tctx = TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
                 self.0
                     .eval_type_scheme(
                         lang,

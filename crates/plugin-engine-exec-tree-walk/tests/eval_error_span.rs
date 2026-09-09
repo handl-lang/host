@@ -7,7 +7,7 @@
 //! [`LangError`] exposes a non-`None` span so diagnostics can point at the
 //! offending source location.
 
-use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Term, Span, Value};
+use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Span, Term, Value};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 

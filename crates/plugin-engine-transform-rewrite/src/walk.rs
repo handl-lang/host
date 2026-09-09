@@ -152,7 +152,12 @@ impl<'a> PassRun<'a> {
 
     /// Dispatch one input node (bottom-up): fire the first matching rule,
     /// else consult the native fallback, else push the remapped node.
-    pub(crate) fn process(&mut self, i: usize, node: &AstNode, out: &mut Ast) -> Result<(), LangError> {
+    pub(crate) fn process(
+        &mut self,
+        i: usize,
+        node: &AstNode,
+        out: &mut Ast,
+    ) -> Result<(), LangError> {
         let remapped = remap_children(node, &self.remap);
         if let Some((at, def)) = self.surgical {
             // Surgical mode: only `def` fires, only at `at`.
@@ -214,15 +219,9 @@ impl<'a> PassRun<'a> {
     }
 
     fn visit_inner(&mut self, idx: usize, out: &mut Ast) -> Result<usize, LangError> {
-        let node = self
-            .ast
-            .get(AstRef::new(idx))
-            .ok_or_else(|| {
-                LangError::engine(format!(
-                    "pass '{}': invalid node index {idx}",
-                    self.pass
-                ))
-            })?;
+        let node = self.ast.get(AstRef::new(idx)).ok_or_else(|| {
+            LangError::engine(format!("pass '{}': invalid node index {idx}", self.pass))
+        })?;
         self.stats.visited += 1;
 
         if let Some((at, def)) = self.surgical {
@@ -320,12 +319,7 @@ impl<'a> PassRun<'a> {
     /// structured fields of [`LangError::Engine`], taken from the error when
     /// it already carries them (e.g. a native that built its own
     /// `engine_node` error) and otherwise from the node being rewritten.
-    fn annotate(
-        &self,
-        err: LangError,
-        rule_id: Option<&str>,
-        node: Option<&AstNode>,
-    ) -> LangError {
+    fn annotate(&self, err: LangError, rule_id: Option<&str>, node: Option<&AstNode>) -> LangError {
         let (msg, span, kind) = match err {
             LangError::Engine {
                 message,
@@ -458,12 +452,9 @@ impl<'a> Resolver for PassRun<'a> {
         rule_id: &str,
         old_idx: usize,
     ) -> Result<Option<usize>, LangError> {
-        let def = self
-            .dispatch
-            .rule_by_id(rule_id)
-            .ok_or_else(|| {
-                LangError::engine(format!("Apply references unknown rule '{rule_id}'"))
-            })?;
+        let def = self.dispatch.rule_by_id(rule_id).ok_or_else(|| {
+            LangError::engine(format!("Apply references unknown rule '{rule_id}'"))
+        })?;
         let node = match self.ast.get(AstRef::new(old_idx)) {
             Some(n) => n,
             None => return Ok(None),

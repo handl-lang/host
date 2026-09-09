@@ -332,8 +332,7 @@ mod tests {
     fn canonical_lang() -> &'static Language {
         static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
         LANG.get_or_init(|| {
-            handl_kit_data_canonical::language_from_yaml()
-                .expect("canonical language assembles")
+            handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles")
         })
     }
 
@@ -375,21 +374,25 @@ mod tests {
             bare.diagnostics
         );
         let prelude: std::collections::HashSet<String> =
-            ["somemod".to_string(), "input".to_string()].into_iter().collect();
-        let seeded = check_module_with_prelude(canonical_lang(), "main = somemod.trim(input) ~> input", &prelude)
-            .unwrap();
+            ["somemod".to_string(), "input".to_string()]
+                .into_iter()
+                .collect();
+        let seeded = check_module_with_prelude(
+            canonical_lang(),
+            "main = somemod.trim(input) ~> input",
+            &prelude,
+        )
+        .unwrap();
         assert!(
-            !seeded
-                .diagnostics
-                .iter()
-                .any(|d| d.rule == "unbound-wire"
-                    && d.severity == handl_plugin_ext_diag::Severity::Error),
+            !seeded.diagnostics.iter().any(|d| d.rule == "unbound-wire"
+                && d.severity == handl_plugin_ext_diag::Severity::Error),
             "prelude names should be in scope, got: {:?}",
             seeded.diagnostics
         );
         // Prelude names do not satisfy unbound-export: exports still need a
         // source-level binding.
-        let exported = check_module_with_prelude(canonical_lang(), "export somemod", &prelude).unwrap();
+        let exported =
+            check_module_with_prelude(canonical_lang(), "export somemod", &prelude).unwrap();
         assert!(
             exported
                 .diagnostics

@@ -100,7 +100,10 @@ fn graded_theory_ast_shapes_exist() {
         ("ast.rewrite", vec!["name", "source", "target"]),
         ("ast.law", vec!["name", "source", "target"]),
     ] {
-        let shape = lang.ast.get_by_id(id).unwrap_or_else(|| panic!("missing {id}"));
+        let shape = lang
+            .ast
+            .get_by_id(id)
+            .unwrap_or_else(|| panic!("missing {id}"));
         let declared: Vec<&str> = shape
             .children
             .as_ref()

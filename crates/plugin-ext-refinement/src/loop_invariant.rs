@@ -160,7 +160,9 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         // Sorted(output)). When the guarantee does not imply the post, we
         // conservatively return True -- the branch simply does not strengthen
         // the invariant.
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             if op == "id" {
                 return post.clone();
             }
@@ -220,7 +222,9 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
 /// Collect every base-arrow guarantee appearing anywhere in `scheme`.
 pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut Vec<Pred>) {
     match scheme {
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             if let Some(c) = registry.lookup(op, source) {
                 if c.guarantee != Pred::True {
                     out.push(c.guarantee.clone());
@@ -276,7 +280,10 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
 /// searching recursively through all combinators.
 pub fn graph_contains(scheme: &Term, op: &str) -> bool {
     match scheme {
-        Term::Op { name: arr_op, source, ..
+        Term::Op {
+            name: arr_op,
+            source,
+            ..
         } => {
             arr_op == op
                 || arr_op == &format!("list.{}", op)

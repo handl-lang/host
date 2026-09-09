@@ -175,7 +175,9 @@ fn named_color_infos(source: &str) -> Vec<Value> {
                     if let Some(str_idx) = next_significant(&classes, &tokens, open_paren + 1) {
                         if classes.is_string(&tokens[str_idx].kind) {
                             // ... then `)`.
-                            if let Some(close_idx) = next_significant(&classes, &tokens, str_idx + 1) {
+                            if let Some(close_idx) =
+                                next_significant(&classes, &tokens, str_idx + 1)
+                            {
                                 if tokens[close_idx].text == ")" {
                                     let inner = string_inner(&tokens[str_idx]);
                                     if let Some((r, g, b)) =

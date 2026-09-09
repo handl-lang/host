@@ -125,16 +125,8 @@ pub fn arrow_language() -> &'static Language {
         let bin_lt = Term::App {
             callee: Box::new(Term::arr_native("lt", vec![])),
             args: vec![
-                Term::arr_native_lit(
-                    "proj_child",
-                    vec![],
-                    serde_json::Value::from(0u64),
-                ),
-                Term::arr_native_lit(
-                    "proj_child",
-                    vec![],
-                    serde_json::Value::from(1u64),
-                ),
+                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(0u64)),
+                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(1u64)),
             ],
         };
         lang.eval
@@ -147,16 +139,8 @@ pub fn arrow_language() -> &'static Language {
         let bin_lte = Term::App {
             callee: Box::new(Term::arr_native("lte", vec![])),
             args: vec![
-                Term::arr_native_lit(
-                    "proj_child",
-                    vec![],
-                    serde_json::Value::from(0u64),
-                ),
-                Term::arr_native_lit(
-                    "proj_child",
-                    vec![],
-                    serde_json::Value::from(1u64),
-                ),
+                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(0u64)),
+                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(1u64)),
             ],
         };
         lang.eval

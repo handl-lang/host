@@ -78,7 +78,9 @@ pub fn infer_r(
     match scheme {
         // arr(id) or arr(op): look up contract in registry.
         // RGraph::Id maps to Term::Op { name: "id", ... }.
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             if op == "id" {
                 // Identity preserves everything.
                 return Ok((
@@ -234,7 +236,12 @@ pub fn format_scheme(scheme: &Term) -> String {
 
         Term::Arr { value } => format!("const({})", value),
         Term::Child { role } => format!("child({})", role),
-        Term::Iter { fuel, predicate, step, initial } => {
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
             format!(
                 "iter({}, {}, {}, {})",
                 format_scheme(fuel),
@@ -244,7 +251,11 @@ pub fn format_scheme(scheme: &Term) -> String {
             )
         }
         Term::Rewrite { source, target, .. } => {
-            format!("rewrite({} ~> {})", format_scheme(source), format_scheme(target))
+            format!(
+                "rewrite({} ~> {})",
+                format_scheme(source),
+                format_scheme(target)
+            )
         }
     }
 }

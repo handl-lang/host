@@ -36,9 +36,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{
-    SpannedToken, TokenClasses,
-};
+use handl_kit_canonical::{SpannedToken, TokenClasses};
 
 use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;

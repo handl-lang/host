@@ -68,10 +68,7 @@ fn flow_pair_destructures() {
 /// Right-nested products flatten fully: `a *** b *** c >>> f` → `f(a, b, c)`.
 #[test]
 fn flow_nested_pair_flattens() {
-    assert_all_engines(
-        "(1 *** 2 *** 3) >>> ((a, b, c) ~> a + b + c)",
-        json!(6),
-    );
+    assert_all_engines("(1 *** 2 *** 3) >>> ((a, b, c) ~> a + b + c)", json!(6));
 }
 
 /// `>>>` composes left-to-right (precedence 25/26): `x >>> f >>> g` is

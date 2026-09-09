@@ -173,7 +173,11 @@ fn clean_module() {
 
 #[test]
 fn clean_module_with_import_and_call() {
-    let report = check_module(lang(), "import sort from \"collection\"; main = sort([3, 1, 2])").unwrap();
+    let report = check_module(
+        lang(),
+        "import sort from \"collection\"; main = sort([3, 1, 2])",
+    )
+    .unwrap();
     assert_clean(&report);
 }
 
@@ -459,29 +463,41 @@ fn object_value_unbound_wire_detected() {
 /// `str.trim` are not flagged as unbound wires.
 #[test]
 fn from_import_star_as_scopes_alias() {
-    let report =
-        check_module(lang(), "from \"str\" import * as str; main = str.trim(\"x\")").unwrap();
+    let report = check_module(
+        lang(),
+        "from \"str\" import * as str; main = str.trim(\"x\")",
+    )
+    .unwrap();
     assert_clean(&report);
 }
 
 /// `from "str" import name` (named projection, no `as`) scopes the name.
 #[test]
 fn from_import_named_scopes_name() {
-    let report =
-        check_module(lang(), "from \"str\" import reverse; main = reverse(\"ab\")").unwrap();
+    let report = check_module(
+        lang(),
+        "from \"str\" import reverse; main = reverse(\"ab\")",
+    )
+    .unwrap();
     assert_clean(&report);
 }
 
 /// `from "str" import name as local` scopes the alias, not the remote name.
 #[test]
 fn from_import_named_as_scopes_alias_not_name() {
-    let report =
-        check_module(lang(), "from \"str\" import reverse as rev; main = rev(\"ab\")").unwrap();
+    let report = check_module(
+        lang(),
+        "from \"str\" import reverse as rev; main = rev(\"ab\")",
+    )
+    .unwrap();
     assert_clean(&report);
 
     // The remote name itself is not bound.
-    let report =
-        check_module(lang(), "from \"str\" import reverse as rev; main = reverse(\"ab\")").unwrap();
+    let report = check_module(
+        lang(),
+        "from \"str\" import reverse as rev; main = reverse(\"ab\")",
+    )
+    .unwrap();
     assert!(
         has_diag(&report, "unbound-wire", Severity::Error),
         "expected unbound-wire for `reverse`, got: {:?}",

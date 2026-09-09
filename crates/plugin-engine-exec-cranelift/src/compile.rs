@@ -72,7 +72,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use handl_language::Value as JsonValue;
-use handl_language::{ArrSource, Ast, LangError, Language, Term, SchemeVersion};
+use handl_language::{ArrSource, Ast, LangError, Language, SchemeVersion, Term};
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -833,7 +833,8 @@ fn compile_scheme(
             Ok((builder.inst_results(call)[0], false))
         }
 
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,
@@ -1292,10 +1293,9 @@ fn compile_arr(
             let idx_val = builder.ins().iconst(types::I64, idx);
             // `proj_child_or` tolerates an absent child (evaluates to null);
             // `proj_child` errors.
-            let or_null = builder.ins().iconst(
-                types::I64,
-                if op == "proj_child_or" { 1 } else { 0 },
-            );
+            let or_null = builder
+                .ins()
+                .iconst(types::I64, if op == "proj_child_or" { 1 } else { 0 });
             let call = builder.ins().call(
                 helpers.eval_child,
                 &[ctx_param, idx_val, incoming_val, or_null],

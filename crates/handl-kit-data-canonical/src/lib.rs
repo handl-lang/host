@@ -664,10 +664,12 @@ mod tests {
                 "lib.kv",
             ]
         );
-        assert!(config
-            .caps
-            .iter()
-            .all(|c| c.description.as_deref() == Some("pure library capability")));
+        assert!(
+            config
+                .caps
+                .iter()
+                .all(|c| c.description.as_deref() == Some("pure library capability"))
+        );
     }
 
     #[test]

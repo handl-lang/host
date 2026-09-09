@@ -118,11 +118,7 @@ pub(crate) fn build_rewrite(
     // carry a `children` key).
     let mut payload: Value = match patch {
         Some(Value::Object(obj)) => {
-            let mut merged = original
-                .payload
-                .as_object()
-                .cloned()
-                .unwrap_or_default();
+            let mut merged = original.payload.as_object().cloned().unwrap_or_default();
             merged.remove("children");
             for (k, v) in obj {
                 merged.insert(k.clone(), v.clone());
@@ -131,11 +127,7 @@ pub(crate) fn build_rewrite(
         }
         Some(p) => p.clone(),
         None => {
-            let mut kept = original
-                .payload
-                .as_object()
-                .cloned()
-                .unwrap_or_default();
+            let mut kept = original.payload.as_object().cloned().unwrap_or_default();
             kept.remove("children");
             Value::Object(kept)
         }
@@ -217,10 +209,12 @@ fn build_step(
                 }
             }
             match current_idx {
-                Some(idx) => Ok(vec![resolver
-                    .resolve(out, idx)?
-                    .map(Value::from)
-                    .unwrap_or(Value::Null)]),
+                Some(idx) => Ok(vec![
+                    resolver
+                        .resolve(out, idx)?
+                        .map(Value::from)
+                        .unwrap_or(Value::Null),
+                ]),
                 None => Ok(vec![Value::Null]),
             }
         }
@@ -247,10 +241,7 @@ fn build_step(
             // Lift the indexed child's own children into this child list.
             match child_index(original, *i).and_then(|idx| ast.get(AstRef::new(idx))) {
                 Some(child) => {
-                    let grandchildren = child
-                        .payload
-                        .get("children")
-                        .and_then(|c| c.as_array());
+                    let grandchildren = child.payload.get("children").and_then(|c| c.as_array());
                     match grandchildren {
                         Some(arr) => {
                             let indices: Vec<usize> = arr
@@ -309,10 +300,12 @@ fn build_step(
             Ok(vec![Value::from(new_ref.index())])
         }
         RewriteStep::Apply { rule_id, index } => match child_index(original, *index) {
-            Some(old_idx) => Ok(vec![resolver
-                .apply(out, rule_id, old_idx)?
-                .map(Value::from)
-                .unwrap_or(Value::Null)]),
+            Some(old_idx) => Ok(vec![
+                resolver
+                    .apply(out, rule_id, old_idx)?
+                    .map(Value::from)
+                    .unwrap_or(Value::Null),
+            ]),
             None => Ok(vec![Value::Null]),
         },
     }
@@ -328,10 +321,12 @@ fn keep_at(
     i: usize,
 ) -> Result<Vec<Value>, LangError> {
     match child_index(original, i) {
-        Some(old_idx) => Ok(vec![resolver
-            .resolve(out, old_idx)?
-            .map(Value::from)
-            .unwrap_or(Value::Null)]),
+        Some(old_idx) => Ok(vec![
+            resolver
+                .resolve(out, old_idx)?
+                .map(Value::from)
+                .unwrap_or(Value::Null),
+        ]),
         None => Ok(vec![Value::Null]),
     }
 }

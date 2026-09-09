@@ -141,14 +141,7 @@ fn is_contract_source(src: &str) -> bool {
 fn has_arrow_markers(src: &str) -> bool {
     const DIRECTIVES: [&str; 4] = ["cap ", "op ", "handl ", "tag "];
     const COMBINATORS: [&str; 8] = [
-        "arr(",
-        "first(",
-        "choice(",
-        "loop(",
-        "comp(",
-        "app(",
-        "|||",
-        "rec {",
+        "arr(", "first(", "choice(", "loop(", "comp(", "app(", "|||", "rec {",
     ];
     src.lines().any(|line| {
         let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);

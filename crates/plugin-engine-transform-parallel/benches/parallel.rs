@@ -5,7 +5,7 @@ use handl_kit_data_canonical::language_from_yaml;
 use handl_language::{Ast, AstNode, AstRef, Language};
 use handl_plugin_engine_transform_parallel::ParallelEngine;
 use handl_plugin_engine_transform_rewrite::RewriteEngine;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn canonical_lang() -> Language {
     language_from_yaml().expect("canonical language should assemble")
@@ -66,11 +66,17 @@ fn bench_sweep(c: &mut Criterion) {
         let root = AstRef::new(ast.len() - 1);
 
         group.bench_with_input(BenchmarkId::new("sequential", n), &ast, |b, ast| {
-            b.iter(|| seq.run_pass(&lang, black_box(ast), root, "desugar").unwrap());
+            b.iter(|| {
+                seq.run_pass(&lang, black_box(ast), root, "desugar")
+                    .unwrap()
+            });
         });
 
         group.bench_with_input(BenchmarkId::new("parallel", n), &ast, |b, ast| {
-            b.iter(|| par.run_pass(&lang, black_box(ast), root, "desugar").unwrap());
+            b.iter(|| {
+                par.run_pass(&lang, black_box(ast), root, "desugar")
+                    .unwrap()
+            });
         });
     }
     group.finish();

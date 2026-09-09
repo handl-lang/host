@@ -177,7 +177,8 @@ fn zip_graph() -> Term {
 fn test_parse_arr() {
     let scheme = parse_arrow_expr(r#"arr("sort")"#).expect("parse arr");
     match scheme {
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             source,
             args,
             lit,

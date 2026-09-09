@@ -287,8 +287,12 @@ fn classify_identifier(
     tokens: &[SpannedToken],
     index: usize,
 ) -> (i64, &'static str) {
-    let is_label =
-        |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
+    let is_label = |i: usize, l: &str| -> bool {
+        tokens
+            .get(i)
+            .map(|t| classes.is_label(&t.kind, l))
+            .unwrap_or(false)
+    };
 
     // Property access: preceded by `.` → property or method
     if index > 0 && is_label(index - 1, ".") {
@@ -740,12 +744,11 @@ fn detect_context(
 pub fn completion(source: &str, offset: usize) -> Value {
     let mut items = completions(source);
 
-    let (tokens, classes) = match kit_for_file(None)
-        .and_then(|kit| kit.lex_with_spans(source).map(|t| (t, kit)))
-    {
-        Ok((t, kit)) => (t, TokenClasses::new(kit.language())),
-        Err(_) => return json!(items),
-    };
+    let (tokens, classes) =
+        match kit_for_file(None).and_then(|kit| kit.lex_with_spans(source).map(|t| (t, kit))) {
+            Ok((t, kit)) => (t, TokenClasses::new(kit.language())),
+            Err(_) => return json!(items),
+        };
 
     match detect_context(&classes, &tokens, offset, source) {
         Context::None => {}

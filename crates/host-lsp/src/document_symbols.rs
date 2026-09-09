@@ -438,11 +438,7 @@ fn general_symbols(
 // ---------------------------------------------------------------------------
 
 /// Index of the next non-comment token at or after `from`, or `None`.
-fn next_sig_idx(
-    classes: &TokenClasses,
-    tokens: &[SpannedToken],
-    from: usize,
-) -> Option<usize> {
+fn next_sig_idx(classes: &TokenClasses, tokens: &[SpannedToken], from: usize) -> Option<usize> {
     tokens
         .iter()
         .enumerate()

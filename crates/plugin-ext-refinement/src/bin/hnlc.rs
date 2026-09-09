@@ -174,7 +174,8 @@ fn pretty_scheme(scheme: &Term) -> String {
 fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
     let indent = "  ".repeat(depth);
     match scheme {
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,

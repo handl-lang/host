@@ -6,7 +6,7 @@
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::{Ast, AstNode, AstRef, Language};
 use handl_plugin_engine_transform_rewrite::RewriteEngine;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn canonical() -> Language {
     language_from_yaml().expect("canonical language loads")
@@ -25,10 +25,13 @@ fn engine_desugar(lang: &Language, ast: &Ast) -> Ast {
 /// Assert the runtime delegate `apply_desugar` agrees with a direct
 /// `run_pass("desugar")` call, and idempotence on both.
 fn assert_parity(lang: &Language, ast: &Ast) {
-    let delegate = handl_runtime::desugar_pass::apply_desugar(lang, ast)
-        .expect("apply_desugar failed");
+    let delegate =
+        handl_runtime::desugar_pass::apply_desugar(lang, ast).expect("apply_desugar failed");
     let engine = engine_desugar(lang, ast);
-    assert_eq!(delegate, engine, "engine output diverged from apply_desugar");
+    assert_eq!(
+        delegate, engine,
+        "engine output diverged from apply_desugar"
+    );
     // Idempotence on both paths.
     let delegate2 = handl_runtime::desugar_pass::apply_desugar(lang, &delegate)
         .expect("apply_desugar failed on re-run");

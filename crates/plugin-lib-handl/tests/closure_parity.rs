@@ -30,14 +30,8 @@ fn runtime_for(engine_name: &'static str) -> Runtime {
 
     let modules: Rc<dyn handl_platform::ModuleLookup> = Rc::new(
         ModuleRegistry::new()
-            .with(
-                HandlModule::new("transform", MAP_HNL, &["map"])
-                    .with_eval_engine(engine_name),
-            )
-            .with(
-                HandlModule::new("maker", MAKER_HNL, &["make"])
-                    .with_eval_engine(engine_name),
-            ),
+            .with(HandlModule::new("transform", MAP_HNL, &["map"]).with_eval_engine(engine_name))
+            .with(HandlModule::new("maker", MAKER_HNL, &["make"]).with_eval_engine(engine_name)),
     );
 
     let eval: Box<dyn EvalEngine> = if engine_name == "tree-walk" {
@@ -65,10 +59,7 @@ fn assert_both_engines(src: &str, expected: Value) {
 /// `transform.map` takes an arrow as an argument.
 #[test]
 fn transform_map_with_arrow_arg() {
-    assert_both_engines(
-        "transform.map([1, 2, 3], x ~> x * 2)",
-        json!([2, 4, 6]),
-    );
+    assert_both_engines("transform.map([1, 2, 3], x ~> x * 2)", json!([2, 4, 6]));
 }
 
 /// `maker.make` returns a closure that closes over `x`.

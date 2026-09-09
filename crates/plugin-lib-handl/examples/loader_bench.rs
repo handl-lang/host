@@ -9,8 +9,8 @@ use std::time::Instant;
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
-    HandlLoader, ModuleResolver, build_str_handl_module, install_loader,
-    strip_declaration_lines, transform_export_to_object,
+    HandlLoader, ModuleResolver, build_str_handl_module, install_loader, strip_declaration_lines,
+    transform_export_to_object,
 };
 
 struct CharResolver;
@@ -51,8 +51,7 @@ fn main() {
     // Both the loader and its `str` dep run on the bytecode engine
     // (`HandlLoader::new` selects bytecode internally; the str dep needs
     // the explicit opt-in here).
-    let str_for_loader =
-        build_str_handl_module(&CharResolver).with_eval_engine("bytecode");
+    let str_for_loader = build_str_handl_module(&CharResolver).with_eval_engine("bytecode");
     let _ = install_loader(HandlLoader::new(vec![
         Arc::new(CharModule),
         Arc::new(str_for_loader),
@@ -61,7 +60,11 @@ fn main() {
     // Warm the loader's own AST (first call pays the one-time parse).
     let t = Instant::now();
     let out = strip_declaration_lines("x ~> x");
-    println!("loader strip_decls cold (tiny): {:>9?} -> {} chars", t.elapsed(), out.len());
+    println!(
+        "loader strip_decls cold (tiny): {:>9?} -> {} chars",
+        t.elapsed(),
+        out.len()
+    );
 
     let t = Instant::now();
     let out = strip_declaration_lines(DEDENT_HNL);

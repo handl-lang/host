@@ -2,15 +2,14 @@
 
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::{
-    Ast, AstNode, AstRef, AstShapeDef, ChildRoleSpec, Language, TransformDef,
-    TransformRule,
+    Ast, AstNode, AstRef, AstShapeDef, ChildRoleSpec, Language, TransformDef, TransformRule,
 };
+use handl_plugin_engine_transform::TransformEngine;
 use handl_plugin_engine_transform::native::{NativeRewriteRegistry, RewriteCtx};
 use handl_plugin_engine_transform::request::TransformRequest;
-use handl_plugin_engine_transform::TransformEngine;
 use handl_plugin_engine_transform_parallel::ParallelEngine;
 use handl_plugin_engine_transform_rewrite::RewriteEngine;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 fn canonical() -> Language {
@@ -98,12 +97,12 @@ fn native_registry_is_wired() {
             .unwrap();
     }
     // Give block a variadic statements role so children are recognized as refs.
-    lang.merge_ast_fragment(
-        AstShapeDef::new("ast.block", "block").with_children(vec![ChildRoleSpec {
+    lang.merge_ast_fragment(AstShapeDef::new("ast.block", "block").with_children(vec![
+        ChildRoleSpec {
             role: "statements".into(),
             variadic: true,
-        }]),
-    )
+        },
+    ]))
     .unwrap();
     lang.transforms
         .merge(TransformDef::new(
@@ -117,9 +116,7 @@ fn native_registry_is_wired() {
     let mut reg = NativeRewriteRegistry::new();
     reg.register(
         "mk.b",
-        Box::new(|ctx: &mut RewriteCtx| {
-            Ok(AstRef::new(ctx.push_leaf("b", json!("made"))))
-        }),
+        Box::new(|ctx: &mut RewriteCtx| Ok(AstRef::new(ctx.push_leaf("b", json!("made"))))),
     );
 
     let mut ast = Ast::new();

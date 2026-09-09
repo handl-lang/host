@@ -92,7 +92,9 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
         }
 
         // Base arrows and identity: no loop, direct termination.
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             let known = registry.contains(op, source);
             TerminationResult {
                 terminates: true,
@@ -184,7 +186,9 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
 
         // --- Direct base arrow as loop body ---
         // loop(arr): the arrow itself must decrease C. Check its contract.
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             let contract = registry.lookup(op, source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
@@ -275,7 +279,9 @@ fn analyze_comp_loop_termination(
         }
 
         // right is a base arrow: its termination_effect tells us about C.
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             let contract = registry.lookup(op, source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
@@ -476,7 +482,9 @@ fn find_decreasing_measure_in(
     registry: &ContractRegistry,
 ) -> Option<(Measure, String)> {
     match scheme {
-        Term::Op { name: op, source, .. } => {
+        Term::Op {
+            name: op, source, ..
+        } => {
             let contract = registry.lookup(op, source)?;
             let effect = contract.termination_effect.as_ref()?;
             match effect.as_str() {

@@ -242,7 +242,9 @@ fn build_test_module() -> HandlModule {
         .with_dependency_arc(std::sync::Arc::new(TimeModule))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("combinators").expect("combinators"),
+        ))
         .with_dependency_arc(std::sync::Arc::new(build_type_module()))
 }
 
@@ -252,7 +254,9 @@ fn build_property_module() -> HandlModule {
         .with_dependency_arc(std::sync::Arc::new(RandModule))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("combinators").expect("combinators"),
+        ))
 }
 
 fn build_benchmark_module() -> HandlModule {
@@ -260,7 +264,9 @@ fn build_benchmark_module() -> HandlModule {
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(TimeModule))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("combinators").expect("combinators"),
+        ))
 }
 
 fn build_fuzz_module() -> HandlModule {
@@ -269,7 +275,9 @@ fn build_fuzz_module() -> HandlModule {
         .with_dependency_arc(std::sync::Arc::new(RandModule))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("combinators").expect("combinators")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("combinators").expect("combinators"),
+        ))
 }
 
 fn build_snapshot_module() -> HandlModule {
@@ -400,10 +408,7 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
     let mut names = std::collections::HashSet::new();
     // Module names (qualified `mod.fn` wires) and their local function
     // names (flat wires via `ModuleRegistry::lookup`'s all-module search).
-    let module_names: Vec<String> = registry
-        .module_names()
-        .map(str::to_string)
-        .collect();
+    let module_names: Vec<String> = registry.module_names().map(str::to_string).collect();
     for name in &module_names {
         names.insert(name.clone());
         if let Some(module) = registry.module(name) {
@@ -1114,27 +1119,16 @@ pub struct SpannedToken {
 /// dependencies). A present-but-unparseable manifest is an error — silent
 /// fallback would make `import` failures look like missing files rather
 /// than a broken manifest.
-fn load_project_dependencies(
-    project_root: &Path,
-) -> Result<HashMap<String, PathBuf>, LangError> {
+fn load_project_dependencies(project_root: &Path) -> Result<HashMap<String, PathBuf>, LangError> {
     let manifest_path = project_root.join(".handl.toml");
     if !manifest_path.is_file() {
         return Ok(HashMap::new());
     }
     let src = std::fs::read_to_string(&manifest_path).map_err(|e| {
-        LangError::engine(format!(
-            "cannot read {}: {}",
-            manifest_path.display(),
-            e
-        ))
+        LangError::engine(format!("cannot read {}: {}", manifest_path.display(), e))
     })?;
-    let config = HostConfig::from_toml(&src).map_err(|e| {
-        LangError::engine(format!(
-            "invalid {}: {}",
-            manifest_path.display(),
-            e
-        ))
-    })?;
+    let config = HostConfig::from_toml(&src)
+        .map_err(|e| LangError::engine(format!("invalid {}: {}", manifest_path.display(), e)))?;
     let deps = config
         .dependencies
         .into_iter()
@@ -1396,14 +1390,11 @@ impl Kit {
         // transform still falls back to `bootstrap` on a loader error.
         // A host that installed its own loader first keeps it
         // (`OnceLock`: first install wins).
-        let _ = handl_plugin_lib_handl::install_loader(handl_plugin_lib_handl::HandlLoader::new(
-            vec![
+        let _ =
+            handl_plugin_lib_handl::install_loader(handl_plugin_lib_handl::HandlLoader::new(vec![
                 std::sync::Arc::new(CharModule),
-                std::sync::Arc::new(
-                    build_str_handl_module().with_eval_engine("bytecode"),
-                ),
-            ],
-        ));
+                std::sync::Arc::new(build_str_handl_module().with_eval_engine("bytecode")),
+            ]));
 
         let stdlib_registry = build_stdlib_registry();
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
@@ -1949,7 +1940,10 @@ impl TokenClasses {
 
     /// Whether token kind `kind` is classified as `category`.
     pub fn is(&self, kind: &str, category: &str) -> bool {
-        self.categories.get(kind).map(|c| c == category).unwrap_or(false)
+        self.categories
+            .get(kind)
+            .map(|c| c == category)
+            .unwrap_or(false)
     }
 
     /// The declared category for `kind`, if any.

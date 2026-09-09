@@ -82,7 +82,7 @@ pub mod op_registry;
 pub mod transform;
 pub use lint::HandlNativeLint;
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
-pub use transform::{HandlNativeRewrite, HANDL_PREFIX, KEEP_KEY};
+pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -145,484 +145,489 @@ mod bootstrap {
     /// definitions but is not valid inside the applied `(source).func(input)`
     /// form the Pratt parser evaluates, so it is removed before evaluation.
     pub(super) fn strip_comment_lines(src: &str) -> String {
-    src.lines()
-        .filter(|line| !line.trim_start().starts_with("--"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
+        src.lines()
+            .filter(|line| !line.trim_start().starts_with("--"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
-/// Strip `cap`/`op`/`handl` declaration lines (and their indented
-/// continuation lines) from a `.hnl` source, leaving only the handl logic.
-///
-/// This is the companion to [`strip_comment_lines`]: `strip_comment_lines`
-/// removes `--`/`---` comment lines, while this function removes the
-/// ADR-0077 declaration forms (`cap "..."`, `op "..." : ...`,
-/// `handl "..." = ...`) and their indented continuation lines
-/// (`guarantee:`, `requires:`, `termination:`). Together they prepare a
-/// `.hnl` source for evaluation as a bare handl expression.
-///
-/// This is necessary because `.hnl` files may now contain `cap`/`op`/`handl`
-/// declarations (ADR-0077) alongside the handl logic. The [`HandlModule`]
-/// evaluates the source as a single handl expression, so declaration lines
-/// (which are not valid handl expressions) must be removed first.
-///
-/// # Example
-///
-/// ```
-/// use handl_plugin_lib_handl::strip_declaration_lines;
-///
-/// let src = r#"cap "hello.greet"
-/// op "hello.greet" : String -> String
-///   guarantee: True
-/// name ~> "Hello, " + name + "!"
-/// "#;
-/// let cleaned = strip_declaration_lines(src);
-/// assert!(!cleaned.contains("cap"));
-/// assert!(!cleaned.contains("op "));
-/// assert!(cleaned.contains("name ~>"));
-/// ```
-pub(super) fn strip_declaration_lines(src: &str) -> String {
-    src.lines()
-        .filter(|line| {
-            let trimmed = line.trim_start();
-            // Strip indented continuation lines from `op` declarations
-            // (e.g. `guarantee:`, `requires:`, `termination:`).
-            if line.starts_with(' ') || line.starts_with('\t') {
-                if trimmed.starts_with("guarantee")
-                    || trimmed.starts_with("requires")
-                    || trimmed.starts_with("termination")
-                {
-                    return false;
-                }
-            }
-            // Strip `cap "..."`, `op "..."`, and `handl "..." = ...` lines.
-            for kw in ["cap", "op", "handl"] {
-                if let Some(rest) = trimmed.strip_prefix(kw) {
-                    if rest.is_empty()
-                        || rest.starts_with(' ')
-                        || rest.starts_with('\t')
-                        || rest.starts_with('"')
+    /// Strip `cap`/`op`/`handl` declaration lines (and their indented
+    /// continuation lines) from a `.hnl` source, leaving only the handl logic.
+    ///
+    /// This is the companion to [`strip_comment_lines`]: `strip_comment_lines`
+    /// removes `--`/`---` comment lines, while this function removes the
+    /// ADR-0077 declaration forms (`cap "..."`, `op "..." : ...`,
+    /// `handl "..." = ...`) and their indented continuation lines
+    /// (`guarantee:`, `requires:`, `termination:`). Together they prepare a
+    /// `.hnl` source for evaluation as a bare handl expression.
+    ///
+    /// This is necessary because `.hnl` files may now contain `cap`/`op`/`handl`
+    /// declarations (ADR-0077) alongside the handl logic. The [`HandlModule`]
+    /// evaluates the source as a single handl expression, so declaration lines
+    /// (which are not valid handl expressions) must be removed first.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use handl_plugin_lib_handl::strip_declaration_lines;
+    ///
+    /// let src = r#"cap "hello.greet"
+    /// op "hello.greet" : String -> String
+    ///   guarantee: True
+    /// name ~> "Hello, " + name + "!"
+    /// "#;
+    /// let cleaned = strip_declaration_lines(src);
+    /// assert!(!cleaned.contains("cap"));
+    /// assert!(!cleaned.contains("op "));
+    /// assert!(cleaned.contains("name ~>"));
+    /// ```
+    pub(super) fn strip_declaration_lines(src: &str) -> String {
+        src.lines()
+            .filter(|line| {
+                let trimmed = line.trim_start();
+                // Strip indented continuation lines from `op` declarations
+                // (e.g. `guarantee:`, `requires:`, `termination:`).
+                if line.starts_with(' ') || line.starts_with('\t') {
+                    if trimmed.starts_with("guarantee")
+                        || trimmed.starts_with("requires")
+                        || trimmed.starts_with("termination")
                     {
                         return false;
                     }
                 }
-            }
-            // Strip `import ...` and `from ... import ...` lines.
-            if is_import_line(trimmed) {
-                return false;
-            }
-            true
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// Transform top-level `export name = expr` declarations into an object
-/// literal `{ name: expr, ... }` so the source evaluates to a record of
-/// exported functions.
-///
-/// Each `export name = expr` line (at column 0) starts a binding. The
-/// expression continues until the next top-level `export` line or end of
-/// source. The collected expressions are joined into an object literal:
-///
-/// ```text
-/// { name1: expr1, name2: expr2, ... }
-/// ```
-///
-/// If no `export` lines are found, the source is returned unchanged (the
-/// existing object-literal form is preserved).
-pub(super) fn transform_export_to_object(src: &str) -> String {
-    // Collect (name, expr_lines) pairs from top-level export lines.
-    let mut entries: Vec<(String, Vec<String>)> = Vec::new();
-    let mut current: Option<(String, Vec<String>)> = None;
-
-    for line in src.lines() {
-        let trimmed = line.trim_start();
-        // A top-level export line starts at column 0 with `export `.
-        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
-            // Flush the previous entry.
-            if let Some(entry) = current.take() {
-                entries.push(entry);
-            }
-            let rest = &trimmed["export ".len()..];
-            // Find the binding separator (`::`, or legacy `=`).
-            if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                let name = rest[..sep_pos].trim().to_string();
-                let expr_start = rest[sep_pos + sep_len..].trim();
-                let mut expr_lines = Vec::new();
-                if !expr_start.is_empty() {
-                    expr_lines.push(expr_start.to_string());
-                }
-                current = Some((name, expr_lines));
-            }
-            // If no `=` found, skip (not a valid export binding).
-        } else if let Some((_, ref mut lines)) = current {
-            // Accumulate indented continuation lines (part of the export
-            // expression body). Stop at blank lines only if the next
-            // non-blank line is a top-level export.
-            if !line.trim().is_empty() {
-                lines.push(line.to_string());
-            }
-        }
-    }
-    if let Some(entry) = current.take() {
-        entries.push(entry);
-    }
-
-    if entries.is_empty() {
-        return src.to_string();
-    }
-
-    // Build the object literal.
-    let mut out = String::from("{ ");
-    for (i, (name, expr_lines)) in entries.iter().enumerate() {
-        if i > 0 {
-            out.push_str(", ");
-        }
-        out.push_str(name);
-        out.push_str(": ");
-        let expr = expr_lines.join("\n");
-        out.push_str(expr.trim());
-    }
-    out.push_str(" }");
-    out
-}
-
-/// Find the position and length of the binding separator in `s`: the `::`
-/// bind token (canonical) or a legacy `=` (skipping `==`, `>=`, `<=`, `!=`,
-/// `=>`). `::` takes precedence — a lone `:` (type annotations, object
-/// fields, `match` arms) is not a separator. Returns `None` if no binding
-/// separator is found.
-pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    let mut depth: i32 = 0;
-    let mut first_eq: Option<usize> = None;
-    while i < bytes.len() {
-        let c = bytes[i];
-        match c {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            b':' if depth == 0 => {
-                if i + 1 < bytes.len() && bytes[i + 1] == b':' {
-                    return Some((i, 2));
-                }
-            }
-            b'=' if depth == 0 => {
-                let prev = if i > 0 { bytes[i - 1] } else { 0 };
-                let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
-                    i += 1;
-                    continue;
-                }
-                // Legacy `=` bind: remember the first one, but keep
-                // scanning for a `::` that precedes it in the same line
-                // (an `=` earlier would already have returned).
-                if first_eq.is_none() {
-                    first_eq = Some(i);
-                }
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    first_eq.map(|pos| (pos, 1))
-}
-
-/// Returns true if the line is an import declaration (`import ...` or
-/// `from ... import ...`).
-fn is_import_line(trimmed: &str) -> bool {
-    if let Some(rest) = trimmed.strip_prefix("import") {
-        if rest.is_empty()
-            || rest.starts_with(' ')
-            || rest.starts_with('\t')
-            || rest.starts_with('"')
-            || rest.starts_with('\'')
-        {
-            return true;
-        }
-    }
-    if let Some(rest) = trimmed.strip_prefix("from") {
-        if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-            return true;
-        }
-    }
-    false
-}
-
-/// Parse import declarations from a `.hnl` source string.
-///
-/// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
-pub(super) fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
-    src.lines()
-        .filter_map(|line| {
-            let trimmed = line.trim_start();
-            if trimmed.starts_with("--") {
-                return None;
-            }
-            parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
-        })
-        .collect()
-}
-
-fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
-    let rest = line.strip_prefix("from")?.trim();
-    if rest.is_empty() {
-        return None;
-    }
-    let (path, after_path) = extract_quoted(rest)?;
-    let import_kw = after_path.trim().strip_prefix("import")?.trim();
-    let star = import_kw.strip_prefix("*")?.trim();
-    let as_kw = star.strip_prefix("as")?.trim();
-    if as_kw.is_empty() {
-        return None;
-    }
-    let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
-        extract_quoted(as_kw)?.0
-    } else {
-        as_kw.split_whitespace().next()?.to_string()
-    };
-    if alias.is_empty() {
-        return None;
-    }
-    Some(ImportDecl { path, alias })
-}
-
-fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
-    let rest = line.strip_prefix("import")?.trim();
-    if rest.is_empty() {
-        return None;
-    }
-    let (path, after) = extract_quoted(rest)?;
-    let after = after.trim();
-    let alias = if let Some(as_part) = after.strip_prefix("as") {
-        let a = as_part.trim();
-        if a.is_empty() {
-            return None;
-        }
-        if a.starts_with('"') || a.starts_with('\'') {
-            extract_quoted(a)?.0
-        } else {
-            a.split_whitespace().next()?.to_string()
-        }
-    } else {
-        path.rsplit('/').next().unwrap_or(&path).to_string()
-    };
-    Some(ImportDecl { path, alias })
-}
-
-fn extract_quoted(s: &str) -> Option<(String, &str)> {
-    let s = s.trim_start();
-    let quote = s.chars().next()?;
-    if quote != '"' && quote != '\'' {
-        return None;
-    }
-    let rest = &s[quote.len_utf8()..];
-    let end = rest.find(quote)?;
-    Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
-}
-
-/// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
-///
-/// Scans each line for the top-level `cap "name"` form, extracting the
-/// quoted capability name. Comment lines (`-- ...`) are skipped. Lines that
-/// do not match the `cap` form are silently ignored (resilient parsing).
-///
-/// This is a lightweight line-based scan that avoids a dependency on
-/// `plugin-ext-refinement` (which is inference-side). It mirrors the
-/// `parse_cap_line` logic in `arrow_parser.rs`.
-///
-/// # Example
-///
-/// ```
-/// use handl_plugin_lib_handl::parse_cap_declarations;
-///
-/// let src = r#"
-/// cap "fs.read"
-/// cap "fs.write"
-/// op "fs.read" : Path -> Bytes
-/// "#;
-/// let caps = parse_cap_declarations(src);
-/// assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
-/// ```
-pub(super) fn parse_cap_declarations(src: &str) -> Vec<String> {
-    let mut caps = Vec::new();
-    for line in src.lines() {
-        let trimmed = line.trim();
-        // Skip comment lines and empty lines.
-        if trimmed.is_empty() || trimmed.starts_with("--") {
-            continue;
-        }
-        // Check for `cap` prefix followed by whitespace (whole-word match).
-        let rest = match trimmed.strip_prefix("cap") {
-            Some(rest) if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') => {
-                rest.trim_start()
-            }
-            _ => continue,
-        };
-        // Extract the quoted capability name.
-        if let Some(name) = extract_quoted_cap_name(rest) {
-            caps.push(name);
-        }
-    }
-    caps
-}
-
-/// Extract a quoted string from the start of `s`, returning the content.
-///
-/// Supports both `"..."` and `'...'` quoting. Returns `None` if the string
-/// does not start with a quote or has no closing quote.
-fn extract_quoted_cap_name(s: &str) -> Option<String> {
-    let s = s.trim_start();
-    let quote = s.chars().next()?;
-    if quote != '"' && quote != '\'' {
-        return None;
-    }
-    let rest = &s[quote.len_utf8()..];
-    let end = rest.find(quote)?;
-    Some(rest[..end].to_string())
-}
-
-/// Parse `tag` declarations from a `.hnl` source string (ADR-0077).
-///
-/// Scans each line for the top-level `tag name = Type` form, extracting the
-/// tag name and payload type. Comment lines (`-- ...`) are skipped. Lines
-/// that do not match the `tag` form are silently ignored (resilient
-/// parsing).
-///
-/// This is a lightweight line-based scan that mirrors the `parse_tag_line`
-/// logic in `arrow_parser.rs`. It returns `(name, payload_type)` pairs.
-///
-/// # Example
-///
-/// ```
-/// use handl_plugin_lib_handl::parse_tag_declarations;
-///
-/// let src = r#"
-/// tag ok = Value
-/// tag err = Error
-/// "#;
-/// let tags = parse_tag_declarations(src);
-/// assert_eq!(tags, vec![("ok".to_string(), "Value".to_string()),
-///                       ("err".to_string(), "Error".to_string())]);
-/// ```
-pub(super) fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
-    let mut tags = Vec::new();
-    for line in src.lines() {
-        let trimmed = line.trim();
-        // Skip comment lines and empty lines.
-        if trimmed.is_empty() || trimmed.starts_with("--") {
-            continue;
-        }
-        // Check for `tag` prefix followed by whitespace (whole-word match).
-        let rest = match trimmed.strip_prefix("tag") {
-            Some(rest) if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') => {
-                rest.trim_start()
-            }
-            _ => continue,
-        };
-        // Find the `::` (canonical) or legacy `=` separator.
-        let sep = rest
-            .find("::")
-            .map(|i| (i, 2))
-            .or_else(|| rest.find('=').map(|i| (i, 1)));
-        if let Some((eq_idx, sep_len)) = sep {
-            let name = rest[..eq_idx].trim().to_string();
-            let payload_type = rest[eq_idx + sep_len..].trim().to_string();
-            if !name.is_empty()
-                && !payload_type.is_empty()
-                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
-            {
-                tags.push((name, payload_type));
-            }
-        }
-    }
-    tags
-}
-
-/// Expand `tag` declarations in `.hnl` source into constructor bindings
-/// (ADR-0077).
-///
-/// Scans for `tag name = Type` lines, strips them from the source, and
-/// generates constructor bindings: `name = _0 ~> tag.tag("name", {value: _0})`.
-/// If there are tag declarations, the remaining source is wrapped in a
-/// `do { ... }` block with the constructor bindings prepended.
-///
-/// If there are no tag declarations, the source is returned unchanged.
-///
-/// # Example
-///
-/// Input:
-/// ```text
-/// tag ok = Value
-/// tag err = Error
-///
-/// {
-///   result_ok: value ~> value >>> ok,
-/// }
-/// ```
-///
-/// Output:
-/// ```text
-/// do {
-///   ok = _0 ~> tag.tag("ok", {value: _0})
-///   err = _0 ~> tag.tag("err", {value: _0})
-///   {
-///     result_ok: value ~> value >>> ok,
-///   }
-/// }
-/// ```
-pub(super) fn expand_tag_declarations(src: &str) -> String {
-    let tags = parse_tag_declarations(src);
-    if tags.is_empty() {
-        return src.to_string();
-    }
-    // Strip `tag` declaration lines from the source.
-    let remaining: String = src
-        .lines()
-        .filter(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with("--") {
-                return true; // Keep comments and blank lines.
-            }
-            // Skip lines that are `tag` declarations.
-            if let Some(rest) = trimmed.strip_prefix("tag") {
-                if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                    let sep_idx = rest.find("::").or_else(|| rest.find('='));
-                    if let Some(eq_idx) = sep_idx {
-                        let name = rest[..eq_idx].trim();
-                        if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                // Strip `cap "..."`, `op "..."`, and `handl "..." = ...` lines.
+                for kw in ["cap", "op", "handl"] {
+                    if let Some(rest) = trimmed.strip_prefix(kw) {
+                        if rest.is_empty()
+                            || rest.starts_with(' ')
+                            || rest.starts_with('\t')
+                            || rest.starts_with('"')
                         {
                             return false;
                         }
                     }
                 }
-            }
-            true
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    // Build the `do { ... }` block with constructor bindings.
-    let mut out = String::from("do {\n");
-    for (name, _payload_type) in &tags {
-        out.push_str(&format!(
-            "  {name} :: _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
-        ));
+                // Strip `import ...` and `from ... import ...` lines.
+                if is_import_line(trimmed) {
+                    return false;
+                }
+                true
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
-    // Append the remaining source, indented by 2 spaces.
-    for line in remaining.lines() {
-        if line.trim().is_empty() {
-            out.push('\n');
-        } else {
-            out.push_str("  ");
-            out.push_str(line);
-            out.push('\n');
-        }
-    }
-    out.push_str("}");
-    out
-}
 
+    /// Transform top-level `export name = expr` declarations into an object
+    /// literal `{ name: expr, ... }` so the source evaluates to a record of
+    /// exported functions.
+    ///
+    /// Each `export name = expr` line (at column 0) starts a binding. The
+    /// expression continues until the next top-level `export` line or end of
+    /// source. The collected expressions are joined into an object literal:
+    ///
+    /// ```text
+    /// { name1: expr1, name2: expr2, ... }
+    /// ```
+    ///
+    /// If no `export` lines are found, the source is returned unchanged (the
+    /// existing object-literal form is preserved).
+    pub(super) fn transform_export_to_object(src: &str) -> String {
+        // Collect (name, expr_lines) pairs from top-level export lines.
+        let mut entries: Vec<(String, Vec<String>)> = Vec::new();
+        let mut current: Option<(String, Vec<String>)> = None;
+
+        for line in src.lines() {
+            let trimmed = line.trim_start();
+            // A top-level export line starts at column 0 with `export `.
+            if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
+                // Flush the previous entry.
+                if let Some(entry) = current.take() {
+                    entries.push(entry);
+                }
+                let rest = &trimmed["export ".len()..];
+                // Find the binding separator (`::`, or legacy `=`).
+                if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
+                    let name = rest[..sep_pos].trim().to_string();
+                    let expr_start = rest[sep_pos + sep_len..].trim();
+                    let mut expr_lines = Vec::new();
+                    if !expr_start.is_empty() {
+                        expr_lines.push(expr_start.to_string());
+                    }
+                    current = Some((name, expr_lines));
+                }
+                // If no `=` found, skip (not a valid export binding).
+            } else if let Some((_, ref mut lines)) = current {
+                // Accumulate indented continuation lines (part of the export
+                // expression body). Stop at blank lines only if the next
+                // non-blank line is a top-level export.
+                if !line.trim().is_empty() {
+                    lines.push(line.to_string());
+                }
+            }
+        }
+        if let Some(entry) = current.take() {
+            entries.push(entry);
+        }
+
+        if entries.is_empty() {
+            return src.to_string();
+        }
+
+        // Build the object literal.
+        let mut out = String::from("{ ");
+        for (i, (name, expr_lines)) in entries.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            out.push_str(name);
+            out.push_str(": ");
+            let expr = expr_lines.join("\n");
+            out.push_str(expr.trim());
+        }
+        out.push_str(" }");
+        out
+    }
+
+    /// Find the position and length of the binding separator in `s`: the `::`
+    /// bind token (canonical) or a legacy `=` (skipping `==`, `>=`, `<=`, `!=`,
+    /// `=>`). `::` takes precedence — a lone `:` (type annotations, object
+    /// fields, `match` arms) is not a separator. Returns `None` if no binding
+    /// separator is found.
+    pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
+        let bytes = s.as_bytes();
+        let mut i = 0;
+        let mut depth: i32 = 0;
+        let mut first_eq: Option<usize> = None;
+        while i < bytes.len() {
+            let c = bytes[i];
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b':' if depth == 0 => {
+                    if i + 1 < bytes.len() && bytes[i + 1] == b':' {
+                        return Some((i, 2));
+                    }
+                }
+                b'=' if depth == 0 => {
+                    let prev = if i > 0 { bytes[i - 1] } else { 0 };
+                    let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
+                    if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
+                    {
+                        i += 1;
+                        continue;
+                    }
+                    // Legacy `=` bind: remember the first one, but keep
+                    // scanning for a `::` that precedes it in the same line
+                    // (an `=` earlier would already have returned).
+                    if first_eq.is_none() {
+                        first_eq = Some(i);
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        first_eq.map(|pos| (pos, 1))
+    }
+
+    /// Returns true if the line is an import declaration (`import ...` or
+    /// `from ... import ...`).
+    fn is_import_line(trimmed: &str) -> bool {
+        if let Some(rest) = trimmed.strip_prefix("import") {
+            if rest.is_empty()
+                || rest.starts_with(' ')
+                || rest.starts_with('\t')
+                || rest.starts_with('"')
+                || rest.starts_with('\'')
+            {
+                return true;
+            }
+        }
+        if let Some(rest) = trimmed.strip_prefix("from") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Parse import declarations from a `.hnl` source string.
+    ///
+    /// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
+    pub(super) fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+        src.lines()
+            .filter_map(|line| {
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("--") {
+                    return None;
+                }
+                parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
+            })
+            .collect()
+    }
+
+    fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
+        let rest = line.strip_prefix("from")?.trim();
+        if rest.is_empty() {
+            return None;
+        }
+        let (path, after_path) = extract_quoted(rest)?;
+        let import_kw = after_path.trim().strip_prefix("import")?.trim();
+        let star = import_kw.strip_prefix("*")?.trim();
+        let as_kw = star.strip_prefix("as")?.trim();
+        if as_kw.is_empty() {
+            return None;
+        }
+        let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
+            extract_quoted(as_kw)?.0
+        } else {
+            as_kw.split_whitespace().next()?.to_string()
+        };
+        if alias.is_empty() {
+            return None;
+        }
+        Some(ImportDecl { path, alias })
+    }
+
+    fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
+        let rest = line.strip_prefix("import")?.trim();
+        if rest.is_empty() {
+            return None;
+        }
+        let (path, after) = extract_quoted(rest)?;
+        let after = after.trim();
+        let alias = if let Some(as_part) = after.strip_prefix("as") {
+            let a = as_part.trim();
+            if a.is_empty() {
+                return None;
+            }
+            if a.starts_with('"') || a.starts_with('\'') {
+                extract_quoted(a)?.0
+            } else {
+                a.split_whitespace().next()?.to_string()
+            }
+        } else {
+            path.rsplit('/').next().unwrap_or(&path).to_string()
+        };
+        Some(ImportDecl { path, alias })
+    }
+
+    fn extract_quoted(s: &str) -> Option<(String, &str)> {
+        let s = s.trim_start();
+        let quote = s.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+        let rest = &s[quote.len_utf8()..];
+        let end = rest.find(quote)?;
+        Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
+    }
+
+    /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
+    ///
+    /// Scans each line for the top-level `cap "name"` form, extracting the
+    /// quoted capability name. Comment lines (`-- ...`) are skipped. Lines that
+    /// do not match the `cap` form are silently ignored (resilient parsing).
+    ///
+    /// This is a lightweight line-based scan that avoids a dependency on
+    /// `plugin-ext-refinement` (which is inference-side). It mirrors the
+    /// `parse_cap_line` logic in `arrow_parser.rs`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use handl_plugin_lib_handl::parse_cap_declarations;
+    ///
+    /// let src = r#"
+    /// cap "fs.read"
+    /// cap "fs.write"
+    /// op "fs.read" : Path -> Bytes
+    /// "#;
+    /// let caps = parse_cap_declarations(src);
+    /// assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
+    /// ```
+    pub(super) fn parse_cap_declarations(src: &str) -> Vec<String> {
+        let mut caps = Vec::new();
+        for line in src.lines() {
+            let trimmed = line.trim();
+            // Skip comment lines and empty lines.
+            if trimmed.is_empty() || trimmed.starts_with("--") {
+                continue;
+            }
+            // Check for `cap` prefix followed by whitespace (whole-word match).
+            let rest = match trimmed.strip_prefix("cap") {
+                Some(rest)
+                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') =>
+                {
+                    rest.trim_start()
+                }
+                _ => continue,
+            };
+            // Extract the quoted capability name.
+            if let Some(name) = extract_quoted_cap_name(rest) {
+                caps.push(name);
+            }
+        }
+        caps
+    }
+
+    /// Extract a quoted string from the start of `s`, returning the content.
+    ///
+    /// Supports both `"..."` and `'...'` quoting. Returns `None` if the string
+    /// does not start with a quote or has no closing quote.
+    fn extract_quoted_cap_name(s: &str) -> Option<String> {
+        let s = s.trim_start();
+        let quote = s.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+        let rest = &s[quote.len_utf8()..];
+        let end = rest.find(quote)?;
+        Some(rest[..end].to_string())
+    }
+
+    /// Parse `tag` declarations from a `.hnl` source string (ADR-0077).
+    ///
+    /// Scans each line for the top-level `tag name = Type` form, extracting the
+    /// tag name and payload type. Comment lines (`-- ...`) are skipped. Lines
+    /// that do not match the `tag` form are silently ignored (resilient
+    /// parsing).
+    ///
+    /// This is a lightweight line-based scan that mirrors the `parse_tag_line`
+    /// logic in `arrow_parser.rs`. It returns `(name, payload_type)` pairs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use handl_plugin_lib_handl::parse_tag_declarations;
+    ///
+    /// let src = r#"
+    /// tag ok = Value
+    /// tag err = Error
+    /// "#;
+    /// let tags = parse_tag_declarations(src);
+    /// assert_eq!(tags, vec![("ok".to_string(), "Value".to_string()),
+    ///                       ("err".to_string(), "Error".to_string())]);
+    /// ```
+    pub(super) fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
+        let mut tags = Vec::new();
+        for line in src.lines() {
+            let trimmed = line.trim();
+            // Skip comment lines and empty lines.
+            if trimmed.is_empty() || trimmed.starts_with("--") {
+                continue;
+            }
+            // Check for `tag` prefix followed by whitespace (whole-word match).
+            let rest = match trimmed.strip_prefix("tag") {
+                Some(rest)
+                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') =>
+                {
+                    rest.trim_start()
+                }
+                _ => continue,
+            };
+            // Find the `::` (canonical) or legacy `=` separator.
+            let sep = rest
+                .find("::")
+                .map(|i| (i, 2))
+                .or_else(|| rest.find('=').map(|i| (i, 1)));
+            if let Some((eq_idx, sep_len)) = sep {
+                let name = rest[..eq_idx].trim().to_string();
+                let payload_type = rest[eq_idx + sep_len..].trim().to_string();
+                if !name.is_empty()
+                    && !payload_type.is_empty()
+                    && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    tags.push((name, payload_type));
+                }
+            }
+        }
+        tags
+    }
+
+    /// Expand `tag` declarations in `.hnl` source into constructor bindings
+    /// (ADR-0077).
+    ///
+    /// Scans for `tag name = Type` lines, strips them from the source, and
+    /// generates constructor bindings: `name = _0 ~> tag.tag("name", {value: _0})`.
+    /// If there are tag declarations, the remaining source is wrapped in a
+    /// `do { ... }` block with the constructor bindings prepended.
+    ///
+    /// If there are no tag declarations, the source is returned unchanged.
+    ///
+    /// # Example
+    ///
+    /// Input:
+    /// ```text
+    /// tag ok = Value
+    /// tag err = Error
+    ///
+    /// {
+    ///   result_ok: value ~> value >>> ok,
+    /// }
+    /// ```
+    ///
+    /// Output:
+    /// ```text
+    /// do {
+    ///   ok = _0 ~> tag.tag("ok", {value: _0})
+    ///   err = _0 ~> tag.tag("err", {value: _0})
+    ///   {
+    ///     result_ok: value ~> value >>> ok,
+    ///   }
+    /// }
+    /// ```
+    pub(super) fn expand_tag_declarations(src: &str) -> String {
+        let tags = parse_tag_declarations(src);
+        if tags.is_empty() {
+            return src.to_string();
+        }
+        // Strip `tag` declaration lines from the source.
+        let remaining: String = src
+            .lines()
+            .filter(|line| {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with("--") {
+                    return true; // Keep comments and blank lines.
+                }
+                // Skip lines that are `tag` declarations.
+                if let Some(rest) = trimmed.strip_prefix("tag") {
+                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                        let sep_idx = rest.find("::").or_else(|| rest.find('='));
+                        if let Some(eq_idx) = sep_idx {
+                            let name = rest[..eq_idx].trim();
+                            if !name.is_empty()
+                                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                true
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        // Build the `do { ... }` block with constructor bindings.
+        let mut out = String::from("do {\n");
+        for (name, _payload_type) in &tags {
+            out.push_str(&format!(
+                "  {name} :: _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
+            ));
+        }
+        // Append the remaining source, indented by 2 spaces.
+        for line in remaining.lines() {
+            if line.trim().is_empty() {
+                out.push('\n');
+            } else {
+                out.push_str("  ");
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+        out.push_str("}");
+        out
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -658,8 +663,7 @@ fn loader_string(func: &str, src: &str) -> Option<String> {
 /// assert!(cleaned.contains("name ~>"));
 /// ```
 pub fn strip_declaration_lines(src: &str) -> String {
-    loader_string("strip_decls", src)
-        .unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
+    loader_string("strip_decls", src).unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
 }
 
 /// Parse `from 'path' import * as 'alias'` / `import "path" as alias`
@@ -702,15 +706,13 @@ pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
 /// a `do { ... }` block.  Delegates to `loader.expand_tags` when a
 /// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
 pub fn expand_tag_declarations(src: &str) -> String {
-    loader_string("expand_tags", src)
-        .unwrap_or_else(|| bootstrap::expand_tag_declarations(src))
+    loader_string("expand_tags", src).unwrap_or_else(|| bootstrap::expand_tag_declarations(src))
 }
 
 /// Strip `--` comment lines.  Delegates to `loader.strip_comments` when a
 /// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
 pub fn strip_comment_lines(src: &str) -> String {
-    loader_string("strip_comments", src)
-        .unwrap_or_else(|| bootstrap::strip_comment_lines(src))
+    loader_string("strip_comments", src).unwrap_or_else(|| bootstrap::strip_comment_lines(src))
 }
 
 /// Rewrite top-level `export name <::|=> expr` declarations into an object
@@ -763,7 +765,9 @@ fn tags_from_json(v: &serde_json::Value) -> Option<Vec<(String, String)>> {
 fn analyze_source(src: &str) -> SourceAnalysis {
     if let Some(v) = loader_call("analyze", src) {
         if let (Some(prepared), Some(imports)) = (
-            v.get("source").and_then(|s| s.as_str()).map(|s| s.to_string()),
+            v.get("source")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string()),
             v.get("imports").and_then(imports_from_json),
         ) {
             return SourceAnalysis { prepared, imports };
@@ -1084,9 +1088,7 @@ impl Function for HandlFunction {
                 );
                 let toks = runtime.lex(&Source::new(&source)).map_err(errf)?;
                 let parsed = Rc::new(runtime.parse(&toks).map_err(errf)?);
-                AST_CACHE.with(|cache| {
-                    cache.borrow_mut().insert(ast_key, Rc::clone(&parsed))
-                });
+                AST_CACHE.with(|cache| cache.borrow_mut().insert(ast_key, Rc::clone(&parsed)));
                 parsed
             }
         };
@@ -1338,8 +1340,7 @@ impl HandlModule {
     fn rebuild_functions(&mut self) {
         let deps = self.dependencies.clone();
         let eval_name = self.eval_name;
-        let builder: RuntimeBuilder =
-            Arc::new(move || build_runtime(deps.clone(), eval_name));
+        let builder: RuntimeBuilder = Arc::new(move || build_runtime(deps.clone(), eval_name));
         let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
             func.builder = Arc::clone(&builder);
@@ -1444,8 +1445,7 @@ impl HandlLoader {
     /// too.
     pub fn new(deps: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
         let mut module =
-            HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS)
-                .with_eval_engine("bytecode");
+            HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS).with_eval_engine("bytecode");
         for dep in deps {
             module = module.with_dependency_arc(dep);
         }
@@ -1454,9 +1454,10 @@ impl HandlLoader {
 
     /// Invoke a loader transform function on `src`.
     fn call(&self, func: &str, src: &str) -> Result<serde_json::Value, EvalError> {
-        let f = self.module.function(func).ok_or_else(|| {
-            EvalError::Other(format!("loader: no transform function '{func}'"))
-        })?;
+        let f = self
+            .module
+            .function(func)
+            .ok_or_else(|| EvalError::Other(format!("loader: no transform function '{func}'")))?;
         f.call(
             &[serde_json::Value::String(src.to_string())],
             &mut EvalContext::new(),

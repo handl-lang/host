@@ -230,7 +230,9 @@ fn realize(
 ) -> Result<usize, LangError> {
     if let Some(keep) = spec.get(KEEP_KEY) {
         let i = keep.as_u64().ok_or_else(|| {
-            LangError::engine(format!("'{KEEP_KEY}' marker must be a child index, got {keep}"))
+            LangError::engine(format!(
+                "'{KEEP_KEY}' marker must be a child index, got {keep}"
+            ))
         })? as usize;
         return ctx.remap_child(i).ok_or_else(|| {
             LangError::engine(format!(
@@ -240,7 +242,9 @@ fn realize(
     }
     if let Some(hint) = spec.get(FRESH_KEY) {
         let hint = hint.as_str().ok_or_else(|| {
-            LangError::engine(format!("'{FRESH_KEY}' marker must be a string hint, got {hint}"))
+            LangError::engine(format!(
+                "'{FRESH_KEY}' marker must be a string hint, got {hint}"
+            ))
         })?;
         if let Some(&idx) = fresh_names.get(hint) {
             return Ok(idx);

@@ -23,7 +23,8 @@ use crate::types::{BaseTy, Pred, RefTy};
 
 /// Convenience: native arr with no args.
 fn arr(op: &str) -> Term {
-    Term::Op { name: op.to_string(),
+    Term::Op {
+        name: op.to_string(),
         args: vec![],
         source: ArrSource::Native,
         lit: None,
@@ -1474,14 +1475,16 @@ fn is_project_of_module_ref(scheme: &Term) -> Option<(String, String)> {
         Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Term::Op { name: op,
+    if let Term::Op {
+        name: op,
         args,
         lit: Some(Value::String(field)),
         ..
     } = inner
     {
         if op == "project" && args.len() == 1 {
-            if let Term::Op { name: ref_op,
+            if let Term::Op {
+                name: ref_op,
                 args: ref_args,
                 lit: Some(Value::String(path)),
                 ..
@@ -1503,7 +1506,8 @@ fn is_module_ref(scheme: &Term) -> Option<String> {
         Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Term::Op { name: op,
+    if let Term::Op {
+        name: op,
         args,
         lit: Some(Value::String(path)),
         ..

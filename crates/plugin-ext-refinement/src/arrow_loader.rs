@@ -185,11 +185,7 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
 }
 
 /// Inner resolution with a depth limit to prevent infinite recursion.
-fn resolve_apps_inner(
-    scheme: &Term,
-    graph_map: &HashMap<String, Term>,
-    depth: usize,
-) -> Term {
+fn resolve_apps_inner(scheme: &Term, graph_map: &HashMap<String, Term>, depth: usize) -> Term {
     // Depth limit to prevent infinite recursion on circular references
     if depth > 16 {
         return scheme.clone();
@@ -254,7 +250,11 @@ fn resolve_apps_inner(
             step: Box::new(resolve_apps_inner(step, graph_map, depth)),
             initial: Box::new(resolve_apps_inner(initial, graph_map, depth)),
         },
-        Term::Rewrite { source, target, witness } => Term::Rewrite {
+        Term::Rewrite {
+            source,
+            target,
+            witness,
+        } => Term::Rewrite {
             source: Box::new(resolve_apps_inner(source, graph_map, depth)),
             target: Box::new(resolve_apps_inner(target, graph_map, depth)),
             witness: witness.clone(),
@@ -770,7 +770,9 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
 /// (the production representation of a module reference).
 pub fn contains_module_ref(scheme: &Term) -> bool {
     match scheme {
-        Term::Op { name: op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
+        Term::Op { name: op, args, .. } => {
+            op == "module_ref" || args.iter().any(contains_module_ref)
+        }
         Term::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
         Term::First { inner } => contains_module_ref(inner),
         Term::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
@@ -780,9 +782,7 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for module refs.
-        Term::Handle { body, impl_, .. } => {
-            contains_module_ref(body) || contains_module_ref(impl_)
-        }
+        Term::Handle { body, impl_, .. } => contains_module_ref(body) || contains_module_ref(impl_),
 
         Term::Rewrite { source, target, .. } => {
             contains_module_ref(source) || contains_module_ref(target)
@@ -811,9 +811,7 @@ pub fn contains_project(scheme: &Term) -> bool {
         Term::First { inner } => contains_project(inner),
         Term::Choice { l, r } => contains_project(l) || contains_project(r),
         Term::Loop { body } => contains_project(body),
-        Term::App { callee, args } => {
-            contains_project(callee) || args.iter().any(contains_project)
-        }
+        Term::App { callee, args } => contains_project(callee) || args.iter().any(contains_project),
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
         Term::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
@@ -875,11 +873,13 @@ where
         return transform_scheme(&eliminated, f);
     }
     let transformed = match scheme {
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,
-        } => Term::Op { name: op.clone(),
+        } => Term::Op {
+            name: op.clone(),
             args: args.iter().map(|a| transform_scheme(a, f)).collect(),
             source: source.clone(),
             lit: lit.clone(),
@@ -907,7 +907,9 @@ where
         // resulting handler-free graph.
         Term::Handle { .. } => scheme.eliminate_handlers(),
 
-        Term::Arr { value } => Term::Arr { value: value.clone() },
+        Term::Arr { value } => Term::Arr {
+            value: value.clone(),
+        },
         Term::Child { role } => Term::Child { role: role.clone() },
         Term::Iter {
             fuel,
@@ -920,7 +922,11 @@ where
             step: Box::new(transform_scheme(step, f)),
             initial: Box::new(transform_scheme(initial, f)),
         },
-        Term::Rewrite { source, target, witness } => Term::Rewrite {
+        Term::Rewrite {
+            source,
+            target,
+            witness,
+        } => Term::Rewrite {
             source: Box::new(transform_scheme(source, f)),
             target: Box::new(transform_scheme(target, f)),
             witness: witness.clone(),
@@ -989,7 +995,8 @@ fn normalize_compile_time_inner(
                 import_records.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to a project from the record.
-                let project = Term::Op { name: "project".to_string(),
+                let project = Term::Op {
+                    name: "project".to_string(),
                     args: vec![record.clone()],
                     source: ArrSource::Native,
                     lit: Some(Value::String(remote_name.clone())),
@@ -1033,7 +1040,8 @@ fn replace_imports_with_projects(
                 args: args.clone(),
             }
         }
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,
@@ -1043,7 +1051,8 @@ fn replace_imports_with_projects(
                     return replacement.clone();
                 }
             }
-            Term::Op { name: op.clone(),
+            Term::Op {
+                name: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
                 lit: lit.clone(),
@@ -1051,7 +1060,8 @@ fn replace_imports_with_projects(
         }
         // Bare reference to a named arrow (no args, no lit): if it matches
         // an import name, replace with the project/record node.
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,
@@ -1059,7 +1069,8 @@ fn replace_imports_with_projects(
             if let Some(replacement) = import_records.get(op) {
                 return replacement.clone();
             }
-            Term::Op { name: op.clone(),
+            Term::Op {
+                name: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
                 lit: lit.clone(),
@@ -1353,7 +1364,8 @@ fn resolve_all_apps(
     resolving: &HashSet<String>,
 ) -> Term {
     match scheme {
-        Term::Op { name: op,
+        Term::Op {
+            name: op,
             args,
             source,
             lit,
@@ -1393,7 +1405,8 @@ fn resolve_all_apps(
                     }
                 }
             }
-            Term::Op { name: op.clone(),
+            Term::Op {
+                name: op.clone(),
                 args: args
                     .iter()
                     .map(|a| resolve_all_apps(a, known, resolving))
@@ -1455,7 +1468,9 @@ fn resolve_all_apps(
             resolve_all_apps(&eliminated, known, resolving)
         }
 
-        Term::Arr { value } => Term::Arr { value: value.clone() },
+        Term::Arr { value } => Term::Arr {
+            value: value.clone(),
+        },
         Term::Child { role } => Term::Child { role: role.clone() },
         Term::Iter {
             fuel,
@@ -1468,7 +1483,11 @@ fn resolve_all_apps(
             step: Box::new(resolve_all_apps(step, known, resolving)),
             initial: Box::new(resolve_all_apps(initial, known, resolving)),
         },
-        Term::Rewrite { source, target, witness } => Term::Rewrite {
+        Term::Rewrite {
+            source,
+            target,
+            witness,
+        } => Term::Rewrite {
             source: Box::new(resolve_all_apps(source, known, resolving)),
             target: Box::new(resolve_all_apps(target, known, resolving)),
             witness: witness.clone(),
@@ -1495,9 +1514,17 @@ fn lookup_field_in_record(record: &Term, field: &str) -> Option<Term> {
     if let Term::Op { name: op, args, .. } = record {
         if op == "record" {
             for f in args {
-                if let Term::Op { name: fop, args: fargs, .. } = f {
+                if let Term::Op {
+                    name: fop,
+                    args: fargs,
+                    ..
+                } = f
+                {
                     if fop == "field" && fargs.len() == 2 {
-                        if let Term::Arr { value: Value::String(name) } = &fargs[0] {
+                        if let Term::Arr {
+                            value: Value::String(name),
+                        } = &fargs[0]
+                        {
                             if name == field {
                                 return Some(fargs[1].clone());
                             }

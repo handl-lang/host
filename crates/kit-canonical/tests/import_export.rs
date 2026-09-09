@@ -368,11 +368,7 @@ fn nested_module_with_host_module_header() {
 #[test]
 fn nested_module_with_name_first_decl_header() {
     let dir = tempfile::tempdir().expect("tempdir");
-    write_module(
-        dir.path(),
-        "inner.hnl",
-        "import str from \"str\"\nx :: 5",
-    );
+    write_module(dir.path(), "inner.hnl", "import str from \"str\"\nx :: 5");
     let kit = Kit::new_with_module_root(dir.path().to_path_buf()).expect("kit");
 
     let val = kit

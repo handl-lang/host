@@ -4,9 +4,7 @@
 
 use std::sync::Arc;
 
-use handl_language::{
-    Ast, AstNode, AstRef, AstShapeDef, Language, TransformDef, TransformRule,
-};
+use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, TransformDef, TransformRule};
 use handl_plugin_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
 use serde_json::json;

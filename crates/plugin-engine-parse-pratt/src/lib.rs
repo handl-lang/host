@@ -135,12 +135,7 @@ impl PrattEngine {
     }
 
     /// Push an [`AstNode`] with an optional source span onto the arena.
-    fn push_spanned(
-        &self,
-        kind: impl Into<String>,
-        payload: Value,
-        span: Option<Span>,
-    ) -> AstRef {
+    fn push_spanned(&self, kind: impl Into<String>, payload: Value, span: Option<Span>) -> AstRef {
         let mut node = AstNode::new(kind).with_payload(payload);
         if let Some(s) = span {
             node = node.with_span(s);
@@ -926,7 +921,11 @@ impl PrattEngine {
                     Ok(DelimitedResult::Elements(elements))
                 } else {
                     let idx = self
-                        .push_spanned(delim.container_kind.as_str(), serde_json::json!({ "children": elements }), span)
+                        .push_spanned(
+                            delim.container_kind.as_str(),
+                            serde_json::json!({ "children": elements }),
+                            span,
+                        )
                         .index();
                     Ok(DelimitedResult::Container(idx))
                 };
@@ -1049,7 +1048,11 @@ impl PrattEngine {
             Ok(DelimitedResult::Elements(elements))
         } else {
             let idx = self
-                .push_spanned(delim.container_kind.as_str(), serde_json::json!({ "children": elements }), span)
+                .push_spanned(
+                    delim.container_kind.as_str(),
+                    serde_json::json!({ "children": elements }),
+                    span,
+                )
                 .index();
             Ok(DelimitedResult::Container(idx))
         }
@@ -1578,7 +1581,11 @@ mod tests {
     /// declared optional via `optional_children`.
     fn optional_else_lang() -> Language {
         let mut lang = arith_lang();
-        for k in ["token.keyword.if", "token.keyword.then", "token.keyword.else"] {
+        for k in [
+            "token.keyword.if",
+            "token.keyword.then",
+            "token.keyword.else",
+        ] {
             lang.tokens.merge(TokenKindDef::new(k)).unwrap();
         }
         let shape = AstShapeRef::new("if", 3)
@@ -1589,13 +1596,8 @@ mod tests {
             .with_optional_children(vec![2]);
         lang.grammar
             .merge(
-                GrammarRow::new(
-                    "g.if",
-                    "token.keyword.if",
-                    GrammarPosition::Prefix,
-                    shape,
-                )
-                .with_binding_power(0, 0),
+                GrammarRow::new("g.if", "token.keyword.if", GrammarPosition::Prefix, shape)
+                    .with_binding_power(0, 0),
             )
             .unwrap();
         lang
@@ -2316,12 +2318,7 @@ mod tests {
         assert_eq!(ast.nodes()[2].span, Some(Span { start: 0, end: 5 })); // outer paren
 
         // '"hello"'
-        let req2 = ParserRequest::new(Tokens(vec![spanned_tok(
-            "token.string",
-            "\"hello\"",
-            0,
-            7,
-        )]));
+        let req2 = ParserRequest::new(Tokens(vec![spanned_tok("token.string", "\"hello\"", 0, 7)]));
         let ast2 = engine.parse(&lang, &req2).unwrap();
         assert_eq!(ast2.len(), 1);
         assert_eq!(ast2.nodes()[0].span, Some(Span { start: 0, end: 7 }));

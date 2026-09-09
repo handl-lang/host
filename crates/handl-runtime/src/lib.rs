@@ -1435,11 +1435,7 @@ impl ModuleLoader {
     /// path `resolved`, returning its collected top-level bindings.
     /// `display_path` is the path as written in the `import` statement, used
     /// in error messages.
-    fn load_module_uncached(
-        &self,
-        resolved: &str,
-        display_path: &str,
-    ) -> Result<Value, LangError> {
+    fn load_module_uncached(&self, resolved: &str, display_path: &str) -> Result<Value, LangError> {
         // Read the module source.
         let src = std::fs::read_to_string(resolved).map_err(|e| {
             LangError::engine(format!(
@@ -1599,9 +1595,7 @@ impl ModuleLoader {
 /// escapable here — module specifiers never contain them.
 fn first_quoted_spec(s: &str) -> Option<&str> {
     let bytes = s.as_bytes();
-    let start = bytes
-        .iter()
-        .position(|&b| b == b'"' || b == b'\'')?;
+    let start = bytes.iter().position(|&b| b == b'"' || b == b'\'')?;
     let quote = bytes[start];
     let rest = &s[start + 1..];
     let end = rest.as_bytes().iter().position(|&b| b == quote)?;
@@ -1651,8 +1645,7 @@ fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
 mod tests {
     use super::*;
     use handl_language::{
-        AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Term, Token,
-        TokenKindDef,
+        AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Term, Token, TokenKindDef,
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_lex::Lexer;

@@ -631,10 +631,9 @@ impl TreeWalkEngine {
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
         match scheme {
-            Term::Arr { value } => {
-                Ok((TaggedValue::from(value.clone()), false))
-            }
-            Term::Op { name: op,
+            Term::Arr { value } => Ok((TaggedValue::from(value.clone()), false)),
+            Term::Op {
+                name: op,
                 args,
                 source,
                 lit,
@@ -757,7 +756,11 @@ impl TreeWalkEngine {
                 // as an argument to `apply_app`). Hoist the closure
                 // evaluation outside the loop so it runs once instead of
                 // once per iteration.
-                if let Term::Op { name: op, args, source, ..
+                if let Term::Op {
+                    name: op,
+                    args,
+                    source,
+                    ..
                 } = body.as_ref()
                 {
                     if *source == ArrSource::Native && op == "loop_step" {
@@ -949,7 +952,11 @@ impl TreeWalkEngine {
             // `eliminate_and_check`, which also surfaces unhandled
             // capabilities as a compile-time error. The elimination
             // result is cached per node kind.
-            Term::Handle { body, target, impl_ } => {
+            Term::Handle {
+                body,
+                target,
+                impl_,
+            } => {
                 match self.eval_scheme_tagged(
                     impl_,
                     ast,
@@ -962,30 +969,25 @@ impl TreeWalkEngine {
                     Ok(handler_val) => {
                         let _ = target; // retained for diagnostics
                         self.handler_stack.borrow_mut().push(handler_val);
-                        let result = self.eval_inner(
-                            body,
-                            ast,
-                            node_ref,
-                            lang,
-                            env,
-                            current_node,
-                            incoming,
-                        );
+                        let result =
+                            self.eval_inner(body, ast, node_ref, lang, env, current_node, incoming);
                         self.handler_stack.borrow_mut().pop();
                         result
                     }
                     Err(_) => {
                         let eliminated = {
-                    let mut cache = self.eliminated_cache.borrow_mut();
-                    if let Some(e) = cache.get(current_node.kind.as_str()) {
-                        e.clone()
-                    } else {
-                        let e = handl_language::eliminate_and_check(scheme)
-                            .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                        cache.insert(current_node.kind.to_string(), e.clone());
-                        e
-                    }
-                };
+                            let mut cache = self.eliminated_cache.borrow_mut();
+                            if let Some(e) = cache.get(current_node.kind.as_str()) {
+                                e.clone()
+                            } else {
+                                let e =
+                                    handl_language::eliminate_and_check(scheme).map_err(|e| {
+                                        LangError::engine_node(e.to_string(), current_node)
+                                    })?;
+                                cache.insert(current_node.kind.to_string(), e.clone());
+                                e
+                            }
+                        };
                         self.eval_inner(
                             &eliminated,
                             ast,
@@ -1025,7 +1027,7 @@ impl TreeWalkEngine {
                         return Err(LangError::engine_node(
                             "Iter: fuel did not evaluate to a non-negative number".to_string(),
                             current_node,
-                        ))
+                        ));
                     }
                 };
                 let mut state = self.eval_scheme_tagged(
@@ -1064,7 +1066,7 @@ impl TreeWalkEngine {
                             return Err(LangError::engine_node(
                                 "Iter: predicate did not evaluate to a boolean".to_string(),
                                 current_node,
-                            ))
+                            ));
                         }
                     }
                 }
@@ -1086,7 +1088,10 @@ impl TreeWalkEngine {
                     .payload
                     .get("children")
                     .and_then(|v| v.as_array());
-                let Some(child_arena) = children.and_then(|arr| arr.get(idx)).and_then(|v| v.as_u64()) else {
+                let Some(child_arena) = children
+                    .and_then(|arr| arr.get(idx))
+                    .and_then(|v| v.as_u64())
+                else {
                     return Ok((TaggedValue::Null, false));
                 };
                 let child_ref = AstRef::new(child_arena as usize);
@@ -1681,8 +1686,7 @@ impl TreeWalkEngine {
                     .and_then(|v| v.as_u64());
                 match arena_idx {
                     Some(i) => {
-                        let val =
-                            self.eval_node_inner(ast, AstRef::new(i as usize), lang, env)?;
+                        let val = self.eval_node_inner(ast, AstRef::new(i as usize), lang, env)?;
                         Ok((val, false))
                     }
                     None => Ok((TaggedValue::Null, false)),
@@ -1768,9 +1772,9 @@ impl TreeWalkEngine {
                     // `param_names` resolves the fixed params and an
                     // optional rest param (`...name`) data-driven via
                     // `pattern_role`/variadic-role metadata (ADR-0081).
-                    let (param_names, rest_name) = lang.param_names(ast, param_node).map_err(|e| {
-                        LangError::engine_node(e.to_string(), current_node)
-                    })?;
+                    let (param_names, rest_name) = lang
+                        .param_names(ast, param_node)
+                        .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
                     (param_names, rest_name, body_idx)
                 } else {
                     return Err(LangError::engine_node(
@@ -1930,9 +1934,7 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        let key_role = lang
-                            .child_role_index(&entry_node.kind, "key")?
-                            .unwrap_or(0);
+                        let key_role = lang.child_role_index(&entry_node.kind, "key")?.unwrap_or(0);
                         let val_role = lang
                             .child_role_index(&entry_node.kind, "value")?
                             .unwrap_or(1);
@@ -2550,10 +2552,7 @@ impl TreeWalkEngine {
                     .or_else(|| args.get(1).cloned())
                     .unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&input).cloned().ok_or_else(|| {
-                    LangError::engine_node(
-                        "first: input is not a pair".to_string(),
-                        current_node,
-                    )
+                    LangError::engine_node("first: input is not a pair".to_string(), current_node)
                 })?;
                 let b = pair_snd(&input).cloned().unwrap_or(TaggedValue::Null);
                 let fa = self.apply_app(&f, &[a], ast, lang, env)?;
@@ -2566,10 +2565,7 @@ impl TreeWalkEngine {
                     .unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&input).cloned().unwrap_or(TaggedValue::Null);
                 let b = pair_snd(&input).cloned().ok_or_else(|| {
-                    LangError::engine_node(
-                        "second: input is not a pair".to_string(),
-                        current_node,
-                    )
+                    LangError::engine_node("second: input is not a pair".to_string(), current_node)
                 })?;
                 let fb = self.apply_app(&f, &[b], ast, lang, env)?;
                 Ok((pair(a, fb), false))
@@ -3003,10 +2999,7 @@ impl TreeWalkEngine {
                         current_node,
                     ));
                 }
-                obj.insert(
-                    Rc::from("__tag__"),
-                    TaggedValue::Str(Rc::from(tag_name)),
-                );
+                obj.insert(Rc::from("__tag__"), TaggedValue::Str(Rc::from(tag_name)));
                 obj.insert(
                     Rc::from("__registry__"),
                     TaggedValue::Str(Rc::from("handl.canonical")),
@@ -3402,10 +3395,7 @@ impl TreeWalkEngine {
             .get("names")
             .and_then(|v| v.as_str())
             .filter(|n| *n != "*");
-        let alias = current_node
-            .payload
-            .get("alias")
-            .and_then(|v| v.as_str());
+        let alias = current_node.payload.get("alias").and_then(|v| v.as_str());
         if let Some(imported) = names {
             let exported = match &bindings {
                 Value::Object(map) => map.get(imported).cloned(),
@@ -4088,7 +4078,12 @@ impl EvalEngine for TreeWalkEngine {
         Box::new(self.clone().with_import_resolver(resolver))
     }
 
-    fn seal_module_value(&self, ast: &Ast, lang: &Language, value: Value) -> Result<Value, LangError> {
+    fn seal_module_value(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        value: Value,
+    ) -> Result<Value, LangError> {
         if !contains_unhomed_arrow(&value) {
             return Ok(value);
         }
@@ -4141,13 +4136,12 @@ impl ValueModel {
             .map_err(|_| plugin_engine::LangError::NotImplemented)
     }
 
-    /// Grade-based `Op` dispatch: evaluate each arg sub-term with
-    /// `incoming`, then search `ctx.handler_stack` (innermost-last) for a
-    /// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}` value
-    /// providing `op`, and finally the incoming value's own `impls`
-    /// field. The matched `impls` entry is a serialized [`Term`] run with
-    /// `incoming` as its input. Returns `Ok(None)` when no handler
-    /// provides `op` (the caller then falls back to native dispatch).
+    /// Grade-based `Op` dispatch: look up the op declaration for the
+    /// required grade, verify the incoming value carries that grade, then
+    /// search `ctx.handler_stack` (innermost-last) and the language-level
+    /// `handler_for_grade` for a matching `Handler` providing `op`. If no
+    /// handler matches, returns `Ok(None)` so the caller can fall back to
+    /// native dispatch.
     fn dispatch_op(
         &self,
         op: &str,
@@ -4155,6 +4149,25 @@ impl ValueModel {
         incoming: Value,
         ctx: &mut ModelCtx,
     ) -> Result<Option<Value>, plugin_engine::LangError> {
+        // a. Look up the op declaration and the required grade, if any.
+        let required_grade = ctx
+            .lang
+            .op_decl(op)
+            .and_then(|decl| decl.get("grade").and_then(Value::as_str).map(String::from));
+
+        // b,c. Reject the dispatch when the incoming value does not carry
+        // the required grade.
+        if let Some(ref grade) = required_grade {
+            let grades = incoming
+                .get("grades")
+                .and_then(Value::as_array)
+                .map(|arr| arr.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+                .unwrap_or_default();
+            if !grades.contains(&grade.as_str()) {
+                return Err(plugin_engine::LangError::NotImplemented);
+            }
+        }
+
         // Evaluate the argument sub-terms with `incoming` (the handler
         // `Term` consumes them via `Term::App` / `Term::Child`; the
         // evaluated values are bound into the run via the incoming pair).
@@ -4162,20 +4175,43 @@ impl ValueModel {
         for arg in args {
             arg_vals.push(self.run(arg, incoming.clone(), ctx)?);
         }
-        let impl_json = ctx
-            .handler_stack
-            .iter()
-            .rev()
-            .find_map(|h| h.get("impls").and_then(|m| m.get(op)).cloned())
-            .or_else(|| {
-                incoming
-                    .get("impls")
-                    .and_then(|m| m.get(op))
-                    .cloned()
-            });
+
+        // d. Search the handler stack from top to bottom for a `Handler`
+        //    whose `grades` list contains the required grade and which
+        //    provides an implementation for `op`.
+        let mut impl_json = None;
+        for handler in ctx.handler_stack.iter().rev() {
+            if let Some(ref grade) = required_grade {
+                let grades = handler
+                    .get("grades")
+                    .and_then(Value::as_array)
+                    .map(|arr| arr.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if !grades.contains(&grade.as_str()) {
+                    continue;
+                }
+            }
+            if let Some(value) = handler.get("impls").and_then(|m| m.get(op)).cloned() {
+                impl_json = Some(value);
+                break;
+            }
+        }
+
+        // e. Fall back to language-level handlers keyed by grade.
+        if impl_json.is_none() {
+            if let Some(ref grade) = required_grade {
+                impl_json = ctx
+                    .lang
+                    .handler_for_grade(grade)
+                    .and_then(|h| h.get("impls").and_then(|m| m.get(op)).cloned());
+            }
+        }
+
+        // f. No handler found — let the caller fall back to native dispatch.
         let Some(impl_json) = impl_json else {
             return Ok(None);
         };
+
         let impl_term: Term = serde_json::from_value(impl_json)
             .map_err(|_| plugin_engine::LangError::NotImplemented)?;
         // Feed the handler the incoming value paired with the evaluated
@@ -4269,17 +4305,20 @@ impl Model for ValueModel {
                     // No eval scheme for the child kind — fall back to the
                     // engine's own node evaluation (which returns the
                     // payload for literal nodes).
-                    None => {
-                        self.0
-                            .eval_node(ast, AstRef::new(child_ref), lang, &mut env)
-                            .map_err(|_| plugin_engine::LangError::NotImplemented)
-                    }
+                    None => self
+                        .0
+                        .eval_node(ast, AstRef::new(child_ref), lang, &mut env)
+                        .map_err(|_| plugin_engine::LangError::NotImplemented),
                 }
             }
             // `handle body with target = impl_`: evaluate `impl_` to a
             // handler value, push it onto `ctx.handler_stack`, run `body`,
             // then pop. `target` is retained for diagnostics.
-            Term::Handle { body, target, impl_ } => {
+            Term::Handle {
+                body,
+                target,
+                impl_,
+            } => {
                 let handler = self.run(impl_, incoming.clone(), ctx)?;
                 let _ = target; // retained for diagnostics
                 ctx.push_handler(handler.clone());
@@ -5015,10 +5054,7 @@ mod tests {
     fn branch(cond: Term, then_: Term, else_: Term) -> Term {
         Term::seq(
             cond,
-            Term::seq(
-                Term::arr_native("tag", vec![]),
-                Term::choice(then_, else_),
-            ),
+            Term::seq(Term::arr_native("tag", vec![]), Term::choice(then_, else_)),
         )
     }
 

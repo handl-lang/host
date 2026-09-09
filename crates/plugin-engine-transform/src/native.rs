@@ -97,7 +97,8 @@ impl<'a> RewriteCtx<'a> {
     ///
     /// Returns `None` if the child does not exist or was not remapped.
     pub fn remap_child(&self, i: usize) -> Option<usize> {
-        self.child_ref(i).and_then(|idx| self.remap.get(idx).copied().flatten())
+        self.child_ref(i)
+            .and_then(|idx| self.remap.get(idx).copied().flatten())
     }
 
     /// The remapped new arena indices of all children from `start` onward.
@@ -118,7 +119,9 @@ impl<'a> RewriteCtx<'a> {
     ///
     /// Returns the new output arena index.
     pub fn push_leaf(&mut self, kind: &str, payload: Value) -> usize {
-        self.out.push(AstNode::new(kind).with_payload(payload)).index()
+        self.out
+            .push(AstNode::new(kind).with_payload(payload))
+            .index()
     }
 
     /// Push a node with children into the output arena.
@@ -130,7 +133,9 @@ impl<'a> RewriteCtx<'a> {
         } else {
             serde_json::json!({ "children": children })
         };
-        self.out.push(AstNode::new(kind).with_payload(payload)).index()
+        self.out
+            .push(AstNode::new(kind).with_payload(payload))
+            .index()
     }
 
     /// Push the input node through unchanged, with its `children` array

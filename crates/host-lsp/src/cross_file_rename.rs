@@ -177,8 +177,7 @@ fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(Strin
         j += 1;
     }
     let is_binding = j < tokens.len()
-        && (classes.is_label(&tokens[j].kind, "::")
-            || classes.is_label(&tokens[j].kind, ":"));
+        && (classes.is_label(&tokens[j].kind, "::") || classes.is_label(&tokens[j].kind, ":"));
 
     // Check if it matches an arrow file name. We can't know the file path
     // here (prepare_rename has no path), so we accept identifiers that are

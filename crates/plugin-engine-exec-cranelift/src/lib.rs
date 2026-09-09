@@ -3412,9 +3412,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let lang = match unsafe { ctx.lang.as_ref() } {
         Some(l) => l,
         None => {
-            return ctx.set_error(LangError::engine(
-                "object: no language".to_string(),
-            ));
+            return ctx.set_error(LangError::engine("object: no language".to_string()));
         }
     };
     let start = match lang.child_role_index(&node.kind, "entries") {
@@ -3498,9 +3496,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         };
         let is_literal_key = lang
             .literal_child(&entry_node.kind, "key", &key_node.kind)
-            .unwrap_or_else(|| {
-                matches!(key_node.kind.as_str(), "var" | "string")
-            });
+            .unwrap_or_else(|| matches!(key_node.kind.as_str(), "var" | "string"));
         let direct_key = if is_literal_key {
             key_node.payload.as_str().map(String::from)
         } else {
@@ -3835,7 +3831,7 @@ fn apply_native_v2(
                             return ctx.set_error(LangError::engine(
                                 "field_access: array index must be a non-negative integer"
                                     .to_string(),
-                            ))
+                            ));
                         }
                     };
                     arr.get(i).cloned().ok_or_else(|| {
@@ -3846,8 +3842,7 @@ fn apply_native_v2(
                     })
                 }
                 (TaggedValue::Str(s), TaggedValue::Str(key)) => {
-                    let joined: Rc<str> =
-                        Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
+                    let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
                     Ok(TaggedValue::Str(joined))
                 }
                 (target, field) => Err(LangError::engine(format!(
@@ -4075,16 +4070,15 @@ fn apply_native_v2(
             // `route_on_type`), while `args[0]` is the `proj_rest` arg array.
             // Legacy callers put the callee at `args[0]` and the arg array at
             // `args[1]`.
-            let (callee, arg_src) =
-                if let Some(TaggedValue::Str(s)) = incoming.as_ref() {
-                    (s.to_string(), args.first())
-                } else if let Some(TaggedValue::Str(s)) = args.first() {
-                    (s.to_string(), args.get(1))
-                } else {
-                    return ctx.set_error(LangError::engine(
-                        "call_host: callee must be a string".to_string(),
-                    ));
-                };
+            let (callee, arg_src) = if let Some(TaggedValue::Str(s)) = incoming.as_ref() {
+                (s.to_string(), args.first())
+            } else if let Some(TaggedValue::Str(s)) = args.first() {
+                (s.to_string(), args.get(1))
+            } else {
+                return ctx.set_error(LangError::engine(
+                    "call_host: callee must be a string".to_string(),
+                ));
+            };
             let modules_ptr = match ctx.modules {
                 Some(p) => p,
                 None => {
@@ -4409,7 +4403,9 @@ fn apply_native_v2(
             } else if matches!(input, TaggedValue::EitherRight(_)) {
                 Ok(input)
             } else {
-                Err(LangError::engine("left: input is not an either".to_string()))
+                Err(LangError::engine(
+                    "left: input is not an either".to_string(),
+                ))
             }
         }
         "right" => {
@@ -4433,7 +4429,9 @@ fn apply_native_v2(
             } else if matches!(input, TaggedValue::EitherLeft(_)) {
                 Ok(input)
             } else {
-                Err(LangError::engine("right: input is not an either".to_string()))
+                Err(LangError::engine(
+                    "right: input is not an either".to_string(),
+                ))
             }
         }
         "sum" => {

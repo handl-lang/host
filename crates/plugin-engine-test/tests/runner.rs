@@ -377,11 +377,17 @@ fn format_report_json_includes_suites() {
 
     let suites = parsed["suites"].as_array().expect("suites array");
     assert_eq!(suites.len(), 2, "one suite per module");
-    assert_eq!(suites[0]["name"], fixture("mixed.handl").display().to_string());
+    assert_eq!(
+        suites[0]["name"],
+        fixture("mixed.handl").display().to_string()
+    );
     assert_eq!(suites[0]["total"], 3);
     assert_eq!(suites[0]["passed"], 2);
     assert_eq!(suites[0]["failed"], 1);
-    assert_eq!(suites[1]["name"], fixture("pass.handl").display().to_string());
+    assert_eq!(
+        suites[1]["name"],
+        fixture("pass.handl").display().to_string()
+    );
     assert_eq!(suites[1]["total"], 3);
     assert_eq!(suites[1]["passed"], 3);
 }

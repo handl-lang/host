@@ -294,13 +294,7 @@ impl RewriteEngine {
     ///
     /// `Match.bindings` is currently empty (positions are resolvable from
     /// `Match.at` via the shape roles).
-    pub fn find_matches(
-        &self,
-        lang: &Language,
-        ast: &Ast,
-        root: AstRef,
-        pass: &str,
-    ) -> Vec<Match> {
+    pub fn find_matches(&self, lang: &Language, ast: &Ast, root: AstRef, pass: &str) -> Vec<Match> {
         let dispatch = Dispatch::build(&*self.rule_source, lang, pass);
         let reachable = reachable_from(ast, root);
         let mut matches = Vec::new();
@@ -465,16 +459,18 @@ impl RewriteEngine {
 }
 
 impl TransformEngine for RewriteEngine {
-    fn transform(&self, lang: &Language, req: &TransformRequest) -> Result<TransformOutput, LangError> {
+    fn transform(
+        &self,
+        lang: &Language,
+        req: &TransformRequest,
+    ) -> Result<TransformOutput, LangError> {
         match &req.mode {
             TransformMode::Pass => self.run_pass(lang, &req.ast, req.root, req.pass()),
             TransformMode::Pipeline(passes) => {
                 let names: Vec<&str> = passes.iter().map(|s| s.as_str()).collect();
                 self.run_pipeline(lang, &req.ast, req.root, &names)
             }
-            TransformMode::ApplyAt { at, rule_id } => {
-                self.apply_rule(lang, &req.ast, *at, rule_id)
-            }
+            TransformMode::ApplyAt { at, rule_id } => self.apply_rule(lang, &req.ast, *at, rule_id),
             TransformMode::Plan => {
                 // Matched sites + proposed rewrites, no new arena: the
                 // output is the input unchanged; each match is recorded as
@@ -500,7 +496,11 @@ impl TransformEngine for RewriteEngine {
         }
     }
 
-    fn find_matches(&self, lang: &Language, req: &TransformRequest) -> Result<Vec<Match>, LangError> {
+    fn find_matches(
+        &self,
+        lang: &Language,
+        req: &TransformRequest,
+    ) -> Result<Vec<Match>, LangError> {
         Ok(self.find_matches(lang, &req.ast, req.root, req.pass()))
     }
 

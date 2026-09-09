@@ -2232,11 +2232,7 @@ fn check_if_rule_checks_both_branches() {
                             Term::arr_judgment(
                                 "unify",
                                 vec![
-                                    Term::arr_judgment_lit(
-                                        "result",
-                                        vec![],
-                                        Value::from("tcond"),
-                                    ),
+                                    Term::arr_judgment_lit("result", vec![], Value::from("tcond")),
                                     Term::arr_judgment_lit(
                                         "construct",
                                         vec![],
@@ -2782,11 +2778,7 @@ fn record_field_type_extracts_field() {
                     Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
                     Term::arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit(
-                            "result",
-                            vec![],
-                            Value::from("rt"),
-                        )],
+                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("name"),
                     ),
                 ),
@@ -2822,11 +2814,7 @@ fn record_field_type_missing_field_errors() {
                     Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
                     Term::arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit(
-                            "result",
-                            vec![],
-                            Value::from("rt"),
-                        )],
+                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("email"),
                     ),
                 ),
@@ -3122,11 +3110,7 @@ fn binary_arith_synth() -> Term {
                         "unify",
                         vec![
                             Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                     ),
                     Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
@@ -5058,11 +5042,7 @@ fn pi_apply_returns_body_type() {
                         "pi_apply",
                         vec![
                             Term::arr_judgment_lit("result", vec![], Value::from("pitype")),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
@@ -5107,11 +5087,7 @@ fn pi_apply_non_dependent_body() {
                         "pi_apply",
                         vec![
                             Term::arr_judgment_lit("result", vec![], Value::from("pitype")),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
@@ -5161,16 +5137,8 @@ fn unify_pi_succeeds_on_matching_types() {
                                 Term::arr_judgment_lit(
                                     "unify_pi",
                                     vec![
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pa"),
-                                        ),
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pb"),
-                                        ),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
@@ -5229,16 +5197,8 @@ fn unify_pi_fails_on_mismatched_params() {
                                 Term::arr_judgment_lit(
                                     "unify_pi",
                                     vec![
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pa"),
-                                        ),
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pb"),
-                                        ),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
@@ -5304,16 +5264,8 @@ fn unify_skips_body_closure_for_pi() {
                                 Term::arr_judgment_lit(
                                     "unify",
                                     vec![
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pa"),
-                                        ),
-                                        Term::arr_judgment_lit(
-                                            "result",
-                                            vec![],
-                                            Value::from("pb"),
-                                        ),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
@@ -6304,11 +6256,7 @@ fn forall_apply_returns_body_type() {
                         "forall_apply",
                         vec![
                             Term::arr_judgment_lit("result", vec![], Value::from("foralltype")),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
@@ -6399,11 +6347,7 @@ fn vau_apply_returns_body_type() {
                         "vau_apply",
                         vec![
                             Term::arr_judgment_lit("result", vec![], Value::from("vautype")),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
@@ -7618,11 +7562,7 @@ fn subtype_meta_solves() {
                         "subtype",
                         vec![
                             Term::arr_native("id", vec![]),
-                            Term::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.number"),
-                            ),
+                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                     ),
                     Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -7890,11 +7830,7 @@ fn row_poly_field_access_on_open_record() {
                     Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
                     Term::arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit(
-                            "result",
-                            vec![],
-                            Value::from("rt"),
-                        )],
+                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("name"),
                     ),
                 ),
@@ -8422,11 +8358,7 @@ fn rec_test_lang() -> Language {
                                             ),
                                         ],
                                     ),
-                                    Term::arr_judgment_lit(
-                                        "result",
-                                        vec![],
-                                        Value::from("tthen"),
-                                    ),
+                                    Term::arr_judgment_lit("result", vec![], Value::from("tthen")),
                                 ),
                             ),
                         ),

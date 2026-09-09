@@ -302,8 +302,12 @@ fn arrow_combinator_hover(
     index: usize,
     token: &SpannedToken,
 ) -> Option<String> {
-    let is_label =
-        |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
+    let is_label = |i: usize, l: &str| -> bool {
+        tokens
+            .get(i)
+            .map(|t| classes.is_label(&t.kind, l))
+            .unwrap_or(false)
+    };
 
     // Must be a call: followed by `(`. Exception: `id` is used without parens.
     let is_call = is_label(index + 1, "(");
@@ -577,8 +581,12 @@ fn classify_identifier_role(
     tokens: &[SpannedToken],
     index: usize,
 ) -> IdentifierRole {
-    let is_label =
-        |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
+    let is_label = |i: usize, l: &str| -> bool {
+        tokens
+            .get(i)
+            .map(|t| classes.is_label(&t.kind, l))
+            .unwrap_or(false)
+    };
 
     let ident = tokens[index].text.as_str();
 

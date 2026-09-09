@@ -156,10 +156,7 @@ pub fn check_source(src: &str) -> Result<bool, LintError> {
 /// # Errors
 ///
 /// Returns [`LintError`] if the source cannot be parsed.
-pub fn check_source_with_prelude(
-    src: &str,
-    prelude: &HashSet<String>,
-) -> Result<bool, LintError> {
+pub fn check_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<bool, LintError> {
     let diags = lint_source_with_prelude(src, prelude)?;
     Ok(!diags.iter().any(|d| d.severity == Severity::Error))
 }
@@ -182,10 +179,7 @@ pub fn fix_source(src: &str) -> Result<String, LintError> {
 /// # Errors
 ///
 /// Returns [`LintError::Parse`] if the source cannot be parsed after fixing.
-pub fn fix_source_with_prelude(
-    src: &str,
-    prelude: &HashSet<String>,
-) -> Result<String, LintError> {
+pub fn fix_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<String, LintError> {
     let fixed = apply_fixes_to_fixpoint(src, |s| compute_fixes(s, prelude), 5)
         .map_err(|e| LintError::Parse(e.to_string()))?;
     // Verify the fixed source still parses.

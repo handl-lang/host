@@ -8,11 +8,11 @@ use handl_language::{
     Ast, AstNode, AstRef, AstShapeDef, ChildRoleSpec, Language, RewriteStep, TransformCondition,
     TransformDef, TransformRule,
 };
+use handl_plugin_engine_transform::TransformEngine;
 use handl_plugin_engine_transform::native::{NativeRewriteRegistry, RewriteCtx};
 use handl_plugin_engine_transform::request::{TransformMode, TransformRequest};
-use handl_plugin_engine_transform::TransformEngine;
 use handl_plugin_engine_transform_rewrite::{RewriteEngine, Traversal};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 fn leaf(kind: &str, payload: Value) -> AstNode {
@@ -35,18 +35,16 @@ fn test_lang() -> Language {
         lang.merge_ast_fragment(AstShapeDef::new(format!("ast.{k}"), k))
             .unwrap();
     }
-    lang.merge_ast_fragment(
-        AstShapeDef::new("ast.wrap", "wrap").with_children(vec![
-            ChildRoleSpec {
-                role: "target".into(),
-                variadic: false,
-            },
-            ChildRoleSpec {
-                role: "value".into(),
-                variadic: false,
-            },
-        ]),
-    )
+    lang.merge_ast_fragment(AstShapeDef::new("ast.wrap", "wrap").with_children(vec![
+        ChildRoleSpec {
+            role: "target".into(),
+            variadic: false,
+        },
+        ChildRoleSpec {
+            role: "value".into(),
+            variadic: false,
+        },
+    ]))
     .unwrap();
     lang
 }
@@ -306,9 +304,7 @@ fn declarative_payload_is_shallow_patch() {
         ),
     );
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("a").with_payload(json!({"old_key": "orig", "other": 42})),
-    );
+    ast.push(AstNode::new("a").with_payload(json!({"old_key": "orig", "other": 42})));
     let out = RewriteEngine::new()
         .run_pass(&lang, &ast, root(&ast), "p")
         .unwrap();
@@ -342,7 +338,10 @@ fn rewritten_node_inherits_span() {
     let out = RewriteEngine::new()
         .run_pass(&lang, &ast, root(&ast), "p")
         .unwrap();
-    assert_eq!(out.ast.at(out.root).unwrap().span, Some(Span { start: 3, end: 9 }));
+    assert_eq!(
+        out.ast.at(out.root).unwrap().span,
+        Some(Span { start: 3, end: 9 })
+    );
 }
 
 // --- TransformCondition coverage --------------------------------------------
@@ -445,11 +444,9 @@ fn condition_payload_eq_childcount_and_or_not() {
     );
     let mut ast = Ast::new();
     ast.push(leaf("lit", json!(0)));
-    ast.push(
-        AstNode::new("a").with_payload(json!({
-            "flag": true, "nested": {"y": 2}, "children": [0]
-        })),
-    );
+    ast.push(AstNode::new("a").with_payload(json!({
+        "flag": true, "nested": {"y": 2}, "children": [0]
+    })));
     let out = RewriteEngine::new()
         .run_pass(&lang, &ast, root(&ast), "p")
         .unwrap();
@@ -459,10 +456,7 @@ fn condition_payload_eq_childcount_and_or_not() {
 #[test]
 fn condition_mismatch_passes_through() {
     let mut lang = test_lang();
-    add_rule(
-        &mut lang,
-        rule_with_when(TransformCondition::ChildCount(5)),
-    );
+    add_rule(&mut lang, rule_with_when(TransformCondition::ChildCount(5)));
     let mut ast = Ast::new();
     ast.push(node("a", &[]));
     let out = RewriteEngine::new()
@@ -649,9 +643,7 @@ fn native_rule_dispatches_by_name() {
     let mut reg = NativeRewriteRegistry::new();
     reg.register(
         "mk.b",
-        Box::new(|ctx: &mut RewriteCtx| {
-            Ok(AstRef::new(ctx.push_leaf("b", json!("made"))))
-        }),
+        Box::new(|ctx: &mut RewriteCtx| Ok(AstRef::new(ctx.push_leaf("b", json!("made"))))),
     );
     let engine = RewriteEngine::new().with_native_registry(Arc::new(reg));
     let mut ast = Ast::new();
@@ -690,9 +682,11 @@ fn apply_at_unknown_rule_errors() {
     let lang = test_lang();
     let mut ast = Ast::new();
     ast.push(node("a", &[]));
-    assert!(RewriteEngine::new()
-        .apply_rule(&lang, &ast, AstRef::new(0), "no.such")
-        .is_err());
+    assert!(
+        RewriteEngine::new()
+            .apply_rule(&lang, &ast, AstRef::new(0), "no.such")
+            .is_err()
+    );
 }
 
 #[test]

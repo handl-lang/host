@@ -217,12 +217,7 @@ pub fn uses_first(scheme: &Term) -> bool {
             predicate,
             step,
             initial,
-        } => {
-            uses_first(fuel)
-                || uses_first(predicate)
-                || uses_first(step)
-                || uses_first(initial)
-        }
+        } => uses_first(fuel) || uses_first(predicate) || uses_first(step) || uses_first(initial),
     }
 }
 
@@ -283,12 +278,7 @@ pub fn uses_left(scheme: &Term) -> bool {
             predicate,
             step,
             initial,
-        } => {
-            uses_left(fuel)
-                || uses_left(predicate)
-                || uses_left(step)
-                || uses_left(initial)
-        }
+        } => uses_left(fuel) || uses_left(predicate) || uses_left(step) || uses_left(initial),
     }
 }
 

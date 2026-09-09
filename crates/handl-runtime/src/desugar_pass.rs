@@ -54,5 +54,7 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
     }
     let engine = RewriteEngine::new().with_desugar_natives();
     let root = AstRef::new(ast.len() - 1);
-    engine.run_pass(lang, ast, root, "desugar").map(|out| out.ast)
+    engine
+        .run_pass(lang, ast, root, "desugar")
+        .map(|out| out.ast)
 }

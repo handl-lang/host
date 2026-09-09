@@ -29,9 +29,9 @@ pub fn matches_condition(
                 None => false,
             }
         }
-        TransformCondition::PayloadEq { path, value } => {
-            payload_at(&node.payload, path).map(|v| v == value).unwrap_or(false)
-        }
+        TransformCondition::PayloadEq { path, value } => payload_at(&node.payload, path)
+            .map(|v| v == value)
+            .unwrap_or(false),
         TransformCondition::ChildPayloadEq {
             index,
             role,
@@ -51,12 +51,12 @@ pub fn matches_condition(
             .and_then(|c| c.as_array())
             .map(|arr| arr.len() == *n)
             .unwrap_or(*n == 0),
-        TransformCondition::And(conds) => conds
-            .iter()
-            .all(|c| matches_condition(lang, ast, node, c)),
-        TransformCondition::Or(conds) => conds
-            .iter()
-            .any(|c| matches_condition(lang, ast, node, c)),
+        TransformCondition::And(conds) => {
+            conds.iter().all(|c| matches_condition(lang, ast, node, c))
+        }
+        TransformCondition::Or(conds) => {
+            conds.iter().any(|c| matches_condition(lang, ast, node, c))
+        }
         TransformCondition::Not(cond) => !matches_condition(lang, ast, node, cond),
     }
 }

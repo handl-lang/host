@@ -53,7 +53,6 @@ fn remap_child(original: &AstNode, remap: &[Option<usize>], i: usize) -> Option<
     old_idx.and_then(|idx| remap.get(idx).copied().flatten())
 }
 
-
 /// Push a leaf node (no children) into the output arena and return its index.
 fn push_leaf(out: &mut Ast, kind: &str, payload: Value) -> usize {
     out.push(AstNode::new(kind).with_payload(payload)).index()
@@ -131,7 +130,6 @@ fn find_first_recursive_field(constructors: &[DataConstructor], type_name: &str)
     }
     None
 }
-
 
 // ---------------------------------------------------------------------------
 // 8. `data Name = Cons1 | Cons2(args) | ...` → predicate + constructors + recursor
@@ -1645,8 +1643,6 @@ fn desugar_data_wrapped(
     desugar_data(lang, original, ast, out)
 }
 
-
-
 /// Build (once) and return the static desugar function table — a table
 /// mapping node kind strings to handler functions.
 ///
@@ -1702,7 +1698,9 @@ pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
 /// conditional match — becomes [`RewriteCtx::pass_through`]: the node is
 /// pushed into the output arena unchanged with its children remapped,
 /// exactly as the legacy fallthrough did.
-fn adapt(f: DesugarFn) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync> {
+fn adapt(
+    f: DesugarFn,
+) -> Box<dyn Fn(&mut RewriteCtx<'_>) -> Result<AstRef, LangError> + Send + Sync> {
     Box::new(move |ctx| {
         let lang = ctx.lang();
         let node = ctx.node();
@@ -1757,7 +1755,8 @@ mod tests {
     #[test]
     fn no_desugar_is_identity() {
         let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         let mut ast = Ast::new();
         ast.push(AstNode::new("lit").with_payload(json!(42)));
         let out = apply_desugar(&lang, &ast);
@@ -1812,8 +1811,10 @@ mod tests {
         });
         lang.merge_ast_fragment(if_shape).unwrap();
         // Other shapes (no desugar)
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -1900,8 +1901,10 @@ mod tests {
             when: None,
         });
         lang.merge_ast_fragment(if_shape).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -1976,7 +1979,8 @@ mod tests {
         });
         lang.merge_ast_fragment(entry_shape).unwrap();
         // Other shapes (no desugar, just so the language is well-formed)
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.array", "array"))
             .unwrap();
@@ -2048,7 +2052,8 @@ mod tests {
             }),
         });
         lang.merge_ast_fragment(entry_shape).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
 
         // Build: entry { children: [var("n"), value(1)] }
         //   0: var("n")   (literal bare-id key)
@@ -2085,7 +2090,8 @@ mod tests {
             when: None,
         });
         lang.merge_ast_fragment(shape).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.json", "json"))
             .unwrap();
@@ -2136,7 +2142,8 @@ mod tests {
             when: None,
         });
         lang.merge_ast_fragment(shape).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.json", "json"))
             .unwrap();
@@ -3239,8 +3246,10 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -3325,8 +3334,10 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -3362,7 +3373,8 @@ mod tests {
         // `match 5 { x: x }` — a conditional match with a binder pattern,
         // not a constructor pattern. Should NOT be desugared.
         let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.value", "value"))
             .unwrap();
@@ -3396,8 +3408,10 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -3457,8 +3471,10 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -3534,8 +3550,10 @@ mod tests {
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
             .unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();
@@ -3568,8 +3586,10 @@ mod tests {
         // match n { Foo => 0, Bar => 1 } — constructors "Foo" and "Bar" are
         // not declared in any `data` node. Should NOT desugar (no recursor).
         let mut lang = Language::new();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var")).unwrap();
-        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.var", "var"))
+            .unwrap();
+        lang.merge_ast_fragment(AstShapeDef::new("ast.lit", "lit"))
+            .unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.match", "match"))
             .unwrap();

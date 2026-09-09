@@ -115,33 +115,37 @@ impl ParallelEngine {
         let workers = self.workers.min(children.len()).max(1);
         let chunk_size = (children.len() + workers - 1) / workers;
 
-        let groups: Vec<Vec<(usize, TransformOutput, Vec<usize>)>> = thread::scope(|s| -> Result<Vec<Vec<(usize, TransformOutput, Vec<usize>)>>, LangError> {
-            let mut handles = Vec::new();
-            for chunk in children.chunks(chunk_size) {
-                let local = self.inner.clone();
-                let chunk: Vec<usize> = chunk.to_vec();
-                let handle = s.spawn(move || -> Result<Vec<(usize, TransformOutput, Vec<usize>)>, LangError> {
-                    let mut results = Vec::new();
-                    for &old_idx in &chunk {
-                        let (sub, new_to_old) = extract_subtree(ast, AstRef::new(old_idx))?;
-                        let sub_root = AstRef::new(sub.len() - 1);
-                        let sub_out = local.run_pass(lang, &sub, sub_root, pass)?;
-                        results.push((old_idx, sub_out, new_to_old));
-                    }
-                    Ok(results)
-                });
-                handles.push(handle);
-            }
+        let groups: Vec<Vec<(usize, TransformOutput, Vec<usize>)>> = thread::scope(
+            |s| -> Result<Vec<Vec<(usize, TransformOutput, Vec<usize>)>>, LangError> {
+                let mut handles = Vec::new();
+                for chunk in children.chunks(chunk_size) {
+                    let local = self.inner.clone();
+                    let chunk: Vec<usize> = chunk.to_vec();
+                    let handle = s.spawn(
+                        move || -> Result<Vec<(usize, TransformOutput, Vec<usize>)>, LangError> {
+                            let mut results = Vec::new();
+                            for &old_idx in &chunk {
+                                let (sub, new_to_old) = extract_subtree(ast, AstRef::new(old_idx))?;
+                                let sub_root = AstRef::new(sub.len() - 1);
+                                let sub_out = local.run_pass(lang, &sub, sub_root, pass)?;
+                                results.push((old_idx, sub_out, new_to_old));
+                            }
+                            Ok(results)
+                        },
+                    );
+                    handles.push(handle);
+                }
 
-            let mut groups: Vec<Vec<(usize, TransformOutput, Vec<usize>)>> = Vec::new();
-            for h in handles {
-                let result = h
-                    .join()
-                    .map_err(|_| LangError::engine("transform worker thread panicked".to_string()))?;
-                groups.push(result?);
-            }
-            Ok(groups)
-        })?;
+                let mut groups: Vec<Vec<(usize, TransformOutput, Vec<usize>)>> = Vec::new();
+                for h in handles {
+                    let result = h.join().map_err(|_| {
+                        LangError::engine("transform worker thread panicked".to_string())
+                    })?;
+                    groups.push(result?);
+                }
+                Ok(groups)
+            },
+        )?;
 
         let mut out = Ast::new();
         let mut child_remap = vec![None; ast.len()];
@@ -176,9 +180,9 @@ impl ParallelEngine {
             }
         }
 
-        let mut root_out =
-            self.inner
-                .run_pass_root(lang, ast, root, pass, out, child_remap)?;
+        let mut root_out = self
+            .inner
+            .run_pass_root(lang, ast, root, pass, out, child_remap)?;
 
         root_out.trace.rewrites.extend(trace.rewrites);
         root_out.stats.visited += stats.visited;
@@ -229,7 +233,11 @@ impl Default for ParallelEngine {
 }
 
 impl TransformEngine for ParallelEngine {
-    fn transform(&self, lang: &Language, req: &TransformRequest) -> Result<TransformOutput, LangError> {
+    fn transform(
+        &self,
+        lang: &Language,
+        req: &TransformRequest,
+    ) -> Result<TransformOutput, LangError> {
         match &req.mode {
             TransformMode::Pass => self.run_pass(lang, &req.ast, req.root, req.pass()),
             TransformMode::Pipeline(passes) => {
@@ -286,7 +294,13 @@ fn extract_subtree(ast: &Ast, root: AstRef) -> Result<(Ast, Vec<usize>), LangErr
     let mut out = Ast::new();
     let mut old_to_new: HashMap<usize, usize> = HashMap::new();
     let mut new_to_old: Vec<usize> = Vec::new();
-    subtree_into(ast, root.index(), &mut old_to_new, &mut new_to_old, &mut out)?;
+    subtree_into(
+        ast,
+        root.index(),
+        &mut old_to_new,
+        &mut new_to_old,
+        &mut out,
+    )?;
     Ok((out, new_to_old))
 }
 
@@ -306,13 +320,17 @@ fn subtree_into(
     if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
         for v in children {
             if let Some(c) = v.as_u64() {
-                child_new_indices.push(subtree_into(ast, c as usize, old_to_new, new_to_old, out)? as u64);
+                child_new_indices
+                    .push(subtree_into(ast, c as usize, old_to_new, new_to_old, out)? as u64);
             }
         }
     }
 
     let mut new_payload = node.payload.clone();
-    if let Some(children) = new_payload.get_mut("children").and_then(|c| c.as_array_mut()) {
+    if let Some(children) = new_payload
+        .get_mut("children")
+        .and_then(|c| c.as_array_mut())
+    {
         for (i, new_idx) in child_new_indices.iter().enumerate() {
             if let Some(slot) = children.get_mut(i) {
                 *slot = Value::from(*new_idx);
@@ -320,11 +338,13 @@ fn subtree_into(
         }
     }
 
-    let new_idx = out.push(AstNode {
-        kind: node.kind.clone(),
-        span: node.span,
-        payload: new_payload,
-    }).index();
+    let new_idx = out
+        .push(AstNode {
+            kind: node.kind.clone(),
+            span: node.span,
+            payload: new_payload,
+        })
+        .index();
     new_to_old.push(idx);
     old_to_new.insert(idx, new_idx);
     Ok(new_idx)

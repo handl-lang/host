@@ -29,7 +29,6 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{CheckError, TypecheckReport};
 
-
 // ---------------------------------------------------------------------------
 // v0.1 surface node kinds
 // ---------------------------------------------------------------------------
@@ -138,7 +137,10 @@ fn is_bare_module_name(spec: &str) -> bool {
         && spec
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-        && spec.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && spec
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
 /// Whether a byte is an identifier continuation character
@@ -182,12 +184,7 @@ fn name_span(src: &str, stmt: &Stmt, name: &str) -> Span {
 /// field/type names inside the constructor's `type-annot` arguments are
 /// intentionally not collected. Positions are resolved via `AstShapeDef` roles
 /// (ADR-0081).
-fn collect_data_ctors(
-    lang: &Language,
-    ast: &Ast,
-    node_ref: AstRef,
-    out: &mut HashSet<String>,
-) {
+fn collect_data_ctors(lang: &Language, ast: &Ast, node_ref: AstRef, out: &mut HashSet<String>) {
     let node = match ast.at(node_ref) {
         Ok(n) => n,
         Err(_) => return,
@@ -342,9 +339,7 @@ fn collect_decls(
                         // `export x` / `export x from "path"` — a re-export
                         // of an existing binding, not a new binding.
                         exports.push(Export { name, stmt_idx: i });
-                    } else if let Some(name) =
-                        binding_target_name(lang, &stmt.ast, child_ref)
-                    {
+                    } else if let Some(name) = binding_target_name(lang, &stmt.ast, child_ref) {
                         // `export x :: expr` — the export declares `x` and
                         // binds it in module scope.
                         if seen.contains_key(&name) {
@@ -443,12 +438,7 @@ fn stmt_import_bound_names(ast: &Ast, root: &AstNode) -> Vec<String> {
 /// Collect the names bound by a pattern using `AstShapeDef::pattern_role`
 /// metadata and declared child roles (ADR-0081). The conventional wildcard
 /// `_` is skipped: it binds nothing and must not be reported as unbound.
-fn pattern_bound_names(
-    lang: &Language,
-    ast: &Ast,
-    node_ref: AstRef,
-    out: &mut HashSet<String>,
-) {
+fn pattern_bound_names(lang: &Language, ast: &Ast, node_ref: AstRef, out: &mut HashSet<String>) {
     let node = match ast.at(node_ref) {
         Ok(n) => n,
         Err(_) => return,
@@ -504,9 +494,7 @@ fn pattern_bound_names(
                 for &child_raw in children_of(node).iter().skip(body_idx) {
                     pattern_bound_names(lang, ast, AstRef::new(child_raw), out);
                 }
-            } else if let Ok(Some(subject_idx)) =
-                lang.child_role_index(&node.kind, "subject")
-            {
+            } else if let Ok(Some(subject_idx)) = lang.child_role_index(&node.kind, "subject") {
                 let children = children_of(node);
                 if let Some(&subject_raw) = children.get(subject_idx) {
                     pattern_bound_names(lang, ast, AstRef::new(subject_raw), out);
@@ -629,8 +617,7 @@ fn check_expr(
         if let Some(&annot_raw) = children.get(annot_idx) {
             if let Ok(annot_node) = ast.at(AstRef::new(annot_raw)) {
                 let is_bare_type = var_name(&annot_node).map_or(false, |n| {
-                    !scope.contains(&n)
-                        && n.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    !scope.contains(&n) && n.chars().next().is_some_and(|c| c.is_ascii_uppercase())
                 });
                 if !is_bare_type {
                     check_expr(
@@ -770,7 +757,14 @@ fn check_expr(
                 continue;
             }
             check_expr(
-                lang, src, ast, child_ref, &block_scope, stmt, diags, references,
+                lang,
+                src,
+                ast,
+                child_ref,
+                &block_scope,
+                stmt,
+                diags,
+                references,
             );
         }
         return;
@@ -1076,7 +1070,12 @@ mod tests {
         let ast = parse_chunk(&lang, src).expect("parse");
         for i in 0..ast.len() {
             let node = ast.at(AstRef::new(i)).expect("node");
-            eprintln!("{i}: kind={} payload={} children={:?}", node.kind, node.payload, children_of(node));
+            eprintln!(
+                "{i}: kind={} payload={} children={:?}",
+                node.kind,
+                node.payload,
+                children_of(node)
+            );
         }
     }
 }

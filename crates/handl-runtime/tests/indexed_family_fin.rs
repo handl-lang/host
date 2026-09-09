@@ -203,8 +203,7 @@ fn fin_indexed_family_predicate_and_match() {
 
     combined.push(AstNode::new("block").with_payload(json!({ "children": children })));
 
-    let mut combined =
-        apply_desugar(kit.runtime().lang(), &combined).expect("desugar failed");
+    let mut combined = apply_desugar(kit.runtime().lang(), &combined).expect("desugar failed");
     flatten_top_level_blocks(&mut combined);
 
     let val = kit.runtime().eval(&combined).expect("eval must succeed");

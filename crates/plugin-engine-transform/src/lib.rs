@@ -28,7 +28,7 @@ use std::sync::Arc;
 use handl_language::{AstRef, LangError, Language};
 
 use crate::native::NativeRewrite;
-use crate::output::{TransformOutput};
+use crate::output::TransformOutput;
 use crate::request::TransformRequest;
 
 /// The transform operation marker.
@@ -66,7 +66,11 @@ pub trait TransformEngine {
     ///
     /// Returns [`LangError`] on transform failure (unknown rule, unsupported
     /// mode, native-rewrite error, etc.).
-    fn transform(&self, lang: &Language, req: &TransformRequest) -> Result<TransformOutput, LangError>;
+    fn transform(
+        &self,
+        lang: &Language,
+        req: &TransformRequest,
+    ) -> Result<TransformOutput, LangError>;
 
     /// Match-only: find every site where a rule would fire, without rewriting.
     ///
@@ -76,7 +80,11 @@ pub trait TransformEngine {
     /// # Errors
     ///
     /// Returns [`LangError`] on failure.
-    fn find_matches(&self, _lang: &Language, _req: &TransformRequest) -> Result<Vec<Match>, LangError> {
+    fn find_matches(
+        &self,
+        _lang: &Language,
+        _req: &TransformRequest,
+    ) -> Result<Vec<Match>, LangError> {
         Ok(Vec::new())
     }
 
@@ -99,7 +107,9 @@ mod tests {
     use crate::native::{NativeRewriteRegistry, RewriteCtx};
     use crate::output::{Rewrite, RewriteTrace};
     use crate::validate::validate_transforms;
-    use handl_language::{Ast, AstNode, AstRef, AstShapeDef, ChildRoleSpec, Language, TransformDef, TransformRule};
+    use handl_language::{
+        Ast, AstNode, AstRef, AstShapeDef, ChildRoleSpec, Language, TransformDef, TransformRule,
+    };
     use serde_json::Value;
 
     #[test]
@@ -171,14 +181,14 @@ mod tests {
     fn test_language() -> Language {
         let mut lang = Language::new();
         lang.ast
-            .merge(AstShapeDef::new("ast.old", "old").with_children(vec![ChildRoleSpec {
-                role: "only".into(),
-                variadic: false,
-            }]))
+            .merge(
+                AstShapeDef::new("ast.old", "old").with_children(vec![ChildRoleSpec {
+                    role: "only".into(),
+                    variadic: false,
+                }]),
+            )
             .unwrap();
-        lang.ast
-            .merge(AstShapeDef::new("ast.new", "new"))
-            .unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.new", "new")).unwrap();
         lang.ast
             .merge(AstShapeDef::new("ast.cycle", "cycle"))
             .unwrap();
@@ -201,7 +211,11 @@ mod tests {
             ))
             .unwrap();
         let diags = validate_transforms(&lang);
-        assert!(diags.iter().any(|d| d.message.contains("missing") && d.message.contains("unknown kind")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains("missing") && d.message.contains("unknown kind"))
+        );
     }
 
     #[test]
@@ -220,7 +234,11 @@ mod tests {
             ))
             .unwrap();
         let diags = validate_transforms(&lang);
-        assert!(diags.iter().any(|d| d.message.contains("Keep(1)") && d.message.contains("out of bounds")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains("Keep(1)") && d.message.contains("out of bounds"))
+        );
     }
 
     #[test]

@@ -596,7 +596,7 @@ fn preserve_nested_change_inside_unchanged_block() {
     );
     let mul = ast.push(
         AstNode::new("binary.mul")
-            .with_payload(serde_json::json!({"children": [three.index(), four.index()]}))
+            .with_payload(serde_json::json!({"children": [three.index(), four.index()]})),
     );
     let let2 = ast.push(
         AstNode::new("let")
@@ -621,16 +621,32 @@ fn preserve_nested_change_inside_unchanged_block() {
 fn categorized_lang() -> Language {
     let mut lang = Language::new();
     lang.tokens
-        .merge(TokenKindDef::new("token.lparen").with_category("open-bracket").with_label("("))
+        .merge(
+            TokenKindDef::new("token.lparen")
+                .with_category("open-bracket")
+                .with_label("("),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.lbrace").with_category("open-bracket").with_label("{"))
+        .merge(
+            TokenKindDef::new("token.lbrace")
+                .with_category("open-bracket")
+                .with_label("{"),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.rparen").with_category("close-bracket").with_label(")"))
+        .merge(
+            TokenKindDef::new("token.rparen")
+                .with_category("close-bracket")
+                .with_label(")"),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.rbrace").with_category("close-bracket").with_label("}"))
+        .merge(
+            TokenKindDef::new("token.rbrace")
+                .with_category("close-bracket")
+                .with_label("}"),
+        )
         .unwrap();
     lang.tokens
         .merge(
@@ -640,22 +656,46 @@ fn categorized_lang() -> Language {
         )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.comma").with_category("punctuation").with_label(","))
+        .merge(
+            TokenKindDef::new("token.comma")
+                .with_category("punctuation")
+                .with_label(","),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.colon").with_category("punctuation").with_label(":"))
+        .merge(
+            TokenKindDef::new("token.colon")
+                .with_category("punctuation")
+                .with_label(":"),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.dot").with_category("punctuation").with_label("."))
+        .merge(
+            TokenKindDef::new("token.dot")
+                .with_category("punctuation")
+                .with_label("."),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.plus").with_category("operator").with_label("+"))
+        .merge(
+            TokenKindDef::new("token.plus")
+                .with_category("operator")
+                .with_label("+"),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.bang").with_category("operator").with_label("!"))
+        .merge(
+            TokenKindDef::new("token.bang")
+                .with_category("operator")
+                .with_label("!"),
+        )
         .unwrap();
     lang.tokens
-        .merge(TokenKindDef::new("token.keyword.if").with_category("keyword").with_label("if"))
+        .merge(
+            TokenKindDef::new("token.keyword.if")
+                .with_category("keyword")
+                .with_label("if"),
+        )
         .unwrap();
     lang.tokens
         .merge(TokenKindDef::new("token.identifier").with_category("identifier"))
@@ -676,7 +716,10 @@ fn classify_token_by_category() {
     assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
     assert_eq!(classify_token(&lang, "token.rparen"), TokenCat::CloseParen);
     assert_eq!(classify_token(&lang, "token.rbrace"), TokenCat::CloseBrace);
-    assert_eq!(classify_token(&lang, "token.rbracket"), TokenCat::CloseBracket);
+    assert_eq!(
+        classify_token(&lang, "token.rbracket"),
+        TokenCat::CloseBracket
+    );
     assert_eq!(classify_token(&lang, "token.comma"), TokenCat::Comma);
     assert_eq!(classify_token(&lang, "token.colon"), TokenCat::Colon);
     assert_eq!(classify_token(&lang, "token.dot"), TokenCat::Dot);
@@ -729,9 +772,21 @@ fn format_options_default_has_indent_and_width() {
 fn token_formatter_spacing_and_custom_rule() {
     let lang = categorized_lang();
     let tokens: Vec<Token> = vec![
-        Token { kind: "token.identifier".into(), text: "x".into(), ..Default::default() },
-        Token { kind: "token.plus".into(), text: "+".into(), ..Default::default() },
-        Token { kind: "token.number".into(), text: "2".into(), ..Default::default() },
+        Token {
+            kind: "token.identifier".into(),
+            text: "x".into(),
+            ..Default::default()
+        },
+        Token {
+            kind: "token.plus".into(),
+            text: "+".into(),
+            ..Default::default()
+        },
+        Token {
+            kind: "token.number".into(),
+            text: "2".into(),
+            ..Default::default()
+        },
     ];
     // Canonical spacer → `x + 2`.
     let canonical = TokenFormatter::canonical(2);
@@ -757,9 +812,24 @@ fn token_formatter_preserves_source_leading_ws() {
     let lang = categorized_lang();
     // A newline-gapped token should keep the original leading whitespace.
     let tokens: Vec<Token> = vec![
-        Token { kind: "token.lbrace".into(), text: "{".into(), start: 0, end: 1 },
-        Token { kind: "token.identifier".into(), text: "x".into(), start: 4, end: 5 },
-        Token { kind: "token.rbrace".into(), text: "}".into(), start: 6, end: 7 },
+        Token {
+            kind: "token.lbrace".into(),
+            text: "{".into(),
+            start: 0,
+            end: 1,
+        },
+        Token {
+            kind: "token.identifier".into(),
+            text: "x".into(),
+            start: 4,
+            end: 5,
+        },
+        Token {
+            kind: "token.rbrace".into(),
+            text: "}".into(),
+            start: 6,
+            end: 7,
+        },
     ];
     let formatter = TokenFormatter::canonical(2);
     let out = formatter.format("{\n  x\n}", &tokens, &lang);

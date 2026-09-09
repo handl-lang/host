@@ -2,4 +2,4 @@
 
 pub mod desugar;
 
-pub use desugar::{desugar_native_registry, DESUGAR_NATIVES};
+pub use desugar::{DESUGAR_NATIVES, desugar_native_registry};

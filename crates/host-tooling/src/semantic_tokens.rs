@@ -215,8 +215,12 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Helper: check if the token at index spells `label` (resolved
         // against the language's token labels — e.g. `"."` → the
         // member-access token kind, however it is named).
-        let is_label =
-            |i: usize, l: &str| -> bool { tokens.get(i).map(|t| classes.is_label(&t.kind, l)).unwrap_or(false) };
+        let is_label = |i: usize, l: &str| -> bool {
+            tokens
+                .get(i)
+                .map(|t| classes.is_label(&t.kind, l))
+                .unwrap_or(false)
+        };
 
         // Property access: preceded by a dot → this is a property/member.
         // e.g. `state.acc`, `state.remaining`, `input.0`

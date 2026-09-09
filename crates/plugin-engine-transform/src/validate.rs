@@ -2,7 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use handl_language::{AstShapeDef, Fragment, Language, RewriteStep, TransformCondition, TransformRule};
+use handl_language::{
+    AstShapeDef, Fragment, Language, RewriteStep, TransformCondition, TransformRule,
+};
 use handl_plugin_ext_diag::{Diagnostic, Severity, Span};
 
 const RULE: &str = "transform.validate";
@@ -172,7 +174,10 @@ fn validate_step(
                         Span::default(),
                         format!(
                             "rule {} KeepRest({}) starts past shape '{}' arity ({} declared roles)",
-                            rule_id, start, shape.map(|s| s.node_kind.as_str()).unwrap_or("?"), n
+                            rule_id,
+                            start,
+                            shape.map(|s| s.node_kind.as_str()).unwrap_or("?"),
+                            n
                         ),
                     ));
                 }
@@ -201,13 +206,19 @@ fn validate_step(
             }
         }
         RewriteStep::Fresh(_) => {}
-        RewriteStep::Apply { rule_id: target, index } => {
+        RewriteStep::Apply {
+            rule_id: target,
+            index,
+        } => {
             if lang.transforms.get_by_id(target).is_none() {
                 diags.push(Diagnostic::new(
                     RULE,
                     Severity::Error,
                     Span::default(),
-                    format!("rule {} Apply references unknown rule id '{}'", rule_id, target),
+                    format!(
+                        "rule {} Apply references unknown rule id '{}'",
+                        rule_id, target
+                    ),
                 ));
             }
             if let Some(n) = shape_role_count(shape) {
@@ -218,7 +229,9 @@ fn validate_step(
                         Span::default(),
                         format!(
                             "rule {} Apply index {} is out of bounds for shape '{}'",
-                            rule_id, index, shape.map(|s| s.node_kind.as_str()).unwrap_or("?")
+                            rule_id,
+                            index,
+                            shape.map(|s| s.node_kind.as_str()).unwrap_or("?")
                         ),
                     ));
                 }
@@ -235,7 +248,11 @@ fn validate_condition(
     diags: &mut Vec<Diagnostic>,
 ) {
     match cond {
-        TransformCondition::KindAt { index, role, kind: _ } => {
+        TransformCondition::KindAt {
+            index,
+            role,
+            kind: _,
+        } => {
             if let Some(i) = index {
                 if let Some(n) = shape_role_count(shape) {
                     if *i >= n {
@@ -245,7 +262,9 @@ fn validate_condition(
                             Span::default(),
                             format!(
                                 "rule {} KindAt index {} is out of bounds for shape '{}'",
-                                rule_id, i, shape.map(|s| s.node_kind.as_str()).unwrap_or("?")
+                                rule_id,
+                                i,
+                                shape.map(|s| s.node_kind.as_str()).unwrap_or("?")
                             ),
                         ));
                     }
@@ -258,7 +277,10 @@ fn validate_condition(
                             RULE,
                             Severity::Error,
                             Span::default(),
-                            format!("rule {} KindAt uses unknown role '{}' for shape '{}'", rule_id, r, s.node_kind),
+                            format!(
+                                "rule {} KindAt uses unknown role '{}' for shape '{}'",
+                                rule_id, r, s.node_kind
+                            ),
                         ));
                     }
                 }
