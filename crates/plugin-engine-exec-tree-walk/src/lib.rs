@@ -2249,7 +2249,8 @@ impl TreeWalkEngine {
             // `incoming` (from route_on_type → Choice), and `args[0]` is
             // the args array (from proj_rest). Looks up the callee in the
             // module registry and invokes the host function with the array
-            // elements as individual arguments.
+            // elements as individual arguments. If the callee is a declared
+            // graded `op`, dispatch it through the handler stack instead.
             "call_host" => {
                 let callee = incoming.as_ref().and_then(|v| v.as_str()).ok_or_else(|| {
                     LangError::engine_node(
@@ -2257,6 +2258,38 @@ impl TreeWalkEngine {
                         current_node,
                     )
                 })?;
+
+                // Grade-based op call: `add(1, 2)` where `add` is an `op`.
+                if let Some(op_decl) = lang.op_decl(callee) {
+                    let op_incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
+                    let op_term = Term::Op {
+                        name: callee.to_string(),
+                        args: vec![],
+                        source: ArrSource::Native,
+                        lit: None,
+                    };
+                    let (mut result, pushed) = self.eval_inner(
+                        &op_term,
+                        ast,
+                        _node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        Some(op_incoming),
+                    )?;
+                    if pushed {
+                        env.pop_scope();
+                    }
+                    if result.get("__tag__").is_none() {
+                        if let Some(output) = op_decl.get("output").and_then(Value::as_str) {
+                            if let Some(tagged) = tag_value(output, &tagged_to_value(&result)) {
+                                result = TaggedValue::from(tagged);
+                            }
+                        }
+                    }
+                    return Ok((result, false));
+                }
+
                 let modules = self.modules.as_ref().ok_or_else(|| {
                     LangError::engine_node(
                         "call_host: no module registry".to_string(),

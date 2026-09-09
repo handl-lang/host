@@ -758,6 +758,11 @@ impl Runtime {
         &self.lang
     }
 
+    /// Mutable access to the language definition bound to this runtime.
+    pub fn lang_mut(&mut self) -> &mut Language {
+        &mut self.lang
+    }
+
     /// The module registry, if one was provided.
     pub fn modules(&self) -> Option<&Rc<dyn handl_platform::ModuleLookup>> {
         self.modules.as_ref()
