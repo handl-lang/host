@@ -80,11 +80,11 @@ Lint rules are first-class `Language` data.
    widened from `&'static str` to `String` because rule names are now data.
 
    The `lint`-pass `TransformDef` in `plugin-ext-lint/data/lint_transforms.yaml`
-   is *kept*: `host-lsp` still consumes `lint.simplify-paren` via
-   `find_matches` → `lsp-rewrite` quick fixes. The match predicate is
-   therefore declared twice (once as `TransformDef`, once as `LintRuleDef`)
-   — deliberate duplication across two consuming engines, both driven by
-   `lint_language()`.
+   was later *removed*: `host-lsp` builds the `simplify-paren` quick fix
+   directly from the diagnostic's `fix` payload (`LintFixOut` →
+   `plugin-ext-diag::Fix`), so the transform-engine `lint`/`lsp-rewrite`
+   passes had no remaining consumer. The match predicate now lives solely
+   in `lints.yaml` as the `LintRuleDef`.
 
 ## Consequences
 
@@ -101,9 +101,11 @@ Lint rules are first-class `Language` data.
 - A language can declare `!Native "…"` rules its host must register; the
   canonical `scope.*` set documents the boundary between data and Rust.
 - Out of scope (noted for later): `.hnl`-authored lint natives (the
-  `handl:<mod>.<fn>` spelling ADR-0094 added for transforms), and folding
-  the remaining built-in engine checks (`empty-block`, `unreachable-code`,
-  `unused-binding`) into `lints.yaml` once the vocabulary can express them.
+  `handl:<mod>.<fn>` spelling ADR-0094 added for transforms).
+- Done: the remaining built-in engine checks (`empty-block`,
+  `unreachable-code`, `shadowed-binding`, `unused-binding`) are now declared
+  as `!Native "builtin.*"` rules in `crates/handl-kit-data-canonical/data/lints.yaml`
+  and implemented in the canonical lint native registry.
 
 ## Status
 
