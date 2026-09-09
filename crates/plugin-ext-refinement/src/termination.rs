@@ -92,7 +92,7 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
         }
 
         // Base arrows and identity: no loop, direct termination.
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             let known = registry.contains(op, source);
             TerminationResult {
                 terminates: true,
@@ -118,6 +118,17 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             reason: "handle -- eliminated before analysis".to_string(),
         },
 
+        // Pure constants and child projections: direct (no loop).
+        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+            terminates: true,
+            measure: Measure::None,
+            reason: "constant/child -- direct termination (no loop)".to_string(),
+        },
+        Term::Iter { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "iter -- termination not analyzed".to_string(),
+        },
         // Rewrite nodes are not yet analyzed; treat as direct termination.
         Term::Rewrite { .. } => TerminationResult {
             terminates: true,
@@ -173,7 +184,7 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
 
         // --- Direct base arrow as loop body ---
         // loop(arr): the arrow itself must decrease C. Check its contract.
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             let contract = registry.lookup(op, source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
@@ -224,6 +235,17 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
             measure: Measure::None,
             reason: "loop(rewrite(...)): no structural decreasing measure on C".to_string(),
         },
+        // --- loop(constant/child): no decrease on C ---
+        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::Constant,
+            reason: "loop(constant/child): C unchanged".to_string(),
+        },
+        Term::Iter { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "loop(iter): no structural decreasing measure on C".to_string(),
+        },
     }
 }
 
@@ -238,9 +260,9 @@ fn analyze_comp_loop_termination(
         // right is arr(id): seq(G, id) -- id leaves C unchanged. The decrease
         // (if any) must come from `left`. So recurse into left as the loop body.
         // This is the "fixed-point / accumulator" pattern.
-        // Note: id is encoded as Term::Arr { op: "id", ... }
+        // Note: id is encoded as Term::Op { name: "id", ... }
         // This arm must come BEFORE the general Arr arm.
-        Term::Arr { op, .. } if op == "id" => {
+        Term::Op { name: op, .. } if op == "id" => {
             let left_result = analyze_loop_termination(left, registry);
             TerminationResult {
                 terminates: left_result.terminates,
@@ -253,7 +275,7 @@ fn analyze_comp_loop_termination(
         }
 
         // right is a base arrow: its termination_effect tells us about C.
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             let contract = registry.lookup(op, source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
@@ -423,6 +445,17 @@ fn analyze_comp_loop_termination(
             reason: "seq(_, handle): handle eliminated before analysis".to_string(),
         },
 
+        // right is a constant or child projection: no decrease on C.
+        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::Constant,
+            reason: "seq(_, constant/child): C unchanged".to_string(),
+        },
+        Term::Iter { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "seq(_, iter): no structural decreasing measure on C".to_string(),
+        },
         // right is rewrite: no structural decreasing measure.
         Term::Rewrite { .. } => TerminationResult {
             terminates: false,
@@ -443,7 +476,7 @@ fn find_decreasing_measure_in(
     registry: &ContractRegistry,
 ) -> Option<(Measure, String)> {
     match scheme {
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             let contract = registry.lookup(op, source)?;
             let effect = contract.termination_effect.as_ref()?;
             match effect.as_str() {
@@ -476,6 +509,16 @@ fn find_decreasing_measure_in(
 
         Term::Rewrite { source, target, .. } => find_decreasing_measure_in(source, registry)
             .or_else(|| find_decreasing_measure_in(target, registry)),
+        Term::Arr { .. } | Term::Child { .. } => None,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => find_decreasing_measure_in(fuel, registry)
+            .or_else(|| find_decreasing_measure_in(predicate, registry))
+            .or_else(|| find_decreasing_measure_in(step, registry))
+            .or_else(|| find_decreasing_measure_in(initial, registry)),
     }
 }
 

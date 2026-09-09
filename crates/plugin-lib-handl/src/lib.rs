@@ -1093,7 +1093,6 @@ impl Function for HandlFunction {
         // Keep the parsed AST: if the result contains arrows, their `body`
         // indices refer to it — register it as a home frame so the caller
         // can apply them.
-        eprintln!("[hfcall] {}.{}/{} ast={}", module_name, func_name, args.len(), ast.len());
         let result = runtime
             .eval_shared_with_globals(&ast, &globals)
             .map_err(errf)?;

@@ -174,8 +174,7 @@ fn pretty_scheme(scheme: &Term) -> String {
 fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
     let indent = "  ".repeat(depth);
     match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -266,6 +265,27 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             out
         }
 
+        Term::Arr { value } => format!("{}const({})", indent, value),
+        Term::Child { role } => format!("{}child({})", indent, role),
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            let mut out = format!("{}iter {{\n", indent);
+            out.push_str(&pretty_scheme_inner(fuel, depth + 1));
+            out.push('\n');
+            out.push_str(&pretty_scheme_inner(predicate, depth + 1));
+            out.push('\n');
+            out.push_str(&pretty_scheme_inner(step, depth + 1));
+            out.push('\n');
+            out.push_str(&pretty_scheme_inner(initial, depth + 1));
+            out.push('\n');
+            out.push_str(&indent);
+            out.push('}');
+            out
+        }
         Term::Rewrite { source, target, .. } => {
             let mut out = format!("{}rewrite {{\n", indent);
             out.push_str(&pretty_scheme_inner(source, depth + 1));

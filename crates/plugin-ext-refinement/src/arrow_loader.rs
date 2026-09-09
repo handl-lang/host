@@ -196,7 +196,7 @@ fn resolve_apps_inner(
     }
 
     match scheme {
-        Term::Arr { .. } => scheme.clone(),
+        Term::Op { .. } => scheme.clone(),
 
         Term::Seq { fst, snd } => Term::Seq {
             fst: Box::new(resolve_apps_inner(fst, graph_map, depth)),
@@ -218,7 +218,7 @@ fn resolve_apps_inner(
 
         Term::App { callee, args } => {
             // Check if the callee is a reference to a named arrow
-            if let Term::Arr { op, .. } = callee.as_ref() {
+            if let Term::Op { name: op, .. } = callee.as_ref() {
                 if let Some(graph) = graph_map.get(op) {
                     // Inline the referenced graph (recursively resolved)
                     return resolve_apps_inner(graph, graph_map, depth + 1);
@@ -242,6 +242,18 @@ fn resolve_apps_inner(
             resolve_apps_inner(&eliminated, graph_map, depth)
         }
 
+        Term::Arr { .. } | Term::Child { .. } => scheme.clone(),
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Term::Iter {
+            fuel: Box::new(resolve_apps_inner(fuel, graph_map, depth)),
+            predicate: Box::new(resolve_apps_inner(predicate, graph_map, depth)),
+            step: Box::new(resolve_apps_inner(step, graph_map, depth)),
+            initial: Box::new(resolve_apps_inner(initial, graph_map, depth)),
+        },
         Term::Rewrite { source, target, witness } => Term::Rewrite {
             source: Box::new(resolve_apps_inner(source, graph_map, depth)),
             target: Box::new(resolve_apps_inner(target, graph_map, depth)),
@@ -710,7 +722,7 @@ fn refinement_to_contract(result: &RefinementResult) -> Contract {
 /// unknown names serve the same role.
 pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool {
     match scheme {
-        Term::Arr { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
+        Term::Op { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
         Term::Seq { fst, snd } => {
             has_unresolved_apps(fst, known_names) || has_unresolved_apps(snd, known_names)
         }
@@ -720,7 +732,7 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
         }
         Term::Loop { body } => has_unresolved_apps(body, known_names),
         Term::App { callee, args } => {
-            if let Term::Arr { op, .. } = callee.as_ref() {
+            if let Term::Op { name: op, .. } = callee.as_ref() {
                 if !known_names.contains(op) {
                     return true;
                 }
@@ -739,6 +751,18 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
         Term::Rewrite { source, target, .. } => {
             has_unresolved_apps(source, known_names) || has_unresolved_apps(target, known_names)
         }
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            has_unresolved_apps(fuel, known_names)
+                || has_unresolved_apps(predicate, known_names)
+                || has_unresolved_apps(step, known_names)
+                || has_unresolved_apps(initial, known_names)
+        }
     }
 }
 
@@ -746,7 +770,7 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
 /// (the production representation of a module reference).
 pub fn contains_module_ref(scheme: &Term) -> bool {
     match scheme {
-        Term::Arr { op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
+        Term::Op { name: op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
         Term::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
         Term::First { inner } => contains_module_ref(inner),
         Term::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
@@ -763,6 +787,18 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
         Term::Rewrite { source, target, .. } => {
             contains_module_ref(source) || contains_module_ref(target)
         }
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            contains_module_ref(fuel)
+                || contains_module_ref(predicate)
+                || contains_module_ref(step)
+                || contains_module_ref(initial)
+        }
     }
 }
 
@@ -770,7 +806,7 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
 /// (the production representation of a projection).
 pub fn contains_project(scheme: &Term) -> bool {
     match scheme {
-        Term::Arr { op, args, .. } => op == "project" || args.iter().any(contains_project),
+        Term::Op { name: op, args, .. } => op == "project" || args.iter().any(contains_project),
         Term::Seq { fst, snd } => contains_project(fst) || contains_project(snd),
         Term::First { inner } => contains_project(inner),
         Term::Choice { l, r } => contains_project(l) || contains_project(r),
@@ -785,32 +821,38 @@ pub fn contains_project(scheme: &Term) -> bool {
         Term::Rewrite { source, target, .. } => {
             contains_project(source) || contains_project(target)
         }
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            contains_project(fuel)
+                || contains_project(predicate)
+                || contains_project(step)
+                || contains_project(initial)
+        }
     }
 }
 
 /// Build a record `Term` from a map of named arrows. Each field is
-/// `arr("field", [arr("const", lit: name), arrow])`, wrapped in
-/// `arr("record", [...])`.
+/// `arr("field", [arr(name), arrow])`, wrapped in `arr("record", [...])`.
 fn build_module_record(arrows: &HashMap<String, Term>) -> Term {
     let fields: Vec<Term> = arrows
         .iter()
-        .map(|(name, scheme)| Term::Arr {
-            op: "field".to_string(),
+        .map(|(name, scheme)| Term::Op {
+            name: "field".to_string(),
             args: vec![
-                Term::Arr {
-                    op: "const".to_string(),
-                    args: vec![],
-                    source: ArrSource::Native,
-                    lit: Some(Value::String(name.clone())),
-                },
+                Term::const_value(Value::String(name.clone())),
                 scheme.clone(),
             ],
             source: ArrSource::Native,
             lit: None,
         })
         .collect();
-    Term::Arr {
-        op: "record".to_string(),
+    Term::Op {
+        name: "record".to_string(),
         args: fields,
         source: ArrSource::Native,
         lit: None,
@@ -833,13 +875,11 @@ where
         return transform_scheme(&eliminated, f);
     }
     let transformed = match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
-        } => Term::Arr {
-            op: op.clone(),
+        } => Term::Op { name: op.clone(),
             args: args.iter().map(|a| transform_scheme(a, f)).collect(),
             source: source.clone(),
             lit: lit.clone(),
@@ -867,6 +907,19 @@ where
         // resulting handler-free graph.
         Term::Handle { .. } => scheme.eliminate_handlers(),
 
+        Term::Arr { value } => Term::Arr { value: value.clone() },
+        Term::Child { role } => Term::Child { role: role.clone() },
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Term::Iter {
+            fuel: Box::new(transform_scheme(fuel, f)),
+            predicate: Box::new(transform_scheme(predicate, f)),
+            step: Box::new(transform_scheme(step, f)),
+            initial: Box::new(transform_scheme(initial, f)),
+        },
         Term::Rewrite { source, target, witness } => Term::Rewrite {
             source: Box::new(transform_scheme(source, f)),
             target: Box::new(transform_scheme(target, f)),
@@ -936,8 +989,7 @@ fn normalize_compile_time_inner(
                 import_records.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to a project from the record.
-                let project = Term::Arr {
-                    op: "project".to_string(),
+                let project = Term::Op { name: "project".to_string(),
                     args: vec![record.clone()],
                     source: ArrSource::Native,
                     lit: Some(Value::String(remote_name.clone())),
@@ -970,7 +1022,7 @@ fn replace_imports_with_projects(
 ) -> Term {
     transform_scheme(scheme, &|node| match node {
         Term::App { callee, args } => {
-            if let Term::Arr { op, .. } = callee.as_ref() {
+            if let Term::Op { name: op, .. } = callee.as_ref() {
                 if let Some(replacement) = import_records.get(op) {
                     return replacement.clone();
                 }
@@ -981,8 +1033,7 @@ fn replace_imports_with_projects(
                 args: args.clone(),
             }
         }
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -992,8 +1043,7 @@ fn replace_imports_with_projects(
                     return replacement.clone();
                 }
             }
-            Term::Arr {
-                op: op.clone(),
+            Term::Op { name: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
                 lit: lit.clone(),
@@ -1001,8 +1051,7 @@ fn replace_imports_with_projects(
         }
         // Bare reference to a named arrow (no args, no lit): if it matches
         // an import name, replace with the project/record node.
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -1010,8 +1059,7 @@ fn replace_imports_with_projects(
             if let Some(replacement) = import_records.get(op) {
                 return replacement.clone();
             }
-            Term::Arr {
-                op: op.clone(),
+            Term::Op { name: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
                 lit: lit.clone(),
@@ -1139,7 +1187,7 @@ fn discovery_candidates(name: &str, current_path: &str) -> Vec<String> {
 /// reference other arrows without import declarations).
 fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
     match scheme {
-        Term::Arr { args, .. } => {
+        Term::Op { args, .. } => {
             for a in args {
                 collect_app_callee_names(a, out);
             }
@@ -1155,7 +1203,7 @@ fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
         }
         Term::Loop { body } => collect_app_callee_names(body, out),
         Term::App { callee, args } => {
-            if let Term::Arr { op, .. } = callee.as_ref() {
+            if let Term::Op { name: op, .. } = callee.as_ref() {
                 out.insert(op.clone());
             }
             collect_app_callee_names(callee, out);
@@ -1173,6 +1221,18 @@ fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
         Term::Rewrite { source, target, .. } => {
             collect_app_callee_names(source, out);
             collect_app_callee_names(target, out);
+        }
+        Term::Arr { .. } | Term::Child { .. } => {}
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            collect_app_callee_names(fuel, out);
+            collect_app_callee_names(predicate, out);
+            collect_app_callee_names(step, out);
+            collect_app_callee_names(initial, out);
         }
     }
 }
@@ -1293,8 +1353,7 @@ fn resolve_all_apps(
     resolving: &HashSet<String>,
 ) -> Term {
     match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -1334,8 +1393,7 @@ fn resolve_all_apps(
                     }
                 }
             }
-            Term::Arr {
-                op: op.clone(),
+            Term::Op { name: op.clone(),
                 args: args
                     .iter()
                     .map(|a| resolve_all_apps(a, known, resolving))
@@ -1360,7 +1418,7 @@ fn resolve_all_apps(
         },
         Term::App { callee, args } => {
             // First, try to resolve the callee as a known bare-name reference.
-            if let Term::Arr { op, .. } = callee.as_ref() {
+            if let Term::Op { name: op, .. } = callee.as_ref() {
                 if let Some(target) = known.get(op) {
                     if !resolving.contains(op) {
                         let mut new_resolving = resolving.clone();
@@ -1397,6 +1455,19 @@ fn resolve_all_apps(
             resolve_all_apps(&eliminated, known, resolving)
         }
 
+        Term::Arr { value } => Term::Arr { value: value.clone() },
+        Term::Child { role } => Term::Child { role: role.clone() },
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Term::Iter {
+            fuel: Box::new(resolve_all_apps(fuel, known, resolving)),
+            predicate: Box::new(resolve_all_apps(predicate, known, resolving)),
+            step: Box::new(resolve_all_apps(step, known, resolving)),
+            initial: Box::new(resolve_all_apps(initial, known, resolving)),
+        },
         Term::Rewrite { source, target, witness } => Term::Rewrite {
             source: Box::new(resolve_all_apps(source, known, resolving)),
             target: Box::new(resolve_all_apps(target, known, resolving)),
@@ -1410,7 +1481,7 @@ fn resolve_all_apps(
 /// `resolve_all_apps` to determine whether an `App`'s callee is an
 /// import-rewritten reference that should be inlined after resolution.
 fn is_import_reference(scheme: &Term) -> bool {
-    if let Term::Arr { op, .. } = scheme {
+    if let Term::Op { name: op, .. } = scheme {
         op == "project" || op == "module_ref"
     } else {
         false
@@ -1421,23 +1492,13 @@ fn is_import_reference(scheme: &Term) -> bool {
 /// expected to be `arr("record", [arr("field", [arr("const", lit: name), value])...])`.
 /// Returns the value `Term` if found.
 fn lookup_field_in_record(record: &Term, field: &str) -> Option<Term> {
-    if let Term::Arr { op, args, .. } = record {
+    if let Term::Op { name: op, args, .. } = record {
         if op == "record" {
             for f in args {
-                if let Term::Arr {
-                    op: fop,
-                    args: fargs,
-                    ..
-                } = f
-                {
+                if let Term::Op { name: fop, args: fargs, .. } = f {
                     if fop == "field" && fargs.len() == 2 {
-                        if let Term::Arr {
-                            op: cop,
-                            lit: Some(Value::String(name)),
-                            ..
-                        } = &fargs[0]
-                        {
-                            if cop == "const" && name == field {
+                        if let Term::Arr { value: Value::String(name) } = &fargs[0] {
+                            if name == field {
                                 return Some(fargs[1].clone());
                             }
                         }

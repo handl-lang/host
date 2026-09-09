@@ -34,7 +34,7 @@
 //! | `Graph.comp G H`  | `Term::Seq { fst: G, snd: H }`|
 //! | `Graph.loop G`    | `Term::Loop { body: G }`     |
 //! | `Graph.idG A`     | `Term::arr_native("id", [])` |
-//! | `Graph.arr f`     | `Term::Arr { op: f, .. }`    |
+//! | `Graph.arr f`     | `Term::Op { name: f, .. }`    |
 //!
 //! The `left` combinator (coproduct functor) maps to `Term::Choice` in the
 //! Rust IR. In the Lean4 formalization, `left F` routes `Left` through `F`
@@ -207,10 +207,22 @@ pub fn uses_first(scheme: &Term) -> bool {
         Term::Loop { body } => uses_first(body),
         Term::Choice { l, r } => uses_first(l) || uses_first(r),
         Term::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
-        Term::Arr { args, .. } => args.iter().any(uses_first),
+        Term::Op { args, .. } => args.iter().any(uses_first),
         Term::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
 
         Term::Rewrite { source, target, .. } => uses_first(source) || uses_first(target),
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            uses_first(fuel)
+                || uses_first(predicate)
+                || uses_first(step)
+                || uses_first(initial)
+        }
     }
 }
 
@@ -261,10 +273,22 @@ pub fn uses_left(scheme: &Term) -> bool {
         Term::Loop { body } => uses_left(body),
         Term::First { inner } => uses_left(inner),
         Term::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
-        Term::Arr { args, .. } => args.iter().any(uses_left),
+        Term::Op { args, .. } => args.iter().any(uses_left),
         Term::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
 
         Term::Rewrite { source, target, .. } => uses_left(source) || uses_left(target),
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            uses_left(fuel)
+                || uses_left(predicate)
+                || uses_left(step)
+                || uses_left(initial)
+        }
     }
 }
 
@@ -272,8 +296,7 @@ pub fn uses_left(scheme: &Term) -> bool {
 fn is_identity(scheme: &Term) -> bool {
     matches!(
         scheme,
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             ..
         } if op == "id" && args.is_empty()

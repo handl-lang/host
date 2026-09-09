@@ -824,8 +824,16 @@ fn compile_scheme(
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
     match scheme {
-        Term::Arr {
-            op,
+        Term::Arr { value } => {
+            let lit_idx = pools.add_literal(value.clone());
+            let lit_idx_val = builder.ins().iconst(types::I64, lit_idx as i64);
+            let call = builder
+                .ins()
+                .call(helpers.push_literal, &[ctx_param, lit_idx_val]);
+            Ok((builder.inst_results(call)[0], false))
+        }
+
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -1020,6 +1028,8 @@ fn compile_scheme(
             )
         }
 
+        Term::Iter { .. } => Err(LangError::NotImplemented),
+        Term::Child { .. } => Err(LangError::NotImplemented),
         Term::Rewrite { .. } => Err(LangError::NotImplemented),
     }
 }

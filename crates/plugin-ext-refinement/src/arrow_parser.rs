@@ -539,8 +539,7 @@ fn rewrite_scheme(
     local_names: &HashSet<String>,
 ) -> Term {
     match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -566,8 +565,7 @@ fn rewrite_scheme(
                 }
             }
 
-            Term::Arr {
-                op: op.clone(),
+            Term::Op { name: op.clone(),
                 args: new_args,
                 source: source.clone(),
                 lit: lit.clone(),
@@ -601,6 +599,19 @@ fn rewrite_scheme(
             rewrite_scheme(&eliminated, import_map, local_names)
         }
 
+        Term::Arr { value } => Term::Arr { value: value.clone() },
+        Term::Child { role } => Term::Child { role: role.clone() },
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Term::Iter {
+            fuel: Box::new(rewrite_scheme(fuel, import_map, local_names)),
+            predicate: Box::new(rewrite_scheme(predicate, import_map, local_names)),
+            step: Box::new(rewrite_scheme(step, import_map, local_names)),
+            initial: Box::new(rewrite_scheme(initial, import_map, local_names)),
+        },
         Term::Rewrite { source, target, witness } => Term::Rewrite {
             source: Box::new(rewrite_scheme(source, import_map, local_names)),
             target: Box::new(rewrite_scheme(target, import_map, local_names)),
@@ -612,8 +623,7 @@ fn rewrite_scheme(
 /// Build a `module_ref` node: `Arr { op: "module_ref", args: [], source:
 /// Native, lit: Some(path) }`.
 fn module_ref_node(path: &str) -> Term {
-    Term::Arr {
-        op: "module_ref".to_string(),
+    Term::Op { name: "module_ref".to_string(),
         args: vec![],
         source: ArrSource::Native,
         lit: Some(Value::String(path.to_string())),
@@ -623,8 +633,7 @@ fn module_ref_node(path: &str) -> Term {
 /// Build a `project` node: `Arr { op: "project", args: [record], source:
 /// Native, lit: Some(field) }`.
 fn project_node(record: Term, field: &str) -> Term {
-    Term::Arr {
-        op: "project".to_string(),
+    Term::Op { name: "project".to_string(),
         args: vec![record],
         source: ArrSource::Native,
         lit: Some(Value::String(field.to_string())),
@@ -1231,14 +1240,9 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
         });
     }
 
-    // `value` — literal (number, string, etc.). Produces a const arr.
+    // `value` — literal (number, string, etc.). Produces a constant `Arr`.
     if kind == "value" {
-        return Ok(Term::Arr {
-            op: "const".to_string(),
-            args: vec![],
-            source: ArrSource::Native,
-            lit: Some(node.payload.clone()),
-        });
+        return Ok(Term::const_value(node.payload.clone()));
     }
 
     // `binary.lte` / `binary.lt` are handled by the arrow `Language`'s
@@ -1416,8 +1420,7 @@ fn walk_scheme(
     lang: &Language,
 ) -> Result<Term, String> {
     match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             args,
             source,
             lit,
@@ -1454,8 +1457,7 @@ fn walk_scheme(
                     .ok_or("$str_child0: child 0 payload is not a string")?
                     .to_string();
                 let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Term::Arr {
-                    op: name,
+                Ok(Term::Op { name: name,
                     args: materialized_args,
                     source: source.clone(),
                     lit: None,
@@ -1469,8 +1471,7 @@ fn walk_scheme(
                     .ok_or("$payload: node payload is not a string")?
                     .to_string();
                 let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Term::Arr {
-                    op: name,
+                Ok(Term::Op { name: name,
                     args: materialized_args,
                     source: source.clone(),
                     lit: None,
@@ -1485,8 +1486,7 @@ fn walk_scheme(
                 // Normal arr: walk args recursively, resolve $payload in lit.
                 let materialized_args = walk_args(args, ast, node, lang)?;
                 let materialized_lit = resolve_lit(lit, node);
-                Ok(Term::Arr {
-                    op: op.clone(),
+                Ok(Term::Op { name: op.clone(),
                     args: materialized_args,
                     source: source.clone(),
                     lit: materialized_lit,
@@ -1527,6 +1527,19 @@ fn walk_scheme(
             walk_scheme(&eliminated, ast, node, lang)
         }
 
+        Term::Arr { value } => Ok(Term::Arr { value: value.clone() }),
+        Term::Child { .. } => Err("child projection not supported".to_string()),
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Ok(Term::Iter {
+            fuel: Box::new(walk_scheme(fuel, ast, node, lang)?),
+            predicate: Box::new(walk_scheme(predicate, ast, node, lang)?),
+            step: Box::new(walk_scheme(step, ast, node, lang)?),
+            initial: Box::new(walk_scheme(initial, ast, node, lang)?),
+        }),
         Term::Rewrite { .. } => Err("rewrite scheme not supported".to_string()),
     }
 }
@@ -1541,7 +1554,7 @@ fn walk_args(
 ) -> Result<Vec<Term>, String> {
     let mut result = Vec::new();
     for arg in args {
-        if let Term::Arr { op, .. } = arg {
+        if let Term::Op { name: op, .. } = arg {
             if op == "proj_rest" {
                 // Expand to materialized children 1..N (all children after
                 // the string-name child 0).

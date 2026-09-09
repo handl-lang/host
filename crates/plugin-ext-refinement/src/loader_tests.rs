@@ -23,8 +23,7 @@ use crate::types::{BaseTy, Pred, RefTy};
 
 /// Convenience: native arr with no args.
 fn arr(op: &str) -> Term {
-    Term::Arr {
-        op: op.to_string(),
+    Term::Op { name: op.to_string(),
         args: vec![],
         source: ArrSource::Native,
         lit: None,
@@ -945,7 +944,7 @@ fn test_module_loader_load_arrow() {
         Ok(scheme) => {
             // The sort arrow should be an Arr node.
             assert!(
-                matches!(scheme, Term::Arr { .. }),
+                matches!(scheme, Term::Op { .. }),
                 "load_arrow should return a Term::Arr"
             );
         }
@@ -963,7 +962,7 @@ fn test_module_loader_load_arrow_single() {
     match loader.load_arrow("single", "anything") {
         Ok(scheme) => {
             assert!(
-                matches!(scheme, Term::Arr { op, .. } if op == "id"),
+                matches!(scheme, Term::Op { name: op, .. } if op == "id"),
                 "load_arrow on single-expr module should return the arrow"
             );
         }
@@ -1475,16 +1474,14 @@ fn is_project_of_module_ref(scheme: &Term) -> Option<(String, String)> {
         Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Term::Arr {
-        op,
+    if let Term::Op { name: op,
         args,
         lit: Some(Value::String(field)),
         ..
     } = inner
     {
         if op == "project" && args.len() == 1 {
-            if let Term::Arr {
-                op: ref_op,
+            if let Term::Op { name: ref_op,
                 args: ref_args,
                 lit: Some(Value::String(path)),
                 ..
@@ -1506,8 +1503,7 @@ fn is_module_ref(scheme: &Term) -> Option<String> {
         Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Term::Arr {
-        op,
+    if let Term::Op { name: op,
         args,
         lit: Some(Value::String(path)),
         ..
@@ -1573,7 +1569,7 @@ fn test_rewrite_imports_local_shadow_not_rewritten() {
                 is_project_of_module_ref(sort).is_none(),
                 "locally-defined 'sort' should NOT be rewritten"
             );
-            if let Term::Arr { op, .. } = sort {
+            if let Term::Op { name: op, .. } = sort {
                 assert_eq!(op, "id");
             } else {
                 panic!("sort should be Term::Arr");
@@ -1623,7 +1619,7 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
                 let path =
                     is_module_ref(fst).expect("fst should be module_ref(\"collection/sort\")");
                 assert_eq!(path, "collection/sort");
-                if let Term::Arr { op, .. } = snd.as_ref() {
+                if let Term::Op { name: op, .. } = snd.as_ref() {
                     assert_eq!(op, "id");
                 } else {
                     panic!("snd should be Term::Arr");
@@ -1699,7 +1695,7 @@ fn test_rewrite_imports_app_callee_rewritten() {
                     .expect("fst should be App { callee: project(module_ref(path), \"sort\") }");
                 assert_eq!(path, "collection/sort");
                 assert_eq!(field, "sort");
-                if let Term::Arr { op, .. } = snd.as_ref() {
+                if let Term::Op { name: op, .. } = snd.as_ref() {
                     assert_eq!(op, "id");
                 }
             } else {

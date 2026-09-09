@@ -623,8 +623,10 @@ impl TreeWalkEngine {
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
         match scheme {
-            Term::Arr {
-                op,
+            Term::Arr { value } => {
+                Ok((TaggedValue::from(value.clone()), false))
+            }
+            Term::Op { name: op,
                 args,
                 source,
                 lit,
@@ -747,8 +749,7 @@ impl TreeWalkEngine {
                 // as an argument to `apply_app`). Hoist the closure
                 // evaluation outside the loop so it runs once instead of
                 // once per iteration.
-                if let Term::Arr {
-                    op, args, source, ..
+                if let Term::Op { name: op, args, source, ..
                 } = body.as_ref()
                 {
                     if *source == ArrSource::Native && op == "loop_step" {
@@ -956,6 +957,8 @@ impl TreeWalkEngine {
                     incoming,
                 )
             }
+            Term::Iter { .. } => Err(LangError::NotImplemented),
+            Term::Child { .. } => Err(LangError::NotImplemented),
             Term::Rewrite { .. } => Err(LangError::NotImplemented),
         }
     }

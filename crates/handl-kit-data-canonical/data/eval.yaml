@@ -10,265 +10,265 @@
 #   product, nullish, opt-chain.
 - id: eval.apply
   node_kind: apply
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 - id: eval.array
   node_kind: array
-  scheme: !Arr
-    op: array
+  scheme: !Op
+    name: array
     args: []
     source: Native
 - id: eval.assign
   node_kind: assign
-  scheme: !Arr
-    op: assign
+  scheme: !Op
+    name: assign
     args: []
     source: Native
 - id: eval.binary.add
   node_kind: binary.add
-  scheme: !Arr
-    op: add
+  scheme: !Op
+    name: add
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.and
   node_kind: binary.and
-  scheme: !Arr
-    op: and
+  scheme: !Op
+    name: and
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.bind
   node_kind: bind
-  scheme: !Arr
-    op: bind
+  scheme: !Op
+    name: bind
     args: []
     source: Native
 - id: eval.binary.compare
   node_kind: binary.compare
-  scheme: !Arr
-    op: compare
+  scheme: !Op
+    name: compare
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.div
   node_kind: binary.div
-  scheme: !Arr
-    op: div
+  scheme: !Op
+    name: div
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.eq
   node_kind: binary.eq
-  scheme: !Arr
-    op: eq
+  scheme: !Op
+    name: eq
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.gt
   node_kind: binary.gt
-  scheme: !Arr
-    op: gt
+  scheme: !Op
+    name: gt
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.gte
   node_kind: binary.gte
-  scheme: !Arr
-    op: gte
+  scheme: !Op
+    name: gte
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.lt
   node_kind: binary.lt
-  scheme: !Arr
-    op: lt
+  scheme: !Op
+    name: lt
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.lte
   node_kind: binary.lte
-  scheme: !Arr
-    op: lte
+  scheme: !Op
+    name: lte
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.mod
   node_kind: binary.mod
-  scheme: !Arr
-    op: mod
+  scheme: !Op
+    name: mod
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.mul
   node_kind: binary.mul
-  scheme: !Arr
-    op: mul
+  scheme: !Op
+    name: mul
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.neq
   node_kind: binary.neq
-  scheme: !Arr
-    op: neq
+  scheme: !Op
+    name: neq
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.or
   node_kind: binary.or
-  scheme: !Arr
-    op: or
+  scheme: !Op
+    name: or
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.pow
   node_kind: binary.pow
-  scheme: !Arr
-    op: pow
+  scheme: !Op
+    name: pow
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.binary.sub
   node_kind: binary.sub
-  scheme: !Arr
-    op: sub
+  scheme: !Op
+    name: sub
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -289,92 +289,92 @@
   node_kind: call
   scheme: !Seq
     fst: !Seq
-      fst: !Arr
-        op: proj_child
+      fst: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      snd: !Arr
-        op: route_on_type
+      snd: !Op
+        name: route_on_type
         args: []
         source: Native
         lit: string
     snd: !Choice
-      l: !Arr
-        op: call_host
+      l: !Op
+        name: call_host
         args:
-          - !Arr
-            op: proj_rest
+          - !Op
+            name: proj_rest
             args: []
             source: Native
         source: DynamicForeign
       r: !App
-        callee: !Arr
-          op: id
+        callee: !Op
+          name: id
           args: []
           source: Native
         args:
-          - !Arr
-            op: proj_rest
+          - !Op
+            name: proj_rest
             args: []
             source: Native
 - id: eval.choice
   node_kind: choice
   scheme: !Choice
-    l: !Arr
-      op: proj_child
+    l: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 0
-    r: !Arr
-      op: proj_child
+    r: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
 - id: eval.fanout
   node_kind: fanout
-  scheme: !Arr
-    op: fn.fanout_fn
+  scheme: !Op
+    name: fn.fanout_fn
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: !Foreign fn.fanout_fn
 - id: eval.field-access
   node_kind: field-access
-  scheme: !Arr
-    op: field_access
+  scheme: !Op
+    name: field_access
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.flow
   node_kind: flow
-  scheme: !Arr
-    op: flow
+  scheme: !Op
+    name: flow
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -382,229 +382,229 @@
 - id: eval.pipe
   node_kind: pipe
   scheme: !App
-    callee: !Arr
-      op: proj_child
+    callee: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
 - id: eval.function
   node_kind: function
-  scheme: !Arr
-    op: closure
+  scheme: !Op
+    name: closure
     args: []
     source: Native
 - id: eval.hello.greet
   node_kind: hello.greet
-  scheme: !Arr
-    op: hello.greet
+  scheme: !Op
+    name: hello.greet
     args: []
     source: !Foreign hello.greet
 - id: eval.if
   node_kind: if
   scheme: !Seq
     fst: !Seq
-      fst: !Arr
-        op: proj_child
+      fst: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      snd: !Arr
-        op: tag
+      snd: !Op
+        name: tag
         args: []
         source: Native
     snd: !Choice
-      l: !Arr
-        op: proj_child
+      l: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
       # `proj_child_or`: the else child is optional (`optional_children` on
       # `grammar.if.prefix`) — an else-less `if` evaluates to null.
-      r: !Arr
-        op: proj_child_or
+      r: !Op
+        name: proj_child_or
         args: []
         source: Native
         lit: 2
 - id: eval.index
   node_kind: index
-  scheme: !Arr
-    op: index
+  scheme: !Op
+    name: index
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
     source: Native
 - id: eval.json
   node_kind: json
-  scheme: !Arr
-    op: json
+  scheme: !Op
+    name: json
     args: []
     source: Native
 - id: eval.block
   node_kind: block
-  scheme: !Arr
-    op: eval_block
+  scheme: !Op
+    name: eval_block
     args: []
     source: Native
 - id: eval.match
   node_kind: match
-  scheme: !Arr
-    op: match
+  scheme: !Op
+    name: match
     args: []
     source: Native
 - id: eval.object
   node_kind: object
-  scheme: !Arr
-    op: object
+  scheme: !Op
+    name: object
     args: []
     source: Native
 - id: eval.paren
   node_kind: paren
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 - id: eval.rest
   node_kind: rest
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 - id: eval.resolve
   node_kind: resolve
-  scheme: !Arr
-    op: resolve
+  scheme: !Op
+    name: resolve
     args: []
     source: !Foreign resolve
 - id: eval.stmt-export
   node_kind: stmt.export
-  scheme: !Arr
-    op: export
+  scheme: !Op
+    name: export
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.stmt-import
   node_kind: stmt.import
-  scheme: !Arr
-    op: import
+  scheme: !Op
+    name: import
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.template
   node_kind: template
-  scheme: !Arr
-    op: eval_template
+  scheme: !Op
+    name: eval_template
     args: []
     source: !Foreign eval_template
 - id: eval.ternary
   node_kind: ternary
   scheme: !Seq
     fst: !Seq
-      fst: !Arr
-        op: proj_child
+      fst: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      snd: !Arr
-        op: tag
+      snd: !Op
+        name: tag
         args: []
         source: Native
     snd: !Choice
-      l: !Arr
-        op: proj_child
+      l: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
-      r: !Arr
-        op: proj_child
+      r: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 2
 - id: eval.runtime-assert
   node_kind: runtime-assert
-  scheme: !Arr
-    op: runtime_assert
+  scheme: !Op
+    name: runtime_assert
     args: []
     source: Native
 - id: eval.type-annot
   node_kind: type-annot
   scheme: !Seq
     fst: !Seq
-      fst: !Arr
-        op: proj_child
+      fst: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
-      snd: !Arr
-        op: extend_env
+      snd: !Op
+        name: extend_env
         args: []
         source: Native
         lit: $payload
-    snd: !Arr
-      op: proj_child
+    snd: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 0
 - id: eval.typeof
   node_kind: typeof
-  scheme: !Arr
-    op: typeof
+  scheme: !Op
+    name: typeof
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.unary.neg
   node_kind: unary.neg
-  scheme: !Arr
-    op: neg
+  scheme: !Op
+    name: neg
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.unary.not
   node_kind: unary.not
-  scheme: !Arr
-    op: not
+  scheme: !Op
+    name: not
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.var
   node_kind: var
-  scheme: !Arr
-    op: proj_env
+  scheme: !Op
+    name: proj_env
     args: []
     source: Native
     lit: $payload
@@ -623,8 +623,8 @@
 # is the result of the region (unless a `return` exits early).
 - id: eval.rec
   node_kind: rec
-  scheme: !Arr
-    op: eval_rec
+  scheme: !Op
+    name: eval_rec
     args: []
     source: Native
 # `while` — v0.1 feedback loop (ADR-0074 A.1). Uses the kernel `Loop`
@@ -649,17 +649,17 @@
 - id: eval.while
   node_kind: while
   scheme: !Seq
-    fst: !Arr
-      op: proj_child
+    fst: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 0
     snd: !Loop
-      body: !Arr
-        op: loop_step
+      body: !Op
+        name: loop_step
         args:
-          - !Arr
-            op: proj_child
+          - !Op
+            name: proj_child
             args: []
             source: Native
             lit: 1
@@ -668,15 +668,15 @@
 # Children: [iterator(0), collection(1), body(2)].
 - id: eval.for
   node_kind: for
-  scheme: !Arr
-    op: eval_block
+  scheme: !Op
+    name: eval_block
     args: []
     source: Native
 # `return` — early exit (ADR-0074). Returns the child value.
 - id: eval.return
   node_kind: return
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
@@ -687,40 +687,37 @@
 - id: eval.law
   node_kind: law
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
-    lit:
+    value:
       __tag__: law
 # `trait` — compile-time trait declaration (ADR-0074). Identity/no-op.
 - id: eval.trait
   node_kind: trait
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 # `impl` — compile-time impl declaration (ADR-0074). Identity/no-op.
 - id: eval.impl
   node_kind: impl
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 # `infer` — name an inferred type (ADR-0074). Identity passthrough.
 - id: eval.infer
   node_kind: infer
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
 # `type` — compile-time type declaration (ADR-0074). Identity/no-op.
 - id: eval.type
   node_kind: type
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 0
@@ -728,16 +725,16 @@
 # Like fanout (&&&) but pairs inputs rather than duplicating.
 - id: eval.product
   node_kind: product
-  scheme: !Arr
-    op: product
+  scheme: !Op
+    name: product
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -748,8 +745,8 @@
 # dispatches that native op against the incoming value.
 - id: eval.arr
   node_kind: arr
-  scheme: !Arr
-    op: "$payload"
+  scheme: !Op
+    name: "$payload"
     args: []
     source: Native
 # `first` / `second` — map an arrow over one component of the incoming
@@ -758,22 +755,22 @@
 # incoming `Pair` and apply it via `apply_app`.
 - id: eval.first
   node_kind: first
-  scheme: !Arr
-    op: first
+  scheme: !Op
+    name: first
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.second
   node_kind: second
-  scheme: !Arr
-    op: second
+  scheme: !Op
+    name: second
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
@@ -782,22 +779,22 @@
 # (arrow `left`/`right` combinators).
 - id: eval.left
   node_kind: left
-  scheme: !Arr
-    op: left
+  scheme: !Op
+    name: left
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
     source: Native
 - id: eval.right
   node_kind: right
-  scheme: !Arr
-    op: right
+  scheme: !Op
+    name: right
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
@@ -807,16 +804,16 @@
 # incoming `Either` and applies `f` to a left / `g` to a right.
 - id: eval.sum
   node_kind: sum
-  scheme: !Arr
-    op: sum
+  scheme: !Op
+    name: sum
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -826,16 +823,16 @@
 # applies the arrow to the argument via `apply_app`.
 - id: eval.app
   node_kind: app
-  scheme: !Arr
-    op: app
+  scheme: !Op
+    name: app
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -847,23 +844,23 @@
   node_kind: nullish
   scheme: !Seq
     fst: !Seq
-      fst: !Arr
-        op: proj_child
+      fst: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      snd: !Arr
-        op: tag
+      snd: !Op
+        name: tag
         args: []
         source: Native
     snd: !Choice
-      l: !Arr
-        op: proj_child
+      l: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      r: !Arr
-        op: proj_child
+      r: !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -871,16 +868,16 @@
 # Short-circuits on none. Like field-access but with null propagation.
 - id: eval.opt-chain
   node_kind: opt-chain
-  scheme: !Arr
-    op: opt_chain
+  scheme: !Op
+    name: opt_chain
     args:
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Arr
-        op: proj_child
+      - !Op
+        name: proj_child
         args: []
         source: Native
         lit: 1
@@ -891,8 +888,8 @@
 # node's payload `{kind, reason}` and returns an error.
 - id: eval.desugar-error
   node_kind: desugar-error
-  scheme: !Arr
-    op: desugar_error
+  scheme: !Op
+    name: desugar_error
     args: []
     source: Native
 # `data` — inductive type declaration (ADR-0082). A `data` node should
@@ -904,8 +901,8 @@
 # `children` (not `kind`/`reason`).
 - id: eval.data
   node_kind: data
-  scheme: !Arr
-    op: desugar_error
+  scheme: !Op
+    name: desugar_error
     args: []
     source: Native
     lit:
@@ -917,9 +914,7 @@
 - id: eval.erased
   node_kind: erased
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
+    value: null
 
 # ---------------------------------------------------------------------------
 # Graded-theory declarations (ADR-0098/0100)
@@ -937,19 +932,13 @@
 - id: eval.sort
   node_kind: sort
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
-    lit:
+    value:
       __tag__: sort
 # `grade` — grade declaration; a generating 0-cell that is a proposition.
 - id: eval.grade
   node_kind: grade
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
-    lit:
+    value:
       __tag__: grade
 # `op` — graded operation declaration; a generating 1-cell. Placeholder
 # carries the tag only; `name`/`inputs`/`output`/`payload.grade` are
@@ -957,18 +946,15 @@
 - id: eval.op
   node_kind: op
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
-    lit:
+    value:
       __tag__: op
 # `handler` — handler declaration: a model for one sort (ADR-0098/0100).
 # Evaluates to the impl value — child 1 is the model arrow expression on
 # the right-hand side of `=`/`::`.
 - id: eval.handler
   node_kind: handler
-  scheme: !Arr
-    op: proj_child
+  scheme: !Op
+    name: proj_child
     args: []
     source: Native
     lit: 1
@@ -977,8 +963,5 @@
 - id: eval.rewrite
   node_kind: rewrite
   scheme: !Arr
-    op: const
-    args: []
-    source: Native
-    lit:
+    value:
       __tag__: rewrite

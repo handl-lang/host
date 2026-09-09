@@ -207,35 +207,35 @@ ast:
 eval:
   - id: eval.test
     node_kind: test
-    scheme: !Arr
-      op: proj_child
+    scheme: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
   - id: eval.property
     node_kind: property
-    scheme: !Arr
-      op: proj_child
+    scheme: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
   - id: eval.integration_test
     node_kind: integration_test
-    scheme: !Arr
-      op: proj_child
+    scheme: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
   - id: eval.bench
     node_kind: bench
-    scheme: !Arr
-      op: proj_child
+    scheme: !Op
+      name: proj_child
       args: []
       source: Native
       lit: 1
   - id: eval.assert
     node_kind: assert
-    scheme: !Arr
-      op: assert
+    scheme: !Op
+      name: assert
       args: []
       source: Native

@@ -4,12 +4,12 @@
 //! functions, adapted to operate over handl's `Term` IR instead of `RGraph`.
 //!
 //! Mapping from `RGraph` to `Term`:
-//! - `RGraph::Id`           -> `Term::Arr { op: "id", source: Native, .. }`
+//! - `RGraph::Id`           -> `Term::Op { name: "id", source: Native, .. }`
 //! - `RGraph::Comp(g, h)`   -> `Term::Seq { fst: g, snd: h }`
 //! - `RGraph::First(g)`     -> `Term::First { inner: g }`
 //! - `RGraph::Left(g)`      -> `Term::Choice { l: g, r: identity }` (conservatively demoted)
 //! - `RGraph::Loop(g)`      -> `Term::Loop { body: g }`
-//! - `RGraph::Arr(name)`    -> `Term::Arr { op: name, source: Native, args: vec![], lit: None }`
+//! - `RGraph::Arr(name)`    -> `Term::Op { name: name, source: Native, args: vec![], lit: None }`
 
 use crate::contracts::ContractRegistry;
 use crate::loop_invariant::{FIXPOINT_MAX_ITERATIONS, discover_invariant_fixpoint_real};
@@ -77,8 +77,8 @@ pub fn infer_r(
 ) -> Result<(RefTy, RefTy, Pred), String> {
     match scheme {
         // arr(id) or arr(op): look up contract in registry.
-        // RGraph::Id maps to Term::Arr { op: "id", ... }.
-        Term::Arr { op, source, .. } => {
+        // RGraph::Id maps to Term::Op { name: "id", ... }.
+        Term::Op { name: op, source, .. } => {
             if op == "id" {
                 // Identity preserves everything.
                 return Ok((
@@ -197,6 +197,13 @@ pub fn infer_r(
             Pred::True,
         )),
 
+        // Pure constants and child projections: conservatively identity-like.
+        Term::Arr { .. } | Term::Child { .. } => Ok((
+            RefTy::Plain(BaseTy::Var("a".to_string())),
+            RefTy::Plain(BaseTy::Var("b".to_string())),
+            Pred::True,
+        )),
+        Term::Iter { .. } => Err("iter contract inference not implemented".to_string()),
         // Rewrite nodes are not yet supported by contract inference.
         Term::Rewrite { .. } => Err("rewrite contract inference not implemented".to_string()),
     }
@@ -205,7 +212,7 @@ pub fn infer_r(
 /// Format a `Term` into a compact string for use in `LoopInvariant.graph`.
 pub fn format_scheme(scheme: &Term) -> String {
     match scheme {
-        Term::Arr { op, .. } => op.clone(),
+        Term::Op { name: op, .. } => op.clone(),
         Term::Seq { fst, snd } => {
             format!("seq({}, {})", format_scheme(fst), format_scheme(snd))
         }
@@ -225,6 +232,17 @@ pub fn format_scheme(scheme: &Term) -> String {
             format!("handle({}, {})", format_scheme(body), target)
         }
 
+        Term::Arr { value } => format!("const({})", value),
+        Term::Child { role } => format!("child({})", role),
+        Term::Iter { fuel, predicate, step, initial } => {
+            format!(
+                "iter({}, {}, {}, {})",
+                format_scheme(fuel),
+                format_scheme(predicate),
+                format_scheme(step),
+                format_scheme(initial)
+            )
+        }
         Term::Rewrite { source, target, .. } => {
             format!("rewrite({} ~> {})", format_scheme(source), format_scheme(target))
         }

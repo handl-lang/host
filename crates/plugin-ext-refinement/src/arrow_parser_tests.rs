@@ -177,8 +177,7 @@ fn zip_graph() -> Term {
 fn test_parse_arr() {
     let scheme = parse_arrow_expr(r#"arr("sort")"#).expect("parse arr");
     match scheme {
-        Term::Arr {
-            op,
+        Term::Op { name: op,
             source,
             args,
             lit,
@@ -200,7 +199,7 @@ fn test_parse_arr() {
 fn test_parse_id() {
     let scheme = parse_arrow_expr("id").expect("parse id");
     match scheme {
-        Term::Arr { op, .. } => {
+        Term::Op { name: op, .. } => {
             assert_eq!(op, "id");
         }
         other => panic!("expected Arr(id), got {:?}", other),
@@ -212,8 +211,8 @@ fn test_parse_comp() {
     let scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp");
     match scheme {
         Term::Seq { fst, snd } => {
-            assert!(matches!(*fst, Term::Arr { ref op, .. } if op == "a"));
-            assert!(matches!(*snd, Term::Arr { ref op, .. } if op == "b"));
+            assert!(matches!(*fst, Term::Op { name: ref op, .. } if op == "a"));
+            assert!(matches!(*snd, Term::Op { name: ref op, .. } if op == "b"));
         }
         other => panic!("expected Seq, got {:?}", other),
     }
@@ -224,7 +223,7 @@ fn test_parse_first() {
     let scheme = parse_arrow_expr("first(id)").expect("parse first");
     match scheme {
         Term::First { inner } => {
-            assert!(matches!(*inner, Term::Arr { ref op, .. } if op == "id"));
+            assert!(matches!(*inner, Term::Op { name: ref op, .. } if op == "id"));
         }
         other => panic!("expected First, got {:?}", other),
     }
@@ -235,8 +234,8 @@ fn test_parse_choice() {
     let scheme = parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
     match scheme {
         Term::Choice { l, r } => {
-            assert!(matches!(*l, Term::Arr { ref op, .. } if op == "a"));
-            assert!(matches!(*r, Term::Arr { ref op, .. } if op == "b"));
+            assert!(matches!(*l, Term::Op { name: ref op, .. } if op == "a"));
+            assert!(matches!(*r, Term::Op { name: ref op, .. } if op == "b"));
         }
         other => panic!("expected Choice, got {:?}", other),
     }
@@ -247,7 +246,7 @@ fn test_parse_loop() {
     let scheme = parse_arrow_expr("loop(id)").expect("parse loop");
     match scheme {
         Term::Loop { body } => {
-            assert!(matches!(*body, Term::Arr { ref op, .. } if op == "id"));
+            assert!(matches!(*body, Term::Op { name: ref op, .. } if op == "id"));
         }
         other => panic!("expected Loop, got {:?}", other),
     }
@@ -282,7 +281,7 @@ fn test_parse_app() {
     let scheme = parse_arrow_expr(r#"app("sort", arr("x"))"#).expect("parse app");
     match scheme {
         Term::App { callee, args } => {
-            assert!(matches!(callee.as_ref(), Term::Arr { op, .. } if op == "sort"));
+            assert!(matches!(callee.as_ref(), Term::Op { name: op, .. } if op == "sort"));
             assert_eq!(args.len(), 1);
         }
         other => panic!("expected App, got {:?}", other),
@@ -295,7 +294,7 @@ fn test_parse_bare_identifier_is_app_reference() {
     let scheme = parse_arrow_expr("insert").expect("parse bare ident");
     match scheme {
         Term::App { callee, args } => {
-            assert!(matches!(callee.as_ref(), Term::Arr { op, .. } if op == "insert"));
+            assert!(matches!(callee.as_ref(), Term::Op { name: op, .. } if op == "insert"));
             assert!(args.is_empty());
         }
         other => panic!("expected App for bare identifier, got {:?}", other),
@@ -312,8 +311,8 @@ fn test_parse_seq_operator() {
     let scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
         Term::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
-            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "b"));
+            assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
+            assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "b"));
         }
         other => panic!("expected Seq, got {:?}", other),
     }
@@ -325,8 +324,8 @@ fn test_parse_choice_operator() {
     let scheme = parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
     match scheme {
         Term::Choice { l, r } => {
-            assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
-            assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
+            assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "a"));
+            assert!(matches!(r.as_ref(), Term::Op { name: op, .. } if op == "b"));
         }
         other => panic!("expected Choice, got {:?}", other),
     }
@@ -340,12 +339,12 @@ fn test_parse_seq_operator_left_assoc() {
     match scheme {
         Term::Seq { fst, snd } => {
             // snd should be arr("c")
-            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "c"));
+            assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
             // fst should be Seq(arr("a"), arr("b"))
             match fst.as_ref() {
                 Term::Seq { fst, snd } => {
-                    assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
-                    assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "b"));
+                    assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
+                    assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "b"));
                 }
                 other => panic!("expected nested Seq, got {:?}", other),
             }
@@ -362,12 +361,12 @@ fn test_parse_choice_operator_left_assoc() {
     match scheme {
         Term::Choice { l, r } => {
             // r should be arr("c")
-            assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "c"));
+            assert!(matches!(r.as_ref(), Term::Op { name: op, .. } if op == "c"));
             // l should be Choice(arr("a"), arr("b"))
             match l.as_ref() {
                 Term::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
-                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
+                    assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Term::Op { name: op, .. } if op == "b"));
                 }
                 other => panic!("expected nested Choice, got {:?}", other),
             }
@@ -384,11 +383,11 @@ fn test_parse_mixed_precedence() {
         parse_arrow_expr(r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
     match scheme {
         Term::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
+            assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
             match snd.as_ref() {
                 Term::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "b"));
-                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "c"));
+                    assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "b"));
+                    assert!(matches!(r.as_ref(), Term::Op { name: op, .. } if op == "c"));
                 }
                 other => panic!("expected Choice in snd, got {:?}", other),
             }
@@ -403,11 +402,11 @@ fn test_parse_operator_with_parens() {
     let scheme = parse_arrow_expr(r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
     match scheme {
         Term::Seq { fst, snd } => {
-            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "c"));
+            assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
             match fst.as_ref() {
                 Term::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
-                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
+                    assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Term::Op { name: op, .. } if op == "b"));
                 }
                 other => panic!("expected Choice in fst, got {:?}", other),
             }
@@ -459,14 +458,14 @@ fn test_parse_operator_complex_backtrack() {
         .expect("parse complex backtrack");
     match scheme {
         Term::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
+            assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
             match snd.as_ref() {
                 Term::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "b"));
+                    assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "b"));
                     match r.as_ref() {
                         Term::Seq { fst, snd } => {
-                            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "c"));
-                            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "d"));
+                            assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "c"));
+                            assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "d"));
                         }
                         other => panic!("expected Seq in choice r, got {:?}", other),
                     }
@@ -498,7 +497,7 @@ sort = loop(insert >>> first(id))
             assert!(map.contains_key("sort"));
             // Verify cons is an arr
             match map.get("cons").unwrap() {
-                Term::Arr { op, .. } => assert_eq!(op, "list.cons"),
+                Term::Op { name: op, .. } => assert_eq!(op, "list.cons"),
                 other => panic!("expected Arr for cons, got {:?}", other),
             }
             // Verify sort is a Loop
@@ -535,7 +534,7 @@ fn test_parse_insert_hnl() {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "prim.compare"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "prim.compare"),
                         "fst should be prim.compare"
                     );
                     assert!(
@@ -590,7 +589,7 @@ fn test_parse_map_hnl() {
                 );
                 if let Term::First { inner } = body.as_ref() {
                     assert!(
-                        matches!(inner.as_ref(), Term::Arr { op, .. } if op == "fn.apply"),
+                        matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "fn.apply"),
                         "inner should be fn.apply"
                     );
                 }
@@ -611,11 +610,11 @@ fn test_parse_filter_hnl() {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "filter_step"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "filter_step"),
                         "fst should be filter_step"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Term::Arr { op, .. } if op == "id"),
+                        matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "id"),
                         "snd should be id"
                     );
                 }
@@ -634,7 +633,7 @@ fn test_parse_fold_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(
-                    matches!(body.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
+                    matches!(body.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
                     "body should be fold_step, got {:?}",
                     body
                 );
@@ -659,7 +658,7 @@ fn test_parse_scan_rich_hnl() {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
                         "fst should be fold_step"
                     );
                     assert!(
@@ -668,7 +667,7 @@ fn test_parse_scan_rich_hnl() {
                     );
                     if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.cons"),
+                            matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "list.cons"),
                             "inner should be list.cons"
                         );
                     }
@@ -690,7 +689,7 @@ fn test_parse_take_rich_hnl() {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "list.head"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "list.head"),
                         "fst should be list.head"
                     );
                     assert!(
@@ -699,11 +698,11 @@ fn test_parse_take_rich_hnl() {
                     );
                     if let Term::Choice { l, r } = snd.as_ref() {
                         assert!(
-                            matches!(l.as_ref(), Term::Arr { op, .. } if op == "cons"),
+                            matches!(l.as_ref(), Term::Op { name: op, .. } if op == "cons"),
                             "choice l should be cons"
                         );
                         assert!(
-                            matches!(r.as_ref(), Term::Arr { op, .. } if op == "id"),
+                            matches!(r.as_ref(), Term::Op { name: op, .. } if op == "id"),
                             "choice r should be id"
                         );
                     }
@@ -725,7 +724,7 @@ fn test_parse_drop_rich_hnl() {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "list.tail"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "list.tail"),
                         "fst should be list.tail"
                     );
                     assert!(
@@ -734,7 +733,7 @@ fn test_parse_drop_rich_hnl() {
                     );
                     if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "id"),
+                            matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "id"),
                             "inner should be id"
                         );
                     }
@@ -831,7 +830,7 @@ fn test_parse_nested_map_rich_hnl() {
                     );
                     if let Term::First { inner } = inner_body.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "fn.apply"),
+                            matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "fn.apply"),
                             "innermost should be fn.apply"
                         );
                     }
@@ -876,7 +875,7 @@ fn test_parse_zip_rich_hnl() {
                     );
                     if let Term::First { inner } = fst.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.head"),
+                            matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "list.head"),
                             "fst inner should be list.head"
                         );
                     }
@@ -892,12 +891,12 @@ fn test_parse_zip_rich_hnl() {
                         );
                         if let Term::First { inner } = fst.as_ref() {
                             assert!(
-                                matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.tail"),
+                                matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "list.tail"),
                                 "snd.fst inner should be list.tail"
                             );
                         }
                         assert!(
-                            matches!(snd.as_ref(), Term::Arr { op, .. } if op == "list.cons"),
+                            matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "list.cons"),
                             "snd.snd should be list.cons"
                         );
                     }
@@ -954,7 +953,7 @@ fn test_parse_reduce_rich_hnl() {
                 );
                 if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
+                        matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
                         "fst should be fold_step"
                     );
                     assert!(
@@ -963,7 +962,7 @@ fn test_parse_reduce_rich_hnl() {
                     );
                     if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "id"),
+                            matches!(inner.as_ref(), Term::Op { name: op, .. } if op == "id"),
                             "inner should be id"
                         );
                     }
@@ -1019,7 +1018,7 @@ fn test_parsed_reduce_rich_distinct_from_fold() {
     }
     if let Term::Loop { body: fold_body } = &fold_scheme {
         assert!(
-            matches!(fold_body.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
+            matches!(fold_body.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
             "fold body should be just fold_step (no projection)"
         );
     }

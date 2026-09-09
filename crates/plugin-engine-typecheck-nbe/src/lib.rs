@@ -339,8 +339,8 @@ impl NbeTypecheckEngine {
         incoming: Option<Value>,
     ) -> Result<Value, LangError> {
         match scheme {
-            Term::Arr {
-                op,
+            Term::Arr { value } => Ok(value.clone()),
+            Term::Op { name: op,
                 args,
                 source,
                 lit,
@@ -409,6 +409,8 @@ impl NbeTypecheckEngine {
                     ))),
                 }
             }
+            Term::Iter { .. } => Err(LangError::NotImplemented),
+            Term::Child { .. } => Err(LangError::NotImplemented),
             Term::Loop { .. } => Err(LangError::NotImplemented),
             Term::App { .. } => Err(LangError::NotImplemented),
             Term::Rewrite { .. } => Err(LangError::NotImplemented),

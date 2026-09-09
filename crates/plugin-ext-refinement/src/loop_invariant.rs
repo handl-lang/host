@@ -160,7 +160,7 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         // Sorted(output)). When the guarantee does not imply the post, we
         // conservatively return True -- the branch simply does not strengthen
         // the invariant.
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             if op == "id" {
                 return post.clone();
             }
@@ -209,6 +209,9 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         // Handle nodes are eliminated before inference; treat as identity.
         Term::Handle { .. } => post.clone(),
 
+        // Pure constants and child projections: treat as identity for now.
+        Term::Arr { .. } | Term::Child { .. } => post.clone(),
+        Term::Iter { .. } => Pred::True,
         // Rewrite nodes are not yet analyzed; treat as identity.
         Term::Rewrite { .. } => post.clone(),
     }
@@ -217,7 +220,7 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
 /// Collect every base-arrow guarantee appearing anywhere in `scheme`.
 pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut Vec<Pred>) {
     match scheme {
-        Term::Arr { op, source, .. } => {
+        Term::Op { name: op, source, .. } => {
             if let Some(c) = registry.lookup(op, source) {
                 if c.guarantee != Pred::True {
                     out.push(c.guarantee.clone());
@@ -253,6 +256,18 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
             collect_guarantees(source, registry, out);
             collect_guarantees(target, registry, out);
         }
+        Term::Arr { .. } | Term::Child { .. } => {}
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            collect_guarantees(fuel, registry, out);
+            collect_guarantees(predicate, registry, out);
+            collect_guarantees(step, registry, out);
+            collect_guarantees(initial, registry, out);
+        }
     }
 }
 
@@ -261,8 +276,7 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
 /// searching recursively through all combinators.
 pub fn graph_contains(scheme: &Term, op: &str) -> bool {
     match scheme {
-        Term::Arr {
-            op: arr_op, source, ..
+        Term::Op { name: arr_op, source, ..
         } => {
             arr_op == op
                 || arr_op == &format!("list.{}", op)
@@ -279,6 +293,18 @@ pub fn graph_contains(scheme: &Term, op: &str) -> bool {
 
         Term::Rewrite { source, target, .. } => {
             graph_contains(source, op) || graph_contains(target, op)
+        }
+        Term::Arr { .. } | Term::Child { .. } => false,
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            graph_contains(fuel, op)
+                || graph_contains(predicate, op)
+                || graph_contains(step, op)
+                || graph_contains(initial, op)
         }
     }
 }

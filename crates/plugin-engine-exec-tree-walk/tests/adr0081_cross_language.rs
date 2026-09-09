@@ -140,8 +140,7 @@ fn renamed_language() -> Language {
                     Term::arr_native_lit("route_on_type", vec![], Value::from("string")),
                 ),
                 Term::choice(
-                    Term::Arr {
-                        op: "call_host".into(),
+                    Term::Op { name: "call_host".into(),
                         args: vec![Term::arr_native("proj_rest", vec![])],
                         source: ArrSource::DynamicForeign,
                         lit: None,

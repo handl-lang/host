@@ -144,8 +144,8 @@
   operations:
     Serializable.serialize:
       lowered: !Seq
-        fst: !Arr { op: proj_child, args: [], source: Native, lit: 0 }
-        snd: !Arr { op: proj_child, args: [], source: Native, lit: 1 }
+        fst: !Op { name: proj_child, args: [], source: Native, lit: 0 }
+        snd: !Op { name: proj_child, args: [], source: Native, lit: 1 }
 
 - target: native
   type: Either
@@ -153,8 +153,8 @@
   operations:
     Serializable.serialize:
       lowered: !Choice
-        l: !Arr { op: construct_either_left, args: [], source: Native }
-        r: !Arr { op: construct_either_right, args: [], source: Native }
+        l: !Op { name: construct_either_left, args: [], source: Native }
+        r: !Op { name: construct_either_right, args: [], source: Native }
 
 - target: native
   type: Arrow
