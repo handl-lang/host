@@ -4,6 +4,24 @@
 
 Proposed.
 
+## Implementation status
+
+The following pieces of this ADR are now implemented and tested:
+
+- `Term` enum aligned with the calculus (`Arr`, `Op`, `Seq`, `First`, `Choice`, `Loop`, `App`, `Iter`, `Child`, `Handle`, `Rewrite`, `Path`, `Equiv`, `Transport`).
+- `Model` trait with `carrier`, `run`, and `rewrite` methods; `ValueModel` and `TypeModel` implementations.
+- `Iter`, `Child`, `Handle`, `Rewrite`, `Path`, `Equiv`, `Transport` semantics in both models.
+- Real `Ast`/`Language` wired into `ModelCtx` via `AstView` and `LanguageView` traits.
+- Handler stack in `ModelCtx`; `with`/`handle` surface syntax and `Term::Handle` evaluation.
+- Grade-based `Op` dispatch in both `ValueModel` and `TypeModel`.
+- `record` and `tag.construct` native ops for building graded declarations.
+- Canonical `sort`/`grade`/`op`/`handler`/`rewrite`/`law` grammar, AST, eval, and type rules.
+- Law/rewrite registries and named `Rewrite` witnesses with value-carrying `RewriteResult`.
+- End-to-end tests for graded `add`, `with`/`handle`, `rewrite` laws, and `Path`/`Transport`.
+- Full `cargo check --workspace` is clean (only pre-existing warnings).
+
+Frontier items (2-categorical arrows, full HoTT `transport`, directed paths, univalence, coeffects, session types as grade morphisms, etc.) remain research directions and are not yet implemented.
+
 ## Context
 
 The platform currently has a separate tree-walk eval engine and an NBE typecheck engine, even though the `Language` data already stores both evaluation and type rules as Arrow `Term`s. The runtime and the typechecker are both doing the same `Term` walk with different primitive handlers. At the same time, the value and type spaces are not yet fully unified, and generic types are not represented consistently.
