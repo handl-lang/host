@@ -96,7 +96,7 @@ fn graded_theory_ast_shapes_exist() {
         ("ast.sort", vec!["name", "grades"]),
         ("ast.grade", vec!["name"]),
         ("ast.op", vec!["name", "inputs", "output"]),
-        ("ast.handler", vec!["name", "impl"]),
+        ("ast.handler", vec!["name", "impl", "grades"]),
         ("ast.rewrite", vec!["name", "source", "target"]),
         ("ast.law", vec!["name", "source", "target"]),
     ] {

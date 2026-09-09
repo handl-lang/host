@@ -854,21 +854,23 @@
       - children
     type: object
 # `handler` — handler declaration: a model for one sort (ADR-0098/0100).
-# Two children:
+# Two or three children:
 #   0. `name` — the handler name (`var(Name)`).
 #   1. `impl` — the model arrow expression right of `=`/`::`.
+#   2. `grades` — optional grade list; missing means `[]` at runtime.
 # `payload.name` carries the extracted handler name.
 - id: ast.handler
   node_kind: handler
   children:
     - role: name
     - role: impl
+    - role: grades
   payload_schema:
     properties:
       children:
         items:
           type: integer
-        maxItems: 2
+        maxItems: 3
         minItems: 2
         type: array
       name:

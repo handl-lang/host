@@ -1003,6 +1003,23 @@
             value: "impls"
           - !Child
             role: "impl"
+          - !Arr
+            value: "grades"
+          - !Seq
+            fst: !Child
+              role: "grades"
+            snd: !Seq
+              fst: !Op
+                name: tag
+                args: []
+                source: Native
+              snd: !Choice
+                l: !Op
+                  name: id
+                  args: []
+                  source: Native
+                r: !Arr
+                  value: []
     source: Native
 # `rewrite` — directed rewrite rule (2-cell, ADR-0100).
 - id: eval.rewrite
