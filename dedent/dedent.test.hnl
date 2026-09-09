@@ -1,62 +1,95 @@
 from "./dedent" import * as dedent
 
 -- Core behavior
-test_dedent_empty                 :: assert dedent("") = ""
-test_dedent_whitespace_only_spaces:: assert dedent("   ") = ""
+test_dedent_empty :: assert dedent("") = ""
+
+test_dedent_whitespace_only_spaces :: assert dedent("   ") = ""
+
 test_dedent_whitespace_only_lines :: assert dedent("   \n  \n   ") = ""
-test_dedent_single_line           :: assert dedent("    Hello!") = "Hello!"
+
+test_dedent_single_line :: assert dedent("    Hello!") = "Hello!"
+
 test_dedent_single_line_no_indent :: assert dedent("hello") = "hello"
-test_dedent_no_indent             :: assert dedent("Hello,\nWorld!") = "Hello,\nWorld!"
+
+test_dedent_no_indent :: assert dedent("Hello,\nWorld!") = "Hello,\nWorld!"
 
 -- Common indentation; relative indentation is preserved
-test_dedent_common_indent                     :: assert dedent("    Hello\n    World") = "Hello\nWorld"
-test_dedent_preserves_relative_indent         :: assert dedent("    Hello\n      World") = "Hello\n  World"
-test_dedent_less_indented_first               :: assert dedent("      Hello\n    World") = "  Hello\nWorld"
-test_dedent_multiple_levels                   :: assert dedent("  A\n    B\n      C") = "A\n  B\n    C"
-test_dedent_uneven_middle                     :: assert dedent("    A\n  B\n    C") = "  A\nB\n  C"
-test_dedent_three_levels                      :: assert dedent("      A\n    B\n        C") = "  A\nB\n    C"
-test_dedent_zero_min_indent                   :: assert dedent("    A\nB\n    C") = "    A\nB\n    C"
-test_dedent_adding_common_indent_is_reversible:: assert dedent("      A\n        B\n          C") = "A\n  B\n    C"
+test_dedent_common_indent :: assert dedent("    Hello\n    World") = "Hello\nWorld"
+
+test_dedent_preserves_relative_indent :: assert dedent("    Hello\n      World") = "Hello\n  World"
+
+test_dedent_less_indented_first :: assert dedent("      Hello\n    World") = "  Hello\nWorld"
+
+test_dedent_multiple_levels :: assert dedent("  A\n    B\n      C") = "A\n  B\n    C"
+
+test_dedent_uneven_middle :: assert dedent("    A\n  B\n    C") = "  A\nB\n  C"
+
+test_dedent_three_levels :: assert dedent("      A\n    B\n        C") = "  A\nB\n    C"
+
+test_dedent_zero_min_indent :: assert dedent("    A\nB\n    C") = "    A\nB\n    C"
+
+test_dedent_adding_common_indent_is_reversible :: assert dedent("      A\n        B\n          C") = "A\n  B\n    C"
 
 -- Blank lines: ignored for common indent, emitted as empty lines
-test_dedent_blank_lines_ignored           :: assert dedent("    Hello\n\n    World") = "Hello\n\nWorld"
-test_dedent_blank_line_with_spaces        :: assert dedent("    Hello\n    \n    World") = "Hello\n\nWorld"
-test_dedent_blank_line_with_tab           :: assert dedent("    Hello\n\t\n    World") = "Hello\n\nWorld"
-test_dedent_blank_line_shorter_than_indent:: assert dedent("    Hello\n  \n    World") = "Hello\n\nWorld"
+test_dedent_blank_lines_ignored :: assert dedent("    Hello\n\n    World") = "Hello\n\nWorld"
+
+test_dedent_blank_line_with_spaces :: assert dedent("    Hello\n    \n    World") = "Hello\n\nWorld"
+
+test_dedent_blank_line_with_tab :: assert dedent("    Hello\n\t\n    World") = "Hello\n\nWorld"
+
+test_dedent_blank_line_shorter_than_indent :: assert dedent("    Hello\n  \n    World") = "Hello\n\nWorld"
+
 test_dedent_blank_line_longer_than_indent :: assert dedent("    Hello\n        \n    World") = "Hello\n\nWorld"
-test_dedent_leading_blank_lines           :: assert dedent("\n\n    A\n    B") = "A\nB"
-test_dedent_trailing_blank_lines          :: assert dedent("    A\n    B\n\n") = "A\nB"
-test_dedent_trailing_whitespace_line      :: assert dedent("  Hello,\n  World!\n  ") = "Hello,\nWorld!\n"
+
+test_dedent_leading_blank_lines :: assert dedent("\n\n    A\n    B") = "A\nB"
+
+test_dedent_trailing_blank_lines :: assert dedent("    A\n    B\n\n") = "A\nB"
+
+test_dedent_trailing_whitespace_line :: assert dedent("  Hello,\n  World!\n  ") = "Hello,\nWorld!\n"
 
 -- Newline handling
-test_dedent_crlf                   :: assert dedent("    A\r\n    B") = "A\nB"
-test_dedent_lone_cr_is_line_break  :: assert dedent("    A\r    B") = "A\nB"
-test_dedent_mixed_newlines         :: assert dedent("    A\r\n    B\r    C\n    D") = "A\nB\nC\nD"
-test_dedent_surrounding_newlines   :: assert dedent("\n\n  A\n  B\n\n") = "A\nB"
-test_dedent_single_trailing_newline:: assert dedent("  Hello,\n  World!\n") = "Hello,\nWorld!"
+test_dedent_crlf :: assert dedent("    A\r\n    B") = "A\nB"
+
+test_dedent_lone_cr_is_line_break :: assert dedent("    A\r    B") = "A\nB"
+
+test_dedent_mixed_newlines :: assert dedent("    A\r\n    B\r    C\n    D") = "A\nB\nC\nD"
+
+test_dedent_surrounding_newlines :: assert dedent("\n\n  A\n  B\n\n") = "A\nB"
+
+test_dedent_single_trailing_newline :: assert dedent("  Hello,\n  World!\n") = "Hello,\nWorld!"
 
 -- Tabs: indentation is the longest shared whitespace PREFIX.
 -- A tab-indented line shares no indent with a space-indented line.
-test_dedent_tabs                       :: assert dedent("\tHello\n\tWorld") = "Hello\nWorld"
-test_dedent_tab_space_mix_common       :: assert dedent("  \tHello\n  \tWorld") = "Hello\nWorld"
-test_dedent_tab_and_space_share_nothing:: assert dedent("    Hello\n\tWorld") = "    Hello\n\tWorld"
-test_dedent_space_then_tab_vs_spaces   :: assert dedent("  \tHello\n    World") = "\tHello\n  World"
-test_dedent_tab_after_shared_spaces    :: assert dedent("  \tHello\n  World") = "\tHello\nWorld"
+test_dedent_tabs :: assert dedent("\tHello\n\tWorld") = "Hello\nWorld"
+
+test_dedent_tab_space_mix_common :: assert dedent("  \tHello\n  \tWorld") = "Hello\nWorld"
+
+test_dedent_tab_and_space_share_nothing :: assert dedent("    Hello\n\tWorld") = "    Hello\n\tWorld"
+
+test_dedent_space_then_tab_vs_spaces :: assert dedent("  \tHello\n    World") = "\tHello\n  World"
+
+test_dedent_tab_after_shared_spaces :: assert dedent("  \tHello\n  World") = "\tHello\nWorld"
 
 -- Only leading indentation is removed
-test_dedent_trailing_content_whitespace:: assert dedent("    hello    \n    world  ") = "hello    \nworld  "
-test_dedent_internal_whitespace        :: assert dedent("    hello\tworld") = "hello\tworld"
-test_dedent_tab_content_after_indent   :: assert dedent("    \thello\n    \tworld") = "hello\nworld"
+test_dedent_trailing_content_whitespace :: assert dedent("    hello    \n    world  ") = "hello    \nworld  "
+
+test_dedent_internal_whitespace :: assert dedent("    hello\tworld") = "hello\tworld"
+
+test_dedent_tab_content_after_indent :: assert dedent("    \thello\n    \tworld") = "hello\nworld"
 
 -- Unicode content and Unicode whitespace (the " " below is U+00A0 NBSP)
 test_dedent_unicode_content :: assert dedent("    café\n    世界\n    👋") = "café\n世界\n👋"
-test_dedent_nbsp_indent                 :: assert dedent(" Hello\n World") = "Hello\nWorld"
-test_dedent_nbsp_and_space_share_nothing:: assert dedent("  Hello\n  World") = "  Hello\n  World"
+
+test_dedent_nbsp_indent :: assert dedent(" Hello\n World") = "Hello\nWorld"
+
+test_dedent_nbsp_and_space_share_nothing :: assert dedent("  Hello\n  World") = "  Hello\n  World"
 
 -- Idempotence: dedent is a fixed point
-test_dedent_idempotent_indented   :: assert dedent(dedent("    A\n      B\n    C")) = dedent("    A\n      B\n    C")
-test_dedent_idempotent_blank_lines:: assert dedent(dedent("  A\n\t\n    B")) = dedent("  A\n\t\n    B")
-test_dedent_idempotent_mixed      :: assert dedent(dedent("  A\n    B\n\tC")) = dedent("  A\n    B\n\tC")
+test_dedent_idempotent_indented :: assert dedent(dedent("    A\n      B\n    C")) = dedent("    A\n      B\n    C")
+
+test_dedent_idempotent_blank_lines :: assert dedent(dedent("  A\n\t\n    B")) = dedent("  A\n\t\n    B")
+
+test_dedent_idempotent_mixed :: assert dedent(dedent("  A\n    B\n\tC")) = dedent("  A\n    B\n\tC")
 
 -- Pipe form still works
-test_dedent_pipe_form :: assert ("  hello\n  world" >>> dedent) = "hello\nworld"
+test_dedent_pipe_form :: assert("  hello\n  world" >>> dedent) = "hello\nworld"

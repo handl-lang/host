@@ -70,7 +70,7 @@
 --                         `rand.seeded_*` guarantees (see `rand/rand.hnl`);
 --                         not yet present in the Rust mirror.
 
-data Pred :: True | False | Sorted(list : Name) | LengthEq(a : Name, b : Name) | LengthLe(a : Name, b : Name) | AllSatisfy(list : Name, pred : Name) | Le(a : Name, b : Name) | HeadOf(elem : Name, list : Name) | LengthPlusOne(a : Name, b : Name) | LengthSubOne(a : Name, b : Name) | IsPerm(a : Name, b : Name) | IsSuccess(value : Name) | IsError(value : Name) | And(lhs : Pred, rhs : Pred) | Or(lhs : Pred, rhs : Pred) | Implies(lhs : Pred, rhs : Pred) | Forall(var : Name, list : Name, pred : Name) | Deterministic(op : Name)
+data Pred :: True|False|Sorted(list: Name)|LengthEq(a: Name, b: Name)|LengthLe(a: Name, b: Name)|AllSatisfy(list: Name, pred: Name)|Le(a: Name, b: Name)|HeadOf(elem: Name, list: Name)|LengthPlusOne(a: Name, b: Name)|LengthSubOne(a: Name, b: Name)|IsPerm(a: Name, b: Name)|IsSuccess(value: Name)|IsError(value: Name)|And(lhs: Pred, rhs: Pred)|Or(lhs: Pred, rhs: Pred)|Implies(lhs: Pred, rhs: Pred)|Forall(var: Name, list: Name, pred: Name)|Deterministic(op: Name)
 
 -- ---------------------------------------------------------------------------
 -- Laws of the Pred algebra (documentation only — the canonical grammar has

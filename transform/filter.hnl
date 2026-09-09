@@ -18,6 +18,7 @@ export filter :: do {
       }
     }
   }
+  ;
   [xs, p] ~> {
     while { xs: xs, acc: [] } {
       [xs, acc] ~> match xs {

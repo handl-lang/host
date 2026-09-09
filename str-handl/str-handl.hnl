@@ -359,7 +359,7 @@ do {
   }
 
   -- pad `s` to `n` chars by cycling the chars of `p` (empty p is a no-op).
-  pad_to :: [s, n, p, left] ~> {
+  pad_to :: [s, n, p, is_left] ~> {
     c :: char.length(s)
     if c >= n { s } else {
       if char.length(p) == 0 { s } else {
@@ -375,7 +375,7 @@ do {
           }
         }
         pad_str :: char.from_chars(pad)
-        if left { pad_str + s } else { s + pad_str }
+        if is_left { pad_str + s } else { s + pad_str }
       }
     }
   }
