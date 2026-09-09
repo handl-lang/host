@@ -4915,6 +4915,90 @@ impl TypeModel {
     pub fn new(engine: NbeTypecheckEngine) -> Self {
         Self(engine)
     }
+
+    /// Grade-based `Op` dispatch for the typecheck model.
+    ///
+    /// Mirrors [`ValueModel::dispatch_op`](handl_plugin_engine_exec_tree_walk).
+    /// Looks up the `op` declaration for the required grade, verifies the
+    /// incoming value carries that grade, then searches `ctx.handler_stack`
+    /// and `ctx.lang.handler_for_grade(grade)` for a `Handler` providing an
+    /// implementation for `op`.
+    fn dispatch_type_op(
+        &self,
+        op: &str,
+        args: &[Term],
+        incoming: Value,
+        ctx: &mut plugin_engine::ModelCtx,
+    ) -> Result<Option<Value>, plugin_engine::LangError> {
+        // Look up the op declaration and the required grade, if any.
+        let required_grade = ctx
+            .lang
+            .op_decl(op)
+            .and_then(|decl| decl.get("grade").and_then(Value::as_str).map(String::from));
+
+        // Reject the dispatch when the incoming value does not carry the
+        // required grade.
+        if let Some(ref grade) = required_grade {
+            let grades = incoming
+                .get("grades")
+                .and_then(Value::as_array)
+                .map(|arr| arr.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+                .unwrap_or_default();
+            if !grades.contains(&grade.as_str()) {
+                return Err(plugin_engine::LangError::NotImplemented);
+            }
+        }
+
+        // Evaluate the argument sub-terms with `incoming`.
+        let mut arg_vals = Vec::with_capacity(args.len());
+        for arg in args {
+            arg_vals.push(plugin_engine::Model::run(self, arg, incoming.clone(), ctx)?);
+        }
+
+        // Search the handler stack from top to bottom for a `Handler` whose
+        // `grades` list contains the required grade and which provides `op`.
+        let mut impl_json = None;
+        for handler in ctx.handler_stack.iter().rev() {
+            if let Some(ref grade) = required_grade {
+                let grades = handler
+                    .get("grades")
+                    .and_then(Value::as_array)
+                    .map(|arr| arr.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if !grades.contains(&grade.as_str()) {
+                    continue;
+                }
+            }
+            if let Some(value) = handler.get("impls").and_then(|m| m.get(op)).cloned() {
+                impl_json = Some(value);
+                break;
+            }
+        }
+
+        // Fall back to the language-level handler keyed by grade.
+        if impl_json.is_none() {
+            if let Some(ref grade) = required_grade {
+                impl_json = ctx
+                    .lang
+                    .handler_for_grade(grade)
+                    .and_then(|h| h.get("impls").and_then(|m| m.get(op)).cloned());
+            }
+        }
+
+        // No handler found — let the caller fall back to native dispatch.
+        let Some(impl_json) = impl_json else {
+            return Ok(None);
+        };
+
+        let impl_term: Term = serde_json::from_value(impl_json)
+            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+        let handler_in = if arg_vals.is_empty() {
+            incoming
+        } else {
+            serde_json::json!({ "__pair__": [incoming, arg_vals] })
+        };
+        plugin_engine::Model::run(self, &impl_term, handler_in, ctx).map(Some)
+    }
 }
 
 impl plugin_engine::Model for TypeModel {
@@ -4998,6 +5082,30 @@ impl plugin_engine::Model for TypeModel {
                 .construct("type.bool", &Value::Null)
                 .unwrap_or(Value::Null)),
             Term::Transport { value, .. } => self.run(value, incoming, ctx),
+            // `Term::Op`: grade-based dispatch — evaluate each arg with
+            // `incoming`, then consult the handler stack / language-level
+            // handler before falling back to the type-native dispatch.
+            Term::Op {
+                name, args, source, ..
+            } => {
+                let op_name = match source {
+                    ArrSource::Native => name.clone(),
+                    ArrSource::Foreign(n) => n.clone(),
+                    _ => name.clone(),
+                };
+                if let Some(v) = self.dispatch_type_op(&op_name, args, incoming.clone(), ctx)? {
+                    return Ok(v);
+                }
+                let mut ast = Ast::new();
+                ast.push(AstNode::new("model"));
+                let node_ref = AstRef::new(0);
+                let lang = Language::new();
+                let mut tctx =
+                    TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                self.0
+                    .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)
+            }
             _ => {
                 let mut ast = Ast::new();
                 ast.push(AstNode::new("model"));
