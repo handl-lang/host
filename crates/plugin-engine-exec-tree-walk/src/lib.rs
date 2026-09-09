@@ -4433,15 +4433,34 @@ impl Model for ValueModel {
         &self,
         source: &Term,
         target: &Term,
-        _witness: &plugin_engine::RewriteWitness,
+        witness: &plugin_engine::RewriteWitness,
         incoming: &Self::Value,
-        _ctx: &mut ModelCtx,
+        ctx: &mut ModelCtx,
     ) -> Result<RewriteResult, plugin_engine::LangError> {
+        let (source, target) = match witness {
+            plugin_engine::RewriteWitness::Named(name) => {
+                if let Some(rule) = ctx.lang.law(name).or_else(|| ctx.lang.rewrite_rule(name)) {
+                    let law_source = rule
+                        .get("source")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    let law_target = rule
+                        .get("target")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    match (law_source, law_target) {
+                        (Some(s), Some(t)) => (s, t),
+                        _ => return Ok(RewriteResult::Unsupported),
+                    }
+                } else {
+                    (source.clone(), target.clone())
+                }
+            }
+            _ => (source.clone(), target.clone()),
+        };
         if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
             return Ok(RewriteResult::Unsupported);
         }
-        let a = self.run(source, incoming.clone(), _ctx)?;
-        let b = self.run(target, incoming.clone(), _ctx)?;
+        let a = self.run(&source, incoming.clone(), ctx)?;
+        let b = self.run(&target, incoming.clone(), ctx)?;
         if a == b {
             Ok(RewriteResult::Equal)
         } else {
