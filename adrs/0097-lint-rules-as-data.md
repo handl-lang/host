@@ -100,8 +100,24 @@ Lint rules are first-class `Language` data.
   role/index bounds at `Language` build like every other condition.
 - A language can declare `!Native "…"` rules its host must register; the
   canonical `scope.*` set documents the boundary between data and Rust.
-- Out of scope (noted for later): `.hnl`-authored lint natives (the
-  `handl:<mod>.<fn>` spelling ADR-0094 added for transforms).
+- `.hnl`-authored lint natives landed: the same `handl:<mod>.<fn>`
+  spelling ADR-0094 added for transforms works for `!Native` lint checks.
+  `NativeLintRegistry` gained a generic `NativeLintResolver` fallback seam
+  (`add_resolver`, consulted on map miss — `plugin-engine-lint` stays
+  runtime-free); `handl_plugin_lib_handl::lint::HandlNativeLint` is the
+  adapter mirroring `HandlNativeRewrite`: it holds `HandlModule`s, resolves
+  `handl:` names, and invokes the function **once per module** with a
+  `{source, statements: [{text, offset, root}]}` record (node records use
+  the transform shape `{kind, span, payload, children}` but with spans
+  absolutized). The function returns `null`/`[]` or a list of hit records
+  `{name?, args?, span?, fix?}` mapped to `NativeHit` (fixes included).
+  Module-level rather than per-node was chosen deliberately: `!Native`
+  carries no `node_kind` filter, so a per-node contract could express
+  nothing `!Match { node_kind, when }` cannot — the point of the seam is
+  the module view `!Match` cannot reach. Like `HandlNativeRewrite`, no
+  shipped host wires it yet (canonical `lints.yaml` declares no `handl:`
+  rules); hosts opt in via `reg.add_resolver(HandlNativeLint::new()
+  .with_module(...).resolver())`. See `plugin-lib-handl/tests/handl_lint.rs`.
 - Done: the remaining built-in engine checks (`empty-block`,
   `unreachable-code`, `shadowed-binding`, `unused-binding`) are now declared
   as `!Native "builtin.*"` rules in `crates/handl-kit-data-canonical/data/lints.yaml`
