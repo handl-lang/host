@@ -11,7 +11,7 @@
 //!   builders, and the generic [`packages::PackagePlugin`].
 //! - [`ops`] — the moved `*_op_registry()` builders and `Function` impls.
 //! - [`arrow_iter`] — host-side `while_loop`/`for_loop`/`fix_loop`
-//!   [`handl_language::Scheme`] builders (moved from
+//!   [`handl_language::Term`] builders (moved from
 //!   `plugin-lib-arrow-iter`); the composite `*_step` ops they emit are
 //!   interpreted by the v2 eval engine.
 //! - [`shared`] / [`function_value`] — shared arg/callable helpers used by
