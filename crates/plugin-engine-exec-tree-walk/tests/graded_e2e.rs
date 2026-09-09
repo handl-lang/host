@@ -6,7 +6,7 @@
 //! canonical `Language` via `lang.ops` and `lang.handlers_by_grade` and driven
 //! through `handl_plugin_engine_exec_tree_walk::ValueModel`.
 
-use handl_language::{Ast, Language, Term, Value};
+use handl_language::{ArrSource, Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
 use plugin_engine::{Model, ModelCtx};
 use serde_json::json;
@@ -34,13 +34,18 @@ fn add_op_decl() -> Value {
 }
 
 /// A `Handler` value whose `add` implementation returns `expected`.
-fn add_handler(expected: Value) -> Value {
+fn add_handler() -> Value {
     json!({
         "__tag__": "Handler",
         "__registry__": "handl.canonical",
         "grades": ["Addable"],
         "impls": {
-            "add": serde_json::to_value(Term::const_value(expected)).unwrap()
+            "add": serde_json::to_value(Term::Op {
+                name: "number_add".to_string(),
+                args: vec![],
+                source: ArrSource::Native,
+                lit: None,
+            }).unwrap()
         }
     })
 }
@@ -74,7 +79,7 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
 
     lang.ops.insert("add".to_string(), add_op_decl());
     lang.handlers_by_grade
-        .insert("Addable".to_string(), add_handler(expected.clone()));
+        .insert("Addable".to_string(), add_handler());
 
     // Sanity-check the Language registration API.
     let decl = lang.op_decl("add").expect("add op_decl should be registered");
@@ -85,10 +90,15 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
     let incoming = number_value(&["Addable"], 0.0);
 
     // 4. Construct an `add` term with two `Number` arguments.
-    let add_term = Term::op_native(
-        "add",
-        vec![Term::const_value(left), Term::const_value(right)],
-    );
+    let add_term = Term::Op {
+        name: "add".to_string(),
+        args: vec![
+            Term::Arr { value: left },
+            Term::Arr { value: right },
+        ],
+        source: ArrSource::Native,
+        lit: None,
+    };
 
     // 5. Create a `ModelCtx` with the canonical `Language`, a minimal `Ast`,
     //    and an empty `handler_stack`.

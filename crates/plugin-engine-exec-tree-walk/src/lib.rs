@@ -3006,6 +3006,83 @@ impl TreeWalkEngine {
                 );
                 Ok((TaggedValue::Obj(Rc::new(obj)), false))
             }
+            "number_add" => {
+                // Collect the two addends from explicit args, from the
+                // second component of an incoming pair, or from an incoming
+                // array. This lets a handler `Term::Op { name: "number_add",
+                // args: [] }` consume the `(incoming, evaluated_args)` pair
+                // that `ValueModel::dispatch_op` passes.
+                let operands: Vec<TaggedValue> = if args.is_empty() {
+                    if let Some(inc) = incoming.as_ref() {
+                        if let Some(snd) = pair_snd(inc) {
+                            if let Some(arr) = snd.as_array() {
+                                arr.iter().cloned().collect()
+                            } else {
+                                vec![snd.clone()]
+                            }
+                        } else if let Some(arr) = inc.as_array() {
+                            arr.iter().cloned().collect()
+                        } else {
+                            vec![inc.clone()]
+                        }
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    args.iter().cloned().collect()
+                };
+
+                if operands.len() < 2 {
+                    return Err(LangError::engine_node(
+                        "number_add: expected at least two Number inputs".to_string(),
+                        current_node,
+                    ));
+                }
+
+                let a = &operands[0];
+                let b = &operands[1];
+
+                if a.get("__tag__").and_then(|t| t.as_str()) != Some("Number") {
+                    return Err(LangError::engine_node(
+                        "number_add: first input is not a Number".to_string(),
+                        current_node,
+                    ));
+                }
+                let a_value = a.get("value").ok_or_else(|| {
+                    LangError::engine_node(
+                        "number_add: first Number has no value".to_string(),
+                        current_node,
+                    )
+                })?;
+                let a_num = as_num(a_value).map_err(|e| e.with_node(current_node))?;
+
+                if b.get("__tag__").and_then(|t| t.as_str()) != Some("Number") {
+                    return Err(LangError::engine_node(
+                        "number_add: second input is not a Number".to_string(),
+                        current_node,
+                    ));
+                }
+                let b_value = b.get("value").ok_or_else(|| {
+                    LangError::engine_node(
+                        "number_add: second Number has no value".to_string(),
+                        current_node,
+                    )
+                })?;
+                let b_num = as_num(b_value).map_err(|e| e.with_node(current_node))?;
+
+                let sum = a_num + b_num;
+                let first_obj = tagged_to_value(a);
+                let mut payload = first_obj.as_object().cloned().unwrap_or_default();
+                payload.remove("__tag__");
+                payload.insert("value".to_string(), Value::from(num_value(sum)));
+                let result = tag_value("Number", &Value::Object(payload)).ok_or_else(|| {
+                    LangError::engine_node(
+                        "number_add: failed to mint Number result".to_string(),
+                        current_node,
+                    )
+                })?;
+                Ok((TaggedValue::from(result), false))
+            }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
                 current_node,
