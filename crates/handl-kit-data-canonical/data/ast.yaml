@@ -391,6 +391,24 @@
       - params
       - body
     type: object
+# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
+- id: ast.graded_arrow
+  node_kind: graded_arrow
+  children:
+    - role: inputs
+    - role: grade
+    - role: output
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.hello.greet
   node_kind: hello.greet
   payload_schema:
@@ -825,30 +843,26 @@
       - children
     type: object
 # `op` — graded operation declaration; a generating 1-cell
-# (ADR-0098/0100). Three children:
-#   0. `name`    — the operation head: `var(name)` or `call(name, params...)`
-#                  for the parenthesized constraint form `op add(A: Addable)`.
-#   1. `inputs`  — the input tuple expression left of `~>`.
-#   2. `output`  — the output expression right of `~>`.
-# `payload.name` carries the extracted op name; `payload.grade` carries the
-# optional trailing `grade <identifier>` clause.
+# (ADR-0098/0100). Two children:
+#   0. `name`      — the operation head: `var(name)` or `call(name, params...)`
+#                    for the parenthesized constraint form `op add(A: Addable)`.
+#   1. `signature`  — the arrow expression: ungraded `A ~> B` (`function`) or
+#                    graded `A ~G~> B` (`graded_arrow`).
+# `payload.name` carries the extracted op name.
 - id: ast.op
   node_kind: op
   children:
     - role: name
-    - role: inputs
-    - role: output
+    - role: signature
   payload_schema:
     properties:
       children:
         items:
           type: integer
-        maxItems: 3
-        minItems: 3
+        maxItems: 2
+        minItems: 2
         type: array
       name:
-        type: string
-      grade:
         type: string
     required:
       - children

@@ -24,6 +24,11 @@
   pattern: !Literal
     text: "~>"
   priority: 10
+- id: lex.tilde
+  token_kind: token.tilde
+  pattern: !Literal
+    text: "~"
+  priority: 10
 - id: lex.arrow.unicode
   token_kind: token.arrow
   pattern: !Literal

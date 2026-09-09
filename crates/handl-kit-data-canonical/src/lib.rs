@@ -479,7 +479,8 @@ mod tests {
         // (`sort`/`grade`/`op`/`handler`/`rewrite`); `type.law` was
         // re-shaped in place as a 2-cell (`type.law` + name).
         // `with`/`handle` surface syntax added 2 rules.
-        assert_eq!(lang.types.len(), 76);
+        // `graded_arrow` type rule added 1 rule.
+        assert_eq!(lang.types.len(), 77);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

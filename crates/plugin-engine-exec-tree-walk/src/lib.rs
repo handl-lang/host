@@ -2761,6 +2761,88 @@ impl TreeWalkEngine {
                     )),
                 }
             }
+            // `arrow_field` — extract `inputs`/`grade`/`output` from an arrow value.
+            // Handles both tagged `Arrow` records produced by `graded_arrow` and
+            // `TaggedValue::Arrow` closures produced by ungraded `~>`.
+            "arrow_field" => {
+                if args.len() != 2 {
+                    return Err(LangError::engine_node(
+                        format!(
+                            "arrow_field: expected 2 arguments (arrow, field_name), got {}",
+                            args.len()
+                        ),
+                        current_node,
+                    ));
+                }
+                let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let field = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
+                    LangError::engine_node(
+                        "arrow_field: field_name must be a string".to_string(),
+                        current_node,
+                    )
+                })?;
+                match arrow {
+                    TaggedValue::Obj(map)
+                        if map.get("__tag__").and_then(|t| t.as_str()) == Some("Arrow") =>
+                    {
+                        let v = match field {
+                            "inputs" => map.get("inputs").cloned().unwrap_or(TaggedValue::Null),
+                            "grade" => map.get("grade").cloned().unwrap_or(TaggedValue::Null),
+                            "output" => map.get("output").cloned().unwrap_or(TaggedValue::Null),
+                            _ => {
+                                return Err(LangError::engine_node(
+                                    format!("arrow_field: unknown Arrow field '{}'", field),
+                                    current_node,
+                                ))
+                            }
+                        };
+                        Ok((v, false))
+                    }
+                    TaggedValue::Arrow {
+                        params,
+                        body,
+                        env: captured,
+                        home,
+                        ..
+                    } => match field {
+                        "inputs" => {
+                            let arr: Vec<TaggedValue> = params
+                                .iter()
+                                .map(|p| TaggedValue::Str(Rc::from(p.as_str())))
+                                .collect();
+                            Ok((TaggedValue::Arr(Rc::from(arr)), false))
+                        }
+                        "grade" => Ok((TaggedValue::Null, false)),
+                        "output" => {
+                            if home.is_some() {
+                                return Err(LangError::engine_node(
+                                    "arrow_field: cannot project output from a foreign-frame arrow"
+                                        .to_string(),
+                                    current_node,
+                                ));
+                            }
+                            let mut closure_env = ScopeStack::new();
+                            closure_env.captured = Some(Rc::clone(&captured));
+                            closure_env.globals = Rc::clone(&env.globals);
+                            let body_val = self.eval_node_inner(
+                                ast,
+                                AstRef::new(body),
+                                lang,
+                                &mut closure_env,
+                            )?;
+                            Ok((body_val, false))
+                        }
+                        _ => Err(LangError::engine_node(
+                            format!("arrow_field: unknown arrow field '{}'", field),
+                            current_node,
+                        )),
+                    },
+                    _ => Err(LangError::engine_node(
+                        "arrow_field: not an arrow value".to_string(),
+                        current_node,
+                    )),
+                }
+            }
             // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
             // args = [input, field_name]. If input is some(v), return
             // some(v[field_name]); if input is none or null, return none.
@@ -3009,6 +3091,42 @@ impl TreeWalkEngine {
                     map.insert(key.to_string(), tagged_to_value(&args[i + 1]));
                 }
                 Ok((TaggedValue::from(Value::Object(map)), false))
+            }
+            "paren" => {
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "paren: expected children array in payload".to_string(),
+                            current_node,
+                        )
+                    })?;
+                if children.is_empty() {
+                    Ok((TaggedValue::Null, false))
+                } else if children.len() == 1 {
+                    let idx = children[0].as_u64().ok_or_else(|| {
+                        LangError::engine_node(
+                            "paren: child index must be a number".to_string(),
+                            current_node,
+                        )
+                    })? as usize;
+                    let val = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
+                    Ok((val, false))
+                } else {
+                    let mut vals = Vec::with_capacity(children.len());
+                    for c in children {
+                        let idx = c.as_u64().ok_or_else(|| {
+                            LangError::engine_node(
+                                "paren: child index must be a number".to_string(),
+                                current_node,
+                            )
+                        })? as usize;
+                        vals.push(self.eval_node_inner(ast, AstRef::new(idx), lang, env)?);
+                    }
+                    Ok((TaggedValue::Arr(Rc::from(vals)), false))
+                }
             }
             "tag.construct" => {
                 if args.len() != 2 {

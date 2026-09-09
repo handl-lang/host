@@ -79,6 +79,8 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "product",
         "nullish",
         "opt-chain",
+        // Graded arrow syntax (ADR-0098)
+        "graded_arrow",
     ];
     for kind in eval_node_kinds {
         assert!(
@@ -149,6 +151,8 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.impl.prefix",
         "grammar.infer.prefix",
         "grammar.type.prefix",
+        // Graded arrow syntax (ADR-0098)
+        "grammar.graded_arrow.infix",
     ];
     for id in grammar_ids {
         assert!(
@@ -179,6 +183,7 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.lte",
         "token.gte",
         "token.spaceship",
+        "token.tilde",
         "token.flow",
         "token.fanout",
         "token.choice",
@@ -296,6 +301,8 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "product",
         "nullish",
         "opt-chain",
+        // Graded arrow syntax (ADR-0098)
+        "graded_arrow",
     ];
     for kind in ast_node_kinds {
         assert!(

@@ -20,6 +20,9 @@
 - id: token.arrow
   label: ~>
   category: operator
+- id: token.tilde
+  label: "~"
+  category: operator
 - id: token.bang
   label: null
   category: operator

@@ -1916,6 +1916,16 @@
         source: Judgment
         lit: 1
 
+# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
+# Typed as `type.unknown` until the type system supports grade-indexed arrows.
+- id: type.graded_arrow
+  node_kind: graded_arrow
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
 # ---------------------------------------------------------------------------
 # Dependent types — Pi / Sigma (ADR-0054 closure machinery)
 # ---------------------------------------------------------------------------

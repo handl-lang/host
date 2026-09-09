@@ -474,10 +474,9 @@
 - id: eval.paren
   node_kind: paren
   scheme: !Op
-    name: proj_child
+    name: paren
     args: []
     source: Native
-    lit: 0
 - id: eval.rest
   node_kind: rest
   scheme: !Op
@@ -954,7 +953,36 @@
           - !Child
             role: "name"
     source: Native
+# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
+# Produces an `Arrow` tagged value with `inputs`, `grade`, and `output` fields.
+- id: eval.graded_arrow
+  node_kind: graded_arrow
+  scheme: !Op
+    name: "tag.construct"
+    args:
+      - !Arr
+        value: "Arrow"
+      - !Op
+        name: "record"
+        source: Native
+        args:
+          - !Arr
+            value: "inputs"
+          - !Child
+            role: "inputs"
+          - !Arr
+            value: "grade"
+          - !Child
+            role: "grade"
+          - !Arr
+            value: "output"
+          - !Child
+            role: "output"
+    source: Native
 # `op` — graded operation declaration; a generating 1-cell.
+# The `signature` child is an arrow expression (`function` for ungraded,
+# `graded_arrow` for graded). The `arrow_field` native op extracts the
+# `inputs`, `grade`, and `output` fields from either shape.
 - id: eval.op
   node_kind: op
   scheme: !Op
@@ -972,16 +1000,34 @@
             role: "name"
           - !Arr
             value: "inputs"
-          - !Child
-            role: "inputs"
-          - !Arr
-            value: "output"
-          - !Child
-            role: "output"
+          - !Op
+            name: "arrow_field"
+            source: Native
+            args:
+              - !Child
+                role: "signature"
+              - !Arr
+                value: "inputs"
           - !Arr
             value: "grade"
-          - !Child
-            role: "grade"
+          - !Op
+            name: "arrow_field"
+            source: Native
+            args:
+              - !Child
+                role: "signature"
+              - !Arr
+                value: "grade"
+          - !Arr
+            value: "output"
+          - !Op
+            name: "arrow_field"
+            source: Native
+            args:
+              - !Child
+                role: "signature"
+              - !Arr
+                value: "output"
     source: Native
 # `handler` — handler declaration: a model for one sort (ADR-0098/0100).
 - id: eval.handler

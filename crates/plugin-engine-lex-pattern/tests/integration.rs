@@ -230,6 +230,38 @@ fn lex_longest_match_operators() {
             },
         ]
     );
+    // `~>` is the longest `~`-leading operator; bare `~` is token.tilde.
+    let toks = lex("a ~> b ~ c");
+    assert_eq!(
+        toks,
+        vec![
+            Token {
+                kind: "token.identifier".into(),
+                text: "a".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.arrow".into(),
+                text: "~>".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "b".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.tilde".into(),
+                text: "~".into(),
+                ..Default::default()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "c".into(),
+                ..Default::default()
+            },
+        ]
+    );
 }
 
 #[test]

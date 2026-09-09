@@ -95,7 +95,7 @@ fn graded_theory_ast_shapes_exist() {
     for (id, roles) in [
         ("ast.sort", vec!["name", "grades"]),
         ("ast.grade", vec!["name"]),
-        ("ast.op", vec!["name", "inputs", "output"]),
+        ("ast.op", vec!["name", "signature"]),
         ("ast.handler", vec!["name", "impl", "grades"]),
         ("ast.rewrite", vec!["name", "source", "target"]),
         ("ast.law", vec!["name", "source", "target"]),
@@ -177,18 +177,21 @@ fn op_declaration_parses() {
     assert_eq!(r.kind, "op");
     assert_eq!(r.payload.get("name").unwrap(), "add");
     let cs = children(&ast, r);
-    assert_eq!(cs.len(), 3);
+    assert_eq!(cs.len(), 2);
     assert_eq!(cs[0].payload, serde_json::json!("add"));
-    assert_eq!(cs[1].kind, "paren");
-    assert_eq!(cs[2].payload, serde_json::json!("A"));
+    assert_eq!(cs[1].kind, "function");
 }
 
 #[test]
 fn op_with_grade_clause_parses() {
-    let ast = parse("op add : (A, A) ~> A grade Addable");
+    let ast = parse("op add : (A, A) ~Addable~> A");
     let r = root(&ast);
     assert_eq!(r.kind, "op");
-    assert_eq!(r.payload.get("grade").unwrap(), "Addable");
+    assert_eq!(r.payload.get("name").unwrap(), "add");
+    let cs = children(&ast, r);
+    assert_eq!(cs.len(), 2);
+    assert_eq!(cs[0].payload, serde_json::json!("add"));
+    assert_eq!(cs[1].kind, "graded_arrow");
 }
 
 #[test]

@@ -514,6 +514,41 @@ impl PrattEngine {
                 }
             }
 
+            // Special-case: ternary graded arrow `A ~ grade ~> B`.
+            // The declarative grammar cannot express an infix operator whose
+            // closing delimiter is a different token, so we handle `~` here:
+            // parse the grade expression, consume `~>`, parse the right side,
+            // and build a `graded_arrow` node directly.
+            if next.kind == "token.tilde" || infix_row.id == "grammar.graded_arrow.infix" {
+                let _op = cursor.advance()?;
+                let grade_rbp = Self::lookup_row(lang, "token.arrow", GrammarPosition::Infix)
+                    .and_then(|r| r.binding_power.map(|(l, _)| l.saturating_add(1)))
+                    .unwrap_or(11);
+                let grade = self.expression_inner(lang, cursor, grade_rbp)?;
+                let arrow_tok = cursor.advance()?;
+                if arrow_tok.kind != "token.arrow" {
+                    return Err(LangError::engine_at(
+                        format!(
+                            "expected ~> after graded-arrow grade, got {}",
+                            arrow_tok.kind
+                        ),
+                        arrow_tok.span(),
+                        Some("token".to_string()),
+                    ));
+                }
+                let right = self.expression_inner(lang, cursor, rbp_right)?;
+                let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
+                let children = vec![left.index(), grade.index(), right.index()];
+                payload_fields.insert(
+                    "children".to_string(),
+                    Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
+                );
+                let start = self.child_span(left);
+                let span = Self::span_union(start, cursor.last_span());
+                left = self.push_spanned(infix_row.child_shape.node_kind.as_str(), Value::Object(payload_fields), span);
+                continue;
+            }
+
             // Consume the operator token.
             let _op = cursor.advance()?;
 
@@ -1907,6 +1942,7 @@ mod tests {
             "token.comma",
             "token.colon",
             "token.arrow",
+            "token.tilde",
             "token.plus",
             "token.ellipsis",
         ] {
@@ -2029,6 +2065,20 @@ mod tests {
                     AstShapeRef::new("function", 2),
                 )
                 .with_binding_power(31, 32),
+            )
+            .unwrap();
+        // Graded arrow `~ EXPR ~>` is ternary and needs a parser special
+        // case because the declarative grammar cannot pair a `~` infix opener
+        // with a distinct `~>` closer.
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.graded_arrow",
+                    "token.tilde",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("graded_arrow", 3),
+                )
+                .with_binding_power(10, 9),
             )
             .unwrap();
         lang.grammar
@@ -2172,6 +2222,101 @@ mod tests {
             ast.nodes()[children[1].as_u64().unwrap() as usize].kind,
             "binary.add"
         );
+    }
+
+    #[test]
+    fn ungraded_arrow_parses_as_function() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // (A, A) ~> A
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "A"),
+            tok("token.comma", ","),
+            tok("token.identifier", "A"),
+            tok("token.rparen", ")"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "A"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 5);
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "function");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
+        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].payload, json!("A"));
+    }
+
+    #[test]
+    fn graded_arrow_parses_ternary() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // (A, A) ~ Addable ~> A
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "A"),
+            tok("token.comma", ","),
+            tok("token.identifier", "A"),
+            tok("token.rparen", ")"),
+            tok("token.tilde", "~"),
+            tok("token.identifier", "Addable"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "A"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 6);
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "graded_arrow");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 3);
+        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
+        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].payload, json!("Addable"));
+        assert_eq!(ast.nodes()[children[2].as_u64().unwrap() as usize].payload, json!("A"));
+    }
+
+    #[test]
+    fn graded_arrow_with_array_grade_parses() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // (A, A) ~ [Addable, Comparable] ~> A
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "A"),
+            tok("token.comma", ","),
+            tok("token.identifier", "A"),
+            tok("token.rparen", ")"),
+            tok("token.tilde", "~"),
+            tok("token.lbracket", "["),
+            tok("token.identifier", "Addable"),
+            tok("token.comma", ","),
+            tok("token.identifier", "Comparable"),
+            tok("token.rbracket", "]"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "A"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "graded_arrow");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 3);
+        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].kind, "array");
+    }
+
+    #[test]
+    fn tilde_arrow_maximal_munch_lexes_as_single_token() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // `~>` must lex as `token.arrow`, not `token.tilde` + `token.gt`.
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "A"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "B"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.len(), 3);
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "function");
     }
 
     #[test]
