@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 handl-language = {path = "../handl-language" }
 handl-platform = {path = "../platform" }
+plugin-engine = {path = "../plugin-engine" }
 handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-value = {path = "../handl-value" }
 serde_json = { workspace = true }

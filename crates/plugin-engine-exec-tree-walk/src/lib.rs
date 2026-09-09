@@ -109,6 +109,7 @@ use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{TaggedValue, tagged_to_value};
+use plugin_engine::{Model, ModelCtx, RewriteResult};
 
 // Thread-local storage for the current AST and Language, so the
 // ValueCallable impl can access them when host functions (e.g. fn.map)
@@ -955,6 +956,7 @@ impl TreeWalkEngine {
                     incoming,
                 )
             }
+            Term::Rewrite { .. } => Err(LangError::NotImplemented),
         }
     }
 
@@ -3834,6 +3836,52 @@ impl EvalEngine for TreeWalkEngine {
         let mut value = value;
         stamp_home(&mut value, frame_id);
         Ok(value)
+    }
+}
+
+/// A `plugin_engine::Model` adapter around the tree-walk engine.
+///
+/// It evaluates bare [`Term`] schemes by mounting them on a minimal
+/// dummy AST / Language context and reusing the existing tree-walk
+/// evaluation logic.
+pub struct ValueModel(pub TreeWalkEngine);
+
+impl Model for ValueModel {
+    type Value = serde_json::Value;
+
+    fn run(
+        &self,
+        term: &Term,
+        incoming: Self::Value,
+        ctx: &ModelCtx,
+    ) -> Result<Self::Value, plugin_engine::LangError> {
+        match term {
+            Term::Rewrite { target, .. } => match self.run(target, incoming, ctx) {
+                Ok(v) => Ok(v),
+                Err(_) => Err(plugin_engine::LangError::NotImplemented),
+            },
+            _ => {
+                let mut ast = Ast::new();
+                ast.push(AstNode::new("model"));
+                let node_ref = AstRef::new(0);
+                let node = ast.at(node_ref).unwrap();
+                let lang = Language::new();
+                let mut env = ScopeStack::new();
+                self.0
+                    .eval_scheme(term, &ast, node_ref, &lang, &mut env, node, Some(incoming))
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)
+            }
+        }
+    }
+
+    fn rewrite(
+        &self,
+        _source: &Term,
+        _target: &Term,
+        _witness: &plugin_engine::RewriteWitness,
+        _ctx: &ModelCtx,
+    ) -> Result<RewriteResult, plugin_engine::LangError> {
+        Ok(RewriteResult::Unsupported)
     }
 }
 
