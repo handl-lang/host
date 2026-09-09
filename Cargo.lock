@@ -1404,6 +1404,7 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-lib-tag",
  "handl-plugin-module",
+ "plugin-engine",
  "serde_json",
 ]
 

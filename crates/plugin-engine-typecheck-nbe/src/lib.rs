@@ -4891,5 +4891,57 @@ pub fn read_termination_metadata(node: &handl_language::AstNode) -> Option<Termi
     })
 }
 
+// ---------------------------------------------------------------------------
+// plugin_engine::Model adapter
+// ---------------------------------------------------------------------------
+
+/// A `plugin_engine::Model` adapter around the NBE typecheck engine.
+///
+/// It evaluates bare [`Term`] schemes by mounting them on a minimal dummy
+/// AST / Language context and reusing the existing typecheck evaluation logic.
+pub struct TypeModel(pub NbeTypecheckEngine);
+
+impl TypeModel {
+    /// Create a model from an existing NBE typecheck engine.
+    pub fn new(engine: NbeTypecheckEngine) -> Self {
+        Self(engine)
+    }
+}
+
+impl plugin_engine::Model for TypeModel {
+    type Value = Value;
+
+    fn run(
+        &self,
+        term: &Term,
+        incoming: Self::Value,
+        _ctx: &plugin_engine::ModelCtx,
+    ) -> Result<Self::Value, plugin_engine::LangError> {
+        match term {
+            Term::Rewrite { target, .. } => self.run(target, incoming, _ctx),
+            _ => {
+                let mut ast = Ast::new();
+                ast.push(AstNode::new("model"));
+                let node_ref = AstRef::new(0);
+                let lang = Language::new();
+                let mut ctx = TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                self.0
+                    .eval_type_scheme(&lang, &ast, node_ref, term, &mut ctx, Some(incoming))
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)
+            }
+        }
+    }
+
+    fn rewrite(
+        &self,
+        _source: &Term,
+        _target: &Term,
+        _witness: &plugin_engine::RewriteWitness,
+        _ctx: &plugin_engine::ModelCtx,
+    ) -> Result<plugin_engine::RewriteResult, plugin_engine::LangError> {
+        Ok(plugin_engine::RewriteResult::Unsupported)
+    }
+}
+
 #[cfg(test)]
 mod tests;

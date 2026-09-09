@@ -8,6 +8,7 @@ handl-language = {path = "../handl-language" }
 handl-platform = {path = "../platform" }
 handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
+plugin-engine = { path = "../plugin-engine" }
 handl-plugin-lib-tag = { workspace = true }
 serde_json = { workspace = true }
 
