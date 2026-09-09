@@ -247,16 +247,16 @@ fn hover_paren_shows_group_or_call() {
 
 #[test]
 fn hover_arr_combinator() {
-    let value = hover_at("arr(\"id\")", 0).unwrap();
+    // `arr` is a keyword in surface syntax (`arr op`); its hover is the
+    // `doc` declared on `token.keyword.arr` in tokens.yaml.
+    let value = hover_at("arr id", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(
-        contents.contains("Arrow combinator: `arr`"),
+        contents.contains("Lift a named operation into an arrow"),
         "contents: {contents}"
     );
-    assert!(
-        contents.contains("Lift a named pure function"),
-        "contents: {contents}"
-    );
+    assert!(contents.contains("`arr`"), "contents: {contents}");
+    assert!(contents.contains("arr `op`"), "contents: {contents}");
 }
 
 #[test]
@@ -272,13 +272,15 @@ fn hover_comp_combinator() {
 
 #[test]
 fn hover_first_combinator() {
-    let value = hover_at("first(id)", 0).unwrap();
+    // `first` is a keyword in surface syntax (`first f`); its hover is the
+    // `doc` declared on `token.keyword.first` in tokens.yaml.
+    let value = hover_at("first f", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(
-        contents.contains("Arrow combinator: `first`"),
+        contents.contains("Map over the first component of a pair"),
         "contents: {contents}"
     );
-    assert!(contents.contains("fan-out"), "contents: {contents}");
+    assert!(contents.contains("first `f`"), "contents: {contents}");
 }
 
 #[test]
@@ -294,13 +296,17 @@ fn hover_choice_combinator() {
 
 #[test]
 fn hover_app_combinator() {
-    let value = hover_at("app(\"f\", x)", 0).unwrap();
+    // `app` is an infix keyword in surface syntax (`f app x`); its hover is
+    // the `doc` declared on `token.keyword.app` in tokens.yaml.
+    let src = "f app x";
+    let offset = src.find("app").unwrap();
+    let value = hover_at(src, offset).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
     assert!(
-        contents.contains("Arrow combinator: `app`"),
+        contents.contains("Arrow application"),
         "contents: {contents}"
     );
-    assert!(contents.contains("higher-order"), "contents: {contents}");
+    assert!(contents.contains("`f` app `x`"), "contents: {contents}");
 }
 
 #[test]

@@ -62,16 +62,17 @@ fn signature_help_counts_active_parameter_correctly() {
 
 #[test]
 fn signature_help_for_arr_combinator() {
+    // `arr` is a keyword in surface syntax (`arr op`, op captured into the
+    // node payload) — it is not a call-form combinator, so there is no
+    // enclosing-call signature help for it.
     let src = "arr(\"add\", x)";
     let offset = offset_after(src, "arr(");
-    let value = signature_help(src, offset).expect("expected signature help for arr");
-    let sigs = value["signatures"].as_array().unwrap();
-    let label = sigs[0]["label"].as_str().unwrap();
-    assert!(label.starts_with("arr("), "label: {label}");
-    let params = sigs[0]["parameters"].as_array().unwrap();
-    assert_eq!(params.len(), 2, "arr has two parameters");
-    assert_eq!(params[0]["label"].as_str(), Some("op"));
-    assert_eq!(params[1]["label"].as_str(), Some("args…"));
+    assert!(signature_help(src, offset).is_none());
+
+    // The surface form has no parameter list at all.
+    let src = "arr add";
+    let offset = offset_after(src, "arr ");
+    assert!(signature_help(src, offset).is_none());
 }
 
 #[test]
