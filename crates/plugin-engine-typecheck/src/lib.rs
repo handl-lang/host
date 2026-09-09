@@ -204,13 +204,17 @@ impl From<LangError> for CheckError {
 /// and full `rec` fixpoint typing stay behind explicit `todo!` boundaries,
 /// emitting `not-yet-checked` Info diagnostics rather than silently passing.
 ///
+/// The caller supplies the assembled [`Language`] — canonical callers get it
+/// from `handl-kit-data-canonical`/`handl-kit-canonical` (the single
+/// YAML→`Language` assembly path, which also runs transform-rule validation,
+/// ADR-0094). This crate no longer embeds its own copy of the canonical
+/// data.
+///
 /// # Errors
 ///
-/// Returns [`CheckError::Parse`] if the source cannot be parsed, or
-/// [`CheckError::Language`] if the canonical `Language` fails to assemble
-/// (including transform-rule validation errors, ADR-0094).
-pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
-    bootstrap::check_module(src)
+/// Returns [`CheckError::Parse`] if the source cannot be parsed.
+pub fn check_module(lang: &Language, src: &str) -> Result<TypecheckReport, CheckError> {
+    bootstrap::check_module(lang, src)
 }
 
 /// Check a handl module source text with a host-supplied wire prelude.
@@ -225,13 +229,13 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
 ///
 /// # Errors
 ///
-/// Returns [`CheckError::Parse`] if the source cannot be parsed, or
-/// [`CheckError::Language`] if the canonical `Language` fails to assemble.
+/// Returns [`CheckError::Parse`] if the source cannot be parsed.
 pub fn check_module_with_prelude(
+    lang: &Language,
     src: &str,
     prelude: &std::collections::HashSet<String>,
 ) -> Result<TypecheckReport, CheckError> {
-    bootstrap::check_module_with_prelude(src, prelude)
+    bootstrap::check_module_with_prelude(lang, src, prelude)
 }
 
 #[cfg(test)]
@@ -323,15 +327,25 @@ mod tests {
         assert_ne!(a, CheckError::Parse("other".to_string()));
     }
 
+    /// The canonical language for `check_module` tests — the caller-supplied
+    /// `Language` (dev-dep cycle is allowed in cargo).
+    fn canonical_lang() -> &'static Language {
+        static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
+        LANG.get_or_init(|| {
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles")
+        })
+    }
+
     #[test]
     fn check_module_empty_is_clean() {
-        let report = check_module("").unwrap();
+        let report = check_module(canonical_lang(), "").unwrap();
         assert!(report.is_clean());
     }
 
     #[test]
     fn check_module_simple_binding_is_clean() {
-        let report = check_module("double = x ~> x * 2").unwrap();
+        let report = check_module(canonical_lang(), "double = x ~> x * 2").unwrap();
         assert!(
             report.is_clean(),
             "expected clean, got: {:?}",
@@ -341,7 +355,7 @@ mod tests {
 
     #[test]
     fn check_module_unbound_wire_errors() {
-        let report = check_module("main = foo").unwrap();
+        let report = check_module(canonical_lang(), "main = foo").unwrap();
         assert!(
             report.diagnostics.iter().any(|d| d.rule == "unbound-wire"
                 && d.severity == handl_plugin_ext_diag::Severity::Error),
@@ -354,7 +368,7 @@ mod tests {
     fn check_module_with_prelude_seeds_scope() {
         // A bare host wire (e.g. a module-chain name) fires `unbound-wire`
         // without a prelude and is in scope once the host supplies it.
-        let bare = check_module("main = somemod.trim(input) ~> input").unwrap();
+        let bare = check_module(canonical_lang(), "main = somemod.trim(input) ~> input").unwrap();
         assert!(
             bare.diagnostics.iter().any(|d| d.rule == "unbound-wire"),
             "expected unbound-wire without prelude, got: {:?}",
@@ -362,7 +376,7 @@ mod tests {
         );
         let prelude: std::collections::HashSet<String> =
             ["somemod".to_string(), "input".to_string()].into_iter().collect();
-        let seeded = check_module_with_prelude("main = somemod.trim(input) ~> input", &prelude)
+        let seeded = check_module_with_prelude(canonical_lang(), "main = somemod.trim(input) ~> input", &prelude)
             .unwrap();
         assert!(
             !seeded
@@ -375,7 +389,7 @@ mod tests {
         );
         // Prelude names do not satisfy unbound-export: exports still need a
         // source-level binding.
-        let exported = check_module_with_prelude("export somemod", &prelude).unwrap();
+        let exported = check_module_with_prelude(canonical_lang(), "export somemod", &prelude).unwrap();
         assert!(
             exported
                 .diagnostics
@@ -389,7 +403,7 @@ mod tests {
 
     #[test]
     fn check_module_parse_error() {
-        let result = check_module("import from");
+        let result = check_module(canonical_lang(), "import from");
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CheckError::Parse(_)));
     }

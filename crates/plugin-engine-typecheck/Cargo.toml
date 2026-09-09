@@ -10,9 +10,8 @@ handl-plugin-ext-diag = {path = "../plugin-ext-diag", features = ["lang-span"] }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-transform = {path = "../plugin-engine-transform" }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
 
 [dev-dependencies]
 handl-plugin-module = {path = "../plugin-module" }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }

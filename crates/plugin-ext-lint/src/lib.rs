@@ -127,7 +127,10 @@ pub fn lint_source_with_prelude(
 /// (parse/language error) degrades to no diagnostics: the lint parse stage
 /// already reports parse errors, and lint must not fail on a checker hiccup.
 fn unbound_wire_diagnostics(src: &str, prelude: &HashSet<String>) -> Vec<Diagnostic> {
-    match handl_plugin_engine_typecheck::check_module_with_prelude(src, prelude) {
+    let Ok(lang) = lint_language() else {
+        return Vec::new();
+    };
+    match handl_plugin_engine_typecheck::check_module_with_prelude(lang, src, prelude) {
         Ok(report) => report
             .diagnostics
             .into_iter()

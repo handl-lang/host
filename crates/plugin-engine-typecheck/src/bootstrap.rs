@@ -19,189 +19,16 @@
 //! Diagnostics use the shared [`handl_plugin_ext_diag::Diagnostic`] type
 //! (ADR-0091) — no local variant types are defined here.
 
-use handl_language::{
-    Ast, AstNode, AstRef, AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, Language,
-    LexerRuleDef, OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
-};
+use handl_language::{Ast, AstNode, AstRef, Language};
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_plugin_engine_transform::validate::validate_transforms;
 use handl_plugin_ext_diag::{Diagnostic, Severity, Span, split_statements};
 
 use std::collections::{HashMap, HashSet};
-use std::sync::OnceLock;
 
 use crate::{CheckError, TypecheckReport};
 
-// ---------------------------------------------------------------------------
-// Canonical language assembly (embedded YAML data files)
-// ---------------------------------------------------------------------------
-//
-// The bootstrap checker cannot depend on `handl-kit-data-canonical` because
-// that crate pulls in `handl-runtime`, which depends on this crate
-// (`handl-plugin-engine-typecheck`) for the `TypecheckEngine` trait — a
-// cyclic dependency. Instead, the nine canonical YAML data files are
-// embedded directly via `include_str!` and merged into a `Language` using
-// the `handl-language` fragment API, exactly as
-// `handl_kit_data_canonical::language_from_yaml` does — including the
-// `desugar:` → `TransformDef` lowering (`Language::merge_ast_fragment`),
-// the `transforms.yaml` merge, and transform-rule validation
-// (`validate_transforms`, ADR-0094 "Production readiness"). The language is
-// assembled once and cached for the process lifetime.
-
-const TOKENS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/tokens.yaml");
-const GRAMMAR_YAML: &str = include_str!("../../handl-kit-data-canonical/data/grammar.yaml");
-const EVAL_YAML: &str = include_str!("../../handl-kit-data-canonical/data/eval.yaml");
-const TYPES_YAML: &str = include_str!("../../handl-kit-data-canonical/data/types.yaml");
-const AST_YAML: &str = include_str!("../../handl-kit-data-canonical/data/ast.yaml");
-const CAPS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/caps.yaml");
-const OPTIONS_YAML: &str = include_str!("../../handl-kit-data-canonical/data/options.yaml");
-const LEXER_RULES_YAML: &str = include_str!("../../handl-kit-data-canonical/data/lexer_rules.yaml");
-const TRANSFORMS_YAML: &str =
-    include_str!("../../handl-kit-data-canonical/data/transforms.yaml");
-
-/// Merge the nine embedded YAML fragment strings into a single [`Language`].
-fn assemble_language() -> Result<Language, CheckError> {
-    assemble_language_fragments(
-        TOKENS_YAML,
-        GRAMMAR_YAML,
-        EVAL_YAML,
-        TYPES_YAML,
-        AST_YAML,
-        CAPS_YAML,
-        OPTIONS_YAML,
-        LEXER_RULES_YAML,
-        TRANSFORMS_YAML,
-    )
-}
-
-/// Merge nine YAML fragment strings into a single [`Language`], mirroring
-/// `handl_kit_data_canonical::merge_fragments`: `desugar:`-field lowering via
-/// [`Language::merge_ast_fragment`], the first-class `transforms` merge, then
-/// transform-rule validation (Error-severity diagnostics fail assembly).
-fn assemble_language_fragments(
-    tokens_yaml: &str,
-    grammar_yaml: &str,
-    eval_yaml: &str,
-    types_yaml: &str,
-    ast_yaml: &str,
-    caps_yaml: &str,
-    options_yaml: &str,
-    lexer_rules_yaml: &str,
-    transforms_yaml: &str,
-) -> Result<Language, CheckError> {
-    let mut lang = Language::new();
-
-    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(tokens_yaml)
-        .map_err(|e| CheckError::Parse(format!("tokens.yaml: {e}")))?;
-    for frag in tokens {
-        lang.tokens
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("tokens.yaml: {e}")))?;
-    }
-
-    let grammar: Vec<GrammarRow> = serde_yaml::from_str(grammar_yaml)
-        .map_err(|e| CheckError::Parse(format!("grammar.yaml: {e}")))?;
-    for frag in grammar {
-        lang.grammar
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("grammar.yaml: {e}")))?;
-    }
-
-    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(eval_yaml)
-        .map_err(|e| CheckError::Parse(format!("eval.yaml: {e}")))?;
-    for frag in eval {
-        lang.eval
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("eval.yaml: {e}")))?;
-    }
-
-    let types: Vec<TypeRuleDef> = serde_yaml::from_str(types_yaml)
-        .map_err(|e| CheckError::Parse(format!("types.yaml: {e}")))?;
-    for frag in types {
-        lang.types
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("types.yaml: {e}")))?;
-    }
-
-    // AST shapes (union). `merge_ast_fragment` also lowers any `desugar:`
-    // rule a shape carries into a `TransformDef` in `lang.transforms`
-    // (pass "desugar", ADR-0094 §6) — same as `merge_fragments`.
-    let ast: Vec<AstShapeDef> =
-        serde_yaml::from_str(ast_yaml).map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
-    for frag in ast {
-        lang.merge_ast_fragment(frag)
-            .map_err(|e| CheckError::Parse(format!("ast.yaml: {e}")))?;
-    }
-
-    let caps: Vec<CapabilityDecl> = serde_yaml::from_str(caps_yaml)
-        .map_err(|e| CheckError::Parse(format!("caps.yaml: {e}")))?;
-    for frag in caps {
-        lang.caps
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("caps.yaml: {e}")))?;
-    }
-
-    let options: Vec<OptionSchema> = serde_yaml::from_str(options_yaml)
-        .map_err(|e| CheckError::Parse(format!("options.yaml: {e}")))?;
-    for frag in options {
-        lang.options
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("options.yaml: {e}")))?;
-    }
-
-    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(lexer_rules_yaml)
-        .map_err(|e| CheckError::Parse(format!("lexer_rules.yaml: {e}")))?;
-    for frag in lexer_rules {
-        lang.lexer_rules
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("lexer_rules.yaml: {e}")))?;
-    }
-
-    // Transform rules (ADR-0094). Merged *after* the ast pass so a
-    // first-class rule may `replaces:` a `desugar:`-lowered
-    // `transform.desugar.*` rule synthesized above.
-    let transforms: Vec<TransformDef> = serde_yaml::from_str(transforms_yaml)
-        .map_err(|e| CheckError::Parse(format!("transforms.yaml: {e}")))?;
-    for frag in transforms {
-        lang.transforms
-            .merge(frag)
-            .map_err(|e| CheckError::Parse(format!("transforms.yaml: {e}")))?;
-    }
-
-    // ADR-0094 "Production readiness": transform-rule validation runs at
-    // `Language` build *and* under `hnl typecheck`. Error-severity
-    // diagnostics fail assembly — the check path must not run against a
-    // language whose transform rules are malformed.
-    let errors: Vec<String> = validate_transforms(&lang)
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .map(|d| d.message.clone())
-        .collect();
-    if !errors.is_empty() {
-        return Err(CheckError::Language(format!(
-            "transform rule validation failed: {}",
-            errors.join("; ")
-        )));
-    }
-
-    Ok(lang)
-}
-
-/// Return a reference to the process-wide cached canonical [`Language`].
-///
-/// The nine YAML data files are compiled in and pre-resolved (verified by
-/// the `handl-kit-data-canonical` test suite), so assembly should not fail
-/// at runtime — but if it does (e.g. a malformed transform rule slipped in),
-/// the failure is propagated as a [`CheckError::Language`] so `hnl typecheck`
-/// prints a readable diagnostic instead of panicking.
-fn canonical_language() -> Result<&'static Language, CheckError> {
-    static LANG: OnceLock<Result<Language, CheckError>> = OnceLock::new();
-    LANG.get_or_init(assemble_language)
-        .as_ref()
-        .map_err(Clone::clone)
-}
 
 // ---------------------------------------------------------------------------
 // v0.1 surface node kinds
@@ -1155,7 +982,12 @@ fn check_pass(
 // Public entry point
 // ---------------------------------------------------------------------------
 
-/// Check a handl module source text (ADR-0088).
+/// Check a handl module source text (ADR-0088) against `lang`.
+///
+/// The caller supplies the assembled [`Language`] (e.g. from
+/// `handl-kit-data-canonical`/`handl-kit-canonical`) — the checker no longer
+/// embeds and merges its own copy of the canonical YAML data, removing the
+/// duplicated assembly path that could drift from the canonical kit.
 ///
 /// Parses the source into top-level statements and runs the bootstrap
 /// typecheck pass. Returns a report with **all** diagnostics found (error
@@ -1164,12 +996,12 @@ fn check_pass(
 /// # Errors
 ///
 /// Returns [`CheckError::Parse`] if any statement cannot be parsed.
-pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
-    check_module_with_prelude(src, &HashSet::new())
+pub fn check_module(lang: &Language, src: &str) -> Result<TypecheckReport, CheckError> {
+    check_module_with_prelude(lang, src, &HashSet::new())
 }
 
-/// Check a handl module source text with a host-supplied wire prelude
-/// (ADR-0088, ADR-0096).
+/// Check a handl module source text against `lang` with a host-supplied
+/// wire prelude (ADR-0088, ADR-0096).
 ///
 /// Identical to [`check_module`], but `prelude` names are seeded into the
 /// module scope before unbound-wire checking. The prelude is how a host
@@ -1178,8 +1010,7 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
 /// host-function names (`map`, `pipe`, `greet`, …), and ambient globals
 /// (`self`, `hello`) that never appear as source-level bindings. The set
 /// is data from the host's resolver/module registry — this crate carries
-/// no hardcoded host names (dep cycle with `handl-kit-canonical`,
-/// AGENTS.md "Cyclic dependency workaround").
+/// no hardcoded host names.
 ///
 /// Prelude names are inert for the other module-level checks: they are
 /// scope-only, so they cannot satisfy `unbound-export` (an export must
@@ -1190,13 +1021,10 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
 ///
 /// Returns [`CheckError::Parse`] if any statement cannot be parsed.
 pub fn check_module_with_prelude(
+    lang: &Language,
     src: &str,
     prelude: &HashSet<String>,
 ) -> Result<TypecheckReport, CheckError> {
-    // Assemble the canonical v0.1 language from the embedded YAML data
-    // fragments (cached for the process lifetime).
-    let lang = canonical_language()?;
-
     // Split into top-level statements and parse each.
     let chunks = split_statements(src);
     let mut stmts = Vec::with_capacity(chunks.len());
@@ -1225,91 +1053,30 @@ pub fn check_module_with_prelude(
 mod tests {
     use super::*;
 
-    /// The canonical embedded data files must assemble cleanly — including
-    /// `transforms.yaml` and `desugar:`-field lowering — with no
-    /// Error-severity validation diagnostics (ADR-0094).
-    #[test]
-    fn canonical_language_assembles_with_transforms() {
-        let lang = assemble_language().expect("canonical language assembles");
-        assert!(
-            !lang.transforms.is_empty(),
-            "transforms.yaml rules should land in lang.transforms"
-        );
-        assert!(
-            validate_transforms(&lang)
-                .iter()
-                .all(|d| d.severity != Severity::Error),
-            "canonical language must have no Error-severity transform diagnostics"
-        );
-    }
+    /// Canonical-language assembly coverage (transform-rule validation,
+    /// `desugar:` lowering, clean merge) lives in `handl-kit-data-canonical`
+    /// — the single assembly path this crate now consumes (see
+    /// `merge_rejects_invalid_transform_rules`,
+    /// `desugar_field_still_lowers_into_transforms`, and
+    /// `canonical_transforms_validate_clean` there). The language is
+    /// injected, so these tests only cover check-side helpers.
 
-    /// A transform rule whose `Keep` step is out of bounds for the target
-    /// shape is an Error-severity diagnostic and must fail assembly with a
-    /// readable `CheckError::Language` — this is what `hnl typecheck`
-    /// reports instead of checking against a malformed language.
+    /// The `CheckError::Language` rendering stays readable for callers that
+    /// surface assembly failures (e.g. `hnl typecheck`).
     #[test]
-    fn broken_transform_rule_fails_assembly() {
-        let broken_transforms = r#"
-- id: transform.desugar.paren-bogus
-  pass: desugar
-  node_kind: paren
-  rule: !Declarative
-    target_kind: paren
-    children:
-      - !Keep 9
-"#;
-        let err = assemble_language_fragments(
-            TOKENS_YAML,
-            GRAMMAR_YAML,
-            EVAL_YAML,
-            TYPES_YAML,
-            AST_YAML,
-            CAPS_YAML,
-            OPTIONS_YAML,
-            LEXER_RULES_YAML,
-            broken_transforms,
-        )
-        .expect_err("out-of-bounds Keep step must fail assembly");
-        match err {
-            CheckError::Language(msg) => {
-                assert!(
-                    msg.contains("transform rule validation failed"),
-                    "expected validation failure message, got: {msg}"
-                );
-                assert!(
-                    msg.contains("transform.desugar.paren-bogus"),
-                    "expected the offending rule id in the message, got: {msg}"
-                );
-            }
-            other => panic!("expected CheckError::Language, got: {other:?}"),
-        }
-        // And the rendered error is readable for the CLI path.
+    fn language_error_display_is_prefixed() {
         let shown = CheckError::Language("x".into()).to_string();
         assert!(shown.starts_with("language error:"), "got: {shown}");
     }
 
-    /// A `desugar:` field on an `AstShapeDef` still lowers into a
-    /// `TransformDef` (backward compat, ADR-0094 §6) on this merge path too.
     #[test]
-    fn desugar_field_lowers_into_transforms() {
-        let ast_yaml = r#"
-- id: ast.sugared
-  node_kind: sugared
-  children:
-    - role: body
-  desugar:
-    target_kind: value
-    children: []
-"#;
-        let lang = assemble_language_fragments(
-            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]",
-        )
-        .expect("shape with desugar field assembles");
-        assert!(
-            lang.transforms
-                .get_by_id("transform.desugar.sugared")
-                .is_some(),
-            "desugar field should lower into lang.transforms"
-        );
+    fn debug_parse_cli() {
+        let lang = handl_kit_data_canonical::language_from_yaml().expect("assemble");
+        let src = "f :: (desc: String) ~> { description: desc }";
+        let ast = parse_chunk(&lang, src).expect("parse");
+        for i in 0..ast.len() {
+            let node = ast.at(AstRef::new(i)).expect("node");
+            eprintln!("{i}: kind={} payload={} children={:?}", node.kind, node.payload, children_of(node));
+        }
     }
 }

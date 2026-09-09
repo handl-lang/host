@@ -22,7 +22,7 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 | Shared diagnostics     | `plugin-ext-diag`                        | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                          |
 | Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
 | AST formatter          | `plugin-engine-fmt`                      | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                   |
-| Linter                 | `plugin-ext-lint` (wiring) + `plugin-engine-lint` (engine, ADR-0097) | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.missing-module-doc`; `plugin-ext-lint` registers `source.fmt`)                                                                                                            |
+| Linter                 | `plugin-ext-lint` (wiring) + `plugin-engine-lint` (engine, ADR-0097) | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`)                                                                                                            |
 | Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                           |
 | Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
 | Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
@@ -80,10 +80,14 @@ shapes that declare no roles.
 
 ### Cyclic dependency workaround
 
-`plugin-engine-typecheck` and `plugin-ext-lint` embed YAML language data
-directly via `include_str!` instead of depending on `handl-kit-canonical`,
-because `handl-kit-canonical` → `handl-runtime` → `plugin-engine-typecheck`
-would create a cycle. `plugin-ext-fmt` and `plugin-engine-test` (ADR-0089)
+`plugin-engine-typecheck` takes the assembled `Language` from its caller
+(`check_module(lang, src)`; `hnl typecheck` builds it once via
+`handl-kit-canonical`) — the crate used to embed and merge the canonical
+YAML itself because `handl-kit-canonical` → `handl-runtime` →
+`plugin-engine-typecheck` would create a cycle. Tests still need the
+canonical language, which they get from a `handl-kit-data-canonical`
+**dev-dependency** (dev-dep cycles are allowed). `plugin-ext-fmt` and
+`plugin-engine-test` (ADR-0089)
 use `handl-kit-data-canonical` (no eval engine) or
 `handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
 ADR-0092; the framework is now pure-handl under `handl-packages/test/`
