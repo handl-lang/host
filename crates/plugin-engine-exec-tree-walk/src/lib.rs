@@ -483,6 +483,13 @@ pub struct TreeWalkEngine {
     /// Optional handler for the `assert` native op to raise structured
     /// failure details into the host runner.
     assert_handler: Option<Rc<dyn AssertHandler>>,
+    /// Runtime handler stack for `Term::Handle` / `Term::Op` dynamic
+    /// dispatch. `Term::Handle` pushes its evaluated `impl_` value here
+    /// for the duration of its body; `Term::Op` dispatch searches the
+    /// stack innermost-last for a `{"__tag__": "Handler", "impls": {...}}`
+    /// value providing the op name before falling back to native
+    /// dispatch.
+    pub(crate) handler_stack: RefCell<Vec<TaggedValue>>,
 }
 
 impl TreeWalkEngine {
@@ -494,6 +501,7 @@ impl TreeWalkEngine {
             import_resolver: None,
             eliminated_cache: RefCell::new(HashMap::new()),
             assert_handler: None,
+            handler_stack: RefCell::new(Vec::new()),
         }
     }
 
@@ -927,16 +935,47 @@ impl TreeWalkEngine {
                 };
                 Ok((val, false))
             }
-            // `handle body with target = impl_` (ADR-0076): eliminate the
-            // handler at compile time (rewriting every bare arr(target) in
-            // the body to the impl graph), then evaluate the resulting
-            // handler-free scheme. Uses `eliminate_and_check` to surface
-            // unhandled capabilities as a compile-time error.
+            // `handle body with target = impl_` (ADR-0076): install the
+            // handler dynamically — evaluate `impl_` to a handler value,
+            // push it onto the engine's handler stack, run `body`, then
+            // pop. `target` is retained for diagnostics. While the
+            // handler is on the stack, `Term::Op` dispatch finds it via
+            // `dispatch_op` (grade-based dynamic dispatch).
             //
-            // The elimination result is cached per node kind to avoid
-            // re-running the pass on every eval of the same kind.
-            Term::Handle { .. } => {
-                let eliminated = {
+            // When `impl_` does not evaluate to a value (it is a pure
+            // arrow scheme rather than a handler-producing term), fall
+            // back to compile-time handler elimination: rewrite every
+            // bare arr(target) in the body to the impl graph via
+            // `eliminate_and_check`, which also surfaces unhandled
+            // capabilities as a compile-time error. The elimination
+            // result is cached per node kind.
+            Term::Handle { body, target, impl_ } => {
+                match self.eval_scheme_tagged(
+                    impl_,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                ) {
+                    Ok(handler_val) => {
+                        let _ = target; // retained for diagnostics
+                        self.handler_stack.borrow_mut().push(handler_val);
+                        let result = self.eval_inner(
+                            body,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            incoming,
+                        );
+                        self.handler_stack.borrow_mut().pop();
+                        result
+                    }
+                    Err(_) => {
+                        let eliminated = {
                     let mut cache = self.eliminated_cache.borrow_mut();
                     if let Some(e) = cache.get(current_node.kind.as_str()) {
                         e.clone()
@@ -947,15 +986,17 @@ impl TreeWalkEngine {
                         e
                     }
                 };
-                self.eval_inner(
-                    &eliminated,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming,
-                )
+                        self.eval_inner(
+                            &eliminated,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            incoming,
+                        )
+                    }
+                }
             }
             // Bounded iteration (ADR-0098): evaluate `fuel` to a
             // non-negative integer budget and `initial` to the starting
@@ -1130,6 +1171,28 @@ impl TreeWalkEngine {
             }
             arg_vals.push(v);
         }
+        // Grade-based dynamic dispatch: for `Native` and `Foreign` ops,
+        // search the handler stack (and the incoming value's own `impls`)
+        // for a `Handler` implementation of the op before falling back to
+        // the static `source` dispatch below.
+        let dispatch_name = match source {
+            ArrSource::Native => Some(op.to_string()),
+            ArrSource::Foreign(name) => Some(name.clone()),
+            _ => None,
+        };
+        if let Some(name) = dispatch_name {
+            if let Some(res) = self.dispatch_op(
+                &name,
+                incoming.as_ref(),
+                ast,
+                node_ref,
+                lang,
+                env,
+                current_node,
+            )? {
+                return Ok(res);
+            }
+        }
         match source {
             ArrSource::Native => {
                 // `arr op` (`op: "$payload"`): the scheme declares no
@@ -1207,6 +1270,55 @@ impl TreeWalkEngine {
                 current_node,
             )),
         }
+    }
+
+    /// Grade-based `Op` dispatch: search the runtime handler stack
+    /// (innermost-last) for a handler value whose `impls` map provides an
+    /// implementation for `op`, then — when no stack handler applies —
+    /// the incoming value's own `impls` field (a tagged value
+    /// `{"__tag__": <sort>, "grades": [...], "impls": {...}}` may embed
+    /// per-grade op implementations).
+    ///
+    /// A `Handler` value is a tagged object
+    /// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}` where each
+    /// `impls` entry is a serialized [`Term`] run with the op's `incoming`
+    /// value. Returns `Ok(None)` when no handler provides `op`, so the
+    /// caller can fall back to native `op` dispatch.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn dispatch_op(
+        &self,
+        op: &str,
+        incoming: Option<&TaggedValue>,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<Option<(TaggedValue, bool)>, LangError> {
+        let impl_json = {
+            let stack = self.handler_stack.borrow();
+            stack.iter().rev().find_map(|h| handler_impl(h, op))
+        }
+        .or_else(|| incoming.and_then(|v| handler_impl(v, op)));
+        let Some(impl_json) = impl_json else {
+            return Ok(None);
+        };
+        let impl_term: Term = serde_json::from_value(impl_json).map_err(|e| {
+            LangError::engine_node(
+                format!("handler impl for op '{op}' is not a Term: {e}"),
+                current_node,
+            )
+        })?;
+        let (val, pushed) = self.eval_inner(
+            &impl_term,
+            ast,
+            node_ref,
+            lang,
+            env,
+            current_node,
+            incoming.cloned(),
+        )?;
+        Ok(Some((val, pushed)))
     }
 
     /// Evaluate a derived-pattern composite step op
@@ -3920,6 +4032,76 @@ impl EvalEngine for TreeWalkEngine {
 /// evaluation logic.
 pub struct ValueModel(pub TreeWalkEngine);
 
+impl ValueModel {
+    /// Evaluate `term` against a minimal dummy AST / Language context via
+    /// the tree-walk engine's scheme interpreter (the native fallback for
+    /// `Model::run`).
+    fn eval_scheme_term(
+        &self,
+        term: &Term,
+        incoming: Value,
+    ) -> Result<Value, plugin_engine::LangError> {
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("model"));
+        let node_ref = AstRef::new(0);
+        let node = ast
+            .at(node_ref)
+            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+        let lang = Language::new();
+        let mut env = ScopeStack::new();
+        self.0
+            .eval_scheme(term, &ast, node_ref, &lang, &mut env, node, Some(incoming))
+            .map_err(|_| plugin_engine::LangError::NotImplemented)
+    }
+
+    /// Grade-based `Op` dispatch: evaluate each arg sub-term with
+    /// `incoming`, then search `ctx.handler_stack` (innermost-last) for a
+    /// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}` value
+    /// providing `op`, and finally the incoming value's own `impls`
+    /// field. The matched `impls` entry is a serialized [`Term`] run with
+    /// `incoming` as its input. Returns `Ok(None)` when no handler
+    /// provides `op` (the caller then falls back to native dispatch).
+    fn dispatch_op(
+        &self,
+        op: &str,
+        args: &[Term],
+        incoming: Value,
+        ctx: &mut ModelCtx,
+    ) -> Result<Option<Value>, plugin_engine::LangError> {
+        // Evaluate the argument sub-terms with `incoming` (the handler
+        // `Term` consumes them via `Term::App` / `Term::Child`; the
+        // evaluated values are bound into the run via the incoming pair).
+        let mut arg_vals = Vec::with_capacity(args.len());
+        for arg in args {
+            arg_vals.push(self.run(arg, incoming.clone(), ctx)?);
+        }
+        let impl_json = ctx
+            .handler_stack
+            .iter()
+            .rev()
+            .find_map(|h| h.get("impls").and_then(|m| m.get(op)).cloned())
+            .or_else(|| {
+                incoming
+                    .get("impls")
+                    .and_then(|m| m.get(op))
+                    .cloned()
+            });
+        let Some(impl_json) = impl_json else {
+            return Ok(None);
+        };
+        let impl_term: Term = serde_json::from_value(impl_json)
+            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+        // Feed the handler the incoming value paired with the evaluated
+        // args so it can consume them.
+        let handler_in = if arg_vals.is_empty() {
+            incoming
+        } else {
+            serde_json::json!({ "__pair__": [incoming, arg_vals] })
+        };
+        self.run(&impl_term, handler_in, ctx).map(Some)
+    }
+}
+
 impl Model for ValueModel {
     type Value = serde_json::Value;
 
@@ -3927,8 +4109,17 @@ impl Model for ValueModel {
         &self,
         term: &Term,
         incoming: Self::Value,
-        ctx: &ModelCtx,
+        ctx: &mut ModelCtx,
     ) -> Result<Self::Value, plugin_engine::LangError> {
+        // Mirror the model-level handler stack into the engine's runtime
+        // stack so `Term::Op` dispatch inside delegated `eval_scheme`
+        // calls sees the same handlers.
+        *self.0.handler_stack.borrow_mut() = ctx
+            .handler_stack
+            .iter()
+            .cloned()
+            .map(TaggedValue::from)
+            .collect();
         match term {
             Term::Rewrite { target, .. } => match self.run(target, incoming, ctx) {
                 Ok(v) => Ok(v),
@@ -3998,17 +4189,40 @@ impl Model for ValueModel {
                     }
                 }
             }
-            _ => {
-                let mut ast = Ast::new();
-                ast.push(AstNode::new("model"));
-                let node_ref = AstRef::new(0);
-                let node = ast.at(node_ref).unwrap();
-                let lang = Language::new();
-                let mut env = ScopeStack::new();
+            // `handle body with target = impl_`: evaluate `impl_` to a
+            // handler value, push it onto `ctx.handler_stack`, run `body`,
+            // then pop. `target` is retained for diagnostics.
+            Term::Handle { body, target, impl_ } => {
+                let handler = self.run(impl_, incoming.clone(), ctx)?;
+                let _ = target; // retained for diagnostics
+                ctx.push_handler(handler.clone());
                 self.0
-                    .eval_scheme(term, &ast, node_ref, &lang, &mut env, node, Some(incoming))
-                    .map_err(|_| plugin_engine::LangError::NotImplemented)
+                    .handler_stack
+                    .borrow_mut()
+                    .push(TaggedValue::from(handler));
+                let result = self.run(body, incoming, ctx);
+                ctx.pop_handler();
+                self.0.handler_stack.borrow_mut().pop();
+                result
             }
+            // `Term::Op`: grade-based dispatch — evaluate each arg with
+            // `incoming`, then consult the handler stack (and the incoming
+            // value's `impls`) for a handler providing the op before
+            // falling back to the engine's native dispatch.
+            Term::Op {
+                name, args, source, ..
+            } => {
+                let op_name = match source {
+                    ArrSource::Native => name.clone(),
+                    ArrSource::Foreign(n) => n.clone(),
+                    _ => name.clone(),
+                };
+                if let Some(v) = self.dispatch_op(&op_name, args, incoming.clone(), ctx)? {
+                    return Ok(v);
+                }
+                self.eval_scheme_term(term, incoming)
+            }
+            _ => self.eval_scheme_term(term, incoming),
         }
     }
 
@@ -4018,7 +4232,7 @@ impl Model for ValueModel {
         target: &Term,
         _witness: &plugin_engine::RewriteWitness,
         incoming: &Self::Value,
-        _ctx: &ModelCtx,
+        _ctx: &mut ModelCtx,
     ) -> Result<RewriteResult, plugin_engine::LangError> {
         if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
             return Ok(RewriteResult::Unsupported);
@@ -4461,6 +4675,17 @@ fn flatten_pair(v: &TaggedValue) -> Vec<TaggedValue> {
         }
         other => vec![other.clone()],
     }
+}
+
+/// Extract the `impls[op]` implementation entry of a handler-like value.
+///
+/// A `Handler` value is a tagged object
+/// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}`; a graded
+/// incoming value may also embed an `impls` field. Returns the serialized
+/// [`Term`] JSON for `op`, or `None` when the value has no `impls` object
+/// or no entry for `op`.
+fn handler_impl(v: &TaggedValue, op: &str) -> Option<Value> {
+    v.get("impls")?.get(op).map(tagged_to_value)
 }
 
 /// Construct a `left` Either value.

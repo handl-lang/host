@@ -4922,7 +4922,7 @@ impl plugin_engine::Model for TypeModel {
         &self,
         term: &Term,
         incoming: Self::Value,
-        ctx: &plugin_engine::ModelCtx,
+        ctx: &mut plugin_engine::ModelCtx,
     ) -> Result<Self::Value, plugin_engine::LangError> {
         match term {
             Term::Rewrite { target, .. } => self.run(target, incoming, ctx),
@@ -5000,7 +5000,7 @@ impl plugin_engine::Model for TypeModel {
         target: &Term,
         _witness: &plugin_engine::RewriteWitness,
         incoming: &Self::Value,
-        _ctx: &plugin_engine::ModelCtx,
+        _ctx: &mut plugin_engine::ModelCtx,
     ) -> Result<plugin_engine::RewriteResult, plugin_engine::LangError> {
         if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
             return Ok(plugin_engine::RewriteResult::Unsupported);
