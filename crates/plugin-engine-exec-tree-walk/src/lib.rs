@@ -1070,7 +1070,29 @@ impl TreeWalkEngine {
                 }
                 Ok((state, false))
             }
-            Term::Child { .. } => Err(LangError::NotImplemented),
+            // `Child { role }` (ADR-0081): resolve the named child role to a
+            // child position via the language view, project that child, and
+            // evaluate it with a fresh incoming context. Missing roles and
+            // missing children are silently `Null`, matching the optional-child
+            // behavior of `proj_child_or`.
+            Term::Child { role } => {
+                let idx = match lang.child_role_index(&current_node.kind, role) {
+                    Ok(Some(idx)) => idx,
+                    _ => {
+                        return Ok((TaggedValue::Null, false));
+                    }
+                };
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|v| v.as_array());
+                let Some(child_arena) = children.and_then(|arr| arr.get(idx)).and_then(|v| v.as_u64()) else {
+                    return Ok((TaggedValue::Null, false));
+                };
+                let child_ref = AstRef::new(child_arena as usize);
+                let val = self.eval_node_inner(ast, child_ref, lang, env)?;
+                Ok((val, false))
+            }
             Term::Rewrite { .. } => Err(LangError::NotImplemented),
         }
     }
@@ -2925,6 +2947,71 @@ impl TreeWalkEngine {
                     self.apply_app(callee, &actual_args, ast, lang, env)?
                 };
                 Ok((val, false))
+            }
+            "record" => {
+                if args.len() % 2 != 0 {
+                    return Err(LangError::engine_node(
+                        format!(
+                            "record: expected even number of arguments, got {}",
+                            args.len()
+                        ),
+                        current_node,
+                    ));
+                }
+                let mut map = serde_json::Map::new();
+                for i in (0..args.len()).step_by(2) {
+                    let key = args[i].as_str().ok_or_else(|| {
+                        LangError::engine_node(
+                            format!("record: key at index {} must be a string", i),
+                            current_node,
+                        )
+                    })?;
+                    map.insert(key.to_string(), tagged_to_value(&args[i + 1]));
+                }
+                Ok((TaggedValue::from(Value::Object(map)), false))
+            }
+            "tag.construct" => {
+                if args.len() != 2 {
+                    return Err(LangError::engine_node(
+                        format!(
+                            "tag.construct: expected 2 arguments (tag_name, payload), got {}",
+                            args.len()
+                        ),
+                        current_node,
+                    ));
+                }
+                let tag_name = args[0].as_str().ok_or_else(|| {
+                    LangError::engine_node(
+                        "tag.construct: tag_name must be a string".to_string(),
+                        current_node,
+                    )
+                })?;
+                let mut obj = match &args[1] {
+                    TaggedValue::Null => FxHashMap::default(),
+                    TaggedValue::Obj(map) => map.as_ref().clone(),
+                    _ => {
+                        return Err(LangError::engine_node(
+                            "tag.construct: payload must be an object or null".to_string(),
+                            current_node,
+                        ));
+                    }
+                };
+                if obj.contains_key("__tag__") || obj.contains_key("__registry__") {
+                    return Err(LangError::engine_node(
+                        "tag.construct: payload contains reserved __tag__ or __registry__ key"
+                            .to_string(),
+                        current_node,
+                    ));
+                }
+                obj.insert(
+                    Rc::from("__tag__"),
+                    TaggedValue::Str(Rc::from(tag_name)),
+                );
+                obj.insert(
+                    Rc::from("__registry__"),
+                    TaggedValue::Str(Rc::from("handl.canonical")),
+                );
+                Ok((TaggedValue::Obj(Rc::new(obj)), false))
             }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
