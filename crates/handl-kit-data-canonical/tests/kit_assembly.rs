@@ -19,7 +19,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `token.keyword.{sort,grade,grades,op,handler,rewrite}`.
     // +1 `token.keyword.handle` for the `handle` expression keyword.
     // +1 `token.tilde` for the graded arrow `~EXPR~>` syntax.
-    assert_eq!(lang.tokens.len(), 88);
+    assert_eq!(lang.tokens.len(), 101);
 
     // Grammar rows: 67 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -32,18 +32,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // re-shaped in place as 2-cells `name : source => target`.
     // +2 `grammar.{with,handle}.prefix` for handler-install expressions.
     // +1 `grammar.graded_arrow.infix` for `~EXPR~>`.
-    assert_eq!(lang.grammar.len(), 75);
+    assert_eq!(lang.grammar.len(), 88);
 
-    // Eval schemes: 73 — v0.1 surface syntax (ADR-0074) +
-    // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
-    // (`let` fully removed — `stmt.let` had no producer); arrow
-    // combinators added (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`).
-    // +5 graded-theory schemes (ADR-0098/0100): `eval.{sort,grade,op,
-    // handler,rewrite}`; `eval.law` was re-shaped in place as a 2-cell
-    // placeholder.
-    // +2 `eval.{with,handle}` for the surface syntax.
-    // +1 `eval.graded_arrow` for `~EXPR~>`.
-    assert_eq!(lang.eval.len(), 76);
+    // +13 Term frontier eval rules.
+    assert_eq!(lang.eval.len(), 89);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -54,7 +46,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // [name, source, target]).
     // +2 `ast.{with,handle}` for the surface syntax.
     // +1 `ast.graded_arrow` for `~EXPR~>`.
-    assert_eq!(lang.ast.len(), 76);
+    // +13 Term frontier shapes.
+    assert_eq!(lang.ast.len(), 89);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -91,8 +84,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 88);
-    assert_eq!(rt.lang().grammar.len(), 75);
+    assert_eq!(rt.lang().tokens.len(), 101);
+    assert_eq!(rt.lang().grammar.len(), 88);
 }
 
 #[test]

@@ -3173,3 +3173,131 @@
     args: []
     source: Judgment
     lit: 2
+# ---------------------------------------------------------------------------
+# Cell/cubical theory surface forms (Term frontier)
+# ---------------------------------------------------------------------------
+# `cell_id` — identity of a cell in a frontier context.
+- id: type.cell_id
+  node_kind: cell_id
+  synth: !CellId
+    arrow: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+# `witness` — witness carrying grade metadata and a proof.
+- id: type.witness
+  node_kind: witness
+  synth: !Witness
+    grade: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    proof: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+# `refine` — refine a sort by a predicate.
+- id: type.refine
+  node_kind: refine
+  synth: !Refine
+    sort: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    predicate: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+# `cobind` — cobind over a grade and body.
+- id: type.cobind
+  node_kind: cobind
+  synth: !Cobind
+    grade: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    body: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+# `cobox` — a cell box.
+- id: type.cobox
+  node_kind: cobox
+  synth: !Cobox
+    cell: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+# `univalence` — univalence from an equivalence.
+- id: type.univalence
+  node_kind: univalence
+  synth: !Univalence
+    equiv: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+# `cell_comp_v` — vertical cell composition.
+- id: type.cell_comp_v
+  node_kind: cell_comp_v
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `cell_comp_h` — horizontal cell composition.
+- id: type.cell_comp_h
+  node_kind: cell_comp_h
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `whisker_left` — attach an arrow to the left side of a cell.
+- id: type.whisker_left
+  node_kind: whisker_left
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `whisker_right` — attach an arrow to the right side of a cell.
+- id: type.whisker_right
+  node_kind: whisker_right
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `glue` — glue a family along a path.
+- id: type.glue
+  node_kind: glue
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `fibrant` — fibrant type former.
+- id: type.fibrant
+  node_kind: fibrant
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+# `j` — J-elimination.
+- id: type.j
+  node_kind: j
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown

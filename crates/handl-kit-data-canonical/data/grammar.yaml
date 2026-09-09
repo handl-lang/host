@@ -1071,3 +1071,144 @@
   child_shape:
     node_kind: template
     arity: 0
+# ---------------------------------------------------------------------------
+# Cell/cubical theory surface forms (Term frontier)
+# ---------------------------------------------------------------------------
+- id: grammar.cell_id.prefix
+  token: token.keyword.cell_id
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: cell_id
+    arity: 1
+- id: grammar.cell_comp_v.prefix
+  token: token.keyword.cell_comp_v
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: cell_comp_v
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.cell_comp_h.prefix
+  token: token.keyword.cell_comp_h
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: cell_comp_h
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.whisker_left.prefix
+  token: token.keyword.whisker_left
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: whisker_left
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.whisker_right.prefix
+  token: token.keyword.whisker_right
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: whisker_right
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.univalence.prefix
+  token: token.keyword.univalence
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: univalence
+    arity: 1
+- id: grammar.glue.prefix
+  token: token.keyword.glue
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: glue
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.fibrant.prefix
+  token: token.keyword.fibrant
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: fibrant
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.j.prefix
+  token: token.keyword.j
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: j
+    arity: 3
+    child_separators:
+      - !Required token.comma
+      - !Required token.comma
+- id: grammar.witness.prefix
+  token: token.keyword.witness
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: witness
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.refine.prefix
+  token: token.keyword.refine
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: refine
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.cobind.prefix
+  token: token.keyword.cobind
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: cobind
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.cobox.prefix
+  token: token.keyword.cobox
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: cobox
+    arity: 1

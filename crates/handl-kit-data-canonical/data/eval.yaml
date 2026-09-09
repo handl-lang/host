@@ -1135,3 +1135,180 @@
           - !Child
             role: "target"
     source: Native
+# ---------------------------------------------------------------------------
+# Cell/cubical theory surface forms (Term frontier)
+# ---------------------------------------------------------------------------
+# `cell_id` — identity of a cell in a frontier context.
+- id: eval.cell_id
+  node_kind: cell_id
+  scheme: !CellId
+    arrow: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+# `cell_comp_v` — vertical cell composition.
+- id: eval.cell_comp_v
+  node_kind: cell_comp_v
+  scheme: !CellCompV
+    first: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    second: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `cell_comp_h` — horizontal cell composition.
+- id: eval.cell_comp_h
+  node_kind: cell_comp_h
+  scheme: !CellCompH
+    left: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    right: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `whisker_left` — attach an arrow to the left side of a cell.
+- id: eval.whisker_left
+  node_kind: whisker_left
+  scheme: !Whisker
+    side: Left
+    arrow: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    cell: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `whisker_right` — attach an arrow to the right side of a cell.
+- id: eval.whisker_right
+  node_kind: whisker_right
+  scheme: !Whisker
+    side: Right
+    arrow: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    cell: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `univalence` — univalence from an equivalence.
+- id: eval.univalence
+  node_kind: univalence
+  scheme: !Univalence
+    equiv: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+# `glue` — glue a family along a path.
+- id: eval.glue
+  node_kind: glue
+  scheme: !Glue
+    family: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    path: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `fibrant` — fibrant type former.
+- id: eval.fibrant
+  node_kind: fibrant
+  scheme: !Fibrant
+    base: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    family: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `j` — J-elimination.
+- id: eval.j
+  node_kind: j
+  scheme: !JElim
+    path: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    motive: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+    base: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 2
+# `witness` — witness carrying grade metadata and a proof.
+- id: eval.witness
+  node_kind: witness
+  scheme: !Witness
+    grade: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    proof: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `refine` — refine a sort by a predicate.
+- id: eval.refine
+  node_kind: refine
+  scheme: !Refine
+    sort: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    predicate: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `cobind` — cobind over a grade and body.
+- id: eval.cobind
+  node_kind: cobind
+  scheme: !Cobind
+    grade: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    body: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `cobox` — a cell box.
+- id: eval.cobox
+  node_kind: cobox
+  scheme: !Cobox
+    cell: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0

@@ -455,6 +455,33 @@ impl NbeTypecheckEngine {
                 }
                 Ok(result)
             }
+            Term::CellId { arrow } => {
+                self.eval_type_scheme(lang, ast, node_ref, arrow, ctx, incoming)
+            }
+            Term::Witness { grade: _, proof } => {
+                self.eval_type_scheme(lang, ast, node_ref, proof, ctx, incoming)
+            }
+            Term::Refine { sort, predicate: _ } => {
+                self.eval_type_scheme(lang, ast, node_ref, sort, ctx, incoming)
+            }
+            Term::Cobind { grade: _, body } => {
+                self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)
+            }
+            Term::Cobox { cell } => {
+                self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)
+            }
+            Term::Univalence { equiv } => {
+                let _ = self.eval_type_scheme(lang, ast, node_ref, equiv, ctx, incoming)?;
+                Ok(self
+                    .registry
+                    .construct("type.bool", &Value::Null)
+                    .unwrap_or(Value::Null))
+            }
+            Term::CellCompH { .. }
+            | Term::Glue { .. }
+            | Term::Fibrant { .. }
+            | Term::JElim { .. } => Ok(incoming.unwrap_or(Value::Null)),
+            _ => Ok(incoming.unwrap_or(Value::Null)),
         }
     }
 

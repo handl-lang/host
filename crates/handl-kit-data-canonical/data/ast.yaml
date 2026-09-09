@@ -1219,3 +1219,212 @@
   node_kind: erased
   payload_schema:
     type: "null"
+# ---------------------------------------------------------------------------
+# Cell/cubical theory surface forms (Term frontier)
+# ---------------------------------------------------------------------------
+- id: ast.cell_id
+  node_kind: cell_id
+  children:
+    - role: arrow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.cell_comp_v
+  node_kind: cell_comp_v
+  children:
+    - role: first
+    - role: second
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.cell_comp_h
+  node_kind: cell_comp_h
+  children:
+    - role: left
+    - role: right
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.whisker_left
+  node_kind: whisker_left
+  children:
+    - role: arrow
+    - role: cell
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.whisker_right
+  node_kind: whisker_right
+  children:
+    - role: arrow
+    - role: cell
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.univalence
+  node_kind: univalence
+  children:
+    - role: equiv
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.glue
+  node_kind: glue
+  children:
+    - role: family
+    - role: path
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.fibrant
+  node_kind: fibrant
+  children:
+    - role: base
+    - role: family
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.j
+  node_kind: j
+  children:
+    - role: path
+    - role: motive
+    - role: base
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.witness
+  node_kind: witness
+  children:
+    - role: grade
+    - role: proof
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.refine
+  node_kind: refine
+  children:
+    - role: sort
+    - role: predicate
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.cobind
+  node_kind: cobind
+  children:
+    - role: grade
+    - role: body
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.cobox
+  node_kind: cobox
+  children:
+    - role: cell
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object

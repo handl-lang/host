@@ -11123,4 +11123,107 @@ fn marshalable_predicate_for_each_ffi_type() {
             result.typ
         );
     }
+
+    // ---------------------------------------------------------------------------
+    // Frontier Term variants
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn type_cell_id_runs_arrow() {
+        let engine = engine();
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("test"));
+        let node_ref = AstRef::new(0);
+        let lang = Language::new();
+        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+        let scheme = Term::CellId {
+            arrow: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.number"),
+            )),
+        };
+        let result = engine
+            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+            .unwrap();
+        assert_eq!(result, type_number());
+    }
+
+    #[test]
+    fn type_witness_runs_proof() {
+        let engine = engine();
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("test"));
+        let node_ref = AstRef::new(0);
+        let lang = Language::new();
+        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+        let scheme = Term::Witness {
+            grade: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.string"),
+            )),
+            proof: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.number"),
+            )),
+        };
+        let result = engine
+            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+            .unwrap();
+        assert_eq!(result, type_number());
+    }
+
+    #[test]
+    fn type_refine_runs_sort() {
+        let engine = engine();
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("test"));
+        let node_ref = AstRef::new(0);
+        let lang = Language::new();
+        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+        let scheme = Term::Refine {
+            sort: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.number"),
+            )),
+            predicate: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.bool"),
+            )),
+        };
+        let result = engine
+            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+            .unwrap();
+        assert_eq!(result, type_number());
+    }
+
+    #[test]
+    fn type_cobind_runs_body() {
+        let engine = engine();
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("test"));
+        let node_ref = AstRef::new(0);
+        let lang = Language::new();
+        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+        let scheme = Term::Cobind {
+            grade: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.string"),
+            )),
+            body: Box::new(Term::arr_judgment_lit(
+                "construct",
+                vec![],
+                Value::from("type.number"),
+            )),
+        };
+        let result = engine
+            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+            .unwrap();
+        assert_eq!(result, type_number());
+    }
 }

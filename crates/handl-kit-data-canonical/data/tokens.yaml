@@ -242,6 +242,45 @@
 - id: token.keyword.with
   label: with
   category: keyword
+- id: token.keyword.cell_id
+  label: cell_id
+  category: keyword
+- id: token.keyword.cell_comp_v
+  label: cell_comp_v
+  category: keyword
+- id: token.keyword.cell_comp_h
+  label: cell_comp_h
+  category: keyword
+- id: token.keyword.whisker_left
+  label: whisker_left
+  category: keyword
+- id: token.keyword.whisker_right
+  label: whisker_right
+  category: keyword
+- id: token.keyword.univalence
+  label: univalence
+  category: keyword
+- id: token.keyword.glue
+  label: glue
+  category: keyword
+- id: token.keyword.fibrant
+  label: fibrant
+  category: keyword
+- id: token.keyword.j
+  label: j
+  category: keyword
+- id: token.keyword.witness
+  label: witness
+  category: keyword
+- id: token.keyword.refine
+  label: refine
+  category: keyword
+- id: token.keyword.cobind
+  label: cobind
+  category: keyword
+- id: token.keyword.cobox
+  label: cobox
+  category: keyword
 - id: token.lbrace
   label: "{"
   category: open-bracket

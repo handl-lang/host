@@ -103,7 +103,7 @@ use std::rc::Rc;
 use rustc_hash::FxHashMap;
 
 use handl_language::{
-    ArrSource, Ast, AstNode, AstRef, LangError, Language, Term, Value, tag_value,
+    ArrSource, Ast, AstNode, AstRef, LangError, Language, Side, Term, Value, tag_value,
 };
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
@@ -1110,6 +1110,149 @@ impl TreeWalkEngine {
                 Ok((TaggedValue::from(val), false))
             }
             Term::Transport { .. } => Err(LangError::NotImplemented),
+            Term::CellId { arrow } => {
+                let v = self.eval_scheme_tagged(
+                    arrow,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v, false))
+            }
+            Term::CellCompV { first, second } => {
+                let fst = self.eval_scheme_tagged(
+                    first,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                let snd = self.eval_scheme_tagged(
+                    second,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    Some(fst),
+                )?;
+                Ok((snd, false))
+            }
+            Term::Whisker { side, arrow, cell } => {
+                let (first, second) = match side {
+                    Side::Left => (cell, arrow),
+                    Side::Right => (arrow, cell),
+                };
+                let fst = self.eval_scheme_tagged(
+                    first,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                let snd = self.eval_scheme_tagged(
+                    second,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    Some(fst),
+                )?;
+                Ok((snd, false))
+            }
+            Term::Witness { grade: _, proof } => {
+                let v = self.eval_scheme_tagged(
+                    proof,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v, false))
+            }
+            Term::Refine { sort: _, predicate } => {
+                let inc = incoming.unwrap_or(TaggedValue::Null);
+                let pred = self.eval_scheme_tagged(
+                    predicate,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    Some(inc.clone()),
+                )?;
+                if is_truthy(&pred) {
+                    Ok((inc, false))
+                } else {
+                    Err(LangError::engine_node(
+                        "Refine: predicate not satisfied".to_string(),
+                        current_node,
+                    ))
+                }
+            }
+            Term::Cobind { grade: _, body } => {
+                let v = self.eval_scheme_tagged(
+                    body,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v, false))
+            }
+            Term::Cobox { cell } => {
+                let v = self.eval_scheme_tagged(
+                    cell,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v, false))
+            }
+            Term::Univalence { equiv } => {
+                let equiv_val = self.eval_scheme_tagged(
+                    equiv,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                if let Some(tag) = equiv_val.get("__tag__").and_then(|v| v.as_str()) {
+                    if tag == "Equiv" {
+                        let a = equiv_val.get("a").cloned().unwrap_or(TaggedValue::Null);
+                        let b = equiv_val.get("b").cloned().unwrap_or(TaggedValue::Null);
+                        let path = equiv_val.get("path").cloned().unwrap_or(TaggedValue::Null);
+                        let mut map = FxHashMap::default();
+                        map.insert(Rc::from("__tag__"), TaggedValue::Str(Rc::from("Path")));
+                        map.insert(Rc::from("a"), a);
+                        map.insert(Rc::from("b"), b);
+                        map.insert(Rc::from("path"), path);
+                        return Ok((TaggedValue::Obj(Rc::new(map)), false));
+                    }
+                }
+                Ok((equiv_val, false))
+            }
+            Term::CellCompH { .. }
+            | Term::Glue { .. }
+            | Term::Fibrant { .. }
+            | Term::JElim { .. } => Err(LangError::NotImplemented),
         }
     }
 
@@ -8227,6 +8370,131 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Frontier Term variants
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn cell_id_runs_arrow() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::CellId {
+            arrow: Box::new(lit(7)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(7));
+    }
+
+    #[test]
+    fn cell_comp_v_composes_vertically() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::CellCompV {
+            first: Box::new(lit(7)),
+            second: Box::new(Term::arr_native("id", vec![])),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(7));
+    }
+
+    #[test]
+    fn witness_ignores_grade() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::Witness {
+            grade: Box::new(lit("ignored")),
+            proof: Box::new(lit("result")),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!("result"));
+    }
+
+    #[test]
+    fn refine_passes_when_predicate_truthy() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let ast = make_ast(vec![dummy_node()]);
+        let node = ast.at(AstRef::new(0)).unwrap();
+        let scheme = Term::Refine {
+            sort: Box::new(lit("type.number")),
+            predicate: Box::new(Term::arr_native("id", vec![])),
+        };
+        let result = engine
+            .eval_scheme(
+                &scheme,
+                &ast,
+                AstRef::new(0),
+                &Language::new(),
+                &mut env,
+                node,
+                Some(json!(42)),
+            )
+            .unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn refine_errors_when_predicate_falsy() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let ast = make_ast(vec![dummy_node()]);
+        let node = ast.at(AstRef::new(0)).unwrap();
+        let scheme = Term::Refine {
+            sort: Box::new(lit("type.number")),
+            predicate: Box::new(lit(false)),
+        };
+        let err = engine
+            .eval_scheme(
+                &scheme,
+                &ast,
+                AstRef::new(0),
+                &Language::new(),
+                &mut env,
+                node,
+                Some(json!(42)),
+            )
+            .unwrap_err();
+        assert!(matches!(err, LangError::Engine { .. }));
+    }
+
+    #[test]
+    fn cobind_runs_body() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::Cobind {
+            grade: Box::new(lit(0)),
+            body: Box::new(lit("body")),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!("body"));
+    }
+
+    #[test]
+    fn univalence_wraps_equiv_as_path() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let equiv = json!({"__tag__": "Equiv", "a": 1, "b": 2, "path": "p"});
+        let scheme = Term::Univalence {
+            equiv: Box::new(lit(equiv)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result.get("__tag__").and_then(Value::as_str), Some("Path"));
+        assert_eq!(result.get("a"), Some(&json!(1)));
+        assert_eq!(result.get("b"), Some(&json!(2)));
+        assert_eq!(result.get("path"), Some(&json!("p")));
+    }
+
+    #[test]
+    fn univalence_passes_through_non_equiv() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::Univalence {
+            equiv: Box::new(lit(42)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
         assert_eq!(result, json!(42));
     }
 }
