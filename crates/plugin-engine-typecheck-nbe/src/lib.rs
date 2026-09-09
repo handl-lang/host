@@ -425,8 +425,57 @@ impl NbeTypecheckEngine {
                 .registry
                 .construct("type.bool", &Value::Null)
                 .unwrap_or(Value::Null)),
-            Term::Transport { value, .. } => {
-                self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)
+            // ADR-0104b minimal core: conservative/identity-like type rules.
+            Term::Const { value } => Ok(value.clone()),
+            Term::Src { cell } => {
+                let cell_val =
+                    self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+                Ok(cell_val
+                    .get("__src__")
+                    .cloned()
+                    .unwrap_or(Value::Null))
+            }
+            Term::Tgt { cell } => {
+                let cell_val =
+                    self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+                Ok(cell_val
+                    .get("__tgt__")
+                    .cloned()
+                    .unwrap_or(Value::Null))
+            }
+            Term::RecordProj { record, field } => {
+                let record_val =
+                    self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming)?;
+                Ok(record_val
+                    .get(field)
+                    .cloned()
+                    .unwrap_or(Value::Null))
+            }
+            Term::RecordWith { record, field, value } => {
+                let record_val =
+                    self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming.clone())?;
+                let value_val =
+                    self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+                let mut map = match record_val {
+                    Value::Object(m) => m.clone(),
+                    _ => serde_json::Map::new(),
+                };
+                map.insert(field.clone(), value_val);
+                Ok(Value::Object(map))
+            }
+            Term::Tag { tag, value } => {
+                let val =
+                    self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+                let mut map = match val {
+                    Value::Object(m) => m.clone(),
+                    _ => {
+                        let mut m = serde_json::Map::new();
+                        m.insert("value".to_string(), val);
+                        m
+                    }
+                };
+                map.insert("__tag__".to_string(), Value::String(tag.clone()));
+                Ok(Value::Object(map))
             }
             // `handle body with target = impl_` (ADR-0076): eliminate the
             // handler at compile time (rewriting every bare arr(target) in
@@ -458,17 +507,28 @@ impl NbeTypecheckEngine {
             Term::CellId { arrow } => {
                 self.eval_type_scheme(lang, ast, node_ref, arrow, ctx, incoming)
             }
-            Term::Witness { grade: _, proof } => {
-                self.eval_type_scheme(lang, ast, node_ref, proof, ctx, incoming)
-            }
             Term::Refine { sort, predicate: _ } => {
                 self.eval_type_scheme(lang, ast, node_ref, sort, ctx, incoming)
             }
-            Term::Cobind { grade: _, body } => {
-                self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)
-            }
-            Term::Cobox { cell } => {
-                self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)
+            Term::Cobind { grade, body } => {
+                let grade_val =
+                    self.eval_type_scheme(lang, ast, node_ref, grade, ctx, incoming.clone())?;
+                let body_val =
+                    self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)?;
+                let grade = self.grade_string(&grade_val);
+                let mut result = match body_val {
+                    Value::Object(m) => m,
+                    other => {
+                        let mut m = serde_json::Map::new();
+                        m.insert("__type__".to_string(), other);
+                        m
+                    }
+                };
+                result.insert(
+                    "__coeffects__".to_string(),
+                    serde_json::json!([{ "grade": grade }]),
+                );
+                Ok(Value::Object(result))
             }
             Term::Univalence { equiv } => {
                 let _ = self.eval_type_scheme(lang, ast, node_ref, equiv, ctx, incoming)?;
@@ -476,9 +536,6 @@ impl NbeTypecheckEngine {
                     .registry
                     .construct("type.bool", &Value::Null)
                     .unwrap_or(Value::Null))
-            }
-            Term::CellCompH { right, .. } => {
-                self.eval_type_scheme(lang, ast, node_ref, right, ctx, incoming)
             }
             Term::Glue { family, .. } => {
                 self.eval_type_scheme(lang, ast, node_ref, family, ctx, incoming)
@@ -498,6 +555,18 @@ impl NbeTypecheckEngine {
             }
             _ => Ok(incoming.unwrap_or(Value::Null)),
         }
+    }
+
+    /// Extract a grade name from a value, falling back to its tag or "?".
+    fn grade_string(&self, val: &Value) -> String {
+        val.as_str()
+            .map(|s| s.to_string())
+            .or_else(|| {
+                val.get("__tag__")
+                    .and_then(Value::as_str)
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| "?".to_string())
     }
 
     /// Evaluate a `Native` `Arr` op within a type rule.
@@ -5123,7 +5192,6 @@ impl plugin_engine::Model for TypeModel {
                 .registry
                 .construct("type.bool", &Value::Null)
                 .unwrap_or(Value::Null)),
-            Term::Transport { value, .. } => self.run(value, incoming, ctx),
             // `Term::Op`: grade-based dispatch — evaluate each arg with
             // `incoming`, then consult the handler stack / language-level
             // handler before falling back to the type-native dispatch.

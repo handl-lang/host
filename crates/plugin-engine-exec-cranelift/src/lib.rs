@@ -4509,6 +4509,57 @@ fn apply_native_v2(
                 ))
             }
         }
+        // `paren` — parentheses/grouping: evaluate children from the current
+        // node's payload, falling back to the supplied args/incoming.
+        "paren" => {
+            let children = ctx.current_node().ok().and_then(|n| {
+                n.payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .map(|a| a.clone())
+            });
+            if let Some(children) = children {
+                if children.is_empty() {
+                    Ok(incoming.unwrap_or(TaggedValue::Null))
+                } else if children.len() == 1 {
+                    let idx = match children[0].as_u64() {
+                        Some(i) => i as usize,
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "paren: child index must be a number".to_string(),
+                            ))
+                        }
+                    };
+                    match eval_child_node(ctx, idx) {
+                        Ok(v) => Ok(v),
+                        Err(e) => return ctx.set_error(e),
+                    }
+                } else {
+                    let mut vals = Vec::with_capacity(children.len());
+                    for c in children {
+                        let idx = match c.as_u64() {
+                            Some(i) => i as usize,
+                            None => {
+                                return ctx.set_error(LangError::engine(
+                                    "paren: child index must be a number".to_string(),
+                                ))
+                            }
+                        };
+                        match eval_child_node(ctx, idx) {
+                            Ok(v) => vals.push(v),
+                            Err(e) => return ctx.set_error(e),
+                        }
+                    }
+                    Ok(TaggedValue::Arr(Rc::from(vals)))
+                }
+            } else if args.is_empty() {
+                Ok(incoming.unwrap_or(TaggedValue::Null))
+            } else if args.len() == 1 {
+                Ok(args[0].clone())
+            } else {
+                Ok(TaggedValue::Arr(Rc::from(args.to_vec())))
+            }
+        }
         _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
     };
 

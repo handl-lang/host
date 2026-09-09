@@ -74,7 +74,18 @@ fn cell_id_end_to_end() {
 #[test]
 fn cobind_end_to_end() {
     let rt = frontier_runtime();
-    // `Storable ?> 42` ignores the grade and evaluates the body.
+    // `Storable ?> 42` evaluates the body. The `Storable` grade is also
+    // collected into the runtime effect row, but the effect row is not yet
+    // exposed as a return value, so we assert the body value here.
     let result = rt.run(&Source::new("Storable ?> 42")).expect("cobind runs");
     assert_eq!(result, json!(42));
+}
+
+#[test]
+fn graded_arrow_lexes_parses_runs() {
+    let rt = frontier_runtime();
+    // `add ~Addable~> Int` produces an `Arrow` record carrying the grade.
+    // Effect collection is not yet exposed at runtime, so we assert the record.
+    let result = rt.run(&Source::new("add ~Addable~> Int")).expect("graded arrow runs");
+    assert_eq!(result.get("__tag__").and_then(|v| v.as_str()), Some("Arrow"));
 }

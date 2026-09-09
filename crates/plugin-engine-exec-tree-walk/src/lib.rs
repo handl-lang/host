@@ -305,6 +305,8 @@ pub struct ScopeStack {
     /// from inside `if`/`match` branch blocks, and a pass that produces
     /// any such write must not count as converged.
     pub(crate) enclosing_updated: bool,
+    /// Runtime effect/coeffect row accumulated during this evaluation.
+    pub(crate) effects: Vec<String>,
 }
 
 #[allow(clippy::new_without_default)]
@@ -317,6 +319,7 @@ impl ScopeStack {
             captured: None,
             globals: Rc::new(FxHashMap::default()),
             enclosing_updated: false,
+            effects: Vec::new(),
         }
     }
 
@@ -540,6 +543,36 @@ impl TreeWalkEngine {
         self
     }
 
+    /// Add a grade name (or a list of grade names) to the accumulated
+    /// runtime effect/coeffect row.
+    fn collect_grades(&self, value: &TaggedValue, env: &mut ScopeStack) {
+        match value {
+            TaggedValue::Str(s) => env.effects.push(s.to_string()),
+            TaggedValue::Arr(a) => {
+                for v in a.iter() {
+                    if let Some(s) = v.as_str() {
+                        env.effects.push(s.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Collect the grade(s) declared by an `Arrow` record, if any.
+    fn collect_arrow_grades(&self, value: &TaggedValue, env: &mut ScopeStack) {
+        if let TaggedValue::Obj(map) = value {
+            if map.get("__tag__").and_then(|t| t.as_str()) == Some("Arrow") {
+                if let Some(grade) = map.get("grade") {
+                    self.collect_grades(grade, env);
+                }
+                if let Some(grades) = map.get("grades") {
+                    self.collect_grades(grades, env);
+                }
+            }
+        }
+    }
+
     /// Interpret a given [`Term`] in the context of `current_node`.
     ///
     /// This is the core handler entry point. `incoming` is the value fed
@@ -600,8 +633,11 @@ impl TreeWalkEngine {
         current_node: &AstNode,
         incoming: Option<TaggedValue>,
     ) -> Result<TaggedValue, LangError> {
+        // Surface schemes may still use the derived forms. Expand them to the
+        // core combinators once before interpretation.
+        let scheme = scheme.desugar();
         let (val, did_push) =
-            self.eval_inner(scheme, ast, node_ref, lang, env, current_node, incoming)?;
+            self.eval_inner(&scheme, ast, node_ref, lang, env, current_node, incoming)?;
         // A bare extend_env (no enclosing Seq to pop it) is balanced here.
         if did_push {
             env.pop_scope();
@@ -631,24 +667,32 @@ impl TreeWalkEngine {
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
         match scheme {
-            Term::Arr { value } => Ok((TaggedValue::from(value.clone()), false)),
+            Term::Arr { value } => {
+                let tv = TaggedValue::from(value.clone());
+                self.collect_arrow_grades(&tv, env);
+                Ok((tv, false))
+            }
             Term::Op {
                 name: op,
                 args,
                 source,
                 lit,
-            } => self.eval_arr(
-                op,
-                args,
-                source,
-                lit.as_ref(),
-                ast,
-                node_ref,
-                lang,
-                env,
-                current_node,
-                incoming,
-            ),
+            } => {
+                let (val, pushed) = self.eval_arr(
+                    op,
+                    args,
+                    source,
+                    lit.as_ref(),
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                self.collect_arrow_grades(&val, env);
+                Ok((val, pushed))
+            }
             Term::Seq { fst, snd } => {
                 let (fst_val, fst_pushed) = self.eval_inner(
                     fst,
@@ -896,6 +940,10 @@ impl TreeWalkEngine {
                     }
                     arg_vals.push(v);
                 }
+                for v in &arg_vals {
+                    self.collect_arrow_grades(v, env);
+                }
+                self.collect_arrow_grades(&callee_val, env);
                 // ADR-0060: unpack single array arg for variable-arity call.
                 // When the App receives a single argument that is an array,
                 // unpack it into individual arguments. This supports the
@@ -1109,7 +1157,90 @@ impl TreeWalkEngine {
                 let val = Value::Bool(tagged_to_value(&av) == tagged_to_value(&bv));
                 Ok((TaggedValue::from(val), false))
             }
-            Term::Transport { .. } => Err(LangError::NotImplemented),
+            Term::Const { value } => Ok((TaggedValue::from(value.clone()), false)),
+            Term::Src { cell } => {
+                let v = self.eval_scheme_tagged(
+                    cell,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v.get("__src__").cloned().unwrap_or(TaggedValue::Null), false))
+            }
+            Term::Tgt { cell } => {
+                let v = self.eval_scheme_tagged(
+                    cell,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((v.get("__tgt__").cloned().unwrap_or(TaggedValue::Null), false))
+            }
+            Term::RecordProj { record, field } => {
+                let record_val = self.eval_scheme_tagged(
+                    record,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((
+                    record_val
+                        .get(field)
+                        .cloned()
+                        .unwrap_or(TaggedValue::Null),
+                    false,
+                ))
+            }
+            Term::RecordWith { record, field, value } => {
+                let record_val = self.eval_scheme_tagged(
+                    record,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let value_val = self.eval_scheme_tagged(
+                    value,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                let mut map = record_val
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default();
+                map.insert(Rc::from(field.as_str()), value_val);
+                Ok((TaggedValue::Obj(Rc::new(map)), false))
+            }
+            Term::Tag { tag, value } => {
+                let val = self.eval_scheme_tagged(
+                    value,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                let tagged = tag_value(tag, &tagged_to_value(&val))
+                    .map(TaggedValue::from)
+                    .unwrap_or(TaggedValue::Null);
+                Ok((tagged, false))
+            }
             Term::CellId { arrow } => {
                 let v = self.eval_scheme_tagged(
                     arrow,
@@ -1168,18 +1299,6 @@ impl TreeWalkEngine {
                 )?;
                 Ok((snd, false))
             }
-            Term::Witness { grade: _, proof } => {
-                let v = self.eval_scheme_tagged(
-                    proof,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming,
-                )?;
-                Ok((v, false))
-            }
             Term::Refine { sort: _, predicate } => {
                 let inc = incoming.unwrap_or(TaggedValue::Null);
                 let pred = self.eval_scheme_tagged(
@@ -1200,7 +1319,17 @@ impl TreeWalkEngine {
                     ))
                 }
             }
-            Term::Cobind { grade: _, body } => {
+            Term::Cobind { grade, body } => {
+                let grade_val = self.eval_scheme_tagged(
+                    grade,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                self.collect_grades(&grade_val, env);
                 let v = self.eval_scheme_tagged(
                     body,
                     ast,
@@ -1210,19 +1339,13 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((v, false))
-            }
-            Term::Cobox { cell } => {
-                let v = self.eval_scheme_tagged(
-                    cell,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming,
-                )?;
-                Ok((v, false))
+                // ADR-0104b: the cobind wraps the raw value under a `value`
+                // field so that `RecordProj { record, field: "value" }` can
+                // unwrap a coboxed value.
+                let mut map = FxHashMap::default();
+                map.insert(Rc::from("value"), v);
+                map.insert(Rc::from("grade"), grade_val);
+                Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
             Term::Univalence { equiv } => {
                 let equiv_val = self.eval_scheme_tagged(
@@ -1248,31 +1371,6 @@ impl TreeWalkEngine {
                     }
                 }
                 Ok((equiv_val, false))
-            }
-            Term::CellCompH { left, right } => {
-                let left_val = self.eval_scheme_tagged(
-                    left,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming.clone(),
-                )?;
-                let right_val = self.eval_scheme_tagged(
-                    right,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming.clone(),
-                )?;
-                let mut map = FxHashMap::default();
-                map.insert(Rc::from("__tag__"), TaggedValue::Str(Rc::from("CellCompH")));
-                map.insert(Rc::from("left"), left_val);
-                map.insert(Rc::from("right"), right_val);
-                Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
             Term::Glue { family, path } => {
                 let _ = self.eval_scheme_tagged(
@@ -4863,47 +4961,6 @@ impl Model for ValueModel {
                     }
                 }
                 Ok(Value::Bool(eq))
-            }
-            Term::Transport { path, value } => {
-                let path_val = self.run(path, incoming.clone(), ctx)?;
-                let val = self.run(value, incoming, ctx)?;
-                match path_val {
-                    Value::Object(obj)
-                        if obj.get("__tag__").and_then(Value::as_str) == Some("Rewrite") =>
-                    {
-                        let source_term = obj.get("source").cloned().unwrap_or(Value::Null);
-                        let target_term = obj.get("target").cloned().unwrap_or(Value::Null);
-                        let source: Term = serde_json::from_value(source_term)
-                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                        let target: Term = serde_json::from_value(target_term)
-                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                        let witness = match obj.get("witness").and_then(Value::as_str) {
-                            Some(name) => {
-                                plugin_engine::RewriteWitness::Named(name.to_string())
-                            }
-                            None => plugin_engine::RewriteWitness::Compute,
-                        };
-                        let result = self.rewrite(&source, &target, &witness, &val, ctx)?;
-                        Ok(result.into_value())
-                    }
-                    Value::Object(obj)
-                        if obj.get("__tag__").and_then(Value::as_str) == Some("Path") =>
-                    {
-                        let from = obj.get("from").cloned().unwrap_or(Value::Null);
-                        let to = obj.get("to").cloned().unwrap_or(Value::Null);
-                        let witness = match obj.get("witness").and_then(Value::as_str) {
-                            Some(name) => {
-                                plugin_engine::RewriteWitness::Named(name.to_string())
-                            }
-                            None => plugin_engine::RewriteWitness::Compute,
-                        };
-                        let source = Term::const_value(from);
-                        let target = Term::const_value(to);
-                        let result = self.rewrite(&source, &target, &witness, &val, ctx)?;
-                        Ok(result.into_value())
-                    }
-                    _ => Ok(val),
-                }
             }
             _ => self.eval_scheme_term(term, incoming),
         }
@@ -8499,18 +8556,6 @@ mod tests {
     }
 
     #[test]
-    fn witness_ignores_grade() {
-        let engine = TreeWalkEngine::new();
-        let mut env = ScopeStack::new();
-        let scheme = Term::Witness {
-            grade: Box::new(lit("ignored")),
-            proof: Box::new(lit("result")),
-        };
-        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
-        assert_eq!(result, json!("result"));
-    }
-
-    #[test]
     fn refine_passes_when_predicate_truthy() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
@@ -8594,20 +8639,6 @@ mod tests {
         };
         let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
         assert_eq!(result, json!(42));
-    }
-
-    #[test]
-    fn cell_comp_h_returns_record() {
-        let engine = TreeWalkEngine::new();
-        let mut env = ScopeStack::new();
-        let scheme = Term::CellCompH {
-            left: Box::new(lit(1)),
-            right: Box::new(lit(2)),
-        };
-        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
-        assert_eq!(result.get("__tag__").and_then(Value::as_str), Some("CellCompH"));
-        assert_eq!(result.get("left"), Some(&json!(1)));
-        assert_eq!(result.get("right"), Some(&json!(2)));
     }
 
     #[test]

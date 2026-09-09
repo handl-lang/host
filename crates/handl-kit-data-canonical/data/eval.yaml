@@ -1161,20 +1161,36 @@
       args: []
       source: Native
       lit: 1
-# `cell_comp_h` — horizontal cell composition.
+# `cell_comp_h` — horizontal cell composition (desugared to CellCompV + Whisker).
 - id: eval.cell_comp_h
   node_kind: cell_comp_h
-  scheme: !CellCompH
-    left: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
-    right: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
+  scheme: !CellCompV
+    first: !Whisker
+      side: Right
+      arrow: !Tgt
+        cell: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+      cell: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+    second: !Whisker
+      side: Left
+      arrow: !Src
+        cell: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 0
+      cell: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 1
 # `whisker_left` — attach an arrow to the left side of a cell.
 - id: eval.whisker_left
   node_kind: whisker_left
@@ -1261,20 +1277,27 @@
       args: []
       source: Native
       lit: 2
-# `witness` — witness carrying grade metadata and a proof.
+# `witness` — witness carrying grade metadata and a proof (desugared to record/tag core).
 - id: eval.witness
   node_kind: witness
-  scheme: !Witness
-    grade: !Op
+  scheme: !RecordWith
+    record: !Tag
+      tag: "Witness"
+      value: !RecordWith
+        record: !Const
+          value: null
+        field: "type"
+        value: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+    field: "grade"
+    value: !Op
       name: proj_child
       args: []
       source: Native
       lit: 0
-    proof: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
 # `refine` — refine a sort by a predicate.
 # Surface `A where P` means: evaluate A, then check the predicate against it.
 - id: eval.refine
@@ -1310,26 +1333,30 @@
       args: []
       source: Native
       lit: 1
-# `cobox` — a cell box.
+# `cobox` — a cell box (desugared to record projection of `value`).
 - id: eval.cobox
   node_kind: cobox
-  scheme: !Cobox
-    cell: !Op
+  scheme: !RecordProj
+    record: !Op
       name: proj_child
       args: []
       source: Native
       lit: 0
-# `transport` — transport a value along a path.
+    field: "value"
+# `transport` — transport a value along a path (desugared to native `transport` op).
 - id: eval.transport
   node_kind: transport
-  scheme: !Transport
-    path: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
-    value: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
+  scheme: !Op
+    name: transport
+    args:
+      - !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 1
+    source: Native

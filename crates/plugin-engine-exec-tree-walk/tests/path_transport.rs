@@ -71,29 +71,3 @@ fn equiv_equal() {
     assert_eq!(result, json!(true));
 }
 
-#[test]
-fn transport_rewrite() {
-    let lang = Language::new();
-    let ast = Ast::new();
-    let current_node = plugin_engine::AstNode;
-    let mut ctx = model_ctx(&lang, &ast, &current_node);
-
-    let source = Term::const_value(json!(1.0));
-    let target = Term::const_value(json!(2.0));
-    let rewrite = json!({
-        "__tag__": "Rewrite",
-        "source": serde_json::to_value(source).unwrap(),
-        "target": serde_json::to_value(target).unwrap(),
-    });
-
-    let term = Term::Transport {
-        path: Box::new(Term::const_value(rewrite)),
-        value: Box::new(Term::const_value(json!(1.0))),
-    };
-
-    let result = ValueModel(TreeWalkEngine::new())
-        .run(&term, json!(null), &mut ctx)
-        .unwrap();
-
-    assert_eq!(result, json!(2.0));
-}
