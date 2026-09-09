@@ -4,6 +4,17 @@
 
 Proposed.
 
+## Implementation status
+
+The following 2-categorical and HoTT-oriented pieces are now wired into the codebase:
+
+- `Term::Rewrite` with source/target/witness and a value-carrying `RewriteResult` (`Equal`, `NotEqual`, `Rewritten`).
+- Law and rewrite rule registries on `Language` (`laws`, `rewrites`).
+- `Term::Path`, `Term::Equiv`, and `Term::Transport` variants and basic `ValueModel`/`TypeModel` semantics.
+- `Transport` uses `Model::rewrite` to move a value along a path/rewrite.
+
+Higher directed HoTT features (higher cells, univalence-based transport, full fibrations, directed univalence, and (∞,1)-functor models) remain theoretical and are not implemented.
+
 ## Context
 
 ADR-0098 establishes that Handl is a category-graded arrow theory with one `Term` language and multiple `Model` interpreters. The `Term` data, `Model` trait, `sort`/`grade`/`op` declarations, and handler algebra provide the 1-categorical foundation.
