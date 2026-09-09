@@ -2687,6 +2687,65 @@
                             source: Judgment
                             lit: type.function
 
+# Arrow-calculus combinators (surface syntax follow-up). Precise kind
+# signatures are future work — these are `type.unknown` placeholders.
+#   arr op    : A ~> B          (op lifted into an arrow)
+#   first f   : (A, C) ~> (B, C)   where f : A ~> B
+#   second f  : (C, A) ~> (C, B)   where f : A ~> B
+#   left f    : (A | C) ~> (B | C) where f : A ~> B
+#   right f   : (C | A) ~> (C | B) where f : A ~> B
+#   f +++ g   : (A | C) ~> (B | D) where f : A ~> B, g : C ~> D
+#   f app x   : B                where f : A ~> B, x : A
+- id: type.arr
+  node_kind: arr
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.first
+  node_kind: first
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.second
+  node_kind: second
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.left
+  node_kind: left
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.right
+  node_kind: right
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.sum
+  node_kind: sum
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+- id: type.app
+  node_kind: app
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
 # `choice` — categorical choice `|||` (ADR-0074 follow-up #3).
 # Arrow kind signature: f: A ~> C, g: B ~> C ⟹ f ||| g : (A | B) ~> C.
 # Synth child 0 (f) and child 1 (g), extract each function's param/body,

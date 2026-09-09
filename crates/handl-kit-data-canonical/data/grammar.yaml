@@ -159,6 +159,30 @@
   child_shape:
     node_kind: product
     arity: 2
+# `f +++ g` — categorical sum combinator (arrow `+++`). Same precedence
+# band as `***` product / `&&&` fanout (35/36).
+- id: grammar.sum.infix
+  token: token.sum
+  position: Infix
+  binding_power:
+    - 35
+    - 36
+  child_shape:
+    node_kind: sum
+    arity: 2
+# `f app x` — arrow application (arrow `App` combinator). `app` is a
+# keyword infix; it binds tighter than the arithmetic operators but below
+# call/index/field-access (85/86), so `f app x(y)` / `f app x[i]` group
+# the argument expression as expected.
+- id: grammar.app.infix
+  token: token.keyword.app
+  position: Infix
+  binding_power:
+    - 85
+    - 86
+  child_shape:
+    node_kind: app
+    arity: 2
 - id: grammar.nullish.infix
   token: token.nullish
   position: Infix
@@ -457,6 +481,65 @@
     - 0
   child_shape:
     node_kind: infer
+    arity: 1
+# `arr op` — lift a named operation into an arrow (arrow `Arr`
+# combinator). The operation name is a bare identifier consumed via
+# `payload_tokens` (ADR-0053 §7b) into `payload.name` — it is not a child
+# expression. The eval scheme (`eval.arr`) uses `op: "$payload"`; the
+# engine resolves the actual op name from the node payload before
+# dispatching the native op against the incoming value.
+- id: grammar.arr.prefix
+  token: token.keyword.arr
+  position: Prefix
+  binding_power:
+    - 70
+    - 0
+  child_shape:
+    node_kind: arr
+    arity: 0
+    payload_tokens:
+      - token: token.identifier
+        field: name
+# `first f` / `second f` — map an arrow over one component of a pair
+# (arrow `first`/`second` combinators). Unary prefixes like `neg`
+# (binding power 70): `first f` binds only `f`.
+- id: grammar.first.prefix
+  token: token.keyword.first
+  position: Prefix
+  binding_power:
+    - 70
+    - 0
+  child_shape:
+    node_kind: first
+    arity: 1
+- id: grammar.second.prefix
+  token: token.keyword.second
+  position: Prefix
+  binding_power:
+    - 70
+    - 0
+  child_shape:
+    node_kind: second
+    arity: 1
+# `left f` / `right f` — map an arrow over one variant of an either
+# (arrow `left`/`right` combinators).
+- id: grammar.left.prefix
+  token: token.keyword.left
+  position: Prefix
+  binding_power:
+    - 70
+    - 0
+  child_shape:
+    node_kind: left
+    arity: 1
+- id: grammar.right.prefix
+  token: token.keyword.right
+  position: Prefix
+  binding_power:
+    - 70
+    - 0
+  child_shape:
+    node_kind: right
     arity: 1
 # `data Name :: <constructors>` — inductive type declaration (ADR-0082).
 # The `data` keyword is followed by the type name (identifier), optional

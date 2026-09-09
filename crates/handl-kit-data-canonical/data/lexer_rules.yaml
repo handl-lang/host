@@ -141,6 +141,16 @@
     close_at_eof: false
     nesting_open: "{"
   priority: 5
+- id: lex.keyword.app
+  token_kind: token.keyword.app
+  pattern: !Literal
+    text: app
+  priority: 15
+- id: lex.keyword.arr
+  token_kind: token.keyword.arr
+  pattern: !Literal
+    text: arr
+  priority: 15
 - id: lex.keyword.as
   token_kind: token.keyword.as
   pattern: !Literal
@@ -170,6 +180,11 @@
   token_kind: token.keyword.export
   pattern: !Literal
     text: export
+  priority: 15
+- id: lex.keyword.first
+  token_kind: token.keyword.first
+  pattern: !Literal
+    text: first
   priority: 15
 - id: lex.keyword.for
   token_kind: token.keyword.for
@@ -222,6 +237,11 @@
 # it keeps `let` reserved (lexes to `token.keyword.let`, which has NO
 # grammar row) so `let x :: v` errors with "unexpected token" rather than
 # silently re-lexing as an identifier. Same pattern as `lex.keyword.then`.
+- id: lex.keyword.left
+  token_kind: token.keyword.left
+  pattern: !Literal
+    text: left
+  priority: 15
 - id: lex.keyword.let
   token_kind: token.keyword.let
   pattern: !Literal
@@ -241,6 +261,16 @@
   token_kind: token.keyword.return
   pattern: !Literal
     text: return
+  priority: 15
+- id: lex.keyword.right
+  token_kind: token.keyword.right
+  pattern: !Literal
+    text: right
+  priority: 15
+- id: lex.keyword.second
+  token_kind: token.keyword.second
+  pattern: !Literal
+    text: second
   priority: 15
 - id: lex.keyword.then
   token_kind: token.keyword.then
@@ -343,6 +373,14 @@
   pattern: !Literal
     text: "%"
   priority: 20
+- id: lex.sum
+  # `+++` is the categorical sum combinator (arrow `+++`). Priority 10
+  # (< lex.plus' 20) so the three-character operator wins over `+`
+  # (longest match within priority) — same pattern as `***` vs `*`.
+  token_kind: token.sum
+  pattern: !Literal
+    text: "+++"
+  priority: 10
 - id: lex.plus
   token_kind: token.plus
   pattern: !Literal

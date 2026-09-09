@@ -90,6 +90,14 @@
       - "{"
       - "}"
   category: string
+- id: token.keyword.app
+  label: app
+  category: keyword
+  doc: "**Arrow application — arrow `App` combinator** `app`\n\n```\n`f` app `x`\n```"
+- id: token.keyword.arr
+  label: arr
+  category: keyword
+  doc: "**Lift a named operation into an arrow** `arr`\n\n```\narr `op`\n```"
 - id: token.keyword.as
   label: as
   category: keyword
@@ -110,6 +118,10 @@
 - id: token.keyword.export
   label: export
   category: keyword
+- id: token.keyword.first
+  label: first
+  category: keyword
+  doc: "**Map over the first component of a pair — arrow `first` combinator** `first`\n\n```\nfirst `f`\n```"
 - id: token.keyword.for
   label: for
   category: keyword
@@ -147,6 +159,10 @@
 # `token.keyword.then`/`token.keyword.axiom` — so `let` stays a reserved
 # word and `let x :: v` fails to parse ("unexpected token") instead of
 # silently lexing as an identifier.
+- id: token.keyword.left
+  label: left
+  category: keyword
+  doc: "**Map over the left variant of an either — arrow `left` combinator** `left`\n\n```\nleft `f`\n```"
 - id: token.keyword.let
   label: let
   category: keyword
@@ -162,6 +178,14 @@
   label: return
   category: keyword
   doc: "**Return a value from an arrow** `return`\n\n```\nreturn `expr`\n```"
+- id: token.keyword.right
+  label: right
+  category: keyword
+  doc: "**Map over the right variant of an either — arrow `right` combinator** `right`\n\n```\nright `f`\n```"
+- id: token.keyword.second
+  label: second
+  category: keyword
+  doc: "**Map over the second component of a pair — arrow `second` combinator** `second`\n\n```\nsecond `f`\n```"
 - id: token.keyword.then
   label: then
   category: keyword
@@ -279,6 +303,9 @@
       - - '\\'
         - '\'
   category: string
+- id: token.sum
+  label: "+++"
+  category: operator
 - id: token.template
   label: null
   category: template

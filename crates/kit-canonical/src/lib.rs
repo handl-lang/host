@@ -218,6 +218,9 @@ impl ModuleResolver for StdlibResolver {
             "result" => stdlib::module_with("result", &StdlibResolver).map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
+            "cmp" => stdlib::module("cmp").map(|m| {
+                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
+            }),
             "ip" => Some(std::sync::Arc::new(stdlib::ops::ip::IpModule)),
             _ => None,
         }
@@ -355,6 +358,8 @@ fn build_stdlib_registry() -> ModuleRegistry {
     // `prim` — the atom layer: all four functions are pure handl
     // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
     stdlib_registry.register(stdlib::module("prim").expect("prim"));
+    // `cmp` — ordering and sorting (gap #4).
+    stdlib_registry.register(stdlib::module("cmp").expect("cmp"));
     // `time`/`rand` — native backends (clock reads, deterministic
     // seeded RNG for `property`/`fuzz`, ADR-0092).
     stdlib_registry.register(TimeModule);
@@ -2236,7 +2241,9 @@ mod tests {
     #[test]
     fn parse_index() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("arr[0]").unwrap();
+        // `arr` is now a reserved arrow-combinator keyword (`grammar.arr.prefix`),
+        // so the index test uses a plain identifier as the container expr.
+        let ast = kit.parse("xs[0]").unwrap();
         assert!(ast.len() > 0);
     }
 

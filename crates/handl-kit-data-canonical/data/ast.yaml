@@ -801,6 +801,121 @@
     required:
       - children
     type: object
+# `sum` — categorical sum `f +++ g` (2 children, like product).
+- id: ast.sum
+  node_kind: sum
+  children:
+    - role: left
+    - role: right
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `app` — arrow application `f app x` (2 children: arrow + argument).
+- id: ast.app
+  node_kind: app
+  children:
+    - role: arrow
+    - role: argument
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `arr` — `arr op` (0 children; the op name is captured into `payload.name`
+# via `payload_tokens`).
+- id: ast.arr
+  node_kind: arr
+  pattern_role: leaf
+  payload_schema:
+    properties:
+      name:
+        type: string
+      children:
+        items:
+          type: integer
+        maxItems: 0
+        type: array
+    required:
+      - name
+    type: object
+# `first` / `second` — map an arrow over one component of a pair
+# (1 child: the sub-arrow).
+- id: ast.first
+  node_kind: first
+  children:
+    - role: arrow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.second
+  node_kind: second
+  children:
+    - role: arrow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
+# `left` / `right` — map an arrow over one variant of an either
+# (1 child: the sub-arrow).
+- id: ast.left
+  node_kind: left
+  children:
+    - role: arrow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.right
+  node_kind: right
+  children:
+    - role: arrow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
 # `nullish` — nullish coalescing `??` (2 children, like choice).
 - id: ast.nullish
   node_kind: nullish

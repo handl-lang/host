@@ -467,13 +467,15 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 62 type rules in types.yaml. `type.let` covers the internal
+        // 69 type rules in types.yaml. `type.let` covers the internal
         // `let` binding kind — there is no `let` surface syntax and
         // `type.stmt.let` stays removed (`stmt.let` is fixture/desugar-
         // only). Phase 7 added
         // `type.Total` and `type.Pure` meta-predicate types. Phase 8.2
-        // added `type.Marshalable` meta-predicate type.
-        assert_eq!(lang.types.len(), 62);
+        // added `type.Marshalable` meta-predicate type. The arrow-
+        // combinator surface syntax added 7 placeholder rules
+        // (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`).
+        assert_eq!(lang.types.len(), 69);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

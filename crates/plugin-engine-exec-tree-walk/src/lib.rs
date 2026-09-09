@@ -975,6 +975,43 @@ impl TreeWalkEngine {
         current_node: &AstNode,
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
+        // `$payload` sentinel: the op name is read from the current
+        // node's payload — a bare string payload, or the `name`/`op`
+        // field of an object payload (e.g. `arr op` captures the
+        // identifier text via `payload_tokens` into `payload.name`).
+        // Resolved once here so both the derived-step interception and
+        // `apply_native` dispatch see the real op name.
+        let from_payload = op == "$payload";
+        let resolved_op;
+        let op = if from_payload {
+            resolved_op = current_node
+                .payload
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| {
+                    current_node
+                        .payload
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                })
+                .or_else(|| {
+                    current_node
+                        .payload
+                        .get("op")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                })
+                .ok_or_else(|| {
+                    LangError::engine_node(
+                        "expected string payload for $payload op".to_string(),
+                        current_node,
+                    )
+                })?;
+            resolved_op.as_str()
+        } else {
+            op
+        };
         // Derived-pattern composite ops (while_step/for_step/fix_step)
         // carry sub-arrows as args that must be evaluated with the
         // *current value* extracted from the incoming pair, not with the
@@ -1018,17 +1055,49 @@ impl TreeWalkEngine {
             arg_vals.push(v);
         }
         match source {
-            ArrSource::Native => self.apply_native(
-                op,
-                &arg_vals,
-                lit,
-                ast,
-                node_ref,
-                lang,
-                env,
-                current_node,
-                incoming,
-            ),
+            ArrSource::Native => {
+                // `arr op` (`op: "$payload"`): the scheme declares no
+                // args — the incoming value is the lifted op's operand.
+                // A `Pair` operand is flattened into positional args so
+                // `arr add` applied to `(a, b)` yields `add a b`. Unary
+                // ops that read `incoming` (e.g. `inc`) still see it
+                // through the `incoming` parameter.
+                if from_payload && arg_vals.is_empty() {
+                    match &incoming {
+                        Some(v) => {
+                            let op_args = flatten_pair(v);
+                            return self.apply_native(
+                                op,
+                                &op_args,
+                                lit,
+                                ast,
+                                node_ref,
+                                lang,
+                                env,
+                                current_node,
+                                incoming,
+                            );
+                        }
+                        None => {
+                            return Err(LangError::engine_node(
+                                format!("arr: op '{}' has no input value", op),
+                                current_node,
+                            ));
+                        }
+                    }
+                }
+                self.apply_native(
+                    op,
+                    &arg_vals,
+                    lit,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )
+            }
             ArrSource::Foreign(name) => {
                 let modules = self.modules.as_ref().ok_or_else(|| {
                     LangError::engine_node(format!("unregistered foreign: {}", name), current_node)
@@ -2260,6 +2329,112 @@ impl TreeWalkEngine {
                 let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                 Ok((pair(left, right), false))
             }
+            // Arrow combinators (surface syntax: `first f`, `second f`,
+            // `left f`, `right f`, `f +++ g`, `f app x`). The sub-arrows
+            // arrive as evaluated args (`TaggedValue::Arrow`); the
+            // incoming `Pair`/`Either` is destructured and the sub-arrow
+            // applied via `apply_app`.
+            "first" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let input = incoming
+                    .or_else(|| args.get(1).cloned())
+                    .unwrap_or(TaggedValue::Null);
+                let a = pair_fst(&input).cloned().ok_or_else(|| {
+                    LangError::engine_node(
+                        "first: input is not a pair".to_string(),
+                        current_node,
+                    )
+                })?;
+                let b = pair_snd(&input).cloned().unwrap_or(TaggedValue::Null);
+                let fa = self.apply_app(&f, &[a], ast, lang, env)?;
+                Ok((pair(fa, b), false))
+            }
+            "second" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let input = incoming
+                    .or_else(|| args.get(1).cloned())
+                    .unwrap_or(TaggedValue::Null);
+                let a = pair_fst(&input).cloned().unwrap_or(TaggedValue::Null);
+                let b = pair_snd(&input).cloned().ok_or_else(|| {
+                    LangError::engine_node(
+                        "second: input is not a pair".to_string(),
+                        current_node,
+                    )
+                })?;
+                let fb = self.apply_app(&f, &[b], ast, lang, env)?;
+                Ok((pair(a, fb), false))
+            }
+            "left" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let input = incoming
+                    .or_else(|| args.get(1).cloned())
+                    .unwrap_or(TaggedValue::Null);
+                if is_either_left(&input) {
+                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
+                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
+                    Ok((either_left(fv), false))
+                } else if is_either_right(&input) {
+                    Ok((input, false))
+                } else {
+                    Err(LangError::engine_node(
+                        "left: input is not an either".to_string(),
+                        current_node,
+                    ))
+                }
+            }
+            "right" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let input = incoming
+                    .or_else(|| args.get(1).cloned())
+                    .unwrap_or(TaggedValue::Null);
+                if is_either_right(&input) {
+                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
+                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
+                    Ok((either_right(fv), false))
+                } else if is_either_left(&input) {
+                    Ok((input, false))
+                } else {
+                    Err(LangError::engine_node(
+                        "right: input is not an either".to_string(),
+                        current_node,
+                    ))
+                }
+            }
+            // `f +++ g` — categorical sum. `Left a` → `Left (f a)`;
+            // `Right b` → `Right (g b)`.
+            "sum" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let g = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+                let input = incoming
+                    .or_else(|| args.get(2).cloned())
+                    .unwrap_or(TaggedValue::Null);
+                if is_either_left(&input) {
+                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
+                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
+                    Ok((either_left(fv), false))
+                } else if is_either_right(&input) {
+                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
+                    let gv = self.apply_app(&g, &[v], ast, lang, env)?;
+                    Ok((either_right(gv), false))
+                } else {
+                    Err(LangError::engine_node(
+                        "sum: input is not an either".to_string(),
+                        current_node,
+                    ))
+                }
+            }
+            // `f app x` — arrow application: apply the arrow value
+            // (arg 0) to the argument (arg 1, or the incoming value).
+            "app" => {
+                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let x = args
+                    .get(1)
+                    .cloned()
+                    .or(incoming)
+                    .unwrap_or(TaggedValue::Null);
+                let v = self.apply_app(&f, &[x], ast, lang, env)?;
+                Ok((v, false))
+            }
             // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
             // If left is some(v), return v; if left is none or null, return
             // right; otherwise return right.
@@ -2534,6 +2709,34 @@ impl TreeWalkEngine {
                         current_node,
                     ))
                 }
+            }
+            // ADR-0074 follow-up #3: `>>>` (`flow`) — function application
+            // with a single input argument. Unlike `App` (used by `call`
+            // to unpack a `proj_rest` array of call args), `flow` passes
+            // the left operand through as one argument, only destructuring
+            // a categorical `Pair` (`***`) into multiple positional args.
+            // This lets list-argument combinators like `comb.converge`
+            // receive the list as their single `args` parameter.
+            "flow" => {
+                if args.len() != 2 {
+                    return Err(LangError::engine_node(
+                        format!("flow: expected 2 args, got {}", args.len()),
+                        current_node,
+                    ));
+                }
+                let input = &args[0];
+                let callee = &args[1];
+                let actual_args: Vec<TaggedValue> = if matches!(input, TaggedValue::Pair(_)) {
+                    flatten_pair(input)
+                } else {
+                    vec![input.clone()]
+                };
+                let val = if let Some(name) = callee.as_str() {
+                    self.call_host_fn(name, &actual_args, current_node)?
+                } else {
+                    self.apply_app(callee, &actual_args, ast, lang, env)?
+                };
+                Ok((val, false))
             }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),

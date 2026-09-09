@@ -1919,13 +1919,26 @@ fn apply_closure_value(
     closure_val: TaggedValue,
     arg_vals: Vec<TaggedValue>,
 ) -> *mut TaggedValue {
+    apply_closure_value_opts(ctx, closure_val, arg_vals, true)
+}
+
+/// Shared core of [`apply_closure_value`]. When `unpack_arr` is false the
+/// single-argument array unpack is skipped — the `flow` (`>>>`) op relies on
+/// this to pass a list through as the callee's single argument (mirroring
+/// the v2 tree-walk's `flow` arm).
+fn apply_closure_value_opts(
+    ctx: &mut EvalCtx,
+    closure_val: TaggedValue,
+    arg_vals: Vec<TaggedValue>,
+    unpack_arr: bool,
+) -> *mut TaggedValue {
     // SAFETY: this is the shared core factored out of the `unsafe extern "C"`
     // helper `helper_v2_apply_closure`. It calls the unsafe `box_value`
     // helper. Callers must uphold the same safety contract as that helper:
     // `ctx` is a valid `&mut EvalCtx`.
     unsafe {
         // ADR-0060: unpack single array arg for variable-arity call.
-        let arg_vals = if arg_vals.len() == 1 {
+        let arg_vals = if unpack_arr && arg_vals.len() == 1 {
             if let TaggedValue::Arr(arr) = &arg_vals[0] {
                 arr.iter().cloned().collect()
             } else {
@@ -2008,6 +2021,71 @@ fn apply_closure_value(
         ctx.env = saved_env;
 
         result
+    }
+}
+
+/// Flatten a right-nested `Pair` tree into a flat argument list (mirrors
+/// the v2 tree-walk's `flatten_pair`): `Pair(a, Pair(b, c))` → `[a, b, c]`.
+fn flatten_pair(v: &TaggedValue) -> Vec<TaggedValue> {
+    match v {
+        TaggedValue::Pair(p) => {
+            let mut left = flatten_pair(&p.0);
+            left.extend(flatten_pair(&p.1));
+            left
+        }
+        other => vec![other.clone()],
+    }
+}
+
+/// `flow` (`>>>`) native op: function application with a single input
+/// argument (ADR-0074 follow-up #3). Mirrors the v2 tree-walk's `flow`
+/// arm exactly: pass the left operand through as one argument, only
+/// destructuring a categorical `Pair` (`***`) into multiple positional
+/// args. String callees dispatch to the host module registry (same path
+/// as `call_host`); arrow callees apply as closures — with the
+/// single-array unpack *disabled* so a list input stays one argument.
+fn prim_v2_flow(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
+    if args.len() != 2 {
+        return ctx.set_error(LangError::engine(format!(
+            "flow: expected 2 args, got {}",
+            args.len()
+        )));
+    }
+    let input = &args[0];
+    let callee = &args[1];
+    let actual_args: Vec<TaggedValue> = if matches!(input, TaggedValue::Pair(_)) {
+        flatten_pair(input)
+    } else {
+        vec![input.clone()]
+    };
+    if let TaggedValue::Str(name) = callee {
+        let modules_ptr = match ctx.modules {
+            Some(p) => p,
+            None => {
+                return ctx.set_error(LangError::engine("flow: no module registry".to_string()));
+            }
+        };
+        let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
+        let func = match modules.lookup(name.as_ref()) {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::engine(format!(
+                    "flow: function '{}' not found",
+                    name
+                )));
+            }
+        };
+        let call_args: Vec<Value> = actual_args
+            .iter()
+            .map(handl_value::tagged_to_value)
+            .collect();
+        let mut pctx = handl_platform::EvalContext::new();
+        match func.call(&call_args, &mut pctx) {
+            Ok(v) => unsafe { box_value(TaggedValue::from(v)) },
+            Err(e) => ctx.set_error(LangError::engine(e.to_string())),
+        }
+    } else {
+        apply_closure_value_opts(ctx, callee.clone(), actual_args, false)
     }
 }
 
@@ -3856,6 +3934,9 @@ fn apply_native_v2(
         // ADR-0074: `rec` — recursive computation region, iterated to a
         // fixpoint (mirrors the v2 tree-walk's `eval_rec`).
         "eval_rec" => return prim_v2_eval_rec(ctx),
+        // ADR-0074 follow-up #3: `>>>` (`flow`) — function application with
+        // a single input argument (mirrors the v2 tree-walk's `flow` arm).
+        "flow" => return prim_v2_flow(ctx, args),
         "add" => bin_num_v2(args, |a, b| a + b),
         "sub" => bin_num_v2(args, |a, b| a - b),
         "mul" => bin_num_v2(args, |a, b| a * b),

@@ -9,26 +9,33 @@ fn assemble_canonical_has_expected_fragment_counts() {
     let kit = handl_kit_data_canonical::assemble().expect("assembly should succeed");
     let lang = kit.lang();
 
-    // Token kinds: 72 — v0.1 surface syntax (ADR-0074) + `::`/`data`
-    // additions (ADR-0079/0082); `token.let` removed (`let` fully removed —
+    // Token kinds: 79 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // additions (ADR-0079/0082) + arrow-combinator surface syntax
+    // (`token.keyword.{app,arr,first,left,right,second}` + `token.sum` for
+    // `+++`); `token.let` removed (`let` fully removed —
     // ADR-0079 completed) while `token.keyword.let` stays as a tombstone so
     // `let` remains a reserved word (no grammar row → parse error).
-    assert_eq!(lang.tokens.len(), 72);
+    assert_eq!(lang.tokens.len(), 79);
 
-    // Grammar rows: 60 — v0.1 surface syntax (ADR-0074) + `::`/`data`
+    // Grammar rows: 67 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
     // `grammar.let.prefix` removed (`let` fully removed);
-    // `grammar.axiom.prefix` added (`axiom` aliases to a `law` node).
-    assert_eq!(lang.grammar.len(), 60);
+    // `grammar.axiom.prefix` added (`axiom` aliases to a `law` node);
+    // arrow combinators added (`arr`/`first`/`second`/`left`/`right`
+    // prefixes + `sum`/`app` infixes).
+    assert_eq!(lang.grammar.len(), 67);
 
-    // Eval schemes: 61 — v0.1 surface syntax (ADR-0074) +
+    // Eval schemes: 68 — v0.1 surface syntax (ADR-0074) +
     // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
-    // (`let` fully removed — `stmt.let` had no producer).
-    assert_eq!(lang.eval.len(), 61);
+    // (`let` fully removed — `stmt.let` had no producer); arrow
+    // combinators added (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`).
+    assert_eq!(lang.eval.len(), 68);
 
-    // AST shapes: 61 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
-    // `flow` (arrow-parser refinement roles) additions; `ast.let` removed.
-    assert_eq!(lang.ast.len(), 61);
+    // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
+    // `flow` (arrow-parser refinement roles) additions + arrow-combinator
+    // shapes (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`);
+    // `ast.let` removed.
+    assert_eq!(lang.ast.len(), 68);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -65,8 +72,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 72);
-    assert_eq!(rt.lang().grammar.len(), 60);
+    assert_eq!(rt.lang().tokens.len(), 79);
+    assert_eq!(rt.lang().grammar.len(), 67);
 }
 
 #[test]

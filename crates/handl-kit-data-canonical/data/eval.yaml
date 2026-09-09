@@ -365,18 +365,20 @@
     source: Native
 - id: eval.flow
   node_kind: flow
-  scheme: !App
-    callee: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+  scheme: !Arr
+    op: flow
     args:
       - !Arr
         op: proj_child
         args: []
         source: Native
         lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
+    source: Native
 - id: eval.pipe
   node_kind: pipe
   scheme: !App
@@ -724,6 +726,104 @@
   node_kind: product
   scheme: !Arr
     op: product
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
+    source: Native
+# `arr` — `arr op` (arrow `Arr` combinator). The `op` field is the
+# `$payload` sentinel: the engine resolves the actual op name from the
+# node's payload (`payload.name`, captured by `payload_tokens`) and
+# dispatches that native op against the incoming value.
+- id: eval.arr
+  node_kind: arr
+  scheme: !Arr
+    op: "$payload"
+    args: []
+    source: Native
+# `first` / `second` — map an arrow over one component of the incoming
+# pair (arrow `first`/`second` combinators). Child 0 evaluates to the
+# sub-arrow value; the `first`/`second` native ops destructure the
+# incoming `Pair` and apply it via `apply_app`.
+- id: eval.first
+  node_kind: first
+  scheme: !Arr
+    op: first
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+    source: Native
+- id: eval.second
+  node_kind: second
+  scheme: !Arr
+    op: second
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+    source: Native
+# `left` / `right` — map an arrow over one variant of the incoming either
+# (arrow `left`/`right` combinators).
+- id: eval.left
+  node_kind: left
+  scheme: !Arr
+    op: left
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+    source: Native
+- id: eval.right
+  node_kind: right
+  scheme: !Arr
+    op: right
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+    source: Native
+# `sum` — categorical sum `f +++ g` (arrow `+++`). Children 0/1 evaluate
+# to the two sub-arrow values; the `sum` native op destructures the
+# incoming `Either` and applies `f` to a left / `g` to a right.
+- id: eval.sum
+  node_kind: sum
+  scheme: !Arr
+    op: sum
+    args:
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      - !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
+    source: Native
+# `app` — arrow application `f app x` (arrow `App` combinator). Child 0
+# evaluates to the arrow, child 1 to the argument; the `app` native op
+# applies the arrow to the argument via `apply_app`.
+- id: eval.app
+  node_kind: app
+  scheme: !Arr
+    op: app
     args:
       - !Arr
         op: proj_child
