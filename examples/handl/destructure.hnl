@@ -9,5 +9,5 @@
   empty: match [] { []: "empty", [h, ...t]: "nonempty" },
   object: match { name: "alice", age: 30 } { { name: n, age: a }: n },
   pair: match [3, 4] { [a, b]: a + b },
-  first_of: match ["x", "y", "z"] { [first, ...rest]: first }
+  first_of: match ["x", "y", "z"] { [head, ...rest]: head }
 }

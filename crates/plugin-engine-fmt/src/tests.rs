@@ -672,7 +672,7 @@ fn categorized_lang() -> Language {
 #[test]
 fn classify_token_by_category() {
     let lang = categorized_lang();
-    assert_eq!(classify_token(&lang, "token.lparen"), TokenCat::OpenBracket);
+    assert_eq!(classify_token(&lang, "token.lparen"), TokenCat::OpenParen);
     assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
     assert_eq!(classify_token(&lang, "token.rparen"), TokenCat::CloseParen);
     assert_eq!(classify_token(&lang, "token.rbrace"), TokenCat::CloseBrace);
@@ -710,6 +710,7 @@ fn canonical_formatting_rule_and_needs_space() {
 #[test]
 fn indent_bias_classifies_brackets() {
     use TokenCat::*;
+    assert_eq!(indent_bias(OpenParen), IndentBias::Open);
     assert_eq!(indent_bias(OpenBracket), IndentBias::Open);
     assert_eq!(indent_bias(OpenBrace), IndentBias::Open);
     assert_eq!(indent_bias(CloseParen), IndentBias::Close);
@@ -752,16 +753,16 @@ fn token_formatter_spacing_and_custom_rule() {
 }
 
 #[test]
-fn token_formatter_indents_to_depth() {
+fn token_formatter_preserves_source_leading_ws() {
     let lang = categorized_lang();
-    // A leading `{` then a newline-gapped token → depth 1 → two-space indent.
+    // A newline-gapped token should keep the original leading whitespace.
     let tokens: Vec<Token> = vec![
-        Token { kind: "token.lbrace".into(), text: "{".into(), ..Default::default() },
-        Token { kind: "token.identifier".into(), text: "x".into(), ..Default::default() },
-        Token { kind: "token.rbrace".into(), text: "}".into(), ..Default::default() },
+        Token { kind: "token.lbrace".into(), text: "{".into(), start: 0, end: 1 },
+        Token { kind: "token.identifier".into(), text: "x".into(), start: 4, end: 5 },
+        Token { kind: "token.rbrace".into(), text: "}".into(), start: 6, end: 7 },
     ];
     let formatter = TokenFormatter::canonical(2);
-    let out = formatter.format("{\nx\n}", &tokens, &lang);
+    let out = formatter.format("{\n  x\n}", &tokens, &lang);
     assert_eq!(out, "{\n  x\n}");
 }
 

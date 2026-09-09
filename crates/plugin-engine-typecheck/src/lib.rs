@@ -213,6 +213,27 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
     bootstrap::check_module(src)
 }
 
+/// Check a handl module source text with a host-supplied wire prelude.
+///
+/// Identical to [`check_module`], but `prelude` names are seeded into the
+/// module scope before unbound-wire detection. A host passes the names its
+/// runtime would auto-wire for `.hnl` sources — module-chain names, flat
+/// host-function names, and ambient globals (ADR-0096). This crate carries
+/// no host-name knowledge: the set comes from the host's module registry /
+/// resolver (e.g. `handl_kit_canonical::canonical_wire_names`), keeping the
+/// checker engine-generic.
+///
+/// # Errors
+///
+/// Returns [`CheckError::Parse`] if the source cannot be parsed, or
+/// [`CheckError::Language`] if the canonical `Language` fails to assemble.
+pub fn check_module_with_prelude(
+    src: &str,
+    prelude: &std::collections::HashSet<String>,
+) -> Result<TypecheckReport, CheckError> {
+    bootstrap::check_module_with_prelude(src, prelude)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,6 +347,43 @@ mod tests {
                 && d.severity == handl_plugin_ext_diag::Severity::Error),
             "expected unbound-wire error, got: {:?}",
             report.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_module_with_prelude_seeds_scope() {
+        // A bare host wire (e.g. a module-chain name) fires `unbound-wire`
+        // without a prelude and is in scope once the host supplies it.
+        let bare = check_module("main = somemod.trim(input) ~> input").unwrap();
+        assert!(
+            bare.diagnostics.iter().any(|d| d.rule == "unbound-wire"),
+            "expected unbound-wire without prelude, got: {:?}",
+            bare.diagnostics
+        );
+        let prelude: std::collections::HashSet<String> =
+            ["somemod".to_string(), "input".to_string()].into_iter().collect();
+        let seeded = check_module_with_prelude("main = somemod.trim(input) ~> input", &prelude)
+            .unwrap();
+        assert!(
+            !seeded
+                .diagnostics
+                .iter()
+                .any(|d| d.rule == "unbound-wire"
+                    && d.severity == handl_plugin_ext_diag::Severity::Error),
+            "prelude names should be in scope, got: {:?}",
+            seeded.diagnostics
+        );
+        // Prelude names do not satisfy unbound-export: exports still need a
+        // source-level binding.
+        let exported = check_module_with_prelude("export somemod", &prelude).unwrap();
+        assert!(
+            exported
+                .diagnostics
+                .iter()
+                .any(|d| d.rule == "unbound-export"
+                    && d.severity == handl_plugin_ext_diag::Severity::Error),
+            "prelude must not satisfy unbound-export, got: {:?}",
+            exported.diagnostics
         );
     }
 

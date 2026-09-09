@@ -16,7 +16,9 @@ use handl_language::Language;
 /// Token categories for canonical spacing rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenCat {
-    /// `(`, `[`
+    /// `(`
+    OpenParen,
+    /// `[`
     OpenBracket,
     /// `)`
     CloseParen,
@@ -69,6 +71,8 @@ pub fn classify_token(lang: &Language, kind: &str) -> TokenCat {
         Some("open-bracket") => {
             if is_label("{") {
                 TokenCat::OpenBrace
+            } else if is_label("(") {
+                TokenCat::OpenParen
             } else {
                 TokenCat::OpenBracket
             }
@@ -114,7 +118,7 @@ pub fn classify_token(lang: &Language, kind: &str) -> TokenCat {
 /// Bracket direction of a category, for depth tracking.
 pub fn indent_bias(cat: TokenCat) -> IndentBias {
     match cat {
-        TokenCat::OpenBracket | TokenCat::OpenBrace => IndentBias::Open,
+        TokenCat::OpenParen | TokenCat::OpenBracket | TokenCat::OpenBrace => IndentBias::Open,
         TokenCat::CloseParen | TokenCat::CloseBracket | TokenCat::CloseBrace => IndentBias::Close,
         _ => IndentBias::None,
     }
@@ -159,7 +163,7 @@ impl FormattingRule for CanonicalFormattingRule {
 fn canonical_needs_space(prev: TokenCat, curr: TokenCat) -> bool {
     use TokenCat::*;
     // No space inside () and [].
-    if prev == OpenBracket {
+    if prev == OpenParen || prev == OpenBracket {
         return false;
     }
     if curr == CloseParen || curr == CloseBracket {
@@ -193,6 +197,10 @@ fn canonical_needs_space(prev: TokenCat, curr: TokenCat) -> bool {
     if prev == BinaryOp || curr == BinaryOp {
         return true;
     }
+    // Keyword function calls: first(id), id(id).
+    if prev == Keyword && curr == OpenParen {
+        return false;
+    }
     // Space after keywords.
     if prev == Keyword || curr == Keyword {
         return true;
@@ -206,8 +214,13 @@ fn canonical_needs_space(prev: TokenCat, curr: TokenCat) -> bool {
         return true;
     }
     // No space before ( in function calls: sort(...), loop(...).
-    if curr == OpenBracket && (prev == Atom || prev == CloseParen || prev == CloseBracket) {
+    if curr == OpenParen && (prev == Atom || prev == CloseParen || prev == CloseBracket) {
         return false;
+    }
+    // Space between adjacent identifiers / literals (juxtaposed function
+    // application), e.g. `assert dedent("...")`.
+    if prev == Atom && curr == Atom {
+        return true;
     }
     // Default: no space.
     false

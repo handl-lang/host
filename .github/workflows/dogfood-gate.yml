@@ -36,7 +36,4 @@ jobs:
         run: cargo build -p handl-host-cli
 
       - name: Run dogfood gate
-        # The gate is not green yet, so this step is allowed to fail.
-        # Remove continue-on-error: true once the source-side failures are fixed.
-        continue-on-error: true
         run: ./scripts/dogfood-gate.sh

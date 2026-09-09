@@ -20,6 +20,7 @@ use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_engine_transform_rewrite::condition::matches_condition;
+use handl_plugin_ext_diag::split_statements;
 
 use crate::{DiagnosticLevel, LintDiagnostic, LintFixOut};
 
@@ -76,85 +77,11 @@ pub fn parse_module<'a>(lang: &Language, src: &'a str) -> Result<LintModule<'a>,
 // ---------------------------------------------------------------------------
 // Statement splitting
 // ---------------------------------------------------------------------------
-
-/// A top-level statement chunk: trimmed text and byte offset in the source.
-struct Chunk {
-    text: String,
-    offset: usize,
-}
-
-/// Split `src` into top-level statement chunks at bracket-depth zero on
-/// newlines or semicolons, respecting string literals and `--` comments.
-fn split_statements(src: &str) -> Vec<Chunk> {
-    let bytes = src.as_bytes();
-    let mut chunks = Vec::new();
-    let mut start = 0usize;
-    let mut depth: i32 = 0;
-    let mut i = 0usize;
-
-    while i < bytes.len() {
-        let b = bytes[i];
-
-        // String literal — skip to the closing quote (respecting escapes).
-        if b == b'"' {
-            i += 1;
-            while i < bytes.len() {
-                match bytes[i] {
-                    b'\\' => {
-                        i += 2;
-                        continue;
-                    }
-                    b'"' => {
-                        i += 1;
-                        break;
-                    }
-                    _ => i += 1,
-                }
-            }
-            continue;
-        }
-
-        // Comment: `--` (or `---`) to end of line.
-        if b == b'-' && i + 1 < bytes.len() && bytes[i + 1] == b'-' {
-            while i < bytes.len() && bytes[i] != b'\n' {
-                i += 1;
-            }
-            start = i;
-            continue;
-        }
-
-        match b {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            _ => {}
-        }
-
-        if depth == 0 && (b == b'\n' || b == b';') {
-            push_chunk(src, &mut chunks, start, i);
-            i += 1;
-            start = i;
-            continue;
-        }
-
-        i += 1;
-    }
-
-    push_chunk(src, &mut chunks, start, src.len());
-    chunks
-}
-
-/// Push a trimmed chunk from `src[start..end]` if it is non-empty.
-fn push_chunk(src: &str, chunks: &mut Vec<Chunk>, start: usize, end: usize) {
-    let slice = &src[start..end];
-    let lead = slice.len() - slice.trim_start().len();
-    let trimmed = slice.trim();
-    if !trimmed.is_empty() {
-        chunks.push(Chunk {
-            text: trimmed.to_string(),
-            offset: start + lead,
-        });
-    }
-}
+//
+// The splitter is shared across the typechecker, linter, and test runner —
+// it lives in `plugin-ext-diag` (`split_statements`, AGENTS.md "Source
+// splitting"). Comment-only chunks never reach here: the shared splitter
+// drops them.
 
 // ---------------------------------------------------------------------------
 // Module analysis (shared input to the `scope.*` natives)

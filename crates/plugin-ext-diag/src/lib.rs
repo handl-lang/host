@@ -283,6 +283,120 @@ pub fn apply_fixes_to_fixpoint(
     Err(FixError::NotConverged { max_iterations })
 }
 
+// ---------------------------------------------------------------------------
+// Source-chunk splitting (shared by the bootstrap typechecker, the linter,
+// and the test runner — AGENTS.md "Source splitting")
+// ---------------------------------------------------------------------------
+
+/// A top-level statement chunk: its trimmed text and byte offset in the
+/// original source.
+///
+/// The v0.1 Pratt parser parses a single statement per call, so tools that
+/// operate on whole files split the source into statements first. This is
+/// the single shared implementation of that split (previously each of the
+/// typechecker, linter, and test runner carried a private copy that had
+/// diverged).
+#[derive(Clone, Debug)]
+pub struct StatementChunk {
+    /// The trimmed statement text.
+    pub text: String,
+    /// Byte offset of the trimmed text's first byte in the original source.
+    pub offset: usize,
+}
+
+/// Split `src` into top-level statement chunks.
+///
+/// The v0.1 surface separates top-level declarations by newlines or
+/// semicolons. Splits at bracket-depth zero, respecting string literals and
+/// `--` comments. A `--` comment that begins at a statement boundary (only
+/// whitespace precedes it in the pending chunk) is dropped entirely; a
+/// comment inside or trailing a statement is left in the chunk text — the
+/// lexer strips it at parse time. This is what keeps a `--` line inside a
+/// `{ ... }` block from truncating the in-progress statement.
+pub fn split_statements(src: &str) -> Vec<StatementChunk> {
+    let bytes = src.as_bytes();
+    let mut chunks = Vec::new();
+    let mut start = 0usize;
+    let mut depth: i32 = 0;
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        let b = bytes[i];
+
+        // String literal — skip to the closing quote (respecting escapes).
+        if b == b'"' {
+            i += 1;
+            while i < bytes.len() {
+                match bytes[i] {
+                    b'\\' => {
+                        i += 2;
+                        continue;
+                    }
+                    b'"' => {
+                        i += 1;
+                        break;
+                    }
+                    _ => i += 1,
+                }
+            }
+            continue;
+        }
+
+        // Comment: `--` (or `---`) to end of line. Only advance `start`
+        // past the comment when it sits at a statement boundary (the
+        // pending chunk is whitespace-only) — advancing it mid-statement
+        // would discard the statement text preceding the comment and leave
+        // a dangling tail (e.g. a bare `}`) behind.
+        if b == b'-' && i + 1 < bytes.len() && bytes[i + 1] == b'-' {
+            let comment_start = i;
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i += 1;
+            }
+            if src[start..comment_start].trim().is_empty() {
+                start = i;
+            }
+            continue;
+        }
+
+        // Bracket nesting.
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+
+        // Statement separators at depth zero.
+        if depth == 0 && (b == b'\n' || b == b';') {
+            push_chunk(src, &mut chunks, start, i);
+            i += 1;
+            start = i;
+            continue;
+        }
+
+        i += 1;
+    }
+
+    // Trailing chunk.
+    push_chunk(src, &mut chunks, start, src.len());
+    chunks
+}
+
+/// Push a trimmed chunk from `src[start..end]` if it is non-empty and not a
+/// comment-only chunk (a `--` comment at a statement boundary that was not
+/// elided during the scan).
+fn push_chunk(src: &str, chunks: &mut Vec<StatementChunk>, start: usize, end: usize) {
+    let slice = &src[start..end];
+    let lead = slice.len() - slice.trim_start().len();
+    let trimmed = slice.trim();
+    if trimmed.is_empty() || trimmed.starts_with("--") {
+        return;
+    }
+    chunks.push(StatementChunk {
+        text: trimmed.to_string(),
+        offset: start + lead,
+    });
+}
+
 #[cfg(feature = "lang-span")]
 mod lang_span {
     use super::{Span, compute_line_col};

@@ -27,7 +27,7 @@ use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_engine_transform::validate::validate_transforms;
-use handl_plugin_ext_diag::{Diagnostic, Severity, Span};
+use handl_plugin_ext_diag::{Diagnostic, Severity, Span, split_statements};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
@@ -226,98 +226,16 @@ const KIND_VAR: &str = "var";
 const KIND_ENTRY: &str = "entry";
 /// The v0.1 surface kind for a field access (`target.field`).
 const KIND_FIELD_ACCESS: &str = "field-access";
+/// The v0.1 surface kind for an inductive type declaration (`data Name :: ...`).
+const KIND_DATA: &str = "data";
 
 // ---------------------------------------------------------------------------
 // Source-chunk splitting
 // ---------------------------------------------------------------------------
-
-/// A top-level statement chunk: its trimmed text and byte offset in the
-/// original source.
-struct Chunk {
-    /// The trimmed statement text.
-    text: String,
-    /// Byte offset of the trimmed text's first byte in the original source.
-    offset: usize,
-}
-
-/// Split `src` into top-level statement chunks.
-///
-/// The v0.1 surface separates top-level declarations by newlines or
-/// semicolons. The data-driven Pratt parser parses a single expression per
-/// call, so the bootstrap checker splits the source into statements at
-/// bracket-depth zero, respecting string literals and `--` comments.
-fn split_statements(src: &str) -> Vec<Chunk> {
-    let bytes = src.as_bytes();
-    let mut chunks = Vec::new();
-    let mut start = 0usize;
-    let mut depth: i32 = 0;
-    let mut i = 0usize;
-
-    while i < bytes.len() {
-        let b = bytes[i];
-
-        // String literal — skip to the closing quote (respecting escapes).
-        if b == b'"' {
-            i += 1;
-            while i < bytes.len() {
-                match bytes[i] {
-                    b'\\' => {
-                        i += 2;
-                        continue;
-                    }
-                    b'"' => {
-                        i += 1;
-                        break;
-                    }
-                    _ => i += 1,
-                }
-            }
-            continue;
-        }
-
-        // Comment: `--` (or `---`) to end of line.
-        if b == b'-' && i + 1 < bytes.len() && bytes[i + 1] == b'-' {
-            while i < bytes.len() && bytes[i] != b'\n' {
-                i += 1;
-            }
-            continue;
-        }
-
-        // Bracket nesting.
-        match b {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            _ => {}
-        }
-
-        // Statement separators at depth zero.
-        if depth == 0 && (b == b'\n' || b == b';') {
-            push_chunk(src, &mut chunks, start, i);
-            i += 1;
-            start = i;
-            continue;
-        }
-
-        i += 1;
-    }
-
-    // Trailing chunk.
-    push_chunk(src, &mut chunks, start, src.len());
-    chunks
-}
-
-/// Push a trimmed chunk from `src[start..end]` if it is non-empty.
-fn push_chunk(src: &str, chunks: &mut Vec<Chunk>, start: usize, end: usize) {
-    let slice = &src[start..end];
-    let lead = slice.len() - slice.trim_start().len();
-    let trimmed = slice.trim();
-    if !trimmed.is_empty() {
-        chunks.push(Chunk {
-            text: trimmed.to_string(),
-            offset: start + lead,
-        });
-    }
-}
+//
+// The splitter is shared across the typechecker, linter, and test runner —
+// it lives in `plugin-ext-diag` (`split_statements`, AGENTS.md "Source
+// splitting").
 
 // ---------------------------------------------------------------------------
 // Parsing
@@ -431,6 +349,88 @@ fn name_span(src: &str, stmt: &Stmt, name: &str) -> Span {
 // Binding collection
 // ---------------------------------------------------------------------------
 
+/// Recursively collect the constructor names declared by a `data` declaration.
+///
+/// Constructor shapes are `var`/`call`/`alt` (and possibly paren-wrapped);
+/// field/type names inside the constructor's `type-annot` arguments are
+/// intentionally not collected. Positions are resolved via `AstShapeDef` roles
+/// (ADR-0081).
+fn collect_data_ctors(
+    lang: &Language,
+    ast: &Ast,
+    node_ref: AstRef,
+    out: &mut HashSet<String>,
+) {
+    let node = match ast.at(node_ref) {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+
+    // Bare constructor name.
+    if let Some(name) = var_name(node) {
+        out.insert(name);
+        return;
+    }
+
+    // `call(...)` — the `callee` child is the constructor name; the `args`
+    // children are field/type annotations and are ignored here.
+    if let Ok(Some(callee_idx)) = lang.child_role_index(&node.kind, "callee") {
+        let children = children_of(node);
+        if let Some(&callee_raw) = children.get(callee_idx) {
+            collect_data_ctors(lang, ast, AstRef::new(callee_raw), out);
+        }
+        return;
+    }
+
+    // `alt` constructor alternatives (`|`).
+    if let Ok(Some(left_idx)) = lang.child_role_index(&node.kind, "left") {
+        let children = children_of(node);
+        if let Some(&left_raw) = children.get(left_idx) {
+            collect_data_ctors(lang, ast, AstRef::new(left_raw), out);
+        }
+        if let Ok(Some(right_idx)) = lang.child_role_index(&node.kind, "right") {
+            if let Some(&right_raw) = children.get(right_idx) {
+                collect_data_ctors(lang, ast, AstRef::new(right_raw), out);
+            }
+        }
+        return;
+    }
+
+    // Paren-wrapped constructor (e.g. `(Cons)`); unwrap via the `body` role.
+    if let Ok(Some(body_idx)) = lang.child_role_index(&node.kind, "body") {
+        let children = children_of(node);
+        if let Some(&body_raw) = children.get(body_idx) {
+            collect_data_ctors(lang, ast, AstRef::new(body_raw), out);
+        }
+    }
+}
+
+/// The name bound by a binding's `target` child.
+///
+/// Normally the target is a `var`, but nested binding-shaped targets occur
+/// when a statement chains bind operators — `a :: f = g` parses as
+/// `assign(assign(a, f), g)`, and the bound name is the innermost `target`.
+/// `subject`/`body` roles are also followed so paren- or
+/// type-annot-wrapped targets still resolve their binder (ADR-0081 —
+/// role-driven, never positional).
+fn binding_target_name(lang: &Language, ast: &Ast, node_ref: AstRef) -> Option<String> {
+    let node = ast.at(node_ref).ok()?;
+    if let Some(name) = var_name(node) {
+        return Some(name);
+    }
+    let children = children_of(node);
+    for role in ["target", "subject", "body"] {
+        if let Ok(Some(idx)) = lang.child_role_index(&node.kind, role) {
+            if let Some(&raw) = children.get(idx) {
+                if let Some(name) = binding_target_name(lang, ast, AstRef::new(raw)) {
+                    return Some(name);
+                }
+            }
+        }
+    }
+    None
+}
+
 /// A module-level binding (`name = expr`).
 struct Binding {
     name: String,
@@ -455,10 +455,11 @@ fn collect_decls(
     stmts: &[Stmt],
     diags: &mut Vec<Diagnostic>,
     src: &str,
-) -> (Vec<Binding>, Vec<Import>, Vec<Export>) {
+) -> (Vec<Binding>, Vec<Import>, Vec<Export>, HashSet<String>) {
     let mut bindings = Vec::new();
     let mut imports = Vec::new();
     let mut exports = Vec::new();
+    let mut data_ctors = HashSet::new();
     let mut seen: HashMap<String, usize> = HashMap::new();
 
     for (i, stmt) in stmts.iter().enumerate() {
@@ -474,21 +475,19 @@ fn collect_decls(
         if let (Some(ti), Some(_vi)) = (target_idx, value_idx) {
             let children = children_of(root);
             if let Some(&target_raw) = children.get(ti) {
-                if let Ok(target_node) = stmt.ast.at(AstRef::new(target_raw)) {
-                    if let Some(name) = var_name(target_node) {
-                        if seen.contains_key(&name) {
-                            let span = name_span(src, stmt, &name);
-                            diags.push(Diagnostic::new(
-                                "duplicate-binding",
-                                Severity::Error,
-                                span,
-                                format!("duplicate binding: `{name}`"),
-                            ));
-                        } else {
-                            seen.insert(name.clone(), i);
-                        }
-                        bindings.push(Binding { name, stmt_idx: i });
+                if let Some(name) = binding_target_name(lang, &stmt.ast, AstRef::new(target_raw)) {
+                    if seen.contains_key(&name) {
+                        let span = name_span(src, stmt, &name);
+                        diags.push(Diagnostic::new(
+                            "duplicate-binding",
+                            Severity::Error,
+                            span,
+                            format!("duplicate binding: `{name}`"),
+                        ));
+                    } else {
+                        seen.insert(name.clone(), i);
                     }
+                    bindings.push(Binding { name, stmt_idx: i });
                 }
             }
             continue;
@@ -502,21 +501,61 @@ fn collect_decls(
             continue;
         }
 
-        // Export: `stmt.export` (no roles → positional child 0).
+        // Export: `stmt.export` (no roles → positional child 0). The child
+        // is either a plain `var` (`export x` / `export x from "path"`) or
+        // a binding-shaped subtree (`export x :: expr` parses as
+        // `export(assign(x, expr))`) — in the latter case the export both
+        // declares `x` and binds it in module scope.
         if root.kind == KIND_EXPORT {
             let children = children_of(root);
             if let Some(&child_raw) = children.first() {
-                if let Ok(child_node) = stmt.ast.at(AstRef::new(child_raw)) {
+                let child_ref = AstRef::new(child_raw);
+                if let Ok(child_node) = stmt.ast.at(child_ref) {
                     if let Some(name) = var_name(child_node) {
+                        // `export x` / `export x from "path"` — a re-export
+                        // of an existing binding, not a new binding.
+                        exports.push(Export { name, stmt_idx: i });
+                    } else if let Some(name) =
+                        binding_target_name(lang, &stmt.ast, child_ref)
+                    {
+                        // `export x :: expr` — the export declares `x` and
+                        // binds it in module scope.
+                        if seen.contains_key(&name) {
+                            let span = name_span(src, stmt, &name);
+                            diags.push(Diagnostic::new(
+                                "duplicate-binding",
+                                Severity::Error,
+                                span,
+                                format!("duplicate binding: `{name}`"),
+                            ));
+                        } else {
+                            seen.insert(name.clone(), i);
+                        }
+                        bindings.push(Binding {
+                            name: name.clone(),
+                            stmt_idx: i,
+                        });
                         exports.push(Export { name, stmt_idx: i });
                     }
                 }
             }
             continue;
         }
+
+        // `data` declaration — the constructors are bound into module scope
+        // so later references to them (e.g. `True`, `Sorted`) do not fire.
+        if root.kind == KIND_DATA {
+            if let Ok(Some(ctors_idx)) = lang.child_role_index(&root.kind, "constructors") {
+                let children = children_of(root);
+                if let Some(&ctors_raw) = children.get(ctors_idx) {
+                    collect_data_ctors(lang, &stmt.ast, AstRef::new(ctors_raw), &mut data_ctors);
+                }
+            }
+            continue;
+        }
     }
 
-    (bindings, imports, exports)
+    (bindings, imports, exports, data_ctors)
 }
 
 /// Names bound into scope by a `stmt.import` node (ADR-0096).
@@ -742,6 +781,49 @@ fn check_expr(
         return;
     }
 
+    // `data` declaration — the family name and constructor payloads live in
+    // the type namespace; constructor names have already been collected into
+    // the module scope above, so there are no wire references to check here.
+    if node.kind == KIND_DATA {
+        return;
+    }
+
+    // Type annotation (`subject : annot`/`subject :: annot`): the `subject` is
+    // a pattern/field name and is never a wire reference; the `annot` is a
+    // type (or, in record-value position, an expression). A bare `var` in the
+    // `annot` position is treated as a type name unless it is a known
+    // in-scope reference or a lowercase name (more likely an unbound wire).
+    // Non-`var` annotations (e.g. `option.unwrap_or(...)`) are still checked.
+    if let (Ok(Some(_subject_idx)), Ok(Some(annot_idx))) = (
+        lang.child_role_index(&node.kind, "subject"),
+        lang.child_role_index(&node.kind, "annot"),
+    ) {
+        let children = children_of(node);
+        if let Some(&annot_raw) = children.get(annot_idx) {
+            if let Ok(annot_node) = ast.at(AstRef::new(annot_raw)) {
+                let is_bare_type = var_name(&annot_node).map_or(false, |n| {
+                    !scope.contains(&n)
+                        && n.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                });
+                if !is_bare_type {
+                    check_expr(
+                        lang,
+                        src,
+                        ast,
+                        AstRef::new(annot_raw),
+                        scope,
+                        stmt,
+                        diags,
+                        references,
+                    );
+                }
+            }
+        }
+        // `subject` is intentionally not walked — it is a binder/label, not a
+        // reference (ADR-0081).
+        return;
+    }
+
     // `rec` region — full fixpoint typing is deferred (ADR-0088). Emit an
     // Info `not-yet-checked` diagnostic rather than silently passing, then
     // continue walking children for unbound-wire detection.
@@ -755,22 +837,35 @@ fn check_expr(
         ));
     }
 
-    // Object entry (`key: value`): child 0 is the field-name key (a `var`
-    // that is NOT a reference), child 1 is the value expression. Only walk
-    // the value child so field names are not flagged as unbound wires.
+    // Object entry (`key: value`): the `key` child is a field name (a `var`
+    // that is NOT a reference). The `value` child is a type in record-type
+    // literals and an expression in record values. A bare `var` value is
+    // treated as a type name unless it is a known in-scope reference or a
+    // lowercase name (more likely an unbound wire). Non-`var` values
+    // (e.g. `option.unwrap_or(...)`) are still checked.
     if node.kind == KIND_ENTRY {
-        let children = children_of(node);
-        if let Some(&value_raw) = children.get(1) {
-            check_expr(
-                lang,
-                src,
-                ast,
-                AstRef::new(value_raw),
-                scope,
-                stmt,
-                diags,
-                references,
-            );
+        if let Ok(Some(value_idx)) = lang.child_role_index(&node.kind, "value") {
+            let children = children_of(node);
+            if let Some(&value_raw) = children.get(value_idx) {
+                if let Ok(value_node) = ast.at(AstRef::new(value_raw)) {
+                    let is_bare_type = var_name(&value_node).map_or(false, |n| {
+                        !scope.contains(&n)
+                            && n.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    });
+                    if !is_bare_type {
+                        check_expr(
+                            lang,
+                            src,
+                            ast,
+                            AstRef::new(value_raw),
+                            scope,
+                            stmt,
+                            diags,
+                            references,
+                        );
+                    }
+                }
+            }
         }
         return;
     }
@@ -818,13 +913,21 @@ fn check_expr(
                 }
                 continue;
             }
-            // Binding (`assign`-like: `target` + `value` roles): check the
-            // value in the current scope, then bind the target for the
-            // remaining siblings.
+            // Binding (`assign`-like: `target` + `value` roles): bind the
+            // target into the sibling scope *before* checking the value —
+            // a block binding's name is visible to closures in its own
+            // initializer (the runtime's update-or-define `ScopeStack`
+            // resolves the wire at call time), so `rev :: xs ~> f(rev(x))`
+            // is a legal self-recursive binding, not an unbound wire.
             let target_idx = lang.child_role_index(&child.kind, "target").ok().flatten();
             let value_idx = lang.child_role_index(&child.kind, "value").ok().flatten();
             if let (Some(ti), Some(vi)) = (target_idx, value_idx) {
                 let grandchildren = children_of(child);
+                if let Some(&target_raw) = grandchildren.get(ti) {
+                    if let Some(name) = binding_target_name(lang, ast, AstRef::new(target_raw)) {
+                        block_scope.insert(name);
+                    }
+                }
                 if let Some(&value_raw) = grandchildren.get(vi) {
                     check_expr(
                         lang,
@@ -836,13 +939,6 @@ fn check_expr(
                         diags,
                         references,
                     );
-                }
-                if let Some(&target_raw) = grandchildren.get(ti) {
-                    if let Ok(target_node) = ast.at(AstRef::new(target_raw)) {
-                        if let Some(name) = var_name(target_node) {
-                            block_scope.insert(name);
-                        }
-                    }
                 }
                 continue;
             }
@@ -875,17 +971,34 @@ fn check_expr(
 // ---------------------------------------------------------------------------
 
 /// Run the single-pass bootstrap check over all parsed statements.
-fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagnostic>) {
-    // Phase 1: collect bindings, imports, exports (+ duplicate detection).
-    let (bindings, imports, exports) = collect_decls(lang, stmts, diags, src);
+///
+/// `prelude` carries host-supplied wire names — the names the eval-time
+/// module chain / resolver would auto-wire for `.hnl` sources (module
+/// names, flat host-function names, ambient globals). The checker itself
+/// does not know any host names; the host (e.g. `hnl typecheck` in
+/// `host-cli`) supplies the same set its runtime registers, per ADR-0096's
+/// unified import model.
+fn check_pass(
+    lang: &Language,
+    src: &str,
+    stmts: &[Stmt],
+    prelude: &HashSet<String>,
+    diags: &mut Vec<Diagnostic>,
+) {
+    // Phase 1: collect bindings, imports, exports, and data constructors
+    // (+ duplicate detection).
+    let (bindings, imports, exports, data_ctors) = collect_decls(lang, stmts, diags, src);
 
-    // Build the module-level scope: all binding names + all import names.
+    // Build the module-level scope: all binding names + all import names +
+    // all `data` constructor names + the host-supplied prelude wires.
     let binding_names: HashSet<String> = bindings.iter().map(|b| b.name.clone()).collect();
     let import_names: HashSet<String> = imports.iter().map(|i| i.name.clone()).collect();
     let module_scope: HashSet<String> = binding_names
         .iter()
         .cloned()
         .chain(import_names.iter().cloned())
+        .chain(data_ctors.iter().cloned())
+        .chain(prelude.iter().cloned())
         .collect();
 
     // Phase 2a: every exported name must be bound.
@@ -939,6 +1052,20 @@ fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagno
             Ok(n) => n,
             Err(_) => continue,
         };
+        // `export x :: expr` wraps the binding in `stmt.export(assign(x,
+        // expr))` — descend to the wrapped binding child (role-less, so
+        // positional child 0 per ADR-0081's fallback).
+        let root = if root.kind == KIND_EXPORT {
+            match children_of(root).first() {
+                Some(&raw) => match stmt.ast.at(AstRef::new(raw)) {
+                    Ok(n) => n,
+                    Err(_) => continue,
+                },
+                None => continue,
+            }
+        } else {
+            root
+        };
         // Resolve the value child by role (`value`), falling back to
         // positional index 1.
         let value_idx = lang
@@ -958,6 +1085,49 @@ fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagno
                 diags,
                 &mut references,
             );
+        }
+
+        // Chained binds (`a :: f = g` → `assign(assign(a, f), g)`): the
+        // inner `value` children carry checkable expressions too — walk
+        // each binding-shaped target's `value` subtree.
+        let target_idx = lang
+            .child_role_index(&root.kind, "target")
+            .ok()
+            .flatten()
+            .unwrap_or(0);
+        let mut cursor = children.get(target_idx).copied();
+        while let Some(raw) = cursor {
+            let target_node = match stmt.ast.at(AstRef::new(raw)) {
+                Ok(n) => n,
+                Err(_) => break,
+            };
+            let ti = lang
+                .child_role_index(&target_node.kind, "target")
+                .ok()
+                .flatten();
+            let vi = lang
+                .child_role_index(&target_node.kind, "value")
+                .ok()
+                .flatten();
+            match (ti, vi) {
+                (Some(t2), Some(v2)) => {
+                    let inner = children_of(target_node);
+                    if let Some(&v_raw) = inner.get(v2) {
+                        check_expr(
+                            lang,
+                            src,
+                            &stmt.ast,
+                            AstRef::new(v_raw),
+                            &module_scope,
+                            stmt,
+                            diags,
+                            &mut references,
+                        );
+                    }
+                    cursor = inner.get(t2).copied();
+                }
+                _ => break,
+            }
         }
     }
 
@@ -995,6 +1165,34 @@ fn check_pass(lang: &Language, src: &str, stmts: &[Stmt], diags: &mut Vec<Diagno
 ///
 /// Returns [`CheckError::Parse`] if any statement cannot be parsed.
 pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
+    check_module_with_prelude(src, &HashSet::new())
+}
+
+/// Check a handl module source text with a host-supplied wire prelude
+/// (ADR-0088, ADR-0096).
+///
+/// Identical to [`check_module`], but `prelude` names are seeded into the
+/// module scope before unbound-wire checking. The prelude is how a host
+/// tells the checker which names its runtime would auto-wire — the eval
+/// engines resolve module-chain names (`str`, `json`, `assert`, …), flat
+/// host-function names (`map`, `pipe`, `greet`, …), and ambient globals
+/// (`self`, `hello`) that never appear as source-level bindings. The set
+/// is data from the host's resolver/module registry — this crate carries
+/// no hardcoded host names (dep cycle with `handl-kit-canonical`,
+/// AGENTS.md "Cyclic dependency workaround").
+///
+/// Prelude names are inert for the other module-level checks: they are
+/// scope-only, so they cannot satisfy `unbound-export` (an export must
+/// still be bound by a source-level binding) and are never reported as
+/// `unused-import`.
+///
+/// # Errors
+///
+/// Returns [`CheckError::Parse`] if any statement cannot be parsed.
+pub fn check_module_with_prelude(
+    src: &str,
+    prelude: &HashSet<String>,
+) -> Result<TypecheckReport, CheckError> {
     // Assemble the canonical v0.1 language from the embedded YAML data
     // fragments (cached for the process lifetime).
     let lang = canonical_language()?;
@@ -1018,7 +1216,7 @@ pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
 
     // Run the single-pass check.
     let mut diags = Vec::new();
-    check_pass(lang, src, &stmts, &mut diags);
+    check_pass(lang, src, &stmts, prelude, &mut diags);
 
     Ok(TypecheckReport { diagnostics: diags })
 }
@@ -1088,21 +1286,6 @@ mod tests {
         // And the rendered error is readable for the CLI path.
         let shown = CheckError::Language("x".into()).to_string();
         assert!(shown.starts_with("language error:"), "got: {shown}");
-    }
-
-        #[test]
-    fn debug_parse_cli() {
-        let lang = assemble_language().expect("assemble");
-        let src = "f :: (desc: String) ~> { description: desc }";
-        let chunk = Chunk {
-            text: src.to_string(),
-            offset: 0,
-        };
-        let ast = parse_chunk(&lang, &chunk.text).expect("parse");
-        for i in 0..ast.len() {
-            let node = ast.at(AstRef::new(i)).expect("node");
-            eprintln!("{i}: kind={} payload={} children={:?}", node.kind, node.payload, children_of(node));
-        }
     }
 
     /// A `desugar:` field on an `AstShapeDef` still lowers into a

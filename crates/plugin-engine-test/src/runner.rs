@@ -58,7 +58,8 @@ use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_exec_cache::AstKey;
-use handl_plugin_ext_diag::Span;
+use handl_plugin_ext_diag::{Span, StatementChunk};
+use handl_plugin_ext_refinement::{Dialect, detect_dialect};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
@@ -257,116 +258,34 @@ enum TestState {
 // Source-chunk splitting
 // ---------------------------------------------------------------------------
 
-/// A top-level statement chunk: its trimmed text and byte offset in the
-/// original source.
-///
-/// The v0.1 Pratt parser parses a single expression per call, so the runner
-/// splits the source into statements at bracket-depth zero, respecting string
-/// literals and `--` comments. This mirrors the approach used by the
-/// bootstrap typechecker (ADR-0088).
-struct Chunk {
-    /// The trimmed statement text.
-    text: String,
-    /// Byte offset of the trimmed text's first byte in the original source.
-    offset: usize,
-}
+/// A top-level statement chunk (alias for the shared
+/// [`StatementChunk`](handl_plugin_ext_diag::StatementChunk)).
+type Chunk = StatementChunk;
 
 /// Split `src` into top-level statement chunks.
 ///
 /// The v0.1 surface separates top-level declarations by newlines or
-/// semicolons. Splits at bracket-depth zero, respecting string literals and
-/// `--` comments.
+/// semicolons. The split itself is the shared `plugin-ext-diag`
+/// implementation (AGENTS.md "Source splitting"); the runner additionally
+/// drops import declarations (`from ... import ...` / `import ...`), which
+/// are not valid bare expressions — the test runtime already registers
+/// stdlib modules (str, fn, dedent, etc.) via the kit's module chain, so
+/// test files don't need imports.
 fn split_statements(src: &str) -> Vec<Chunk> {
-    let bytes = src.as_bytes();
-    let mut chunks = Vec::new();
-    let mut start = 0usize;
-    let mut depth: i32 = 0;
-    let mut i = 0usize;
-
-    while i < bytes.len() {
-        let b = bytes[i];
-
-        // String literal — skip to the closing quote (respecting escapes).
-        if b == b'"' {
-            i += 1;
-            while i < bytes.len() {
-                match bytes[i] {
-                    b'\\' => {
-                        i += 2;
-                        continue;
-                    }
-                    b'"' => {
-                        i += 1;
-                        break;
-                    }
-                    _ => i += 1,
-                }
-            }
-            continue;
-        }
-
-        // Comment: `--` (or `---`) to end of line. Skip the comment text
-        // and advance `start` past it so it doesn't become part of the
-        // next chunk.
-        if b == b'-' && i + 1 < bytes.len() && bytes[i + 1] == b'-' {
-            while i < bytes.len() && bytes[i] != b'\n' {
-                i += 1;
-            }
-            // If we stopped at a newline, let the separator handler below
-            // push the preceding chunk (which will be empty/comment-only
-            // and trimmed away). Advance `start` to skip the comment.
-            start = i;
-            continue;
-        }
-
-        // Bracket nesting.
-        match b {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            _ => {}
-        }
-
-        // Statement separators at depth zero.
-        if depth == 0 && (b == b'\n' || b == b';') {
-            push_chunk(src, &mut chunks, start, i);
-            i += 1;
-            start = i;
-            continue;
-        }
-
-        i += 1;
-    }
-
-    // Trailing chunk.
-    push_chunk(src, &mut chunks, start, src.len());
-    chunks
+    handl_plugin_ext_diag::split_statements(src)
+        .into_iter()
+        .filter(|chunk| !is_import_decl(&chunk.text))
+        .collect()
 }
 
-/// Push a trimmed chunk from `src[start..end]` if it is non-empty and
-/// not an import declaration (`from ... import ...` / `import ...`).
-fn push_chunk(src: &str, chunks: &mut Vec<Chunk>, start: usize, end: usize) {
-    let slice = &src[start..end];
-    let lead = slice.len() - slice.trim_start().len();
-    let trimmed = slice.trim();
-    if trimmed.is_empty() {
-        return;
-    }
-    // Skip import declarations — they are not valid bare expressions.
-    // The test runtime already registers stdlib modules (str, fn, dedent,
-    // etc.) via the kit's module chain, so test files don't need imports.
-    if trimmed.starts_with("from ")
+/// Whether a chunk's text is an import declaration.
+fn is_import_decl(trimmed: &str) -> bool {
+    trimmed.starts_with("from ")
         || trimmed.starts_with("from\t")
         || trimmed.starts_with("import ")
         || trimmed.starts_with("import\t")
         || trimmed.starts_with("import\"")
         || trimmed.starts_with("import'")
-    {
-        return;
-    }
-    chunks.push(Chunk {
-        text: trimmed.to_string(),
-        offset: start + lead,
-    });
 }
 
 /// Extract tags declared in `-- tags: ...` doc-comment lines immediately
@@ -819,6 +738,10 @@ pub(crate) fn discover_inner(
     for file in &files {
         let src = std::fs::read_to_string(file)
             .map_err(|e| DiscoverError::Io(format!("{}: {e}", file.display())))?;
+
+        if detect_dialect(&src) != Dialect::Canonical {
+            continue;
+        }
 
         match discover_tests_in_module(&lang, &src, file) {
             Ok(tests) => {

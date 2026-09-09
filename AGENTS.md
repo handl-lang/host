@@ -95,24 +95,41 @@ retains only the `assert` failure side-channel.
 The Pratt parser parses one statement per call. The typechecker, test runner,
 and linter (`plugin-engine-lint::parse_module`, ADR-0097) all split source
 into top-level statements at bracket-depth zero (respecting strings and `--`
-comments) before parsing each chunk individually.
+comments) before parsing each chunk individually — all three share
+`plugin_ext_diag::split_statements` (a comment at a statement boundary is
+elided; a mid-statement/trailing comment stays in the chunk text for the
+lexer to strip).
 
-### Dogfood gate status
+### Dogfood gate status — GREEN
 
 The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
 `handl-packages/` and `examples/` is scripted in `scripts/dogfood-gate.sh`
-and wired in `.github/workflows/dogfood-gate.yml` as an informational CI job
-(`continue-on-error: true`).
+and wired in `.github/workflows/dogfood-gate.yml` as a **blocking** CI job
+(the gate is green; `continue-on-error` was removed).
 
-Measured numbers from this session:
+All four phases are clean over the 177-file corpus:
 
-- parse failures: 0 (down from 30)
-- typecheck failures: ~57, all `[unbound-wire]` (binder/match-arm scoping and module-env gaps)
-- lint failures: ~135
+- `hnl fmt --check`: 0 failures
+- `hnl lint`: 0 errors (residual warnings: `missing-module-doc` info,
+  `naming-convention` warnings — non-fatal)
+- `hnl typecheck`: 0 errors (was ~57 files / 875 `[unbound-wire]` diags)
+- `hnl test`: 43/43 pass, 0 parse-error files (was 26)
 
-The gate is not yet green, so it stays informational. Remove
-`continue-on-error: true` once `hnl fmt --check`, `hnl lint`, `hnl typecheck`,
-and `hnl test` are clean over the dogfood corpus.
+Infrastructure that made it green:
+
+- `plugin-ext-diag::split_statements` — the single shared top-level
+  statement splitter (comment-at-boundary vs mid-statement handled
+  correctly); used by typecheck, lint, and test.
+- `plugin-ext-refinement::detect_dialect` — `Dialect::{Canonical,Contract,
+  Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
+  dialect files are skipped by canonical-only tools.
+- `plugin-engine-typecheck::check_module_with_prelude` — the bootstrap
+  scope pass handles pattern binders (`AstShapeDef::pattern_role`), `data`
+  ctor binding, and type-expression positions; `plugin-ext-lint` delegates
+  `unbound-wire` to it instead of its own scope walk.
+- `kit-canonical::canonical_wire_names` — the stdlib/prelude name set
+  derived from the same module chain the eval engines wire; `host-cli`
+  passes it to both `typecheck` and `lint`.
 
 ### Unified import model (ADR-0096)
 

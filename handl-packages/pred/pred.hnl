@@ -340,11 +340,11 @@ do {
   {
     -- constant predicates (arrows, not nullary combinators)
     always: c ~> true,
-    never:  c ~> false,
+    never: c ~> false,
 
     -- boolean composition of case predicates
     and: [p, q] ~> (c ~> if p(c) { q(c) } else { false }),
-    or:  [p, q] ~> (c ~> if p(c) { true } else { q(c) }),
+    or: [p, q] ~> (c ~> if p(c) { true } else { q(c) }),
     not: p ~> (c ~> if p(c) { false } else { true }),
 
     -- apply a value-matcher `m` to `c.<fname>` (projection fields:
@@ -352,8 +352,8 @@ do {
     field: [fname, m] ~> (c ~> m(get_field(c, fname))),
 
     -- value matchers
-    exact:    v   ~> (x ~> x == v),
-    glob:     pat ~> (x ~> glob_seg(collapse_stars(char.chars(pat)), char.chars(x))),
+    exact: v ~> (x ~> x == v),
+    glob: pat ~> (x ~> glob_seg(collapse_stars(char.chars(pat)), char.chars(x))),
     contains: pat ~> (x ~> s_contains(x, pat)),
 
     -- `*`/`?` glob match (flat: `**` collapses to `*`, no escapes)

@@ -88,40 +88,40 @@ do {
 
   {
     -- ---- predicates -------------------------------------------------
-    is_null:     v ~> type.of(v) == "null",
-    is_bool:     v ~> type.of(v) == "bool",
-    is_number:   v ~> type.of(v) == "number",
-    is_string:   v ~> type.of(v) == "string",
-    is_array:    v ~> type.of(v) == "array",
-    is_object:   v ~> type.of(v) == "object",
-    is_arrow:    v ~> type.of(v) == "arrow",
+    is_null: v ~> type.of(v) == "null",
+    is_bool: v ~> type.of(v) == "bool",
+    is_number: v ~> type.of(v) == "number",
+    is_string: v ~> type.of(v) == "string",
+    is_array: v ~> type.of(v) == "array",
+    is_object: v ~> type.of(v) == "object",
+    is_arrow: v ~> type.of(v) == "arrow",
     is_function: v ~> type.of(v) == "arrow",
-    is_bytes:    v ~> type.of(v) == "bytes",
+    is_bytes: v ~> type.of(v) == "bytes",
     is_resource: v ~> type.of(v) == "resource",
 
     -- ---- tag aliases ------------------------------------------------
     -- `type.tag` / `type.name` / `type.type_of` / `type.typeof` are all
     -- `type.of` spelled for the call site.
-    tag:     v ~> type.of(v),
-    name:    v ~> type.of(v),
+    tag: v ~> type.of(v),
+    name: v ~> type.of(v),
     type_of: v ~> type.of(v),
-    typeof:  v ~> type.of(v),
+    typeof: v ~> type.of(v),
 
     -- ---- kind guards -------------------------------------------------
-    is:  [v, kind] ~> kind_is(v, kind),
+    is: [v, kind] ~> kind_is(v, kind),
     must: [v, kind] ~>
       if kind_is(v, kind) {
         { ok: v }
       } else {
         { err: "type.must: expected " + kind }
       },
-    may:  [v, kind] ~> if kind_is(v, kind) { v } else { null },
-    not:  [v, kind] ~> if kind_is(v, kind) { null } else { v },
+    may: [v, kind] ~> if kind_is(v, kind) { v } else { null },
+    not: [v, kind] ~> if kind_is(v, kind) { null } else { v },
     when: [v, kind, d] ~> if kind_is(v, kind) { v } else { d },
 
     -- ---- utilities ---------------------------------------------------
     identity: v ~> v,
-    default:  [v, d] ~> if type.of(v) == "null" { d } else { v },
+    default: [v, d] ~> if type.of(v) == "null" { d } else { v },
 
     -- type.to_bool — handl truthiness: null/false/0/""/[]/{} are falsy,
     -- everything else (including arrows, bytes, resources) is truthy.

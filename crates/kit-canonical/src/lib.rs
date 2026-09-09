@@ -293,6 +293,137 @@ fn build_str_handl_module() -> HandlModule {
     HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_resolver(&StdlibResolver)
 }
 
+/// Build the stdlib [`ModuleRegistry`] the canonical kit wires into every
+/// runtime's module chain.
+///
+/// This is the single source of truth for which modules a `.hnl` source can
+/// reach without a path import: `Kit::build_kit` registers it as the
+/// eval-time lookup chain, and [`canonical_wire_names`] enumerates it for
+/// `hnl typecheck`'s unbound-wire scope. Keep the two in sync by adding new
+/// host modules here, not in `build_kit`.
+fn build_stdlib_registry() -> ModuleRegistry {
+    let mut stdlib_registry = ModuleRegistry::new();
+    stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
+    stdlib_registry.register(stdlib::module("math").expect("math"));
+    // `str-handl` is the pure-handl `str` impl over the `char` floor;
+    // it satisfies the `str` contract. Registered under `"str"` in
+    // place of the former all-FFI `StrModule`, so `str.*` lookups and
+    // `from "str" import` callers resolve to the handl impl.
+    stdlib_registry.register(build_str_handl_module());
+    stdlib_registry.register(CharModule);
+    stdlib_registry.register(UnicodeModule);
+    stdlib_registry.register(stdlib::module("bool").expect("bool"));
+    // `type` — the canonical runtime-introspection module: the
+    // `type-handl` record (predicates/guards) over the native
+    // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
+    stdlib_registry.register(build_type_module());
+    // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
+    // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
+    stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
+    stdlib_registry.register(stdlib::module("option").expect("option"));
+    // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
+    // atoms; built via `module_with` so its `tag` dep resolves to
+    // `TagModule` through `StdlibResolver`.
+    stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
+    stdlib_registry.register(stdlib::module("mood").expect("mood"));
+    stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
+    stdlib_registry.register(stdlib::module("parse").expect("parse"));
+    stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+    // `error` — the error-raising primitive (`error.raise`,
+    // ADR-0092 gap (a)); ops-only table module, callable as
+    // `error.raise(msg)` from any .hnl source or eval expression.
+    stdlib_registry.register(stdlib::module("error").expect("error"));
+    // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
+    // `obj.entries`); ops-only table module.
+    stdlib_registry.register(stdlib::module("obj").expect("obj"));
+    // `collections` — the aggregate module over the package-table
+    // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
+    // preserving the former `plugin-lib-collections` lookup shape.
+    stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
+    stdlib_registry.register(TagModule);
+    stdlib_registry.register(build_dedent_module());
+    // `test` framework modules — pure handl over tag/json/rand/time/
+    // combinators (ADR-0092).
+    stdlib_registry.register(build_test_module());
+    stdlib_registry.register(build_property_module());
+    stdlib_registry.register(build_benchmark_module());
+    stdlib_registry.register(build_fuzz_module());
+    stdlib_registry.register(build_snapshot_module());
+    stdlib_registry.register(build_assert_module());
+    stdlib_registry.register(TransformModule::new());
+    stdlib_registry.register(CombModule::new());
+    // `prim` — the atom layer: all four functions are pure handl
+    // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
+    stdlib_registry.register(stdlib::module("prim").expect("prim"));
+    // `time`/`rand` — native backends (clock reads, deterministic
+    // seeded RNG for `property`/`fuzz`, ADR-0092).
+    stdlib_registry.register(TimeModule);
+    stdlib_registry.register(RandModule);
+    stdlib_registry.register(stdlib::ops::ip::IpModule);
+    stdlib_registry
+}
+
+/// The wire names a `.hnl` source can reference without a source-level
+/// binding, derived from the same module chain `Kit::build_kit` wires
+/// (ADR-0096 "Unified import model").
+///
+/// At eval time an unbound identifier falls back to its name string and
+/// `module.name(args)` wires resolve through [`ModuleRegistry::lookup`]:
+/// qualified `mod.fn` names resolve via the module-name prefix, and flat
+/// names (`map`, `pipe`, `greet`, …) match any module's local function
+/// names. The returned set therefore contains:
+///
+/// - every registered module name (`str`, `char`, `json`, `tag`, `array`
+///   via the `collections` aggregate's dotted dispatch, `error`, `assert`,
+///   `test`, …);
+/// - every local function name of every registered module (flat wires);
+/// - every module name in the package table (`stdlib::MODULES`), since
+///   `StdlibResolver`/`DEFAULT_RESOLVER` can materialize them — this covers
+///   the `collections` aggregate's `vec`/`list`/`array`/… prefixes, which
+///   are dispatched by dotted name rather than enumerated;
+/// - the ambient globals `build_kit` injects (`self`, `hello`) and the
+///   fixed host-function wires of the `hello`/`fp` lookup chains
+///   (`greet`, `field_access`).
+///
+/// `hnl typecheck` passes this set to
+/// [`handl_plugin_engine_typecheck::check_module_with_prelude`] so the
+/// checker's scope matches what the runtime resolves — the checker crate
+/// cannot depend on this crate (dep cycle), so the name set lives here
+/// where the wiring lives.
+pub fn canonical_wire_names() -> std::collections::HashSet<String> {
+    let registry = build_stdlib_registry();
+    let mut names = std::collections::HashSet::new();
+    // Module names (qualified `mod.fn` wires) and their local function
+    // names (flat wires via `ModuleRegistry::lookup`'s all-module search).
+    let module_names: Vec<String> = registry
+        .module_names()
+        .map(str::to_string)
+        .collect();
+    for name in &module_names {
+        names.insert(name.clone());
+        if let Some(module) = registry.module(name) {
+            for (fname, _) in module.functions() {
+                names.insert(fname.to_string());
+            }
+        }
+    }
+    // Package-table module names — resolvable through the resolver even
+    // when only reachable via dotted dispatch (e.g. the `collections`
+    // aggregate's `vec`/`list`/`queue`/`stack`/`deque`/`hash_map`/
+    // `hash_set`/`array` prefixes) or as `deps` of other modules.
+    for spec in stdlib::MODULES {
+        names.insert(spec.name.to_string());
+    }
+    // Ambient globals injected by `build_kit` (`self` = the canonical
+    // Language value, `hello` = the module object) plus the fixed
+    // host-function wires of the `HelloHostFunctions`/`FpHostFunctions`
+    // lookup-chain segments layered over the registry.
+    for extra in ["self", "hello", "greet", "field_access"] {
+        names.insert(extra.to_string());
+    }
+    names
+}
+
 // ---------------------------------------------------------------------------
 // type module — pure-Handl `type-handl` record over the `type.of` atom
 // ---------------------------------------------------------------------------
@@ -1265,64 +1396,7 @@ impl Kit {
         // `TaggedValue`-level record cache avoids the exponential env
         // serialization of `do {}`-block modules).
 
-        let mut stdlib_registry = ModuleRegistry::new();
-        stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
-        stdlib_registry.register(stdlib::module("math").expect("math"));
-        // `str-handl` is the pure-handl `str` impl over the `char` floor;
-        // it satisfies the `str` contract. Registered under `"str"` in
-        // place of the former all-FFI `StrModule`, so `str.*` lookups and
-        // `from "str" import` callers resolve to the handl impl.
-        stdlib_registry.register(build_str_handl_module());
-        stdlib_registry.register(CharModule);
-        stdlib_registry.register(UnicodeModule);
-        stdlib_registry.register(stdlib::module("bool").expect("bool"));
-        // `type` — the canonical runtime-introspection module: the
-        // `type-handl` record (predicates/guards) over the native
-        // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
-        stdlib_registry.register(build_type_module());
-        // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
-        // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
-        stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
-        stdlib_registry.register(stdlib::module("option").expect("option"));
-        // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
-        // atoms; built via `module_with` so its `tag` dep resolves to
-        // `TagModule` through `StdlibResolver`.
-        stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
-        stdlib_registry.register(stdlib::module("mood").expect("mood"));
-        stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
-        stdlib_registry.register(stdlib::module("parse").expect("parse"));
-        stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
-        // `error` — the error-raising primitive (`error.raise`,
-        // ADR-0092 gap (a)); ops-only table module, callable as
-        // `error.raise(msg)` from any .hnl source or eval expression.
-        stdlib_registry.register(stdlib::module("error").expect("error"));
-        // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
-        // `obj.entries`); ops-only table module.
-        stdlib_registry.register(stdlib::module("obj").expect("obj"));
-        // `collections` — the aggregate module over the package-table
-        // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
-        // preserving the former `plugin-lib-collections` lookup shape.
-        stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
-        stdlib_registry.register(TagModule);
-        stdlib_registry.register(build_dedent_module());
-        // `test` framework modules — pure handl over tag/json/rand/time/
-        // combinators (ADR-0092).
-        stdlib_registry.register(build_test_module());
-        stdlib_registry.register(build_property_module());
-        stdlib_registry.register(build_benchmark_module());
-        stdlib_registry.register(build_fuzz_module());
-        stdlib_registry.register(build_snapshot_module());
-        stdlib_registry.register(build_assert_module());
-        stdlib_registry.register(TransformModule::new());
-        stdlib_registry.register(CombModule::new());
-        // `prim` — the atom layer: all four functions are pure handl
-        // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
-        stdlib_registry.register(stdlib::module("prim").expect("prim"));
-        // `time`/`rand` — native backends (clock reads, deterministic
-        // seeded RNG for `property`/`fuzz`, ADR-0092).
-        stdlib_registry.register(TimeModule);
-        stdlib_registry.register(RandModule);
-        stdlib_registry.register(stdlib::ops::ip::IpModule);
+        let stdlib_registry = build_stdlib_registry();
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(

@@ -47,8 +47,6 @@ pub use handl_plugin_engine_fmt::{
 
 use handl_language::{Ast, AstRef, LangError, Language};
 use handl_plugin_engine_lex_pattern::lex;
-use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
-use handl_plugin_engine_parse_pratt::PrattEngine;
 
 // ---------------------------------------------------------------------------
 // FormatError
@@ -86,19 +84,20 @@ impl From<LangError> for FormatError {
 
 /// Format handl source text into canonical form.
 ///
-/// Parses the source, formats canonically, and returns the canonical source
-/// text with a single trailing newline. Composes the staged engine pipeline:
-/// parse → layout (canonical [`FormattingRule`]) → render
-/// ([`TokenFormatter`]) → post-process ([`canonical_post_process`]).
+/// Lexes the source, applies the canonical [`FormattingRule`] spacing, and
+/// renders the token stream with [`TokenFormatter`]. The result is then run
+/// through [`canonical_post_process`].
+///
+/// Parsing is intentionally not a gate: the token-stream formatter only needs
+/// a valid lex stream, so files that are not yet supported by the Pratt parser
+/// can still be checked/normalized for whitespace.
 ///
 /// # Errors
 ///
-/// Returns [`FormatError::Parse`] if the source cannot be parsed.
+/// Returns [`FormatError::Parse`] if the source cannot be lexed.
 pub fn format_source(src: &str) -> Result<String, FormatError> {
     let lang = canonical_language()?;
-    // Stage 1 · parse: the source must parse successfully (AST-validated).
-    let _ast = parse_source(&lang, src)?;
-    // Stage 1 (cont.) · lex: the token stream preserves comments and exact text.
+    // Stage 1 · lex: the token stream preserves comments and exact text.
     let tokens = lex(&lang, src)?;
     // If there are no tokens, the source is empty/whitespace-only.
     if tokens.as_slice().is_empty() {
@@ -173,16 +172,7 @@ fn canonical_language() -> Result<Language, FormatError> {
     Ok(kit.lang().clone())
 }
 
-/// Parse source text using the data-driven Pratt parser.
-fn parse_source(lang: &Language, src: &str) -> Result<Ast, FormatError> {
-    let tokens = lex(lang, src)?;
-    if tokens.as_slice().is_empty() {
-        return Ok(Ast::new());
-    }
-    let req = ParserRequest::new(tokens);
-    let ast = PrattEngine::new().parse(lang, &req)?;
-    Ok(ast)
-}
+
 
 // ---------------------------------------------------------------------------
 // Internal: normalization for `check_source` comparison
@@ -412,6 +402,27 @@ mod tests {
         assert_eq!(once, twice);
     }
 
+    // --- Round-trip / re-parse-ability spacing tests ---
+
+    #[test]
+    fn keyword_bracket_spacing_round_trip() {
+        // `match` must keep a space before the scrutinee `[` and `{` so the
+        // formatted source still parses, while keyword calls like `first(...)`
+        // and juxtaposed application `assert dedent(...)` stay tight.
+        let cases = [
+            ("match [1, 2, 3] { []: 0, [h, ...t]: h }", "match [1, 2, 3] { []: 0, [h, ...t]: h }\n"),
+            ("match [] { []: 0 }", "match [] { []: 0 }\n"),
+            ("first(id)", "first(id)\n"),
+            ("assert dedent(\"...\")", "assert dedent(\"...\")\n"),
+        ];
+        for (input, expected) in cases {
+            let once = format_source(input).unwrap();
+            assert_eq!(once, expected, "format mismatch for: {input}");
+            let twice = format_source(&once).unwrap();
+            assert_eq!(twice, once, "idempotence failed for: {input}");
+        }
+    }
+
     // --- check_source tests ---
 
     #[test]
@@ -479,7 +490,7 @@ mod tests {
         let lang = canonical_language().expect("canonical language assembles");
         assert_eq!(
             classify_token(&lang, "token.lparen"),
-            TokenCat::OpenBracket
+            TokenCat::OpenParen
         );
         assert_eq!(
             classify_token(&lang, "token.rparen"),

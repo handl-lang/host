@@ -105,6 +105,78 @@ pub use trait_inference::{
 };
 pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefTy, RefinementResult};
 
+/// Source dialect detected from surface syntax.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dialect {
+    Canonical,
+    Contract,
+    Arrow,
+}
+
+/// A top-level (column-0) source line, with `--` line comments removed.
+/// Returns `None` for blank lines, comments, and indented lines (contract
+/// clause lines are indented and never carry a directive keyword).
+fn top_level_line(line: &str) -> Option<&str> {
+    if line.chars().next().is_none_or(|c| c.is_whitespace()) {
+        return None;
+    }
+    let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
+    let t = code.trim_end();
+    (!t.is_empty()).then_some(t)
+}
+
+/// True when the source is a contract-dialect file: the first top-level
+/// statement line starts with `axiom `.
+fn is_contract_source(src: &str) -> bool {
+    src.lines()
+        .filter_map(top_level_line)
+        .next()
+        .is_some_and(|l| l.starts_with("axiom "))
+}
+
+/// True when the source shows arrow-dialect markers: top-level
+/// `cap`/`op`/`handl`/`tag` declaration lines or arrow-combinator
+/// expressions (`arr(`, `first(`, `choice(`, `loop(`, `comp(`, `app(`,
+/// `|||`, `rec {`).
+fn has_arrow_markers(src: &str) -> bool {
+    const DIRECTIVES: [&str; 4] = ["cap ", "op ", "handl ", "tag "];
+    const COMBINATORS: [&str; 8] = [
+        "arr(",
+        "first(",
+        "choice(",
+        "loop(",
+        "comp(",
+        "app(",
+        "|||",
+        "rec {",
+    ];
+    src.lines().any(|line| {
+        let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
+        if let Some(top) = top_level_line(line) {
+            if DIRECTIVES.iter().any(|d| top.starts_with(d)) {
+                return true;
+            }
+        }
+        COMBINATORS.iter().any(|c| code.contains(c))
+    })
+}
+
+/// Detect the surface dialect of `src`.
+///
+/// Contract files (`axiom`/`requires:`/`guarantee:`) and arrow-module files
+/// (`cap`/`op`/`handl`/`tag` decls, arrow combinators) are routed to the
+/// refinement loaders. Arrow detection requires the source to successfully
+/// parse as an arrow module, not just contain marker tokens.
+pub fn detect_dialect(src: &str) -> Dialect {
+    if is_contract_source(src) {
+        return Dialect::Contract;
+    }
+    if has_arrow_markers(src) && parse_arrow_module(src).is_ok() {
+        return Dialect::Arrow;
+    }
+    Dialect::Canonical
+}
+
 #[cfg(test)]
 mod tests;
 

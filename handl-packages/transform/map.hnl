@@ -18,6 +18,7 @@ export map :: do {
       }
     }
   }
+  ;
   [xs, f] ~> {
     while { xs: xs, acc: [] } {
       [xs, acc] ~> match xs {

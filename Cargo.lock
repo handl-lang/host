@@ -1297,6 +1297,7 @@ dependencies = [
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-transform-rewrite",
+ "handl-plugin-ext-diag",
  "serde",
  "serde_json",
 ]
@@ -1333,6 +1334,7 @@ dependencies = [
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
+ "handl-plugin-ext-refinement",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-scheduler",
  "handl-plugin-module",
@@ -1584,6 +1586,7 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-lint",
+ "handl-plugin-engine-typecheck",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
  "serde",
