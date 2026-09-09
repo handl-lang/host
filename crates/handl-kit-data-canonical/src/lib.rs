@@ -467,8 +467,8 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // +13 Term frontier type rules.
-        assert_eq!(lang.types.len(), 90);
+        // +13 Term frontier type rules + 1 transport rule.
+        assert_eq!(lang.types.len(), 91);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

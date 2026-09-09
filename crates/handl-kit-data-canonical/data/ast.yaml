@@ -1428,3 +1428,20 @@
     required:
       - children
     type: object
+# `transport` — transport a value along a path.
+- id: ast.transport
+  node_kind: transport
+  children:
+    - role: path
+    - role: value
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object

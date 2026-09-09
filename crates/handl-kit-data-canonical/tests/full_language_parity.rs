@@ -81,6 +81,8 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
         "graded_arrow",
+        // Option B transport (ADR-0101)
+        "transport",
     ];
     for kind in eval_node_kinds {
         assert!(
@@ -303,6 +305,8 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
         "graded_arrow",
+        // Option B transport (ADR-0101)
+        "transport",
     ];
     for kind in ast_node_kinds {
         assert!(

@@ -3301,3 +3301,17 @@
     args: []
     source: Judgment
     lit: type.unknown
+# `transport` — transport a value along a path.
+- id: type.transport
+  node_kind: transport
+  synth: !Transport
+    path: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    value: !Op
+      name: synth_child
+      args: []
+      source: Judgment
+      lit: 1

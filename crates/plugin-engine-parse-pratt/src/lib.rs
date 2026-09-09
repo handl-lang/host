@@ -1945,19 +1945,21 @@ mod tests {
             "token.tilde",
             "token.plus",
             "token.ellipsis",
-            // Term frontier keyword tokens.
-            "token.keyword.cell_id",
-            "token.keyword.cell_comp_v",
-            "token.keyword.cell_comp_h",
-            "token.keyword.whisker_left",
-            "token.keyword.whisker_right",
+            // Option B frontier tokens.
+            "token.keyword.id2",
+            "token.cell_vcomp",
+            "token.cell_hcomp",
+            "token.at_left",
+            "token.at_right",
+            "token.sharp",
+            "token.keyword.where",
+            "token.keyword.as",
+            "token.cobind",
+            // Retained call-style frontier keyword tokens.
             "token.keyword.univalence",
             "token.keyword.glue",
             "token.keyword.fibrant",
             "token.keyword.j",
-            "token.keyword.witness",
-            "token.keyword.refine",
-            "token.keyword.cobind",
             "token.keyword.cobox",
         ] {
             lang.tokens.merge(TokenKindDef::new(k)).unwrap();
@@ -2129,8 +2131,7 @@ mod tests {
                 .with_binding_power(90, 91),
             )
             .unwrap();
-        // Term frontier keyword prefixes (call-style, comma-separated).
-        let cell_seps = vec![ChildSeparator::Required("token.comma".into())];
+        // Option B frontier grammar.
         let j_seps = vec![
             ChildSeparator::Required("token.comma".into()),
             ChildSeparator::Required("token.comma".into()),
@@ -2138,58 +2139,103 @@ mod tests {
         lang.grammar
             .merge(
                 GrammarRow::new(
-                    "g.cell_id",
-                    "token.keyword.cell_id",
+                    "g.id2",
+                    "token.keyword.id2",
                     GrammarPosition::Prefix,
                     AstShapeRef::new("cell_id", 1),
                 )
-                .with_binding_power(0, 0),
+                .with_binding_power(70, 0),
             )
             .unwrap();
         lang.grammar
             .merge(
                 GrammarRow::new(
-                    "g.cell_comp_v",
-                    "token.keyword.cell_comp_v",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("cell_comp_v", 2).with_child_separators(cell_seps.clone()),
+                    "g.cell_vcomp",
+                    "token.cell_vcomp",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("cell_comp_v", 2),
                 )
-                .with_binding_power(0, 0),
+                .with_binding_power(8, 9),
             )
             .unwrap();
         lang.grammar
             .merge(
                 GrammarRow::new(
-                    "g.cell_comp_h",
-                    "token.keyword.cell_comp_h",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("cell_comp_h", 2).with_child_separators(cell_seps.clone()),
+                    "g.cell_hcomp",
+                    "token.cell_hcomp",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("cell_comp_h", 2),
                 )
-                .with_binding_power(0, 0),
+                .with_binding_power(8, 9),
             )
             .unwrap();
         lang.grammar
             .merge(
                 GrammarRow::new(
-                    "g.whisker_left",
-                    "token.keyword.whisker_left",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("whisker_left", 2).with_child_separators(cell_seps.clone()),
+                    "g.at_left",
+                    "token.at_left",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("whisker_left", 2),
                 )
-                .with_binding_power(0, 0),
+                .with_binding_power(8, 9),
             )
             .unwrap();
         lang.grammar
             .merge(
                 GrammarRow::new(
-                    "g.whisker_right",
-                    "token.keyword.whisker_right",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("whisker_right", 2).with_child_separators(cell_seps.clone()),
+                    "g.at_right",
+                    "token.at_right",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("whisker_right", 2),
                 )
-                .with_binding_power(0, 0),
+                .with_binding_power(8, 9),
             )
             .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.sharp",
+                    "token.sharp",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("transport", 2),
+                )
+                .with_binding_power(8, 9),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.refine_where",
+                    "token.keyword.where",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("refine", 2),
+                )
+                .with_binding_power(8, 9),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.witness_as",
+                    "token.keyword.as",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("witness", 2),
+                )
+                .with_binding_power(8, 9),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.cobind",
+                    "token.cobind",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("cobind", 2),
+                )
+                .with_binding_power(8, 9),
+            )
+            .unwrap();
+        // Retained call-style frontier prefixes.
         lang.grammar
             .merge(
                 GrammarRow::new(
@@ -2207,7 +2253,9 @@ mod tests {
                     "g.glue",
                     "token.keyword.glue",
                     GrammarPosition::Prefix,
-                    AstShapeRef::new("glue", 2).with_child_separators(cell_seps.clone()),
+                    AstShapeRef::new("glue", 2).with_child_separators(vec![
+                        ChildSeparator::Required("token.comma".into()),
+                    ]),
                 )
                 .with_binding_power(0, 0),
             )
@@ -2218,7 +2266,9 @@ mod tests {
                     "g.fibrant",
                     "token.keyword.fibrant",
                     GrammarPosition::Prefix,
-                    AstShapeRef::new("fibrant", 2).with_child_separators(cell_seps.clone()),
+                    AstShapeRef::new("fibrant", 2).with_child_separators(vec![
+                        ChildSeparator::Required("token.comma".into()),
+                    ]),
                 )
                 .with_binding_power(0, 0),
             )
@@ -2230,39 +2280,6 @@ mod tests {
                     "token.keyword.j",
                     GrammarPosition::Prefix,
                     AstShapeRef::new("j", 3).with_child_separators(j_seps),
-                )
-                .with_binding_power(0, 0),
-            )
-            .unwrap();
-        lang.grammar
-            .merge(
-                GrammarRow::new(
-                    "g.witness",
-                    "token.keyword.witness",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("witness", 2).with_child_separators(cell_seps.clone()),
-                )
-                .with_binding_power(0, 0),
-            )
-            .unwrap();
-        lang.grammar
-            .merge(
-                GrammarRow::new(
-                    "g.refine",
-                    "token.keyword.refine",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("refine", 2).with_child_separators(cell_seps.clone()),
-                )
-                .with_binding_power(0, 0),
-            )
-            .unwrap();
-        lang.grammar
-            .merge(
-                GrammarRow::new(
-                    "g.cobind",
-                    "token.keyword.cobind",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("cobind", 2).with_child_separators(cell_seps.clone()),
                 )
                 .with_binding_power(0, 0),
             )
@@ -2638,33 +2655,9 @@ mod tests {
         let lang = literal_lang();
         let cases: Vec<(&str, Vec<Token>, usize)> = vec![
             ("cell_id", vec![
-                tok("token.keyword.cell_id", "cell_id"),
+                tok("token.keyword.id2", "id2"),
                 tok("token.identifier", "a"),
             ], 1),
-            ("cell_comp_v", vec![
-                tok("token.keyword.cell_comp_v", "cell_comp_v"),
-                tok("token.identifier", "a"),
-                tok("token.comma", ","),
-                tok("token.identifier", "b"),
-            ], 2),
-            ("cell_comp_h", vec![
-                tok("token.keyword.cell_comp_h", "cell_comp_h"),
-                tok("token.identifier", "a"),
-                tok("token.comma", ","),
-                tok("token.identifier", "b"),
-            ], 2),
-            ("whisker_left", vec![
-                tok("token.keyword.whisker_left", "whisker_left"),
-                tok("token.identifier", "f"),
-                tok("token.comma", ","),
-                tok("token.identifier", "a"),
-            ], 2),
-            ("whisker_right", vec![
-                tok("token.keyword.whisker_right", "whisker_right"),
-                tok("token.identifier", "f"),
-                tok("token.comma", ","),
-                tok("token.identifier", "a"),
-            ], 2),
             ("univalence", vec![
                 tok("token.keyword.univalence", "univalence"),
                 tok("token.identifier", "e"),
@@ -2689,28 +2682,72 @@ mod tests {
                 tok("token.comma", ","),
                 tok("token.identifier", "a"),
             ], 3),
-            ("witness", vec![
-                tok("token.keyword.witness", "witness"),
-                tok("token.identifier", "g"),
-                tok("token.comma", ","),
-                tok("token.identifier", "p"),
-            ], 2),
-            ("refine", vec![
-                tok("token.keyword.refine", "refine"),
-                tok("token.identifier", "s"),
-                tok("token.comma", ","),
-                tok("token.identifier", "P"),
-            ], 2),
-            ("cobind", vec![
-                tok("token.keyword.cobind", "cobind"),
-                tok("token.identifier", "g"),
-                tok("token.comma", ","),
-                tok("token.identifier", "b"),
-            ], 2),
             ("cobox", vec![
                 tok("token.keyword.cobox", "cobox"),
                 tok("token.identifier", "a"),
             ], 1),
+        ];
+        for (expected, tokens, n) in cases {
+            let ast = engine
+                .parse(&lang, &ParserRequest::new(Tokens(tokens)))
+                .unwrap();
+            let root = ast.nodes().last().unwrap();
+            assert_eq!(root.kind, expected, "root kind for {}", expected);
+            let children = root
+                .payload
+                .get("children")
+                .unwrap()
+                .as_array()
+                .unwrap();
+            assert_eq!(children.len(), n, "child count for {}", expected);
+        }
+    }
+
+    #[test]
+    fn cell_theory_operators_parse() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let cases: Vec<(&str, Vec<Token>, usize)> = vec![
+            ("cell_comp_v", vec![
+                tok("token.identifier", "a"),
+                tok("token.cell_vcomp", "=>>"),
+                tok("token.identifier", "b"),
+            ], 2),
+            ("cell_comp_h", vec![
+                tok("token.identifier", "a"),
+                tok("token.cell_hcomp", "=>|"),
+                tok("token.identifier", "b"),
+            ], 2),
+            ("whisker_left", vec![
+                tok("token.identifier", "h"),
+                tok("token.at_left", "<@"),
+                tok("token.identifier", "alpha"),
+            ], 2),
+            ("whisker_right", vec![
+                tok("token.identifier", "h"),
+                tok("token.at_right", "@>"),
+                tok("token.identifier", "alpha"),
+            ], 2),
+            ("transport", vec![
+                tok("token.identifier", "p"),
+                tok("token.sharp", "#"),
+                tok("token.identifier", "v"),
+            ], 2),
+            ("refine", vec![
+                tok("token.identifier", "A"),
+                tok("token.keyword.where", "where"),
+                tok("token.identifier", "P"),
+            ], 2),
+            ("witness", vec![
+                tok("token.identifier", "v"),
+                tok("token.keyword.as", "as"),
+                tok("token.identifier", "G"),
+            ], 2),
+            ("cobind", vec![
+                tok("token.identifier", "G"),
+                tok("token.cobind", "?"),
+                tok("token.identifier", "body"),
+            ], 2),
         ];
         for (expected, tokens, n) in cases {
             let ast = engine

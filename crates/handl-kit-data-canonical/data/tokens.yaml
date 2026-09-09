@@ -242,21 +242,33 @@
 - id: token.keyword.with
   label: with
   category: keyword
-- id: token.keyword.cell_id
-  label: cell_id
+# Option B frontier operators (ADR-0101 §2a).
+- id: token.keyword.id2
+  label: id2
   category: keyword
-- id: token.keyword.cell_comp_v
-  label: cell_comp_v
+  doc: "**Cell identity** `id2`\n\n```\nid2 `arrow`\n```"
+- id: token.cell_vcomp
+  label: "=>>"
+  category: operator
+- id: token.cell_hcomp
+  label: "=>|"
+  category: operator
+- id: token.at_left
+  label: "<@"
+  category: operator
+- id: token.at_right
+  label: "@>"
+  category: operator
+- id: token.sharp
+  label: "#"
+  category: operator
+- id: token.keyword.where
+  label: where
   category: keyword
-- id: token.keyword.cell_comp_h
-  label: cell_comp_h
-  category: keyword
-- id: token.keyword.whisker_left
-  label: whisker_left
-  category: keyword
-- id: token.keyword.whisker_right
-  label: whisker_right
-  category: keyword
+- id: token.cobind
+  label: "?"
+  category: operator
+# Retained call-style frontier forms (not covered by Option B operators).
 - id: token.keyword.univalence
   label: univalence
   category: keyword
@@ -268,15 +280,6 @@
   category: keyword
 - id: token.keyword.j
   label: j
-  category: keyword
-- id: token.keyword.witness
-  label: witness
-  category: keyword
-- id: token.keyword.refine
-  label: refine
-  category: keyword
-- id: token.keyword.cobind
-  label: cobind
   category: keyword
 - id: token.keyword.cobox
   label: cobox

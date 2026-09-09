@@ -1074,59 +1074,89 @@
 # ---------------------------------------------------------------------------
 # Cell/cubical theory surface forms (Term frontier)
 # ---------------------------------------------------------------------------
-- id: grammar.cell_id.prefix
-  token: token.keyword.cell_id
+# Option B infix operators (ADR-0101 §2a).
+- id: grammar.id2.prefix
+  token: token.keyword.id2
   position: Prefix
   binding_power:
-    - 0
+    - 70
     - 0
   child_shape:
     node_kind: cell_id
     arity: 1
-- id: grammar.cell_comp_v.prefix
-  token: token.keyword.cell_comp_v
-  position: Prefix
+- id: grammar.cell_vcomp.infix
+  token: token.cell_vcomp
+  position: Infix
   binding_power:
-    - 0
-    - 0
+    - 8
+    - 9
   child_shape:
     node_kind: cell_comp_v
     arity: 2
-    child_separators:
-      - !Required token.comma
-- id: grammar.cell_comp_h.prefix
-  token: token.keyword.cell_comp_h
-  position: Prefix
+- id: grammar.cell_hcomp.infix
+  token: token.cell_hcomp
+  position: Infix
   binding_power:
-    - 0
-    - 0
+    - 8
+    - 9
   child_shape:
     node_kind: cell_comp_h
     arity: 2
-    child_separators:
-      - !Required token.comma
-- id: grammar.whisker_left.prefix
-  token: token.keyword.whisker_left
-  position: Prefix
+- id: grammar.at_left.infix
+  token: token.at_left
+  position: Infix
   binding_power:
-    - 0
-    - 0
+    - 8
+    - 9
   child_shape:
     node_kind: whisker_left
     arity: 2
-    child_separators:
-      - !Required token.comma
-- id: grammar.whisker_right.prefix
-  token: token.keyword.whisker_right
-  position: Prefix
+- id: grammar.at_right.infix
+  token: token.at_right
+  position: Infix
   binding_power:
-    - 0
-    - 0
+    - 8
+    - 9
   child_shape:
     node_kind: whisker_right
     arity: 2
-    child_separators:
-      - !Required token.comma
+- id: grammar.transport.infix
+  token: token.sharp
+  position: Infix
+  binding_power:
+    - 8
+    - 9
+  child_shape:
+    node_kind: transport
+    arity: 2
+- id: grammar.refine.where
+  token: token.keyword.where
+  position: Infix
+  binding_power:
+    - 8
+    - 9
+  child_shape:
+    node_kind: refine
+    arity: 2
+- id: grammar.witness.as
+  token: token.keyword.as
+  position: Infix
+  binding_power:
+    - 8
+    - 9
+  child_shape:
+    node_kind: witness
+    arity: 2
+- id: grammar.cobind.infix
+  token: token.cobind
+  position: Infix
+  binding_power:
+    - 8
+    - 9
+  child_shape:
+    node_kind: cobind
+    arity: 2
+# Retained call-style frontier forms (not covered by Option B operators).
 - id: grammar.univalence.prefix
   token: token.keyword.univalence
   position: Prefix
@@ -1169,39 +1199,6 @@
     arity: 3
     child_separators:
       - !Required token.comma
-      - !Required token.comma
-- id: grammar.witness.prefix
-  token: token.keyword.witness
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: witness
-    arity: 2
-    child_separators:
-      - !Required token.comma
-- id: grammar.refine.prefix
-  token: token.keyword.refine
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: refine
-    arity: 2
-    child_separators:
-      - !Required token.comma
-- id: grammar.cobind.prefix
-  token: token.keyword.cobind
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: cobind
-    arity: 2
-    child_separators:
       - !Required token.comma
 - id: grammar.cobox.prefix
   token: token.keyword.cobox

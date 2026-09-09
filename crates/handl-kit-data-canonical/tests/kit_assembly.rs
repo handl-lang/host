@@ -32,10 +32,11 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // re-shaped in place as 2-cells `name : source => target`.
     // +2 `grammar.{with,handle}.prefix` for handler-install expressions.
     // +1 `grammar.graded_arrow.infix` for `~EXPR~>`.
-    assert_eq!(lang.grammar.len(), 88);
+    // +9 Option B infix/id2 rows - 8 removed call-style rows = +1.
+    assert_eq!(lang.grammar.len(), 89);
 
-    // +13 Term frontier eval rules.
-    assert_eq!(lang.eval.len(), 89);
+    // +13 Term frontier eval rules + 1 transport rule.
+    assert_eq!(lang.eval.len(), 90);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -46,8 +47,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // [name, source, target]).
     // +2 `ast.{with,handle}` for the surface syntax.
     // +1 `ast.graded_arrow` for `~EXPR~>`.
-    // +13 Term frontier shapes.
-    assert_eq!(lang.ast.len(), 89);
+    // +13 Term frontier shapes + 1 transport shape.
+    assert_eq!(lang.ast.len(), 90);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -85,7 +86,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 101);
-    assert_eq!(rt.lang().grammar.len(), 88);
+    assert_eq!(rt.lang().grammar.len(), 89);
 }
 
 #[test]

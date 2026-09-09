@@ -1312,3 +1312,17 @@
       args: []
       source: Native
       lit: 0
+# `transport` — transport a value along a path.
+- id: eval.transport
+  node_kind: transport
+  scheme: !Transport
+    path: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    value: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1

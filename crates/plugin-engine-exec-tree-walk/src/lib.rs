@@ -1249,10 +1249,108 @@ impl TreeWalkEngine {
                 }
                 Ok((equiv_val, false))
             }
-            Term::CellCompH { .. }
-            | Term::Glue { .. }
-            | Term::Fibrant { .. }
-            | Term::JElim { .. } => Err(LangError::NotImplemented),
+            Term::CellCompH { left, right } => {
+                let left_val = self.eval_scheme_tagged(
+                    left,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let right_val = self.eval_scheme_tagged(
+                    right,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let mut map = FxHashMap::default();
+                map.insert(Rc::from("__tag__"), TaggedValue::Str(Rc::from("CellCompH")));
+                map.insert(Rc::from("left"), left_val);
+                map.insert(Rc::from("right"), right_val);
+                Ok((TaggedValue::Obj(Rc::new(map)), false))
+            }
+            Term::Glue { family, path } => {
+                let _ = self.eval_scheme_tagged(
+                    path,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let family_val = self.eval_scheme_tagged(
+                    family,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((family_val, false))
+            }
+            Term::Fibrant { base, family } => {
+                let _ = self.eval_scheme_tagged(
+                    family,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let base_val = self.eval_scheme_tagged(
+                    base,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                Ok((base_val, false))
+            }
+            Term::JElim { path, motive, base } => {
+                let path_val = self.eval_scheme_tagged(
+                    path,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let base_val = self.eval_scheme_tagged(
+                    base,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                if let Some(tag) = path_val.get("__tag__").and_then(|v| v.as_str()) {
+                    if tag == "Path" || tag == "Rewrite" {
+                        let motive_val = self.eval_scheme_tagged(
+                            motive,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            Some(base_val),
+                        )?;
+                        return Ok((motive_val, false));
+                    }
+                }
+                Ok((base_val, false))
+            }
         }
     }
 
@@ -8496,5 +8594,47 @@ mod tests {
         };
         let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
         assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn cell_comp_h_returns_record() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::CellCompH {
+            left: Box::new(lit(1)),
+            right: Box::new(lit(2)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result.get("__tag__").and_then(Value::as_str), Some("CellCompH"));
+        assert_eq!(result.get("left"), Some(&json!(1)));
+        assert_eq!(result.get("right"), Some(&json!(2)));
+    }
+
+    #[test]
+    fn jelim_runs_motive_on_path() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let path = Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
+        let scheme = Term::JElim {
+            path: Box::new(path),
+            motive: Box::new(lit("motive")),
+            base: Box::new(lit(7)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!("motive"));
+    }
+
+    #[test]
+    fn jelim_returns_base_for_non_path() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let path = Term::const_value(json!({"__tag__": "Other"}));
+        let scheme = Term::JElim {
+            path: Box::new(path),
+            motive: Box::new(lit("motive")),
+            base: Box::new(lit(7)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(7));
     }
 }

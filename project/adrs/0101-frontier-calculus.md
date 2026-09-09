@@ -121,7 +121,28 @@ call with positional arguments, consistent with how `op` and other
 calculus forms are parsed. An **Option B operator pass** is planned to add
 more compact surface syntax (e.g. infix vertical/horizontal composition
 operators and dedicated path/univalence tokens) once the semantics are
-green in the value and type models. That pass is not part of this ADR.
+green in the value and type models. That pass is now documented below.
+
+### 2a. Surface syntax (Option B)
+
+The approved compact surface forms are:
+
+- `id2 f` (cell_id)
+- `alpha =>> beta` (cell_comp_v)
+- `alpha =>| beta` (cell_comp_h)
+- `h <@ alpha` (whisker_left)
+- `h @> alpha` (whisker_right)
+- `p # v` (transport)
+- `A where P` (refine)
+- `v as G` (witness)
+- `G ? body` (cobind)
+- `ua(e)` (univalence)
+- `glue(family, path)` (glue)
+- `fibrant(base, family)` (fibrant)
+- `J(path, motive, base)` (JElim)
+- `cobox(c)` (cobox)
+
+> **Implementation status:** Call-style prefix forms were the first pass; Option B operators are the canonical surface.
 
 ### 3. Engine semantics
 

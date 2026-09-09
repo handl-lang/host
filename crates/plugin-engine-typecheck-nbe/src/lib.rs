@@ -477,10 +477,25 @@ impl NbeTypecheckEngine {
                     .construct("type.bool", &Value::Null)
                     .unwrap_or(Value::Null))
             }
-            Term::CellCompH { .. }
-            | Term::Glue { .. }
-            | Term::Fibrant { .. }
-            | Term::JElim { .. } => Ok(incoming.unwrap_or(Value::Null)),
+            Term::CellCompH { right, .. } => {
+                self.eval_type_scheme(lang, ast, node_ref, right, ctx, incoming)
+            }
+            Term::Glue { family, .. } => {
+                self.eval_type_scheme(lang, ast, node_ref, family, ctx, incoming)
+            }
+            Term::Fibrant { base, .. } => {
+                self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)
+            }
+            Term::JElim { path, motive, base } => {
+                let path_val = self.eval_type_scheme(lang, ast, node_ref, path, ctx, incoming.clone())?;
+                let base_val = self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)?;
+                if let Some(tag) = path_val.get("__tag__").and_then(Value::as_str) {
+                    if tag == "Path" || tag == "Rewrite" {
+                        return self.eval_type_scheme(lang, ast, node_ref, motive, ctx, Some(base_val));
+                    }
+                }
+                Ok(base_val)
+            }
             _ => Ok(incoming.unwrap_or(Value::Null)),
         }
     }
