@@ -3817,6 +3817,46 @@ fn apply_native_v2(
         "index" => {
             return prim_v2_index(ctx);
         }
+        "field_access" => {
+            let target = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let field = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            match (target, field) {
+                (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
+                    Ok(map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null))
+                }
+                (TaggedValue::Arr(arr), field) => {
+                    let i = match field
+                        .as_f64()
+                        .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                        .map(|n| n as usize)
+                    {
+                        Some(i) => i,
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "field_access: array index must be a non-negative integer"
+                                    .to_string(),
+                            ))
+                        }
+                    };
+                    arr.get(i).cloned().ok_or_else(|| {
+                        LangError::engine(format!(
+                            "field_access: index {i} out of bounds (len {})",
+                            arr.len()
+                        ))
+                    })
+                }
+                (TaggedValue::Str(s), TaggedValue::Str(key)) => {
+                    let joined: Rc<str> =
+                        Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
+                    Ok(TaggedValue::Str(joined))
+                }
+                (target, field) => Err(LangError::engine(format!(
+                    "field_access: target must be object/array, field must be string/number; got {} and {}",
+                    type_tag(&target),
+                    type_tag(&field),
+                ))),
+            }
+        }
         "assign" => {
             return prim_v2_assign(ctx);
         }
@@ -4030,14 +4070,21 @@ fn apply_native_v2(
             }
         }
         "call_host" => {
-            let callee = match args.first() {
-                Some(TaggedValue::Str(s)) => s.to_string(),
-                _ => {
+            // Mirror the tree-walk/bytecode convention: the string callee
+            // arrives as `incoming` (e.g. ADR-0060 `call` scheme after
+            // `route_on_type`), while `args[0]` is the `proj_rest` arg array.
+            // Legacy callers put the callee at `args[0]` and the arg array at
+            // `args[1]`.
+            let (callee, arg_src) =
+                if let Some(TaggedValue::Str(s)) = incoming.as_ref() {
+                    (s.to_string(), args.first())
+                } else if let Some(TaggedValue::Str(s)) = args.first() {
+                    (s.to_string(), args.get(1))
+                } else {
                     return ctx.set_error(LangError::engine(
                         "call_host: callee must be a string".to_string(),
                     ));
-                }
-            };
+                };
             let modules_ptr = match ctx.modules {
                 Some(p) => p,
                 None => {
@@ -4056,7 +4103,7 @@ fn apply_native_v2(
                     )));
                 }
             };
-            let call_args: Vec<Value> = match args.get(1) {
+            let call_args: Vec<Value> = match arg_src {
                 Some(TaggedValue::Arr(arr)) => arr
                     .iter()
                     .map(|v| handl_value::tagged_to_value(v))
@@ -4318,6 +4365,150 @@ fn apply_native_v2(
                 m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
                 m.insert(Rc::from("value"), TaggedValue::Null);
                 Ok(TaggedValue::Obj(Rc::new(m)))
+            }
+        }
+        "export" => Ok(args.first().cloned().unwrap_or(TaggedValue::Null)),
+        "desugar_error" => {
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            let reason = node
+                .payload
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown desugar error");
+            let kind = node
+                .payload
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("desugar-error");
+            return ctx.set_error(LangError::engine_node(
+                format!("{}: {}", kind, reason),
+                node,
+            ));
+        }
+        "left" => {
+            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let input = incoming
+                .or_else(|| args.get(1).cloned())
+                .unwrap_or(TaggedValue::Null);
+            if matches!(input, TaggedValue::EitherLeft(_)) {
+                let v = match input {
+                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
+                        (*inner).clone()
+                    }
+                    _ => TaggedValue::Null,
+                };
+                let result_ptr = apply_closure_value(ctx, f, vec![v]);
+                if result_ptr.is_null() {
+                    return result_ptr;
+                }
+                let result = unsafe { take_value(result_ptr) };
+                Ok(TaggedValue::EitherLeft(Rc::new(result)))
+            } else if matches!(input, TaggedValue::EitherRight(_)) {
+                Ok(input)
+            } else {
+                Err(LangError::engine("left: input is not an either".to_string()))
+            }
+        }
+        "right" => {
+            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let input = incoming
+                .or_else(|| args.get(1).cloned())
+                .unwrap_or(TaggedValue::Null);
+            if matches!(input, TaggedValue::EitherRight(_)) {
+                let v = match input {
+                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
+                        (*inner).clone()
+                    }
+                    _ => TaggedValue::Null,
+                };
+                let result_ptr = apply_closure_value(ctx, f, vec![v]);
+                if result_ptr.is_null() {
+                    return result_ptr;
+                }
+                let result = unsafe { take_value(result_ptr) };
+                Ok(TaggedValue::EitherRight(Rc::new(result)))
+            } else if matches!(input, TaggedValue::EitherLeft(_)) {
+                Ok(input)
+            } else {
+                Err(LangError::engine("right: input is not an either".to_string()))
+            }
+        }
+        "sum" => {
+            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let g = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            let input = incoming
+                .or_else(|| args.get(2).cloned())
+                .unwrap_or(TaggedValue::Null);
+            if matches!(input, TaggedValue::EitherLeft(_)) {
+                let v = match input {
+                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
+                        (*inner).clone()
+                    }
+                    _ => TaggedValue::Null,
+                };
+                let result_ptr = apply_closure_value(ctx, f, vec![v]);
+                if result_ptr.is_null() {
+                    return result_ptr;
+                }
+                let result = unsafe { take_value(result_ptr) };
+                Ok(TaggedValue::EitherLeft(Rc::new(result)))
+            } else if matches!(input, TaggedValue::EitherRight(_)) {
+                let v = match input {
+                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
+                        (*inner).clone()
+                    }
+                    _ => TaggedValue::Null,
+                };
+                let result_ptr = apply_closure_value(ctx, g, vec![v]);
+                if result_ptr.is_null() {
+                    return result_ptr;
+                }
+                let result = unsafe { take_value(result_ptr) };
+                Ok(TaggedValue::EitherRight(Rc::new(result)))
+            } else {
+                Err(LangError::engine("sum: input is not an either".to_string()))
+            }
+        }
+        "runtime_assert" => {
+            let (pred_idx, expr_idx) = match ctx.current_node() {
+                Ok(node) => {
+                    let pred = ctx
+                        .role_child_arena(node, "predicate")
+                        .unwrap_or_default()
+                        .unwrap_or(0);
+                    let expr = ctx
+                        .role_child_arena(node, "expr")
+                        .unwrap_or_default()
+                        .unwrap_or(1);
+                    (pred, expr)
+                }
+                Err(e) => return ctx.set_error(e),
+            };
+            let pred_val = match eval_child_node(ctx, pred_idx) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            let expr_val = match eval_child_node(ctx, expr_idx) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            if !matches!(pred_val, TaggedValue::Arrow { .. }) {
+                return unsafe { box_value(expr_val) };
+            }
+            let result_ptr = apply_closure_value(ctx, pred_val, vec![expr_val.clone()]);
+            if result_ptr.is_null() {
+                return result_ptr;
+            }
+            let check_result = unsafe { take_value(result_ptr) };
+            if is_truthy(&check_result) {
+                Ok(expr_val)
+            } else {
+                Err(LangError::engine(
+                    "runtime_assert: assertion failed — predicate returned false".to_string(),
+                ))
             }
         }
         _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
