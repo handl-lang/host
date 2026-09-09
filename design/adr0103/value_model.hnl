@@ -1,0 +1,35 @@
+--- value_model.hnl
+---
+--- Design sketch for ADR-0103: a Handl-authored `ValueModel` arrow.
+---
+--- This file is intentionally not fully executable. It shows the intended
+--- dispatch shape over the frontier `Term` forms for the value model.
+---
+--- `Term`, `Value`, and `ModelCtx` are host-provided primitive types.
+
+op run : (Term, Value, ModelCtx) ~> Value
+
+run = [term, incoming, ctx] ~> match term {
+  CellId(arrow): run(arrow, incoming, ctx),
+
+  CellCompV(first, second):
+    run(second, run(first, incoming, ctx), ctx),
+
+  Witness(_, proof): run(proof, incoming, ctx),
+
+  Refine(_, predicate):
+    if run(predicate, incoming, ctx) then incoming else error("refine failed"),
+
+  Cobind(_, body): run(body, incoming, ctx),
+
+  Univalence(equiv):
+    -- The equivalence is evaluated and wrapped as a `Path` in the model.
+    run(equiv, incoming, ctx),
+
+  CellCompH: error("not yet implemented"),
+  Glue:      error("not yet implemented"),
+  Fibrant:   error("not yet implemented"),
+  JElim:     error("not yet implemented"),
+
+  _: error("unknown term shape")
+}
