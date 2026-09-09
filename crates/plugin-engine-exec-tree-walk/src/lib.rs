@@ -3934,6 +3934,70 @@ impl Model for ValueModel {
                 Ok(v) => Ok(v),
                 Err(_) => Err(plugin_engine::LangError::NotImplemented),
             },
+            // `Child { role }` (ADR-0081): resolve the named child role to a
+            // child position via the language view, project that child out of
+            // the current node, then run the child's own eval scheme.
+            //
+            // The `ModelCtx` only exposes `AstView`/`LanguageView` trait
+            // objects, so the recursive `eval_scheme` call — which needs the
+            // concrete `Ast`/`Language` — recovers them via `as_any`
+            // downcasts. Non-`handl_language` views return `NotImplemented`.
+            // TODO: give `plugin_engine::LangError` a payload so real errors
+            // can be propagated instead of collapsed to `NotImplemented`.
+            Term::Child { role } => {
+                let ast = ctx
+                    .ast
+                    .as_any()
+                    .downcast_ref::<Ast>()
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let lang = ctx
+                    .lang
+                    .as_any()
+                    .downcast_ref::<Language>()
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let kind = ctx
+                    .ast
+                    .node_kind(ctx.node_ref)
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let child_idx = ctx
+                    .lang
+                    .child_role_index(kind, role)
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let child_ref = ctx
+                    .ast
+                    .node_child(ctx.node_ref, child_idx)
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let child_kind = ctx
+                    .ast
+                    .node_kind(child_ref)
+                    .ok_or(plugin_engine::LangError::NotImplemented)?;
+                let child_node = ast
+                    .at(AstRef::new(child_ref))
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let mut env = ScopeStack::new();
+                match ctx.lang.eval_rule(child_kind) {
+                    Some(scheme) => self
+                        .0
+                        .eval_scheme(
+                            scheme,
+                            ast,
+                            AstRef::new(child_ref),
+                            lang,
+                            &mut env,
+                            child_node,
+                            Some(incoming),
+                        )
+                        .map_err(|_| plugin_engine::LangError::NotImplemented),
+                    // No eval scheme for the child kind — fall back to the
+                    // engine's own node evaluation (which returns the
+                    // payload for literal nodes).
+                    None => {
+                        self.0
+                            .eval_node(ast, AstRef::new(child_ref), lang, &mut env)
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)
+                    }
+                }
+            }
             _ => {
                 let mut ast = Ast::new();
                 ast.push(AstNode::new("model"));
