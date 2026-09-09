@@ -7,7 +7,7 @@
 use std::rc::Rc;
 
 use handl_kit_data_canonical;
-use handl_language::{LangError, Source};
+use handl_language::Source;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -38,6 +38,18 @@ fn cell_vcomp_composes_end_to_end() {
 }
 
 #[test]
+fn cell_hcomp_composes_end_to_end() {
+    let rt = frontier_runtime();
+    // Horizontal composition evaluates both cells with the same incoming
+    // value and returns a tagged record combining the two results.
+    let result = rt.run(&Source::new("1 =>| 2")).expect("cell_hcomp runs");
+    assert_eq!(
+        result,
+        json!({"__tag__": "CellCompH", "left": 1, "right": 2})
+    );
+}
+
+#[test]
 fn witness_end_to_end() {
     let rt = frontier_runtime();
     // `v as G` parses as a witness; the grade is metadata and the proof is
@@ -47,10 +59,10 @@ fn witness_end_to_end() {
 }
 
 #[test]
-fn transport_lexes_parses_and_errors_not_implemented() {
+fn transport_returns_value_along_path() {
     let rt = frontier_runtime();
-    let err = rt.run(&Source::new("p # v")).unwrap_err();
-    assert_eq!(err, LangError::NotImplemented);
+    let result = rt.run(&Source::new("1 # 2")).expect("transport runs");
+    assert_eq!(result, json!(2));
 }
 
 #[test]

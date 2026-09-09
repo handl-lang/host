@@ -1161,36 +1161,23 @@
       args: []
       source: Native
       lit: 1
-# `cell_comp_h` — horizontal cell composition (desugared to CellCompV + Whisker).
+# `cell_comp_h` — horizontal cell composition.
 - id: eval.cell_comp_h
   node_kind: cell_comp_h
-  scheme: !CellCompV
-    first: !Whisker
-      side: Right
-      arrow: !Tgt
-        cell: !Op
-          name: proj_child
-          args: []
-          source: Native
-          lit: 1
-      cell: !Op
+  scheme: !Op
+    name: cell_hcomp
+    args:
+      - !Op
         name: proj_child
         args: []
         source: Native
         lit: 0
-    second: !Whisker
-      side: Left
-      arrow: !Src
-        cell: !Op
-          name: proj_child
-          args: []
-          source: Native
-          lit: 0
-      cell: !Op
+      - !Op
         name: proj_child
         args: []
         source: Native
         lit: 1
+    source: Native
 # `whisker_left` — attach an arrow to the left side of a cell.
 - id: eval.whisker_left
   node_kind: whisker_left
@@ -1277,27 +1264,15 @@
       args: []
       source: Native
       lit: 2
-# `witness` — witness carrying grade metadata and a proof (desugared to record/tag core).
+# `witness` — a proof value indexed by a grade. The grade is type-level
+# metadata; the runtime result is just the proof (child 1).
 - id: eval.witness
   node_kind: witness
-  scheme: !RecordWith
-    record: !Tag
-      tag: "Witness"
-      value: !RecordWith
-        record: !Const
-          value: null
-        field: "type"
-        value: !Op
-          name: proj_child
-          args: []
-          source: Native
-          lit: 1
-    field: "grade"
-    value: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
+  scheme: !Op
+    name: proj_child
+    args: []
+    source: Native
+    lit: 1
 # `refine` — refine a sort by a predicate.
 # Surface `A where P` means: evaluate A, then check the predicate against it.
 - id: eval.refine

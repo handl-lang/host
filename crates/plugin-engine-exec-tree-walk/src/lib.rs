@@ -1339,13 +1339,7 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                // ADR-0104b: the cobind wraps the raw value under a `value`
-                // field so that `RecordProj { record, field: "value" }` can
-                // unwrap a coboxed value.
-                let mut map = FxHashMap::default();
-                map.insert(Rc::from("value"), v);
-                map.insert(Rc::from("grade"), grade_val);
-                Ok((TaggedValue::Obj(Rc::new(map)), false))
+                Ok((v, false))
             }
             Term::Univalence { equiv } => {
                 let equiv_val = self.eval_scheme_tagged(
@@ -3583,6 +3577,27 @@ impl TreeWalkEngine {
                     )
                 })?;
                 Ok((TaggedValue::from(result), false))
+            }
+            // Frontier: transport a value along a path. The path is already
+            // evaluated for effects; the runtime result is the value itself.
+            "transport" => Ok((args.get(1).cloned().unwrap_or(TaggedValue::Null), false)),
+            // Frontier: horizontal cell composition. Both cells are evaluated
+            // with the same incoming value; the result is a tagged record.
+            "cell_hcomp" => {
+                let mut map = FxHashMap::default();
+                map.insert(
+                    Rc::from("__tag__"),
+                    TaggedValue::Str(Rc::from("CellCompH")),
+                );
+                map.insert(
+                    Rc::from("left"),
+                    args.first().cloned().unwrap_or(TaggedValue::Null),
+                );
+                map.insert(
+                    Rc::from("right"),
+                    args.get(1).cloned().unwrap_or(TaggedValue::Null),
+                );
+                Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
