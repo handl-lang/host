@@ -2476,14 +2476,25 @@
     source: Judgment
     lit: 0
 
-# `law` — compile-time law declaration (ADR-0074). Returns type.unit.
+# `law` — compile-time law declaration, a 2-cell (ADR-0100). Synths a
+# `type.law` type value carrying the declared name.
 - id: type.law
   node_kind: law
   synth: !Arr
     op: construct
-    args: []
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
     source: Judgment
-    lit: type.unit
+    lit: type.law
 
 # `trait` — compile-time trait declaration (ADR-0074). Returns type.unit.
 - id: type.trait
@@ -2520,6 +2531,124 @@
     args: []
     source: Judgment
     lit: type.unit
+
+# ---------------------------------------------------------------------------
+# Graded-theory declarations (ADR-0098/0100)
+# ---------------------------------------------------------------------------
+# Each declaration synths a `type.<kind>` type value carrying the declared
+# name (`payload.name`, extracted by the grammar row's `payload_extract`).
+# `field` builds the `{"name": <v>}` object arg that `construct` merges
+# into the minted type value's payload.
+
+# `sort` — sort declaration; a generating 0-cell. Type: `type.sort`.
+- id: type.sort
+  node_kind: sort
+  synth: !Arr
+    op: construct
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
+    source: Judgment
+    lit: type.sort
+
+# `grade` — grade declaration; a generating 0-cell proposition.
+# Type: `type.grade`.
+- id: type.grade
+  node_kind: grade
+  synth: !Arr
+    op: construct
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
+    source: Judgment
+    lit: type.grade
+
+# `op` — graded operation declaration; a generating 1-cell. Type:
+# `type.op` carrying `name` and the optional `payload.grade` clause
+# (`payload_field` yields null when absent).
+- id: type.op
+  node_kind: op
+  synth: !Arr
+    op: construct
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: grade
+        source: Judgment
+        lit: grade
+    source: Judgment
+    lit: type.op
+
+# `handler` — handler declaration: a model for one sort. Type:
+# `type.handler` carrying the declared name.
+- id: type.handler
+  node_kind: handler
+  synth: !Arr
+    op: construct
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
+    source: Judgment
+    lit: type.handler
+
+# `rewrite` — directed rewrite rule (2-cell, ADR-0100). Type:
+# `type.rewrite` carrying the declared name.
+- id: type.rewrite
+  node_kind: rewrite
+  synth: !Arr
+    op: construct
+    args:
+      - !Arr
+        op: field
+        args:
+          - !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+        source: Judgment
+        lit: name
+    source: Judgment
+    lit: type.rewrite
 
 # `product` — categorical product `***` (ADR-0074 follow-up #3).
 # Arrow kind signature: f: A ~> B, g: C ~> D ⟹ f *** g : (A, C) ~> (B, D).

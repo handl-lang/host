@@ -30,11 +30,14 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // re-shaped in place as 2-cells `name : source => target`.
     assert_eq!(lang.grammar.len(), 72);
 
-    // Eval schemes: 68 — v0.1 surface syntax (ADR-0074) +
+    // Eval schemes: 73 — v0.1 surface syntax (ADR-0074) +
     // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
     // (`let` fully removed — `stmt.let` had no producer); arrow
     // combinators added (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`).
-    assert_eq!(lang.eval.len(), 68);
+    // +5 graded-theory schemes (ADR-0098/0100): `eval.{sort,grade,op,
+    // handler,rewrite}`; `eval.law` was re-shaped in place as a 2-cell
+    // placeholder.
+    assert_eq!(lang.eval.len(), 73);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator

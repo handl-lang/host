@@ -467,7 +467,7 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 69 type rules in types.yaml. `type.let` covers the internal
+        // 74 type rules in types.yaml. `type.let` covers the internal
         // `let` binding kind — there is no `let` surface syntax and
         // `type.stmt.let` stays removed (`stmt.let` is fixture/desugar-
         // only). Phase 7 added
@@ -475,7 +475,10 @@ mod tests {
         // added `type.Marshalable` meta-predicate type. The arrow-
         // combinator surface syntax added 7 placeholder rules
         // (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`).
-        assert_eq!(lang.types.len(), 69);
+        // ADR-0098/0100 added 5 graded-theory declaration rules
+        // (`sort`/`grade`/`op`/`handler`/`rewrite`); `type.law` was
+        // re-shaped in place as a 2-cell (`type.law` + name).
+        assert_eq!(lang.types.len(), 74);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

@@ -680,14 +680,18 @@
     args: []
     source: Native
     lit: 0
-# `law` — compile-time law declaration (ADR-0074). Identity/no-op.
+# `law` — compile-time law declaration, a 2-cell expected to hold
+# semantically (ADR-0100). Evaluates to a placeholder tagged value
+# `{"__tag__": "law"}`; law *checking* is a compile-time/optimizer concern,
+# not a runtime one.
 - id: eval.law
   node_kind: law
   scheme: !Arr
-    op: proj_child
+    op: const
     args: []
     source: Native
-    lit: 0
+    lit:
+      __tag__: law
 # `trait` — compile-time trait declaration (ADR-0074). Identity/no-op.
 - id: eval.trait
   node_kind: trait
@@ -916,3 +920,65 @@
     op: const
     args: []
     source: Native
+
+# ---------------------------------------------------------------------------
+# Graded-theory declarations (ADR-0098/0100)
+# ---------------------------------------------------------------------------
+# These forms are recognized by the evaluator via placeholder tagged
+# values (`{"__tag__": <kind>}` minted by the `const` native op — `const`
+# returns its `lit` verbatim, so the reserved `__tag__` key is host-minted
+# here, not user-forged). The full model/handler semantics (binding the
+# declared name, building grade records per ADR-0098 §10, dispatching `Op`
+# by grade) land with the `Model` layer.
+#
+# `sort` — sort declaration; a generating 0-cell. Placeholder:
+# `{"__tag__": "sort"}` (eventually `{__tag__, name, grades}` built from
+# the `name` payload and the `grades` child).
+- id: eval.sort
+  node_kind: sort
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit:
+      __tag__: sort
+# `grade` — grade declaration; a generating 0-cell that is a proposition.
+- id: eval.grade
+  node_kind: grade
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit:
+      __tag__: grade
+# `op` — graded operation declaration; a generating 1-cell. Placeholder
+# carries the tag only; `name`/`inputs`/`output`/`payload.grade` are
+# populated by the model layer.
+- id: eval.op
+  node_kind: op
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit:
+      __tag__: op
+# `handler` — handler declaration: a model for one sort (ADR-0098/0100).
+# Evaluates to the impl value — child 1 is the model arrow expression on
+# the right-hand side of `=`/`::`.
+- id: eval.handler
+  node_kind: handler
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+# `rewrite` — directed rewrite rule (2-cell, ADR-0100). Placeholder tagged
+# value; applying rewrites is a transform-engine concern, not a runtime one.
+- id: eval.rewrite
+  node_kind: rewrite
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit:
+      __tag__: rewrite

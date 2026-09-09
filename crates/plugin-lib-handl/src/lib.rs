@@ -1093,6 +1093,7 @@ impl Function for HandlFunction {
         // Keep the parsed AST: if the result contains arrows, their `body`
         // indices refer to it — register it as a home frame so the caller
         // can apply them.
+        eprintln!("[hfcall] {}.{}/{} ast={}", module_name, func_name, args.len(), ast.len());
         let result = runtime
             .eval_shared_with_globals(&ast, &globals)
             .map_err(errf)?;
@@ -1293,10 +1294,10 @@ impl HandlModule {
     /// transforms (`loader.hnl` `strip_decls` on a 22k-char source:
     /// ~59s tree-walk → ~0.16s bytecode).
     ///
-    /// Caveat: the tree-walk home-frame mechanism for arrows crossing the
-    /// `Function::call` boundary (`__home__` provenance) is tree-walk-only.
-    /// Modules whose functions take or return closures must stay on
-    /// `"tree-walk"` (the default).
+    /// Note: the bytecode engine now supports the same home-frame
+    /// provenance for arrows crossing the `Function::call` boundary as
+    /// tree-walk. Modules whose functions take or return closures can opt
+    /// into `"bytecode"` as well.
     pub fn with_eval_engine(mut self, eval_name: &'static str) -> Self {
         self.eval_name = eval_name;
         self.rebuild_functions();
@@ -1439,10 +1440,9 @@ impl HandlLoader {
     /// (~59s under tree-walk for a 22k-char source → ~0.16s under
     /// bytecode; see `examples/loader_bench.rs`). The loader's functions
     /// are pure text transforms — strings in, strings/arrays out — so no
-    /// arrows cross the `Function::call` boundary and the tree-walk-only
-    /// `__home__` provenance mechanism is never exercised. For the same
-    /// speedup, build the `str` dep with
-    /// `HandlModule::with_eval_engine("bytecode")` too.
+    /// arrows cross the `Function::call` boundary. For the same speedup,
+    /// build the `str` dep with `HandlModule::with_eval_engine("bytecode")`
+    /// too.
     pub fn new(deps: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
         let mut module =
             HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS)
