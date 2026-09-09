@@ -37,6 +37,15 @@ fn add_zero_law(x: f64) -> Value {
     })
 }
 
+fn one_to_two_rewrite() -> Value {
+    let source = Term::const_value(json!(1.0));
+    let target = Term::const_value(json!(2.0));
+    json!({
+        "source": serde_json::to_value(source).unwrap(),
+        "target": serde_json::to_value(target).unwrap(),
+    })
+}
+
 #[test]
 fn named_law_lookup_returns_equal() {
     let x = 7.0;
@@ -56,7 +65,28 @@ fn named_law_lookup_returns_equal() {
         &mut ctx,
     );
 
-    assert!(matches!(result, Ok(RewriteResult::Equal)));
+    assert!(matches!(result, Ok(RewriteResult::Equal(v)) if v == json!(x)));
+}
+
+#[test]
+fn named_rewrite_lookup_returns_rewritten() {
+    let mut lang = Language::new();
+    lang.register_rewrite("one_to_two", one_to_two_rewrite());
+
+    let ast = Ast::new();
+    let current_node = plugin_engine::AstNode;
+    let mut ctx = model_ctx(&lang, &ast, &current_node);
+
+    let incoming = json!(null);
+    let result = ValueModel(TreeWalkEngine::new()).rewrite(
+        &Term::const_value(json!(null)),
+        &Term::const_value(json!(null)),
+        &RewriteWitness::Named("one_to_two".to_string()),
+        &incoming,
+        &mut ctx,
+    );
+
+    assert!(matches!(result, Ok(RewriteResult::Rewritten(v)) if v == json!(2.0)));
 }
 
 #[test]
@@ -77,5 +107,5 @@ fn unknown_named_law_falls_back_to_equality_check() {
         &mut ctx,
     );
 
-    assert!(matches!(result, Ok(RewriteResult::Equal)));
+    assert!(matches!(result, Ok(RewriteResult::Equal(v)) if v == json!(1.0)));
 }

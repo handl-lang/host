@@ -4436,10 +4436,10 @@ impl Model for ValueModel {
         witness: &plugin_engine::RewriteWitness,
         incoming: &Self::Value,
         ctx: &mut ModelCtx,
-    ) -> Result<RewriteResult, plugin_engine::LangError> {
-        let (source, target) = match witness {
+    ) -> Result<RewriteResult<Self::Value>, plugin_engine::LangError> {
+        let (source, target, is_rewrite) = match witness {
             plugin_engine::RewriteWitness::Named(name) => {
-                if let Some(rule) = ctx.lang.law(name).or_else(|| ctx.lang.rewrite_rule(name)) {
+                if let Some(rule) = ctx.lang.law(name) {
                     let law_source = rule
                         .get("source")
                         .and_then(|v| serde_json::from_value(v.clone()).ok());
@@ -4447,14 +4447,25 @@ impl Model for ValueModel {
                         .get("target")
                         .and_then(|v| serde_json::from_value(v.clone()).ok());
                     match (law_source, law_target) {
-                        (Some(s), Some(t)) => (s, t),
+                        (Some(s), Some(t)) => (s, t, false),
+                        _ => return Ok(RewriteResult::Unsupported),
+                    }
+                } else if let Some(rule) = ctx.lang.rewrite_rule(name) {
+                    let rewrite_source = rule
+                        .get("source")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    let rewrite_target = rule
+                        .get("target")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    match (rewrite_source, rewrite_target) {
+                        (Some(s), Some(t)) => (s, t, true),
                         _ => return Ok(RewriteResult::Unsupported),
                     }
                 } else {
-                    (source.clone(), target.clone())
+                    (source.clone(), target.clone(), false)
                 }
             }
-            _ => (source.clone(), target.clone()),
+            _ => (source.clone(), target.clone(), false),
         };
         if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
             return Ok(RewriteResult::Unsupported);
@@ -4462,9 +4473,11 @@ impl Model for ValueModel {
         let a = self.run(&source, incoming.clone(), ctx)?;
         let b = self.run(&target, incoming.clone(), ctx)?;
         if a == b {
-            Ok(RewriteResult::Equal)
+            Ok(RewriteResult::Equal(b))
+        } else if is_rewrite {
+            Ok(RewriteResult::Rewritten(b))
         } else {
-            Ok(RewriteResult::Unsupported)
+            Ok(RewriteResult::NotEqual)
         }
     }
 }
