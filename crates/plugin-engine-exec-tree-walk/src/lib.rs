@@ -957,7 +957,78 @@ impl TreeWalkEngine {
                     incoming,
                 )
             }
-            Term::Iter { .. } => Err(LangError::NotImplemented),
+            // Bounded iteration (ADR-0098): evaluate `fuel` to a
+            // non-negative integer budget and `initial` to the starting
+            // state, then while budget remains run `predicate` on the
+            // state — `false` breaks early, `true` applies `step` to
+            // advance the state. Returns the final state.
+            Term::Iter {
+                fuel,
+                predicate,
+                step,
+                initial,
+            } => {
+                let fuel_val = self.eval_scheme_tagged(
+                    fuel,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let max: u64 = match fuel_val {
+                    TaggedValue::Int(i) if i >= 0 => i as u64,
+                    TaggedValue::Float(f) if f.is_finite() && f >= 0.0 => f as u64,
+                    _ => {
+                        return Err(LangError::engine_node(
+                            "Iter: fuel did not evaluate to a non-negative number".to_string(),
+                            current_node,
+                        ))
+                    }
+                };
+                let mut state = self.eval_scheme_tagged(
+                    initial,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming,
+                )?;
+                for _ in 0..max {
+                    let cont = self.eval_scheme_tagged(
+                        predicate,
+                        ast,
+                        node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        Some(state.clone()),
+                    )?;
+                    match cont.as_bool() {
+                        Some(true) => {
+                            state = self.eval_scheme_tagged(
+                                step,
+                                ast,
+                                node_ref,
+                                lang,
+                                env,
+                                current_node,
+                                Some(state),
+                            )?;
+                        }
+                        Some(false) => break,
+                        _ => {
+                            return Err(LangError::engine_node(
+                                "Iter: predicate did not evaluate to a boolean".to_string(),
+                                current_node,
+                            ))
+                        }
+                    }
+                }
+                Ok((state, false))
+            }
             Term::Child { .. } => Err(LangError::NotImplemented),
             Term::Rewrite { .. } => Err(LangError::NotImplemented),
         }

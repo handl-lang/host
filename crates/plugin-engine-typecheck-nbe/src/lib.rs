@@ -409,7 +409,12 @@ impl NbeTypecheckEngine {
                     ))),
                 }
             }
-            Term::Iter { .. } => Err(LangError::NotImplemented),
+            // Minimal rule (ADR-0098): `iter` returns the state, which
+            // has the same type as `initial`. The full rule (fuel : A ~>
+            // Nat, predicate : A ~> Bool, step : A ~> A) is deferred.
+            Term::Iter { initial, .. } => {
+                self.eval_type_scheme(lang, ast, node_ref, initial, ctx, incoming)
+            }
             Term::Child { .. } => Err(LangError::NotImplemented),
             Term::Loop { .. } => Err(LangError::NotImplemented),
             Term::App { .. } => Err(LangError::NotImplemented),
