@@ -1725,6 +1725,7 @@ dependencies = [
  "handl-plugin-engine-exec-bytecode",
  "handl-plugin-engine-exec-tree-walk",
  "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-lint",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-transform",
  "handl-plugin-engine-transform-rewrite",

@@ -34,7 +34,7 @@ pub mod native;
 pub use module::{LintModule, LintStatement, ModuleAnalysis, parse_module};
 pub use native::{
     CANONICAL_LINT_NATIVES, LintCtx, NativeHit, NativeLintFn, NativeLintRegistry,
-    canonical_lint_natives,
+    NativeLintResolver, canonical_lint_natives,
 };
 
 /// Severity of a lint diagnostic.

@@ -77,8 +77,10 @@
 //! `HandlModule::new_raw` loads the `loader` itself raw, without applying
 //! those transforms to its own source.
 
+pub mod lint;
 pub mod op_registry;
 pub mod transform;
+pub use lint::HandlNativeLint;
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 pub use transform::{HandlNativeRewrite, HANDL_PREFIX, KEEP_KEY};
 

@@ -77,15 +77,29 @@ impl NativeHit {
 pub type NativeLintFn =
     Arc<dyn Fn(&LintCtx<'_>) -> Result<Vec<NativeHit>, LangError> + Send + Sync>;
 
+/// A name resolver consulted when `name` has no [`NativeLintRegistry`]
+/// entry.
+///
+/// Resolvers are the generic seam a host uses to dispatch a whole name
+/// *prefix* without enumerating names in the map — e.g. an adapter that
+/// routes `handl:<module>.<fn>` rules to `.hnl`-authored lint functions
+/// (the lint analogue of `HandlNativeRewrite`, ADR-0094). Returning
+/// `None` declines the name; returning a [`NativeLintFn`] that errors
+/// lets the resolver report name-resolution failures (unknown module,
+/// missing function) at lint time.
+pub type NativeLintResolver = Arc<dyn Fn(&str) -> Option<NativeLintFn> + Send + Sync>;
+
 /// A named registry of native lint rules.
 ///
 /// Registered functions receive a [`LintCtx`] and return the violations they
 /// find. An unregistered `!Native` name produces [`LangError`] at lint
 /// time — a rule whose native no host wired is a configuration bug, not a
-/// pass.
+/// pass. Names not in the map are offered to the registered
+/// [resolvers](NativeLintResolver) in order before giving up.
 #[derive(Default, Clone)]
 pub struct NativeLintRegistry {
     map: HashMap<String, NativeLintFn>,
+    resolvers: Vec<NativeLintResolver>,
 }
 
 impl std::fmt::Debug for NativeLintRegistry {
@@ -94,6 +108,7 @@ impl std::fmt::Debug for NativeLintRegistry {
         names.sort();
         f.debug_struct("NativeLintRegistry")
             .field("names", &names)
+            .field("resolvers", &self.resolvers.len())
             .finish()
     }
 }
@@ -113,20 +128,33 @@ impl NativeLintRegistry {
         self.map.insert(name.into(), Arc::new(f));
     }
 
-    /// Merge another registry's entries into this one (theirs wins).
+    /// Merge another registry's entries and resolvers into this one
+    /// (their map entries win; their resolvers are appended).
     pub fn extend(&mut self, other: &NativeLintRegistry) {
         self.map
             .extend(other.map.iter().map(|(k, v)| (k.clone(), v.clone())));
+        self.resolvers.extend(other.resolvers.iter().cloned());
     }
 
-    /// Look up a native by name.
-    pub fn get(&self, name: &str) -> Option<&NativeLintFn> {
-        self.map.get(name)
+    /// Add a [`NativeLintResolver`] consulted (in registration order) for
+    /// `!Native` names not in the map. This is how a host dispatches
+    /// dynamic prefixes — e.g. `handl:<mod>.<fn>` rules — while keeping
+    /// the engine ignorant of the prefix scheme.
+    pub fn add_resolver(&mut self, resolver: NativeLintResolver) {
+        self.resolvers.push(resolver);
     }
 
-    /// Whether `name` is registered.
+    /// Look up a native by name: the map first, then the resolvers.
+    pub fn get(&self, name: &str) -> Option<NativeLintFn> {
+        if let Some(f) = self.map.get(name) {
+            return Some(Arc::clone(f));
+        }
+        self.resolvers.iter().find_map(|r| r(name))
+    }
+
+    /// Whether `name` resolves (map hit or a resolver accepts it).
     pub fn contains(&self, name: &str) -> bool {
-        self.map.contains_key(name)
+        self.map.contains_key(name) || self.resolvers.iter().any(|r| r(name).is_some())
     }
 }
 
