@@ -93,6 +93,7 @@ members = [
   "crates/crate-icu4x-extra",
   "crates/handl-test-utils",
   "crates/handl-language",
+  "crates/plugin-engine",
   "crates/plugin-engine-lex",
   "crates/plugin-engine-lex-pattern",
   "crates/plugin-engine-parse",
@@ -230,6 +231,7 @@ handl-plugin-source = { path = "crates/plugin-source" }
 handl-host-tooling = { path = "crates/host-tooling" }
 handl-language = { path = "crates/handl-language" }
 handl-test-utils = { path = "crates/handl-test-utils" }
+plugin-engine = { path = "crates/plugin-engine" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
