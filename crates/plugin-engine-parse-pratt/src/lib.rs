@@ -2745,7 +2745,7 @@ mod tests {
             ], 2),
             ("cobind", vec![
                 tok("token.identifier", "G"),
-                tok("token.cobind", "?"),
+                tok("token.cobind", "?>"),
                 tok("token.identifier", "body"),
             ], 2),
         ];

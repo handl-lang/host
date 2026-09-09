@@ -1,10 +1,12 @@
 # Token kind definitions — v0.1 surface syntax (ADR-0074).
-# Removed: arrow_app, arrow_bind, pipe, returnA, loop, where, handle,
+# Removed: arrow_app, arrow_bind, pipe, returnA, loop, handle,
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
 # Added (graded-theory declarations, ADR-0100): sort, grade, grades, op,
 #   handler, rewrite keywords and the `=>` 2-cell arrow (token.fat_arrow).
+# Added (Option B frontier, ADR-0101 §2a): id2, where, cell_vcomp (=>>),
+#   cell_hcomp (=>|), at_left (<@), at_right (@>), sharp (#), cobind (?>).
 # Retained: axiom (compatible alias for law — grammar.axiom.prefix).
 #
 # `category` is the tooling classification consumed by host-lsp /
@@ -266,7 +268,7 @@
   label: where
   category: keyword
 - id: token.cobind
-  label: "?"
+  label: "?>"
   category: operator
 # Retained call-style frontier forms (not covered by Option B operators).
 - id: token.keyword.univalence

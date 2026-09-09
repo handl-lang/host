@@ -1,10 +1,12 @@
 # Lexer rule definitions — v0.1 surface syntax (ADR-0074).
-# Removed: arrow_app, arrow_bind, pipe, returnA, loop, where, handle,
+# Removed: arrow_app, arrow_bind, pipe, returnA, loop, handle,
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
 # Added (graded-theory declarations, ADR-0100): sort, grade, grades, op,
 #   handler, rewrite keywords and the `=>` 2-cell arrow (lex.fat_arrow).
+# Added (Option B frontier, ADR-0101 §2a): id2, where, cell_vcomp (=>>),
+#   cell_hcomp (=>|), at_left (<@), at_right (@>), sharp (#), cobind (?>).
 - id: lex.and
   token_kind: token.and
   pattern: !Literal
@@ -115,6 +117,20 @@
   pattern: !Literal
     text: "=>"
   priority: 10
+- id: lex.cell_vcomp
+  # `=>>` — vertical cell composition (Option B, ADR-0101 §2a). Same
+  # priority as `=>` so the longer literal wins on maximal munch.
+  token_kind: token.cell_vcomp
+  pattern: !Literal
+    text: "=>>"
+  priority: 10
+- id: lex.cell_hcomp
+  # `=>|` — horizontal cell composition (Option B, ADR-0101 §2a). Same
+  # priority as `=>` so the longer literal wins on maximal munch.
+  token_kind: token.cell_hcomp
+  pattern: !Literal
+    text: "=>|"
+  priority: 10
 - id: lex.fanout
   token_kind: token.fanout
   pattern: !Literal
@@ -135,6 +151,13 @@
   pattern: !Literal
     text: ">"
   priority: 20
+- id: lex.at_right
+  # `@>` — right whisker (Option B, ADR-0101 §2a). Priority 9 runs before
+  # `>=` and `>` so the two-character operator wins on maximal munch.
+  token_kind: token.at_right
+  pattern: !Literal
+    text: "@>"
+  priority: 9
 - id: lex.gte
   token_kind: token.gte
   pattern: !Literal
@@ -350,6 +373,16 @@
   pattern: !Literal
     text: with
   priority: 15
+- id: lex.keyword.id2
+  token_kind: token.keyword.id2
+  pattern: !Literal
+    text: id2
+  priority: 15
+- id: lex.keyword.where
+  token_kind: token.keyword.where
+  pattern: !Literal
+    text: where
+  priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
   pattern: !Literal
@@ -370,6 +403,13 @@
   pattern: !Literal
     text: <
   priority: 20
+- id: lex.at_left
+  # `<@` — left whisker (Option B, ADR-0101 §2a). Priority 9 runs before
+  # `<=` and `<` so the two-character operator wins on maximal munch.
+  token_kind: token.at_left
+  pattern: !Literal
+    text: "<@"
+  priority: 9
 - id: lex.lte
   token_kind: token.lte
   pattern: !Literal
@@ -453,6 +493,19 @@
   token_kind: token.question
   pattern: !Literal
     text: "?"
+  priority: 20
+- id: lex.cobind
+  # `?>` — cobind (Option B, ADR-0101 §2a). Priority 9 runs before `?`
+  # so the two-character operator wins on maximal munch.
+  token_kind: token.cobind
+  pattern: !Literal
+    text: "?>"
+  priority: 9
+- id: lex.sharp
+  # `#` — transport (Option B, ADR-0101 §2a).
+  token_kind: token.sharp
+  pattern: !Literal
+    text: "#"
   priority: 20
 - id: lex.rbrace
   token_kind: token.rbrace

@@ -1276,19 +1276,26 @@
       source: Native
       lit: 1
 # `refine` — refine a sort by a predicate.
+# Surface `A where P` means: evaluate A, then check the predicate against it.
 - id: eval.refine
   node_kind: refine
-  scheme: !Refine
-    sort: !Op
+  scheme: !Seq
+    fst: !Op
       name: proj_child
       args: []
       source: Native
       lit: 0
-    predicate: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
+    snd: !Refine
+      sort: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+      predicate: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 1
 # `cobind` — cobind over a grade and body.
 - id: eval.cobind
   node_kind: cobind

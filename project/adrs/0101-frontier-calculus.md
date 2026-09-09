@@ -135,7 +135,7 @@ The approved compact surface forms are:
 - `p # v` (transport)
 - `A where P` (refine)
 - `v as G` (witness)
-- `G ? body` (cobind)
+- `G ?> body` (cobind)
 - `ua(e)` (univalence)
 - `glue(family, path)` (glue)
 - `fibrant(base, family)` (fibrant)
