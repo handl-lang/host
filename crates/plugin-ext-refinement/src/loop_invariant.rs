@@ -208,6 +208,9 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         Term::App { .. } => post.clone(),
         // Handle nodes are eliminated before inference; treat as identity.
         Term::Handle { .. } => post.clone(),
+
+        // Rewrite nodes are not yet analyzed; treat as identity.
+        Term::Rewrite { .. } => post.clone(),
     }
 }
 
@@ -245,6 +248,11 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
             collect_guarantees(body, registry, out);
             collect_guarantees(impl_, registry, out);
         }
+
+        Term::Rewrite { source, target, .. } => {
+            collect_guarantees(source, registry, out);
+            collect_guarantees(target, registry, out);
+        }
     }
 }
 
@@ -268,6 +276,10 @@ pub fn graph_contains(scheme: &Term, op: &str) -> bool {
             graph_contains(callee, op) || args.iter().any(|a| graph_contains(a, op))
         }
         Term::Handle { body, impl_, .. } => graph_contains(body, op) || graph_contains(impl_, op),
+
+        Term::Rewrite { source, target, .. } => {
+            graph_contains(source, op) || graph_contains(target, op)
+        }
     }
 }
 

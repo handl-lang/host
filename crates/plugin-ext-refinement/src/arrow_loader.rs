@@ -241,6 +241,12 @@ fn resolve_apps_inner(
             let eliminated = scheme.eliminate_handlers();
             resolve_apps_inner(&eliminated, graph_map, depth)
         }
+
+        Term::Rewrite { source, target, witness } => Term::Rewrite {
+            source: Box::new(resolve_apps_inner(source, graph_map, depth)),
+            target: Box::new(resolve_apps_inner(target, graph_map, depth)),
+            witness: witness.clone(),
+        },
     }
 }
 
@@ -729,6 +735,10 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
         Term::Handle { body, impl_, .. } => {
             has_unresolved_apps(body, known_names) || has_unresolved_apps(impl_, known_names)
         }
+
+        Term::Rewrite { source, target, .. } => {
+            has_unresolved_apps(source, known_names) || has_unresolved_apps(target, known_names)
+        }
     }
 }
 
@@ -749,6 +759,10 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
         Term::Handle { body, impl_, .. } => {
             contains_module_ref(body) || contains_module_ref(impl_)
         }
+
+        Term::Rewrite { source, target, .. } => {
+            contains_module_ref(source) || contains_module_ref(target)
+        }
     }
 }
 
@@ -767,6 +781,10 @@ pub fn contains_project(scheme: &Term) -> bool {
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
         Term::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
+
+        Term::Rewrite { source, target, .. } => {
+            contains_project(source) || contains_project(target)
+        }
     }
 }
 
@@ -848,6 +866,12 @@ where
         // at compile time, then apply the bottom-up transform to the
         // resulting handler-free graph.
         Term::Handle { .. } => scheme.eliminate_handlers(),
+
+        Term::Rewrite { source, target, witness } => Term::Rewrite {
+            source: Box::new(transform_scheme(source, f)),
+            target: Box::new(transform_scheme(target, f)),
+            witness: witness.clone(),
+        },
     };
     f(&transformed)
 }
@@ -1145,6 +1169,11 @@ fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
             collect_app_callee_names(body, out);
             collect_app_callee_names(impl_, out);
         }
+
+        Term::Rewrite { source, target, .. } => {
+            collect_app_callee_names(source, out);
+            collect_app_callee_names(target, out);
+        }
     }
 }
 
@@ -1367,6 +1396,12 @@ fn resolve_all_apps(
             let eliminated = scheme.eliminate_handlers();
             resolve_all_apps(&eliminated, known, resolving)
         }
+
+        Term::Rewrite { source, target, witness } => Term::Rewrite {
+            source: Box::new(resolve_all_apps(source, known, resolving)),
+            target: Box::new(resolve_all_apps(target, known, resolving)),
+            witness: witness.clone(),
+        },
     }
 }
 

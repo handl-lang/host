@@ -265,6 +265,17 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             out.push('}');
             out
         }
+
+        Term::Rewrite { source, target, .. } => {
+            let mut out = format!("{}rewrite {{\n", indent);
+            out.push_str(&pretty_scheme_inner(source, depth + 1));
+            out.push('\n');
+            out.push_str(&pretty_scheme_inner(target, depth + 1));
+            out.push('\n');
+            out.push_str(&indent);
+            out.push('}');
+            out
+        }
     }
 }
 

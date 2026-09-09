@@ -411,6 +411,7 @@ impl NbeTypecheckEngine {
             }
             Term::Loop { .. } => Err(LangError::NotImplemented),
             Term::App { .. } => Err(LangError::NotImplemented),
+            Term::Rewrite { .. } => Err(LangError::NotImplemented),
             // `handle body with target = impl_` (ADR-0076): eliminate the
             // handler at compile time (rewriting every bare arr(target) in
             // the body to the impl graph), then evaluate the resulting

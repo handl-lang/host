@@ -209,6 +209,8 @@ pub fn uses_first(scheme: &Term) -> bool {
         Term::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
         Term::Arr { args, .. } => args.iter().any(uses_first),
         Term::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
+
+        Term::Rewrite { source, target, .. } => uses_first(source) || uses_first(target),
     }
 }
 
@@ -261,6 +263,8 @@ pub fn uses_left(scheme: &Term) -> bool {
         Term::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
         Term::Arr { args, .. } => args.iter().any(uses_left),
         Term::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
+
+        Term::Rewrite { source, target, .. } => uses_left(source) || uses_left(target),
     }
 }
 

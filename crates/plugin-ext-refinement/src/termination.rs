@@ -117,6 +117,13 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             measure: Measure::None,
             reason: "handle -- eliminated before analysis".to_string(),
         },
+
+        // Rewrite nodes are not yet analyzed; treat as direct termination.
+        Term::Rewrite { .. } => TerminationResult {
+            terminates: true,
+            measure: Measure::None,
+            reason: "rewrite -- direct termination (no loop)".to_string(),
+        },
     }
 }
 
@@ -209,6 +216,13 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
             terminates: false,
             measure: Measure::None,
             reason: "loop(handle(...)): handle eliminated before analysis".to_string(),
+        },
+
+        // --- loop(rewrite(...)): no structural decreasing measure ---
+        Term::Rewrite { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "loop(rewrite(...)): no structural decreasing measure on C".to_string(),
         },
     }
 }
@@ -408,6 +422,13 @@ fn analyze_comp_loop_termination(
             measure: Measure::None,
             reason: "seq(_, handle): handle eliminated before analysis".to_string(),
         },
+
+        // right is rewrite: no structural decreasing measure.
+        Term::Rewrite { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "seq(_, rewrite): rewrite does not decrease C".to_string(),
+        },
     }
 }
 
@@ -452,6 +473,9 @@ fn find_decreasing_measure_in(
         Term::App { .. } => None,
         Term::Handle { body, impl_, .. } => find_decreasing_measure_in(body, registry)
             .or_else(|| find_decreasing_measure_in(impl_, registry)),
+
+        Term::Rewrite { source, target, .. } => find_decreasing_measure_in(source, registry)
+            .or_else(|| find_decreasing_measure_in(target, registry)),
     }
 }
 

@@ -196,6 +196,9 @@ pub fn infer_r(
             RefTy::Plain(BaseTy::Var("a".to_string())),
             Pred::True,
         )),
+
+        // Rewrite nodes are not yet supported by contract inference.
+        Term::Rewrite { .. } => Err("rewrite contract inference not implemented".to_string()),
     }
 }
 
@@ -220,6 +223,10 @@ pub fn format_scheme(scheme: &Term) -> String {
         }
         Term::Handle { body, target, .. } => {
             format!("handle({}, {})", format_scheme(body), target)
+        }
+
+        Term::Rewrite { source, target, .. } => {
+            format!("rewrite({} ~> {})", format_scheme(source), format_scheme(target))
         }
     }
 }

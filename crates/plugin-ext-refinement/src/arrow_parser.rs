@@ -600,6 +600,12 @@ fn rewrite_scheme(
             let eliminated = scheme.eliminate_handlers();
             rewrite_scheme(&eliminated, import_map, local_names)
         }
+
+        Term::Rewrite { source, target, witness } => Term::Rewrite {
+            source: Box::new(rewrite_scheme(source, import_map, local_names)),
+            target: Box::new(rewrite_scheme(target, import_map, local_names)),
+            witness: witness.clone(),
+        },
     }
 }
 
@@ -1520,6 +1526,8 @@ fn walk_scheme(
             let eliminated = scheme.eliminate_handlers();
             walk_scheme(&eliminated, ast, node, lang)
         }
+
+        Term::Rewrite { .. } => Err("rewrite scheme not supported".to_string()),
     }
 }
 

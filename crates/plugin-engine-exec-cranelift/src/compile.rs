@@ -1019,6 +1019,8 @@ fn compile_scheme(
                 ffi_ops,
             )
         }
+
+        Term::Rewrite { .. } => Err(LangError::NotImplemented),
     }
 }
 
