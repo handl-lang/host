@@ -4934,12 +4934,22 @@ impl plugin_engine::Model for TypeModel {
 
     fn rewrite(
         &self,
-        _source: &Term,
-        _target: &Term,
+        source: &Term,
+        target: &Term,
         _witness: &plugin_engine::RewriteWitness,
+        incoming: &Self::Value,
         _ctx: &plugin_engine::ModelCtx,
     ) -> Result<plugin_engine::RewriteResult, plugin_engine::LangError> {
-        Ok(plugin_engine::RewriteResult::Unsupported)
+        if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
+            return Ok(plugin_engine::RewriteResult::Unsupported);
+        }
+        let a = self.run(source, incoming.clone(), _ctx)?;
+        let b = self.run(target, incoming.clone(), _ctx)?;
+        if a == b {
+            Ok(plugin_engine::RewriteResult::Equal)
+        } else {
+            Ok(plugin_engine::RewriteResult::Unsupported)
+        }
     }
 }
 

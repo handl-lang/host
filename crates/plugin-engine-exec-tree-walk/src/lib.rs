@@ -3876,12 +3876,22 @@ impl Model for ValueModel {
 
     fn rewrite(
         &self,
-        _source: &Term,
-        _target: &Term,
+        source: &Term,
+        target: &Term,
         _witness: &plugin_engine::RewriteWitness,
+        incoming: &Self::Value,
         _ctx: &ModelCtx,
     ) -> Result<RewriteResult, plugin_engine::LangError> {
-        Ok(RewriteResult::Unsupported)
+        if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
+            return Ok(RewriteResult::Unsupported);
+        }
+        let a = self.run(source, incoming.clone(), _ctx)?;
+        let b = self.run(target, incoming.clone(), _ctx)?;
+        if a == b {
+            Ok(RewriteResult::Equal)
+        } else {
+            Ok(RewriteResult::Unsupported)
+        }
     }
 }
 

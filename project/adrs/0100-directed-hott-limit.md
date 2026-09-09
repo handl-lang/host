@@ -108,9 +108,16 @@ pub trait Model {
     fn run(&self, term: &Term, incoming: Self::Value, ctx: &ModelCtx)
         -> Result<Self::Value, LangError>;
 
-    /// Interpret a 2-cell (rewrite) as an equality or transformation.
-    fn rewrite(&self, source: &Term, target: &Term, witness: &RewriteWitness, ctx: &ModelCtx)
-        -> Result<RewriteResult, LangError>;
+    /// Interpret a 2-cell (rewrite) as an equality or transformation,
+    /// using the provided `incoming` value.
+    fn rewrite(
+        &self,
+        source: &Term,
+        target: &Term,
+        witness: &RewriteWitness,
+        incoming: &Self::Value,
+        ctx: &ModelCtx,
+    ) -> Result<RewriteResult, LangError>;
 }
 ```
 
