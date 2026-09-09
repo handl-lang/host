@@ -5106,6 +5106,14 @@ impl plugin_engine::Model for TypeModel {
                     .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
+            Term::Handle { body, target, impl_ } => {
+                let handler = self.run(impl_, incoming.clone(), ctx)?;
+                let _ = target; // retained for diagnostics
+                ctx.push_handler(handler);
+                let result = self.run(body, incoming, ctx);
+                ctx.pop_handler();
+                result
+            }
             _ => {
                 let mut ast = Ast::new();
                 ast.push(AstNode::new("model"));
