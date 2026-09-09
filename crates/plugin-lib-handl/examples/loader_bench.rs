@@ -46,9 +46,13 @@ fn main() {
     let d = t.elapsed();
     println!("str.length {n} calls: {d:>9?} ({:?}/call)", d / n);
 
-    // --- The loader path (interpreted transforms) ------------------------
+    // --- The loader path (bytecode-evaluated transforms) -----------------
     // Build the loader's str dep BEFORE installing (bootstrap paradox).
-    let str_for_loader = build_str_handl_module(&CharResolver);
+    // Both the loader and its `str` dep run on the bytecode engine
+    // (`HandlLoader::new` selects bytecode internally; the str dep needs
+    // the explicit opt-in here).
+    let str_for_loader =
+        build_str_handl_module(&CharResolver).with_eval_engine("bytecode");
     let _ = install_loader(HandlLoader::new(vec![
         Arc::new(CharModule),
         Arc::new(str_for_loader),

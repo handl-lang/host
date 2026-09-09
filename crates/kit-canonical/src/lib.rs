@@ -1382,24 +1382,28 @@ impl Kit {
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
-        // NOTE (ADR-0094 loader self-hosting): the pure-handl loader
-        // (`handl-packages/loader/loader.hnl`) is fully implemented and
-        // parity-tested against the Rust bootstrap transforms
-        // (`plugin-lib-handl/tests/loader.rs`), but it is deliberately NOT
-        // installed here. `HandlFunction::call` now caches the parsed
-        // applied-form AST per (module, function, arity) and evaluates it
-        // through `eval_shared` with zero arena clones, so the per-call
-        // re-parse is gone — but the residual cost is the *interpreted*
-        // `str.*`/`char.*` body eval over every input character: measured
-        // ~43s (release) for `strip_decls` on the 22k-char str-handl
-        // source, i.e. minutes across a kit build
-        // (`plugin-lib-handl/examples/loader_bench.rs`).  Hosts may opt in
-        // via
-        // `handl_plugin_lib_handl::install_loader(HandlLoader::new(vec![
-        // char_backend, str_backend]))`; the bootstrap path remains the
-        // default until a compiled eval engine runs the transforms (or a
-        // `TaggedValue`-level record cache avoids the exponential env
-        // serialization of `do {}`-block modules).
+        // ADR-0094 loader self-hosting: install the pure-handl loader
+        // (`handl-packages/loader/loader.hnl`) as the default text-
+        // transform pipeline for all `HandlModule` construction. The
+        // loader module and its private `str` dep run on the **bytecode**
+        // eval engine (`HandlModule::with_eval_engine`), which removes the
+        // interpreted `str.*`/`char.*` per-character cost that made the
+        // interpreted loader prohibitively slow under tree-walk (~59s →
+        // ~0.16s for `strip_decls` on the 22k-char str-handl source;
+        // `plugin-lib-handl/examples/loader_bench.rs`). Correctness is
+        // unchanged: `plugin-lib-handl/tests/loader.rs` parity-tests the
+        // handl transforms against the Rust bootstrap, and every public
+        // transform still falls back to `bootstrap` on a loader error.
+        // A host that installed its own loader first keeps it
+        // (`OnceLock`: first install wins).
+        let _ = handl_plugin_lib_handl::install_loader(handl_plugin_lib_handl::HandlLoader::new(
+            vec![
+                std::sync::Arc::new(CharModule),
+                std::sync::Arc::new(
+                    build_str_handl_module().with_eval_engine("bytecode"),
+                ),
+            ],
+        ));
 
         let stdlib_registry = build_stdlib_registry();
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);

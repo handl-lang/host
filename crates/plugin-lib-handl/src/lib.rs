@@ -62,12 +62,12 @@
 //! - `mod bootstrap` — the irreducible Rust implementations.  They prepare
 //!   the `str` floor itself (`str-handl` needs `from "char" import`
 //!   stripping before any loader exists — the bootstrap paradox) and are
-//!   the default path: the interpreted loader is correct — parity-tested
-//!   in `tests/loader.rs` — but remains too slow on whole-file inputs even
-//!   with the per-thread applied-AST cache in `HandlFunction::call` (the
-//!   residual cost is interpreted `str.*`/`char.*` eval over every input
-//!   character, not parsing — see AGENTS.md "Loader self-hosting" for
-//!   measured numbers).
+//!   the correctness fallback: [`HandlLoader`] runs its module on the
+//!   **bytecode** eval engine (`HandlModule::with_eval_engine`), which
+//!   removed the interpreted `str.*`/`char.*` per-character cost that made
+//!   the loader prohibitive under tree-walk (~59s → ~0.16s for
+//!   `strip_decls` on the 22k-char `str-handl` source; see
+//!   `examples/loader_bench.rs`).
 //! - [`HandlLoader`] / [`install_loader`] — the opt-in self-hosting seam.
 //!   Once a host installs a loader built over `char` + `str` modules, every
 //!   public transform here (and [`HandlModule::new`]'s `analyze_source`
@@ -917,13 +917,14 @@ fn allocate_module_id() -> usize {
 /// is wired (matching the `hello` bridge pattern).
 fn build_runtime(
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
+    eval_name: &str,
 ) -> Result<Runtime, handl_language::LangError> {
     let kit = handl_kit_data_canonical::assemble()?;
     let lang = kit.lang().clone();
     let config = RuntimeConfig::new()
         .with_lex("data")
         .with_parse("pratt")
-        .with_eval("tree-walk");
+        .with_eval(eval_name);
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
@@ -933,6 +934,10 @@ fn build_runtime(
     registry.register_eval(
         "tree-walk",
         Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
+    );
+    registry.register_eval(
+        "bytecode",
+        Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
     );
     let registry = Rc::new(registry);
 
@@ -1143,6 +1148,13 @@ pub struct HandlModule {
     /// Import declarations parsed from the source during [`analyze_source`]
     /// (used by [`with_resolver`](Self::with_resolver) for dep wiring).
     imports: Vec<ImportDecl>,
+    /// The eval engine name this module's bridge runtime binds
+    /// (`"tree-walk"` default; `"bytecode"` selects the bytecode VM —
+    /// much faster on eval-heavy module bodies such as the loader's
+    /// per-character `str.*`/`char.*` work). Per-module selection keeps
+    /// the change data-driven: the name resolves through the same
+    /// [`EngineRegistry`] the tree-walk uses.
+    eval_name: &'static str,
 }
 
 impl HandlModule {
@@ -1163,10 +1175,11 @@ impl HandlModule {
         let source = analysis.prepared;
         let imports = analysis.imports;
         let module_id = allocate_module_id();
+        let eval_name = "tree-walk";
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new()));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name));
 
         let functions = func_names
             .iter()
@@ -1188,6 +1201,7 @@ impl HandlModule {
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
             imports,
+            eval_name,
         }
     }
 
@@ -1200,10 +1214,11 @@ impl HandlModule {
         let name = name.into();
         let source = hnl_source.to_string();
         let module_id = allocate_module_id();
+        let eval_name = "tree-walk";
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new()));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name));
 
         let functions = func_names
             .iter()
@@ -1225,6 +1240,7 @@ impl HandlModule {
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
             imports: Vec::new(),
+            eval_name,
         }
     }
 
@@ -1264,6 +1280,27 @@ impl HandlModule {
         self
     }
 
+    /// Select the eval engine this module's bridge runtime binds
+    /// (`"tree-walk"`, `"bytecode"`).
+    ///
+    /// `"bytecode"` runs module bodies on the bytecode VM
+    /// (`handl_plugin_engine_exec_bytecode::BytecodeEngine`): the
+    /// per-call record construction and function bodies compile to
+    /// instructions once per eval instead of paying tree-walk scheme
+    /// dispatch per node — measured ~100-400× faster on eval-heavy
+    /// transforms (`loader.hnl` `strip_decls` on a 22k-char source:
+    /// ~59s tree-walk → ~0.16s bytecode).
+    ///
+    /// Caveat: the tree-walk home-frame mechanism for arrows crossing the
+    /// `Function::call` boundary (`__home__` provenance) is tree-walk-only.
+    /// Modules whose functions take or return closures must stay on
+    /// `"tree-walk"` (the default).
+    pub fn with_eval_engine(mut self, eval_name: &'static str) -> Self {
+        self.eval_name = eval_name;
+        self.rebuild_functions();
+        self
+    }
+
     /// Attach op functions for the given op names, dispatching to the shared
     /// [`OpRegistry`].
     ///
@@ -1298,7 +1335,9 @@ impl HandlModule {
     /// new dependency set.
     fn rebuild_functions(&mut self) {
         let deps = self.dependencies.clone();
-        let builder: RuntimeBuilder = Arc::new(move || build_runtime(deps.clone()));
+        let eval_name = self.eval_name;
+        let builder: RuntimeBuilder =
+            Arc::new(move || build_runtime(deps.clone(), eval_name));
         let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
             func.builder = Arc::clone(&builder);
@@ -1392,8 +1431,20 @@ pub struct HandlLoader {
 impl HandlLoader {
     /// Build the loader with the given dependency modules (typically a
     /// `char` backend and the `str` implementation built over it).
+    ///
+    /// The loader module runs on the **bytecode** eval engine: its
+    /// transforms are eval-heavy per-character `str.*`/`char.*` work
+    /// (~59s under tree-walk for a 22k-char source → ~0.16s under
+    /// bytecode; see `examples/loader_bench.rs`). The loader's functions
+    /// are pure text transforms — strings in, strings/arrays out — so no
+    /// arrows cross the `Function::call` boundary and the tree-walk-only
+    /// `__home__` provenance mechanism is never exercised. For the same
+    /// speedup, build the `str` dep with
+    /// `HandlModule::with_eval_engine("bytecode")` too.
     pub fn new(deps: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
-        let mut module = HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS);
+        let mut module =
+            HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS)
+                .with_eval_engine("bytecode");
         for dep in deps {
             module = module.with_dependency_arc(dep);
         }
