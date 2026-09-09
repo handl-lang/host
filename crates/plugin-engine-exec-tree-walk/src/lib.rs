@@ -4436,6 +4436,83 @@ impl Model for ValueModel {
                 }
                 self.eval_scheme_term(term, incoming)
             }
+            Term::Path {
+                endpoints: (a, b),
+                witness,
+            } => {
+                let a_val = self.run(a, incoming.clone(), ctx)?;
+                let b_val = self.run(b, incoming.clone(), ctx)?;
+                let w_val = if let Some(w) = witness {
+                    self.run(w, incoming, ctx)?
+                } else {
+                    Value::Null
+                };
+                Ok(serde_json::json!({
+                    "__tag__": "Path",
+                    "from": a_val,
+                    "to": b_val,
+                    "witness": w_val
+                }))
+            }
+            Term::Equiv { a, b, path } => {
+                let a_val = self.run(a, incoming.clone(), ctx)?;
+                let b_val = self.run(b, incoming.clone(), ctx)?;
+                let mut eq = a_val == b_val;
+                if let Some(p) = path {
+                    let p_val = self.run(p, incoming, ctx)?;
+                    if let Value::Object(obj) = &p_val {
+                        if obj.get("__tag__").and_then(Value::as_str) == Some("Path") {
+                            let from = obj.get("from");
+                            let to = obj.get("to");
+                            if from == Some(&a_val) && to == Some(&b_val) {
+                                eq = true;
+                            }
+                        }
+                    }
+                }
+                Ok(Value::Bool(eq))
+            }
+            Term::Transport { path, value } => {
+                let path_val = self.run(path, incoming.clone(), ctx)?;
+                let val = self.run(value, incoming, ctx)?;
+                match path_val {
+                    Value::Object(obj)
+                        if obj.get("__tag__").and_then(Value::as_str) == Some("Rewrite") =>
+                    {
+                        let source_term = obj.get("source").cloned().unwrap_or(Value::Null);
+                        let target_term = obj.get("target").cloned().unwrap_or(Value::Null);
+                        let source: Term = serde_json::from_value(source_term)
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        let target: Term = serde_json::from_value(target_term)
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        let witness = match obj.get("witness").and_then(Value::as_str) {
+                            Some(name) => {
+                                plugin_engine::RewriteWitness::Named(name.to_string())
+                            }
+                            None => plugin_engine::RewriteWitness::Compute,
+                        };
+                        let result = self.rewrite(&source, &target, &witness, &val, ctx)?;
+                        Ok(result.into_value())
+                    }
+                    Value::Object(obj)
+                        if obj.get("__tag__").and_then(Value::as_str) == Some("Path") =>
+                    {
+                        let from = obj.get("from").cloned().unwrap_or(Value::Null);
+                        let to = obj.get("to").cloned().unwrap_or(Value::Null);
+                        let witness = match obj.get("witness").and_then(Value::as_str) {
+                            Some(name) => {
+                                plugin_engine::RewriteWitness::Named(name.to_string())
+                            }
+                            None => plugin_engine::RewriteWitness::Compute,
+                        };
+                        let source = Term::const_value(from);
+                        let target = Term::const_value(to);
+                        let result = self.rewrite(&source, &target, &witness, &val, ctx)?;
+                        Ok(result.into_value())
+                    }
+                    _ => Ok(val),
+                }
+            }
             _ => self.eval_scheme_term(term, incoming),
         }
     }
@@ -4476,6 +4553,7 @@ impl Model for ValueModel {
                     (source.clone(), target.clone(), false)
                 }
             }
+            plugin_engine::RewriteWitness::Compute => (source.clone(), target.clone(), true),
             _ => (source.clone(), target.clone(), false),
         };
         if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {

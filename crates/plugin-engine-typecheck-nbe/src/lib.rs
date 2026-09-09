@@ -4982,14 +4982,31 @@ impl plugin_engine::Model for TypeModel {
                     )
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
+            Term::Path {
+                endpoints: (a, b), ..
+            } => {
+                let b_val = self.run(b, incoming.clone(), ctx)?;
+                if b_val.is_null() {
+                    self.run(a, incoming, ctx)
+                } else {
+                    Ok(b_val)
+                }
+            }
+            Term::Equiv { .. } => Ok(self
+                .0
+                .registry
+                .construct("type.bool", &Value::Null)
+                .unwrap_or(Value::Null)),
+            Term::Transport { value, .. } => self.run(value, incoming, ctx),
             _ => {
                 let mut ast = Ast::new();
                 ast.push(AstNode::new("model"));
                 let node_ref = AstRef::new(0);
                 let lang = Language::new();
-                let mut ctx = TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                let mut tctx =
+                    TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
                 self.0
-                    .eval_type_scheme(&lang, &ast, node_ref, term, &mut ctx, Some(incoming))
+                    .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
         }
