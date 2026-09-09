@@ -1099,6 +1099,17 @@ impl TreeWalkEngine {
                 Ok((val, false))
             }
             Term::Rewrite { .. } => Err(LangError::NotImplemented),
+            Term::Path { .. } => Ok((incoming.unwrap_or(TaggedValue::from(Value::Null)), false)),
+            Term::Equiv { a, b, .. } => {
+                let inc = incoming.unwrap_or(TaggedValue::from(Value::Null));
+                let (av, _) =
+                    self.eval_inner(a, ast, node_ref, lang, env, current_node, Some(inc.clone()))?;
+                let (bv, _) =
+                    self.eval_inner(b, ast, node_ref, lang, env, current_node, Some(inc))?;
+                let val = Value::Bool(tagged_to_value(&av) == tagged_to_value(&bv));
+                Ok((TaggedValue::from(val), false))
+            }
+            Term::Transport { .. } => Err(LangError::NotImplemented),
         }
     }
 

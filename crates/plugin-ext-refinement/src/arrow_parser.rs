@@ -625,6 +625,7 @@ fn rewrite_scheme(
             target: Box::new(rewrite_scheme(target, import_map, local_names)),
             witness: witness.clone(),
         },
+        _ => unreachable!(),
     }
 }
 
@@ -1098,7 +1099,7 @@ fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, Stri
 /// the expression part with the data-driven parser.
 fn parse_named_arrows_data_driven(
     src: &str,
-    lang: &Language,
+    _lang: &Language,
 ) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
@@ -1552,6 +1553,7 @@ fn walk_scheme(scheme: &Term, ast: &Ast, node: &AstNode, lang: &Language) -> Res
             initial: Box::new(walk_scheme(initial, ast, node, lang)?),
         }),
         Term::Rewrite { .. } => Err("rewrite scheme not supported".to_string()),
+        _ => unreachable!(),
     }
 }
 

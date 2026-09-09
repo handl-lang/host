@@ -208,6 +208,7 @@ pub fn infer_r(
         Term::Iter { .. } => Err("iter contract inference not implemented".to_string()),
         // Rewrite nodes are not yet supported by contract inference.
         Term::Rewrite { .. } => Err("rewrite contract inference not implemented".to_string()),
+        _ => unreachable!(),
     }
 }
 
@@ -257,5 +258,6 @@ pub fn format_scheme(scheme: &Term) -> String {
                 format_scheme(target)
             )
         }
+        _ => unreachable!(),
     }
 }

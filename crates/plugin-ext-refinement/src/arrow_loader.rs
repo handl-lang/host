@@ -259,6 +259,7 @@ fn resolve_apps_inner(scheme: &Term, graph_map: &HashMap<String, Term>, depth: u
             target: Box::new(resolve_apps_inner(target, graph_map, depth)),
             witness: witness.clone(),
         },
+        _ => unreachable!(),
     }
 }
 
@@ -763,6 +764,7 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
                 || has_unresolved_apps(step, known_names)
                 || has_unresolved_apps(initial, known_names)
         }
+        _ => unreachable!(),
     }
 }
 
@@ -799,6 +801,7 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
                 || contains_module_ref(step)
                 || contains_module_ref(initial)
         }
+        _ => unreachable!(),
     }
 }
 
@@ -831,6 +834,7 @@ pub fn contains_project(scheme: &Term) -> bool {
                 || contains_project(step)
                 || contains_project(initial)
         }
+        _ => unreachable!(),
     }
 }
 
@@ -931,6 +935,7 @@ where
             target: Box::new(transform_scheme(target, f)),
             witness: witness.clone(),
         },
+        _ => unreachable!(),
     };
     f(&transformed)
 }
@@ -1245,6 +1250,7 @@ fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
             collect_app_callee_names(step, out);
             collect_app_callee_names(initial, out);
         }
+        _ => unreachable!(),
     }
 }
 
@@ -1492,6 +1498,7 @@ fn resolve_all_apps(
             target: Box::new(resolve_all_apps(target, known, resolving)),
             witness: witness.clone(),
         },
+        _ => unreachable!(),
     }
 }
 

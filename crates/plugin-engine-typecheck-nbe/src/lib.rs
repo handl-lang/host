@@ -420,6 +420,14 @@ impl NbeTypecheckEngine {
             Term::Loop { .. } => Err(LangError::NotImplemented),
             Term::App { .. } => Err(LangError::NotImplemented),
             Term::Rewrite { .. } => Err(LangError::NotImplemented),
+            Term::Path { .. } => Ok(incoming.unwrap_or(Value::Null)),
+            Term::Equiv { .. } => Ok(self
+                .registry
+                .construct("type.bool", &Value::Null)
+                .unwrap_or(Value::Null)),
+            Term::Transport { value, .. } => {
+                self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)
+            }
             // `handle body with target = impl_` (ADR-0076): eliminate the
             // handler at compile time (rewriting every bare arr(target) in
             // the body to the impl graph), then evaluate the resulting

@@ -579,7 +579,7 @@ pub fn check_proposition(
 /// [`Disproved`](Verdict::Disproved), and both cases provable yield
 /// [`Proven`](Verdict::Proven).
 pub fn prove_array_rec(spec: &ArrayRecSpec, budget: u32) -> Proof {
-    let mut pev = Pev::new(budget);
+    let pev = Pev::new(budget);
 
     // --- Base case: scrutinee := [] ---
     let empty = Arr::Empty;

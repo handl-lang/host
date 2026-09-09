@@ -216,6 +216,7 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         Term::Iter { .. } => Pred::True,
         // Rewrite nodes are not yet analyzed; treat as identity.
         Term::Rewrite { .. } => post.clone(),
+        _ => unreachable!(),
     }
 }
 
@@ -272,6 +273,7 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
             collect_guarantees(step, registry, out);
             collect_guarantees(initial, registry, out);
         }
+        _ => unreachable!(),
     }
 }
 
@@ -313,6 +315,7 @@ pub fn graph_contains(scheme: &Term, op: &str) -> bool {
                 || graph_contains(step, op)
                 || graph_contains(initial, op)
         }
+        _ => unreachable!(),
     }
 }
 

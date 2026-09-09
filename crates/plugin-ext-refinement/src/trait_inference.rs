@@ -218,6 +218,7 @@ pub fn uses_first(scheme: &Term) -> bool {
             step,
             initial,
         } => uses_first(fuel) || uses_first(predicate) || uses_first(step) || uses_first(initial),
+        _ => unreachable!(),
     }
 }
 
@@ -279,6 +280,7 @@ pub fn uses_left(scheme: &Term) -> bool {
             step,
             initial,
         } => uses_left(fuel) || uses_left(predicate) || uses_left(step) || uses_left(initial),
+        _ => unreachable!(),
     }
 }
 

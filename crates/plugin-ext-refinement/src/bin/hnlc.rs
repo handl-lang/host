@@ -297,6 +297,7 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             out.push('}');
             out
         }
+        _ => format!("{}<unsupported>", indent),
     }
 }
 

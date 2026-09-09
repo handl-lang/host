@@ -137,6 +137,7 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             measure: Measure::None,
             reason: "rewrite -- direct termination (no loop)".to_string(),
         },
+        _ => unreachable!(),
     }
 }
 
@@ -250,6 +251,7 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
             measure: Measure::None,
             reason: "loop(iter): no structural decreasing measure on C".to_string(),
         },
+        _ => unreachable!(),
     }
 }
 
@@ -468,6 +470,7 @@ fn analyze_comp_loop_termination(
             measure: Measure::None,
             reason: "seq(_, rewrite): rewrite does not decrease C".to_string(),
         },
+        _ => unreachable!(),
     }
 }
 
@@ -527,6 +530,7 @@ fn find_decreasing_measure_in(
             .or_else(|| find_decreasing_measure_in(predicate, registry))
             .or_else(|| find_decreasing_measure_in(step, registry))
             .or_else(|| find_decreasing_measure_in(initial, registry)),
+        _ => unreachable!(),
     }
 }
 
