@@ -3,6 +3,8 @@
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
+# Added (graded-theory declarations, ADR-0100): sort, grade, grades, op,
+#   handler, rewrite keywords and the `=>` 2-cell arrow (lex.fat_arrow).
 - id: lex.and
   token_kind: token.and
   pattern: !Literal
@@ -100,6 +102,14 @@
   pattern: !Literal
     text: "::"
   priority: 20
+- id: lex.fat_arrow
+  # `=>` — the 2-cell arrow of `rewrite`/`law` declarations (ADR-0100).
+  # Priority 10 (< lex.equal's 20) so `=>` wins over the bare `=`/`::`
+  # binding token; longest-match ordering keeps `==` unaffected.
+  token_kind: token.fat_arrow
+  pattern: !Literal
+    text: "=>"
+  priority: 10
 - id: lex.fanout
   token_kind: token.fanout
   pattern: !Literal
@@ -196,6 +206,24 @@
   pattern: !Literal
     text: from
   priority: 15
+- id: lex.keyword.grade
+  token_kind: token.keyword.grade
+  pattern: !Literal
+    text: grade
+  priority: 15
+# `grades` is the longer keyword — within the keyword band (15) the
+# longest-literal-first ordering tries it before `grade`, so the plural
+# clause keyword of `sort` declarations never splits as `grade` + `s`.
+- id: lex.keyword.grades
+  token_kind: token.keyword.grades
+  pattern: !Literal
+    text: grades
+  priority: 15
+- id: lex.keyword.handler
+  token_kind: token.keyword.handler
+  pattern: !Literal
+    text: handler
+  priority: 15
 - id: lex.keyword.if
   token_kind: token.keyword.if
   pattern: !Literal
@@ -252,6 +280,11 @@
   pattern: !Literal
     text: match
   priority: 15
+- id: lex.keyword.op
+  token_kind: token.keyword.op
+  pattern: !Literal
+    text: op
+  priority: 15
 - id: lex.keyword.rec
   token_kind: token.keyword.rec
   pattern: !Literal
@@ -262,6 +295,11 @@
   pattern: !Literal
     text: return
   priority: 15
+- id: lex.keyword.rewrite
+  token_kind: token.keyword.rewrite
+  pattern: !Literal
+    text: rewrite
+  priority: 15
 - id: lex.keyword.right
   token_kind: token.keyword.right
   pattern: !Literal
@@ -271,6 +309,11 @@
   token_kind: token.keyword.second
   pattern: !Literal
     text: second
+  priority: 15
+- id: lex.keyword.sort
+  token_kind: token.keyword.sort
+  pattern: !Literal
+    text: sort
   priority: 15
 - id: lex.keyword.then
   token_kind: token.keyword.then

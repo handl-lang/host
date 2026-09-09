@@ -15,7 +15,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `+++`); `token.let` removed (`let` fully removed —
     // ADR-0079 completed) while `token.keyword.let` stays as a tombstone so
     // `let` remains a reserved word (no grammar row → parse error).
-    assert_eq!(lang.tokens.len(), 79);
+    // +7 graded-theory tokens (ADR-0100): `token.fat_arrow` (`=>`) and
+    // `token.keyword.{sort,grade,grades,op,handler,rewrite}`.
+    assert_eq!(lang.tokens.len(), 86);
 
     // Grammar rows: 67 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -23,7 +25,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `grammar.axiom.prefix` added (`axiom` aliases to a `law` node);
     // arrow combinators added (`arr`/`first`/`second`/`left`/`right`
     // prefixes + `sum`/`app` infixes).
-    assert_eq!(lang.grammar.len(), 67);
+    // +5 graded-theory rows (ADR-0100): `grammar.{sort,grade,op,handler,
+    // rewrite}.prefix`; `grammar.law.prefix`/`grammar.axiom.prefix` were
+    // re-shaped in place as 2-cells `name : source => target`.
+    assert_eq!(lang.grammar.len(), 72);
 
     // Eval schemes: 68 — v0.1 surface syntax (ADR-0074) +
     // `data`/`import`-related schemes; `eval.let`/`eval.stmt-let` removed
@@ -35,7 +40,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
     // shapes (`arr`/`first`/`second`/`left`/`right`/`sum`/`app`);
     // `ast.let` removed.
-    assert_eq!(lang.ast.len(), 68);
+    // +5 graded-theory shapes (ADR-0100): `ast.{sort,grade,op,handler,
+    // rewrite}`; `ast.law` was re-shaped in place (children
+    // [name, source, target]).
+    assert_eq!(lang.ast.len(), 73);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -72,8 +80,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 79);
-    assert_eq!(rt.lang().grammar.len(), 67);
+    assert_eq!(rt.lang().tokens.len(), 86);
+    assert_eq!(rt.lang().grammar.len(), 72);
 }
 
 #[test]

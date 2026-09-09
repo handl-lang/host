@@ -3,6 +3,9 @@
 #   const, module, mood.int, mood.pot, mood.norm, mood.neg, mood.cnd, vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type,
 #   product, nullish, opt-chain.
+# Added (graded-theory declarations, ADR-0098/0100): sort, grade, op,
+#   handler, rewrite; `law`/`axiom` re-shaped as 2-cells
+#   [name, source, target].
 - id: ast.apply
   node_kind: apply
   payload_schema:
@@ -717,9 +720,149 @@
     required:
       - children
     type: object
-# `law` — compile-time law declaration (2 children: name + body).
+# `law` — compile-time law declaration, a 2-cell expected to hold
+# semantically (ADR-0100). Three children:
+#   0. `name`   — the law name (`var(Name)`).
+#   1. `source` — the source arrow expression (left of `=>`).
+#   2. `target` — the target arrow expression (right of `=>`).
+# The name string is also lifted into `payload.name` by the grammar row.
 - id: ast.law
   node_kind: law
+  children:
+    - role: name
+    - role: source
+    - role: target
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+      name:
+        type: string
+    required:
+      - children
+    type: object
+# `rewrite` — a directed rewrite rule (2-cell) the compiler/optimizer may
+# use to replace the source with the target (ADR-0100). Same shape as `law`
+# but a distinct node kind: [name, source, target].
+- id: ast.rewrite
+  node_kind: rewrite
+  children:
+    - role: name
+    - role: source
+    - role: target
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+      name:
+        type: string
+    required:
+      - children
+    type: object
+# `sort` — graded-theory sort declaration; a generating 0-cell
+# (ADR-0098/0100). Children:
+#   0. `name`   — the sort head: `var(Name)` or `call(Name, params...)`. The
+#                 type parameters/indices ride in the `call` node's argument
+#                 children (the `data` declaration precedent).
+#   1. `grades` — optional grade expression after the `grades` keyword.
+# `payload.name` carries the extracted sort name.
+- id: ast.sort
+  node_kind: sort
+  children:
+    - role: name
+    - role: grades
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 1
+        type: array
+      name:
+        type: string
+      params:
+        description: optional type parameters (indices) of a parameterized sort
+        items:
+          type: string
+        type: array
+    required:
+      - children
+    type: object
+# `grade` — grade declaration; a generating 0-cell that is a proposition
+# (ADR-0100). One child:
+#   0. `name` — the grade head: `var(Name)` or `call(Name, params...)`
+#               (e.g. `grade Lengthable(n: Nat)`).
+# `payload.name` carries the extracted grade name.
+- id: ast.grade
+  node_kind: grade
+  children:
+    - role: name
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+      name:
+        type: string
+      params:
+        description: optional parameters of a value-indexed grade
+        items:
+          type: string
+        type: array
+    required:
+      - children
+    type: object
+# `op` — graded operation declaration; a generating 1-cell
+# (ADR-0098/0100). Three children:
+#   0. `name`    — the operation head: `var(name)` or `call(name, params...)`
+#                  for the parenthesized constraint form `op add(A: Addable)`.
+#   1. `inputs`  — the input tuple expression left of `~>`.
+#   2. `output`  — the output expression right of `~>`.
+# `payload.name` carries the extracted op name; `payload.grade` carries the
+# optional trailing `grade <identifier>` clause.
+- id: ast.op
+  node_kind: op
+  children:
+    - role: name
+    - role: inputs
+    - role: output
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+      name:
+        type: string
+      grade:
+        type: string
+    required:
+      - children
+    type: object
+# `handler` — handler declaration: a model for one sort (ADR-0098/0100).
+# Two children:
+#   0. `name` — the handler name (`var(Name)`).
+#   1. `impl` — the model arrow expression right of `=`/`::`.
+# `payload.name` carries the extracted handler name.
+- id: ast.handler
+  node_kind: handler
+  children:
+    - role: name
+    - role: impl
   payload_schema:
     properties:
       children:
@@ -728,6 +871,8 @@
         maxItems: 2
         minItems: 2
         type: array
+      name:
+        type: string
     required:
       - children
     type: object

@@ -3,6 +3,8 @@
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
+# Added (graded-theory declarations, ADR-0100): sort, grade, grades, op,
+#   handler, rewrite keywords and the `=>` 2-cell arrow (token.fat_arrow).
 # Retained: axiom (compatible alias for law — grammar.axiom.prefix).
 #
 # `category` is the tooling classification consumed by host-lsp /
@@ -62,6 +64,11 @@
   category: operator
 - id: token.equal
   label: =
+  category: operator
+- id: token.fat_arrow
+  # `=>` — 2-cell arrow separating the source and target of a `rewrite` /
+  # `law` declaration (ADR-0100). Lexed before `=` (`token.bind`).
+  label: "=>"
   category: operator
 - id: token.fanout
   label: "&&&"
@@ -130,6 +137,18 @@
   label: from
   category: keyword
   doc: "**Module source for an import** `from`\n\n```\nimport `name` from `module`\n```"
+- id: token.keyword.grade
+  label: grade
+  category: keyword
+  doc: "**Grade declaration / operation grade clause** `grade`\n\n```\ngrade `Name`\nop `name` : `signature` grade `Name`\n```"
+- id: token.keyword.grades
+  label: grades
+  category: keyword
+  doc: "**Grade list clause of a `sort` declaration** `grades`\n\n```\nsort `Name` grades `G1`, `G2`\n```"
+- id: token.keyword.handler
+  label: handler
+  category: keyword
+  doc: "**Handler declaration — a model for one sort** `handler`\n\n```\nhandler `Name` = `impl`\n```"
 - id: token.keyword.if
   label: if
   category: keyword
@@ -170,6 +189,10 @@
   label: match
   category: keyword
   doc: "**Pattern-match on a value** `match`\n\n```\nmatch `expr` { `pat` { `body` }, … }\n```"
+- id: token.keyword.op
+  label: op
+  category: keyword
+  doc: "**Graded operation declaration — a generating 1-cell** `op`\n\n```\nop `name` : (`inputs`) ~> `output` grade `G`\n```"
 - id: token.keyword.rec
   label: rec
   category: keyword
@@ -178,6 +201,10 @@
   label: return
   category: keyword
   doc: "**Return a value from an arrow** `return`\n\n```\nreturn `expr`\n```"
+- id: token.keyword.rewrite
+  label: rewrite
+  category: keyword
+  doc: "**Rewrite rule — a directed 2-cell** `rewrite`\n\n```\nrewrite `name` : `source` => `target`\n```"
 - id: token.keyword.right
   label: right
   category: keyword
@@ -186,6 +213,10 @@
   label: second
   category: keyword
   doc: "**Map over the second component of a pair — arrow `second` combinator** `second`\n\n```\nsecond `f`\n```"
+- id: token.keyword.sort
+  label: sort
+  category: keyword
+  doc: "**Sort declaration — a value family (generating 0-cell)** `sort`\n\n```\nsort `Name`(`params`) grades `G1`, `G2`\n```"
 - id: token.keyword.then
   label: then
   category: keyword

@@ -13,6 +13,9 @@
 #   >>> flow (25/26), ||| choice (20/21), ?: ternary (15/16),
 #   : type-annot (12/13), ~> arrow (10/9, right-assoc), = assign (5/6).
 # Retained: axiom token — grammar.axiom.prefix aliases it to a `law` node.
+# Added (graded-theory declarations, ADR-0098/0100): sort, grade, op,
+#   handler, rewrite prefixes; `law`/`axiom` re-shaped as 2-cells
+#   `name : source => target` (children [name, source, target]).
 #
 # NOTE (ADR-0053 scope boundary): several v0.1 constructs are NOT expressible
 # in a declarative Pratt grammar and require parser-level contextual
@@ -428,7 +431,12 @@
   child_shape:
     node_kind: return
     arity: 1
-# `law name body` — compile-time law declaration (ADR-0074).
+# `law name : source => target` — compile-time law declaration (ADR-0074;
+# re-shaped as a 2-cell by ADR-0100). Three children: [name, source, target].
+# The name child parses at rbp 14 so it stops before the `:` separator
+# (`token.colon` infix has lbp 12); the source child parses at rbp 0 and
+# stops before `=>` (`token.fat_arrow` has no infix row). The name string is
+# also lifted into `payload.name`.
 - id: grammar.law.prefix
   token: token.keyword.law
   position: Prefix
@@ -437,8 +445,19 @@
     - 0
   child_shape:
     node_kind: law
-    arity: 2
-# `axiom name body` — compatible alias for `law` (produces a `law` node).
+    arity: 3
+    child_binding_powers:
+      - 14
+      - 0
+      - 0
+    child_separators:
+      - !Required token.colon
+      - !Required token.fat_arrow
+    payload_extract:
+      - child: 0
+        field: name
+# `axiom name : source => target` — compatible alias for `law` (produces a
+# `law` node, same 2-cell shape).
 # Note: the `axiom name : Type -> Type` / `guarantee:` contract files under
 # `handl-packages/contracts/` (and the contract headers in
 # `str`/`char`/`time`/`unicode`) are a separate dialect parsed by
@@ -451,7 +470,146 @@
     - 0
   child_shape:
     node_kind: law
+    arity: 3
+    child_binding_powers:
+      - 14
+      - 0
+      - 0
+    child_separators:
+      - !Required token.colon
+      - !Required token.fat_arrow
+    payload_extract:
+      - child: 0
+        field: name
+# `rewrite name : source => target` — a directed rewrite rule (2-cell,
+# ADR-0100). Same shape as `law` but produces a `rewrite` node: children
+# [name, source, target], `payload.name` extracted from child 0.
+- id: grammar.rewrite.prefix
+  token: token.keyword.rewrite
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: rewrite
+    arity: 3
+    child_binding_powers:
+      - 14
+      - 0
+      - 0
+    child_separators:
+      - !Required token.colon
+      - !Required token.fat_arrow
+    payload_extract:
+      - child: 0
+        field: name
+# `sort Name(params...) grades G1, G2` — graded-theory sort declaration
+# (a generating 0-cell, ADR-0098/0100). Two children: [name, grades].
+# child 0 is the sort head — `var(Name)` or `call(Name, params...)` for the
+# parameterized form (`sort Vec(T, n: Nat)`); the type parameters ride in
+# the `call` node's argument children, exactly like `data`'s type child.
+# child 1 is the grade expression after the required `grades` keyword; it is
+# declared optional so a bare `sort Name` still parses. A multi-grade clause
+# is a single expression — `grades (Addable, Comparable)` or a call such as
+# `grades Lengthable(n)` — since `,` is not an infix operator.
+# `payload.name` is extracted from the head child.
+# NOTE: the angle-bracket parameter form `sort Vec<T, n: Nat>` is not
+# expressible in the declarative Pratt grammar (`<` is the less-than infix);
+# use the call form `sort Vec(T, n: Nat)`.
+- id: grammar.sort.prefix
+  token: token.keyword.sort
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: sort
     arity: 2
+    optional_children:
+      - 1
+    child_separators:
+      - !Required token.keyword.grades
+    payload_extract:
+      - child: 0
+        field: name
+# `grade Name` / `grade Name(params...)` — grade declaration (a generating
+# 0-cell that is a proposition, ADR-0100). One child: the grade head —
+# `var(Name)` or `call(Name, params...)` (e.g. `grade Lengthable(n: Nat)`).
+# `payload.name` is extracted from it. `token.keyword.grade` also serves as
+# the optional grade-clause keyword of `grammar.op.prefix` — trailing token
+# steps are per-row, so the two uses do not conflict.
+- id: grammar.grade.prefix
+  token: token.keyword.grade
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: grade
+    arity: 1
+    payload_extract:
+      - child: 0
+        field: name
+# `op name : (inputs) ~> output [grade G]` — graded operation declaration
+# (a generating 1-cell, ADR-0098/0100). Three children:
+# [name, inputs, output]. The name child parses at rbp 14 so it stops before
+# `:` (lbp 12) — which also lets the parenthesized parameter form
+# `op add(A: Addable) : (A, A) ~> A` parse the name as `call(add, A:Addable)`.
+# The inputs child parses at rbp 11 so it stops before the `~>` separator
+# (lbp 10); the output child parses at rbp 0. An optional trailing
+# `grade <identifier>` clause is captured into `payload.grade`.
+# `payload.name` is extracted from the name child.
+# NOTE: the angle-bracket parameter form `op add<A: Addable>` is not
+# expressible (`<` is the less-than infix); use `op add(A: Addable) : ...`.
+- id: grammar.op.prefix
+  token: token.keyword.op
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: op
+    arity: 3
+    child_binding_powers:
+      - 14
+      - 11
+      - 0
+    child_separators:
+      - !Required token.colon
+      - !Required token.arrow
+    payload_extract:
+      - child: 0
+        field: name
+    trailing_tokens:
+      - kinds:
+          - token.keyword.grade
+        optional: true
+      - kinds:
+          - token.identifier
+        field: grade
+        requires_prev_match: true
+# `handler Name = impl` — handler declaration: a model for one sort
+# (ADR-0098/0100). Two children: [name, impl]. The `=` (or `::`) binding
+# token is the separator — the name child parses at rbp 6 so it stops before
+# `token.bind` (lbp 5); the impl child is the model arrow expression
+# (e.g. `() ~> { ... }`). `payload.name` is extracted from the name child.
+- id: grammar.handler.prefix
+  token: token.keyword.handler
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: handler
+    arity: 2
+    child_binding_powers:
+      - 6
+      - 0
+    child_separators:
+      - !Required token.bind
+    payload_extract:
+      - child: 0
+        field: name
 # `trait name body` — compile-time trait declaration (ADR-0074).
 - id: grammar.trait.prefix
   token: token.keyword.trait
