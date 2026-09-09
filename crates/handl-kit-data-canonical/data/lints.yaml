@@ -13,11 +13,10 @@
 
 # --- Match rules (node-local, fully declarative) ----------------------------
 
-# `simplify-paren` — redundant parentheses around a single atom. The same
-# match is also declared as a `lint`-pass `TransformDef` in
-# `plugin-ext-lint/data/lint_transforms.yaml` for transform-engine consumers
-# (`host-lsp` `find_matches` + `lsp-rewrite` quick fixes); this is the
-# diagnostic-producing rule.
+# `simplify-paren` — redundant parentheses around a single atom. The `fix`
+# is a source-level `!Unwrap` of the `body` role; consumers such as the LSP
+# quick-fix provider build their edit directly from the diagnostic's `fix`
+# payload, so this file is the only place the match is declared.
 -
   id: lint.simplify-paren
   name: simplify-paren
@@ -114,6 +113,34 @@
   severity: info
   message: "module lacks a leading doc comment"
   check: !Native "source.missing-module-doc"
+
+# --- Built-in per-statement AST checks (ADR-0097 follow-up) ---------------
+
+-
+  id: lint.builtin.empty-block
+  name: empty-block
+  severity: warning
+  message: "empty block"
+  check: !Native "builtin.empty-block"
+-
+  id: lint.builtin.unreachable-code
+  name: unreachable-code
+  severity: warning
+  message: "unreachable code after terminal statement"
+  check: !Native "builtin.unreachable-code"
+-
+  id: lint.builtin.shadowed-binding
+  name: shadowed-binding
+  severity: warning
+  message: "binding '{name}' shadows an outer binding"
+  check: !Native "builtin.shadowed-binding"
+-
+  id: lint.builtin.unused-binding
+  name: unused-binding
+  severity: warning
+  message: "binding '{name}' is never used"
+  check: !Native "builtin.unused-binding"
+
 -
   id: lint.source.fmt
   name: fmt

@@ -170,7 +170,7 @@ impl ModuleAnalysis {
 }
 
 /// Offset a statement-local span into absolute source coordinates.
-fn absolute(span: Option<Span>, offset: usize) -> Span {
+pub(crate) fn absolute(span: Option<Span>, offset: usize) -> Span {
     match span {
         Some(s) => Span {
             start: s.start + offset,

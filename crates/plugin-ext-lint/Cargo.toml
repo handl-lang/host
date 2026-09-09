@@ -13,7 +13,6 @@ handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
 handl-language = {path = "../handl-language" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
 
 [dev-dependencies]
 serde_json = { workspace = true }

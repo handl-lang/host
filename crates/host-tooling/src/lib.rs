@@ -265,7 +265,10 @@ impl<K: Plugin> ToolingHost<K> {
         }
         let root = handl_language::AstRef::new(ast.len() - 1);
         let lang = kit.runtime().lang();
-        match handl_plugin_engine_lint::LintEngine::new().lint(lang, &ast, root) {
+        match handl_plugin_engine_lint::LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(lang, &ast, root)
+        {
             Ok(lint_diags) => lint_diags
                 .into_iter()
                 .map(|d| Diagnostic {

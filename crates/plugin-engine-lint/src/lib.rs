@@ -15,10 +15,11 @@
 //!   against a [`NativeLintRegistry`] (the `desugar.*`-native analogue).
 //!   [`LintEngine::lint_module`] / [`LintEngine::lint_source`] run them.
 //! - **Built-in checks** (empty block, unreachable code, shadowing, unused
-//!   bindings) are the fixed tooling vocabulary, with node classification
-//!   data-driven via `payload_schema` conventions (`"binding": true`,
-//!   `"reference": true`, `"terminates": true`) and named child roles
-//!   (`statements`). [`LintEngine::lint`] runs them on a single AST.
+//!   bindings) are themselves declared as `!Native "builtin.*"` rules in
+//!   `lang.lints`; the canonical `lints.yaml` ships them, and the engine
+//!   registers the implementations in [`canonical_lint_natives`].
+//!   [`LintEngine::lint`] wraps the single AST as a one-statement
+//!   [`LintModule`] and dispatches through [`LintEngine::lint_module`].
 
 use std::collections::HashMap;
 
@@ -76,18 +77,6 @@ pub struct LintDiagnostic {
     pub fix: Option<LintFixOut>,
 }
 
-impl LintDiagnostic {
-    fn warning(rule: &str, msg: impl Into<String>, span: Option<Span>) -> Self {
-        Self {
-            level: DiagnosticLevel::Warning,
-            message: msg.into(),
-            span,
-            rule: rule.to_string(),
-            fix: None,
-        }
-    }
-}
-
 /// Parse a `LintRuleDef` severity label into a [`DiagnosticLevel`].
 fn severity_of(severity: &str, rule_id: &str) -> Result<DiagnosticLevel, LangError> {
     match severity {
@@ -117,10 +106,11 @@ fn render_native_message(
 /// The data-driven AST lint engine.
 ///
 /// Reads `Language` data to classify nodes (bindings, references, terminals,
-/// blocks) and walks an [`Ast`] recursively to produce [`LintDiagnostic`]s.
-/// [`lint`](Self::lint) runs the built-in checks on a single AST;
-/// [`lint_module`](Self::lint_module) / [`lint_source`](Self::lint_source)
-/// run the `lang.lints` rule table over a whole module.
+/// blocks) and dispatches `lang.lints` rules to produce [`LintDiagnostic`]s.
+/// [`lint`](Self::lint) wraps a single AST as a one-statement module and
+/// runs the same rule dispatch; [`lint_module`](Self::lint_module) /
+/// [`lint_source`](Self::lint_source) run the `lang.lints` rule table over a
+/// whole module.
 ///
 /// `!Native` checks resolve against the engine's [`NativeLintRegistry`] —
 /// wire it with [`with_native_registry`](Self::with_native_registry) or
@@ -154,7 +144,7 @@ impl LintEngine {
     }
 
     /// Wire the canonical surface's native lint rules (`scope.*`,
-    /// `naming-convention`, `source.missing-module-doc`) — the analogue of
+    /// `naming-convention`, `source.*`, and `builtin.*`) — the analogue of
     /// `RewriteEngine::with_desugar_natives` (ADR-0094).
     pub fn with_canonical_lint_natives(self) -> Self {
         self.with_native_registry(canonical_lint_natives())
@@ -241,176 +231,39 @@ impl LintEngine {
 
     /// Lint the subtree rooted at `root` in `ast` using `lang` data.
     ///
-    /// Walks the AST recursively, resolving node classification and child
-    /// roles from `lang.ast`/`lang.grammar`. Returns a vector of
-    /// [`LintDiagnostic`]s in tree-walk order.
+    /// Wraps the AST as a one-statement [`LintModule`] and dispatches
+    /// `lang.lints` through [`lint_module`](Self::lint_module). A language
+    /// with no lint rules declared (e.g. an embedded toy language) is
+    /// lint-clean; a canonical language with the `builtin.*` rules declared
+    /// runs the former built-in checks.
     ///
     /// # Errors
     ///
-    /// Returns [`LangError`] if an arena index is out of bounds.
+    /// Returns [`LangError`] if an arena index is out of bounds or a rule
+    /// fails (see [`lint_module`](Self::lint_module)).
     pub fn lint(
         &self,
         lang: &Language,
         ast: &Ast,
         root: AstRef,
     ) -> Result<Vec<LintDiagnostic>, LangError> {
-        let classifier = NodeClassifier::build(lang);
-        let mut diags = Vec::new();
-        let mut scope = ScopeStack::new();
-        let mut bindings: Vec<(String, Option<Span>)> = Vec::new();
-        let mut references: Vec<String> = Vec::new();
-        self.lint_node(
-            lang,
-            ast,
-            root,
-            &classifier,
-            &mut scope,
-            &mut diags,
-            &mut bindings,
-            &mut references,
-        )?;
-        // Rule: unused bindings — report bindings whose name is never
-        // referenced anywhere in the tree. This is a conservative global
-        // check (avoids false positives from scope-tracking complexity).
-        let used: std::collections::HashSet<&str> = references.iter().map(|s| s.as_str()).collect();
-        for (name, span) in &bindings {
-            if !used.contains(name.as_str()) {
-                diags.push(LintDiagnostic::warning(
-                    "unused-binding",
-                    format!("binding '{}' is never used", name),
-                    *span,
-                ));
-            }
-        }
-        Ok(diags)
+        let src = "";
+        let module = LintModule {
+            src,
+            statements: vec![LintStatement {
+                text: String::new(),
+                offset: 0,
+                ast: ast.clone(),
+                root,
+            }],
+        };
+        self.lint_module(lang, &module)
     }
-
-    #[allow(clippy::too_many_arguments)]
-    fn lint_node(
-        &self,
-        lang: &Language,
-        ast: &Ast,
-        node_ref: AstRef,
-        classifier: &NodeClassifier,
-        scope: &mut ScopeStack,
-        diags: &mut Vec<LintDiagnostic>,
-        bindings: &mut Vec<(String, Option<Span>)>,
-        references: &mut Vec<String>,
-    ) -> Result<(), LangError> {
-        let node = ast.at(node_ref)?;
-
-        // Rule: empty block warning.
-        if classifier.is_block(lang, node) {
-            let children = child_indices(node);
-            if children.is_empty() {
-                diags.push(LintDiagnostic::warning(
-                    "empty-block",
-                    "empty block",
-                    node.span,
-                ));
-            }
-        }
-
-        // Rule: unreachable code after a terminal statement (block siblings).
-        if classifier.is_block(lang, node) {
-            self.check_unreachable(ast, node, classifier, diags)?;
-        }
-
-        // Rule: shadowing warning (binding shadows an existing binding in any
-        // enclosing scope — checked before recording this binding).
-        if let Some(name) = classifier.binding_name(node) {
-            if scope.shadows(&name) {
-                diags.push(LintDiagnostic::warning(
-                    "shadowed-binding",
-                    format!("binding '{}' shadows an outer binding", name),
-                    node.span,
-                ));
-            }
-            bindings.push((name.clone(), node.span));
-        }
-
-        // Track references for the unused-binding rule.
-        if let Some(name) = classifier.reference_name(node) {
-            references.push(name);
-        }
-
-        // Enter a new scope for block-shaped nodes.
-        let is_block = classifier.is_block(lang, node);
-        if is_block {
-            scope.push();
-        }
-
-        // Record this node's binding in the current scope before walking
-        // children (the body can reference it).
-        if let Some(name) = classifier.binding_name(node) {
-            scope.bind(&name);
-        }
-
-        // Recurse into children.
-        for child_idx in child_indices(node) {
-            self.lint_node(
-                lang,
-                ast,
-                AstRef::new(child_idx),
-                classifier,
-                scope,
-                diags,
-                bindings,
-                references,
-            )?;
-        }
-
-        if is_block {
-            scope.pop();
-        }
-
-        Ok(())
-    }
-
-    fn check_unreachable(
-        &self,
-        ast: &Ast,
-        node: &AstNode,
-        classifier: &NodeClassifier,
-        diags: &mut Vec<LintDiagnostic>,
-    ) -> Result<(), LangError> {
-        let children = child_indices(node);
-        let mut found_terminal = false;
-        for &child_idx in &children {
-            let child = ast.at(AstRef::new(child_idx))?;
-            if found_terminal {
-                diags.push(LintDiagnostic::warning(
-                    "unreachable-code",
-                    "unreachable code after terminal statement",
-                    child.span,
-                ));
-                // Only report the first unreachable sibling to avoid noise.
-                break;
-            }
-            if classifier.is_terminal(child) {
-                found_terminal = true;
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Extract the `payload["children"]` arena indices from a node.
-fn child_indices(node: &AstNode) -> Vec<usize> {
-    node.payload
-        .get("children")
-        .and_then(|c| c.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_u64().map(|n| n as usize))
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 /// A precomputed classification table mapping node kinds to their lint roles
 /// (binding, reference, terminal, block), built from `Language` data.
-struct NodeClassifier {
+pub(crate) struct NodeClassifier {
     /// node_kind → the payload field holding the binding name.
     binding_fields: HashMap<String, String>,
     /// node_kind → whether the shape declares `binding: true` in payload_schema.
@@ -425,7 +278,7 @@ struct NodeClassifier {
 
 impl NodeClassifier {
     /// Build the classifier by scanning `lang.ast` and `lang.grammar`.
-    fn build(lang: &Language) -> Self {
+    pub(crate) fn build(lang: &Language) -> Self {
         let mut binding_fields: HashMap<String, String> = HashMap::new();
         let mut bindings: HashMap<String, bool> = HashMap::new();
         let mut references: HashMap<String, bool> = HashMap::new();
@@ -471,7 +324,7 @@ impl NodeClassifier {
     }
 
     /// Whether `node` is block-shaped (variadic `statements` role).
-    fn is_block(&self, lang: &Language, node: &AstNode) -> bool {
+    pub(crate) fn is_block(&self, lang: &Language, node: &AstNode) -> bool {
         self.blocks.get(&node.kind).copied().unwrap_or(false)
             || lang
                 .ast
@@ -481,46 +334,92 @@ impl NodeClassifier {
     }
 
     /// Whether `node` is a terminal statement (`terminates: true`).
-    fn is_terminal(&self, node: &AstNode) -> bool {
+    pub(crate) fn is_terminal(&self, node: &AstNode) -> bool {
         self.terminals.get(&node.kind).copied().unwrap_or(false)
     }
 
     /// The binding name of `node`, if it is a binding.
     ///
     /// A node is a binding if its shape declares `binding: true` in
-    /// `payload_schema`, or if a grammar row maps its kind to a payload field.
-    /// The name is read from `node.payload[field]` (field resolved from
-    /// grammar `payload_tokens`), falling back to `node.payload["name"]`.
-    fn binding_name(&self, node: &AstNode) -> Option<String> {
-        let is_binding = self.bindings.get(&node.kind).copied().unwrap_or(false)
+    /// `payload_schema`, if a grammar row maps its kind to a payload field, or
+    /// if it carries `target` + `value` child roles (ADR-0081). The name is
+    /// resolved from `node.payload[field]`, `node.payload["name"]`, or the
+    /// `target` child's `param_name`, never from a hardcoded `kind ==` check.
+    pub(crate) fn binding_name(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        node: &AstNode,
+    ) -> Option<String> {
+        let is_payload_binding = self.bindings.get(&node.kind).copied().unwrap_or(false)
             || self.binding_fields.contains_key(&node.kind);
-        if !is_binding {
-            return None;
+        if is_payload_binding {
+            let field = self.binding_fields.get(&node.kind);
+            if let Some(f) = field
+                && let Some(name) = node.payload.get(f).and_then(|v| v.as_str())
+            {
+                return Some(name.to_string());
+            }
+            return node
+                .payload
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
         }
-        let field = self.binding_fields.get(&node.kind);
-        if let Some(f) = field
-            && let Some(name) = node.payload.get(f).and_then(|v| v.as_str())
-        {
-            return Some(name.to_string());
-        }
-        node.payload
-            .get("name")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+
+        // Data-driven binding: a node with `target` and `value` child roles
+        // (e.g. canonical `assign`).
+        let target_idx = lang.child_role_index(&node.kind, "target").ok().flatten()?;
+        let value_idx = lang.child_role_index(&node.kind, "value").ok().flatten()?;
+        let children = crate::module::child_indices(node);
+        let &target_ref = children.get(target_idx)?;
+        let &value_ref = children.get(value_idx)?;
+        // Ensure the target and value are actually present (defensive).
+        let _ = value_ref;
+        let target_node = ast.at(AstRef::new(target_ref)).ok()?;
+        lang.param_name(ast, target_node).ok()
     }
 
-    /// The referenced name of `node`, if it is a reference (`reference: true`).
+    /// The referenced name of `node`, if it is a reference.
     ///
-    /// The name is read from `node.payload["value"]` or `node.payload["name"]`.
-    fn reference_name(&self, node: &AstNode) -> Option<String> {
-        if !self.references.get(&node.kind).copied().unwrap_or(false) {
-            return None;
+    /// A reference is a `reference: true` payload, a `pattern_role: "leaf"`,
+    /// or a node with a `subject` child role (resolved via `Language::
+    /// param_name`).
+    pub(crate) fn reference_name(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        node: &AstNode,
+    ) -> Option<String> {
+        if self.references.get(&node.kind).copied().unwrap_or(false) {
+            return node
+                .payload
+                .get("value")
+                .and_then(|v| v.as_str())
+                .or_else(|| node.payload.get("name").and_then(|v| v.as_str()))
+                .map(|s| s.to_string());
         }
-        node.payload
-            .get("value")
-            .and_then(|v| v.as_str())
-            .or_else(|| node.payload.get("name").and_then(|v| v.as_str()))
-            .map(|s| s.to_string())
+
+        let is_leaf = lang
+            .ast
+            .get_by_identity(&node.kind)
+            .and_then(|s| s.pattern_role.as_deref())
+            == Some("leaf");
+        if is_leaf {
+            return lang.param_name(ast, node).ok();
+        }
+
+        // `subject` role wrappers (e.g. type annotations) are references too.
+        lang.child_role_index(&node.kind, "subject")
+            .ok()
+            .flatten()
+            .and_then(|idx| {
+                let children = crate::module::child_indices(node);
+                children.get(idx).and_then(|&c| {
+                    let child = ast.at(AstRef::new(c)).ok()?;
+                    lang.param_name(ast, child).ok()
+                })
+            })
     }
 }
 
@@ -531,28 +430,28 @@ fn schema_flag(schema: &serde_json::Value, key: &str) -> bool {
 
 /// A scope stack for tracking bindings during the tree walk (used for the
 /// shadowing rule).
-struct ScopeStack {
+pub(crate) struct ScopeStack {
     scopes: Vec<Vec<String>>,
 }
 
 impl ScopeStack {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             scopes: vec![Vec::new()],
         }
     }
 
-    fn push(&mut self) {
+    pub(crate) fn push(&mut self) {
         self.scopes.push(Vec::new());
     }
 
-    fn pop(&mut self) {
+    pub(crate) fn pop(&mut self) {
         if self.scopes.len() > 1 {
             self.scopes.pop();
         }
     }
 
-    fn bind(&mut self, name: &str) {
+    pub(crate) fn bind(&mut self, name: &str) {
         if let Some(scope) = self.scopes.last_mut() {
             scope.push(name.to_string());
         }
@@ -560,7 +459,7 @@ impl ScopeStack {
 
     /// Whether `name` is already bound in any scope on the stack (including
     /// the current scope — checked before recording this binding).
-    fn shadows(&self, name: &str) -> bool {
+    pub(crate) fn shadows(&self, name: &str) -> bool {
         self.scopes.iter().any(|s| s.contains(&name.to_string()))
     }
 }
@@ -656,13 +555,64 @@ mod tests {
         lang
     }
 
+    /// Add the four `!Native "builtin.*"` rules to `lang`.
+    fn add_builtin_lints(lang: &mut Language) {
+        let builtins = [
+            (
+                "lint.builtin.empty-block",
+                "empty-block",
+                "empty block",
+                "builtin.empty-block",
+            ),
+            (
+                "lint.builtin.unreachable-code",
+                "unreachable-code",
+                "unreachable code after terminal statement",
+                "builtin.unreachable-code",
+            ),
+            (
+                "lint.builtin.shadowed-binding",
+                "shadowed-binding",
+                "binding '{name}' shadows an outer binding",
+                "builtin.shadowed-binding",
+            ),
+            (
+                "lint.builtin.unused-binding",
+                "unused-binding",
+                "binding '{name}' is never used",
+                "builtin.unused-binding",
+            ),
+        ];
+        for (id, name, message, native) in builtins {
+            lang.lints
+                .merge(LintRuleDef::new(
+                    id,
+                    name,
+                    "warning",
+                    message,
+                    LintCheck::Native(native.into()),
+                ))
+                .unwrap();
+        }
+    }
+
+    /// `test_lang` with the four built-in `!Native` rules declared.
+    fn test_lang_with_builtins() -> Language {
+        let mut lang = test_lang();
+        add_builtin_lints(&mut lang);
+        lang
+    }
+
     #[test]
     fn empty_block_warning() {
-        let lang = test_lang();
+        let lang = test_lang_with_builtins();
         let mut ast = Ast::new();
         ast.push(AstNode::new("block").with_payload(json!({"children": []})));
         let root = AstRef::new(0);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].level, DiagnosticLevel::Warning);
         assert!(diags[0].message.contains("empty block"));
@@ -670,7 +620,7 @@ mod tests {
 
     #[test]
     fn unreachable_code_after_return() {
-        let lang = test_lang();
+        let lang = test_lang_with_builtins();
         let mut ast = Ast::new();
         // 0: lit(42)
         ast.push(AstNode::new("lit").with_payload(json!(42)));
@@ -681,7 +631,10 @@ mod tests {
         // 3: block {children: [1, 2]}
         ast.push(AstNode::new("block").with_payload(json!({"children": [1, 2]})));
         let root = AstRef::new(3);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         let unreachable: Vec<_> = diags
             .iter()
             .filter(|d| d.message.contains("unreachable"))
@@ -692,7 +645,7 @@ mod tests {
 
     #[test]
     fn unused_binding_warning() {
-        let lang = test_lang();
+        let lang = test_lang_with_builtins();
         let mut ast = Ast::new();
         // 0: lit(42) — let value
         ast.push(AstNode::new("lit").with_payload(json!(42)));
@@ -700,8 +653,13 @@ mod tests {
         ast.push(AstNode::new("lit").with_payload(json!(1)));
         // 2: let {name: "x", children: [0, 1]}
         ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
-        let root = AstRef::new(2);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        // 3: block {children: [2]} — the let is nested, so its binding is checked.
+        ast.push(AstNode::new("block").with_payload(json!({"children": [2]})));
+        let root = AstRef::new(3);
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         let unused: Vec<_> = diags
             .iter()
             .filter(|d| d.message.contains("never used"))
@@ -712,7 +670,7 @@ mod tests {
 
     #[test]
     fn shadowing_warning() {
-        let lang = test_lang();
+        let lang = test_lang_with_builtins();
         let mut ast = Ast::new();
         // 0: lit(2)  — outer let value
         ast.push(AstNode::new("lit").with_payload(json!(2)));
@@ -725,7 +683,10 @@ mod tests {
         // 4: outer let {name: "x", children: [0, 3]}
         ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 3]})));
         let root = AstRef::new(4);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         let shadow: Vec<_> = diags
             .iter()
             .filter(|d| d.message.contains("shadows"))
@@ -736,7 +697,7 @@ mod tests {
 
     #[test]
     fn no_false_positives() {
-        let lang = test_lang();
+        let lang = test_lang_with_builtins();
         let mut ast = Ast::new();
         // 0: lit(42)
         ast.push(AstNode::new("lit").with_payload(json!(42)));
@@ -747,7 +708,10 @@ mod tests {
         // 3: block {children: [2]}
         ast.push(AstNode::new("block").with_payload(json!({"children": [2]})));
         let root = AstRef::new(3);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         assert!(diags.is_empty(), "expected no diagnostics, got {diags:?}");
     }
 
@@ -761,7 +725,11 @@ mod tests {
         // only the empty-block rule could fire, and this block is non-empty.
         ast.push(AstNode::new("block").with_payload(json!({"children": [0, 1]})));
         let root = AstRef::new(2);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        // With no lint rules declared, the engine is lint-clean.
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         assert!(diags.is_empty(), "expected no diagnostics, got {diags:?}");
     }
 
@@ -769,11 +737,15 @@ mod tests {
     fn data_driven_skip_empty_block_still_works() {
         // The empty-block rule is driven by the variadic `statements` role,
         // which IS present in the bare lang. So an empty block still warns.
-        let lang = bare_lang();
+        let mut lang = bare_lang();
+        add_builtin_lints(&mut lang);
         let mut ast = Ast::new();
         ast.push(AstNode::new("block").with_payload(json!({"children": []})));
         let root = AstRef::new(0);
-        let diags = LintEngine::new().lint(&lang, &ast, root).unwrap();
+        let diags = LintEngine::new()
+            .with_canonical_lint_natives()
+            .lint(&lang, &ast, root)
+            .unwrap();
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("empty block"));
     }

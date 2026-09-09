@@ -20,7 +20,7 @@
 //! | `naming-convention` | Warning | yes | `!Native "naming-convention"` |
 //! | `missing-module-doc` | Info | no | `!Native "source.missing-module-doc"` |
 //! | `fmt` | Warning | yes | `!Native "source.fmt"` (registered here) |
-//! | `simplify-paren` | Warning | yes | `!Match` + `!Unwrap` fix (ADR-0094) |
+//! | `simplify-paren` | Warning | yes | `!Match` + `!Unwrap` fix (ADR-0097) |
 //!
 //! The `scope.*` / `naming-convention` / `source.missing-module-doc` natives
 //! ship in [`canonical_lint_natives`]; `source.fmt` is registered by
@@ -33,19 +33,12 @@ pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAccep
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-use handl_language::{LangError, Language, TransformDef};
+use handl_language::{LangError, Language};
 use handl_plugin_engine_lint::{
     DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, canonical_lint_natives,
 };
 use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 use handl_plugin_ext_fmt::{check_source as fmt_check_source, format_source as fmt_format_source};
-
-/// ADR-0094: embedded `lint`/`lsp-rewrite` pass transform rules, kept merged
-/// into [`lint_language`] for transform-engine consumers (`host-lsp` matches
-/// `lint.simplify-paren` via `find_matches` and rewrites via the
-/// `lsp-rewrite` pass). The *diagnostic* side of `simplify-paren` is the
-/// `LintRuleDef` in canonical `lints.yaml`.
-const LINT_TRANSFORMS_YAML: &str = include_str!("../data/lint_transforms.yaml");
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -225,24 +218,17 @@ fn compute_fixes(src: &str, prelude: &HashSet<String>) -> Vec<Fix> {
 // Internal: language assembly + engine wiring
 // ---------------------------------------------------------------------------
 
-/// Assemble the lint language once: canonical data (including the
-/// `lints.yaml` rule set) plus the embedded `lint`/`lsp-rewrite` pass
-/// transform rules used by transform-engine consumers (`host-lsp`).
+/// Assemble the lint language once: canonical data, including the
+/// `lints.yaml` rule set. The `simplify-paren` predicate lives solely in
+/// `lints.yaml` — LSP quick fixes are built from the diagnostic's `fix`
+/// payload, so no transform-engine pass is merged here.
 pub fn lint_language() -> Result<&'static Language, LintError> {
     static LANG: OnceLock<Language> = OnceLock::new();
     let lang = LANG.get_or_init(|| {
-        let mut lang = handl_kit_data_canonical::assemble()
+        handl_kit_data_canonical::assemble()
             .expect("canonical language data must assemble")
             .lang()
-            .clone();
-        let rules: Vec<TransformDef> =
-            serde_yaml::from_str(LINT_TRANSFORMS_YAML).expect("lint transforms must be valid YAML");
-        for rule in rules {
-            lang.transforms
-                .merge(rule)
-                .expect("lint transforms must merge cleanly");
-        }
-        lang
+            .clone()
     });
     Ok(lang)
 }

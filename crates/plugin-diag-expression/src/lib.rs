@@ -48,6 +48,7 @@ impl Behavior<Lint> for ExpressionDiagnostics {
             // path or the standalone `lint_ast` function.
             let lang = Language::new();
             let diags = LintEngine::new()
+                .with_canonical_lint_natives()
                 .lint(&lang, &ast, root)
                 .map_err(|e| PlatformError::Plugin(e.to_string()))?;
             for d in diags {
@@ -111,6 +112,7 @@ impl Plugin for ExpressionDiagnostics {
                 .unwrap_or(0) as usize,
         );
         let diags = LintEngine::new()
+            .with_canonical_lint_natives()
             .lint(&lang, &ast, root)
             .map_err(|e| PlatformError::Plugin(e.to_string()))?;
         let serialized: Vec<serde_json::Value> = diags
@@ -142,7 +144,9 @@ pub fn lint_ast(
     ast: &Ast,
     root: AstRef,
 ) -> Result<Vec<LintDiagnostic>, handl_language::LangError> {
-    LintEngine::new().lint(lang, ast, root)
+    LintEngine::new()
+        .with_canonical_lint_natives()
+        .lint(lang, ast, root)
 }
 
 /// Format a [`LintDiagnostic`] as a human-readable string for `LintRequest`.

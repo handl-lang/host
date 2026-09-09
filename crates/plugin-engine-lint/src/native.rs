@@ -12,18 +12,22 @@
 //!
 //! [`canonical_lint_natives`] registers the canonical surface's semantic
 //! residue: `scope.unbound-wire`, `scope.shadowed-binding`,
-//! `scope.unused-import`, `naming-convention`, and
-//! `source.missing-module-doc`. Hosts register their own natives on top
-//! (e.g. `plugin-ext-lint` registers `source.fmt`, which needs the
-//! formatter).
+//! `scope.unused-import`, `naming-convention`, `source.missing-module-doc`,
+//! `source.fmt` (a no-op overridden by hosts with a formatter), and the
+//! `builtin.*` per-statement AST checks (`empty-block`, `unreachable-code`,
+//! `shadowed-binding`, `unused-binding`). Hosts register their own natives on
+//! top (e.g. `plugin-ext-lint` overrides `source.fmt` with the real
+//! formatter-backed implementation).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-use handl_language::{LangError, Language, Span};
+use handl_language::{Ast, AstRef, LangError, Language, Span};
 
 use crate::LintFixOut;
-use crate::module::{LintStatement, ModuleAnalysis};
+use crate::NodeClassifier;
+use crate::ScopeStack;
+use crate::module::{LintStatement, ModuleAnalysis, absolute, child_indices};
 
 /// The context passed to a native lint rule.
 pub struct LintCtx<'a> {
@@ -133,16 +137,22 @@ pub const CANONICAL_LINT_NATIVES: &[&str] = &[
     "scope.unused-import",
     "naming-convention",
     "source.missing-module-doc",
+    "builtin.empty-block",
+    "builtin.unreachable-code",
+    "builtin.shadowed-binding",
+    "builtin.unused-binding",
 ];
 
 /// Build a registry holding the canonical surface's native lint rules
 /// (ADR-0097 §5).
 ///
-/// These are the rules that need cross-statement scope analysis or raw
-/// source access — the semantic residue that stays Rust, mirroring the
-/// `desugar.*` natives in `plugin-engine-transform-rewrite`. `source.fmt`
-/// is deliberately absent: it needs the formatter, so the host that owns
-/// that dependency (e.g. `plugin-ext-lint`) registers it.
+/// These are the rules that need cross-statement scope analysis, raw
+/// source access, or per-statement AST walks — the semantic residue that
+/// stays Rust, mirroring the `desugar.*` natives in
+/// `plugin-engine-transform-rewrite`. `source.fmt` is registered here as a
+/// no-op so canonical `lints.yaml` resolves cleanly for hosts without a
+/// formatter; `plugin-ext-lint` overrides it with the real formatter-backed
+/// implementation.
 pub fn canonical_lint_natives() -> NativeLintRegistry {
     let mut reg = NativeLintRegistry::new();
     reg.register("scope.unbound-wire", |ctx| Ok(unbound_wire(ctx)));
@@ -151,6 +161,15 @@ pub fn canonical_lint_natives() -> NativeLintRegistry {
     reg.register("naming-convention", |ctx| Ok(naming_convention(ctx)));
     reg.register("source.missing-module-doc", |ctx| {
         Ok(missing_module_doc(ctx))
+    });
+    reg.register("source.fmt", |ctx| Ok(fmt_noop(ctx)));
+    reg.register("builtin.empty-block", |ctx| Ok(empty_block(ctx)));
+    reg.register("builtin.unreachable-code", |ctx| Ok(unreachable_code(ctx)));
+    reg.register("builtin.shadowed-binding", |ctx| {
+        Ok(shadowed_binding_single(ctx))
+    });
+    reg.register("builtin.unused-binding", |ctx| {
+        Ok(unused_binding_single(ctx))
     });
     reg
 }
@@ -337,6 +356,251 @@ fn missing_module_doc(ctx: &LintCtx<'_>) -> Vec<NativeHit> {
         span: Some(Span { start: 0, end: 0 }),
         fix: None,
     }]
+}
+
+/// `source.fmt` — no-op placeholder overridden by hosts that own the
+/// formatter (`plugin-ext-lint`).
+fn fmt_noop(_ctx: &LintCtx<'_>) -> Vec<NativeHit> {
+    Vec::new()
+}
+
+// ---------------------------------------------------------------------------
+// `builtin.*` — per-statement AST checks (formerly `LintEngine::lint`)
+// ---------------------------------------------------------------------------
+
+/// `builtin.empty-block` — a variadic `statements` block with no children.
+fn empty_block(ctx: &LintCtx<'_>) -> Vec<NativeHit> {
+    let classifier = NodeClassifier::build(ctx.lang);
+    let mut hits = Vec::new();
+    for stmt in ctx.module {
+        walk_empty_blocks(
+            &stmt.ast,
+            stmt.root,
+            ctx.lang,
+            &classifier,
+            stmt.offset,
+            &mut hits,
+        );
+    }
+    hits
+}
+
+fn walk_empty_blocks(
+    ast: &Ast,
+    r: AstRef,
+    lang: &Language,
+    classifier: &NodeClassifier,
+    offset: usize,
+    hits: &mut Vec<NativeHit>,
+) {
+    let Ok(node) = ast.at(r) else { return };
+    if classifier.is_block(lang, node) && child_indices(node).is_empty() {
+        hits.push(NativeHit {
+            args: BTreeMap::new(),
+            span: Some(absolute(node.span, offset)),
+            fix: None,
+        });
+    }
+    for &c in &child_indices(node) {
+        walk_empty_blocks(ast, AstRef::new(c), lang, classifier, offset, hits);
+    }
+}
+
+/// `builtin.unreachable-code` — code following a terminal statement in a block.
+fn unreachable_code(ctx: &LintCtx<'_>) -> Vec<NativeHit> {
+    let classifier = NodeClassifier::build(ctx.lang);
+    let mut hits = Vec::new();
+    for stmt in ctx.module {
+        walk_unreachable(
+            &stmt.ast,
+            stmt.root,
+            ctx.lang,
+            &classifier,
+            stmt.offset,
+            &mut hits,
+        );
+    }
+    hits
+}
+
+fn walk_unreachable(
+    ast: &Ast,
+    r: AstRef,
+    lang: &Language,
+    classifier: &NodeClassifier,
+    offset: usize,
+    hits: &mut Vec<NativeHit>,
+) {
+    let Ok(node) = ast.at(r) else { return };
+    let children = child_indices(node);
+    if classifier.is_block(lang, node) {
+        let mut found_terminal = false;
+        for &c in &children {
+            let Ok(child) = ast.at(AstRef::new(c)) else {
+                continue;
+            };
+            if found_terminal {
+                hits.push(NativeHit {
+                    args: BTreeMap::new(),
+                    span: Some(absolute(child.span, offset)),
+                    fix: None,
+                });
+                break;
+            }
+            if classifier.is_terminal(child) {
+                found_terminal = true;
+            }
+        }
+    }
+    for &c in &children {
+        walk_unreachable(ast, AstRef::new(c), lang, classifier, offset, hits);
+    }
+}
+
+/// `builtin.shadowed-binding` — a binding shadows an enclosing one.
+fn shadowed_binding_single(ctx: &LintCtx<'_>) -> Vec<NativeHit> {
+    let classifier = NodeClassifier::build(ctx.lang);
+    let mut hits = Vec::new();
+    for stmt in ctx.module {
+        let mut scope = ScopeStack::new();
+        walk_shadows(
+            &stmt.ast,
+            stmt.root,
+            ctx.lang,
+            &classifier,
+            stmt.offset,
+            &mut scope,
+            &mut hits,
+        );
+    }
+    hits
+}
+
+fn walk_shadows(
+    ast: &Ast,
+    r: AstRef,
+    lang: &Language,
+    classifier: &NodeClassifier,
+    offset: usize,
+    scope: &mut ScopeStack,
+    hits: &mut Vec<NativeHit>,
+) {
+    let Ok(node) = ast.at(r) else { return };
+
+    // Report a shadow before binding it in the current scope.
+    if let Some(name) = classifier.binding_name(lang, ast, node) {
+        if scope.shadows(&name) {
+            hits.push(NativeHit::named(name, absolute(node.span, offset)));
+        }
+    }
+
+    let is_block = classifier.is_block(lang, node);
+    if is_block {
+        scope.push();
+    }
+    if let Some(name) = classifier.binding_name(lang, ast, node) {
+        scope.bind(&name);
+    }
+
+    // Arrow parameters (children at a `params` role) are also bindings.
+    let params_idx = lang.child_role_index(&node.kind, "params").ok().flatten();
+    if let Some(pi) = params_idx {
+        let children = child_indices(node);
+        if let Some(&pref) = children.get(pi) {
+            if let Ok(params_node) = ast.at(AstRef::new(pref)) {
+                if let Ok((names, _rest)) = lang.param_names(ast, params_node) {
+                    for name in names {
+                        if scope.shadows(&name) {
+                            hits.push(NativeHit::named(
+                                name.clone(),
+                                absolute(params_node.span, offset),
+                            ));
+                        }
+                        scope.bind(&name);
+                    }
+                }
+            }
+        }
+    }
+
+    let target_idx = lang.child_role_index(&node.kind, "target").ok().flatten();
+    for (pos, &c) in child_indices(node).iter().enumerate() {
+        if Some(pos) == target_idx || Some(pos) == params_idx {
+            continue;
+        }
+        walk_shadows(ast, AstRef::new(c), lang, classifier, offset, scope, hits);
+    }
+
+    if is_block {
+        scope.pop();
+    }
+}
+
+/// `builtin.unused-binding` — a binding is never referenced.
+fn unused_binding_single(ctx: &LintCtx<'_>) -> Vec<NativeHit> {
+    let classifier = NodeClassifier::build(ctx.lang);
+    let mut hits = Vec::new();
+    for stmt in ctx.module {
+        let mut bindings: Vec<(String, Span)> = Vec::new();
+        let mut references: HashSet<String> = HashSet::new();
+        walk_bindings(
+            &stmt.ast,
+            stmt.root,
+            ctx.lang,
+            &classifier,
+            stmt.offset,
+            true,
+            &mut bindings,
+            &mut references,
+        );
+        for (name, span) in bindings {
+            if !references.contains(&name) {
+                hits.push(NativeHit::named(name, span));
+            }
+        }
+    }
+    hits
+}
+
+fn walk_bindings(
+    ast: &Ast,
+    r: AstRef,
+    lang: &Language,
+    classifier: &NodeClassifier,
+    offset: usize,
+    is_root: bool,
+    bindings: &mut Vec<(String, Span)>,
+    references: &mut HashSet<String>,
+) {
+    let Ok(node) = ast.at(r) else { return };
+    // A top-level statement root is the module/export surface; only nested
+    // bindings are checked for unused references.
+    if !is_root {
+        if let Some(name) = classifier.binding_name(lang, ast, node) {
+            bindings.push((name, absolute(node.span, offset)));
+        }
+    }
+    if let Some(name) = classifier.reference_name(lang, ast, node) {
+        references.insert(name);
+    }
+
+    let target_idx = lang.child_role_index(&node.kind, "target").ok().flatten();
+    let params_idx = lang.child_role_index(&node.kind, "params").ok().flatten();
+    for (pos, &c) in child_indices(node).iter().enumerate() {
+        if Some(pos) == target_idx || Some(pos) == params_idx {
+            continue;
+        }
+        walk_bindings(
+            ast,
+            AstRef::new(c),
+            lang,
+            classifier,
+            offset,
+            false,
+            bindings,
+            references,
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
