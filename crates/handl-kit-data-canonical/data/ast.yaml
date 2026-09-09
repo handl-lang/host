@@ -878,6 +878,45 @@
     required:
       - children
     type: object
+# `with` — install a handler for the duration of `body`.
+# Two children: `handler` (the handler expression) and `body`.
+- id: ast.with
+  node_kind: with
+  children:
+    - role: handler
+    - role: body
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `handle` — bind a named handler implementation for `body`.
+# Three children: `target`, `impl`, and `body`.
+- id: ast.handle
+  node_kind: handle
+  children:
+    - role: target
+    - role: impl
+    - role: body
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+      name:
+        type: string
+    required:
+      - children
+    type: object
 # `trait` — compile-time trait declaration (1 child).
 - id: ast.trait
   node_kind: trait

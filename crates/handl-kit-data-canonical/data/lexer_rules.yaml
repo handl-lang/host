@@ -224,6 +224,11 @@
   pattern: !Literal
     text: handler
   priority: 15
+- id: lex.keyword.handle
+  token_kind: token.keyword.handle
+  pattern: !Literal
+    text: handle
+  priority: 15
 - id: lex.keyword.if
   token_kind: token.keyword.if
   pattern: !Literal

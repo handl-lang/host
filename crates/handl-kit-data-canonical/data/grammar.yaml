@@ -610,6 +610,44 @@
     payload_extract:
       - child: 0
         field: name
+# `with handler do body` — install a handler for the duration of `body`.
+# Two children: [handler, body]. The `do` keyword separates them.
+- id: grammar.with.prefix
+  token: token.keyword.with
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: with
+    arity: 2
+    child_binding_powers:
+      - 0
+      - 0
+    child_separators:
+      - !Required token.keyword.do
+# `handle name = impl in body` — bind a named handler implementation.
+# Three children: [target, impl, body]. `payload.name` is extracted from
+# the target child.
+- id: grammar.handle.prefix
+  token: token.keyword.handle
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: handle
+    arity: 3
+    child_binding_powers:
+      - 6
+      - 0
+      - 0
+    child_separators:
+      - !Required token.bind
+      - !Required token.keyword.in
+    payload_extract:
+      - child: 0
+        field: name
 # `trait name body` — compile-time trait declaration (ADR-0074).
 - id: grammar.trait.prefix
   token: token.keyword.trait

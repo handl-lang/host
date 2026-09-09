@@ -3143,3 +3143,23 @@
     args: []
     source: Judgment
     lit: type.unknown
+
+# `with` — install a handler for the duration of `body`.
+# Returns the type of `body` (child 1).
+- id: type.with
+  node_kind: with
+  synth: !Op
+    name: synth_child
+    args: []
+    source: Judgment
+    lit: 1
+
+# `handle` — bind a named handler implementation for `body`.
+# Returns the type of `body` (child 2).
+- id: type.handle
+  node_kind: handle
+  synth: !Op
+    name: synth_child
+    args: []
+    source: Judgment
+    lit: 2

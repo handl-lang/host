@@ -1021,6 +1021,24 @@
                 r: !Arr
                   value: []
     source: Native
+# `with` — install a handler for the duration of `body`.
+- id: eval.with
+  node_kind: with
+  scheme: !Handle
+    body: !Child
+      role: "body"
+    target: ""
+    impl_: !Child
+      role: "handler"
+# `handle` — bind a named handler implementation for `body`.
+- id: eval.handle
+  node_kind: handle
+  scheme: !Handle
+    body: !Child
+      role: "body"
+    target: ""
+    impl_: !Child
+      role: "impl"
 # `rewrite` — directed rewrite rule (2-cell, ADR-0100).
 - id: eval.rewrite
   node_kind: rewrite

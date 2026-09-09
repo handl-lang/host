@@ -149,6 +149,10 @@
   label: handler
   category: keyword
   doc: "**Handler declaration — a model for one sort** `handler`\n\n```\nhandler `Name` = `impl`\n```"
+- id: token.keyword.handle
+  label: handle
+  category: keyword
+  doc: "**Handle expression — install a handler for a capability** `handle`\n\n```\nhandle `Name` = `impl` in `body`\n```"
 - id: token.keyword.if
   label: if
   category: keyword
