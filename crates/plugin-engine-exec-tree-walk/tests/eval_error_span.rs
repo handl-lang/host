@@ -7,13 +7,13 @@
 //! [`LangError`] exposes a non-`None` span so diagnostics can point at the
 //! offending source location.
 
-use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Scheme, Span, Value};
+use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Term, Span, Value};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 
 /// `arr(proj_child, lit: i)` — reference the i-th child node.
-fn pc(i: u64) -> Scheme {
-    Scheme::arr_native_lit("proj_child", vec![], Value::from(i))
+fn pc(i: u64) -> Term {
+    Term::arr_native_lit("proj_child", vec![], Value::from(i))
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn eval_error_includes_span() {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::arr_native("add", vec![pc(0), pc(1)]),
+            Term::arr_native("add", vec![pc(0), pc(1)]),
         ))
         .unwrap();
 

@@ -2,7 +2,7 @@
 //!
 //! Ported from the research prototype's `discover_invariant_fixpoint_real`
 //! and `weakest_precondition` functions, adapted to operate over handl's
-//! `Scheme` IR instead of `RGraph`.
+//! `Term` IR instead of `RGraph`.
 //!
 //! The algorithm:
 //! 1. Start with `I_0 = True` (the trivial invariant -- everything is in D).
@@ -16,7 +16,7 @@
 use crate::contracts::ContractRegistry;
 use crate::smt::implies;
 use crate::types::Pred;
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Term};
 
 /// Simplify a predicate (delegates to `Pred::simplify`).
 fn simplify(p: &Pred) -> Pred {
@@ -42,7 +42,7 @@ pub const FIXPOINT_MAX_ITERATIONS: usize = 20;
 /// and auditable, and `verified` is `true` iff the final invariant is preserved
 /// by one more step of the body (i.e. `I ==> wp(G, I)`).
 pub fn discover_invariant_fixpoint_real(
-    body: &Scheme,
+    body: &Term,
     registry: &ContractRegistry,
     initial: &Pred,
     max_iterations: usize,
@@ -115,7 +115,7 @@ pub fn discover_invariant_fixpoint_real(
 /// Delegates to `discover_invariant_fixpoint_real` with `True` as the initial
 /// predicate and discards the trace.
 pub fn discover_invariant_fixpoint(
-    body: &Scheme,
+    body: &Term,
     registry: &ContractRegistry,
 ) -> (Pred, String, bool) {
     let (inv, how, _trace, verified) =
@@ -127,7 +127,7 @@ pub fn discover_invariant_fixpoint(
 /// output. `wp(G, I)` = the weakest predicate on the input such that after `G`
 /// executes, `I` holds.
 ///
-/// This is computed *structurally* by recursion over the `Scheme` -- not
+/// This is computed *structurally* by recursion over the `Term` -- not
 /// hardcoded per test case. Each graph combinator has a well-defined
 /// weakest-precondition transformer:
 ///
@@ -146,7 +146,7 @@ pub fn discover_invariant_fixpoint(
 ///                                           fixpoint, so the weakest precondition
 ///                                           is the invariant itself)
 /// * `app(callee, args)`                    : `I` (conservative -- not used by inference)
-pub fn weakest_precondition(scheme: &Scheme, registry: &ContractRegistry, post: &Pred) -> Pred {
+pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &Pred) -> Pred {
     match scheme {
         // arr(id) is identity: wp(id, I) = I
         // arr(f) with contract: wp = precondition(f) if guarantee(f) ==> I,
@@ -160,7 +160,7 @@ pub fn weakest_precondition(scheme: &Scheme, registry: &ContractRegistry, post: 
         // Sorted(output)). When the guarantee does not imply the post, we
         // conservatively return True -- the branch simply does not strengthen
         // the invariant.
-        Scheme::Arr { op, source, .. } => {
+        Term::Arr { op, source, .. } => {
             if op == "id" {
                 return post.clone();
             }
@@ -183,91 +183,91 @@ pub fn weakest_precondition(scheme: &Scheme, registry: &ContractRegistry, post: 
         }
 
         // seq(g, h): wp(seq(g, h), I) = wp(g, wp(h, I))  (backwards composition)
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             let wp_snd = weakest_precondition(snd, registry, post);
             weakest_precondition(fst, registry, &wp_snd)
         }
 
         // first(g): C passes through unchanged, so wp(first(g), I) = I
-        Scheme::First { .. } => post.clone(),
+        Term::First { .. } => post.clone(),
 
         // choice(l, r): the invariant must hold on both branches, so the
         // weakest precondition is the conjunction of each arm's wp.
         // This makes the fixpoint iteration branch through both arms of
         // conditionals, enabling discovery of conditional invariants.
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             let wp_l = weakest_precondition(l, registry, post);
             let wp_r = weakest_precondition(r, registry, post);
             Pred::And(Box::new(wp_l), Box::new(wp_r))
         }
 
         // loop(g): the loop's invariant is the fixpoint, so wp = I
-        Scheme::Loop { .. } => post.clone(),
+        Term::Loop { .. } => post.clone(),
 
         // app(callee, args): conservative -- not used by inference
-        Scheme::App { .. } => post.clone(),
+        Term::App { .. } => post.clone(),
         // Handle nodes are eliminated before inference; treat as identity.
-        Scheme::Handle { .. } => post.clone(),
+        Term::Handle { .. } => post.clone(),
     }
 }
 
 /// Collect every base-arrow guarantee appearing anywhere in `scheme`.
-pub fn collect_guarantees(scheme: &Scheme, registry: &ContractRegistry, out: &mut Vec<Pred>) {
+pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut Vec<Pred>) {
     match scheme {
-        Scheme::Arr { op, source, .. } => {
+        Term::Arr { op, source, .. } => {
             if let Some(c) = registry.lookup(op, source) {
                 if c.guarantee != Pred::True {
                     out.push(c.guarantee.clone());
                 }
             }
         }
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             collect_guarantees(fst, registry, out);
             collect_guarantees(snd, registry, out);
         }
-        Scheme::First { inner } => {
+        Term::First { inner } => {
             collect_guarantees(inner, registry, out);
         }
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             collect_guarantees(l, registry, out);
             collect_guarantees(r, registry, out);
         }
-        Scheme::Loop { body } => {
+        Term::Loop { body } => {
             collect_guarantees(body, registry, out);
         }
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             collect_guarantees(callee, registry, out);
             for arg in args {
                 collect_guarantees(arg, registry, out);
             }
         }
-        Scheme::Handle { body, impl_, .. } => {
+        Term::Handle { body, impl_, .. } => {
             collect_guarantees(body, registry, out);
             collect_guarantees(impl_, registry, out);
         }
     }
 }
 
-/// Check whether the given `Scheme` contains a base arrow with the given op
+/// Check whether the given `Term` contains a base arrow with the given op
 /// name (matching either the bare name or the `list.`-prefixed name),
 /// searching recursively through all combinators.
-pub fn graph_contains(scheme: &Scheme, op: &str) -> bool {
+pub fn graph_contains(scheme: &Term, op: &str) -> bool {
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op: arr_op, source, ..
         } => {
             arr_op == op
                 || arr_op == &format!("list.{}", op)
                 || (source == &ArrSource::Native && arr_op == op)
         }
-        Scheme::Seq { fst, snd } => graph_contains(fst, op) || graph_contains(snd, op),
-        Scheme::First { inner } => graph_contains(inner, op),
-        Scheme::Choice { l, r } => graph_contains(l, op) || graph_contains(r, op),
-        Scheme::Loop { body } => graph_contains(body, op),
-        Scheme::App { callee, args } => {
+        Term::Seq { fst, snd } => graph_contains(fst, op) || graph_contains(snd, op),
+        Term::First { inner } => graph_contains(inner, op),
+        Term::Choice { l, r } => graph_contains(l, op) || graph_contains(r, op),
+        Term::Loop { body } => graph_contains(body, op),
+        Term::App { callee, args } => {
             graph_contains(callee, op) || args.iter().any(|a| graph_contains(a, op))
         }
-        Scheme::Handle { body, impl_, .. } => graph_contains(body, op) || graph_contains(impl_, op),
+        Term::Handle { body, impl_, .. } => graph_contains(body, op) || graph_contains(impl_, op),
     }
 }
 
@@ -290,7 +290,7 @@ pub fn graph_contains(scheme: &Scheme, op: &str) -> bool {
 /// `cons` to be present -- the presence of a list constructor in a loop body
 /// is a strong signal that the loop is building an output list from the
 /// input's elements.
-fn pattern_candidates(body: &Scheme) -> Vec<Pred> {
+fn pattern_candidates(body: &Term) -> Vec<Pred> {
     let mut candidates = Vec::new();
     let has_cons = graph_contains(body, "list.cons") || graph_contains(body, "cons");
     if has_cons {
@@ -302,7 +302,7 @@ fn pattern_candidates(body: &Scheme) -> Vec<Pred> {
 /// Produce the fixpoint trace for a loop body.
 /// Returns a vector of `(iteration, predicate)` pairs and whether a fixpoint
 /// was reached.
-pub fn fixpoint_trace(body: &Scheme, registry: &ContractRegistry) -> (Vec<(usize, Pred)>, bool) {
+pub fn fixpoint_trace(body: &Term, registry: &ContractRegistry) -> (Vec<(usize, Pred)>, bool) {
     let mut guarantees = Vec::new();
     collect_guarantees(body, registry, &mut guarantees);
 

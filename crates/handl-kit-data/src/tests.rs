@@ -8,7 +8,7 @@ use super::*;
 use handl_emitters::Emitter;
 use handl_language::{
     AstShapeRef, CapabilityDecl, EvalSchemeDef, GrammarPosition, GrammarRow, LangError, Language,
-    Scheme, TokenKindDef,
+    Term, TokenKindDef,
 };
 use handl_runtime::RuntimeConfig;
 use serde_json::Value;
@@ -81,7 +81,7 @@ impl Emitter for ConstructEmitter {
         lang.eval.merge(EvalSchemeDef::new(
             self.eval_id,
             self.node_kind,
-            Scheme::arr_native_lit("const", vec![], Value::Null),
+            Term::arr_native_lit("const", vec![], Value::Null),
         ))?;
         Ok(lang)
     }

@@ -7,12 +7,12 @@
 
 use handl_language::{
     Ast, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, LiteralKind,
-    Scheme, Token, TokenKindDef, Tokens, Value,
+    Term, Token, TokenKindDef, Tokens, Value,
 };
 
 /// `arr(proj_child, lit: i)` — reference the i-th child node.
-fn pc(i: u64) -> Scheme {
-    Scheme::arr_native_lit("proj_child", vec![], Value::from(i))
+fn pc(i: u64) -> Term {
+    Term::arr_native_lit("proj_child", vec![], Value::from(i))
 }
 
 /// An eval conformance case: a `(Language, Ast, expected Value)` triple.
@@ -65,7 +65,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.add",
                     "binary.add",
-                    Scheme::arr_native("add", vec![pc(0), pc(1)]),
+                    Term::arr_native("add", vec![pc(0), pc(1)]),
                 ))
                 .unwrap();
             EvalCase {
@@ -91,7 +91,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.var",
                     "var",
-                    Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+                    Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
                 ))
                 .unwrap();
             lang.eval
@@ -99,10 +99,10 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                     "e.let",
                     "let",
                     // value >>> arr(extend_env "$payload") >>> body
-                    Scheme::seq(
-                        Scheme::seq(
+                    Term::seq(
+                        Term::seq(
                             pc(0),
-                            Scheme::arr_native_lit(
+                            Term::arr_native_lit(
                                 "extend_env",
                                 vec![],
                                 Value::String("$payload".into()),
@@ -135,9 +135,9 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.if",
                     "if",
-                    Scheme::seq(
-                        Scheme::seq(pc(0), Scheme::arr_native("tag", vec![])),
-                        Scheme::choice(pc(1), pc(2)),
+                    Term::seq(
+                        Term::seq(pc(0), Term::arr_native("tag", vec![])),
+                        Term::choice(pc(1), pc(2)),
                     ),
                 ))
                 .unwrap();
@@ -167,7 +167,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.dbl",
                     "dbl",
-                    Scheme::arr_foreign("double", vec![pc(0)]),
+                    Term::arr_foreign("double", vec![pc(0)]),
                 ))
                 .unwrap();
             EvalCase {
@@ -189,7 +189,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.var",
                     "var",
-                    Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+                    Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
                 ))
                 .unwrap();
             lang.eval
@@ -197,10 +197,10 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                     "e.let",
                     "let",
                     // value >>> arr(extend_env "$payload") >>> body
-                    Scheme::seq(
-                        Scheme::seq(
+                    Term::seq(
+                        Term::seq(
                             pc(0),
-                            Scheme::arr_native_lit(
+                            Term::arr_native_lit(
                                 "extend_env",
                                 vec![],
                                 Value::String("$payload".into()),
@@ -214,7 +214,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.add",
                     "binary.add",
-                    Scheme::arr_native("add", vec![pc(0), pc(1)]),
+                    Term::arr_native("add", vec![pc(0), pc(1)]),
                 ))
                 .unwrap();
             EvalCase {

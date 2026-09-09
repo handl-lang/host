@@ -7,7 +7,7 @@
 //! In Phase 8, "compile" = build a [`CraneliftEngine`] with the
 //! self-describing `Language`. The cranelift engine **is** the native
 //! compilation (`compile(handlLanguage, native)` in the ADR's terms): it
-//! compiles the `Language`'s `Scheme` data to native code via cranelift and
+//! compiles the `Language`'s `Term` data to native code via cranelift and
 //! executes it via an in-memory JIT. The per-node scheme lookup
 //! (`lang.eval[node.kind]`) is erased at compile time — baked into native
 //! code (ADR §7).
@@ -27,7 +27,7 @@
 //! executable to disk that can be run independently of the host process).
 //! Phase 8's cranelift engine is an in-memory JIT; emitting a relocatable
 //! object file / standalone executable is a future step. The in-memory JIT
-//! demonstrates the same compilation pipeline (`Scheme` → native code with
+//! demonstrates the same compilation pipeline (`Term` → native code with
 //! erased data dispatch) that a standalone-binary bootstrap would use.
 
 use handl_defining_handl::{corpus, language};

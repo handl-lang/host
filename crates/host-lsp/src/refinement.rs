@@ -8,7 +8,7 @@
 //! are not arrow-graph files (the arrow parser is minimal and only handles
 //! the arrow subset). When a file does parse as an arrow file, the engine:
 //!
-//! 1. Parses the in-memory source into `Scheme` IR via `parse_arrow_file`.
+//! 1. Parses the in-memory source into `Term` IR via `parse_arrow_file`.
 //! 2. Resolves cross-file `App` references by loading sibling `.hnl` arrow
 //!    files from the arrows root (located from the document's file path).
 //! 3. Runs `infer_refinement` with the standard contract registry.
@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 
-use handl_language::Scheme;
+use handl_language::Term;
 use handl_plugin_ext_refinement::{
     ContractRegistry, ParsedFile, RefTy, RefinementResult, infer_refinement, load_all_arrows,
     parse_arrow_file, resolve_apps,
@@ -61,7 +61,7 @@ impl RefinementEngine {
     ///
     /// For single-expression files, the file stem (from `file_path`) is used
     /// as the key so that the file can be referenced by name from siblings.
-    fn entries(parsed: &ParsedFile, file_path: Option<&str>) -> HashMap<String, Scheme> {
+    fn entries(parsed: &ParsedFile, file_path: Option<&str>) -> HashMap<String, Term> {
         match parsed {
             ParsedFile::Single(scheme) => {
                 let name = file_path
@@ -81,7 +81,7 @@ impl RefinementEngine {
     }
 
     /// The first (or single) arrow from a parsed file, for whole-file inference.
-    fn first_arrow(parsed: &ParsedFile) -> Option<Scheme> {
+    fn first_arrow(parsed: &ParsedFile) -> Option<Term> {
         match parsed {
             ParsedFile::Single(scheme) => Some(scheme.clone()),
             ParsedFile::Named(map) => map.values().next().cloned(),

@@ -30,7 +30,7 @@ impl Operation for Refine {
 /// Request passed to `Refine` behaviors.
 #[derive(Debug, Clone)]
 pub struct RefineRequest {
-    /// The serialized `Scheme` to refine (as JSON, matching `Scheme`'s serde model).
+    /// The serialized `Term` to refine (as JSON, matching `Term`'s serde model).
     pub scheme_json: Value,
     /// Resolved refiner options.
     pub options: ResolvedOptions,
@@ -151,7 +151,7 @@ impl RuleAcceptor for BasicRefiner {
 /// The canonical refinement core plugin.
 ///
 /// This plugin provides the `refine` capability and runs the annotation-free
-/// refinement inference engine on a `Scheme` (passed as JSON in the request
+/// refinement inference engine on a `Term` (passed as JSON in the request
 /// payload). It uses the standard `ContractRegistry`.
 pub struct RefinementCore {
     /// Capabilities provided by this plugin.
@@ -177,8 +177,8 @@ impl RefinementCore {
         }
     }
 
-    /// Run refinement inference on a `Scheme`.
-    pub fn refine(&self, scheme: &handl_language::Scheme) -> Result<RefinementResult, String> {
+    /// Run refinement inference on a `Term`.
+    pub fn refine(&self, scheme: &handl_language::Term) -> Result<RefinementResult, String> {
         infer_refinement(scheme, &self.registry)
     }
 }
@@ -220,9 +220,9 @@ impl Plugin for RefinementCore {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
 
-        // The payload is expected to contain a serialized Scheme.
+        // The payload is expected to contain a serialized Term.
         // We deserialize it and run inference.
-        let scheme: handl_language::Scheme = serde_json::from_value(request.payload.clone())
+        let scheme: handl_language::Term = serde_json::from_value(request.payload.clone())
             .map_err(|e| {
                 PlatformError::InvalidMetadata(format!("invalid scheme payload: {}", e))
             })?;

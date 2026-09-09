@@ -1651,7 +1651,7 @@ fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
 mod tests {
     use super::*;
     use handl_language::{
-        AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Scheme, Token,
+        AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Term, Token,
         TokenKindDef,
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
@@ -1857,11 +1857,11 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native(
+                Term::arr_native(
                     "add",
                     vec![
-                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                     ],
                 ),
             ))
@@ -2125,9 +2125,9 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "foreign.double",
-                Scheme::arr_foreign(
+                Term::arr_foreign(
                     "double",
-                    vec![Scheme::arr_native_lit(
+                    vec![Term::arr_native_lit(
                         "proj_child",
                         vec![],
                         Value::from(0u64),

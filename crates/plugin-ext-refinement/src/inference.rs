@@ -1,25 +1,25 @@
 //! The refinement inference engine.
 //!
 //! Ported from the research prototype's `infer_refinement` and `infer_r`
-//! functions, adapted to operate over handl's `Scheme` IR instead of `RGraph`.
+//! functions, adapted to operate over handl's `Term` IR instead of `RGraph`.
 //!
-//! Mapping from `RGraph` to `Scheme`:
-//! - `RGraph::Id`           -> `Scheme::Arr { op: "id", source: Native, .. }`
-//! - `RGraph::Comp(g, h)`   -> `Scheme::Seq { fst: g, snd: h }`
-//! - `RGraph::First(g)`     -> `Scheme::First { inner: g }`
-//! - `RGraph::Left(g)`      -> `Scheme::Choice { l: g, r: identity }` (conservatively demoted)
-//! - `RGraph::Loop(g)`      -> `Scheme::Loop { body: g }`
-//! - `RGraph::Arr(name)`    -> `Scheme::Arr { op: name, source: Native, args: vec![], lit: None }`
+//! Mapping from `RGraph` to `Term`:
+//! - `RGraph::Id`           -> `Term::Arr { op: "id", source: Native, .. }`
+//! - `RGraph::Comp(g, h)`   -> `Term::Seq { fst: g, snd: h }`
+//! - `RGraph::First(g)`     -> `Term::First { inner: g }`
+//! - `RGraph::Left(g)`      -> `Term::Choice { l: g, r: identity }` (conservatively demoted)
+//! - `RGraph::Loop(g)`      -> `Term::Loop { body: g }`
+//! - `RGraph::Arr(name)`    -> `Term::Arr { op: name, source: Native, args: vec![], lit: None }`
 
 use crate::contracts::ContractRegistry;
 use crate::loop_invariant::{FIXPOINT_MAX_ITERATIONS, discover_invariant_fixpoint_real};
 use crate::termination::analyze_termination;
 use crate::types::{BaseTy, LoopInvariant, Pred, RefTy, RefinementResult};
-use handl_language::Scheme;
+use handl_language::Term;
 
-/// Infer refinement properties from a `Scheme`, without annotations.
+/// Infer refinement properties from a `Term`, without annotations.
 ///
-/// This is the main entry point. It walks the `Scheme` structurally, looking
+/// This is the main entry point. It walks the `Term` structurally, looking
 /// up base-arrow contracts in the registry, composing guarantees, discovering
 /// loop invariants via fixpoint iteration, and analyzing termination.
 ///
@@ -30,7 +30,7 @@ use handl_language::Scheme;
 /// returned in `RefinementResult.law_annotations` and can be used to
 /// simplify or strengthen the inferred contract.
 pub fn infer_refinement(
-    scheme: &Scheme,
+    scheme: &Term,
     registry: &ContractRegistry,
 ) -> Result<RefinementResult, String> {
     let mut loop_invariants = Vec::new();
@@ -61,9 +61,9 @@ pub fn infer_refinement(
     })
 }
 
-/// Structural recursion over `Scheme`, producing `(RefTy, RefTy, Pred)`.
+/// Structural recursion over `Term`, producing `(RefTy, RefTy, Pred)`.
 ///
-/// Maps each `Scheme` variant to its refinement inference rule:
+/// Maps each `Term` variant to its refinement inference rule:
 /// - `Arr` -> look up contract in registry, return `(input, output, guarantee)`
 /// - `Seq` -> recursively infer both halves, conjoin guarantees
 /// - `First` -> wrap in `Prod`, carry side channel
@@ -71,14 +71,14 @@ pub fn infer_refinement(
 /// - `Loop` -> call `discover_invariant_fixpoint`
 /// - `App` -> conservatively return `True` (not used by inference)
 pub fn infer_r(
-    scheme: &Scheme,
+    scheme: &Term,
     registry: &ContractRegistry,
     loop_invs: &mut Vec<LoopInvariant>,
 ) -> Result<(RefTy, RefTy, Pred), String> {
     match scheme {
         // arr(id) or arr(op): look up contract in registry.
-        // RGraph::Id maps to Scheme::Arr { op: "id", ... }.
-        Scheme::Arr { op, source, .. } => {
+        // RGraph::Id maps to Term::Arr { op: "id", ... }.
+        Term::Arr { op, source, .. } => {
             if op == "id" {
                 // Identity preserves everything.
                 return Ok((
@@ -107,8 +107,8 @@ pub fn infer_r(
         }
 
         // seq(g, h) = comp(g, h): compose refinements (cut rule).
-        // RGraph::Comp(g, h) maps to Scheme::Seq { fst: g, snd: h }.
-        Scheme::Seq { fst, snd } => {
+        // RGraph::Comp(g, h) maps to Term::Seq { fst: g, snd: h }.
+        Term::Seq { fst, snd } => {
             let (gi, _go, gp) = infer_r(fst, registry, loop_invs)?;
             let (_hi, ho, hp) = infer_r(snd, registry, loop_invs)?;
             // The guarantee of comp is the conjunction of both guarantees.
@@ -117,7 +117,7 @@ pub fn infer_r(
         }
 
         // first(g): preserves refinement on first component, second passes through.
-        // RGraph::First(g) maps to Scheme::First { inner: g }.
+        // RGraph::First(g) maps to Term::First { inner: g }.
         //
         // By definition, `first(g)` leaves the second component (the "side
         // channel") completely unchanged. This means the length of the side
@@ -126,7 +126,7 @@ pub fn infer_r(
         // inference (e.g. `map = loop(first(fn.apply))`) can derive
         // `LengthEq` on the side channel without needing explicit cons/tail
         // structure in the graph.
-        Scheme::First { inner } => {
+        Term::First { inner } => {
             let (gi, go, gp) = infer_r(inner, registry, loop_invs)?;
             let d = RefTy::Plain(BaseTy::Var("d".to_string()));
             let input = RefTy::Prod(Box::new(gi), Box::new(d.clone()));
@@ -140,13 +140,13 @@ pub fn infer_r(
         }
 
         // choice(l, r) = ArrowChoice: conjoin guarantees from both branches.
-        // RGraph::Left(g) maps to Scheme::Choice { l: g, r: identity }.
+        // RGraph::Left(g) maps to Term::Choice { l: g, r: identity }.
         // Since either branch may be taken, the sound guarantee is the
         // conjunction of both branches' guarantees -- the property must hold
         // regardless of which arm executes. This lets real semantic content
         // (e.g. Sorted from cons) flow through Choice instead of being
         // dropped to True.
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             let (gi, go, gp) = infer_r(l, registry, loop_invs)?;
             let (_ri, _ro, rp) = infer_r(r, registry, loop_invs)?;
             let d = RefTy::Plain(BaseTy::Var("d".to_string()));
@@ -158,13 +158,13 @@ pub fn infer_r(
         }
 
         // loop(g): discover loop invariant via fixpoint iteration.
-        // RGraph::Loop(g) maps to Scheme::Loop { body: g }.
+        // RGraph::Loop(g) maps to Term::Loop { body: g }.
         //
         // The fixpoint is seeded with the body's guarantee `gp` (not `True`),
         // so that non-trivial properties like `Sorted(output)` discovered in
         // the body propagate through the loop. The loop's guarantee is the
         // invariant itself -- what holds at the loop exit.
-        Scheme::Loop { body } => {
+        Term::Loop { body } => {
             let (gi, go, gp) = infer_r(body, registry, loop_invs)?;
 
             // Start the fixpoint from the body's guarantee, not from True.
@@ -185,13 +185,13 @@ pub fn infer_r(
         }
 
         // app(callee, args): conservatively return True (not used by inference).
-        Scheme::App { .. } => Ok((
+        Term::App { .. } => Ok((
             RefTy::Plain(BaseTy::Var("a".to_string())),
             RefTy::Plain(BaseTy::Var("b".to_string())),
             Pred::True,
         )),
         // Handle nodes are eliminated before inference; treat as identity.
-        Scheme::Handle { .. } => Ok((
+        Term::Handle { .. } => Ok((
             RefTy::Plain(BaseTy::Var("a".to_string())),
             RefTy::Plain(BaseTy::Var("a".to_string())),
             Pred::True,
@@ -199,26 +199,26 @@ pub fn infer_r(
     }
 }
 
-/// Format a `Scheme` into a compact string for use in `LoopInvariant.graph`.
-pub fn format_scheme(scheme: &Scheme) -> String {
+/// Format a `Term` into a compact string for use in `LoopInvariant.graph`.
+pub fn format_scheme(scheme: &Term) -> String {
     match scheme {
-        Scheme::Arr { op, .. } => op.clone(),
-        Scheme::Seq { fst, snd } => {
+        Term::Arr { op, .. } => op.clone(),
+        Term::Seq { fst, snd } => {
             format!("seq({}, {})", format_scheme(fst), format_scheme(snd))
         }
-        Scheme::First { inner } => {
+        Term::First { inner } => {
             format!("first({})", format_scheme(inner))
         }
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             format!("choice({}, {})", format_scheme(l), format_scheme(r))
         }
-        Scheme::Loop { body } => {
+        Term::Loop { body } => {
             format!("loop({})", format_scheme(body))
         }
-        Scheme::App { callee, .. } => {
+        Term::App { callee, .. } => {
             format!("app({})", format_scheme(callee))
         }
-        Scheme::Handle { body, target, .. } => {
+        Term::Handle { body, target, .. } => {
             format!("handle({}, {})", format_scheme(body), target)
         }
     }

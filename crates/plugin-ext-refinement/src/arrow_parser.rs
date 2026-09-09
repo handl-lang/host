@@ -1,9 +1,9 @@
 //! A minimal arrow-graph parser for `.hnl` arrow files (ADR-0069).
 //!
 //! This parser reads the arrow-graph syntax used in `handl-packages/`
-//! and produces `Scheme` IR. It uses the **data-driven** lexer + Pratt parser
+//! and produces `Term` IR. It uses the **data-driven** lexer + Pratt parser
 //! (driven by the YAML language definition in `data/`) to build an AST, then
-//! materializes the AST into a `Scheme` via [`ast_to_scheme`].
+//! materializes the AST into a `Term` via [`ast_to_scheme`].
 //!
 //! # Two syntaxes
 //!
@@ -17,15 +17,15 @@
 //!    choice(a, b)                        // same as: a ||| b
 //!    ```
 //!    The infix operators `>>>` (sequence) and `|||` (choice) are sugar:
-//!    `a >>> b` desugars to `comp(a, b)` (`Scheme::Seq`), and `a ||| b`
-//!    desugars to `choice(a, b)` (`Scheme::Choice`). `|||` binds tighter
+//!    `a >>> b` desugars to `comp(a, b)` (`Term::Seq`), and `a ||| b`
+//!    desugars to `choice(a, b)` (`Term::Choice`). `|||` binds tighter
 //!    than `>>>`, so `a >>> b ||| c` parses as `comp(a, choice(b, c))`.
 //!
 //! 2. **Rich `loop { ... } ( params ~> body )` syntax** — the surface syntax
 //!    actually used in the stdlib `.hnl` files. The YAML grammar tokenizes
 //!    and parses this syntax into a `loop_rich` AST node. The
 //!    `ast_to_scheme` materializer then pattern-matches on the arrow body's
-//!    recursive match arm to determine the corresponding `Scheme` graph —
+//!    recursive match arm to determine the corresponding `Term` graph —
 //!    the same heuristic as the legacy ad-hoc parser, but operating on the
 //!    AST instead of raw text.
 //!
@@ -40,7 +40,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use handl_language::{ArrSource, Ast, AstNode, Language, Scheme, Value};
+use handl_language::{ArrSource, Ast, AstNode, Language, Term, Value};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 
@@ -58,9 +58,9 @@ use crate::arrow_lang::arrow_language;
 #[derive(Debug, Clone)]
 pub enum ParsedFile {
     /// A single-expression file — the file IS the arrow.
-    Single(Scheme),
+    Single(Term),
     /// A multi-name file — produces a record of named arrows.
-    Named(HashMap<String, Scheme>),
+    Named(HashMap<String, Term>),
 }
 
 /// Parse a `.hnl` arrow file's content.
@@ -70,7 +70,7 @@ pub enum ParsedFile {
 /// (`loop { ... } ( params ~> body )`) is handled by the data-driven parser:
 /// the YAML grammar tokenizes and parses it into a `loop_rich` AST node,
 /// which `ast_to_scheme` pattern-matches to determine the corresponding
-/// `Scheme` graph.
+/// `Term` graph.
 pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     let stripped = strip_comments(src);
     let trimmed = stripped.trim();
@@ -98,7 +98,7 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
 /// to named arrows). Also supports infix operator syntax: `a >>> b`
 /// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
 /// `choice(a, b)`).
-pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
+pub fn parse_arrow_expr(src: &str) -> Result<Term, String> {
     // Check for simple rec form: `rec { body }` (without `( ... )` after `}`).
     // This is the v0.1 replacement for `loop(body)`.
     if let Some(scheme) = try_parse_simple_rec(src) {
@@ -445,7 +445,7 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
                 // is not appropriate — instead, wrap both in a record.
                 // For now, if the single expression is a record, its
                 // fields should be merged. But since we can't easily
-                // destructure a Scheme here, we fall back to concatenation
+                // destructure a Term here, we fall back to concatenation
                 // only when the arrow source is a single expression.
                 // This case is uncommon (tag decls + single expr).
                 // Re-parse with concatenation as a fallback.
@@ -480,7 +480,7 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
 /// the remaining content into a [`ParsedFile`], imported names still appear
 /// as bare `Arr { op: <local_name>, args: [], source: Native, lit: None }`
 /// references — indistinguishable from local arrow references. This function
-/// walks every `Scheme` in the `ParsedFile` and replaces such references with
+/// walks every `Term` in the `ParsedFile` and replaces such references with
 /// `project(module_ref(path), remote_name)` for named imports, or
 /// `module_ref(path)` for whole-module imports (`import "path" as alias`).
 ///
@@ -522,7 +522,7 @@ pub fn rewrite_imports(file: &mut ParsedFile, imports: &[ImportDecl]) {
     }
 }
 
-/// Recursively rewrite a [`Scheme`], replacing bare references to imported
+/// Recursively rewrite a [`Term`], replacing bare references to imported
 /// names with `module_ref`/`project` nodes.
 ///
 /// A "reference" is either:
@@ -534,19 +534,19 @@ pub fn rewrite_imports(file: &mut ParsedFile, imports: &[ImportDecl]) {
 /// Only names in `import_map` that are **not** in `local_names` are rewritten
 /// (local bindings shadow imports).
 fn rewrite_scheme(
-    scheme: &Scheme,
+    scheme: &Term,
     import_map: &HashMap<String, (String, String)>,
     local_names: &HashSet<String>,
-) -> Scheme {
+) -> Term {
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
             lit,
         } => {
             // Recurse into args first (bottom-up).
-            let new_args: Vec<Scheme> = args
+            let new_args: Vec<Term> = args
                 .iter()
                 .map(|a| rewrite_scheme(a, import_map, local_names))
                 .collect();
@@ -566,28 +566,28 @@ fn rewrite_scheme(
                 }
             }
 
-            Scheme::Arr {
+            Term::Arr {
                 op: op.clone(),
                 args: new_args,
                 source: source.clone(),
                 lit: lit.clone(),
             }
         }
-        Scheme::Seq { fst, snd } => Scheme::Seq {
+        Term::Seq { fst, snd } => Term::Seq {
             fst: Box::new(rewrite_scheme(fst, import_map, local_names)),
             snd: Box::new(rewrite_scheme(snd, import_map, local_names)),
         },
-        Scheme::First { inner } => Scheme::First {
+        Term::First { inner } => Term::First {
             inner: Box::new(rewrite_scheme(inner, import_map, local_names)),
         },
-        Scheme::Choice { l, r } => Scheme::Choice {
+        Term::Choice { l, r } => Term::Choice {
             l: Box::new(rewrite_scheme(l, import_map, local_names)),
             r: Box::new(rewrite_scheme(r, import_map, local_names)),
         },
-        Scheme::Loop { body } => Scheme::Loop {
+        Term::Loop { body } => Term::Loop {
             body: Box::new(rewrite_scheme(body, import_map, local_names)),
         },
-        Scheme::App { callee, args } => Scheme::App {
+        Term::App { callee, args } => Term::App {
             callee: Box::new(rewrite_scheme(callee, import_map, local_names)),
             args: args
                 .iter()
@@ -596,7 +596,7 @@ fn rewrite_scheme(
         },
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then rewrite the resulting handler-free graph.
-        Scheme::Handle { .. } => {
+        Term::Handle { .. } => {
             let eliminated = scheme.eliminate_handlers();
             rewrite_scheme(&eliminated, import_map, local_names)
         }
@@ -605,8 +605,8 @@ fn rewrite_scheme(
 
 /// Build a `module_ref` node: `Arr { op: "module_ref", args: [], source:
 /// Native, lit: Some(path) }`.
-fn module_ref_node(path: &str) -> Scheme {
-    Scheme::Arr {
+fn module_ref_node(path: &str) -> Term {
+    Term::Arr {
         op: "module_ref".to_string(),
         args: vec![],
         source: ArrSource::Native,
@@ -616,8 +616,8 @@ fn module_ref_node(path: &str) -> Scheme {
 
 /// Build a `project` node: `Arr { op: "project", args: [record], source:
 /// Native, lit: Some(field) }`.
-fn project_node(record: Scheme, field: &str) -> Scheme {
-    Scheme::Arr {
+fn project_node(record: Term, field: &str) -> Term {
+    Term::Arr {
         op: "project".to_string(),
         args: vec![record],
         source: ArrSource::Native,
@@ -991,11 +991,11 @@ fn is_rich_loop(src: &str) -> bool {
 /// Try to parse a simple `rec { body }` expression (v0.1 replacement for
 /// `loop(body)`).
 ///
-/// Returns `Some(Scheme::Loop { body })` if the source is `rec { body }`
+/// Returns `Some(Term::Loop { body })` if the source is `rec { body }`
 /// (with no `( ... )` after the closing `}`). Returns `None` if the source
 /// is not a simple rec form (e.g. it's a rich-loop `rec { state } ( body )`,
 /// or it doesn't start with `rec {`).
-fn try_parse_simple_rec(src: &str) -> Option<Scheme> {
+fn try_parse_simple_rec(src: &str) -> Option<Term> {
     let trimmed = src.trim();
 
     // Must start with `rec` followed by whitespace and `{`.
@@ -1044,13 +1044,13 @@ fn try_parse_simple_rec(src: &str) -> Option<Scheme> {
     // Extract the body between `{` and `}` and parse it recursively.
     let body_src = rest[1..close_idx].trim();
     let body_scheme = parse_arrow_expr(body_src).ok()?;
-    Some(Scheme::Loop {
+    Some(Term::Loop {
         body: Box::new(body_scheme),
     })
 }
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
-fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Scheme, String> {
+fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, String> {
     let tokens =
         handl_plugin_engine_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
 
@@ -1074,7 +1074,7 @@ fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Scheme, St
 fn parse_named_arrows_data_driven(
     src: &str,
     lang: &Language,
-) -> Result<HashMap<String, Scheme>, String> {
+) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
     for line in src.lines() {
@@ -1111,15 +1111,15 @@ fn parse_named_arrows_data_driven(
 }
 
 // ============================================================================
-// AST-to-Scheme materializer
+// AST-to-Term materializer
 // ============================================================================
 
-/// Materialize an [`Ast`] (produced by the Pratt parser) into a [`Scheme`].
+/// Materialize an [`Ast`] (produced by the Pratt parser) into a [`Term`].
 ///
 /// The root node is the last node in the arena (Pratt convention: children
 /// are pushed before parents). For each node, the eval scheme is looked up
 /// via `lang.eval.get_by_identity(&node.kind)`, then walked to produce a
-/// concrete `Scheme` with `proj_child(N)` placeholders replaced by the
+/// concrete `Term` with `proj_child(N)` placeholders replaced by the
 /// materialized Nth child.
 ///
 /// # Special placeholders
@@ -1137,7 +1137,7 @@ fn parse_named_arrows_data_driven(
 ///
 /// Returns a `String` error if a node kind has no eval scheme, a placeholder
 /// cannot be resolved, or a child index is out of bounds.
-pub fn ast_to_scheme(ast: &Ast, lang: &Language) -> Result<Scheme, String> {
+pub fn ast_to_scheme(ast: &Ast, lang: &Language) -> Result<Term, String> {
     if ast.is_empty() {
         return Err("empty AST — no root node".to_string());
     }
@@ -1146,8 +1146,8 @@ pub fn ast_to_scheme(ast: &Ast, lang: &Language) -> Result<Scheme, String> {
     materialize_node(ast, root_idx, lang)
 }
 
-/// Materialize the node at arena index `idx` into a [`Scheme`].
-fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, String> {
+/// Materialize the node at arena index `idx` into a [`Term`].
+fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, String> {
     let node = ast.nodes().get(idx).ok_or_else(|| {
         format!(
             "materialize_node: arena index {} out of bounds (len {})",
@@ -1187,7 +1187,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
 
     // Special-case `loop_rich` (pre-v0.1) and `rec` (v0.1): the rich-loop
     // syntax is SUGAR. The YAML grammar parses it into a `loop_rich`/`rec`
-    // AST node, but the actual `Scheme` graph is determined by pattern-
+    // AST node, but the actual `Term` graph is determined by pattern-
     // matching on the arrow body structure (which primitives are called,
     // what the state transitions are) — the same heuristic as the legacy
     // `analyze_branch`, but operating on the AST instead of raw text. The
@@ -1202,12 +1202,12 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     // keywords (arr, comp, first, choice, loop, app, id) are no longer
     // special tokens — they lex as regular identifiers and parse as `var`
     // or `call` nodes. We intercept these canonical node kinds and produce
-    // the corresponding arrow `Scheme` directly, bypassing the canonical
+    // the corresponding arrow `Term` directly, bypassing the canonical
     // eval schemes (which produce runtime dispatch IR, not arrow IR).
     //
     // `flow` and `binary.lt`/`binary.lte` are no longer special-cased:
     // the arrow `Language` overrides the canonical eval schemes with
-    // arrow-calculus `Scheme` templates that `walk_scheme` materializes.
+    // arrow-calculus `Term` templates that `walk_scheme` materializes.
 
     // `var` — bare identifier. `id` → arr_native("id"); other names →
     // App reference (matching the legacy parser's bare-identifier behavior).
@@ -1217,17 +1217,17 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
             .as_str()
             .ok_or("var: payload is not a string")?;
         if name == "id" {
-            return Ok(Scheme::arr_native("id", vec![]));
+            return Ok(Term::arr_native("id", vec![]));
         }
-        return Ok(Scheme::App {
-            callee: Box::new(Scheme::arr_native(name, vec![])),
+        return Ok(Term::App {
+            callee: Box::new(Term::arr_native(name, vec![])),
             args: vec![],
         });
     }
 
     // `value` — literal (number, string, etc.). Produces a const arr.
     if kind == "value" {
-        return Ok(Scheme::Arr {
+        return Ok(Term::Arr {
             op: "const".to_string(),
             args: vec![],
             source: ArrSource::Native,
@@ -1285,7 +1285,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                             as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
-                    return Ok(Scheme::arr_native(op_name, args));
+                    return Ok(Term::arr_native(op_name, args));
                 }
                 "comp" => {
                     // comp(a, b) → Seq { fst: a, snd: b }
@@ -1298,7 +1298,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .and_then(|v| v.as_u64())
                         .ok_or("comp: missing second arg")?
                         as usize;
-                    return Ok(Scheme::Seq {
+                    return Ok(Term::Seq {
                         fst: Box::new(materialize_node(ast, a_idx, lang)?),
                         snd: Box::new(materialize_node(ast, b_idx, lang)?),
                     });
@@ -1309,7 +1309,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("first: missing arg")? as usize;
-                    return Ok(Scheme::First {
+                    return Ok(Term::First {
                         inner: Box::new(materialize_node(ast, a_idx, lang)?),
                     });
                 }
@@ -1325,7 +1325,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .and_then(|v| v.as_u64())
                         .ok_or("choice: missing second arg")?
                         as usize;
-                    return Ok(Scheme::Choice {
+                    return Ok(Term::Choice {
                         l: Box::new(materialize_node(ast, a_idx, lang)?),
                         r: Box::new(materialize_node(ast, b_idx, lang)?),
                     });
@@ -1337,7 +1337,7 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                         .and_then(|v| v.as_u64())
                         .ok_or("loop: missing body arg")?
                         as usize;
-                    return Ok(Scheme::Loop {
+                    return Ok(Term::Loop {
                         body: Box::new(materialize_node(ast, body_idx, lang)?),
                     });
                 }
@@ -1365,8 +1365,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                             as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
-                    return Ok(Scheme::App {
-                        callee: Box::new(Scheme::arr_native(callee_name, vec![])),
+                    return Ok(Term::App {
+                        callee: Box::new(Term::arr_native(callee_name, vec![])),
                         args,
                     });
                 }
@@ -1381,8 +1381,8 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
                             as usize;
                         args.push(materialize_node(ast, idx, lang)?);
                     }
-                    return Ok(Scheme::App {
-                        callee: Box::new(Scheme::arr_native(callee_name, vec![])),
+                    return Ok(Term::App {
+                        callee: Box::new(Term::arr_native(callee_name, vec![])),
                         args,
                     });
                 }
@@ -1400,17 +1400,17 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     walk_scheme(&eval_def.scheme, ast, node, lang)
 }
 
-/// Walk a [`Scheme`] template (from the eval definition), substituting
+/// Walk a [`Term`] template (from the eval definition), substituting
 /// `proj_child(N)` placeholders with materialized children and resolving
 /// `$str_child0` / `$payload` / `proj_rest` conventions.
 fn walk_scheme(
-    scheme: &Scheme,
+    scheme: &Term,
     ast: &Ast,
     node: &AstNode,
     lang: &Language,
-) -> Result<Scheme, String> {
+) -> Result<Term, String> {
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -1448,7 +1448,7 @@ fn walk_scheme(
                     .ok_or("$str_child0: child 0 payload is not a string")?
                     .to_string();
                 let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Scheme::Arr {
+                Ok(Term::Arr {
                     op: name,
                     args: materialized_args,
                     source: source.clone(),
@@ -1463,7 +1463,7 @@ fn walk_scheme(
                     .ok_or("$payload: node payload is not a string")?
                     .to_string();
                 let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Scheme::Arr {
+                Ok(Term::Arr {
                     op: name,
                     args: materialized_args,
                     source: source.clone(),
@@ -1479,7 +1479,7 @@ fn walk_scheme(
                 // Normal arr: walk args recursively, resolve $payload in lit.
                 let materialized_args = walk_args(args, ast, node, lang)?;
                 let materialized_lit = resolve_lit(lit, node);
-                Ok(Scheme::Arr {
+                Ok(Term::Arr {
                     op: op.clone(),
                     args: materialized_args,
                     source: source.clone(),
@@ -1488,35 +1488,35 @@ fn walk_scheme(
             }
         },
 
-        Scheme::Seq { fst, snd } => Ok(Scheme::Seq {
+        Term::Seq { fst, snd } => Ok(Term::Seq {
             fst: Box::new(walk_scheme(fst, ast, node, lang)?),
             snd: Box::new(walk_scheme(snd, ast, node, lang)?),
         }),
 
-        Scheme::First { inner } => Ok(Scheme::First {
+        Term::First { inner } => Ok(Term::First {
             inner: Box::new(walk_scheme(inner, ast, node, lang)?),
         }),
 
-        Scheme::Choice { l, r } => Ok(Scheme::Choice {
+        Term::Choice { l, r } => Ok(Term::Choice {
             l: Box::new(walk_scheme(l, ast, node, lang)?),
             r: Box::new(walk_scheme(r, ast, node, lang)?),
         }),
 
-        Scheme::Loop { body } => Ok(Scheme::Loop {
+        Term::Loop { body } => Ok(Term::Loop {
             body: Box::new(walk_scheme(body, ast, node, lang)?),
         }),
 
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             let materialized_callee = walk_scheme(callee, ast, node, lang)?;
             let materialized_args = walk_args(args, ast, node, lang)?;
-            Ok(Scheme::App {
+            Ok(Term::App {
                 callee: Box::new(materialized_callee),
                 args: materialized_args,
             })
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then walk the resulting handler-free graph.
-        Scheme::Handle { .. } => {
+        Term::Handle { .. } => {
             let eliminated = scheme.eliminate_handlers();
             walk_scheme(&eliminated, ast, node, lang)
         }
@@ -1526,14 +1526,14 @@ fn walk_scheme(
 /// Walk a list of argument schemes, expanding `proj_rest` placeholders into
 /// the materialized children 1..N of the current node.
 fn walk_args(
-    args: &[Scheme],
+    args: &[Term],
     ast: &Ast,
     node: &AstNode,
     lang: &Language,
-) -> Result<Vec<Scheme>, String> {
+) -> Result<Vec<Term>, String> {
     let mut result = Vec::new();
     for arg in args {
-        if let Scheme::Arr { op, .. } = arg {
+        if let Term::Arr { op, .. } = arg {
             if op == "proj_rest" {
                 // Expand to materialized children 1..N (all children after
                 // the string-name child 0).
@@ -1588,12 +1588,12 @@ fn pattern_role<'a>(lang: &'a Language, kind: &str) -> Option<&'a str> {
 }
 
 // ============================================================================
-// Rich-loop AST-to-Scheme conversion (pattern matching on arrow body)
+// Rich-loop AST-to-Term conversion (pattern matching on arrow body)
 // ============================================================================
 //
 // The rich-loop syntax (`loop { ... } ( state ~> match ... )`) is
 // SUGAR. The YAML grammar tokenizes and parses it into a `loop_rich` AST
-// node, but the actual `Scheme` graph is determined by recognizing the
+// node, but the actual `Term` graph is determined by recognizing the
 // structural patterns in the arrow body's recursive match arm — the same
 // heuristic as the legacy `analyze_branch`, but operating on the AST
 // instead of raw text.
@@ -1609,13 +1609,13 @@ fn pattern_role<'a>(lang: &'a Language, kind: &str) -> Option<&'a str> {
 //                  └─ pattern: arrow_array (children: [...])   — `[h, ...t]`
 //                  └─ body: ...                                 — recursive body
 
-/// Convert a `loop_rich` AST node into a [`Scheme`] by pattern-matching on
+/// Convert a `loop_rich` AST node into a [`Term`] by pattern-matching on
 /// the arrow body's recursive match arm.
 ///
 /// This navigates the AST to find the `[h, ...t]:` arm (the recursive case),
-/// then calls [`analyze_branch_ast`] to determine which `Scheme` graph the
+/// then calls [`analyze_branch_ast`] to determine which `Term` graph the
 /// arm body corresponds to.
-fn rich_loop_to_scheme(ast: &Ast, node: &AstNode, lang: &Language) -> Result<Scheme, String> {
+fn rich_loop_to_scheme(ast: &Ast, node: &AstNode, lang: &Language) -> Result<Term, String> {
     let children = get_children(&node.payload)?;
 
     // The arrow expression is the `body` child (child 1 for the canonical
@@ -1719,17 +1719,17 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode, lang: &Language) -> Result<Sch
 
     let body_idx = recursive_body_idx.ok_or("loop_rich: no recursive case arm found")?;
 
-    // Analyze the recursive body AST to determine the Scheme graph.
+    // Analyze the recursive body AST to determine the Term graph.
     // The base case body is also collected to detect projection patterns
     // (e.g. `id(state.acc)` in the base case signals reduce vs fold).
     let body_scheme = analyze_branch_ast(ast, body_idx, base_body_idx, lang)?;
 
-    Ok(Scheme::Loop {
+    Ok(Term::Loop {
         body: Box::new(body_scheme),
     })
 }
 
-/// Analyze the recursive case arm body AST and map it to a [`Scheme`] graph.
+/// Analyze the recursive case arm body AST and map it to a [`Term`] graph.
 ///
 /// This mirrors the legacy `analyze_branch` heuristic but operates on the AST
 /// instead of raw text. The patterns recognized (in order of specificity):
@@ -1762,7 +1762,7 @@ fn analyze_branch_ast(
     root_idx: usize,
     base_case_idx: Option<usize>,
     lang: &Language,
-) -> Result<Scheme, String> {
+) -> Result<Term, String> {
     let mut collector = PatternCollector::default();
     collector.collect(ast, root_idx);
     // Also collect from the base case arm to detect projection patterns
@@ -1774,7 +1774,7 @@ fn analyze_branch_ast(
     // 0. Nested loop → recursively materialize the inner loop_rich node.
     //    If the recursive arm body contains a nested `loop { ... }`, we find
     //    it and recursively call `rich_loop_to_scheme` to materialize it.
-    //    Note: `rich_loop_to_scheme` already wraps the result in `Scheme::Loop`,
+    //    Note: `rich_loop_to_scheme` already wraps the result in `Term::Loop`,
     //    and the outer `rich_loop_to_scheme` will wrap this result again,
     //    producing the correct `Loop(Loop(...))` structure.
     if collector.has_nested_loop {
@@ -1797,12 +1797,12 @@ fn analyze_branch_ast(
 
     // 1. prim.compare → insert pattern
     if collector.var_names.contains("prim.compare") {
-        let step = Scheme::arr_native("prim.compare", vec![]);
-        let choice = Scheme::Choice {
-            l: Box::new(Scheme::arr_native("cons", vec![])),
-            r: Box::new(Scheme::arr_native("cons", vec![])),
+        let step = Term::arr_native("prim.compare", vec![]);
+        let choice = Term::Choice {
+            l: Box::new(Term::arr_native("cons", vec![])),
+            r: Box::new(Term::arr_native("cons", vec![])),
         };
-        return Ok(Scheme::Seq {
+        return Ok(Term::Seq {
             fst: Box::new(step),
             snd: Box::new(choice),
         });
@@ -1810,9 +1810,9 @@ fn analyze_branch_ast(
 
     // 2. *.p in arrow_call → filter pattern
     if has_suffix(&collector.app_left_names, ".p") {
-        let step = Scheme::arr_native("filter_step", vec![]);
-        let rest = Scheme::arr_native("id", vec![]);
-        return Ok(Scheme::Seq {
+        let step = Term::arr_native("filter_step", vec![]);
+        let rest = Term::arr_native("id", vec![]);
+        return Ok(Term::Seq {
             fst: Box::new(step),
             snd: Box::new(rest),
         });
@@ -1824,7 +1824,7 @@ fn analyze_branch_ast(
     //    - fold: no projection → `fold_step` — returns both channels.
     for (callee, args) in &collector.call_callee_args {
         if callee.ends_with(".f") && args.iter().any(|a| a.ends_with(".acc")) {
-            let step = Scheme::arr_native("fold_step", vec![]);
+            let step = Term::arr_native("fold_step", vec![]);
             // Check for reduce: `id` called with a `*.acc` argument
             // (projection pattern — discards the element stream).
             let has_id_on_acc = collector
@@ -1834,10 +1834,10 @@ fn analyze_branch_ast(
                 .unwrap_or(false);
             if has_id_on_acc {
                 // reduce: projects to accumulator only.
-                let rest = Scheme::First {
-                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                let rest = Term::First {
+                    inner: Box::new(Term::arr_native("id", vec![])),
                 };
-                return Ok(Scheme::Seq {
+                return Ok(Term::Seq {
                     fst: Box::new(step),
                     snd: Box::new(rest),
                 });
@@ -1850,14 +1850,14 @@ fn analyze_branch_ast(
 
     // 4. insert in arrow_call → sort pattern
     if collector.app_left_names.contains("insert") {
-        let step = Scheme::App {
-            callee: Box::new(Scheme::arr_native("insert", vec![])),
+        let step = Term::App {
+            callee: Box::new(Term::arr_native("insert", vec![])),
             args: vec![],
         };
-        let rest = Scheme::First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
+        let rest = Term::First {
+            inner: Box::new(Term::arr_native("id", vec![])),
         };
-        return Ok(Scheme::Seq {
+        return Ok(Term::Seq {
             fst: Box::new(step),
             snd: Box::new(rest),
         });
@@ -1868,11 +1868,11 @@ fn analyze_branch_ast(
     //    each intermediate result onto an output list.
     for (left, right_args) in &collector.app_left_args {
         if left.ends_with(".f") && right_args.iter().any(|a| a.ends_with(".acc")) {
-            let step = Scheme::arr_native("fold_step", vec![]);
-            let rest = Scheme::First {
-                inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+            let step = Term::arr_native("fold_step", vec![]);
+            let rest = Term::First {
+                inner: Box::new(Term::arr_native("list.cons", vec![])),
             };
-            return Ok(Scheme::Seq {
+            return Ok(Term::Seq {
                 fst: Box::new(step),
                 snd: Box::new(rest),
             });
@@ -1895,16 +1895,16 @@ fn analyze_branch_ast(
         && collector.call_callee_args.contains_key("list.tail")
         && !collector.let_bound_callees.contains("list.head")
     {
-        let step1 = Scheme::First {
-            inner: Box::new(Scheme::arr_native("list.head", vec![])),
+        let step1 = Term::First {
+            inner: Box::new(Term::arr_native("list.head", vec![])),
         };
-        let step2 = Scheme::First {
-            inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+        let step2 = Term::First {
+            inner: Box::new(Term::arr_native("list.tail", vec![])),
         };
-        let cons = Scheme::arr_native("list.cons", vec![]);
-        return Ok(Scheme::Seq {
+        let cons = Term::arr_native("list.cons", vec![]);
+        return Ok(Term::Seq {
             fst: Box::new(step1),
-            snd: Box::new(Scheme::Seq {
+            snd: Box::new(Term::Seq {
                 fst: Box::new(step2),
                 snd: Box::new(cons),
             }),
@@ -1913,12 +1913,12 @@ fn analyze_branch_ast(
 
     // 7. list.head in arrow_call → take pattern
     if collector.app_left_names.contains("list.head") {
-        let step = Scheme::arr_native("list.head", vec![]);
-        let choice = Scheme::Choice {
-            l: Box::new(Scheme::arr_native("cons", vec![])),
-            r: Box::new(Scheme::arr_native("id", vec![])),
+        let step = Term::arr_native("list.head", vec![]);
+        let choice = Term::Choice {
+            l: Box::new(Term::arr_native("cons", vec![])),
+            r: Box::new(Term::arr_native("id", vec![])),
         };
-        return Ok(Scheme::Seq {
+        return Ok(Term::Seq {
             fst: Box::new(step),
             snd: Box::new(choice),
         });
@@ -1926,11 +1926,11 @@ fn analyze_branch_ast(
 
     // 8. list.tail in arrow_call → drop pattern
     if collector.call_callee_args.contains_key("list.tail") {
-        let step = Scheme::arr_native("list.tail", vec![]);
-        let rest = Scheme::First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
+        let step = Term::arr_native("list.tail", vec![]);
+        let rest = Term::First {
+            inner: Box::new(Term::arr_native("id", vec![])),
         };
-        return Ok(Scheme::Seq {
+        return Ok(Term::Seq {
             fst: Box::new(step),
             snd: Box::new(rest),
         });
@@ -1938,8 +1938,8 @@ fn analyze_branch_ast(
 
     // 9. *.f in arrow_call → map pattern
     if has_suffix(&collector.app_left_names, ".f") {
-        return Ok(Scheme::First {
-            inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+        return Ok(Term::First {
+            inner: Box::new(Term::arr_native("fn.apply", vec![])),
         });
     }
 
@@ -2284,7 +2284,7 @@ fn parse_arrow_file_legacy(src: &str) -> Result<ParsedFile, String> {
 
 /// Legacy: parse a simple arrow expression using the ad-hoc tokenizer +
 /// recursive-descent parser.
-fn parse_arrow_expr_legacy(src: &str) -> Result<Scheme, String> {
+fn parse_arrow_expr_legacy(src: &str) -> Result<Term, String> {
     let tokens = tokenize(src)?;
     let mut parser = Parser::new(&tokens);
     let scheme = parser.parse_expr()?;
@@ -2332,7 +2332,7 @@ fn has_named_arrows(src: &str) -> bool {
 }
 
 /// Legacy: parse named arrows: `name = expr` on each line.
-fn parse_named_arrows(src: &str) -> Result<HashMap<String, Scheme>, String> {
+fn parse_named_arrows(src: &str) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
     for line in src.lines() {
@@ -2504,17 +2504,17 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a full arrow expression (top-level entry point).
-    fn parse_expr(&mut self) -> Result<Scheme, String> {
+    fn parse_expr(&mut self) -> Result<Term, String> {
         self.parse_seq()
     }
 
     /// Parse a sequence expression: `choice_expr (">>>" choice_expr)*`.
-    fn parse_seq(&mut self) -> Result<Scheme, String> {
+    fn parse_seq(&mut self) -> Result<Term, String> {
         let mut left = self.parse_choice_expr()?;
         while self.peek() == Some(&Token::Flow) {
             self.next(); // consume >>>
             let right = self.parse_choice_expr()?;
-            left = Scheme::Seq {
+            left = Term::Seq {
                 fst: Box::new(left),
                 snd: Box::new(right),
             };
@@ -2523,12 +2523,12 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a choice expression: `atom ("|||" atom)*`.
-    fn parse_choice_expr(&mut self) -> Result<Scheme, String> {
+    fn parse_choice_expr(&mut self) -> Result<Term, String> {
         let mut left = self.parse_atom()?;
         while self.peek() == Some(&Token::ChoiceOp) {
             self.next(); // consume |||
             let right = self.parse_atom()?;
-            left = Scheme::Choice {
+            left = Term::Choice {
                 l: Box::new(left),
                 r: Box::new(right),
             };
@@ -2537,7 +2537,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an atom: the simplest unit of an arrow expression.
-    fn parse_atom(&mut self) -> Result<Scheme, String> {
+    fn parse_atom(&mut self) -> Result<Term, String> {
         match self.next() {
             Some(Token::LParen) => {
                 let inner = self.parse_expr()?;
@@ -2545,7 +2545,7 @@ impl<'a> Parser<'a> {
                 Ok(inner)
             }
             Some(Token::Ident(name)) => match name.as_str() {
-                "id" => Ok(Scheme::arr_native("id", vec![])),
+                "id" => Ok(Term::arr_native("id", vec![])),
                 "arr" => self.parse_arr(),
                 "app" => self.parse_app(),
                 "comp" => self.parse_comp(),
@@ -2553,8 +2553,8 @@ impl<'a> Parser<'a> {
                 "choice" => self.parse_choice(),
                 "loop" => self.parse_loop(),
                 "rec" => self.parse_loop(), // v0.1: rec(body) alias for loop(body)
-                _ => Ok(Scheme::App {
-                    callee: Box::new(Scheme::arr_native(name, vec![])),
+                _ => Ok(Term::App {
+                    callee: Box::new(Term::arr_native(name, vec![])),
                     args: vec![],
                 }),
             },
@@ -2563,7 +2563,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_arr(&mut self) -> Result<Scheme, String> {
+    fn parse_arr(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let name = match self.next() {
             Some(Token::StringLit(s)) => s.clone(),
@@ -2571,10 +2571,10 @@ impl<'a> Parser<'a> {
         };
         let args = self.parse_optional_args()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::arr_native(name, args))
+        Ok(Term::arr_native(name, args))
     }
 
-    fn parse_app(&mut self) -> Result<Scheme, String> {
+    fn parse_app(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let name = match self.next() {
             Some(Token::StringLit(s)) => s.clone(),
@@ -2582,55 +2582,55 @@ impl<'a> Parser<'a> {
         };
         let args = self.parse_optional_args()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::App {
-            callee: Box::new(Scheme::arr_native(name, vec![])),
+        Ok(Term::App {
+            callee: Box::new(Term::arr_native(name, vec![])),
             args,
         })
     }
 
-    fn parse_comp(&mut self) -> Result<Scheme, String> {
+    fn parse_comp(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let fst = self.parse_expr()?;
         self.expect(&Token::Comma)?;
         let snd = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::Seq {
+        Ok(Term::Seq {
             fst: Box::new(fst),
             snd: Box::new(snd),
         })
     }
 
-    fn parse_first(&mut self) -> Result<Scheme, String> {
+    fn parse_first(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let inner = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::First {
+        Ok(Term::First {
             inner: Box::new(inner),
         })
     }
 
-    fn parse_choice(&mut self) -> Result<Scheme, String> {
+    fn parse_choice(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let l = self.parse_expr()?;
         self.expect(&Token::Comma)?;
         let r = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::Choice {
+        Ok(Term::Choice {
             l: Box::new(l),
             r: Box::new(r),
         })
     }
 
-    fn parse_loop(&mut self) -> Result<Scheme, String> {
+    fn parse_loop(&mut self) -> Result<Term, String> {
         self.expect(&Token::LParen)?;
         let body = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Scheme::Loop {
+        Ok(Term::Loop {
             body: Box::new(body),
         })
     }
 
-    fn parse_optional_args(&mut self) -> Result<Vec<Scheme>, String> {
+    fn parse_optional_args(&mut self) -> Result<Vec<Term>, String> {
         if self.peek() == Some(&Token::Comma) {
             self.next(); // consume comma
             let mut args = vec![self.parse_expr()?];

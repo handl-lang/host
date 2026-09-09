@@ -10,7 +10,7 @@
 //! - Error cases (missing guarantee, malformed type, unknown clause, etc.) are
 //!   reported.
 
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Term};
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
@@ -22,8 +22,8 @@ use crate::types::{BaseTy, Pred, RefTy};
 // ============================================================================
 
 /// Convenience: native arr with no args.
-fn arr(op: &str) -> Scheme {
-    Scheme::Arr {
+fn arr(op: &str) -> Term {
+    Term::Arr {
         op: op.to_string(),
         args: vec![],
         source: ArrSource::Native,
@@ -945,8 +945,8 @@ fn test_module_loader_load_arrow() {
         Ok(scheme) => {
             // The sort arrow should be an Arr node.
             assert!(
-                matches!(scheme, Scheme::Arr { .. }),
-                "load_arrow should return a Scheme::Arr"
+                matches!(scheme, Term::Arr { .. }),
+                "load_arrow should return a Term::Arr"
             );
         }
         Err(e) => panic!("load_arrow should succeed: {}", e),
@@ -963,7 +963,7 @@ fn test_module_loader_load_arrow_single() {
     match loader.load_arrow("single", "anything") {
         Ok(scheme) => {
             assert!(
-                matches!(scheme, Scheme::Arr { op, .. } if op == "id"),
+                matches!(scheme, Term::Arr { op, .. } if op == "id"),
                 "load_arrow on single-expr module should return the arrow"
             );
         }
@@ -1466,16 +1466,16 @@ use handl_language::Value;
 
 use crate::arrow_parser::ParsedFile;
 
-/// Check whether a `Scheme` is a `project(module_ref(path), field)` node,
+/// Check whether a `Term` is a `project(module_ref(path), field)` node,
 /// possibly wrapped in an `App { callee: ..., args: [] }` (the form produced
 /// when a bare identifier is used as an arrow expression). Returns
 /// `Some((path, field))` if it matches, `None` otherwise.
-fn is_project_of_module_ref(scheme: &Scheme) -> Option<(String, String)> {
+fn is_project_of_module_ref(scheme: &Term) -> Option<(String, String)> {
     let inner = match scheme {
-        Scheme::App { callee, args } if args.is_empty() => callee.as_ref(),
+        Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Scheme::Arr {
+    if let Term::Arr {
         op,
         args,
         lit: Some(Value::String(field)),
@@ -1483,7 +1483,7 @@ fn is_project_of_module_ref(scheme: &Scheme) -> Option<(String, String)> {
     } = inner
     {
         if op == "project" && args.len() == 1 {
-            if let Scheme::Arr {
+            if let Term::Arr {
                 op: ref_op,
                 args: ref_args,
                 lit: Some(Value::String(path)),
@@ -1499,14 +1499,14 @@ fn is_project_of_module_ref(scheme: &Scheme) -> Option<(String, String)> {
     None
 }
 
-/// Check whether a `Scheme` is a `module_ref(path)` node, possibly wrapped in
+/// Check whether a `Term` is a `module_ref(path)` node, possibly wrapped in
 /// an `App { callee: ..., args: [] }`.
-fn is_module_ref(scheme: &Scheme) -> Option<String> {
+fn is_module_ref(scheme: &Term) -> Option<String> {
     let inner = match scheme {
-        Scheme::App { callee, args } if args.is_empty() => callee.as_ref(),
+        Term::App { callee, args } if args.is_empty() => callee.as_ref(),
         other => other,
     };
-    if let Scheme::Arr {
+    if let Term::Arr {
         op,
         args,
         lit: Some(Value::String(path)),
@@ -1573,10 +1573,10 @@ fn test_rewrite_imports_local_shadow_not_rewritten() {
                 is_project_of_module_ref(sort).is_none(),
                 "locally-defined 'sort' should NOT be rewritten"
             );
-            if let Scheme::Arr { op, .. } = sort {
+            if let Term::Arr { op, .. } = sort {
                 assert_eq!(op, "id");
             } else {
-                panic!("sort should be Scheme::Arr");
+                panic!("sort should be Term::Arr");
             }
 
             // `main = sort` references the LOCAL sort (which is in local_names),
@@ -1619,17 +1619,17 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
             // main should be Seq { App(module_ref("collection/sort")), arr("id") }
-            if let Scheme::Seq { fst, snd } = main {
+            if let Term::Seq { fst, snd } = main {
                 let path =
                     is_module_ref(fst).expect("fst should be module_ref(\"collection/sort\")");
                 assert_eq!(path, "collection/sort");
-                if let Scheme::Arr { op, .. } = snd.as_ref() {
+                if let Term::Arr { op, .. } = snd.as_ref() {
                     assert_eq!(op, "id");
                 } else {
-                    panic!("snd should be Scheme::Arr");
+                    panic!("snd should be Term::Arr");
                 }
             } else {
-                panic!("main should be Scheme::Seq, got: {:?}", main);
+                panic!("main should be Term::Seq, got: {:?}", main);
             }
         }
         _ => panic!("expected ParsedFile::Named"),
@@ -1694,16 +1694,16 @@ fn test_rewrite_imports_app_callee_rewritten() {
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
-            if let Scheme::Seq { fst, snd } = main {
+            if let Term::Seq { fst, snd } = main {
                 let (path, field) = is_project_of_module_ref(fst)
                     .expect("fst should be App { callee: project(module_ref(path), \"sort\") }");
                 assert_eq!(path, "collection/sort");
                 assert_eq!(field, "sort");
-                if let Scheme::Arr { op, .. } = snd.as_ref() {
+                if let Term::Arr { op, .. } = snd.as_ref() {
                     assert_eq!(op, "id");
                 }
             } else {
-                panic!("main should be Scheme::Seq, got: {:?}", main);
+                panic!("main should be Term::Seq, got: {:?}", main);
             }
         }
         _ => panic!("expected ParsedFile::Named"),
@@ -1939,7 +1939,7 @@ fn build_real_arrows_resolver() -> MemoryResolver {
 /// (a) Basic import: Load `collection/sort.hnl` via the `ModuleLoader` with
 /// a `MemoryResolver` populated with the real arrow file contents. Verify
 /// the ModuleLoader resolves the `import insert from "collection/insert"`
-/// and `flatten_program` produces a `Scheme` for `sort` that includes
+/// and `flatten_program` produces a `Term` for `sort` that includes
 /// `insert`'s graph (no unresolved `module_ref`, `project`, or `App` nodes
 /// to unknown names).
 #[test]

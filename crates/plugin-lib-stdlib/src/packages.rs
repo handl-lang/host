@@ -415,7 +415,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
-    // `Scheme::Loop` descriptions built host-side (see
+    // `Term::Loop` descriptions built host-side (see
     // [`crate::arrow_iter`]); the composite `*_step` ops are interpreted
     // by the v2 engine, so the module exposes no functions or ops.
     ModuleSpec {

@@ -1,13 +1,13 @@
-//! # `Scheme` -> cranelift IR compilation (ADR-0052)
+//! # `Term` -> cranelift IR compilation (ADR-0052)
 //!
 //! This module compiles
-//! [`Scheme`](handl_language::Scheme) data — the arrow-calculus kernel — to
+//! [`Term`](handl_language::Term) data — the arrow-calculus kernel — to
 //! native code via cranelift, targeting the six combinators (`Arr`, `Seq`,
 //! `First`, `Choice`, `Loop`, `App`).
 //!
 //! ## Compilation strategy
 //!
-//! Each node's `Scheme` is baked into the IR at **compile time** — no
+//! Each node's `Term` is baked into the IR at **compile time** — no
 //! runtime scheme lookup occurs. The compiled function has signature
 //! `fn(*mut EvalCtx, *mut Value) -> *mut Value`, where the second parameter
 //! is the `incoming` value flowing through the arrow (top-level calls pass
@@ -72,7 +72,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use handl_language::Value as JsonValue;
-use handl_language::{ArrSource, Ast, LangError, Language, Scheme, SchemeVersion};
+use handl_language::{ArrSource, Ast, LangError, Language, Term, SchemeVersion};
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -293,7 +293,7 @@ pub fn compile_all_nodes(
 /// Compile all nodes in the AST to in-memory native functions (JIT).
 ///
 /// Each node is compiled to a function with signature `fn(*mut EvalCtx, *mut
-/// Value) -> *mut Value`. The scheme for each node is lowered to `Scheme`
+/// Value) -> *mut Value`. The scheme for each node is lowered to `Term`
 /// at compile time and baked into the IR. V2 helper functions are registered
 /// with the JIT builder so the compiled code can call them directly.
 ///
@@ -489,7 +489,7 @@ fn make_host_isa() -> Result<Arc<dyn TargetIsa>, LangError> {
 }
 
 /// The backend-agnostic v2 core: declare helpers + node functions, and compile
-/// (define) each node by compiling its `Scheme`.
+/// (define) each node by compiling its `Term`.
 ///
 /// Generic over `M: Module` so the same IR-generation code drives both
 /// [`JITModule`] and [`ObjectModule`]. Returns the per-node `FuncId`s and the
@@ -506,7 +506,7 @@ fn compile_core_v2<M: Module>(
     node_linkage: Linkage,
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
-    // Scheme version check — v2 only.
+    // Term version check — v2 only.
     if !SchemeVersion::v2().supports(&lang.scheme_version) {
         return Err(LangError::engine(format!(
             "unsupported scheme version: {} (v2 only)",
@@ -704,12 +704,12 @@ fn declare_helper_imports_v2<M: Module>(
 
 /// Compile a single node's scheme into a native function.
 ///
-/// Compiles a node's [`Scheme`] to IR. The function signature is
+/// Compiles a node's [`Term`] to IR. The function signature is
 /// `fn(*mut EvalCtx, *mut Value) -> *mut Value` (ctx, incoming) -> result.
 fn compile_node<M: Module>(
     module: &mut M,
     func_id: FuncId,
-    scheme: Option<&Scheme>,
+    scheme: Option<&Term>,
     helper_ids: &HelperIds,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
@@ -772,7 +772,7 @@ fn compile_node<M: Module>(
 
         let result = match scheme {
             Some(s) => {
-                // Compile the Scheme directly (already v2).
+                // Compile the Term directly (already v2).
                 let (val, _pushed) = compile_scheme(
                     &mut builder,
                     s,
@@ -804,10 +804,10 @@ fn compile_node<M: Module>(
 }
 
 // ---------------------------------------------------------------------------
-// Scheme compilation (recursive)
+// Term compilation (recursive)
 // ---------------------------------------------------------------------------
 
-/// Compile a [`Scheme`] into cranelift IR, returning the result `Value` and
+/// Compile a [`Term`] into cranelift IR, returning the result `Value` and
 /// whether a scope was pushed that the caller is responsible for popping.
 ///
 /// `incoming_val` is the cranelift IR value representing the incoming value
@@ -815,7 +815,7 @@ fn compile_node<M: Module>(
 /// is in the block containing the result value.
 fn compile_scheme(
     builder: &mut FunctionBuilder,
-    scheme: &Scheme,
+    scheme: &Term,
     ctx_param: Value,
     incoming_val: Value,
     helpers: &HelperRefs,
@@ -824,7 +824,7 @@ fn compile_scheme(
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -843,7 +843,7 @@ fn compile_scheme(
             ffi_ops,
         ),
 
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             let (fst_val, fst_pushed) = compile_scheme(
                 builder,
                 fst,
@@ -863,7 +863,7 @@ fn compile_scheme(
             Ok((snd_val, snd_pushed))
         }
 
-        Scheme::First { inner } => {
+        Term::First { inner } => {
             let fst = {
                 let call = builder
                     .ins()
@@ -891,7 +891,7 @@ fn compile_scheme(
             Ok((result, false))
         }
 
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             let is_left = builder
                 .ins()
                 .call(helpers.either_is_left, &[ctx_param, incoming_val]);
@@ -945,7 +945,7 @@ fn compile_scheme(
             Ok((builder.block_params(merge_block)[0], false))
         }
 
-        Scheme::Loop { body } => compile_loop(
+        Term::Loop { body } => compile_loop(
             builder,
             body,
             ctx_param,
@@ -956,7 +956,7 @@ fn compile_scheme(
             ffi_ops,
         ),
 
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             // Clone incoming for the callee so that the callee and the args
             // don't share the same consumable pointer. Without this, if the
             // callee is a consuming combinator (First/Choice/Loop/extend_env)
@@ -1005,7 +1005,7 @@ fn compile_scheme(
         // scheme. Uses `eliminate_and_check` to surface unhandled
         // capabilities as a compile-time error, matching the tree-walk,
         // bytecode, and typecheck engines.
-        Scheme::Handle { .. } => {
+        Term::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
                 .map_err(|e| LangError::engine(e.to_string()))?;
             compile_scheme(
@@ -1027,7 +1027,7 @@ fn compile_scheme(
 /// See the module-level "Loop native-code model" docs for the full strategy.
 fn compile_loop(
     builder: &mut FunctionBuilder,
-    body: &Scheme,
+    body: &Term,
     ctx_param: Value,
     incoming_val: Value,
     helpers: &HelperRefs,
@@ -1241,7 +1241,7 @@ fn compile_loop(
 fn compile_arr(
     builder: &mut FunctionBuilder,
     op: &str,
-    args: &[Scheme],
+    args: &[Term],
     source: &ArrSource,
     lit: Option<&JsonValue>,
     ctx_param: Value,
@@ -1391,7 +1391,7 @@ fn compile_arr(
             // the full `apply_native_v2` path.
             //
             // This is a compile-time decision (op name and arg count are
-            // known from the Scheme), so the IR contains only one path.
+            // known from the Term), so the IR contains only one path.
             if let Some(op_code) = int_arith_op_code(op) {
                 if args.len() == 2 {
                     let a_ptr = builder
@@ -1522,7 +1522,7 @@ fn int_arith_op_code(op: &str) -> Option<u64> {
 /// args).
 fn compile_args_v2(
     builder: &mut FunctionBuilder,
-    args: &[Scheme],
+    args: &[Term],
     ctx_param: Value,
     incoming_val: Value,
     helpers: &HelperRefs,
@@ -1593,7 +1593,7 @@ fn compile_args_v2(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, EvalSchemeDef, Scheme, Value};
+    use handl_language::{AstNode, EvalSchemeDef, Term, Value};
     use serde_json::json;
 
     /// Build a simple AST for testing.
@@ -1614,7 +1614,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.c",
                 "c",
-                Scheme::arr_native_lit("const", vec![], json!(42)),
+                Term::arr_native_lit("const", vec![], json!(42)),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
@@ -1629,7 +1629,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.v",
                 "v",
-                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+                Term::arr_native_lit("proj_env", vec![], Value::String("x".into())),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
@@ -1644,11 +1644,11 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.a",
                 "binary.add",
-                Scheme::arr_native(
+                Term::arr_native(
                     "add",
                     vec![
-                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                     ],
                 ),
             ))
@@ -1669,19 +1669,19 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.var",
                 "var",
-                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+                Term::arr_native_lit("proj_env", vec![], Value::String("x".into())),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::seq(
-                    Scheme::seq(
-                        Scheme::arr_native_lit("const", vec![], json!(1)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("x".into())),
+                Term::seq(
+                    Term::seq(
+                        Term::arr_native_lit("const", vec![], json!(1)),
+                        Term::arr_native_lit("extend_env", vec![], Value::String("x".into())),
                     ),
-                    Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+                    Term::arr_native_lit("proj_env", vec![], Value::String("x".into())),
                 ),
             ))
             .unwrap();
@@ -1697,14 +1697,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::seq(
-                    Scheme::seq(
-                        Scheme::arr_native_lit("const", vec![], json!(true)),
-                        Scheme::arr_native("tag", vec![]),
+                Term::seq(
+                    Term::seq(
+                        Term::arr_native_lit("const", vec![], json!(true)),
+                        Term::arr_native("tag", vec![]),
                     ),
-                    Scheme::choice(
-                        Scheme::arr_native_lit("const", vec![], json!(1)),
-                        Scheme::arr_native_lit("const", vec![], json!(2)),
+                    Term::choice(
+                        Term::arr_native_lit("const", vec![], json!(1)),
+                        Term::arr_native_lit("const", vec![], json!(2)),
                     ),
                 ),
             ))
@@ -1721,9 +1721,9 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.app",
                 "app",
-                Scheme::app(
-                    Scheme::arr_native_lit("proj_env", vec![], Value::String("f".into())),
-                    vec![Scheme::arr_native_lit("const", vec![], json!(1))],
+                Term::app(
+                    Term::arr_native_lit("proj_env", vec![], Value::String("f".into())),
+                    vec![Term::arr_native_lit("const", vec![], json!(1))],
                 ),
             ))
             .unwrap();
@@ -1740,7 +1740,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.loop",
                 "loop",
-                Scheme::arr_native("inc_fst", vec![]),
+                Term::arr_native("inc_fst", vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("loop")]);

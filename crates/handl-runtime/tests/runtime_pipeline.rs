@@ -12,7 +12,7 @@
 
 use handl_language::{
     AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, LiteralKind,
-    Scheme, Source, Token, Tokens,
+    Term, Source, Token, Tokens,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde_json::{Value, json};
@@ -85,11 +85,11 @@ fn arith_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::arr_native(
+            Term::arr_native(
                 "add",
                 vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
             ),
         ))
@@ -98,11 +98,11 @@ fn arith_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.mul",
             "binary.mul",
-            Scheme::arr_native(
+            Term::arr_native(
                 "mul",
                 vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
             ),
         ))

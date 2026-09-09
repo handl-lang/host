@@ -3,14 +3,14 @@
 //! These tests verify that:
 //! - State atoms are registered correctly in both `minimal()` and `from_axioms()`
 //! - `state.dec` has a conditional contract with `Le(0, input)` precondition
-//! - Counter state machine arrow file parses to the correct `Scheme` IR
+//! - Counter state machine arrow file parses to the correct `Term` IR
 //! - Counter inference succeeds and discovers `Le(0, ...)` (Count >= 0)
 //! - Buffer state machine inference succeeds with length-related predicates
 //! - Protocol state machine inference succeeds
 //! - All state machines infer with zero annotations
 //! - Termination analysis reports Constant (side-channel loops)
 
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Term};
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::{ParsedFile, parse_arrow_file};
@@ -29,18 +29,18 @@ const PROTOCOL_HNL: &str = include_str!("../../../handl-packages/state/protocol.
 
 /// Build the counter state machine arrow graph:
 ///   loop(comp(choice(arr("state.inc"), arr("state.dec")), first(id)))
-fn counter_graph() -> Scheme {
-    use Scheme::*;
+fn counter_graph() -> Term {
+    use Term::*;
 
     let handle_event = Choice {
-        l: Box::new(Scheme::arr_native("state.inc", vec![])),
-        r: Box::new(Scheme::arr_native("state.dec", vec![])),
+        l: Box::new(Term::arr_native("state.inc", vec![])),
+        r: Box::new(Term::arr_native("state.dec", vec![])),
     };
 
     let body = Seq {
         fst: Box::new(handle_event),
         snd: Box::new(First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
+            inner: Box::new(Term::arr_native("id", vec![])),
         }),
     };
 
@@ -51,18 +51,18 @@ fn counter_graph() -> Scheme {
 
 /// Build the buffer state machine arrow graph:
 ///   loop(comp(choice(arr("state.push"), arr("state.pop")), first(id)))
-fn buffer_graph() -> Scheme {
-    use Scheme::*;
+fn buffer_graph() -> Term {
+    use Term::*;
 
     let handle_event = Choice {
-        l: Box::new(Scheme::arr_native("state.push", vec![])),
-        r: Box::new(Scheme::arr_native("state.pop", vec![])),
+        l: Box::new(Term::arr_native("state.push", vec![])),
+        r: Box::new(Term::arr_native("state.pop", vec![])),
     };
 
     let body = Seq {
         fst: Box::new(handle_event),
         snd: Box::new(First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
+            inner: Box::new(Term::arr_native("id", vec![])),
         }),
     };
 
@@ -73,18 +73,18 @@ fn buffer_graph() -> Scheme {
 
 /// Build the protocol state machine arrow graph:
 ///   loop(comp(choice(arr("state.idle_to_active"), arr("state.active_to_done")), first(id)))
-fn protocol_graph() -> Scheme {
-    use Scheme::*;
+fn protocol_graph() -> Term {
+    use Term::*;
 
     let handle_event = Choice {
-        l: Box::new(Scheme::arr_native("state.idle_to_active", vec![])),
-        r: Box::new(Scheme::arr_native("state.active_to_done", vec![])),
+        l: Box::new(Term::arr_native("state.idle_to_active", vec![])),
+        r: Box::new(Term::arr_native("state.active_to_done", vec![])),
     };
 
     let body = Seq {
         fst: Box::new(handle_event),
         snd: Box::new(First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
+            inner: Box::new(Term::arr_native("id", vec![])),
         }),
     };
 
@@ -232,7 +232,7 @@ fn test_state_pop_conditional_contract() {
 }
 
 // ============================================================================
-// 3. Counter state machine arrow file parses to Scheme
+// 3. Counter state machine arrow file parses to Term
 // ============================================================================
 
 #[test]
@@ -241,7 +241,7 @@ fn test_parse_counter_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             assert!(
-                matches!(scheme, Scheme::Loop { .. }),
+                matches!(scheme, Term::Loop { .. }),
                 "top-level should be Loop"
             );
         }
@@ -586,7 +586,7 @@ fn test_load_counter_from_disk() {
 
     let scheme = load_arrow_file(&counter_path).expect("load counter from disk");
     assert!(
-        matches!(scheme, Scheme::Loop { .. }),
+        matches!(scheme, Term::Loop { .. }),
         "counter should be a Loop"
     );
 }
@@ -651,7 +651,7 @@ fn test_infer_protocol_from_disk() {
 #[test]
 fn test_state_inc_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Scheme::arr_native("state.inc", vec![]);
+    let graph = Term::arr_native("state.inc", vec![]);
     let result = infer_refinement(&graph, &registry).expect("state.inc inference");
     assert_eq!(
         result.guarantee,
@@ -662,7 +662,7 @@ fn test_state_inc_direct_inference() {
 #[test]
 fn test_state_dec_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Scheme::arr_native("state.dec", vec![]);
+    let graph = Term::arr_native("state.dec", vec![]);
     let result = infer_refinement(&graph, &registry).expect("state.dec inference");
     assert_eq!(
         result.guarantee,
@@ -673,7 +673,7 @@ fn test_state_dec_direct_inference() {
 #[test]
 fn test_state_push_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Scheme::arr_native("state.push", vec![]);
+    let graph = Term::arr_native("state.push", vec![]);
     let result = infer_refinement(&graph, &registry).expect("state.push inference");
     assert_eq!(
         result.guarantee,

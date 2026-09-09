@@ -259,7 +259,7 @@ fn eval_non_language_first_arg_returns_error() {
 // NOTE: The former `vau_canonical_returns_unevaluated_ast` and
 // `vau_eval_escape_evaluates_child_on_demand` tests were removed:
 // ADR-0052 removes Vau from the kernel — `eval.vau` is intentionally
-// omitted from the canonical eval schemes, and `Scheme::vau` no longer
+// omitted from the canonical eval schemes, and `Term::vau` no longer
 // exists. Vau is now a handler concern, not a kernel combinator. The
 // `vau` node kind still exists in the AST/grammar/lexer for parsing,
 // but evaluating a `vau` node requires a handler-provided eval scheme.

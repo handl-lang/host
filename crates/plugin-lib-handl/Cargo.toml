@@ -18,5 +18,6 @@ handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 handl-plugin-lib-char-native = { path = "../plugin-lib-char-native" }

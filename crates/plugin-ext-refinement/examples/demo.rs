@@ -1,10 +1,10 @@
 //! Demo: load actual `.hnl` arrow files and infer their contracts.
 //!
 //! This demonstrates ADR-0069: a user writes `.hnl` source files, and the
-//! inference engine infers contracts from them — no hand-built `Scheme`
+//! inference engine infers contracts from them — no hand-built `Term`
 //! values, no user annotations. The path is:
 //!
-//!   `.hnl` file → `arrow_parser` → `Scheme` IR → `infer_refinement`
+//!   `.hnl` file → `arrow_parser` → `Term` IR → `infer_refinement`
 
 use handl_plugin_ext_refinement::{
     ContractRegistry, infer_file, infer_refinement, load_all_arrows, load_arrow_file, resolve_apps,
@@ -15,7 +15,7 @@ fn main() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
 
-    println!("=== ADR-0069: .hnl arrow files → Scheme → inferred contracts ===");
+    println!("=== ADR-0069: .hnl arrow files → Term → inferred contracts ===");
     println!("Atom contracts: {}", registry.len());
     println!("Arrows directory: {}", arrows_dir);
     println!();
@@ -40,7 +40,7 @@ fn main() {
     for (name, rel_path) in files {
         let path = format!("{}/{}", arrows_dir, rel_path);
 
-        // Load the .hnl file → Scheme IR
+        // Load the .hnl file → Term IR
         let scheme = match load_arrow_file(&path) {
             Ok(s) => s,
             Err(e) => {

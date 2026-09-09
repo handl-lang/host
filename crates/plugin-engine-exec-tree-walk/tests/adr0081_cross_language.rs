@@ -7,7 +7,7 @@
 //! gone and ADR-0081's acceptance criterion is met.
 
 use handl_language::{
-    ArrSource, Ast, AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Scheme, Value,
+    ArrSource, Ast, AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term, Value,
 };
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
@@ -31,7 +31,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
         ))
         .unwrap();
 
@@ -40,7 +40,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.set",
             "set",
-            Scheme::arr_native("assign", vec![]),
+            Term::arr_native("assign", vec![]),
         ))
         .unwrap();
     lang.ast
@@ -61,7 +61,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.block2",
             "block2",
-            Scheme::arr_native("eval_block", vec![]),
+            Term::arr_native("eval_block", vec![]),
         ))
         .unwrap();
     lang.ast
@@ -78,7 +78,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.ret",
             "ret",
-            Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
         ))
         .unwrap();
     lang.ast
@@ -95,7 +95,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.params2",
             "params2",
-            Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
         ))
         .unwrap();
     lang.ast
@@ -112,7 +112,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.func2",
             "func2",
-            Scheme::arr_native("closure", vec![]),
+            Term::arr_native("closure", vec![]),
         ))
         .unwrap();
     lang.ast
@@ -134,21 +134,21 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.call",
             "call",
-            Scheme::seq(
-                Scheme::seq(
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("route_on_type", vec![], Value::from("string")),
+            Term::seq(
+                Term::seq(
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("route_on_type", vec![], Value::from("string")),
                 ),
-                Scheme::choice(
-                    Scheme::Arr {
+                Term::choice(
+                    Term::Arr {
                         op: "call_host".into(),
-                        args: vec![Scheme::arr_native("proj_rest", vec![])],
+                        args: vec![Term::arr_native("proj_rest", vec![])],
                         source: ArrSource::DynamicForeign,
                         lit: None,
                     },
-                    Scheme::app(
-                        Scheme::arr_native("id", vec![]),
-                        vec![Scheme::arr_native("proj_rest", vec![])],
+                    Term::app(
+                        Term::arr_native("id", vec![]),
+                        vec![Term::arr_native("proj_rest", vec![])],
                     ),
                 ),
             ),

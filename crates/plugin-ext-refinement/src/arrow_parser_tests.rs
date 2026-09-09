@@ -4,11 +4,11 @@
 //! - Simple arrow-graph syntax parses correctly
 //! - Rich `loop { ... } ( params ~> body )` syntax parses correctly
 //! - Actual `.hnl` stdlib files parse successfully
-//! - Inference from parsed `.hnl` files matches hand-built Scheme results
+//! - Inference from parsed `.hnl` files matches hand-built Term results
 
 use std::collections::HashMap;
 
-use handl_language::Scheme;
+use handl_language::Term;
 
 use crate::arrow_loader::{infer_file, load_all_arrows, load_arrow_file, resolve_apps};
 use crate::arrow_parser::{
@@ -44,126 +44,126 @@ const REDUCE_RICH_HNL: &str = include_str!("../../../handl-packages/fn/reduce_ri
 // Hand-built graphs (matching e2e_tests.rs) for comparison
 // ============================================================================
 
-fn insert_graph() -> Scheme {
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("prim.compare", vec![])),
-            snd: Box::new(Scheme::Choice {
-                l: Box::new(Scheme::arr_native("cons", vec![])),
-                r: Box::new(Scheme::arr_native("cons", vec![])),
+fn insert_graph() -> Term {
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("prim.compare", vec![])),
+            snd: Box::new(Term::Choice {
+                l: Box::new(Term::arr_native("cons", vec![])),
+                r: Box::new(Term::arr_native("cons", vec![])),
             }),
         }),
     }
 }
 
-fn sort_graph() -> Scheme {
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
+fn sort_graph() -> Term {
+    Term::Loop {
+        body: Box::new(Term::Seq {
             fst: Box::new(insert_graph()),
-            snd: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("id", vec![])),
+            snd: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     }
 }
 
-fn map_graph() -> Scheme {
-    Scheme::Loop {
-        body: Box::new(Scheme::First {
-            inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+fn map_graph() -> Term {
+    Term::Loop {
+        body: Box::new(Term::First {
+            inner: Box::new(Term::arr_native("fn.apply", vec![])),
         }),
     }
 }
 
-fn filter_graph() -> Scheme {
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("filter_step", vec![])),
-            snd: Box::new(Scheme::arr_native("id", vec![])),
+fn filter_graph() -> Term {
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("filter_step", vec![])),
+            snd: Box::new(Term::arr_native("id", vec![])),
         }),
     }
 }
 
-fn fold_graph() -> Scheme {
+fn fold_graph() -> Term {
     // fold = loop(fold_step) — returns both channels (element stream + accumulator)
-    Scheme::Loop {
-        body: Box::new(Scheme::arr_native("fold_step", vec![])),
+    Term::Loop {
+        body: Box::new(Term::arr_native("fold_step", vec![])),
     }
 }
 
-fn reduce_graph() -> Scheme {
+fn reduce_graph() -> Term {
     // reduce = loop(fold_step >>> first(id)) — projects to accumulator only
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("fold_step", vec![])),
-            snd: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("id", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("fold_step", vec![])),
+            snd: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     }
 }
 
-fn scan_graph() -> Scheme {
+fn scan_graph() -> Term {
     // scan = loop(fold_step >>> first(list.cons))
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("fold_step", vec![])),
-            snd: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("fold_step", vec![])),
+            snd: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("list.cons", vec![])),
             }),
         }),
     }
 }
 
-fn take_graph() -> Scheme {
+fn take_graph() -> Term {
     // take = loop(list.head >>> (cons ||| id))
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("list.head", vec![])),
-            snd: Box::new(Scheme::Choice {
-                l: Box::new(Scheme::arr_native("cons", vec![])),
-                r: Box::new(Scheme::arr_native("id", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("list.head", vec![])),
+            snd: Box::new(Term::Choice {
+                l: Box::new(Term::arr_native("cons", vec![])),
+                r: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     }
 }
 
-fn drop_graph() -> Scheme {
+fn drop_graph() -> Term {
     // drop = loop(list.tail >>> first(id))
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::arr_native("list.tail", vec![])),
-            snd: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("id", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::arr_native("list.tail", vec![])),
+            snd: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     }
 }
 
-fn nested_map_graph() -> Scheme {
+fn nested_map_graph() -> Term {
     // nested_map = loop(loop(first(fn.apply)))
     // The outer loop contains an inner loop that is a map.
-    Scheme::Loop {
-        body: Box::new(Scheme::Loop {
-            body: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Loop {
+            body: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("fn.apply", vec![])),
             }),
         }),
     }
 }
 
-fn zip_graph() -> Scheme {
+fn zip_graph() -> Term {
     // zip = loop(first(list.head) >>> (first(list.tail) >>> list.cons))
-    Scheme::Loop {
-        body: Box::new(Scheme::Seq {
-            fst: Box::new(Scheme::First {
-                inner: Box::new(Scheme::arr_native("list.head", vec![])),
+    Term::Loop {
+        body: Box::new(Term::Seq {
+            fst: Box::new(Term::First {
+                inner: Box::new(Term::arr_native("list.head", vec![])),
             }),
-            snd: Box::new(Scheme::Seq {
-                fst: Box::new(Scheme::First {
-                    inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+            snd: Box::new(Term::Seq {
+                fst: Box::new(Term::First {
+                    inner: Box::new(Term::arr_native("list.tail", vec![])),
                 }),
-                snd: Box::new(Scheme::arr_native("list.cons", vec![])),
+                snd: Box::new(Term::arr_native("list.cons", vec![])),
             }),
         }),
     }
@@ -177,7 +177,7 @@ fn zip_graph() -> Scheme {
 fn test_parse_arr() {
     let scheme = parse_arrow_expr(r#"arr("sort")"#).expect("parse arr");
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             source,
             args,
@@ -200,7 +200,7 @@ fn test_parse_arr() {
 fn test_parse_id() {
     let scheme = parse_arrow_expr("id").expect("parse id");
     match scheme {
-        Scheme::Arr { op, .. } => {
+        Term::Arr { op, .. } => {
             assert_eq!(op, "id");
         }
         other => panic!("expected Arr(id), got {:?}", other),
@@ -211,9 +211,9 @@ fn test_parse_id() {
 fn test_parse_comp() {
     let scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp");
     match scheme {
-        Scheme::Seq { fst, snd } => {
-            assert!(matches!(*fst, Scheme::Arr { ref op, .. } if op == "a"));
-            assert!(matches!(*snd, Scheme::Arr { ref op, .. } if op == "b"));
+        Term::Seq { fst, snd } => {
+            assert!(matches!(*fst, Term::Arr { ref op, .. } if op == "a"));
+            assert!(matches!(*snd, Term::Arr { ref op, .. } if op == "b"));
         }
         other => panic!("expected Seq, got {:?}", other),
     }
@@ -223,8 +223,8 @@ fn test_parse_comp() {
 fn test_parse_first() {
     let scheme = parse_arrow_expr("first(id)").expect("parse first");
     match scheme {
-        Scheme::First { inner } => {
-            assert!(matches!(*inner, Scheme::Arr { ref op, .. } if op == "id"));
+        Term::First { inner } => {
+            assert!(matches!(*inner, Term::Arr { ref op, .. } if op == "id"));
         }
         other => panic!("expected First, got {:?}", other),
     }
@@ -234,9 +234,9 @@ fn test_parse_first() {
 fn test_parse_choice() {
     let scheme = parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
     match scheme {
-        Scheme::Choice { l, r } => {
-            assert!(matches!(*l, Scheme::Arr { ref op, .. } if op == "a"));
-            assert!(matches!(*r, Scheme::Arr { ref op, .. } if op == "b"));
+        Term::Choice { l, r } => {
+            assert!(matches!(*l, Term::Arr { ref op, .. } if op == "a"));
+            assert!(matches!(*r, Term::Arr { ref op, .. } if op == "b"));
         }
         other => panic!("expected Choice, got {:?}", other),
     }
@@ -246,8 +246,8 @@ fn test_parse_choice() {
 fn test_parse_loop() {
     let scheme = parse_arrow_expr("loop(id)").expect("parse loop");
     match scheme {
-        Scheme::Loop { body } => {
-            assert!(matches!(*body, Scheme::Arr { ref op, .. } if op == "id"));
+        Term::Loop { body } => {
+            assert!(matches!(*body, Term::Arr { ref op, .. } if op == "id"));
         }
         other => panic!("expected Loop, got {:?}", other),
     }
@@ -258,17 +258,17 @@ fn test_parse_nested_loop_comp() {
     // loop(insert >>> first(id))
     let scheme = parse_arrow_expr("loop(comp(insert, first(id)))").expect("parse nested");
     match scheme {
-        Scheme::Loop { body } => {
+        Term::Loop { body } => {
             match body.as_ref() {
-                Scheme::Seq { fst, snd } => {
+                Term::Seq { fst, snd } => {
                     // insert is a bare identifier -> App reference
                     assert!(
-                        matches!(fst.as_ref(), Scheme::App { .. }),
+                        matches!(fst.as_ref(), Term::App { .. }),
                         "expected App for bare identifier 'insert', got {:?}",
                         fst
                     );
                     // first(id)
-                    assert!(matches!(snd.as_ref(), Scheme::First { .. }));
+                    assert!(matches!(snd.as_ref(), Term::First { .. }));
                 }
                 other => panic!("expected Seq in loop body, got {:?}", other),
             }
@@ -281,8 +281,8 @@ fn test_parse_nested_loop_comp() {
 fn test_parse_app() {
     let scheme = parse_arrow_expr(r#"app("sort", arr("x"))"#).expect("parse app");
     match scheme {
-        Scheme::App { callee, args } => {
-            assert!(matches!(callee.as_ref(), Scheme::Arr { op, .. } if op == "sort"));
+        Term::App { callee, args } => {
+            assert!(matches!(callee.as_ref(), Term::Arr { op, .. } if op == "sort"));
             assert_eq!(args.len(), 1);
         }
         other => panic!("expected App, got {:?}", other),
@@ -294,8 +294,8 @@ fn test_parse_bare_identifier_is_app_reference() {
     // A bare identifier (not id, not a combinator) is a reference to a named arrow
     let scheme = parse_arrow_expr("insert").expect("parse bare ident");
     match scheme {
-        Scheme::App { callee, args } => {
-            assert!(matches!(callee.as_ref(), Scheme::Arr { op, .. } if op == "insert"));
+        Term::App { callee, args } => {
+            assert!(matches!(callee.as_ref(), Term::Arr { op, .. } if op == "insert"));
             assert!(args.is_empty());
         }
         other => panic!("expected App for bare identifier, got {:?}", other),
@@ -311,9 +311,9 @@ fn test_parse_seq_operator() {
     // a >>> b should produce Seq(a, b) -- same as comp(a, b)
     let scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
-        Scheme::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
-            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+        Term::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
+            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "b"));
         }
         other => panic!("expected Seq, got {:?}", other),
     }
@@ -324,9 +324,9 @@ fn test_parse_choice_operator() {
     // a ||| b should produce Choice(a, b) -- same as choice(a, b)
     let scheme = parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
     match scheme {
-        Scheme::Choice { l, r } => {
-            assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
-            assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+        Term::Choice { l, r } => {
+            assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
+            assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
         }
         other => panic!("expected Choice, got {:?}", other),
     }
@@ -338,14 +338,14 @@ fn test_parse_seq_operator_left_assoc() {
     let scheme =
         parse_arrow_expr(r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
     match scheme {
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             // snd should be arr("c")
-            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "c"));
             // fst should be Seq(arr("a"), arr("b"))
             match fst.as_ref() {
-                Scheme::Seq { fst, snd } => {
-                    assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
-                    assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                Term::Seq { fst, snd } => {
+                    assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
+                    assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "b"));
                 }
                 other => panic!("expected nested Seq, got {:?}", other),
             }
@@ -360,14 +360,14 @@ fn test_parse_choice_operator_left_assoc() {
     let scheme =
         parse_arrow_expr(r#"arr("a") ||| arr("b") ||| arr("c")"#).expect("parse choice left-assoc");
     match scheme {
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             // r should be arr("c")
-            assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+            assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "c"));
             // l should be Choice(arr("a"), arr("b"))
             match l.as_ref() {
-                Scheme::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
-                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                Term::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
                 }
                 other => panic!("expected nested Choice, got {:?}", other),
             }
@@ -383,12 +383,12 @@ fn test_parse_mixed_precedence() {
     let scheme =
         parse_arrow_expr(r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
     match scheme {
-        Scheme::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+        Term::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
             match snd.as_ref() {
-                Scheme::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "b"));
-                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+                Term::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "b"));
+                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "c"));
                 }
                 other => panic!("expected Choice in snd, got {:?}", other),
             }
@@ -402,12 +402,12 @@ fn test_parse_operator_with_parens() {
     // (a ||| b) >>> c should parse as Seq(Choice(a, b), c)
     let scheme = parse_arrow_expr(r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
     match scheme {
-        Scheme::Seq { fst, snd } => {
-            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+        Term::Seq { fst, snd } => {
+            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "c"));
             match fst.as_ref() {
-                Scheme::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
-                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                Term::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Term::Arr { op, .. } if op == "b"));
                 }
                 other => panic!("expected Choice in fst, got {:?}", other),
             }
@@ -418,23 +418,23 @@ fn test_parse_operator_with_parens() {
 
 #[test]
 fn test_parse_operator_equivalent_to_comp() {
-    // a >>> b should produce the same Scheme as comp(a, b)
+    // a >>> b should produce the same Term as comp(a, b)
     let op_scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse operator");
     let call_scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
     assert_eq!(
         op_scheme, call_scheme,
-        "operator syntax should produce same Scheme as function-call syntax"
+        "operator syntax should produce same Term as function-call syntax"
     );
 }
 
 #[test]
 fn test_parse_operator_equivalent_to_choice() {
-    // a ||| b should produce the same Scheme as choice(a, b)
+    // a ||| b should produce the same Term as choice(a, b)
     let op_scheme = parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse operator");
     let call_scheme = parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
     assert_eq!(
         op_scheme, call_scheme,
-        "operator syntax should produce same Scheme as function-call syntax"
+        "operator syntax should produce same Term as function-call syntax"
     );
 }
 
@@ -458,15 +458,15 @@ fn test_parse_operator_complex_backtrack() {
     let scheme = parse_arrow_expr(r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#)
         .expect("parse complex backtrack");
     match scheme {
-        Scheme::Seq { fst, snd } => {
-            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+        Term::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "a"));
             match snd.as_ref() {
-                Scheme::Choice { l, r } => {
-                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                Term::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Term::Arr { op, .. } if op == "b"));
                     match r.as_ref() {
-                        Scheme::Seq { fst, snd } => {
-                            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "c"));
-                            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "d"));
+                        Term::Seq { fst, snd } => {
+                            assert!(matches!(fst.as_ref(), Term::Arr { op, .. } if op == "c"));
+                            assert!(matches!(snd.as_ref(), Term::Arr { op, .. } if op == "d"));
                         }
                         other => panic!("expected Seq in choice r, got {:?}", other),
                     }
@@ -498,11 +498,11 @@ sort = loop(insert >>> first(id))
             assert!(map.contains_key("sort"));
             // Verify cons is an arr
             match map.get("cons").unwrap() {
-                Scheme::Arr { op, .. } => assert_eq!(op, "list.cons"),
+                Term::Arr { op, .. } => assert_eq!(op, "list.cons"),
                 other => panic!("expected Arr for cons, got {:?}", other),
             }
             // Verify sort is a Loop
-            assert!(matches!(map.get("sort").unwrap(), Scheme::Loop { .. }));
+            assert!(matches!(map.get("sort").unwrap(), Term::Loop { .. }));
         }
         other => panic!("expected Named, got {:?}", other),
     }
@@ -514,7 +514,7 @@ fn test_parse_single_expr_file() {
     let parsed = parse_arrow_file(src).expect("parse single expr");
     match parsed {
         ParsedFile::Single(scheme) => {
-            assert!(matches!(scheme, Scheme::Loop { .. }));
+            assert!(matches!(scheme, Term::Loop { .. }));
         }
         other => panic!("expected Single, got {:?}", other),
     }
@@ -530,16 +530,16 @@ fn test_parse_insert_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(prim.compare >>> (cons ||| cons))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "prim.compare"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "prim.compare"),
                         "fst should be prim.compare"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::Choice { .. }),
+                        matches!(snd.as_ref(), Term::Choice { .. }),
                         "snd should be Choice"
                     );
                 }
@@ -555,18 +555,18 @@ fn test_parse_sort_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(app(insert) >>> first(id))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     // fst should be App(insert) -- a reference to the insert arrow
                     assert!(
-                        matches!(fst.as_ref(), Scheme::App { .. }),
+                        matches!(fst.as_ref(), Term::App { .. }),
                         "fst should be App(insert)"
                     );
                     // snd should be first(id)
                     assert!(
-                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        matches!(snd.as_ref(), Term::First { .. }),
                         "snd should be First"
                     );
                 }
@@ -582,15 +582,15 @@ fn test_parse_map_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(first(fn.apply))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
                 assert!(
-                    matches!(body.as_ref(), Scheme::First { .. }),
+                    matches!(body.as_ref(), Term::First { .. }),
                     "body should be First"
                 );
-                if let Scheme::First { inner } = body.as_ref() {
+                if let Term::First { inner } = body.as_ref() {
                     assert!(
-                        matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "fn.apply"),
+                        matches!(inner.as_ref(), Term::Arr { op, .. } if op == "fn.apply"),
                         "inner should be fn.apply"
                     );
                 }
@@ -606,16 +606,16 @@ fn test_parse_filter_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(filter_step >>> id)
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "filter_step"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "filter_step"),
                         "fst should be filter_step"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                        matches!(snd.as_ref(), Term::Arr { op, .. } if op == "id"),
                         "snd should be id"
                     );
                 }
@@ -631,10 +631,10 @@ fn test_parse_fold_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(fold_step) — fold returns both channels
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
                 assert!(
-                    matches!(body.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                    matches!(body.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
                     "body should be fold_step, got {:?}",
                     body
                 );
@@ -654,21 +654,21 @@ fn test_parse_scan_rich_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(fold_step >>> first(list.cons))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
                         "fst should be fold_step"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        matches!(snd.as_ref(), Term::First { .. }),
                         "snd should be First"
                     );
-                    if let Scheme::First { inner } = snd.as_ref() {
+                    if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.cons"),
+                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.cons"),
                             "inner should be list.cons"
                         );
                     }
@@ -685,25 +685,25 @@ fn test_parse_take_rich_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(list.head >>> (cons ||| id))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "list.head"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "list.head"),
                         "fst should be list.head"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::Choice { .. }),
+                        matches!(snd.as_ref(), Term::Choice { .. }),
                         "snd should be Choice"
                     );
-                    if let Scheme::Choice { l, r } = snd.as_ref() {
+                    if let Term::Choice { l, r } = snd.as_ref() {
                         assert!(
-                            matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "cons"),
+                            matches!(l.as_ref(), Term::Arr { op, .. } if op == "cons"),
                             "choice l should be cons"
                         );
                         assert!(
-                            matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            matches!(r.as_ref(), Term::Arr { op, .. } if op == "id"),
                             "choice r should be id"
                         );
                     }
@@ -720,21 +720,21 @@ fn test_parse_drop_rich_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(list.tail >>> first(id))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Term::Seq { .. }));
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "list.tail"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "list.tail"),
                         "fst should be list.tail"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        matches!(snd.as_ref(), Term::First { .. }),
                         "snd should be First"
                     );
-                    if let Scheme::First { inner } = snd.as_ref() {
+                    if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "id"),
                             "inner should be id"
                         );
                     }
@@ -795,17 +795,17 @@ fn test_load_new_rich_loops_from_disk() {
     // Load scan_rich.hnl from disk
     let scan_path = format!("{}/fn/scan_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&scan_path).expect("load scan_rich from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load take_rich.hnl from disk
     let take_path = format!("{}/collection/take_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&take_path).expect("load take_rich from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load drop_rich.hnl from disk
     let drop_path = format!("{}/collection/drop_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&drop_path).expect("load drop_rich from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 }
 
 #[test]
@@ -815,23 +815,23 @@ fn test_parse_nested_map_rich_hnl() {
         ParsedFile::Single(scheme) => {
             // Should be: loop(loop(first(fn.apply)))
             // The outer loop contains an inner loop that is a map.
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
                 // The body should itself be a Loop (nested).
                 assert!(
-                    matches!(body.as_ref(), Scheme::Loop { .. }),
+                    matches!(body.as_ref(), Term::Loop { .. }),
                     "body should be a nested Loop, got {:?}",
                     body
                 );
-                if let Scheme::Loop { body: inner_body } = body.as_ref() {
+                if let Term::Loop { body: inner_body } = body.as_ref() {
                     // The inner loop body should be first(fn.apply) (map pattern).
                     assert!(
-                        matches!(inner_body.as_ref(), Scheme::First { .. }),
+                        matches!(inner_body.as_ref(), Term::First { .. }),
                         "inner body should be First"
                     );
-                    if let Scheme::First { inner } = inner_body.as_ref() {
+                    if let Term::First { inner } = inner_body.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "fn.apply"),
+                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "fn.apply"),
                             "innermost should be fn.apply"
                         );
                     }
@@ -862,42 +862,42 @@ fn test_parse_zip_rich_hnl() {
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(first(list.head) >>> (first(list.tail) >>> list.cons))
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
                 assert!(
-                    matches!(body.as_ref(), Scheme::Seq { .. }),
+                    matches!(body.as_ref(), Term::Seq { .. }),
                     "body should be Seq"
                 );
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     // fst should be First(list.head)
                     assert!(
-                        matches!(fst.as_ref(), Scheme::First { .. }),
+                        matches!(fst.as_ref(), Term::First { .. }),
                         "fst should be First"
                     );
-                    if let Scheme::First { inner } = fst.as_ref() {
+                    if let Term::First { inner } = fst.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.head"),
+                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.head"),
                             "fst inner should be list.head"
                         );
                     }
                     // snd should be Seq(First(list.tail), list.cons)
                     assert!(
-                        matches!(snd.as_ref(), Scheme::Seq { .. }),
+                        matches!(snd.as_ref(), Term::Seq { .. }),
                         "snd should be Seq"
                     );
-                    if let Scheme::Seq { fst, snd } = snd.as_ref() {
+                    if let Term::Seq { fst, snd } = snd.as_ref() {
                         assert!(
-                            matches!(fst.as_ref(), Scheme::First { .. }),
+                            matches!(fst.as_ref(), Term::First { .. }),
                             "snd.fst should be First"
                         );
-                        if let Scheme::First { inner } = fst.as_ref() {
+                        if let Term::First { inner } = fst.as_ref() {
                             assert!(
-                                matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.tail"),
+                                matches!(inner.as_ref(), Term::Arr { op, .. } if op == "list.tail"),
                                 "snd.fst inner should be list.tail"
                             );
                         }
                         assert!(
-                            matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "list.cons"),
+                            matches!(snd.as_ref(), Term::Arr { op, .. } if op == "list.cons"),
                             "snd.snd should be list.cons"
                         );
                     }
@@ -930,7 +930,7 @@ fn test_load_zip_rich_from_disk() {
     // Load zip_rich.hnl from disk
     let zip_path = format!("{}/fn/zip_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&zip_path).expect("load zip_rich from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 }
 
 // ============================================================================
@@ -945,25 +945,25 @@ fn test_parse_reduce_rich_hnl() {
             // Should be: loop(fold_step >>> first(id))
             // reduce projects to the accumulator only (via first(id)),
             // discarding the element stream.
-            assert!(matches!(scheme, Scheme::Loop { .. }));
-            if let Scheme::Loop { body } = &scheme {
+            assert!(matches!(scheme, Term::Loop { .. }));
+            if let Term::Loop { body } = &scheme {
                 assert!(
-                    matches!(body.as_ref(), Scheme::Seq { .. }),
+                    matches!(body.as_ref(), Term::Seq { .. }),
                     "body should be Seq, got {:?}",
                     body
                 );
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd } = body.as_ref() {
                     assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                        matches!(fst.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
                         "fst should be fold_step"
                     );
                     assert!(
-                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        matches!(snd.as_ref(), Term::First { .. }),
                         "snd should be First"
                     );
-                    if let Scheme::First { inner } = snd.as_ref() {
+                    if let Term::First { inner } = snd.as_ref() {
                         assert!(
-                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            matches!(inner.as_ref(), Term::Arr { op, .. } if op == "id"),
                             "inner should be id"
                         );
                     }
@@ -1011,15 +1011,15 @@ fn test_parsed_reduce_rich_distinct_from_fold() {
     );
 
     // Verify reduce has the projection (First(id)) that fold lacks.
-    if let Scheme::Loop { body: reduce_body } = &reduce_scheme {
+    if let Term::Loop { body: reduce_body } = &reduce_scheme {
         assert!(
-            matches!(reduce_body.as_ref(), Scheme::Seq { .. }),
+            matches!(reduce_body.as_ref(), Term::Seq { .. }),
             "reduce body should be Seq (fold_step >>> first(id))"
         );
     }
-    if let Scheme::Loop { body: fold_body } = &fold_scheme {
+    if let Term::Loop { body: fold_body } = &fold_scheme {
         assert!(
-            matches!(fold_body.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+            matches!(fold_body.as_ref(), Term::Arr { op, .. } if op == "fold_step"),
             "fold body should be just fold_step (no projection)"
         );
     }
@@ -1033,7 +1033,7 @@ fn test_load_reduce_rich_from_disk() {
     // Load reduce_rich.hnl from disk
     let reduce_path = format!("{}/fn/reduce_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&reduce_path).expect("load reduce_rich from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 }
 
 #[test]
@@ -1117,7 +1117,7 @@ fn test_parsed_sort_resolved_matches_handbuilt() {
 }
 
 // ============================================================================
-// End-to-end: infer from parsed .hnl -> same results as hand-built Scheme
+// End-to-end: infer from parsed .hnl -> same results as hand-built Term
 // ============================================================================
 
 #[test]
@@ -1326,12 +1326,12 @@ fn test_load_arrow_file_from_disk() {
     // Load insert.hnl from disk
     let insert_path = format!("{}/collection/insert.hnl", arrows_dir);
     let scheme = load_arrow_file(&insert_path).expect("load insert from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load map.hnl from disk
     let map_path = format!("{}/fn/map.hnl", arrows_dir);
     let scheme = load_arrow_file(&map_path).expect("load map from disk");
-    assert!(matches!(scheme, Scheme::Loop { .. }));
+    assert!(matches!(scheme, Term::Loop { .. }));
 }
 
 #[test]

@@ -1,7 +1,7 @@
 //! Eval conformance suite for the tree-walk engine.
 //!
 //! Runs the shared eval conformance corpus from `handl-test-utils` against
-//! the `TreeWalkEngine`, verifying it correctly interprets `Scheme` data and
+//! the `TreeWalkEngine`, verifying it correctly interprets `Term` data and
 //! produces the expected `Value` for each case. The "foreign" case is
 //! handled by constructing the engine with the conformance host registry.
 

@@ -2,13 +2,13 @@
 //!
 //! These tests verify that:
 //! - Parse atoms are registered correctly in both `minimal()` and `from_axioms()`
-//! - The Pratt parser `.hnl` arrow file parses to the correct `Scheme` IR
+//! - The Pratt parser `.hnl` arrow file parses to the correct `Term` IR
 //! - Inference succeeds on the Pratt parser graph
 //! - The inferred guarantee includes `LengthSubOne` (tokens are consumed)
 //! - The inferred termination measure shows the token list decreases
 //! - The Pratt parser can be loaded and inferred end-to-end from disk
 
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Term};
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::{ParsedFile, parse_arrow_file};
@@ -23,7 +23,7 @@ const PRATT_HNL: &str = include_str!("../../../handl-packages/parse-pratt/pratt.
 // Hand-built Pratt parser graph (matching the .hnl file)
 // ============================================================================
 
-/// Build the Pratt parser arrow graph as a Scheme:
+/// Build the Pratt parser arrow graph as a Term:
 ///   loop(parse_atom >>> parse_ops)
 /// where:
 ///   parse_atom  = arr("parse.consume") >>> arr("parse.atom_value")
@@ -35,30 +35,30 @@ const PRATT_HNL: &str = include_str!("../../../handl-packages/parse-pratt/pratt.
 /// structure lets the inference engine derive:
 ///   - LengthSubOne(output, input) -- tokens are consumed
 ///   - Nested(ListLength) -- termination via token list decrease
-fn pratt_graph() -> Scheme {
-    use Scheme::*;
+fn pratt_graph() -> Term {
+    use Term::*;
 
     // apply_op = arr("parse.consume") >>> arr("parse.make_node")
     let apply_op = Seq {
-        fst: Box::new(Scheme::arr_native("parse.consume", vec![])),
-        snd: Box::new(Scheme::arr_native("parse.make_node", vec![])),
+        fst: Box::new(Term::arr_native("parse.consume", vec![])),
+        snd: Box::new(Term::arr_native("parse.make_node", vec![])),
     };
 
     // parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
     let parse_ops = Loop {
         body: Box::new(Seq {
-            fst: Box::new(Scheme::arr_native("parse.peek", vec![])),
+            fst: Box::new(Term::arr_native("parse.peek", vec![])),
             snd: Box::new(Choice {
                 l: Box::new(apply_op),
-                r: Box::new(Scheme::arr_native("id", vec![])),
+                r: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     };
 
     // parse_atom = arr("parse.consume") >>> arr("parse.atom_value")
     let parse_atom = Seq {
-        fst: Box::new(Scheme::arr_native("parse.consume", vec![])),
-        snd: Box::new(Scheme::arr_native("parse.atom_value", vec![])),
+        fst: Box::new(Term::arr_native("parse.consume", vec![])),
+        snd: Box::new(Term::arr_native("parse.atom_value", vec![])),
     };
 
     // pratt = loop(parse_atom >>> parse_ops)
@@ -157,7 +157,7 @@ fn test_from_axioms_matches_minimal_for_parse_consume() {
 }
 
 // ============================================================================
-// 2. Pratt parser arrow file parses to Scheme
+// 2. Pratt parser arrow file parses to Term
 // ============================================================================
 
 #[test]
@@ -168,7 +168,7 @@ fn test_parse_pratt_hnl() {
             // Should be: loop((parse.consume >>> parse.atom_value) >>>
             //                  loop(parse.peek >>> ((parse.consume >>> parse.make_node) ||| id)))
             assert!(
-                matches!(scheme, Scheme::Loop { .. }),
+                matches!(scheme, Term::Loop { .. }),
                 "top-level should be Loop"
             );
         }
@@ -323,7 +323,7 @@ fn test_load_pratt_from_disk() {
 
     let scheme = load_arrow_file(&pratt_path).expect("load pratt from disk");
     assert!(
-        matches!(scheme, Scheme::Loop { .. }),
+        matches!(scheme, Term::Loop { .. }),
         "pratt should be a Loop"
     );
 }
@@ -363,19 +363,19 @@ fn test_parse_ops_inner_loop_inference() {
     // Test the inner loop in isolation:
     //   parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
     //   apply_op  = arr("parse.consume") >>> arr("parse.make_node")
-    use Scheme::*;
+    use Term::*;
 
     let apply_op = Seq {
-        fst: Box::new(Scheme::arr_native("parse.consume", vec![])),
-        snd: Box::new(Scheme::arr_native("parse.make_node", vec![])),
+        fst: Box::new(Term::arr_native("parse.consume", vec![])),
+        snd: Box::new(Term::arr_native("parse.make_node", vec![])),
     };
 
     let parse_ops = Loop {
         body: Box::new(Seq {
-            fst: Box::new(Scheme::arr_native("parse.peek", vec![])),
+            fst: Box::new(Term::arr_native("parse.peek", vec![])),
             snd: Box::new(Choice {
                 l: Box::new(apply_op),
-                r: Box::new(Scheme::arr_native("id", vec![])),
+                r: Box::new(Term::arr_native("id", vec![])),
             }),
         }),
     };
@@ -419,7 +419,7 @@ fn test_parse_ops_inner_loop_inference() {
 fn test_parse_consume_direct_inference() {
     // Direct inference on the parse.consume atom should produce LengthSubOne.
     let registry = ContractRegistry::minimal();
-    let graph = Scheme::arr_native("parse.consume", vec![]);
+    let graph = Term::arr_native("parse.consume", vec![]);
     let result = infer_refinement(&graph, &registry).expect("parse.consume inference");
 
     assert_eq!(

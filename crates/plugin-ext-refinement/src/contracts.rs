@@ -1,6 +1,6 @@
 //! Contract registry -- the separate registry for base-arrow contracts.
 //!
-//! Per ADR-0052, contracts do NOT go in `Scheme`. They live in a separate
+//! Per ADR-0052, contracts do NOT go in `Term`. They live in a separate
 //! registry keyed by `(op, source)`, mirroring the research prototype's
 //! `RefSigEntry` table but adapted to handl's `ArrSource` discipline.
 //!
@@ -35,7 +35,7 @@ fn source_key(source: &ArrSource) -> String {
 ///
 /// This is the handl-side equivalent of the research prototype's
 /// `Vec<RefSigEntry>` signature table. Contracts are looked up by the
-/// inference engine when it encounters a `Scheme::Arr` node.
+/// inference engine when it encounters a `Term::Arr` node.
 #[derive(Debug)]
 pub struct ContractRegistry {
     contracts: HashMap<(String, String), Contract>,

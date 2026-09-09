@@ -12,7 +12,7 @@
 //! tree-walk (or bytecode/cranelift) engine implements it.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
-//! `lang.eval[node.kind]` to find a [`handl_language::Scheme`] and interpret
+//! `lang.eval[node.kind]` to find a [`handl_language::Term`] and interpret
 //! it, not match on a static Rust enum of canonical kinds.
 
 #![warn(missing_docs)]
@@ -63,7 +63,7 @@ impl EvalRequest {
 /// The trait an eval engine implements.
 ///
 /// An engine looks up `lang.eval[node.kind]` →
-/// [`handl_language::EvalSchemeDef`] → [`handl_language::Scheme`] and
+/// [`handl_language::EvalSchemeDef`] → [`handl_language::Term`] and
 /// interprets the scheme. The engine is pure data-driven: it does not match on
 /// a static `CanonicalKind` enum.
 ///

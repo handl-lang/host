@@ -31,7 +31,7 @@
 #![warn(missing_docs)]
 
 use handl_language::{
-    AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Scheme, TokenKindDef, Value,
+    AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Term, TokenKindDef, Value,
 };
 
 /// The contract every migrated rule crate implements.
@@ -152,7 +152,7 @@ pub fn infix_binary(
     )
 }
 
-/// Add an eval scheme mapping `node_kind` to a [`Scheme`].
+/// Add an eval scheme mapping `node_kind` to a [`Term`].
 ///
 /// # Errors
 ///
@@ -161,7 +161,7 @@ pub fn eval_scheme(
     lang: &mut Language,
     id: &str,
     node_kind: &str,
-    scheme: Scheme,
+    scheme: Term,
 ) -> Result<(), handl_language::LangError> {
     lang.eval.merge(EvalSchemeDef::new(id, node_kind, scheme))
 }
@@ -170,12 +170,12 @@ pub fn eval_scheme(
 ///
 /// Convenience: `prim_binary("add")` →
 /// `arr("add", [proj_child 0, proj_child 1])`.
-pub fn prim_binary(op: &str) -> Scheme {
-    Scheme::arr_native(
+pub fn prim_binary(op: &str) -> Term {
+    Term::arr_native(
         op,
         vec![
-            Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-            Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
         ],
     )
 }
@@ -186,12 +186,12 @@ pub fn prim_binary(op: &str) -> Scheme {
 ///
 /// For a call node with N children, child 0 is the callee and children 1..N
 /// are the arguments.
-pub fn app_call(num_args: usize) -> Scheme {
-    let args: Vec<Scheme> = (1..=num_args)
-        .map(|i| Scheme::arr_native_lit("proj_child", vec![], Value::from(i as u64)))
+pub fn app_call(num_args: usize) -> Term {
+    let args: Vec<Term> = (1..=num_args)
+        .map(|i| Term::arr_native_lit("proj_child", vec![], Value::from(i as u64)))
         .collect();
-    Scheme::app(
-        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+    Term::app(
+        Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
         args,
     )
 }
@@ -243,11 +243,11 @@ mod tests {
         let s = prim_binary("add");
         assert_eq!(
             s,
-            Scheme::arr_native(
+            Term::arr_native(
                 "add",
                 vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
             )
         );
@@ -258,11 +258,11 @@ mod tests {
         let s = app_call(2);
         assert_eq!(
             s,
-            Scheme::app(
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Term::app(
+                Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
                 vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(2u64)),
                 ],
             )
         );
@@ -273,8 +273,8 @@ mod tests {
         let s = app_call(0);
         assert_eq!(
             s,
-            Scheme::app(
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Term::app(
+                Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
                 vec![]
             )
         );

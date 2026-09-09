@@ -90,7 +90,7 @@ const LINTS_YAML: &str = include_str!("../data/lints.yaml");
 ///
 /// Each file contains a YAML list of fragments of one type. The fragments are
 /// deserialized and merged into a single [`Language`]. `eval.yaml` holds the
-/// arrow-calculus `Scheme` definitions (ADR-0052 kernel).
+/// arrow-calculus `Term` definitions (ADR-0052 kernel).
 ///
 /// # Errors
 ///

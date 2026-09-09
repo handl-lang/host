@@ -9,7 +9,7 @@
 //! bound as the `pred` argument under the tree-walk engine. The result must
 //! carry the argument *value* (`{"tag":"Zero"}`), not the string `"pred"`.
 
-use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Scheme, Value};
+use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::{Runtime, desugar_pass::apply_desugar};
 use serde_json::json;
@@ -23,21 +23,21 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.assign",
             "assign",
-            Scheme::arr_native("assign", vec![]),
+            Term::arr_native("assign", vec![]),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.json",
             "json",
-            Scheme::arr_native("json", vec![]),
+            Term::arr_native("json", vec![]),
         ))
         .unwrap();
     lang

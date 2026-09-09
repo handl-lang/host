@@ -1,10 +1,10 @@
 //! # handl-plugin-engine-exec-tree-walk
 //!
 //! The **reference interpreter** for the eval operation (ADR-0044 §3, §4,
-//! ADR-0052). Interprets the arrow-calculus [`handl_language::Scheme`]
+//! ADR-0052). Interprets the arrow-calculus [`handl_language::Term`]
 //! kernel directly via tree-walking: it looks up
 //! `lang.eval[node.kind]` → [`handl_language::EvalSchemeDef`] →
-//! [`Scheme`], and interprets the scheme. It is entirely data-driven.
+//! [`Term`], and interprets the scheme. It is entirely data-driven.
 //!
 //! ## Value shapes
 //!
@@ -44,7 +44,7 @@
 //!
 //! ## Loop semantics
 //!
-//! [`Scheme::Loop`] implements **causal/strict** feedback (ADR-0052). The
+//! [`Term::Loop`] implements **causal/strict** feedback (ADR-0052). The
 //! handler seeds `State` with [`Value::Null`], constructs the pair
 //! `(In, State)`, and evaluates `body` with that pair as `incoming`. The
 //! body's result shape selects one of two modes:
@@ -103,7 +103,7 @@ use std::rc::Rc;
 use rustc_hash::FxHashMap;
 
 use handl_language::{
-    ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value, tag_value,
+    ArrSource, Ast, AstNode, AstRef, LangError, Language, Term, Value, tag_value,
 };
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
@@ -146,15 +146,15 @@ thread_local! {
 /// returning a closure — is stamped with `"__home__": <id>` so that
 /// `apply_app` / `call_value` can route application back here.
 #[derive(Clone)]
-struct EvalFrame {
+pub struct EvalFrame {
     /// The AST the arrow's `body` index refers to.
-    ast: Rc<Ast>,
+    pub ast: Rc<Ast>,
     /// The `Language` whose eval schemes interpret that AST.
-    lang: Rc<Language>,
+    pub lang: Rc<Language>,
     /// The module chain for host-function dispatch inside the body.
-    modules: Option<Rc<dyn ModuleLookup>>,
+    pub modules: Option<Rc<dyn ModuleLookup>>,
     /// The host-provided globals visible to the body.
-    globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+    pub globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
 }
 
 impl EvalFrame {
@@ -163,7 +163,7 @@ impl EvalFrame {
     /// [`EvalEngine::eval`], so nested `ctx.try_call_value` /
     /// `TreeWalkCallable` calls inside the arrow body see the arrow's home
     /// frame rather than the ambient one.
-    fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
+    pub fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
         let prev_ast = CURRENT_AST
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.ast))));
         let prev_lang = CURRENT_LANG
@@ -182,7 +182,7 @@ impl EvalFrame {
 }
 
 /// Look up a registered home [`EvalFrame`] by id.
-fn home_frame(id: u64) -> Option<EvalFrame> {
+pub fn home_frame(id: u64) -> Option<EvalFrame> {
     HOME_FRAMES.with(|m| m.borrow().get(&id).cloned())
 }
 
@@ -459,7 +459,7 @@ impl<'a> PatternMatchCtx for TreeWalkPatternCtx<'a> {
 
 /// The tree-walk eval engine (ADR-0052 arrow-calculus reference handler).
 ///
-/// A tree-walk handler that interprets [`Scheme`] directly. Construct
+/// A tree-walk handler that interprets [`Term`] directly. Construct
 /// with [`TreeWalkEngine::new`] and optionally attach a module registry
 /// via [`TreeWalkEngine::with_modules`] or inject globals via
 /// [`TreeWalkEngine::with_global`].
@@ -478,7 +478,7 @@ pub struct TreeWalkEngine {
     /// Cache for handler-eliminated schemes, keyed by node kind (ADR-0076).
     /// Avoids re-running `eliminate_and_check` on every eval of the same
     /// node kind.
-    eliminated_cache: RefCell<HashMap<String, Scheme>>,
+    eliminated_cache: RefCell<HashMap<String, Term>>,
     /// Optional handler for the `assert` native op to raise structured
     /// failure details into the host runner.
     assert_handler: Option<Rc<dyn AssertHandler>>,
@@ -531,7 +531,7 @@ impl TreeWalkEngine {
         self
     }
 
-    /// Interpret a given [`Scheme`] in the context of `current_node`.
+    /// Interpret a given [`Term`] in the context of `current_node`.
     ///
     /// This is the core handler entry point. `incoming` is the value fed
     /// by an enclosing `Seq`/`First`/`Choice`/`Loop`; top-level calls
@@ -541,7 +541,7 @@ impl TreeWalkEngine {
     ///
     /// `extend_env` pushes a scope and returns the value flowing through.
     /// The scope's lifetime follows the arrow pipeline: it is popped by
-    /// the enclosing [`Scheme::Seq`] whose `fst` (transitively) contained
+    /// the enclosing [`Term::Seq`] whose `fst` (transitively) contained
     /// the `extend_env`, after that `Seq`'s `snd` completes. This
     /// realizes the `Bind` lowering
     /// `value >>> extend_env "x" >>> body` =
@@ -552,7 +552,7 @@ impl TreeWalkEngine {
     #[allow(clippy::too_many_arguments)]
     pub fn eval_scheme(
         &self,
-        scheme: &Scheme,
+        scheme: &Term,
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -583,7 +583,7 @@ impl TreeWalkEngine {
     #[allow(clippy::too_many_arguments)]
     fn eval_scheme_tagged(
         &self,
-        scheme: &Scheme,
+        scheme: &Term,
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -613,7 +613,7 @@ impl TreeWalkEngine {
     #[allow(clippy::too_many_arguments)]
     fn eval_inner(
         &self,
-        scheme: &Scheme,
+        scheme: &Term,
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -622,7 +622,7 @@ impl TreeWalkEngine {
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
         match scheme {
-            Scheme::Arr {
+            Term::Arr {
                 op,
                 args,
                 source,
@@ -639,7 +639,7 @@ impl TreeWalkEngine {
                 current_node,
                 incoming,
             ),
-            Scheme::Seq { fst, snd } => {
+            Term::Seq { fst, snd } => {
                 let (fst_val, fst_pushed) = self.eval_inner(
                     fst,
                     ast,
@@ -660,7 +660,7 @@ impl TreeWalkEngine {
                 // Seq after its own snd completes.
                 Ok((snd_val, snd_pushed))
             }
-            Scheme::First { inner } => {
+            Term::First { inner } => {
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine_node(
                         "First: missing incoming value".to_string(),
@@ -690,7 +690,7 @@ impl TreeWalkEngine {
                 }
                 Ok((pair(inner_result, b), false))
             }
-            Scheme::Choice { l, r } => {
+            Term::Choice { l, r } => {
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine_node(
                         "Choice: missing incoming value".to_string(),
@@ -728,7 +728,7 @@ impl TreeWalkEngine {
                 }
                 Ok((val, false))
             }
-            Scheme::Loop { body } => {
+            Term::Loop { body } => {
                 // Causal/strict feedback (ADR-0052 §"Feedback semantics").
                 // Two modes, selected by the body's result shape (see the
                 // module-level "Loop semantics" doc):
@@ -746,7 +746,7 @@ impl TreeWalkEngine {
                 // as an argument to `apply_app`). Hoist the closure
                 // evaluation outside the loop so it runs once instead of
                 // once per iteration.
-                if let Scheme::Arr {
+                if let Term::Arr {
                     op, args, source, ..
                 } = body.as_ref()
                 {
@@ -854,7 +854,7 @@ impl TreeWalkEngine {
                     current_node,
                 ))
             }
-            Scheme::App { callee, args } => {
+            Term::App { callee, args } => {
                 let (callee_val, cpushed) = self.eval_inner(
                     callee,
                     ast,
@@ -933,7 +933,7 @@ impl TreeWalkEngine {
             //
             // The elimination result is cached per node kind to avoid
             // re-running the pass on every eval of the same kind.
-            Scheme::Handle { .. } => {
+            Term::Handle { .. } => {
                 let eliminated = {
                     let mut cache = self.eliminated_cache.borrow_mut();
                     if let Some(e) = cache.get(current_node.kind.as_str()) {
@@ -965,7 +965,7 @@ impl TreeWalkEngine {
     fn eval_arr(
         &self,
         op: &str,
-        args: &[Scheme],
+        args: &[Term],
         source: &ArrSource,
         lit: Option<&Value>,
         ast: &Ast,
@@ -1135,7 +1135,7 @@ impl TreeWalkEngine {
 
     /// Evaluate a derived-pattern composite step op
     /// (`while_step`/`for_step`/`fix_step`). These are handler-interpreted
-    /// derived operations (ADR-0052 §"Derived forms"): the `Scheme`
+    /// derived operations (ADR-0052 §"Derived forms"): the `Term`
     /// description is built from primitives (`Loop` + `Arr`), and the
     /// handler interprets the composite op by recursively evaluating the
     /// carried sub-arrows (`cond`/`body`) with the *current value*
@@ -1146,7 +1146,7 @@ impl TreeWalkEngine {
     fn eval_derived_step(
         &self,
         op: &str,
-        raw_args: &[Scheme],
+        raw_args: &[Term],
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -1292,7 +1292,7 @@ impl TreeWalkEngine {
                 //
                 // NOTE: When `loop_step` is the direct body of a `Loop`
                 // combinator, the closure evaluation is hoisted outside
-                // the loop by the `Scheme::Loop` arm in `eval_inner` (see
+                // the loop by the `Term::Loop` arm in `eval_inner` (see
                 // the optimization there). This path is only reached when
                 // `loop_step` appears in a non-hoisted position.
                 let body_proc = raw_args.first().ok_or_else(|| {
@@ -3030,7 +3030,7 @@ impl TreeWalkEngine {
     #[doc(hidden)]
     pub fn eval_scheme_v2(
         &self,
-        scheme: &Scheme,
+        scheme: &Term,
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -4458,7 +4458,7 @@ fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Scheme};
+    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
@@ -4466,58 +4466,58 @@ mod tests {
 
     // --- v2 scheme constructor helpers ---
 
-    /// `proj_child n` — the v2 equivalent of the old `Scheme::Child(n)`.
-    fn child(n: u64) -> Scheme {
-        Scheme::arr_native_lit("proj_child", vec![], Value::from(n))
+    /// `proj_child n` — the v2 equivalent of the old `Term::Child(n)`.
+    fn child(n: u64) -> Term {
+        Term::arr_native_lit("proj_child", vec![], Value::from(n))
     }
 
-    /// `proj_env name` — the v2 equivalent of the old `Scheme::Var(name)`.
-    fn var(name: &str) -> Scheme {
-        Scheme::arr_native_lit("proj_env", vec![], name)
+    /// `proj_env name` — the v2 equivalent of the old `Term::Var(name)`.
+    fn var(name: &str) -> Term {
+        Term::arr_native_lit("proj_env", vec![], name)
     }
 
-    /// `const v` — the v2 equivalent of the old `Scheme::Lit(v)`.
-    fn lit(v: impl Into<Value>) -> Scheme {
-        Scheme::arr_native_lit("const", vec![], v.into())
+    /// `const v` — the v2 equivalent of the old `Term::Lit(v)`.
+    fn lit(v: impl Into<Value>) -> Term {
+        Term::arr_native_lit("const", vec![], v.into())
     }
 
     /// `arr_native op args` — the v2 equivalent of the old
-    /// `Scheme::Prim { op, args }`.
-    fn prim(op: &str, args: Vec<Scheme>) -> Scheme {
-        Scheme::arr_native(op, args)
+    /// `Term::Prim { op, args }`.
+    fn prim(op: &str, args: Vec<Term>) -> Term {
+        Term::arr_native(op, args)
     }
 
     /// `arr_foreign name args` — the v2 equivalent of the old
-    /// `Scheme::Foreign { name, args }`.
-    fn foreign(name: &str, args: Vec<Scheme>) -> Scheme {
-        Scheme::arr_foreign(name, args)
+    /// `Term::Foreign { name, args }`.
+    fn foreign(name: &str, args: Vec<Term>) -> Term {
+        Term::arr_foreign(name, args)
     }
 
     /// The `Bind` lowering:
     /// `Seq(Seq(value, extend_env name), body)`.
-    fn bind(name: &str, value: Scheme, body: Scheme) -> Scheme {
-        Scheme::seq(
-            Scheme::seq(value, Scheme::arr_native_lit("extend_env", vec![], name)),
+    fn bind(name: &str, value: Term, body: Term) -> Term {
+        Term::seq(
+            Term::seq(value, Term::arr_native_lit("extend_env", vec![], name)),
             body,
         )
     }
 
     /// The `Branch` lowering:
     /// `Seq(cond, Seq(arr tag, Choice(then_, else_)))`.
-    fn branch(cond: Scheme, then_: Scheme, else_: Scheme) -> Scheme {
-        Scheme::seq(
+    fn branch(cond: Term, then_: Term, else_: Term) -> Term {
+        Term::seq(
             cond,
-            Scheme::seq(
-                Scheme::arr_native("tag", vec![]),
-                Scheme::choice(then_, else_),
+            Term::seq(
+                Term::arr_native("tag", vec![]),
+                Term::choice(then_, else_),
             ),
         )
     }
 
     /// `app callee args` — the v2 equivalent of the old
-    /// `Scheme::App { callee, args }`.
-    fn app(callee: Scheme, args: Vec<Scheme>) -> Scheme {
-        Scheme::app(callee, args)
+    /// `Term::App { callee, args }`.
+    fn app(callee: Term, args: Vec<Term>) -> Term {
+        Term::app(callee, args)
     }
 
     /// Build a simple AST for testing.
@@ -4539,7 +4539,7 @@ mod tests {
     /// node, passing `None` as incoming.
     fn eval_standalone(
         engine: &TreeWalkEngine,
-        scheme: &Scheme,
+        scheme: &Term,
         env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         let ast = make_ast(vec![dummy_node()]);
@@ -4647,7 +4647,7 @@ mod tests {
     fn arr_const_returns_literal() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native_lit("const", vec![], json!(42));
+        let s = Term::arr_native_lit("const", vec![], json!(42));
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(42));
     }
@@ -4656,7 +4656,7 @@ mod tests {
     fn arr_const_null_when_no_literal() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native("const", vec![]);
+        let s = Term::arr_native("const", vec![]);
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, Value::Null);
     }
@@ -4668,7 +4668,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
         env.define("x", TaggedValue::from(json!(7)));
-        let s = Scheme::arr_native_lit("proj_env", vec![], "x");
+        let s = Term::arr_native_lit("proj_env", vec![], "x");
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(7));
     }
@@ -4677,7 +4677,7 @@ mod tests {
     fn arr_proj_env_unbound_returns_name() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native_lit("proj_env", vec![], "unknown");
+        let s = Term::arr_native_lit("proj_env", vec![], "unknown");
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, Value::from("unknown"));
     }
@@ -4688,9 +4688,9 @@ mod tests {
     fn seq_const_then_id() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], json!(5)),
-            Scheme::arr_native("id", vec![]),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], json!(5)),
+            Term::arr_native("id", vec![]),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(5));
@@ -4702,12 +4702,12 @@ mod tests {
     fn bind_shape_extend_env_then_proj_env() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::seq(
-                Scheme::arr_native_lit("const", vec![], json!(5)),
-                Scheme::arr_native_lit("extend_env", vec![], "x"),
+        let s = Term::seq(
+            Term::seq(
+                Term::arr_native_lit("const", vec![], json!(5)),
+                Term::arr_native_lit("extend_env", vec![], "x"),
             ),
-            Scheme::arr_native_lit("proj_env", vec![], "x"),
+            Term::arr_native_lit("proj_env", vec![], "x"),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(5));
@@ -4721,9 +4721,9 @@ mod tests {
     fn first_id_on_pair() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], pair(json!(3).into(), json!(7).into())),
-            Scheme::first(Scheme::arr_native("id", vec![])),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], pair(json!(3).into(), json!(7).into())),
+            Term::first(Term::arr_native("id", vec![])),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(
@@ -4736,9 +4736,9 @@ mod tests {
     fn first_const_on_pair() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], pair(json!(3).into(), json!(7).into())),
-            Scheme::first(Scheme::arr_native_lit("const", vec![], json!(99))),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], pair(json!(3).into(), json!(7).into())),
+            Term::first(Term::arr_native_lit("const", vec![], json!(99))),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(
@@ -4753,11 +4753,11 @@ mod tests {
     fn choice_left() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], either_left(json!(5).into())),
-            Scheme::choice(
-                Scheme::arr_native_lit("const", vec![], json!(1)),
-                Scheme::arr_native_lit("const", vec![], json!(2)),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], either_left(json!(5).into())),
+            Term::choice(
+                Term::arr_native_lit("const", vec![], json!(1)),
+                Term::arr_native_lit("const", vec![], json!(2)),
             ),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -4768,11 +4768,11 @@ mod tests {
     fn choice_right() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], either_right(json!(5).into())),
-            Scheme::choice(
-                Scheme::arr_native_lit("const", vec![], json!(1)),
-                Scheme::arr_native_lit("const", vec![], json!(2)),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], either_right(json!(5).into())),
+            Term::choice(
+                Term::arr_native_lit("const", vec![], json!(1)),
+                Term::arr_native_lit("const", vec![], json!(2)),
             ),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -4785,14 +4785,14 @@ mod tests {
     fn tag_choice_true_yields_then() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::seq(
-                Scheme::arr_native_lit("const", vec![], json!(true)),
-                Scheme::arr_native("tag", vec![]),
+        let s = Term::seq(
+            Term::seq(
+                Term::arr_native_lit("const", vec![], json!(true)),
+                Term::arr_native("tag", vec![]),
             ),
-            Scheme::choice(
-                Scheme::arr_native_lit("const", vec![], "yes"),
-                Scheme::arr_native_lit("const", vec![], "no"),
+            Term::choice(
+                Term::arr_native_lit("const", vec![], "yes"),
+                Term::arr_native_lit("const", vec![], "no"),
             ),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -4803,14 +4803,14 @@ mod tests {
     fn tag_choice_false_yields_else() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::seq(
-                Scheme::arr_native_lit("const", vec![], json!(false)),
-                Scheme::arr_native("tag", vec![]),
+        let s = Term::seq(
+            Term::seq(
+                Term::arr_native_lit("const", vec![], json!(false)),
+                Term::arr_native("tag", vec![]),
             ),
-            Scheme::choice(
-                Scheme::arr_native_lit("const", vec![], "yes"),
-                Scheme::arr_native_lit("const", vec![], "no"),
+            Term::choice(
+                Term::arr_native_lit("const", vec![], "yes"),
+                Term::arr_native_lit("const", vec![], "no"),
             ),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -4825,9 +4825,9 @@ mod tests {
         let mut env = ScopeStack::new();
         // body: inc_fst maps pair(in, state) -> pair(in+1, state).
         // Loop seeds state=Null, feeds pair(in, Null), returns out=in+1.
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], json!(10)),
-            Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![])),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], json!(10)),
+            Term::loop_feedback(Term::arr_native("inc_fst", vec![])),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(11));
@@ -4842,9 +4842,9 @@ mod tests {
         // input = pair(42, 5): result=42, countdown from 5.
         // countdown_step: state>0 -> either_right(state-1) (continue);
         // state==0 -> either_left(42) (done). Runs 5 steps, returns 42.
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], pair(json!(42).into(), json!(5).into())),
-            Scheme::loop_feedback(Scheme::arr_native("countdown_step", vec![])),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], pair(json!(42).into(), json!(5).into())),
+            Term::loop_feedback(Term::arr_native("countdown_step", vec![])),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(42));
@@ -4856,9 +4856,9 @@ mod tests {
         let mut env = ScopeStack::new();
         // infinite_step always returns either_right(state) — never
         // terminates. The Loop max-iteration guard must fire.
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], json!(1)),
-            Scheme::loop_feedback(Scheme::arr_native("infinite_step", vec![])),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], json!(1)),
+            Term::loop_feedback(Term::arr_native("infinite_step", vec![])),
         );
         let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
         assert!(
@@ -4873,9 +4873,9 @@ mod tests {
         // behavior, now the fallback when the result is not an Either.
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::seq(
-            Scheme::arr_native_lit("const", vec![], json!(10)),
-            Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![])),
+        let s = Term::seq(
+            Term::arr_native_lit("const", vec![], json!(10)),
+            Term::loop_feedback(Term::arr_native("inc_fst", vec![])),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(11));
@@ -4907,8 +4907,8 @@ mod tests {
         });
         // App(callee = const <closure>, args = [const 41])
         let s = app(
-            Scheme::arr_native_lit("const", vec![], closure),
-            vec![Scheme::arr_native_lit("const", vec![], json!(41))],
+            Term::arr_native_lit("const", vec![], closure),
+            vec![Term::arr_native_lit("const", vec![], json!(41))],
         );
         let mut env = ScopeStack::new();
         let node = ast.at(AstRef::new(1)).unwrap();
@@ -4994,11 +4994,11 @@ mod tests {
     fn native_add() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native(
+        let s = Term::arr_native(
             "add",
             vec![
-                Scheme::arr_native_lit("const", vec![], json!(2)),
-                Scheme::arr_native_lit("const", vec![], json!(3)),
+                Term::arr_native_lit("const", vec![], json!(2)),
+                Term::arr_native_lit("const", vec![], json!(3)),
             ],
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -5009,11 +5009,11 @@ mod tests {
     fn native_eq() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native(
+        let s = Term::arr_native(
             "eq",
             vec![
-                Scheme::arr_native_lit("const", vec![], json!(2)),
-                Scheme::arr_native_lit("const", vec![], json!(2)),
+                Term::arr_native_lit("const", vec![], json!(2)),
+                Term::arr_native_lit("const", vec![], json!(2)),
             ],
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -5026,9 +5026,9 @@ mod tests {
     fn foreign_arr_dispatches_to_module() {
         let engine = TreeWalkEngine::new().with_modules(double_registry());
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_foreign(
+        let s = Term::arr_foreign(
             "double",
-            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+            vec![Term::arr_native_lit("const", vec![], json!(21))],
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!(42));
@@ -5038,9 +5038,9 @@ mod tests {
     fn foreign_arr_no_modules_errors() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_foreign(
+        let s = Term::arr_foreign(
             "double",
-            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+            vec![Term::arr_native_lit("const", vec![], json!(21))],
         );
         let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
         assert!(
@@ -5080,7 +5080,7 @@ mod tests {
     fn unknown_native_op_errors() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let s = Scheme::arr_native("bogus", vec![]);
+        let s = Term::arr_native("bogus", vec![]);
         let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
         assert!(
             matches!(err, LangError::Engine { ref message, .. } if message.contains("unknown v2 native op"))
@@ -5103,7 +5103,7 @@ mod tests {
                 .map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone())))
                 .collect(),
         ));
-        let s = Scheme::arr_native_lit("proj_env", vec![], "self");
+        let s = Term::arr_native_lit("proj_env", vec![], "self");
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
         assert_eq!(result, json!("my-lang"));
     }

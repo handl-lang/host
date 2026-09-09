@@ -26,7 +26,7 @@
 //!
 //! 1. **Compile the `Language`'s schemes to native code once** — the
 //!    `CraneliftEngine` builds its JIT module from `lang` (resolving every
-//!    node kind's `Scheme` to native code at compile time, erasing the
+//!    node kind's `Term` to native code at compile time, erasing the
 //!    `lang.eval[node.kind]` data dispatch). This is the **specialization**
 //!    step: `lang` is fixed and baked into native code.
 //! 2. **Evaluate multiple `ast`s against the same compiled module** — the

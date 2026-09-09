@@ -602,7 +602,7 @@ pub struct LoopInvariant {
 // Refinement result
 // ============================================================================
 
-/// The result of refinement inference on a `Scheme`.
+/// The result of refinement inference on a `Term`.
 #[derive(Debug, Clone)]
 pub struct RefinementResult {
     /// The inferred input refinement type.

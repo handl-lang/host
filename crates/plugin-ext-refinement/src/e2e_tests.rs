@@ -6,9 +6,9 @@
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
-use handl_language::Scheme;
+use handl_language::Term;
 
-/// Build the `insert` arrow graph as a Scheme:
+/// Build the `insert` arrow graph as a Term:
 ///   loop(comp(compare_step, choice(cons_before, cons_after)))
 ///
 /// In handl syntax:
@@ -19,19 +19,19 @@ use handl_language::Scheme;
 ///                  else { state: { elem, acc: [h, ...insert(elem, t)] } }
 ///     }
 ///   )
-fn insert_graph() -> Scheme {
+fn insert_graph() -> Term {
     // For the inference engine, we represent insert as:
     // loop(comp(arr("prim.compare"), choice(arr("cons"), arr("recurse"))))
     //
     // The inference engine reads the graph structure and infers Sorted
     // from the Choice WP branching through both arms.
 
-    use Scheme::*;
+    use Term::*;
 
     // The loop body: compare elem with head, then choice
-    let compare_step = Scheme::arr_native("prim.compare", vec![]);
-    let cons_before = Scheme::arr_native("cons", vec![]); // cons elem before head
-    let cons_after = Scheme::arr_native("cons", vec![]); // cons head, recurse
+    let compare_step = Term::arr_native("prim.compare", vec![]);
+    let cons_before = Term::arr_native("cons", vec![]); // cons elem before head
+    let cons_after = Term::arr_native("cons", vec![]); // cons head, recurse
 
     let body = Seq {
         fst: Box::new(compare_step),
@@ -48,12 +48,12 @@ fn insert_graph() -> Scheme {
 
 /// Build the `sort` arrow graph:
 ///   loop(comp(insert, first(id)))
-fn sort_graph() -> Scheme {
-    use Scheme::*;
+fn sort_graph() -> Term {
+    use Term::*;
 
     let insert_step = insert_graph();
     let pass_through = First {
-        inner: Box::new(Scheme::arr_native("id", vec![])),
+        inner: Box::new(Term::arr_native("id", vec![])),
     };
 
     let body = Seq {
@@ -68,23 +68,23 @@ fn sort_graph() -> Scheme {
 
 /// Build the `map` arrow graph:
 ///   loop(first(f))
-fn map_graph() -> Scheme {
-    use Scheme::*;
+fn map_graph() -> Term {
+    use Term::*;
 
     Loop {
         body: Box::new(First {
-            inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+            inner: Box::new(Term::arr_native("fn.apply", vec![])),
         }),
     }
 }
 
 /// Build the `filter` arrow graph:
 ///   loop(comp(filter_step, id))
-fn filter_graph() -> Scheme {
-    use Scheme::*;
+fn filter_graph() -> Term {
+    use Term::*;
 
-    let filter_step = Scheme::arr_native("filter_step", vec![]);
-    let pass_through = Scheme::arr_native("id", vec![]);
+    let filter_step = Term::arr_native("filter_step", vec![]);
+    let pass_through = Term::arr_native("id", vec![]);
 
     Loop {
         body: Box::new(Seq {
@@ -96,10 +96,10 @@ fn filter_graph() -> Scheme {
 
 /// Build the `fold` arrow graph:
 ///   loop(fold_step) — returns both channels (element stream + accumulator)
-fn fold_graph() -> Scheme {
-    use Scheme::*;
+fn fold_graph() -> Term {
+    use Term::*;
 
-    let step = Scheme::arr_native("fold_step", vec![]);
+    let step = Term::arr_native("fold_step", vec![]);
 
     Loop {
         body: Box::new(step),
@@ -290,7 +290,7 @@ mod tests {
         // Direct inference on the `cons` atom should produce a non-trivial
         // guarantee containing Sorted (the enriched conditional contract).
         let registry = ContractRegistry::minimal();
-        let graph = Scheme::arr_native("cons", vec![]);
+        let graph = Term::arr_native("cons", vec![]);
         let result = infer_refinement(&graph, &registry).expect("cons inference");
         // The guarantee is Sorted(output) && LengthPlusOne(output, tail).
         assert_ne!(
@@ -372,7 +372,7 @@ mod tests {
         // Direct inference on the `cons` atom should now include IsPerm in
         // its guarantee (alongside Sorted and LengthPlusOne).
         let registry = ContractRegistry::minimal();
-        let graph = Scheme::arr_native("cons", vec![]);
+        let graph = Term::arr_native("cons", vec![]);
         let result = infer_refinement(&graph, &registry).expect("cons inference");
         let pretty = result.guarantee.pretty();
         assert!(
@@ -418,12 +418,12 @@ mod tests {
         // The pattern recognizer should add IsPerm(input, output) to any
         // loop whose body contains cons (the list constructor). This test
         // verifies the recognizer fires for a simple cons-containing loop.
-        use Scheme::*;
+        use Term::*;
         let body = Seq {
-            fst: Box::new(Scheme::arr_native("list.tail", vec![])),
+            fst: Box::new(Term::arr_native("list.tail", vec![])),
             snd: Box::new(Choice {
-                l: Box::new(Scheme::arr_native("cons", vec![])),
-                r: Box::new(Scheme::arr_native("id", vec![])),
+                l: Box::new(Term::arr_native("cons", vec![])),
+                r: Box::new(Term::arr_native("id", vec![])),
             }),
         };
         let graph = Loop {
@@ -445,84 +445,84 @@ mod tests {
     // ========================================================================
 
     /// vec.push = arr("list.cons")
-    fn vec_push_graph() -> Scheme {
-        Scheme::arr_native("list.cons", vec![])
+    fn vec_push_graph() -> Term {
+        Term::arr_native("list.cons", vec![])
     }
 
     /// vec.pop = arr("list.head")
-    fn vec_pop_graph() -> Scheme {
-        Scheme::arr_native("list.head", vec![])
+    fn vec_pop_graph() -> Term {
+        Term::arr_native("list.head", vec![])
     }
 
     /// vec.get = comp(arr("list.nth"), first(id))
-    fn vec_get_graph() -> Scheme {
-        use Scheme::*;
+    fn vec_get_graph() -> Term {
+        use Term::*;
         Seq {
-            fst: Box::new(Scheme::arr_native("list.nth", vec![])),
+            fst: Box::new(Term::arr_native("list.nth", vec![])),
             snd: Box::new(First {
-                inner: Box::new(Scheme::arr_native("id", vec![])),
+                inner: Box::new(Term::arr_native("id", vec![])),
             }),
         }
     }
 
     /// queue.enqueue = arr("list.append")
-    fn queue_enqueue_graph() -> Scheme {
-        Scheme::arr_native("list.append", vec![])
+    fn queue_enqueue_graph() -> Term {
+        Term::arr_native("list.append", vec![])
     }
 
     /// queue.dequeue = arr("list.head")
-    fn queue_dequeue_graph() -> Scheme {
-        Scheme::arr_native("list.head", vec![])
+    fn queue_dequeue_graph() -> Term {
+        Term::arr_native("list.head", vec![])
     }
 
     /// take = loop(comp(arr("list.head"), choice(arr("cons"), arr("id"))))
-    fn take_graph() -> Scheme {
-        use Scheme::*;
+    fn take_graph() -> Term {
+        use Term::*;
         Loop {
             body: Box::new(Seq {
-                fst: Box::new(Scheme::arr_native("list.head", vec![])),
+                fst: Box::new(Term::arr_native("list.head", vec![])),
                 snd: Box::new(Choice {
-                    l: Box::new(Scheme::arr_native("cons", vec![])),
-                    r: Box::new(Scheme::arr_native("id", vec![])),
+                    l: Box::new(Term::arr_native("cons", vec![])),
+                    r: Box::new(Term::arr_native("id", vec![])),
                 }),
             }),
         }
     }
 
     /// drop = loop(comp(arr("list.tail"), first(id)))
-    fn drop_graph() -> Scheme {
-        use Scheme::*;
+    fn drop_graph() -> Term {
+        use Term::*;
         Loop {
             body: Box::new(Seq {
-                fst: Box::new(Scheme::arr_native("list.tail", vec![])),
+                fst: Box::new(Term::arr_native("list.tail", vec![])),
                 snd: Box::new(First {
-                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                    inner: Box::new(Term::arr_native("id", vec![])),
                 }),
             }),
         }
     }
 
     /// reduce = loop(comp(arr("fold_step"), first(id)))
-    fn reduce_graph() -> Scheme {
-        use Scheme::*;
+    fn reduce_graph() -> Term {
+        use Term::*;
         Loop {
             body: Box::new(Seq {
-                fst: Box::new(Scheme::arr_native("fold_step", vec![])),
+                fst: Box::new(Term::arr_native("fold_step", vec![])),
                 snd: Box::new(First {
-                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                    inner: Box::new(Term::arr_native("id", vec![])),
                 }),
             }),
         }
     }
 
     /// scan = loop(comp(arr("fold_step"), first(arr("list.cons"))))
-    fn scan_graph() -> Scheme {
-        use Scheme::*;
+    fn scan_graph() -> Term {
+        use Term::*;
         Loop {
             body: Box::new(Seq {
-                fst: Box::new(Scheme::arr_native("fold_step", vec![])),
+                fst: Box::new(Term::arr_native("fold_step", vec![])),
                 snd: Box::new(First {
-                    inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+                    inner: Box::new(Term::arr_native("list.cons", vec![])),
                 }),
             }),
         }
@@ -530,26 +530,26 @@ mod tests {
 
     /// zip = loop(comp(first(arr("list.head")),
     ///                  comp(first(arr("list.tail")), arr("list.cons"))))
-    fn zip_graph() -> Scheme {
-        use Scheme::*;
+    fn zip_graph() -> Term {
+        use Term::*;
         Loop {
             body: Box::new(Seq {
                 fst: Box::new(First {
-                    inner: Box::new(Scheme::arr_native("list.head", vec![])),
+                    inner: Box::new(Term::arr_native("list.head", vec![])),
                 }),
                 snd: Box::new(Seq {
                     fst: Box::new(First {
-                        inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+                        inner: Box::new(Term::arr_native("list.tail", vec![])),
                     }),
-                    snd: Box::new(Scheme::arr_native("list.cons", vec![])),
+                    snd: Box::new(Term::arr_native("list.cons", vec![])),
                 }),
             }),
         }
     }
 
     /// reverse = arr("list.reverse") -- direct atom with non-trivial guarantee.
-    fn reverse_graph() -> Scheme {
-        Scheme::arr_native("list.reverse", vec![])
+    fn reverse_graph() -> Term {
+        Term::arr_native("list.reverse", vec![])
     }
 
     #[test]

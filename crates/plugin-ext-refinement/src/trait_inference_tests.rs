@@ -9,24 +9,24 @@
 //! - `inferred_trait` returns the correct set of laws for a graph.
 //! - Graphs using neither combinator are not recognized.
 
-use handl_language::Scheme;
+use handl_language::Term;
 
 use crate::trait_inference::{
     Law, infer_law_annotations, inferred_trait, law_verified, satisfies_law, uses_first, uses_left,
 };
 
 // ============================================================================
-// Helpers: build Scheme graphs matching the Lean4 graph constructors
+// Helpers: build Term graphs matching the Lean4 graph constructors
 // ============================================================================
 
 /// `id` — the identity arrow.
-fn id() -> Scheme {
-    Scheme::arr_native("id", vec![])
+fn id() -> Term {
+    Term::arr_native("id", vec![])
 }
 
 /// `first(F)` — the product-functor combinator applied to `F`.
-fn first(inner: Scheme) -> Scheme {
-    Scheme::First {
+fn first(inner: Term) -> Term {
+    Term::First {
         inner: Box::new(inner),
     }
 }
@@ -34,32 +34,32 @@ fn first(inner: Scheme) -> Scheme {
 /// `left(F)` = `choice(F, id)` — the coproduct-functor combinator. In the
 /// Rust IR, `left` is represented as `Choice` with the right branch being
 /// the identity (pass-through).
-fn left(inner: Scheme) -> Scheme {
-    Scheme::Choice {
+fn left(inner: Term) -> Term {
+    Term::Choice {
         l: Box::new(inner),
         r: Box::new(id()),
     }
 }
 
 /// `comp(G, H)` — sequential composition.
-fn comp(g: Scheme, h: Scheme) -> Scheme {
-    Scheme::Seq {
+fn comp(g: Term, h: Term) -> Term {
+    Term::Seq {
         fst: Box::new(g),
         snd: Box::new(h),
     }
 }
 
 /// `loop(G)` — feedback loop.
-fn loop_fb(body: Scheme) -> Scheme {
-    Scheme::Loop {
+fn loop_fb(body: Term) -> Term {
+    Term::Loop {
         body: Box::new(body),
     }
 }
 
 /// A general `choice(G, H)` where neither branch is necessarily identity
 /// (NOT a `left` — this is a genuine conditional).
-fn choice(g: Scheme, h: Scheme) -> Scheme {
-    Scheme::Choice {
+fn choice(g: Term, h: Term) -> Term {
+    Term::Choice {
         l: Box::new(g),
         r: Box::new(h),
     }
@@ -154,7 +154,7 @@ fn test_uses_left_direct() {
 #[test]
 fn test_uses_left_with_non_identity_inner() {
     // left(cons) = choice(cons, id) — uses left with a non-identity inner.
-    let g = left(Scheme::arr_native("cons", vec![]));
+    let g = left(Term::arr_native("cons", vec![]));
     assert!(uses_left(&g));
 }
 
@@ -213,8 +213,8 @@ fn test_uses_left_absent_in_general_choice() {
     // because neither branch is an identity. This should NOT be recognized
     // as using left.
     let g = choice(
-        Scheme::arr_native("cons", vec![]),
-        Scheme::arr_native("cons", vec![]),
+        Term::arr_native("cons", vec![]),
+        Term::arr_native("cons", vec![]),
     );
     assert!(!uses_left(&g));
 }
@@ -383,7 +383,7 @@ fn test_inferred_trait_loop_first() {
 fn test_inferred_trait_real_map_graph() {
     // The real `map` graph: loop(first(fn.apply)).
     // This uses first → functor laws.
-    let g = loop_fb(first(Scheme::arr_native("fn.apply", vec![])));
+    let g = loop_fb(first(Term::arr_native("fn.apply", vec![])));
     let laws = inferred_trait(&g);
     assert!(laws.contains(&Law::FunctorIdentity));
     assert!(laws.contains(&Law::FunctorComposition));
@@ -394,8 +394,8 @@ fn test_inferred_trait_real_sort_graph() {
     // The real `sort` graph: loop(comp(insert_loop, first(id))).
     // The `first(id)` in the second position uses first → functor laws.
     let insert_loop = loop_fb(choice(
-        Scheme::arr_native("cons", vec![]),
-        Scheme::arr_native("cons", vec![]),
+        Term::arr_native("cons", vec![]),
+        Term::arr_native("cons", vec![]),
     ));
     let g = loop_fb(comp(insert_loop, first(id())));
     let laws = inferred_trait(&g);
@@ -538,7 +538,7 @@ fn test_inferred_trait_filter_graph_no_functor_law() {
     // The real `filter` graph: loop(comp(filter_step, id)).
     // This does NOT use first (it uses comp(filter_step, id), not
     // comp(filter_step, first(id))). So it should not satisfy functor laws.
-    let g = loop_fb(comp(Scheme::arr_native("filter_step", vec![]), id()));
+    let g = loop_fb(comp(Term::arr_native("filter_step", vec![]), id()));
     let laws = inferred_trait(&g);
     // filter does not use first or left → no laws.
     assert!(
@@ -551,7 +551,7 @@ fn test_inferred_trait_filter_graph_no_functor_law() {
 fn test_inferred_trait_fold_graph_uses_first() {
     // The real `fold` graph: loop(comp(fold_step, first(id))).
     // The `first(id)` uses first → functor laws.
-    let g = loop_fb(comp(Scheme::arr_native("fold_step", vec![]), first(id())));
+    let g = loop_fb(comp(Term::arr_native("fold_step", vec![]), first(id())));
     let laws = inferred_trait(&g);
     assert!(laws.contains(&Law::FunctorIdentity));
     assert!(laws.contains(&Law::FunctorComposition));

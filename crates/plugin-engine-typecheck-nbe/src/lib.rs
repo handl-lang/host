@@ -18,7 +18,7 @@
 //!    path: effectful `Foreign` ops are rejected. For this initial impl, the
 //!    host constructs the typecheck engine with a pure eval engine; the
 //!    purity boundary is the host's responsibility.
-//! 3. Reads `lang.types[node.kind]` → [`TypeRuleDef`] → [`Scheme`] (the
+//! 3. Reads `lang.types[node.kind]` → [`TypeRuleDef`] → [`Term`] (the
 //!    `synth` scheme; `check` is optional) and interprets it.
 //! 4. Implements the **judgment ops** (ADR-0054 §2) as `Arr` ops with
 //!    [`ArrSource::Judgment`].
@@ -29,7 +29,7 @@
 //!
 //! ## Threading convention
 //!
-//! [`Scheme::Seq`] threads the `fst` result into `snd` as the `incoming`
+//! [`Term::Seq`] threads the `fst` result into `snd` as the `incoming`
 //! value. The last `Seq`'s result is the scheme's result. To recall a
 //! previously-computed value, use the `bind` / `result` judgment ops:
 //!
@@ -41,13 +41,13 @@
 //!
 //! ## Choice convention
 //!
-//! [`Scheme::Choice`] routes on an Either value encoded as
+//! [`Term::Choice`] routes on an Either value encoded as
 //! `{"__choice__": "left"|"right", "value": v}`. `l` handles `left`, `r`
 //! handles `right`.
 //!
 //! ## Limitations of this initial impl
 //!
-//! - [`Scheme::Loop`] and [`Scheme::App`] are not supported (return
+//! - [`Term::Loop`] and [`Term::App`] are not supported (return
 //!   [`LangError::NotImplemented`]).
 //! - `Native` `Arr` ops in type rules are supported only for `const` and
 //!   `id` (trivial, common); other native ops return an engine error. The
@@ -90,7 +90,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{
-    ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof, Scheme, Value, Verdict,
+    ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Proof, Term, Value, Verdict,
     infer_effect_row,
 };
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
@@ -138,7 +138,7 @@ fn is_marshalable(registry: &TypeRegistry, ty: &Value) -> bool {
 /// A data-driven, normalization-based typecheck engine (ADR-0054).
 ///
 /// Implements [`TypecheckEngine`] by interpreting the arrow-calculus
-/// [`Scheme`]s found in `lang.types[node.kind]`. Value-level computation
+/// [`Term`]s found in `lang.types[node.kind]`. Value-level computation
 /// within type rules is delegated to a bound [`EvalEngine`] (the pure-eval
 /// path); judgment ops are interpreted directly.
 pub struct NbeTypecheckEngine {
@@ -153,7 +153,7 @@ pub struct NbeTypecheckEngine {
     /// on the child's AST subtree. When `false`, the host explicitly opts
     /// into an impure typecheck and the purity check is skipped. The
     /// rejection of `Foreign` ops directly authored in a type rule's
-    /// `Scheme` is **always** enforced regardless of this flag — type
+    /// `Term` is **always** enforced regardless of this flag — type
     /// rules themselves must never contain `Foreign` ops.
     pure: bool,
     /// Module registry for Foreign op type signature lookup (ADR-0083).
@@ -323,7 +323,7 @@ impl NbeTypecheckEngine {
         }
     }
 
-    /// Interpret a type-rule [`Scheme`] combinator tree.
+    /// Interpret a type-rule [`Term`] combinator tree.
     ///
     /// Mirrors the tree-walk eval engine's combinator structure, but
     /// handles `Arr` with [`ArrSource::Judgment`] here (judgment ops) and
@@ -334,12 +334,12 @@ impl NbeTypecheckEngine {
         lang: &Language,
         ast: &Ast,
         node_ref: AstRef,
-        scheme: &Scheme,
+        scheme: &Term,
         ctx: &mut TypecheckContext,
         incoming: Option<Value>,
     ) -> Result<Value, LangError> {
         match scheme {
-            Scheme::Arr {
+            Term::Arr {
                 op,
                 args,
                 source,
@@ -364,11 +364,11 @@ impl NbeTypecheckEngine {
                     )))
                 }
             },
-            Scheme::Seq { fst, snd } => {
+            Term::Seq { fst, snd } => {
                 let fst_val = self.eval_type_scheme(lang, ast, node_ref, fst, ctx, incoming)?;
                 self.eval_type_scheme(lang, ast, node_ref, snd, ctx, Some(fst_val))
             }
-            Scheme::First { inner } => {
+            Term::First { inner } => {
                 let inc = incoming
                     .ok_or_else(|| LangError::engine("typecheck: First: missing incoming value"))?;
                 let pair = inc.as_array().ok_or_else(|| {
@@ -384,7 +384,7 @@ impl NbeTypecheckEngine {
                 let result = self.eval_type_scheme(lang, ast, node_ref, inner, ctx, Some(a))?;
                 Ok(Value::Array(vec![result, b]))
             }
-            Scheme::Choice { l, r } => {
+            Term::Choice { l, r } => {
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine("typecheck: Choice: missing incoming value")
                 })?;
@@ -409,8 +409,8 @@ impl NbeTypecheckEngine {
                     ))),
                 }
             }
-            Scheme::Loop { .. } => Err(LangError::NotImplemented),
-            Scheme::App { .. } => Err(LangError::NotImplemented),
+            Term::Loop { .. } => Err(LangError::NotImplemented),
+            Term::App { .. } => Err(LangError::NotImplemented),
             // `handle body with target = impl_` (ADR-0076): eliminate the
             // handler at compile time (rewriting every bare arr(target) in
             // the body to the impl graph), then evaluate the resulting
@@ -421,7 +421,7 @@ impl NbeTypecheckEngine {
             // the `effects` field on the resulting function type (if any). The
             // row records which capabilities the scheme manages (the `Handle`
             // targets). Structural inference always produces a closed row.
-            Scheme::Handle { .. } => {
+            Term::Handle { .. } => {
                 let row = infer_effect_row(scheme);
                 let eliminated = handl_language::eliminate_and_check(scheme)
                     .map_err(|e| LangError::engine(e.to_string()))?;
@@ -472,7 +472,7 @@ impl NbeTypecheckEngine {
     fn eval_judgment(
         &self,
         op: &str,
-        args: &[Scheme],
+        args: &[Term],
         lit: Option<&Value>,
         lang: &Language,
         ast: &Ast,
@@ -1403,7 +1403,7 @@ impl NbeTypecheckEngine {
                 // expected type (useful for checking array elements against a
                 // uniform element type). The expected type comes from
                 // `incoming` (threaded by the `check` scheme) or `args[0]`
-                // (ADR-0054 — Scheme lacks iteration, so this is a judgment op).
+                // (ADR-0054 — Term lacks iteration, so this is a judgment op).
                 let expected = if let Some(arg) = args.first() {
                     self.eval_type_scheme(lang, ast, node_ref, arg, ctx, incoming.clone())?
                 } else {
@@ -1442,7 +1442,7 @@ impl NbeTypecheckEngine {
                 // each arm node) and unify them all, returning the unified
                 // type. With fewer than 2 children (no arms), returns
                 // `type.unknown`
-                // (ADR-0054 — Scheme lacks iteration, so this is a judgment op).
+                // (ADR-0054 — Term lacks iteration, so this is a judgment op).
                 let node = ast.get(node_ref).ok_or_else(|| {
                     LangError::engine(format!(
                         "synth_match_arms: node {} out of bounds",

@@ -15,7 +15,7 @@
 //! 1. `FileResolver { root }` resolves `<root>/<path>.hnl`.
 //! 2. `ModuleLoader::new(resolver)` loads and caches modules.
 //! 3. `normalize_compile_time` (Strategy A) or `flatten_program` (Strategy B)
-//!    eliminates module refs, producing a self-contained `Scheme`.
+//!    eliminates module refs, producing a self-contained `Term`.
 //! 4. `infer_refinement(scheme, &ContractRegistry::standard())` infers
 //!    contracts on the flattened graph.
 
@@ -23,7 +23,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use handl_language::Scheme;
+use handl_language::Term;
 use handl_plugin_ext_refinement::{
     ContractRegistry, FileResolver, ModuleLoader, RefinementResult, contains_module_ref,
     contains_project, flatten_program, has_unresolved_apps, infer_refinement,
@@ -74,7 +74,7 @@ fn print_usage() {
     println!("    --root <dir>       Resolver root directory (default: entry file's parent)");
     println!("    --infer            Run refinement inference (default)");
     println!("    --no-infer         Skip refinement inference");
-    println!("    --print-scheme     Pretty-print the flattened Scheme graph");
+    println!("    --print-scheme     Pretty-print the flattened Term graph");
     println!("    -v, --verbose      Show loading steps and cache hits");
     println!("    -h, --help         Print this help text");
 }
@@ -166,15 +166,15 @@ fn module_path(root: &Path, file: &Path) -> String {
     s.strip_suffix(".hnl").unwrap_or(&s).to_string()
 }
 
-/// Pretty-print a `Scheme` graph with indentation for nested combinators.
-fn pretty_scheme(scheme: &Scheme) -> String {
+/// Pretty-print a `Term` graph with indentation for nested combinators.
+fn pretty_scheme(scheme: &Term) -> String {
     pretty_scheme_inner(scheme, 0)
 }
 
-fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
+fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
     let indent = "  ".repeat(depth);
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -203,7 +203,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
                 out
             }
         }
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             let mut out = format!("{}seq {{\n", indent);
             out.push_str(&pretty_scheme_inner(fst, depth + 1));
             out.push('\n');
@@ -213,7 +213,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::First { inner } => {
+        Term::First { inner } => {
             let mut out = format!("{}first {{\n", indent);
             out.push_str(&pretty_scheme_inner(inner, depth + 1));
             out.push('\n');
@@ -221,7 +221,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             let mut out = format!("{}choice {{\n", indent);
             out.push_str(&pretty_scheme_inner(l, depth + 1));
             out.push('\n');
@@ -231,7 +231,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::Loop { body } => {
+        Term::Loop { body } => {
             let mut out = format!("{}loop {{\n", indent);
             out.push_str(&pretty_scheme_inner(body, depth + 1));
             out.push('\n');
@@ -239,7 +239,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             let mut out = format!("{}app {{\n", indent);
             out.push_str(&pretty_scheme_inner(callee, depth + 1));
             out.push('\n');
@@ -251,7 +251,7 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
-        Scheme::Handle {
+        Term::Handle {
             body,
             target,
             impl_,

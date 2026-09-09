@@ -7,7 +7,7 @@
 //! `LangError::NotImplemented`, and `eval` works on the provided `Ast`.
 
 use handl_language::{
-    Ast, AstNode, EvalSchemeDef, LangError, Language, Scheme, Source, Tokens, Value,
+    Ast, AstNode, EvalSchemeDef, LangError, Language, Term, Source, Tokens, Value,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde_json::json;
@@ -33,11 +33,11 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::arr_native(
+            Term::arr_native(
                 "add",
                 vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
             ),
         ))
@@ -47,7 +47,7 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
         ))
         .unwrap();
     // let → value >>> arr("extend_env", lit: "$payload") >>> body
@@ -55,12 +55,12 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.let",
             "let",
-            Scheme::seq(
-                Scheme::seq(
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+            Term::seq(
+                Term::seq(
+                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Term::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
                 ),
-                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
             ),
         ))
         .unwrap();

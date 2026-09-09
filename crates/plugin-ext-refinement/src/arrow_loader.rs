@@ -1,4 +1,4 @@
-//! File loader: reads `.hnl` arrow files, parses them into `Scheme` IR,
+//! File loader: reads `.hnl` arrow files, parses them into `Term` IR,
 //! resolves cross-file references, and bridges to the inference engine.
 //!
 //! This closes the gap between source files and the inference engine
@@ -10,7 +10,7 @@
 //! When a `.hnl` file references a named arrow (e.g. `sort.hnl` calls
 //! `insert(...)`), the parser produces an `App { callee: arr("insert") }`
 //! node. The loader resolves these by loading the referenced arrow's file
-//! and inlining its `Scheme` graph -- matching the hand-built graphs in
+//! and inlining its `Term` graph -- matching the hand-built graphs in
 //! `e2e_tests.rs` where `sort` inlines `insert`'s full graph.
 
 use std::cell::RefCell;
@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
-use handl_language::{ArrSource, Scheme, Value};
+use handl_language::{ArrSource, Term, Value};
 
 use crate::arrow_parser::{
     ExportDecl, ImportDecl, ParsedFile, parse_arrow_module, parse_arrow_module_no_rewrite,
@@ -31,12 +31,12 @@ use crate::types::{Contract, Pred, RefinementResult};
 // Public API
 // ============================================================================
 
-/// Load a single `.hnl` arrow file and return its `Scheme` graph.
+/// Load a single `.hnl` arrow file and return its `Term` graph.
 ///
 /// For single-expression files, returns the arrow directly.
 /// For multi-name files, returns the first named arrow (or the whole record
 /// if there's only one).
-pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
+pub fn load_arrow_file(path: &str) -> Result<Term, String> {
     let content =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
     let parsed = parse_arrow_module_no_rewrite(&content)?;
@@ -58,7 +58,7 @@ pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
 /// For single-expression files, returns a map with a single entry keyed by
 /// the file's stem name.
 /// For multi-name files, returns all named arrows.
-pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Scheme>, String> {
+pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Term>, String> {
     let content =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
     let parsed = parse_arrow_module_no_rewrite(&content)?;
@@ -79,7 +79,7 @@ pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Scheme>, Stri
     }
 }
 
-/// Load and infer: parse `.hnl` -> `Scheme` -> resolve references -> `infer_refinement`.
+/// Load and infer: parse `.hnl` -> `Term` -> resolve references -> `infer_refinement`.
 ///
 /// This is the end-to-end path from a `.hnl` source file to an inferred
 /// contract. Cross-file references (e.g. `sort` referencing `insert`) are
@@ -102,22 +102,22 @@ pub fn infer_file(path: &str, registry: &ContractRegistry) -> Result<RefinementR
 }
 
 /// Load all `.hnl` arrow files from a directory (recursively) and return a
-/// name -> `Scheme` graph map.
+/// name -> `Term` graph map.
 ///
 /// The key is the file stem (e.g. `insert.hnl` -> `"insert"`).
-pub fn load_all_arrows(dir: &str) -> Result<HashMap<String, Scheme>, String> {
+pub fn load_all_arrows(dir: &str) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
     walk_dir(dir, &mut map)?;
     Ok(map)
 }
 
-/// Resolve `App` nodes in a `Scheme` by inlining referenced graphs.
+/// Resolve `App` nodes in a `Term` by inlining referenced graphs.
 ///
 /// When an `App { callee: arr("name") }` is found and `"name"` exists in the
 /// graph map, the App is replaced with the referenced graph (recursively
 /// resolved). This matches the hand-built graphs in `e2e_tests.rs` where
 /// `sort` inlines `insert`'s full graph.
-pub fn resolve_apps(scheme: &Scheme, graph_map: &HashMap<String, Scheme>) -> Scheme {
+pub fn resolve_apps(scheme: &Term, graph_map: &HashMap<String, Term>) -> Term {
     resolve_apps_inner(scheme, graph_map, 0)
 }
 
@@ -140,7 +140,7 @@ fn find_arrows_root(path: &str) -> Option<String> {
 /// Both single-expression files and multi-name files are loaded. Files that
 /// fail to parse are silently skipped (the parser is minimal and may not
 /// handle all syntax).
-fn walk_dir(dir: &str, map: &mut HashMap<String, Scheme>) -> Result<(), String> {
+fn walk_dir(dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
     let entries =
         fs::read_dir(dir).map_err(|e| format!("failed to read directory {}: {}", dir, e))?;
 
@@ -186,46 +186,46 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Scheme>) -> Result<(), String> 
 
 /// Inner resolution with a depth limit to prevent infinite recursion.
 fn resolve_apps_inner(
-    scheme: &Scheme,
-    graph_map: &HashMap<String, Scheme>,
+    scheme: &Term,
+    graph_map: &HashMap<String, Term>,
     depth: usize,
-) -> Scheme {
+) -> Term {
     // Depth limit to prevent infinite recursion on circular references
     if depth > 16 {
         return scheme.clone();
     }
 
     match scheme {
-        Scheme::Arr { .. } => scheme.clone(),
+        Term::Arr { .. } => scheme.clone(),
 
-        Scheme::Seq { fst, snd } => Scheme::Seq {
+        Term::Seq { fst, snd } => Term::Seq {
             fst: Box::new(resolve_apps_inner(fst, graph_map, depth)),
             snd: Box::new(resolve_apps_inner(snd, graph_map, depth)),
         },
 
-        Scheme::First { inner } => Scheme::First {
+        Term::First { inner } => Term::First {
             inner: Box::new(resolve_apps_inner(inner, graph_map, depth)),
         },
 
-        Scheme::Choice { l, r } => Scheme::Choice {
+        Term::Choice { l, r } => Term::Choice {
             l: Box::new(resolve_apps_inner(l, graph_map, depth)),
             r: Box::new(resolve_apps_inner(r, graph_map, depth)),
         },
 
-        Scheme::Loop { body } => Scheme::Loop {
+        Term::Loop { body } => Term::Loop {
             body: Box::new(resolve_apps_inner(body, graph_map, depth)),
         },
 
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             // Check if the callee is a reference to a named arrow
-            if let Scheme::Arr { op, .. } = callee.as_ref() {
+            if let Term::Arr { op, .. } = callee.as_ref() {
                 if let Some(graph) = graph_map.get(op) {
                     // Inline the referenced graph (recursively resolved)
                     return resolve_apps_inner(graph, graph_map, depth + 1);
                 }
             }
             // If not found, keep the App as-is (inference returns True for App)
-            Scheme::App {
+            Term::App {
                 callee: Box::new(resolve_apps_inner(callee, graph_map, depth)),
                 args: args
                     .iter()
@@ -237,7 +237,7 @@ fn resolve_apps_inner(
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then resolve apps in the resulting handler-free
         // graph.
-        Scheme::Handle { .. } => {
+        Term::Handle { .. } => {
             let eliminated = scheme.eliminate_handlers();
             resolve_apps_inner(&eliminated, graph_map, depth)
         }
@@ -507,8 +507,8 @@ impl std::fmt::Display for LoadError {
 /// contracts, cloned from the loader's caches.
 #[derive(Debug, Clone)]
 pub struct LoadedModule {
-    /// The named arrows in this module (path -> Scheme).
-    pub arrows: HashMap<String, Scheme>,
+    /// The named arrows in this module (path -> Term).
+    pub arrows: HashMap<String, Term>,
     /// The inferred contracts for each arrow (one per arrow, in arbitrary
     /// order).
     pub contracts: Vec<Contract>,
@@ -525,7 +525,7 @@ pub struct LoadedModule {
 pub struct ModuleLoader {
     resolver: Box<dyn ModuleResolver>,
     /// Graph cache: module path → named arrows.
-    pub graph_cache: RefCell<HashMap<String, HashMap<String, Scheme>>>,
+    pub graph_cache: RefCell<HashMap<String, HashMap<String, Term>>>,
     /// Contract cache: module path → contracts per arrow.
     pub contract_cache: RefCell<HashMap<String, Vec<Contract>>>,
     /// Private cache for module metadata (imports/exports).
@@ -567,7 +567,7 @@ impl ModuleLoader {
         // Parse with module-aware parser (extracts imports/exports).
         let parsed = parse_arrow_module(&resolved.source).map_err(LoadError::Parse)?;
 
-        // Convert ParsedFile to HashMap<String, Scheme>.
+        // Convert ParsedFile to HashMap<String, Term>.
         let arrows = match parsed.arrows {
             ParsedFile::Single(scheme) => {
                 let mut map = HashMap::new();
@@ -603,7 +603,7 @@ impl ModuleLoader {
 
     /// Load a specific named arrow from a module. If the module has a single
     /// arrow, it is returned regardless of `name`.
-    pub fn load_arrow(&self, path: &str, name: &str) -> Result<Scheme, LoadError> {
+    pub fn load_arrow(&self, path: &str, name: &str) -> Result<Term, LoadError> {
         let loaded = self.load(path)?;
         if let Some(scheme) = loaded.arrows.get(name) {
             return Ok(scheme.clone());
@@ -694,27 +694,27 @@ fn refinement_to_contract(result: &RefinementResult) -> Contract {
     }
 }
 
-// --- Section 5: Scheme traversal helpers ---
+// --- Section 5: Term traversal helpers ---
 
-/// Check whether a `Scheme` contains any `App` node whose callee is an
+/// Check whether a `Term` contains any `App` node whose callee is an
 /// `Arr { op: name }` where `name` is not in `known_names`.
 ///
 /// This is the production equivalent of the PoC's `contains_module_ref`:
-/// since `Scheme` has no `ModuleRef` variant, unresolved `App` nodes to
+/// since `Term` has no `ModuleRef` variant, unresolved `App` nodes to
 /// unknown names serve the same role.
-pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bool {
+pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool {
     match scheme {
-        Scheme::Arr { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
-        Scheme::Seq { fst, snd } => {
+        Term::Arr { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
+        Term::Seq { fst, snd } => {
             has_unresolved_apps(fst, known_names) || has_unresolved_apps(snd, known_names)
         }
-        Scheme::First { inner } => has_unresolved_apps(inner, known_names),
-        Scheme::Choice { l, r } => {
+        Term::First { inner } => has_unresolved_apps(inner, known_names),
+        Term::Choice { l, r } => {
             has_unresolved_apps(l, known_names) || has_unresolved_apps(r, known_names)
         }
-        Scheme::Loop { body } => has_unresolved_apps(body, known_names),
-        Scheme::App { callee, args } => {
-            if let Scheme::Arr { op, .. } = callee.as_ref() {
+        Term::Loop { body } => has_unresolved_apps(body, known_names),
+        Term::App { callee, args } => {
+            if let Term::Arr { op, .. } = callee.as_ref() {
                 if !known_names.contains(op) {
                     return true;
                 }
@@ -726,60 +726,60 @@ pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bo
         // eliminated at compile time (impl inlined into body), so the
         // combined graph's unresolved apps are the union of body's and
         // impl's.
-        Scheme::Handle { body, impl_, .. } => {
+        Term::Handle { body, impl_, .. } => {
             has_unresolved_apps(body, known_names) || has_unresolved_apps(impl_, known_names)
         }
     }
 }
 
-/// Check whether a `Scheme` contains any `Arr { op: "module_ref" }` node
+/// Check whether a `Term` contains any `Arr { op: "module_ref" }` node
 /// (the production representation of a module reference).
-pub fn contains_module_ref(scheme: &Scheme) -> bool {
+pub fn contains_module_ref(scheme: &Term) -> bool {
     match scheme {
-        Scheme::Arr { op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
-        Scheme::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
-        Scheme::First { inner } => contains_module_ref(inner),
-        Scheme::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
-        Scheme::Loop { body } => contains_module_ref(body),
-        Scheme::App { callee, args } => {
+        Term::Arr { op, args, .. } => op == "module_ref" || args.iter().any(contains_module_ref),
+        Term::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
+        Term::First { inner } => contains_module_ref(inner),
+        Term::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
+        Term::Loop { body } => contains_module_ref(body),
+        Term::App { callee, args } => {
             contains_module_ref(callee) || args.iter().any(contains_module_ref)
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for module refs.
-        Scheme::Handle { body, impl_, .. } => {
+        Term::Handle { body, impl_, .. } => {
             contains_module_ref(body) || contains_module_ref(impl_)
         }
     }
 }
 
-/// Check whether a `Scheme` contains any `Arr { op: "project" }` node
+/// Check whether a `Term` contains any `Arr { op: "project" }` node
 /// (the production representation of a projection).
-pub fn contains_project(scheme: &Scheme) -> bool {
+pub fn contains_project(scheme: &Term) -> bool {
     match scheme {
-        Scheme::Arr { op, args, .. } => op == "project" || args.iter().any(contains_project),
-        Scheme::Seq { fst, snd } => contains_project(fst) || contains_project(snd),
-        Scheme::First { inner } => contains_project(inner),
-        Scheme::Choice { l, r } => contains_project(l) || contains_project(r),
-        Scheme::Loop { body } => contains_project(body),
-        Scheme::App { callee, args } => {
+        Term::Arr { op, args, .. } => op == "project" || args.iter().any(contains_project),
+        Term::Seq { fst, snd } => contains_project(fst) || contains_project(snd),
+        Term::First { inner } => contains_project(inner),
+        Term::Choice { l, r } => contains_project(l) || contains_project(r),
+        Term::Loop { body } => contains_project(body),
+        Term::App { callee, args } => {
             contains_project(callee) || args.iter().any(contains_project)
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
-        Scheme::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
+        Term::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
     }
 }
 
-/// Build a record `Scheme` from a map of named arrows. Each field is
+/// Build a record `Term` from a map of named arrows. Each field is
 /// `arr("field", [arr("const", lit: name), arrow])`, wrapped in
 /// `arr("record", [...])`.
-fn build_module_record(arrows: &HashMap<String, Scheme>) -> Scheme {
-    let fields: Vec<Scheme> = arrows
+fn build_module_record(arrows: &HashMap<String, Term>) -> Term {
+    let fields: Vec<Term> = arrows
         .iter()
-        .map(|(name, scheme)| Scheme::Arr {
+        .map(|(name, scheme)| Term::Arr {
             op: "field".to_string(),
             args: vec![
-                Scheme::Arr {
+                Term::Arr {
                     op: "const".to_string(),
                     args: vec![],
                     source: ArrSource::Native,
@@ -791,7 +791,7 @@ fn build_module_record(arrows: &HashMap<String, Scheme>) -> Scheme {
             lit: None,
         })
         .collect();
-    Scheme::Arr {
+    Term::Arr {
         op: "record".to_string(),
         args: fields,
         source: ArrSource::Native,
@@ -799,55 +799,55 @@ fn build_module_record(arrows: &HashMap<String, Scheme>) -> Scheme {
     }
 }
 
-/// Recursively transform a `Scheme`, applying a substitution function to each
+/// Recursively transform a `Term`, applying a substitution function to each
 /// node bottom-up.
-fn transform_scheme<F>(scheme: &Scheme, f: &F) -> Scheme
+fn transform_scheme<F>(scheme: &Term, f: &F) -> Term
 where
-    F: Fn(&Scheme) -> Scheme,
+    F: Fn(&Term) -> Term,
 {
     // `handle body with target = impl_` (ADR-0076): eliminate the handler at
     // compile time, then apply the bottom-up transform to the resulting
     // handler-free graph. This is handled before the match so the eliminated
     // graph's children are recursively transformed (and `f` applied
     // bottom-up) rather than only at the root.
-    if matches!(scheme, Scheme::Handle { .. }) {
+    if matches!(scheme, Term::Handle { .. }) {
         let eliminated = scheme.eliminate_handlers();
         return transform_scheme(&eliminated, f);
     }
     let transformed = match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
             lit,
-        } => Scheme::Arr {
+        } => Term::Arr {
             op: op.clone(),
             args: args.iter().map(|a| transform_scheme(a, f)).collect(),
             source: source.clone(),
             lit: lit.clone(),
         },
-        Scheme::Seq { fst, snd } => Scheme::Seq {
+        Term::Seq { fst, snd } => Term::Seq {
             fst: Box::new(transform_scheme(fst, f)),
             snd: Box::new(transform_scheme(snd, f)),
         },
-        Scheme::First { inner } => Scheme::First {
+        Term::First { inner } => Term::First {
             inner: Box::new(transform_scheme(inner, f)),
         },
-        Scheme::Choice { l, r } => Scheme::Choice {
+        Term::Choice { l, r } => Term::Choice {
             l: Box::new(transform_scheme(l, f)),
             r: Box::new(transform_scheme(r, f)),
         },
-        Scheme::Loop { body } => Scheme::Loop {
+        Term::Loop { body } => Term::Loop {
             body: Box::new(transform_scheme(body, f)),
         },
-        Scheme::App { callee, args } => Scheme::App {
+        Term::App { callee, args } => Term::App {
             callee: Box::new(transform_scheme(callee, f)),
             args: args.iter().map(|a| transform_scheme(a, f)).collect(),
         },
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then apply the bottom-up transform to the
         // resulting handler-free graph.
-        Scheme::Handle { .. } => scheme.eliminate_handlers(),
+        Term::Handle { .. } => scheme.eliminate_handlers(),
     };
     f(&transformed)
 }
@@ -863,12 +863,12 @@ where
 /// A preserves projections. Recurses transitively with cycle detection.
 ///
 /// Returns a map of the entry module's arrow names to their normalized
-/// `Scheme` graphs (with imports replaced by projections from inlined
+/// `Term` graphs (with imports replaced by projections from inlined
 /// records).
 pub fn normalize_compile_time(
     entry_path: &str,
     loader: &ModuleLoader,
-) -> Result<HashMap<String, Scheme>, LoadError> {
+) -> Result<HashMap<String, Term>, LoadError> {
     let mut visited: Vec<String> = Vec::new();
     normalize_compile_time_inner(entry_path, loader, &mut visited)
 }
@@ -877,7 +877,7 @@ fn normalize_compile_time_inner(
     path: &str,
     loader: &ModuleLoader,
     visited: &mut Vec<String>,
-) -> Result<HashMap<String, Scheme>, LoadError> {
+) -> Result<HashMap<String, Term>, LoadError> {
     // Cycle detection.
     if visited.contains(&path.to_string()) {
         let mut cycle: Vec<String> = Vec::new();
@@ -896,8 +896,8 @@ fn normalize_compile_time_inner(
     // Build import_records: local_name → inlined record or project node.
     // Also build path_records: module path → inlined record, so that
     // `module_ref(path)` nodes emitted by `rewrite_imports` can be resolved.
-    let mut import_records: HashMap<String, Scheme> = HashMap::new();
-    let mut path_records: HashMap<String, Scheme> = HashMap::new();
+    let mut import_records: HashMap<String, Term> = HashMap::new();
+    let mut path_records: HashMap<String, Term> = HashMap::new();
     for import in &imports {
         // Recursively normalize the referenced module.
         let child_arrows = normalize_compile_time_inner(&import.path, loader, visited)?;
@@ -912,7 +912,7 @@ fn normalize_compile_time_inner(
                 import_records.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to a project from the record.
-                let project = Scheme::Arr {
+                let project = Term::Arr {
                     op: "project".to_string(),
                     args: vec![record.clone()],
                     source: ArrSource::Native,
@@ -940,24 +940,24 @@ fn normalize_compile_time_inner(
 /// `path_records` (keyed by module path). `project` nodes are kept —
 /// Strategy A preserves projections.
 fn replace_imports_with_projects(
-    scheme: &Scheme,
-    import_records: &HashMap<String, Scheme>,
-    path_records: &HashMap<String, Scheme>,
-) -> Scheme {
+    scheme: &Term,
+    import_records: &HashMap<String, Term>,
+    path_records: &HashMap<String, Term>,
+) -> Term {
     transform_scheme(scheme, &|node| match node {
-        Scheme::App { callee, args } => {
-            if let Scheme::Arr { op, .. } = callee.as_ref() {
+        Term::App { callee, args } => {
+            if let Term::Arr { op, .. } = callee.as_ref() {
                 if let Some(replacement) = import_records.get(op) {
                     return replacement.clone();
                 }
             }
             // Not an import reference: keep as-is (already recursed).
-            Scheme::App {
+            Term::App {
                 callee: callee.clone(),
                 args: args.clone(),
             }
         }
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -968,7 +968,7 @@ fn replace_imports_with_projects(
                     return replacement.clone();
                 }
             }
-            Scheme::Arr {
+            Term::Arr {
                 op: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
@@ -977,7 +977,7 @@ fn replace_imports_with_projects(
         }
         // Bare reference to a named arrow (no args, no lit): if it matches
         // an import name, replace with the project/record node.
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -986,7 +986,7 @@ fn replace_imports_with_projects(
             if let Some(replacement) = import_records.get(op) {
                 return replacement.clone();
             }
-            Scheme::Arr {
+            Term::Arr {
                 op: op.clone(),
                 args: args.clone(),
                 source: source.clone(),
@@ -1002,24 +1002,24 @@ fn replace_imports_with_projects(
 /// Normalization Strategy B (ADR-0069 §5): whole-program flattening.
 ///
 /// Loads the entry module and all its transitive dependencies, then resolves
-/// every `App` node by inlining the referenced arrow's `Scheme` graph
+/// every `App` node by inlining the referenced arrow's `Term` graph
 /// (recursively). `module_ref` nodes are replaced by inlined records, and
 /// `project` nodes are resolved to the actual field's arrow. The result is a
-/// single `Scheme` graph with no unresolved `App`, no `module_ref`, and no
+/// single `Term` graph with no unresolved `App`, no `module_ref`, and no
 /// `project` — one graph, no module boundaries.
 ///
 /// Returns the entry's main arrow (if single-arrow) or a record of all
 /// public arrows (if multi-name).
-pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Scheme, LoadError> {
+pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Term, LoadError> {
     let mut visited: Vec<String> = Vec::new();
-    let mut global_arrows: HashMap<String, Scheme> = HashMap::new();
+    let mut global_arrows: HashMap<String, Term> = HashMap::new();
 
     // Load the entry and all transitive dependencies, populating global_arrows.
     load_transitive(entry_path, loader, &mut visited, &mut global_arrows)?;
 
     // Now resolve all App nodes in the entry's arrows using the global map.
     let entry_loaded = loader.load(entry_path)?;
-    let mut resolved_arrows: HashMap<String, Scheme> = HashMap::new();
+    let mut resolved_arrows: HashMap<String, Term> = HashMap::new();
     for (name, scheme) in &entry_loaded.arrows {
         let resolved = resolve_all_apps(scheme, &global_arrows, &HashSet::new());
         resolved_arrows.insert(name.clone(), resolved);
@@ -1029,7 +1029,7 @@ pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Scheme
     if resolved_arrows.len() == 1 {
         Ok(resolved_arrows.into_iter().next().unwrap().1)
     } else if resolved_arrows.is_empty() {
-        Ok(Scheme::arr_native("id", vec![]))
+        Ok(Term::arr_native("id", vec![]))
     } else {
         Ok(build_module_record(&resolved_arrows))
     }
@@ -1050,9 +1050,9 @@ fn module_file_stem(path: &str) -> String {
 /// (keyed `"main"`), also add an alias under the module path's file stem so
 /// bare-name references (e.g. `insert` -> `collection/insert.hnl`) resolve.
 fn add_module_arrows(
-    global_arrows: &mut HashMap<String, Scheme>,
+    global_arrows: &mut HashMap<String, Term>,
     path: &str,
-    arrows: &HashMap<String, Scheme>,
+    arrows: &HashMap<String, Term>,
 ) {
     for (name, scheme) in arrows {
         global_arrows.insert(name.clone(), scheme.clone());
@@ -1073,8 +1073,8 @@ fn add_module_arrows(
 /// whose arrow is keyed `"main"` by the ModuleLoader.
 fn arrows_with_file_stem_alias(
     path: &str,
-    arrows: &HashMap<String, Scheme>,
-) -> HashMap<String, Scheme> {
+    arrows: &HashMap<String, Term>,
+) -> HashMap<String, Term> {
     let mut result = arrows.clone();
     let stem = module_file_stem(path);
     if !result.contains_key(&stem) {
@@ -1110,28 +1110,28 @@ fn discovery_candidates(name: &str, current_path: &str) -> Vec<String> {
 }
 
 /// Collect the callee names of all `App { callee: Arr { op: name, .. } }`
-/// nodes in a `Scheme`. Used by `load_transitive` to discover bare-name
+/// nodes in a `Term`. Used by `load_transitive` to discover bare-name
 /// references to arrows that are not explicitly imported (kit-stdlib files
 /// reference other arrows without import declarations).
-fn collect_app_callee_names(scheme: &Scheme, out: &mut HashSet<String>) {
+fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
     match scheme {
-        Scheme::Arr { args, .. } => {
+        Term::Arr { args, .. } => {
             for a in args {
                 collect_app_callee_names(a, out);
             }
         }
-        Scheme::Seq { fst, snd } => {
+        Term::Seq { fst, snd } => {
             collect_app_callee_names(fst, out);
             collect_app_callee_names(snd, out);
         }
-        Scheme::First { inner } => collect_app_callee_names(inner, out),
-        Scheme::Choice { l, r } => {
+        Term::First { inner } => collect_app_callee_names(inner, out),
+        Term::Choice { l, r } => {
             collect_app_callee_names(l, out);
             collect_app_callee_names(r, out);
         }
-        Scheme::Loop { body } => collect_app_callee_names(body, out),
-        Scheme::App { callee, args } => {
-            if let Scheme::Arr { op, .. } = callee.as_ref() {
+        Term::Loop { body } => collect_app_callee_names(body, out),
+        Term::App { callee, args } => {
+            if let Term::Arr { op, .. } = callee.as_ref() {
                 out.insert(op.clone());
             }
             collect_app_callee_names(callee, out);
@@ -1141,7 +1141,7 @@ fn collect_app_callee_names(scheme: &Scheme, out: &mut HashSet<String>) {
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — collect callee names from both body and impl.
-        Scheme::Handle { body, impl_, .. } => {
+        Term::Handle { body, impl_, .. } => {
             collect_app_callee_names(body, out);
             collect_app_callee_names(impl_, out);
         }
@@ -1149,7 +1149,7 @@ fn collect_app_callee_names(scheme: &Scheme, out: &mut HashSet<String>) {
 }
 
 /// Recursively load a module and all its transitive imports, populating
-/// `global_arrows` with every known arrow name → `Scheme` mapping. Cycle
+/// `global_arrows` with every known arrow name → `Term` mapping. Cycle
 /// detection via the `visited` stack.
 ///
 /// Beyond explicit `import` declarations, this also auto-discovers bare-name
@@ -1161,7 +1161,7 @@ fn load_transitive(
     path: &str,
     loader: &ModuleLoader,
     visited: &mut Vec<String>,
-    global_arrows: &mut HashMap<String, Scheme>,
+    global_arrows: &mut HashMap<String, Term>,
 ) -> Result<(), LoadError> {
     // Cycle detection.
     if visited.contains(&path.to_string()) {
@@ -1195,7 +1195,7 @@ fn load_transitive_body(
     imports: &[ImportDecl],
     loader: &ModuleLoader,
     visited: &mut Vec<String>,
-    global_arrows: &mut HashMap<String, Scheme>,
+    global_arrows: &mut HashMap<String, Term>,
 ) -> Result<(), LoadError> {
     // Add this module's arrows to the global map (with file-stem alias).
     add_module_arrows(global_arrows, path, &loaded.arrows);
@@ -1255,16 +1255,16 @@ fn load_transitive_body(
     Ok(())
 }
 
-/// Resolve all `App` nodes in a `Scheme` by inlining referenced arrows from
+/// Resolve all `App` nodes in a `Term` by inlining referenced arrows from
 /// `known`. Uses `resolving` for cycle detection on names (prevents infinite
 /// recursion on self-referential arrows).
 fn resolve_all_apps(
-    scheme: &Scheme,
-    known: &HashMap<String, Scheme>,
+    scheme: &Term,
+    known: &HashMap<String, Term>,
     resolving: &HashSet<String>,
-) -> Scheme {
+) -> Term {
     match scheme {
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             source,
@@ -1305,7 +1305,7 @@ fn resolve_all_apps(
                     }
                 }
             }
-            Scheme::Arr {
+            Term::Arr {
                 op: op.clone(),
                 args: args
                     .iter()
@@ -1315,23 +1315,23 @@ fn resolve_all_apps(
                 lit: lit.clone(),
             }
         }
-        Scheme::Seq { fst, snd } => Scheme::Seq {
+        Term::Seq { fst, snd } => Term::Seq {
             fst: Box::new(resolve_all_apps(fst, known, resolving)),
             snd: Box::new(resolve_all_apps(snd, known, resolving)),
         },
-        Scheme::First { inner } => Scheme::First {
+        Term::First { inner } => Term::First {
             inner: Box::new(resolve_all_apps(inner, known, resolving)),
         },
-        Scheme::Choice { l, r } => Scheme::Choice {
+        Term::Choice { l, r } => Term::Choice {
             l: Box::new(resolve_all_apps(l, known, resolving)),
             r: Box::new(resolve_all_apps(r, known, resolving)),
         },
-        Scheme::Loop { body } => Scheme::Loop {
+        Term::Loop { body } => Term::Loop {
             body: Box::new(resolve_all_apps(body, known, resolving)),
         },
-        Scheme::App { callee, args } => {
+        Term::App { callee, args } => {
             // First, try to resolve the callee as a known bare-name reference.
-            if let Scheme::Arr { op, .. } = callee.as_ref() {
+            if let Term::Arr { op, .. } = callee.as_ref() {
                 if let Some(target) = known.get(op) {
                     if !resolving.contains(op) {
                         let mut new_resolving = resolving.clone();
@@ -1352,7 +1352,7 @@ fn resolve_all_apps(
                 // The import reference resolved to a concrete graph — inline it.
                 return resolved_callee;
             }
-            Scheme::App {
+            Term::App {
                 callee: Box::new(resolved_callee),
                 args: args
                     .iter()
@@ -1363,19 +1363,19 @@ fn resolve_all_apps(
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then resolve apps in the resulting handler-free
         // graph.
-        Scheme::Handle { .. } => {
+        Term::Handle { .. } => {
             let eliminated = scheme.eliminate_handlers();
             resolve_all_apps(&eliminated, known, resolving)
         }
     }
 }
 
-/// Check whether a `Scheme` is an import reference node — a `project` or
+/// Check whether a `Term` is an import reference node — a `project` or
 /// `module_ref` node emitted by `rewrite_imports`. Used by
 /// `resolve_all_apps` to determine whether an `App`'s callee is an
 /// import-rewritten reference that should be inlined after resolution.
-fn is_import_reference(scheme: &Scheme) -> bool {
-    if let Scheme::Arr { op, .. } = scheme {
+fn is_import_reference(scheme: &Term) -> bool {
+    if let Term::Arr { op, .. } = scheme {
         op == "project" || op == "module_ref"
     } else {
         false
@@ -1384,19 +1384,19 @@ fn is_import_reference(scheme: &Scheme) -> bool {
 
 /// Look up a field by name in an inlined module record. The record is
 /// expected to be `arr("record", [arr("field", [arr("const", lit: name), value])...])`.
-/// Returns the value `Scheme` if found.
-fn lookup_field_in_record(record: &Scheme, field: &str) -> Option<Scheme> {
-    if let Scheme::Arr { op, args, .. } = record {
+/// Returns the value `Term` if found.
+fn lookup_field_in_record(record: &Term, field: &str) -> Option<Term> {
+    if let Term::Arr { op, args, .. } = record {
         if op == "record" {
             for f in args {
-                if let Scheme::Arr {
+                if let Term::Arr {
                     op: fop,
                     args: fargs,
                     ..
                 } = f
                 {
                     if fop == "field" && fargs.len() == 2 {
-                        if let Scheme::Arr {
+                        if let Term::Arr {
                             op: cop,
                             lit: Some(Value::String(name)),
                             ..

@@ -14,7 +14,7 @@
 //! the kit data.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
-//! `lang.types[node.kind]` to find a [`handl_language::Scheme`] and
+//! `lang.types[node.kind]` to find a [`handl_language::Term`] and
 //! interpret it, not match on a static Rust enum of canonical kinds.
 
 #![warn(missing_docs)]
@@ -97,7 +97,7 @@ pub struct TypecheckResult {
 /// The trait a typecheck engine implements.
 ///
 /// An engine looks up `lang.types[node.kind]` →
-/// [`handl_language::TypeRuleDef`] → [`handl_language::Scheme`] and
+/// [`handl_language::TypeRuleDef`] → [`handl_language::Term`] and
 /// interprets the scheme, delegating value-level computation to a bound
 /// eval engine and judgment ops to its own primitives. The engine is pure
 /// data-driven: it does not match on a static `CanonicalKind` enum.

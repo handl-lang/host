@@ -21,22 +21,22 @@
 //!   structural recursion. This is the annotation-free trait inference: the
 //!   system inspects the graph and returns the laws it satisfies.
 //!
-//! # Mapping from Lean4 `Graph` to Rust `Scheme`
+//! # Mapping from Lean4 `Graph` to Rust `Term`
 //!
 //! The Lean4 `Graph` type has constructors `idG`, `arr`, `comp`, `first`,
-//! `left`, `loop`. The Rust `Scheme` type has `Arr`, `Seq`, `First`,
+//! `left`, `loop`. The Rust `Term` type has `Arr`, `Seq`, `First`,
 //! `Choice`, `Loop`, `App`. The correspondence is:
 //!
-//! | Lean4 `Graph`     | Rust `Scheme`                  |
+//! | Lean4 `Graph`     | Rust `Term`                  |
 //! |-------------------|--------------------------------|
-//! | `Graph.first F`   | `Scheme::First { inner: F }`   |
-//! | `Graph.left F`    | `Scheme::Choice { l: F, r }`   |
-//! | `Graph.comp G H`  | `Scheme::Seq { fst: G, snd: H }`|
-//! | `Graph.loop G`    | `Scheme::Loop { body: G }`     |
-//! | `Graph.idG A`     | `Scheme::arr_native("id", [])` |
-//! | `Graph.arr f`     | `Scheme::Arr { op: f, .. }`    |
+//! | `Graph.first F`   | `Term::First { inner: F }`   |
+//! | `Graph.left F`    | `Term::Choice { l: F, r }`   |
+//! | `Graph.comp G H`  | `Term::Seq { fst: G, snd: H }`|
+//! | `Graph.loop G`    | `Term::Loop { body: G }`     |
+//! | `Graph.idG A`     | `Term::arr_native("id", [])` |
+//! | `Graph.arr f`     | `Term::Arr { op: f, .. }`    |
 //!
-//! The `left` combinator (coproduct functor) maps to `Scheme::Choice` in the
+//! The `left` combinator (coproduct functor) maps to `Term::Choice` in the
 //! Rust IR. In the Lean4 formalization, `left F` routes `Left` through `F`
 //! and `Right` through the identity — this is `Choice { l: F, r: id }` in
 //! the Rust IR. The `UsesLeft` recognizer therefore checks for `Choice`
@@ -45,7 +45,7 @@
 
 use std::fmt;
 
-use handl_language::Scheme;
+use handl_language::Term;
 
 // ============================================================================
 // The `Law` type: named equational laws (mirrors Lean4 `Law`)
@@ -57,7 +57,7 @@ use handl_language::Scheme;
 /// Each constructor identifies a specific law and names the combinator it
 /// applies to (`first` for product-functor laws, `left` for coproduct-functor
 /// laws). The Lean4 formalization carries type/graph parameters; the Rust
-/// port names only the law (the parameters are implicit in the `Scheme`
+/// port names only the law (the parameters are implicit in the `Term`
 /// structure being analyzed).
 ///
 /// # The four laws
@@ -164,61 +164,61 @@ pub fn law_verified(_law: Law) -> bool {
 // `UsesFirst` / `UsesLeft`: structural pattern recognizers
 // ============================================================================
 
-/// Whether a `Scheme` graph *uses `first`* — i.e. `Scheme::First` appears
+/// Whether a `Term` graph *uses `first`* — i.e. `Term::First` appears
 /// anywhere in its wiring.
 ///
 /// This is the Rust mirror of the Lean4 `UsesFirst` inductive predicate. A
 /// graph uses `first` if:
-/// - It is a `Scheme::First { .. }` node (the `here` case), OR
-/// - It is a `Scheme::Seq { fst, snd }` and either `fst` or `snd` uses
+/// - It is a `Term::First { .. }` node (the `here` case), OR
+/// - It is a `Term::Seq { fst, snd }` and either `fst` or `snd` uses
 ///   `first` (the `leftComp` / `rightComp` cases), OR
-/// - It is a `Scheme::Loop { body }` and `body` uses `first`, OR
-/// - It is a `Scheme::Choice { l, r }` and either branch uses `first`, OR
-/// - It is a `Scheme::App { callee, args }` and the callee or any arg uses
+/// - It is a `Term::Loop { body }` and `body` uses `first`, OR
+/// - It is a `Term::Choice { l, r }` and either branch uses `first`, OR
+/// - It is a `Term::App { callee, args }` and the callee or any arg uses
 ///   `first`.
 ///
-/// `Scheme::Arr` nodes never use `first` (they are base arrows).
+/// `Term::Arr` nodes never use `first` (they are base arrows).
 ///
 /// # Example
 ///
 /// ```
-/// use handl_language::Scheme;
+/// use handl_language::Term;
 /// use handl_plugin_ext_refinement::trait_inference::uses_first;
 ///
 /// // first(id) — uses first directly.
-/// let g = Scheme::first(Scheme::arr_native("id", vec![]));
+/// let g = Term::first(Term::arr_native("id", vec![]));
 /// assert!(uses_first(&g));
 ///
 /// // comp(first(id), id) — uses first in the left component.
-/// let g = Scheme::seq(
-///     Scheme::first(Scheme::arr_native("id", vec![])),
-///     Scheme::arr_native("id", vec![]),
+/// let g = Term::seq(
+///     Term::first(Term::arr_native("id", vec![])),
+///     Term::arr_native("id", vec![]),
 /// );
 /// assert!(uses_first(&g));
 ///
 /// // id — does not use first.
-/// let g = Scheme::arr_native("id", vec![]);
+/// let g = Term::arr_native("id", vec![]);
 /// assert!(!uses_first(&g));
 /// ```
-pub fn uses_first(scheme: &Scheme) -> bool {
+pub fn uses_first(scheme: &Term) -> bool {
     match scheme {
-        Scheme::First { .. } => true,
-        Scheme::Seq { fst, snd } => uses_first(fst) || uses_first(snd),
-        Scheme::Loop { body } => uses_first(body),
-        Scheme::Choice { l, r } => uses_first(l) || uses_first(r),
-        Scheme::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
-        Scheme::Arr { args, .. } => args.iter().any(uses_first),
-        Scheme::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
+        Term::First { .. } => true,
+        Term::Seq { fst, snd } => uses_first(fst) || uses_first(snd),
+        Term::Loop { body } => uses_first(body),
+        Term::Choice { l, r } => uses_first(l) || uses_first(r),
+        Term::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
+        Term::Arr { args, .. } => args.iter().any(uses_first),
+        Term::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
     }
 }
 
-/// Whether a `Scheme` graph *uses `left`* — i.e. the coproduct-functor
+/// Whether a `Term` graph *uses `left`* — i.e. the coproduct-functor
 /// combinator appears anywhere in its wiring.
 ///
 /// In the Lean4 formalization, `left F` is a dedicated graph constructor
 /// that routes `Left` through `F` and `Right` through the identity. In the
-/// Rust `Scheme` IR, the coproduct functor is represented as
-/// `Scheme::Choice { l: F, r: id }` — the left branch is the active
+/// Rust `Term` IR, the coproduct functor is represented as
+/// `Term::Choice { l: F, r: id }` — the left branch is the active
 /// sub-graph, and the right branch is the pass-through identity.
 ///
 /// This recognizer checks for `Choice` nodes where the left branch is
@@ -232,43 +232,43 @@ pub fn uses_first(scheme: &Scheme) -> bool {
 /// # Example
 ///
 /// ```
-/// use handl_language::Scheme;
+/// use handl_language::Term;
 /// use handl_plugin_ext_refinement::trait_inference::uses_left;
 ///
 /// // left(id) = choice(id, id) — uses left (coproduct functor).
-/// let g = Scheme::choice(
-///     Scheme::arr_native("id", vec![]),
-///     Scheme::arr_native("id", vec![]),
+/// let g = Term::choice(
+///     Term::arr_native("id", vec![]),
+///     Term::arr_native("id", vec![]),
 /// );
 /// assert!(uses_left(&g));
 ///
 /// // id — does not use left.
-/// let g = Scheme::arr_native("id", vec![]);
+/// let g = Term::arr_native("id", vec![]);
 /// assert!(!uses_left(&g));
 /// ```
-pub fn uses_left(scheme: &Scheme) -> bool {
+pub fn uses_left(scheme: &Term) -> bool {
     match scheme {
-        Scheme::Choice { l, r } => {
+        Term::Choice { l, r } => {
             // A `left(F)` is `Choice { l: F, r: id }`. We recognize it when
             // the right branch is an identity (the pass-through), which is
             // the structural hallmark of the coproduct functor. The left
             // branch carries the active sub-graph F.
             is_identity(r) || uses_left(l) || uses_left(r)
         }
-        Scheme::Seq { fst, snd } => uses_left(fst) || uses_left(snd),
-        Scheme::Loop { body } => uses_left(body),
-        Scheme::First { inner } => uses_left(inner),
-        Scheme::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
-        Scheme::Arr { args, .. } => args.iter().any(uses_left),
-        Scheme::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
+        Term::Seq { fst, snd } => uses_left(fst) || uses_left(snd),
+        Term::Loop { body } => uses_left(body),
+        Term::First { inner } => uses_left(inner),
+        Term::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
+        Term::Arr { args, .. } => args.iter().any(uses_left),
+        Term::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
     }
 }
 
-/// Whether a `Scheme` is the identity arrow (`arr("id")` with no args).
-fn is_identity(scheme: &Scheme) -> bool {
+/// Whether a `Term` is the identity arrow (`arr("id")` with no args).
+fn is_identity(scheme: &Term) -> bool {
     matches!(
         scheme,
-        Scheme::Arr {
+        Term::Arr {
             op,
             args,
             ..
@@ -280,7 +280,7 @@ fn is_identity(scheme: &Scheme) -> bool {
 // `SatisfiesLaw`: graph G satisfies law L
 // ============================================================================
 
-/// Whether a `Scheme` graph `G` satisfies `law`.
+/// Whether a `Term` graph `G` satisfies `law`.
 ///
 /// This is the Rust mirror of the Lean4 `SatisfiesLaw G law` predicate. A
 /// graph satisfies a law when:
@@ -304,17 +304,17 @@ fn is_identity(scheme: &Scheme) -> bool {
 /// # Example
 ///
 /// ```
-/// use handl_language::Scheme;
+/// use handl_language::Term;
 /// use handl_plugin_ext_refinement::trait_inference::{satisfies_law, Law};
 ///
 /// // first(id) uses first → satisfies FunctorIdentity.
-/// let g = Scheme::first(Scheme::arr_native("id", vec![]));
+/// let g = Term::first(Term::arr_native("id", vec![]));
 /// assert!(satisfies_law(&g, Law::FunctorIdentity));
 /// assert!(satisfies_law(&g, Law::FunctorComposition));
 /// // first(id) does not use left → does not satisfy CoproductIdentity.
 /// assert!(!satisfies_law(&g, Law::CoproductIdentity));
 /// ```
-pub fn satisfies_law(scheme: &Scheme, law: Law) -> bool {
+pub fn satisfies_law(scheme: &Term, law: Law) -> bool {
     let pattern_matches = match law {
         Law::FunctorIdentity | Law::FunctorComposition => uses_first(scheme),
         Law::CoproductIdentity | Law::CoproductComposition => uses_left(scheme),
@@ -342,21 +342,21 @@ pub fn satisfies_law(scheme: &Scheme, law: Law) -> bool {
 /// # Example
 ///
 /// ```
-/// use handl_language::Scheme;
+/// use handl_language::Term;
 /// use handl_plugin_ext_refinement::trait_inference::{inferred_trait, Law};
 ///
 /// // first(id) → functor laws.
-/// let g = Scheme::first(Scheme::arr_native("id", vec![]));
+/// let g = Term::first(Term::arr_native("id", vec![]));
 /// let laws = inferred_trait(&g);
 /// assert!(laws.contains(&Law::FunctorIdentity));
 /// assert!(laws.contains(&Law::FunctorComposition));
 /// assert!(!laws.contains(&Law::CoproductIdentity));
 ///
 /// // id → no laws.
-/// let g = Scheme::arr_native("id", vec![]);
+/// let g = Term::arr_native("id", vec![]);
 /// assert!(inferred_trait(&g).is_empty());
 /// ```
-pub fn inferred_trait(scheme: &Scheme) -> Vec<Law> {
+pub fn inferred_trait(scheme: &Term) -> Vec<Law> {
     let mut laws = Vec::new();
     if uses_first(scheme) {
         laws.push(Law::FunctorIdentity);
@@ -390,7 +390,7 @@ pub struct LawAnnotation {
     pub strengthening: String,
 }
 
-/// Infer law-based contract annotations for a `Scheme` graph.
+/// Infer law-based contract annotations for a `Term` graph.
 ///
 /// This is the wiring point between the trait inference and the contract
 /// inference. When a graph is recognized as satisfying a functor law, the
@@ -412,7 +412,7 @@ pub struct LawAnnotation {
 /// - **CoproductComposition**: `left(comp G H) = comp (left G) (left H)` —
 ///   the guarantee of `left(comp G H)` is the composition of the guarantees
 ///   of `left G` and `left H`.
-pub fn infer_law_annotations(scheme: &Scheme) -> Vec<LawAnnotation> {
+pub fn infer_law_annotations(scheme: &Term) -> Vec<LawAnnotation> {
     inferred_trait(scheme)
         .into_iter()
         .map(|law| LawAnnotation {

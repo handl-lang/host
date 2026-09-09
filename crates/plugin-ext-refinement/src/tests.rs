@@ -1,13 +1,13 @@
 //! Tests for the refinement inference engine.
 //!
-//! These tests port the research prototype's test cases to handl's `Scheme` IR,
+//! These tests port the research prototype's test cases to handl's `Term` IR,
 //! verifying that the inference produces the same results:
 //! - The 5 real programs: insertion sort, map, filter, fold/sum, pipeline
 //! - Loop invariant discovery on side-channel, accumulator, filter, sortedness patterns
 //! - Termination analysis on decreasing measure patterns
 //! - SMT implication checks
 
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Term};
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
@@ -19,12 +19,12 @@ use crate::termination::analyze_termination;
 use crate::types::{BaseTy, Measure, Pred, RefTy};
 
 // ============================================================================
-// Helpers: build the 5 real programs as Scheme graphs
+// Helpers: build the 5 real programs as Term graphs
 // ============================================================================
 
 /// Convenience: native arr with no args.
-fn arr(op: &str) -> Scheme {
-    Scheme::Arr {
+fn arr(op: &str) -> Term {
+    Term::Arr {
         op: op.to_string(),
         args: vec![],
         source: ArrSource::Native,
@@ -33,30 +33,30 @@ fn arr(op: &str) -> Scheme {
 }
 
 /// Convenience: first(inner)
-fn first(inner: Scheme) -> Scheme {
-    Scheme::First {
+fn first(inner: Term) -> Term {
+    Term::First {
         inner: Box::new(inner),
     }
 }
 
 /// Convenience: seq(fst, snd)
-fn seq(fst: Scheme, snd: Scheme) -> Scheme {
-    Scheme::Seq {
+fn seq(fst: Term, snd: Term) -> Term {
+    Term::Seq {
         fst: Box::new(fst),
         snd: Box::new(snd),
     }
 }
 
 /// Convenience: loop_feedback(body)
-fn loop_fb(body: Scheme) -> Scheme {
-    Scheme::Loop {
+fn loop_fb(body: Term) -> Term {
+    Term::Loop {
         body: Box::new(body),
     }
 }
 
 /// Convenience: choice(l, r)
-fn choice(l: Scheme, r: Scheme) -> Scheme {
-    Scheme::Choice {
+fn choice(l: Term, r: Term) -> Term {
+    Term::Choice {
         l: Box::new(l),
         r: Box::new(r),
     }
@@ -72,7 +72,7 @@ fn choice(l: Scheme, r: Scheme) -> Scheme {
 ///
 /// The loop terminates because consume_one decrements |remaining_input|.
 /// The accumulator stays sorted because insert's guarantee is Sorted(output).
-fn insertion_sort() -> Scheme {
+fn insertion_sort() -> Term {
     loop_fb(seq(
         seq(first(arr("head_and_tail")), first(arr("insert"))),
         arr("consume_one"),
@@ -86,7 +86,7 @@ fn insertion_sort() -> Scheme {
 ///   1. first(head_and_tail)  -- split remaining into (head, tail)
 ///   2. first(apply_f)         -- apply f to head
 ///   3. comp(first(consume_one), append_to_output) -- consume input, append to output
-fn map_impl() -> Scheme {
+fn map_impl() -> Term {
     loop_fb(seq(
         seq(first(arr("head_and_tail")), first(arr("apply_f"))),
         seq(first(arr("consume_one")), arr("append_to_output")),
@@ -101,7 +101,7 @@ fn map_impl() -> Scheme {
 ///   2. first(test_predicate)    -- test if head satisfies predicate
 ///   3. left(append_to_output)   -- if predicate true, append to output; if false, skip
 ///   4. consume_one              -- consume one element from remaining input (|C|--)
-fn filter_impl() -> Scheme {
+fn filter_impl() -> Term {
     loop_fb(seq(
         seq(first(arr("head_and_tail")), first(arr("test_predicate"))),
         seq(
@@ -118,7 +118,7 @@ fn filter_impl() -> Scheme {
 ///   1. first(head_and_tail)  -- split remaining into (head, tail)
 ///   2. first(add_to_acc)      -- add head to accumulator
 ///   3. consume_one            -- consume one element from the input
-fn sum_impl() -> Scheme {
+fn sum_impl() -> Term {
     loop_fb(seq(
         seq(first(arr("head_and_tail")), first(arr("add_to_acc"))),
         arr("consume_one"),
@@ -130,7 +130,7 @@ fn sum_impl() -> Scheme {
 /// Composes the three real implementations. The inference composes the
 /// refinements: AllSatisfy (from filter), Sorted (from sort), and
 /// LengthPreserved (from map, on the post-sort list).
-fn pipeline() -> Scheme {
+fn pipeline() -> Term {
     seq(seq(filter_impl(), arr("sort")), arr("map_step"))
 }
 
