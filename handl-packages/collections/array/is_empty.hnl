@@ -1,0 +1,12 @@
+--- Test whether `xs` has no elements.
+---
+--- @example
+--- `array.is_empty([])`
+--- -- => true
+--- `array.is_empty([1])`
+--- -- => false
+---
+export is_empty :: (xs) ~> match xs {
+  []: true,
+  [h, ...t]: false
+}

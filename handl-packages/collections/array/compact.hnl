@@ -1,0 +1,20 @@
+--- Remove all `null` elements from `xs`.
+---
+--- @example
+--- `array.compact([1, null, 2, null, 3])`
+--- -- => [1, 2, 3]
+---
+export compact :: (xs) ~> do {
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  out :: []
+  for x in xs {
+    if x != null { out = [x, ...out] }
+  }
+  rev(out)
+}

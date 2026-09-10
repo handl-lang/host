@@ -2809,8 +2809,23 @@ fn prim_v2_loop_step(
     };
     let call_args: Vec<TaggedValue> = match &current {
         TaggedValue::Obj(obj_state) => {
-            if let TaggedValue::Arrow { params, .. } = &body_proc {
-                if params.len() > 1 {
+            if let TaggedValue::Arrow { params, array_pattern, .. } = &body_proc {
+                if *array_pattern {
+                    if params.len() == 1 {
+                        vec![TaggedValue::Arr(Rc::from([current.clone()]))]
+                    } else {
+                        let arr: Vec<TaggedValue> = params
+                            .iter()
+                            .map(|p| {
+                                obj_state
+                                    .get::<str>(p.as_ref())
+                                    .cloned()
+                                    .unwrap_or(TaggedValue::Null)
+                            })
+                            .collect();
+                        vec![TaggedValue::Arr(Rc::from(arr))]
+                    }
+                } else if params.len() > 1 {
                     params
                         .iter()
                         .map(|p| {

@@ -1,0 +1,15 @@
+--- Test whether `xs` contains (structurally equals) `needle`.
+---
+--- @example
+--- `array.contains(["a", "b", "c"], 2)`
+--- -- => false
+--- `array.contains(["a", "b", "c"], "b")`
+--- -- => true
+---
+export contains :: (xs, needle) ~> do {
+  found :: false
+  for x in xs {
+    if x == needle { found = true }
+  }
+  found
+}

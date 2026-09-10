@@ -1737,6 +1737,7 @@ dependencies = [
  "handl-plugin-lib-char-native",
  "handl-plugin-module",
  "handl-runtime",
+ "plugin-engine",
  "serde_json",
 ]
 
@@ -2278,8 +2279,10 @@ dependencies = [
  "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
  "handl-plugin-module",
+ "plugin-engine",
  "serde",
  "serde_json",
 ]

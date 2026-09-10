@@ -7,6 +7,12 @@
 # Reports are written under `coverage/` (gitignored). Run `cargo cov-clean`
 # between runs to discard stale instrumentation data.
 
+# Use rust-lld (ships with Rust) for much faster linking. With 129
+# integration test binaries, the default GNU ld is a major bottleneck.
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
 [build]
 # This machine has 16 cores but only 11 GiB RAM. Cargo's default of one job per
 # core spawns ~16 rustc/rust-lld processes that each consume 500-850 MB, which
@@ -15,6 +21,11 @@
 jobs = 4
 
 [alias]
+# Fast test runner using cargo-nextest (parallel within binaries, cached
+# compilations). Install with: cargo install cargo-nextest
+t = "nextest run --workspace"
+te = "nextest run --workspace --exclude handl-host-lsp"
+
 # Print a per-crate coverage summary to the terminal (fast feedback).
 cov = "llvm-cov --workspace --summary-only"
 

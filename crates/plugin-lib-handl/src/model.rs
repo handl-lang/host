@@ -8,176 +8,23 @@
 use std::rc::Rc;
 
 use handl_language::{
-    ArrSource, AstRef, LangError, Language, LanguageView, RewriteWitness, Side, Term, Value,
+    AstRef, LangError, Language, LanguageView, RewriteWitness, Term, Value,
 };
 use handl_platform::{EvalContext, Module};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use plugin_engine::{Model, ModelCtx, RewriteResult, TermData};
 use serde_json::json;
 
 use crate::HandlModule;
 
 /// Convert a `Term` into a `Value` shaped for Handl code: an object with a
 /// `__tag__` field and one field per variant payload.
+///
+/// This delegates to [`TermData::from_term`], the canonical conversion shared
+/// with `plugin-engine`, so the JSON shape stays identical to what
+/// Handl-authored models consume.
 pub fn term_to_value(term: &Term) -> Value {
-    match term {
-        Term::Arr { value } => json!({ "__tag__": "Arr", "value": value }),
-        Term::Const { value } => json!({ "__tag__": "Const", "value": value }),
-        Term::Op {
-            name,
-            args,
-            source,
-            lit,
-        } => json!({
-            "__tag__": "Op",
-            "name": name,
-            "args": args.iter().map(term_to_value).collect::<Vec<_>>(),
-            "source": arr_source_to_value(source),
-            "lit": lit.as_ref().cloned().unwrap_or(Value::Null)
-        }),
-        Term::Seq { fst, snd } => json!({
-            "__tag__": "Seq",
-            "fst": term_to_value(fst),
-            "snd": term_to_value(snd)
-        }),
-        Term::First { inner } => json!({ "__tag__": "First", "inner": term_to_value(inner) }),
-        Term::Choice { l, r } => {
-            json!({ "__tag__": "Choice", "l": term_to_value(l), "r": term_to_value(r) })
-        }
-        Term::Loop { body } => json!({ "__tag__": "Loop", "body": term_to_value(body) }),
-        Term::App { callee, args } => json!({
-            "__tag__": "App",
-            "callee": term_to_value(callee),
-            "args": args.iter().map(term_to_value).collect::<Vec<_>>()
-        }),
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => json!({
-            "__tag__": "Iter",
-            "fuel": term_to_value(fuel),
-            "predicate": term_to_value(predicate),
-            "step": term_to_value(step),
-            "initial": term_to_value(initial)
-        }),
-        Term::Child { role } => json!({ "__tag__": "Child", "role": role }),
-        Term::Handle {
-            body,
-            target,
-            impl_,
-        } => json!({
-            "__tag__": "Handle",
-            "body": term_to_value(body),
-            "target": target,
-            "impl_": term_to_value(impl_)
-        }),
-        Term::Rewrite {
-            source,
-            target,
-            witness,
-        } => json!({
-            "__tag__": "Rewrite",
-            "source": term_to_value(source),
-            "target": term_to_value(target),
-            "witness": rewrite_witness_to_value(witness)
-        }),
-        Term::Path {
-            endpoints: (a, b),
-            witness,
-        } => json!({
-            "__tag__": "Path",
-            "from": term_to_value(a),
-            "to": term_to_value(b),
-            "witness": witness.as_ref().map(|w| term_to_value(w)).unwrap_or(Value::Null)
-        }),
-        Term::Equiv { a, b, path } => json!({
-            "__tag__": "Equiv",
-            "a": term_to_value(a),
-            "b": term_to_value(b),
-            "path": path.as_ref().map(|p| term_to_value(p)).unwrap_or(Value::Null)
-        }),
-        Term::CellId { arrow } => json!({ "__tag__": "CellId", "arrow": term_to_value(arrow) }),
-        Term::Src { cell } => json!({ "__tag__": "Src", "cell": term_to_value(cell) }),
-        Term::Tgt { cell } => json!({ "__tag__": "Tgt", "cell": term_to_value(cell) }),
-        Term::CellCompV { first, second } => json!({
-            "__tag__": "CellCompV",
-            "first": term_to_value(first),
-            "second": term_to_value(second)
-        }),
-        Term::Whisker { side, arrow, cell } => json!({
-            "__tag__": "Whisker",
-            "side": side_to_value(side),
-            "arrow": term_to_value(arrow),
-            "cell": term_to_value(cell)
-        }),
-        Term::RecordProj { record, field } => json!({
-            "__tag__": "RecordProj",
-            "record": term_to_value(record),
-            "field": field
-        }),
-        Term::RecordWith {
-            record,
-            field,
-            value,
-        } => json!({
-            "__tag__": "RecordWith",
-            "record": term_to_value(record),
-            "field": field,
-            "value": term_to_value(value)
-        }),
-        Term::Tag { tag, value } => {
-            json!({ "__tag__": "Tag", "tag": tag, "value": term_to_value(value) })
-        }
-        Term::Univalence { equiv } => {
-            json!({ "__tag__": "Univalence", "equiv": term_to_value(equiv) })
-        }
-        Term::Glue { family, path } => {
-            json!({ "__tag__": "Glue", "family": term_to_value(family), "path": term_to_value(path) })
-        }
-        Term::Fibrant { base, family } => {
-            json!({ "__tag__": "Fibrant", "base": term_to_value(base), "family": term_to_value(family) })
-        }
-        Term::JElim { path, motive, base } => json!({
-            "__tag__": "JElim",
-            "path": term_to_value(path),
-            "motive": term_to_value(motive),
-            "base": term_to_value(base)
-        }),
-        Term::Refine { sort, predicate } => json!({
-            "__tag__": "Refine",
-            "sort": term_to_value(sort),
-            "predicate": term_to_value(predicate)
-        }),
-        Term::Cobind { grade, body } => {
-            json!({ "__tag__": "Cobind", "grade": term_to_value(grade), "body": term_to_value(body) })
-        }
-    }
-}
-
-fn arr_source_to_value(source: &ArrSource) -> Value {
-    match source {
-        ArrSource::Native => Value::String("Native".into()),
-        ArrSource::Foreign(s) => json!({ "__tag__": "Foreign", "value": s }),
-        ArrSource::Judgment => Value::String("Judgment".into()),
-        ArrSource::DynamicForeign => Value::String("DynamicForeign".into()),
-    }
-}
-
-fn rewrite_witness_to_value(witness: &RewriteWitness) -> Value {
-    match witness {
-        RewriteWitness::Named(name) => json!({ "__tag__": "Named", "value": name }),
-        RewriteWitness::Compute => json!({ "__tag__": "Compute" }),
-        RewriteWitness::HandlerHint => json!({ "__tag__": "HandlerHint" }),
-        RewriteWitness::Cast => json!({ "__tag__": "Cast" }),
-    }
-}
-
-fn side_to_value(side: &Side) -> Value {
-    match side {
-        Side::Left => Value::String("Left".into()),
-        Side::Right => Value::String("Right".into()),
-    }
+    TermData::from_term(term).into_value()
 }
 
 /// A Handl-authored value model backed by a `.hnl` module's `run` arrow.
@@ -201,7 +48,18 @@ impl HandlModel {
         incoming: &Value,
         ctx_value: &Value,
     ) -> Result<Value, LangError> {
-        let term_value = term_to_value(term);
+        self.run_data(&TermData::from_term(term), incoming, ctx_value)
+    }
+
+    /// Invoke the module's `run(term, incoming, ctx)` arrow with a [`TermData`]
+    /// directly, skipping the `Term` → `Value` conversion.
+    pub fn run_data(
+        &self,
+        term: &TermData,
+        incoming: &Value,
+        ctx_value: &Value,
+    ) -> Result<Value, LangError> {
+        let term_value = term.as_value().clone();
         let func = self
             .module
             .function("run")
@@ -259,5 +117,80 @@ impl EvalEngine for HandlModelEngine {
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {
         Box::new(self.clone())
+    }
+}
+
+/// Adapter wrapping a [`HandlModel`] as a [`Model`] with `Value = serde_json::Value`.
+///
+/// This is the ADR-0103 Phase 4 seam: a Handl-authored model (data) plugged
+/// into the `Model` trait, interchangeable with the Rust `ValueModel`.
+///
+/// The `HandlModel` runs a `.hnl` module's `run(term, incoming, ctx)` arrow,
+/// converting the `Term` to JSON via [`term_to_value`] and the `ModelCtx`
+/// to a JSON context record. Results flow back as `serde_json::Value`.
+///
+/// Errors from the Handl model (`handl_language::LangError`) are collapsed to
+/// `plugin_engine::LangError::NotImplemented`, matching the `ValueModel`
+/// convention — the `plugin_engine::LangError` enum is intentionally minimal
+/// (ADR-0103 TODO: give it a payload so real errors propagate).
+#[derive(Clone)]
+pub struct HandlModelAdapter {
+    model: HandlModel,
+}
+
+impl HandlModelAdapter {
+    /// Create a new adapter from a `HandlModule` that exports `run`.
+    pub fn new(module: HandlModule) -> Self {
+        Self {
+            model: HandlModel::new(module),
+        }
+    }
+
+    /// Wrap an existing `HandlModel`.
+    pub fn from_model(model: HandlModel) -> Self {
+        Self { model }
+    }
+
+    /// Run the model on a [`TermData`] directly, without going through `Term`.
+    pub fn run_data(
+        &self,
+        term: &TermData,
+        incoming: &Value,
+        ctx: &ModelCtx,
+    ) -> Result<Value, String> {
+        let ctx_value = json!({
+            "handler_stack": ctx.handler_stack,
+            "node_ref": ctx.node_ref,
+        });
+        self.model
+            .run_data(term, incoming, &ctx_value)
+            .map_err(|e| e.to_string())
+    }
+}
+
+impl Model for HandlModelAdapter {
+    type Value = serde_json::Value;
+
+    fn run(
+        &self,
+        term: &Term,
+        incoming: serde_json::Value,
+        ctx: &mut ModelCtx,
+    ) -> Result<serde_json::Value, plugin_engine::LangError> {
+        self.run_data(&TermData::from_term(term), &incoming, ctx)
+            .map_err(|_| plugin_engine::LangError::NotImplemented)
+    }
+
+    fn rewrite(
+        &self,
+        _source: &Term,
+        target: &Term,
+        _witness: &RewriteWitness,
+        incoming: &serde_json::Value,
+        ctx: &mut ModelCtx,
+    ) -> Result<RewriteResult<serde_json::Value>, plugin_engine::LangError> {
+        // For now, just run the target (rewrites evaluate to target).
+        let result = self.run(target, incoming.clone(), ctx)?;
+        Ok(RewriteResult::Rewritten(result))
     }
 }

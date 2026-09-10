@@ -16,6 +16,7 @@ handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
 handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
+plugin-engine = { path = "../plugin-engine" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

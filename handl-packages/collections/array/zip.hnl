@@ -1,0 +1,41 @@
+--- Pair up the elements of two arrays.
+---
+--- Returns `[[a0, b0], [a1, b1], ...]`. The shorter array determines the length.
+---
+--- @example
+--- `array.zip([1, 2], ["x", "y", "z"])`
+--- -- => [[1, "x"], [2, "y"]]
+---
+export zip :: (a, b) ~> do {
+  length :: (ys) ~> do {
+    n :: 0
+    for x in ys {
+      n = n + 1
+    }
+    n
+  }
+  nth :: (ys, i) ~> do {
+    out :: null
+    k :: 0
+    for x in ys {
+      if k == i { out = x };
+      k = k + 1
+    }
+    out
+  }
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  blen :: length(b)
+  out :: []
+  k :: 0
+  for x in a {
+    if k < blen { out = [[x, nth(b, k)], ...out] };
+    k = k + 1
+  }
+  rev(out)
+}

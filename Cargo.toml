@@ -272,3 +272,5 @@ strip = true
 
 [profile.dev]
 opt-level = 1
+debug = 1          # line tables only (default is 2 = full debug info)
+split-debuginfo = "unpacked"  # faster linking on Linux

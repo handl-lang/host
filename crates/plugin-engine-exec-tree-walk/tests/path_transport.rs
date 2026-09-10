@@ -36,7 +36,7 @@ fn path_value() {
         witness: Some(Box::new(Term::const_value(json!("w")))),
     };
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&term, json!(null), &mut ctx)
         .unwrap();
 
@@ -64,7 +64,7 @@ fn equiv_equal() {
         path: None,
     };
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&term, json!(null), &mut ctx)
         .unwrap();
 

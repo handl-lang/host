@@ -101,7 +101,7 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
     let mut ctx = model_ctx(&lang, &ast, vec![]);
 
     // 6. Run `ValueModel` on the `Term`.
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&add_term, incoming, &mut ctx)
         .unwrap();
 

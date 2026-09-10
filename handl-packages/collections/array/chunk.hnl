@@ -1,0 +1,39 @@
+--- Split `xs` into chunks of `size` elements each.
+---
+--- Returns `null` if `size` is not positive. The final chunk may be shorter.
+---
+--- @example
+--- `array.chunk([1, 2, 3, 4, 5], 2)`
+--- -- => [[1, 2], [3, 4], [5]]
+---
+export chunk :: (xs, size) ~> do {
+  if size <= 0 {
+    null
+  } else {
+    do {
+      rev :: (ys) ~> do {
+        r :: []
+        for x in ys {
+          r = [x, ...r]
+        }
+        r
+      }
+      out :: []
+      cur :: []
+      k :: 0
+      for x in xs {
+        do {
+          cur = [x, ...cur]
+          k = k + 1
+          if k == size {
+            out = [rev(cur), ...out]
+            cur = []
+            k = 0
+          }
+        }
+      }
+      if k > 0 { out = [rev(cur), ...out] }
+      rev(out)
+    }
+  }
+}

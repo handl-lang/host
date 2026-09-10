@@ -1,0 +1,30 @@
+--- Return the first `n` elements of `xs`.
+---
+--- Returns `null` if `n` is negative.
+---
+--- @example
+--- `array.take([1, 2, 3, 4], 2)`
+--- -- => [1, 2]
+---
+export take :: (xs, n) ~> do {
+  if n < 0 {
+    null
+  } else {
+    do {
+      rev :: (ys) ~> do {
+        r :: []
+        for x in ys {
+          r = [x, ...r]
+        }
+        r
+      }
+      out :: []
+      k :: 0
+      for x in xs {
+        if k < n { out = [x, ...out] };
+        k = k + 1
+      }
+      rev(out)
+    }
+  }
+}

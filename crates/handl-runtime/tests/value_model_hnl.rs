@@ -2,11 +2,11 @@
 //! as an eval engine and selected through `RuntimeConfig::eval`.
 
 use std::rc::Rc;
-use std::sync::Arc;
 
 use handl_kit_data_canonical::assemble;
 use handl_language::{Ast, AstNode, EvalSchemeDef, Term, Value};
 use handl_plugin_lib_handl::{HandlModelEngine, HandlModule};
+use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 
@@ -30,10 +30,12 @@ fn handl_value_model_evaluates_arr_const() {
         ))
         .unwrap();
 
-    // Load the Handl value model and wire the `tag` host capability it uses
-    // to mint error values.
+    // Load the Handl value model and wire the runtime modules it uses.
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
-        .with_dependency_arc(Arc::new(TagModule));
+        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
+        .with_dependency(stdlib::module("typeof").expect("typeof module"))
+        .with_dependency(TagModule);
 
     let mut reg = EngineRegistry::new();
     reg.register_eval("handl-value", Box::new(HandlModelEngine::new(module)));

@@ -1,0 +1,31 @@
+--- Spread `sep` between the elements of `xs`.
+---
+--- Places `sep` between each consecutive pair of elements, not before the
+--- first nor after the last.
+---
+--- @example
+--- `array.intersperse(["a", "b", "c"], ",")`
+--- -- => ["a", ",", "b", ",", "c"]
+---
+export intersperse :: (xs, sep) ~> do {
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  out :: []
+  is_first :: true
+  for x in xs {
+    do {
+      if is_first {
+        is_first = false
+      } else {
+        out = [sep, ...out]
+      };
+      out = [x, ...out]
+    }
+  }
+  rev(out)
+}

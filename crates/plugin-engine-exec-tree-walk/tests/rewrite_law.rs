@@ -57,7 +57,7 @@ fn named_law_lookup_returns_equal() {
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
     let incoming = json!(null);
-    let result = ValueModel(TreeWalkEngine::new()).rewrite(
+    let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
         &Term::const_value(json!(null)),
         &Term::const_value(json!(null)),
         &RewriteWitness::Named("add_zero".to_string()),
@@ -78,7 +78,7 @@ fn named_rewrite_lookup_returns_rewritten() {
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
     let incoming = json!(null);
-    let result = ValueModel(TreeWalkEngine::new()).rewrite(
+    let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
         &Term::const_value(json!(null)),
         &Term::const_value(json!(null)),
         &RewriteWitness::Named("one_to_two".to_string()),
@@ -99,7 +99,7 @@ fn unknown_named_law_falls_back_to_equality_check() {
     let incoming = json!(null);
     let source = Term::const_value(json!(1.0));
     let target = Term::const_value(json!(1.0));
-    let result = ValueModel(TreeWalkEngine::new()).rewrite(
+    let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
         &source,
         &target,
         &RewriteWitness::Named("missing".to_string()),

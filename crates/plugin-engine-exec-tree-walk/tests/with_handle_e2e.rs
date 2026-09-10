@@ -109,7 +109,7 @@ fn with_handle_pipeline_with_canonical_language() {
     let incoming = number_value(&["Addable"], 0.0);
     let mut ctx = model_ctx(&lang, &ast, &current_node, vec![]);
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&with_term, incoming, &mut ctx)
         .unwrap();
 

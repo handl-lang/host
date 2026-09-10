@@ -112,7 +112,7 @@ use handl_value::{
     TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
     tagged_to_value,
 };
-use plugin_engine::{Model, ModelCtx, RewriteResult};
+use plugin_engine::{Model, ModelCtx, RewriteResult, is_hott_tag};
 
 // Thread-local storage for the current AST and Language, so the
 // ValueCallable impl can access them when host functions (e.g. fn.map)
@@ -4745,9 +4745,51 @@ impl EvalEngine for TreeWalkEngine {
 /// It evaluates bare [`Term`] schemes by mounting them on a minimal
 /// dummy AST / Language context and reusing the existing tree-walk
 /// evaluation logic.
-pub struct ValueModel(pub TreeWalkEngine);
+///
+/// # ADR-0103 continuation: arrow-model delegation
+///
+/// The optional second field (`arrow_model_delegate`) is a Handl-authored
+/// `Model` (e.g. [`HandlModelAdapter`](handl_plugin_lib_handl::HandlModelAdapter)
+/// wrapping `arrow_model.hnl`). When set via
+/// [`ValueModel::with_arrow_model_delegate`], [`Model::run`] delegates
+/// HoTT-type terms — those for which [`plugin_engine::is_hott_tag`]
+/// returns `true` — to the delegate *before* the native Rust match
+/// dispatch. If the delegate returns `NotImplemented`, the engine falls
+/// back to its existing match arms, so the delegate is strictly opt-in:
+/// a default `ValueModel` (constructed via [`ValueModel::new`]) behaves
+/// exactly as before.
+pub struct ValueModel(
+    /// The underlying tree-walk engine.
+    pub TreeWalkEngine,
+    /// Optional delegate model for HoTT-type terms (ADR-0103
+    /// continuation). `None` for the default bootstrap engine.
+    Option<Box<dyn Model<Value = serde_json::Value>>>,
+);
 
 impl ValueModel {
+    /// Create a `ValueModel` wrapping `engine` with no arrow-model
+    /// delegate. Equivalent to the historical `ValueModel(engine)`
+    /// constructor; the default engine behaves exactly as before
+    /// (HoTT tags use the native Rust match arms).
+    pub fn new(engine: TreeWalkEngine) -> Self {
+        Self(engine, None)
+    }
+
+    /// Configure an arrow-model delegate (a Handl-authored `Model` such
+    /// as `HandlModelAdapter`) that handles HoTT-type terms. When set,
+    /// [`Model::run`] delegates any term for which
+    /// [`plugin_engine::is_hott_tag`] returns `true` to this delegate
+    /// before the native match dispatch, falling back on
+    /// `NotImplemented`. This is the ADR-0103 continuation seam that
+    /// begins stripping HoTT semantics out of the Rust tree-walk engine.
+    pub fn with_arrow_model_delegate(
+        mut self,
+        delegate: impl Model<Value = serde_json::Value> + 'static,
+    ) -> Self {
+        self.1 = Some(Box::new(delegate));
+        self
+    }
+
     /// Evaluate `term` against a minimal dummy AST / Language context via
     /// the tree-walk engine's scheme interpreter (the native fallback for
     /// `Model::run`).
@@ -4867,6 +4909,26 @@ impl Model for ValueModel {
         incoming: Self::Value,
         ctx: &mut ModelCtx,
     ) -> Result<Self::Value, plugin_engine::LangError> {
+        // ADR-0103 continuation: delegate HoTT-type terms to the
+        // arrow-model delegate (a Handl-authored `.hnl` model) *before*
+        // the native Rust match dispatch. This begins stripping HoTT
+        // semantics (Path, Equiv, Refine, Rewrite, …) out of the
+        // tree-walk engine: when a delegate is configured and the term
+        // is a HoTT tag ([`is_hott_tag`]), the delegate's `run` decides
+        // the result. On `NotImplemented` we fall through to the
+        // existing match arms below, which remain as fallbacks so a
+        // default `ValueModel` (no delegate) behaves exactly as before.
+        if let Some(delegate) = &self.1 {
+            if is_hott_tag(term) {
+                match delegate.run(term, incoming.clone(), ctx) {
+                    Ok(v) => return Ok(v),
+                    // `plugin_engine::LangError` is currently single-variant
+                    // (`NotImplemented`); fall through to the native match
+                    // arms so the delegate is strictly opt-in.
+                    Err(_) => { /* fall through */ }
+                }
+            }
+        }
         // Mirror the model-level handler stack into the engine's runtime
         // stack so `Term::Op` dispatch inside delegated `eval_scheme`
         // calls sees the same handlers.
@@ -4877,6 +4939,10 @@ impl Model for ValueModel {
             .map(TaggedValue::from)
             .collect();
         match term {
+            Term::Seq { fst, snd } => {
+                let fst_val = self.run(fst, incoming, ctx)?;
+                self.run(snd, fst_val, ctx)
+            }
             Term::Rewrite { target, .. } => match self.run(target, incoming, ctx) {
                 Ok(v) => Ok(v),
                 Err(_) => Err(plugin_engine::LangError::NotImplemented),
@@ -5549,7 +5615,26 @@ fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
 /// argument.
 fn build_loop_step_args(closure_val: &TaggedValue, current: &TaggedValue) -> Vec<TaggedValue> {
     if let Some(obj_state) = current.as_object() {
-        if let TaggedValue::Arrow { params, .. } = closure_val {
+        if let TaggedValue::Arrow { params, array_pattern, .. } = closure_val {
+            if *array_pattern {
+                if params.len() == 1 {
+                    // Single-param array-pattern arrow: pass the state
+                    // directly as the sole array element.
+                    return vec![TaggedValue::Arr(Rc::from([current.clone()]))];
+                }
+                // Multi-param array-pattern: destructure the object state
+                // by param name and pack into one array.
+                let arr: Vec<TaggedValue> = params
+                    .iter()
+                    .map(|p| {
+                        obj_state
+                            .get(p.as_str())
+                            .cloned()
+                            .unwrap_or(TaggedValue::Null)
+                    })
+                    .collect();
+                return vec![TaggedValue::Arr(Rc::from(arr))];
+            }
             if params.len() > 1 {
                 // Destructure: bind each param to the
                 // corresponding field by name.

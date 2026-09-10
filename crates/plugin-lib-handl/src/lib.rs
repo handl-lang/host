@@ -82,7 +82,7 @@ pub mod model;
 pub mod op_registry;
 pub mod transform;
 pub use lint::HandlNativeLint;
-pub use model::{HandlModel, HandlModelEngine, term_to_value};
+pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 

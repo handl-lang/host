@@ -1,0 +1,19 @@
+--- Return the index of the first element of `xs` equal to `needle`.
+---
+--- Returns `-1` if `needle` is not present.
+---
+--- @example
+--- `array.index_of(["a", "b", "c"], "c")`
+--- -- => 2
+---
+export index_of :: (xs, needle) ~> do {
+  found :: -1
+  k :: 0
+  for x in xs {
+    do {
+      if found == -1 { if x == needle { found = k } }
+      k = k + 1
+    }
+  }
+  found
+}

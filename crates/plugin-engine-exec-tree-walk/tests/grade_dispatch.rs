@@ -82,7 +82,7 @@ fn grade_dispatches_to_language_handler() {
     let current_node = plugin_engine::AstNode;
     let mut ctx = model_ctx(&lang, &ast, &current_node, vec![]);
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&add_term(), incoming, &mut ctx)
         .unwrap();
     assert_eq!(result, json!(42.0));
@@ -95,7 +95,7 @@ fn missing_grade_returns_not_implemented() {
     let incoming = number_value(&["Multiplicable"]);
     let mut ctx = model_ctx(&lang, &ast, &current_node, vec![]);
 
-    let result = ValueModel(TreeWalkEngine::new()).run(&add_term(), incoming, &mut ctx);
+    let result = ValueModel::new(TreeWalkEngine::new()).run(&add_term(), incoming, &mut ctx);
     assert_eq!(result, Err(plugin_engine::LangError::NotImplemented));
 }
 
@@ -106,7 +106,7 @@ fn no_handler_falls_back_to_native() {
     let current_node = plugin_engine::AstNode;
     let mut ctx = model_ctx(&lang, &ast, &current_node, vec![]);
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&add_term(), incoming, &mut ctx)
         .unwrap();
     assert_eq!(result, json!(3.0));
@@ -119,7 +119,7 @@ fn handler_stack_overrides_language_handler() {
     let stack_handler = add_handler_value(100.0);
     let mut ctx = model_ctx(&lang, &ast, &current_node, vec![stack_handler]);
 
-    let result = ValueModel(TreeWalkEngine::new())
+    let result = ValueModel::new(TreeWalkEngine::new())
         .run(&add_term(), incoming, &mut ctx)
         .unwrap();
     assert_eq!(result, json!(100.0));

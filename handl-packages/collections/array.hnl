@@ -1,436 +1,83 @@
 --- array — pure-handl implementation of the `array` functional ops.
 ---
---- Everything arrow-free from the former `plugin-lib-collections`
---- `array.*` surface is implemented here over plain arrays: `len`,
---- `reverse`, `concat`, `contains`, `index_of`, `slice`, `first`, `last`,
---- `at`, `pop`, `shift`, `fill`,
---- `flatten`, `deep_flatten`, `take`, `drop`, `enumerate`, `unzip`,
---- `intersperse`, `intercalate`, `dedupe`, `prepend`, `windows`,
---- `transpose`, `insert_at`, `remove_at`, `range`, `zip`, `chunk`,
---- `compact`, `pluck`.
+--- This file is now an **aggregator**: each arrow lives in its own
+--- `collections/array/<name>.hnl` file (one arrow per file, `export
+--- <name> = ...`, with its own doc comment). This file imports them and
+--- assembles the `array.*` record that the runtime exposes.
 ---
---- Stay native (registered in `ops::collections::ARRAY_OPS`):
---- - the arrow-taking members `take_while`, `drop_while`, `scan`,
----   `foldr`, `find_index`, `find_last`, `find_last_index` — arrow
----   arguments cannot cross the `HandlFunction` module boundary;
---- - `push` (variadic `push(xs, v...)`) and `range` (optional `step`
----   argument) — arrow params cannot be rest patterns (`[a, ...rest] ~>`
----   fails with "closure: param must be a var"), so variable-arity
----   functions stay native.
+--- The arrow-taking members (`take_while`, `drop_while`, `scan`, `foldr`,
+--- `find_index`, `find_last`, `find_last_index`) and the variadic/rest
+--- members (`push`, `range`) stay native ops (see `ops::collections`).
 ---
 --- Semantic notes vs. the former Rust ops (invalid-input edge cases):
---- - The Rust ops raised `TypeMismatch` on negative numeric arguments
----   (`slice`/`at`/`take`/`drop`/`fill`/`windows`/`insert_at`/
----   `remove_at`), a `0` range `step`, and a non-positive `chunk` size.
----   The language has no error-raising primitive (ADR-0092 gap), so
----   these functions return `null` for those inputs instead.
---- - `at`/`first`/`last` still return `null` out-of-bounds / on empty
----   (unchanged); `pop`/`shift` still return `[]` on empty (unchanged).
---- - `pluck` reads keys via the `hash_map` module (dynamic record-field
----   access is not a language primitive).
-from "typeof" import * as typeof
-from "hash_map" import * as hash_map
+--- - `slice`/`at`/`take`/`drop`/`fill`/`windows`/`insert_at`/`remove_at`
+---   return `null` on negative/non-positive numeric arguments; `chunk`
+---   returns `null` on a non-positive size (no error primitive yet).
+--- - `at`/`first`/`last` return `null` out-of-bounds / on empty;
+---   `pop`/`shift` return `[]` on empty.
+---
+from "len" import * as len
+from "is_empty" import * as is_empty
+from "reverse" import * as reverse
+from "concat" import * as concat
+from "contains" import * as contains
+from "index_of" import * as index_of
+from "slice" import * as slice
+from "first" import * as first
+from "last" import * as last
+from "at" import * as at
+from "pop" import * as pop
+from "shift" import * as shift
+from "fill" import * as fill
+from "flatten" import * as flatten
+from "deep_flatten" import * as deep_flatten
+from "take" import * as take
+from "drop" import * as drop
+from "enumerate" import * as enumerate
+from "unzip" import * as unzip
+from "intersperse" import * as intersperse
+from "intercalate" import * as intercalate
+from "dedupe" import * as dedupe
+from "prepend" import * as prepend
+from "windows" import * as windows
+from "transpose" import * as transpose
+from "insert_at" import * as insert_at
+from "remove_at" import * as remove_at
+from "zip" import * as zip
+from "chunk" import * as chunk
+from "compact" import * as compact
+from "pluck" import * as pluck
 
-do {
-  -- -----------------------------------------------------------------
-  -- Internal helpers (not exported)
-  -- -----------------------------------------------------------------
-
-  is_arr :: x ~> typeof.type_of(x) == "arr"
-  is_obj :: x ~> typeof.type_of(x) == "obj"
-
-  rev :: xs ~> {
-    while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
-        []: { out: acc },
-        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
-      }
-    }
-  }
-
-  length :: xs ~> {
-    while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
-        []: { out: n },
-        [h, ...t]: { state: { xs: t, n: n + 1 } }
-      }
-    }
-  }
-
-  cat :: [a, b] ~> {
-    while { xs: b, acc: rev(a) } {
-      [xs, acc] ~> match xs {
-        []: { out: rev(acc) },
-        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
-      }
-    }
-  }
-
-  nth :: [xs, i] ~> {
-    while { xs: xs, i: i } {
-      [xs, i] ~> match xs {
-        []: { out: null },
-        [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
-      }
-    }
-  }
-
-  take_ :: [xs, n] ~> {
-    while { xs: xs, n: n, acc: [] } {
-      [xs, n, acc] ~> if n <= 0 {
-        { out: rev(acc) }
-      } else {
-        match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: { state: { xs: t, n: n - 1, acc: [h, ...acc] } }
-        }
-      }
-    }
-  }
-
-  drop_ :: [xs, n] ~> {
-    while { xs: xs, n: n } {
-      [xs, n] ~> if n <= 0 {
-        { out: xs }
-      } else {
-        match xs {
-          []: { out: [] },
-          [h, ...t]: { state: { xs: t, n: n - 1 } }
-        }
-      }
-    }
-  }
-
-  -- -----------------------------------------------------------------
-  -- Exported record
-  -- -----------------------------------------------------------------
-
-  {
-    len: xs ~> length(xs),
-
-    is_empty: xs ~> match xs {
-      []: true,
-      [h, ...t]: false
-    },
-
-    reverse: xs ~> rev(xs),
-
-    concat: [a, b] ~> cat(a, b),
-
-    contains: [xs, needle] ~> {
-      while { xs: xs, i: 0 } {
-        [xs, i] ~> match xs {
-          []: { out: false },
-          [h, ...t]: if h == needle {
-            { out: true }
-          } else {
-            { state: { xs: t, i: i } }
-          }
-        }
-      }
-    },
-
-    index_of: [xs, needle] ~> {
-      while { xs: xs, i: 0 } {
-        [xs, i] ~> match xs {
-          []: { out: -1 },
-          [h, ...t]: if h == needle {
-            { out: i }
-          } else {
-            { state: { xs: t, i: i + 1 } }
-          }
-        }
-      }
-    },
-
-    slice: [xs, s, e] ~> if s < 0 {
-      null
-    } else {
-      if e < 0 {
-        null
-      } else {
-        do {
-          l :: length(xs)
-          m :: if e > l { l } else { e }
-          k :: if s > m { m } else { s }
-          take_(drop_(xs, k), m - k)
-        }
-      }
-    },
-
-    first: xs ~> match xs {
-      []: null,
-      [h, ...t]: h
-    },
-
-    last: xs ~> match rev(xs) {
-      []: null,
-      [h, ...t]: h
-    },
-
-    at: [xs, i] ~> if i < 0 { null } else { nth(xs, i) },
-
-    pop: xs ~> match xs {
-      []: [],
-      [h, ...t]: take_(xs, length(xs) - 1)
-    },
-
-    shift: xs ~> match xs {
-      []: [],
-      [h, ...t]: t
-    },
-
-    fill: [n, v] ~> if n < 0 {
-      null
-    } else {
-      while { i: n, acc: [] } {
-        [i, acc] ~> if i <= 0 {
-          { out: acc }
-        } else {
-          { state: { i: i - 1, acc: [v, ...acc] } }
-        }
-      }
-    },
-
-    flatten: xs ~> {
-      while { xs: xs, acc: [] } {
-        [xs, acc] ~> match xs {
-          []: { out: acc },
-          [h, ...t]: if is_arr(h) {
-            { state: { xs: t, acc: cat(acc, h) } }
-          } else {
-            { state: { xs: t, acc: cat(acc, [h]) } }
-          }
-        }
-      }
-    },
-
-    deep_flatten: xs ~> {
-      df :: [self, ys] ~> {
-        while { xs: ys, acc: [] } {
-          [xs, acc] ~> match xs {
-            []: { out: acc },
-            [h, ...t]: if is_arr(h) {
-              { state: { xs: cat(self(self, h), t), acc: acc } }
-            } else {
-              { state: { xs: t, acc: cat(acc, [h]) } }
-            }
-          }
-        }
-      }
-      df(df, xs)
-    },
-
-    take: [xs, n] ~> if n < 0 { null } else { take_(xs, n) },
-
-    drop: [xs, n] ~> if n < 0 { null } else { drop_(xs, n) },
-
-    enumerate: xs ~> {
-      while { xs: xs, i: 0, acc: [] } {
-        [xs, i, acc] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: { state: { xs: t, i: i + 1, acc: [[i, h], ...acc] } }
-        }
-      }
-    },
-
-    unzip: xs ~> {
-      while { xs: xs, fs: [], gs: [] } {
-        [xs, fs, gs] ~> match xs {
-          []: { out: [rev(fs), rev(gs)] },
-          [h, ...t]: if is_arr(h) {
-            if length(h) >= 2 {
-              { state: { xs: t, fs: [nth(h, 0), ...fs], gs: [nth(h, 1), ...gs] } }
-            } else {
-              { state: { xs: t, fs: fs, gs: gs } }
-            }
-          } else {
-            { state: { xs: t, fs: fs, gs: gs } }
-          }
-        }
-      }
-    },
-
-    intersperse: [xs, sep] ~> {
-      while { xs: xs, acc: [], first: true } {
-        [xs, acc, first] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: if first {
-            { state: { xs: t, acc: [h, ...acc], first: false } }
-          } else {
-            { state: { xs: t, acc: [h, sep, ...acc], first: false } }
-          }
-        }
-      }
-    },
-
-    intercalate: [xs, sep] ~> {
-      while { xs: xs, acc: [], first: true } {
-        [xs, acc, first] ~> match xs {
-          []: { out: acc },
-          [h, ...t]: do {
-            hv :: if is_arr(h) { h } else { [h] }
-            if first {
-              { state: { xs: t, acc: cat(acc, hv), first: false } }
-            } else {
-              { state: { xs: t, acc: cat(acc, cat(sep, hv)), first: false } }
-            }
-          }
-        }
-      }
-    },
-
-    dedupe: xs ~> {
-      while { xs: xs, acc: [], last: null, seen: false } {
-        [xs, acc, last, seen] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: if seen {
-            if h == last {
-              { state: { xs: t, acc: acc, last: last, seen: true } }
-            } else {
-              { state: { xs: t, acc: [h, ...acc], last: h, seen: true } }
-            }
-          } else {
-            { state: { xs: t, acc: [h, ...acc], last: h, seen: true } }
-          }
-        }
-      }
-    },
-
-    prepend: [xs, v] ~> [v, ...xs],
-
-    windows: [xs, size] ~> if size < 1 {
-      null
-    } else {
-      do {
-        l :: length(xs)
-        if size > l {
-          []
-        } else {
-          while { i: 0, acc: [] } {
-            [i, acc] ~> if i + size <= l {
-              { state: { i: i + 1, acc: [take_(drop_(xs, i), size), ...acc] } }
-            } else {
-              { out: rev(acc) }
-            }
-          }
-        }
-      }
-    },
-
-    transpose: xs ~> if length(xs) == 0 {
-      []
-    } else {
-      do {
-        rows :: while { xs: xs, acc: [] } {
-          [xs, acc] ~> match xs {
-            []: { out: rev(acc) },
-            [h, ...t]: do {
-              row :: if is_arr(h) { h } else { [h] }
-              { state: { xs: t, acc: [row, ...acc] } }
-            }
-          }
-        }
-        max_cols :: while { rs: rows, m: 0 } {
-          [rs, m] ~> match rs {
-            []: { out: m },
-            [h, ...t]: do {
-              rl :: length(h)
-              { state: { rs: t, m: if rl > m { rl } else { m } } }
-            }
-          }
-        }
-        if max_cols == 0 {
-          []
-        } else {
-          while { c: 0, cols: [] } {
-            [c, cols] ~> if c < max_cols {
-              do {
-                col :: while { rs: rows, acc: [] } {
-                  [rs, acc] ~> match rs {
-                    []: { out: rev(acc) },
-                    [h, ...t]: if c < length(h) {
-                      { state: { rs: t, acc: [nth(h, c), ...acc] } }
-                    } else {
-                      { state: { rs: t, acc: acc } }
-                    }
-                  }
-                }
-                { state: { c: c + 1, cols: [col, ...cols] } }
-              }
-            } else {
-              { out: rev(cols) }
-            }
-          }
-        }
-      }
-    },
-
-    insert_at: [xs, i, v] ~> if i < 0 {
-      null
-    } else {
-      do {
-        idx :: if i > length(xs) { length(xs) } else { i }
-        cat(take_(xs, idx), [v, ...drop_(xs, idx)])
-      }
-    },
-
-    remove_at: [xs, i] ~> if i < 0 {
-      null
-    } else {
-      if i >= length(xs) {
-        xs
-      } else {
-        cat(take_(xs, i), drop_(xs, i + 1))
-      }
-    },
-
-    zip: [a, b] ~> {
-      while { xs: a, ys: b, acc: [] } {
-        [xs, ys, acc] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: match ys {
-            []: { out: rev(acc) },
-            [h2, ...t2]: { state: { xs: t, ys: t2, acc: [[h, h2], ...acc] } }
-          }
-        }
-      }
-    },
-
-    chunk: [xs, size] ~> if size <= 0 {
-      null
-    } else {
-      while { xs: xs, acc: [] } {
-        [xs, acc] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: { state: { xs: drop_(xs, size), acc: [take_(xs, size), ...acc] } }
-        }
-      }
-    },
-
-    compact: xs ~> {
-      while { xs: xs, acc: [] } {
-        [xs, acc] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: if h == null {
-            { state: { xs: t, acc: acc } }
-          } else {
-            { state: { xs: t, acc: [h, ...acc] } }
-          }
-        }
-      }
-    },
-
-    pluck: [xs, key] ~> {
-      while { xs: xs, acc: [] } {
-        [xs, acc] ~> match xs {
-          []: { out: rev(acc) },
-          [h, ...t]: do {
-            v :: if is_obj(h) { hash_map.get(h, key) } else { null }
-            { state: { xs: t, acc: [v, ...acc] } }
-          }
-        }
-      }
-    }
-  }
+{
+  len: len.len,
+  is_empty: is_empty.is_empty,
+  reverse: reverse.reverse,
+  concat: concat.concat,
+  contains: contains.contains,
+  index_of: index_of.index_of,
+  slice: slice.slice,
+  first: first.first,
+  last: last.last,
+  at: at.at,
+  pop: pop.pop,
+  shift: shift.shift,
+  fill: fill.fill,
+  flatten: flatten.flatten,
+  deep_flatten: deep_flatten.deep_flatten,
+  take: take.take,
+  drop: drop.drop,
+  enumerate: enumerate.enumerate,
+  unzip: unzip.unzip,
+  intersperse: intersperse.intersperse,
+  intercalate: intercalate.intercalate,
+  dedupe: dedupe.dedupe,
+  prepend: prepend.prepend,
+  windows: windows.windows,
+  transpose: transpose.transpose,
+  insert_at: insert_at.insert_at,
+  remove_at: remove_at.remove_at,
+  zip: zip.zip,
+  chunk: chunk.chunk,
+  compact: compact.compact,
+  pluck: pluck.pluck,
 }
