@@ -1940,34 +1940,106 @@ fn apply_closure_value_opts(
     // helper. Callers must uphold the same safety contract as that helper:
     // `ctx` is a valid `&mut EvalCtx`.
     unsafe {
-        // ADR-0060: unpack single array arg for variable-arity call.
-        let arg_vals = if unpack_arr && arg_vals.len() == 1 {
-            if let TaggedValue::Arr(arr) = &arg_vals[0] {
-                arr.iter().cloned().collect()
-            } else {
-                arg_vals
-            }
-        } else {
-            arg_vals
-        };
-
         // Closure application — must be a TaggedValue::Arrow.
         // Share the captured env via Rc::clone instead of deep-cloning the
         // HashMap (Fix #8).
-        let (params, rest_param, body_idx, captured_env) = match &closure_val {
+        let (params, rest_param, body_idx, captured_env, array_pattern) = match &closure_val {
             TaggedValue::Arrow {
                 params,
                 rest,
                 body,
                 env,
+                array_pattern,
                 ..
-            } => (params.clone(), rest.clone(), *body, Rc::clone(env)),
+            } => (
+                params.clone(),
+                rest.clone(),
+                *body,
+                Rc::clone(env),
+                *array_pattern,
+            ),
             _ => {
                 return ctx.set_error(LangError::engine(
                     "callee is not an arrow-value".to_string(),
                 ));
             }
         };
+
+        let func = match ctx.compiled.get(&body_idx).copied() {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::engine(format!(
+                    "no compiled v2 function for closure body {}",
+                    body_idx
+                )));
+            }
+        };
+
+        // Array-pattern arrows (`[x, y] ~> body`) consume a single array
+        // argument and destructure it by position.
+        if array_pattern {
+            if arg_vals.len() != 1 {
+                return ctx.set_error(LangError::engine(format!(
+                    "array-pattern arrow expects 1 array argument, got {}",
+                    arg_vals.len()
+                )));
+            }
+            let arr = arg_vals[0].as_array().ok_or_else(|| {
+                LangError::engine("array-pattern arrow expects an array argument".to_string())
+            });
+            let arr = match arr {
+                Ok(a) => a,
+                Err(e) => return ctx.set_error(e),
+            };
+            let fixed = params.len();
+            if arr.len() < fixed {
+                return ctx.set_error(LangError::engine(format!(
+                    "array-pattern arrow expects at least {} element(s), got {}",
+                    fixed,
+                    arr.len()
+                )));
+            }
+            if rest_param.is_none() && arr.len() != fixed {
+                return ctx.set_error(LangError::engine(format!(
+                    "array-pattern arrow expects exactly {} element(s), got {}",
+                    fixed,
+                    arr.len()
+                )));
+            }
+            let (head, tail) = arr.split_at(fixed);
+            let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
+            ctx.env.scopes[0] = captured_env;
+            ctx.env.push_scope();
+            for (param, arg) in params.iter().zip(head.iter()) {
+                ctx.env.define(param, arg.clone());
+            }
+            if let Some(rest_name) = &rest_param {
+                ctx.env.define(
+                    rest_name.as_ref(),
+                    TaggedValue::Arr(Rc::from(tail.to_vec())),
+                );
+            }
+            let saved_ref = ctx.current_ref;
+            ctx.current_ref = body_idx;
+            let null_incoming = null_incoming_ptr();
+            let result =
+                func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
+            ctx.current_ref = saved_ref;
+            ctx.env = saved_env;
+            return result;
+        }
+
+        // Positional arrows: ADR-0060 unpack single array arg for
+        // variable-arity call; ADR-0074 flatten a single `Pair`.
+        let mut arg_vals = arg_vals;
+        if unpack_arr && arg_vals.len() == 1 {
+            if let TaggedValue::Arr(arr) = &arg_vals[0] {
+                arg_vals = arr.iter().cloned().collect();
+            }
+        }
+        if params.len() > 1 && arg_vals.len() == 1 && matches!(arg_vals[0], TaggedValue::Pair(_)) {
+            arg_vals = flatten_pair(&arg_vals[0]);
+        }
 
         let param_names: Vec<String> = params.iter().map(|s| s.to_string()).collect();
 
@@ -1985,16 +2057,6 @@ fn apply_closure_value_opts(
                 arg_vals.len()
             )));
         }
-
-        let func = match ctx.compiled.get(&body_idx).copied() {
-            Some(f) => f,
-            None => {
-                return ctx.set_error(LangError::engine(format!(
-                    "no compiled v2 function for closure body {}",
-                    body_idx
-                )));
-            }
-        };
 
         // Swap in the captured env + new scope with params.
         let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
@@ -3270,10 +3332,10 @@ pub unsafe extern "C" fn helper_v2_loop_check(ctx: *mut EvalCtx, result: *mut Ta
 ///
 /// Mirrors the v2 tree-walk's `closure` op: reads `params`/`body` from the
 /// payload (rich shape), or falls back to the `children` array (Pratt-parsed
-/// shape). Returns `(params_as_values, body_arena_index)`.
+/// shape). Returns `(params_as_values, rest, body_arena_index, array_pattern)`.
 fn resolve_closure_params_body(
     ctx: &mut EvalCtx,
-) -> Result<(Vec<String>, Option<String>, usize), LangError> {
+) -> Result<(Vec<String>, Option<String>, usize, bool), LangError> {
     let node = ctx.current_node()?;
     let payload = &node.payload;
     if let (Some(p), Some(b)) = (
@@ -3288,7 +3350,7 @@ fn resolve_closure_params_body(
             .get("rest")
             .and_then(|v| v.as_str())
             .map(String::from);
-        return Ok((names, rest_name, b as usize));
+        return Ok((names, rest_name, b as usize, false));
     }
     let children = payload
         .get("children")
@@ -3313,7 +3375,8 @@ fn resolve_closure_params_body(
     let (param_names, rest_name) = lang
         .param_names(ast, param_node)
         .map_err(|e| LangError::engine_node(e.to_string(), node))?;
-    Ok((param_names, rest_name, body_idx))
+    let array_pattern = lang.is_array_pattern(param_node);
+    Ok((param_names, rest_name, body_idx, array_pattern))
 }
 
 /// v2 `array` prim: construct an array value from the current node's payload.
@@ -3715,7 +3778,7 @@ fn apply_native_v2(
             }
         }
         "closure" => match resolve_closure_params_body(ctx) {
-            Ok((params, rest, body)) => {
+            Ok((params, rest, body, array_pattern)) => {
                 let captured = ctx.env.capture();
                 Ok(TaggedValue::Arrow {
                     params: Rc::from(params),
@@ -3723,6 +3786,7 @@ fn apply_native_v2(
                     body,
                     env: Rc::new(captured),
                     home: None,
+                    array_pattern,
                 })
             }
             Err(e) => Err(e),

@@ -957,7 +957,20 @@ impl TreeWalkEngine {
                 // argument into individual arguments. This supports the
                 // `value >>> function` pipe model where multi-arg callees
                 // receive a product: `a *** b >>> f` → `f(a, b)`.
-                let actual_args: Vec<TaggedValue> = if arg_vals.len() == 1 {
+                //
+                // Array-pattern arrows receive the array as a single argument,
+                // so they must not be unpacked here; `apply_app` destructures
+                // the pattern internally.
+                let is_array_pattern = matches!(
+                    &callee_val,
+                    TaggedValue::Arrow {
+                        array_pattern: true,
+                        ..
+                    }
+                );
+                let actual_args: Vec<TaggedValue> = if is_array_pattern {
+                    arg_vals
+                } else if arg_vals.len() == 1 {
                     if arg_vals[0].is_array() {
                         arg_vals[0]
                             .as_array()
@@ -2075,7 +2088,7 @@ impl TreeWalkEngine {
                 // Read params/body from the current node's payload (rich
                 // or Pratt-parsed shapes).
                 let payload = &current_node.payload;
-                let (params, rest, body) = if let (Some(p), Some(b)) = (
+                let (params, rest, body, array_pattern) = if let (Some(p), Some(b)) = (
                     payload.get("params").and_then(|v| v.as_array()),
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
@@ -2096,7 +2109,7 @@ impl TreeWalkEngine {
                         .get("rest")
                         .and_then(|v| v.as_str())
                         .map(String::from);
-                    (p_names, rest_name, b as usize)
+                    (p_names, rest_name, b as usize, false)
                 } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
                     let param_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
                         LangError::engine_node(
@@ -2117,7 +2130,8 @@ impl TreeWalkEngine {
                     let (param_names, rest_name) = lang
                         .param_names(ast, param_node)
                         .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                    (param_names, rest_name, body_idx)
+                    let array_pattern = lang.is_array_pattern(param_node);
+                    (param_names, rest_name, body_idx, array_pattern)
                 } else {
                     return Err(LangError::engine_node(
                         "closure: missing params/body in payload".to_string(),
@@ -2131,6 +2145,7 @@ impl TreeWalkEngine {
                     body,
                     env: captured,
                     home: None,
+                    array_pattern,
                 };
                 Ok((closure, false))
             }
@@ -3629,36 +3644,28 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
-        let (params, rest_param, body_idx, captured_env, home) = match callee {
+        let (params, rest_param, body_idx, captured_env, home, array_pattern) = match callee {
             TaggedValue::Arrow {
                 params,
                 rest,
                 body,
                 env,
                 home,
-            } => (params.clone(), rest.clone(), *body, Rc::clone(env), *home),
+                array_pattern,
+            } => (
+                params.clone(),
+                rest.clone(),
+                *body,
+                Rc::clone(env),
+                *home,
+                *array_pattern,
+            ),
             _ => {
                 return Err(LangError::engine(
                     "callee is not an arrow-value".to_string(),
                 ));
             }
         };
-        // ADR-0074: if the arrow expects multiple params but receives a
-        // single `Pair` (product `***`), destructure it into individual
-        // args. `(a, b) ~> body` applied to `Pair(x, y)` binds `a=x, b=y`.
-        let actual_args: Vec<TaggedValue> =
-            if params.len() > 1 && args.len() == 1 && matches!(args[0], TaggedValue::Pair(_)) {
-                flatten_pair(&args[0])
-            } else {
-                args.to_vec()
-            };
-        if actual_args.len() < params.len() {
-            return Err(LangError::engine(format!(
-                "arrow-value expects {} args, got {}",
-                params.len(),
-                args.len()
-            )));
-        }
         if let Some(frame_id) = home {
             // The arrow was minted by a *different* eval frame (it crossed
             // a runtime boundary): its `body` index refers to that frame's
@@ -3677,25 +3684,78 @@ impl TreeWalkEngine {
             let mut engine = self.clone();
             engine.modules = frame.modules.clone();
             let local_callee = TaggedValue::Arrow {
-                params,
-                rest: rest_param,
+                params: params.clone(),
+                rest: rest_param.clone(),
                 body: body_idx,
-                env: captured_env,
+                env: captured_env.clone(),
                 home: None,
+                array_pattern,
             };
             let mut frame_env = ScopeStack::new();
             if let Some(g) = &frame.globals {
                 frame_env.set_globals(Rc::clone(g));
             }
             return frame.enter(|| {
-                engine.apply_app(
-                    &local_callee,
-                    &actual_args,
-                    &frame.ast,
-                    &frame.lang,
-                    &mut frame_env,
-                )
+                engine.apply_app(&local_callee, args, &frame.ast, &frame.lang, &mut frame_env)
             });
+        }
+        // Array-pattern arrows (`[x, y] ~> body`) consume a single array
+        // argument and destructure it by position. The array itself is the
+        // sole argument; fixed names bind to leading elements and a rest
+        // binding receives the remaining tail.
+        if array_pattern {
+            if args.len() != 1 {
+                return Err(LangError::engine(format!(
+                    "array-pattern arrow expects 1 array argument, got {}",
+                    args.len()
+                )));
+            }
+            let arr = args[0].as_array().ok_or_else(|| {
+                LangError::engine("array-pattern arrow expects an array argument".to_string())
+            })?;
+            let fixed = params.len();
+            if arr.len() < fixed {
+                return Err(LangError::engine(format!(
+                    "array-pattern arrow expects at least {} element(s), got {}",
+                    fixed,
+                    arr.len()
+                )));
+            }
+            if rest_param.is_none() && arr.len() != fixed {
+                return Err(LangError::engine(format!(
+                    "array-pattern arrow expects exactly {} element(s), got {}",
+                    fixed,
+                    arr.len()
+                )));
+            }
+            let (head, tail) = arr.split_at(fixed);
+            return self.apply_arrow_body(
+                &params,
+                rest_param.as_ref(),
+                body_idx,
+                captured_env,
+                head,
+                tail,
+                ast,
+                lang,
+                Some(Rc::clone(&env.globals)),
+            );
+        }
+        // Positional arrows: ADR-0074 multi-param arrows may receive a
+        // single `Pair` (product `***`) and destructure it into individual
+        // args. `(a, b) ~> body` applied to `Pair(x, y)` binds `a=x, b=y`.
+        let actual_args: Vec<TaggedValue> =
+            if params.len() > 1 && args.len() == 1 && matches!(args[0], TaggedValue::Pair(_)) {
+                flatten_pair(&args[0])
+            } else {
+                args.to_vec()
+            };
+        if actual_args.len() < params.len() {
+            return Err(LangError::engine(format!(
+                "arrow-value expects {} args, got {}",
+                params.len(),
+                args.len()
+            )));
         }
         // Curried application: arrows are unary-under-the-hood (`f :: x ~>
         // y ~> body`), so applying more args than the arrow's parameter

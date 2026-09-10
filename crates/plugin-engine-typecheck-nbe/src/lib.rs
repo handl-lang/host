@@ -1794,10 +1794,16 @@ impl NbeTypecheckEngine {
                 // `type.array{elements: [...]}` param (the same encoding
                 // `flow`/`fanout` use for tuples — ADR-0074 §3), with the
                 // rest binding typed `type.array{element: meta}`.
+                //
+                // Array-pattern arrows (`[x, y] ~> body`) consume one array
+                // argument: the param side is a `type.array` whose element
+                // types are the fixed params (and, with a rest binding, an
+                // unknown-length tail).
                 let (param_names, rest_name) = lang
                     .param_names(ast, &params_node)
                     .map_err(|e| LangError::engine_node(e.to_string(), node))?;
-                if param_names.len() == 1 && rest_name.is_none() {
+                let array_pattern = lang.is_array_pattern(&params_node);
+                if !array_pattern && param_names.len() == 1 && rest_name.is_none() {
                     let param_meta = ctx.fresh_meta();
                     let param_type = meta_value(param_meta);
                     ctx.extend(param_names[0].clone(), param_type.clone());
@@ -1805,6 +1811,60 @@ impl NbeTypecheckEngine {
                     // Zonk so callers see solved parameter types (e.g. `flow`
                     // can extract a concrete param type from the function
                     // value).
+                    let param_type = self.zonk(&param_type, ctx);
+                    let body_type = self.zonk(&body_type, ctx);
+                    let payload = serde_json::json!({"param": param_type, "body": body_type});
+                    ctx.registry
+                        .construct("type.function", &payload)
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                "synth_function: construct failed for type.function",
+                                node,
+                            )
+                        })
+                } else if array_pattern {
+                    // Array-pattern: one array argument whose elements bind
+                    // to the fixed params and (optionally) a rest tail.
+                    let param_type = if let Some(rest_name) = &rest_name {
+                        let elem_meta = meta_value(ctx.fresh_meta());
+                        let rest_ty = ctx
+                            .registry
+                            .construct("type.array", &serde_json::json!({"element": elem_meta}))
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "synth_function: construct failed for type.array",
+                                    node,
+                                )
+                            })?;
+                        ctx.extend(rest_name.clone(), rest_ty.clone());
+                        for name in &param_names {
+                            ctx.extend(name.clone(), elem_meta.clone());
+                        }
+                        ctx.registry
+                            .construct("type.array", &serde_json::json!({"element": elem_meta}))
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "synth_function: construct failed for type.array",
+                                    node,
+                                )
+                            })?
+                    } else {
+                        let mut elems: Vec<Value> = Vec::with_capacity(param_names.len());
+                        for name in &param_names {
+                            let m = meta_value(ctx.fresh_meta());
+                            ctx.extend(name.clone(), m.clone());
+                            elems.push(m);
+                        }
+                        ctx.registry
+                            .construct("type.array", &serde_json::json!({"elements": elems}))
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    "synth_function: construct failed for type.array",
+                                    node,
+                                )
+                            })?
+                    };
+                    let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
                     let param_type = self.zonk(&param_type, ctx);
                     let body_type = self.zonk(&body_type, ctx);
                     let payload = serde_json::json!({"param": param_type, "body": body_type});
