@@ -112,7 +112,7 @@ use handl_value::{
     TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
     tagged_to_value,
 };
-use plugin_engine::{Model, ModelCtx, RewriteResult, is_hott_tag};
+use plugin_engine::{Model, ModelCtx, RewriteResult, TermData, is_hott_tag};
 
 // Thread-local storage for the current AST and Language, so the
 // ValueCallable impl can access them when host functions (e.g. fn.map)
@@ -648,6 +648,33 @@ impl TreeWalkEngine {
         Ok(val)
     }
 
+    /// [`TermData`]-driven counterpart of
+    /// [`eval_scheme_tagged`](Self::eval_scheme_tagged).
+    ///
+    /// Evaluates a sub-scheme given as a [`TermData`] by delegating to
+    /// [`eval_inner_td`](Self::eval_inner_td) and balancing any scope it
+    /// pushed. The sub-scheme is already desugared (the top-level
+    /// [`eval_scheme_tagged`] call desugars the whole scheme before
+    /// conversion), so no desugar step is needed here.
+    #[allow(clippy::too_many_arguments)]
+    fn eval_scheme_tagged_td(
+        &self,
+        td: &TermData,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<TaggedValue>,
+    ) -> Result<TaggedValue, LangError> {
+        let (val, did_push) =
+            self.eval_inner_td(td, ast, node_ref, lang, env, current_node, incoming)?;
+        if did_push {
+            env.pop_scope();
+        }
+        Ok(val)
+    }
+
     /// Internal recursive interpreter. Returns the value and whether a
     /// scope was pushed that the *caller* is responsible for popping.
     ///
@@ -669,23 +696,52 @@ impl TreeWalkEngine {
         current_node: &AstNode,
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
-        match scheme {
-            Term::Arr { value } => {
-                let tv = TaggedValue::from(value.clone());
+        let td = TermData::from_term(scheme);
+        self.eval_inner_td(&td, ast, node_ref, lang, env, current_node, incoming)
+    }
+
+    /// The [`TermData`]-driven counterpart of [`eval_inner`](Self::eval_inner).
+    ///
+    /// Dispatches on [`TermData::tag`] and reads variant fields via the
+    /// `get`/`get_str`/`get_term`/`get_term_list` accessors (ADR-0103 Phase 6).
+    /// The `&Term` entry point ([`eval_inner`](Self::eval_inner)) converts the
+    /// scheme to [`TermData`] once and delegates here.
+    #[allow(clippy::too_many_arguments)]
+    fn eval_inner_td(
+        &self,
+        td: &TermData,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<TaggedValue>,
+    ) -> Result<(TaggedValue, bool), LangError> {
+        match td.tag() {
+            "Arr" => {
+                let value = td
+                    .get("value")
+                    .cloned()
+                    .expect("Arr term missing 'value' field");
+                let tv = TaggedValue::from(value);
                 self.collect_arrow_grades(&tv, env);
                 Ok((tv, false))
             }
-            Term::Op {
-                name: op,
-                args,
-                source,
-                lit,
-            } => {
+            "Op" => {
+                let op = td
+                    .get_str("name")
+                    .expect("Op term missing 'name' field");
+                let args = td.get_term_list("args");
+                let source = td
+                    .arr_source()
+                    .expect("Op term missing or malformed 'source' field");
+                // `lit` is stored as `null` when `None`; treat Null as absent.
+                let lit = td.get("lit").filter(|v| !v.is_null());
                 let (val, pushed) = self.eval_arr(
                     op,
-                    args,
-                    source,
-                    lit.as_ref(),
+                    &args,
+                    &source,
+                    lit,
                     ast,
                     node_ref,
                     lang,
@@ -696,9 +752,11 @@ impl TreeWalkEngine {
                 self.collect_arrow_grades(&val, env);
                 Ok((val, pushed))
             }
-            Term::Seq { fst, snd } => {
-                let (fst_val, fst_pushed) = self.eval_inner(
-                    fst,
+            "Seq" => {
+                let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
+                let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
+                let (fst_val, fst_pushed) = self.eval_inner_td(
+                    &fst,
                     ast,
                     node_ref,
                     lang,
@@ -706,8 +764,15 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let (snd_val, snd_pushed) =
-                    self.eval_inner(snd, ast, node_ref, lang, env, current_node, Some(fst_val))?;
+                let (snd_val, snd_pushed) = self.eval_inner_td(
+                    &snd,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    Some(fst_val),
+                )?;
                 // Pop the scope `fst` reported (e.g. extend_env as fst).
                 if fst_pushed {
                     env.pop_scope();
@@ -717,7 +782,10 @@ impl TreeWalkEngine {
                 // Seq after its own snd completes.
                 Ok((snd_val, snd_pushed))
             }
-            Term::First { inner } => {
+            "First" => {
+                let inner = td
+                    .get_term("inner")
+                    .expect("First term missing 'inner' field");
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine_node(
                         "First: missing incoming value".to_string(),
@@ -741,13 +809,15 @@ impl TreeWalkEngine {
                     })?
                     .clone();
                 let (inner_result, pushed) =
-                    self.eval_inner(inner, ast, node_ref, lang, env, current_node, Some(a))?;
+                    self.eval_inner_td(&inner, ast, node_ref, lang, env, current_node, Some(a))?;
                 if pushed {
                     env.pop_scope();
                 }
                 Ok((pair(inner_result, b), false))
             }
-            Term::Choice { l, r } => {
+            "Choice" => {
+                let l = td.get_term("l").expect("Choice term missing 'l' field");
+                let r = td.get_term("r").expect("Choice term missing 'r' field");
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine_node(
                         "Choice: missing incoming value".to_string(),
@@ -763,7 +833,7 @@ impl TreeWalkEngine {
                             )
                         })?
                         .clone();
-                    self.eval_inner(l, ast, node_ref, lang, env, current_node, Some(v))?
+                    self.eval_inner_td(&l, ast, node_ref, lang, env, current_node, Some(v))?
                 } else if is_either_right(&inc) {
                     let v = either_value(&inc)
                         .ok_or_else(|| {
@@ -773,7 +843,7 @@ impl TreeWalkEngine {
                             )
                         })?
                         .clone();
-                    self.eval_inner(r, ast, node_ref, lang, env, current_node, Some(v))?
+                    self.eval_inner_td(&r, ast, node_ref, lang, env, current_node, Some(v))?
                 } else {
                     return Err(LangError::engine_node(
                         "Choice: incoming is not an Either".to_string(),
@@ -785,7 +855,10 @@ impl TreeWalkEngine {
                 }
                 Ok((val, false))
             }
-            Term::Loop { body } => {
+            "Loop" => {
+                let body = td
+                    .get_term("body")
+                    .expect("Loop term missing 'body' field");
                 // Causal/strict feedback (ADR-0052 §"Feedback semantics").
                 // Two modes, selected by the body's result shape (see the
                 // module-level "Loop semantics" doc):
@@ -803,14 +876,11 @@ impl TreeWalkEngine {
                 // as an argument to `apply_app`). Hoist the closure
                 // evaluation outside the loop so it runs once instead of
                 // once per iteration.
-                if let Term::Op {
-                    name: op,
-                    args,
-                    source,
-                    ..
-                } = body.as_ref()
-                {
-                    if *source == ArrSource::Native && op == "loop_step" {
+                if body.tag() == "Op" {
+                    let op = body.get_str("name").unwrap_or("");
+                    let source = body.arr_source().unwrap_or(ArrSource::Native);
+                    if source == ArrSource::Native && op == "loop_step" {
+                        let args = body.get_term_list("args");
                         let body_proc = args.first().ok_or_else(|| {
                             LangError::engine_node(
                                 "loop_step: missing body proc".to_string(),
@@ -818,7 +888,7 @@ impl TreeWalkEngine {
                             )
                         })?;
                         // Evaluate the closure once, before the loop.
-                        let closure_val = self.eval_scheme_tagged(
+                        let closure_val = self.eval_scheme_tagged_td(
                             body_proc,
                             ast,
                             node_ref,
@@ -877,7 +947,7 @@ impl TreeWalkEngine {
                 for _ in 0..MAX_ITERS {
                     let input = pair(inc.clone(), state.clone());
                     let (result, pushed) =
-                        self.eval_inner(body, ast, node_ref, lang, env, current_node, Some(input))?;
+                        self.eval_inner_td(&body, ast, node_ref, lang, env, current_node, Some(input))?;
                     if pushed {
                         env.pop_scope();
                     }
@@ -914,9 +984,13 @@ impl TreeWalkEngine {
                     current_node,
                 ))
             }
-            Term::App { callee, args } => {
-                let (callee_val, cpushed) = self.eval_inner(
-                    callee,
+            "App" => {
+                let callee = td
+                    .get_term("callee")
+                    .expect("App term missing 'callee' field");
+                let args = td.get_term_list("args");
+                let (callee_val, cpushed) = self.eval_inner_td(
+                    &callee,
                     ast,
                     node_ref,
                     lang,
@@ -928,8 +1002,8 @@ impl TreeWalkEngine {
                     env.pop_scope();
                 }
                 let mut arg_vals = Vec::with_capacity(args.len());
-                for arg in args {
-                    let (v, pushed) = self.eval_inner(
+                for arg in &args {
+                    let (v, pushed) = self.eval_inner_td(
                         arg,
                         ast,
                         node_ref,
@@ -1016,13 +1090,19 @@ impl TreeWalkEngine {
             // `eliminate_and_check`, which also surfaces unhandled
             // capabilities as a compile-time error. The elimination
             // result is cached per node kind.
-            Term::Handle {
-                body,
-                target,
-                impl_,
-            } => {
-                match self.eval_scheme_tagged(
-                    impl_,
+            "Handle" => {
+                let body = td
+                    .get_term("body")
+                    .expect("Handle term missing 'body' field");
+                let target = td
+                    .get_str("target")
+                    .unwrap_or("")
+                    .to_string();
+                let impl_ = td
+                    .get_term("impl_")
+                    .expect("Handle term missing 'impl_' field");
+                match self.eval_scheme_tagged_td(
+                    &impl_,
                     ast,
                     node_ref,
                     lang,
@@ -1033,8 +1113,15 @@ impl TreeWalkEngine {
                     Ok(handler_val) => {
                         let _ = target; // retained for diagnostics
                         self.handler_stack.borrow_mut().push(handler_val);
-                        let result =
-                            self.eval_inner(body, ast, node_ref, lang, env, current_node, incoming);
+                        let result = self.eval_inner_td(
+                            &body,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            incoming,
+                        );
                         self.handler_stack.borrow_mut().pop();
                         result
                     }
@@ -1044,8 +1131,13 @@ impl TreeWalkEngine {
                             if let Some(e) = cache.get(current_node.kind.as_str()) {
                                 e.clone()
                             } else {
+                                // `eliminate_and_check` operates on the `Term`
+                                // enum, so convert back for this one case.
+                                let term = td
+                                    .to_term()
+                                    .map_err(|e| LangError::engine_node(e, current_node))?;
                                 let e =
-                                    handl_language::eliminate_and_check(scheme).map_err(|e| {
+                                    handl_language::eliminate_and_check(&term).map_err(|e| {
                                         LangError::engine_node(e.to_string(), current_node)
                                     })?;
                                 cache.insert(current_node.kind.to_string(), e.clone());
@@ -1069,14 +1161,21 @@ impl TreeWalkEngine {
             // state, then while budget remains run `predicate` on the
             // state — `false` breaks early, `true` applies `step` to
             // advance the state. Returns the final state.
-            Term::Iter {
-                fuel,
-                predicate,
-                step,
-                initial,
-            } => {
-                let fuel_val = self.eval_scheme_tagged(
-                    fuel,
+            "Iter" => {
+                let fuel = td
+                    .get_term("fuel")
+                    .expect("Iter term missing 'fuel' field");
+                let predicate = td
+                    .get_term("predicate")
+                    .expect("Iter term missing 'predicate' field");
+                let step = td
+                    .get_term("step")
+                    .expect("Iter term missing 'step' field");
+                let initial = td
+                    .get_term("initial")
+                    .expect("Iter term missing 'initial' field");
+                let fuel_val = self.eval_scheme_tagged_td(
+                    &fuel,
                     ast,
                     node_ref,
                     lang,
@@ -1094,8 +1193,8 @@ impl TreeWalkEngine {
                         ));
                     }
                 };
-                let mut state = self.eval_scheme_tagged(
-                    initial,
+                let mut state = self.eval_scheme_tagged_td(
+                    &initial,
                     ast,
                     node_ref,
                     lang,
@@ -1104,8 +1203,8 @@ impl TreeWalkEngine {
                     incoming,
                 )?;
                 for _ in 0..max {
-                    let cont = self.eval_scheme_tagged(
-                        predicate,
+                    let cont = self.eval_scheme_tagged_td(
+                        &predicate,
                         ast,
                         node_ref,
                         lang,
@@ -1115,8 +1214,8 @@ impl TreeWalkEngine {
                     )?;
                     match cont.as_bool() {
                         Some(true) => {
-                            state = self.eval_scheme_tagged(
-                                step,
+                            state = self.eval_scheme_tagged_td(
+                                &step,
                                 ast,
                                 node_ref,
                                 lang,
@@ -1141,7 +1240,10 @@ impl TreeWalkEngine {
             // evaluate it with a fresh incoming context. Missing roles and
             // missing children are silently `Null`, matching the optional-child
             // behavior of `proj_child_or`.
-            Term::Child { role } => {
+            "Child" => {
+                let role = td
+                    .get_str("role")
+                    .unwrap_or("");
                 let idx = match lang.child_role_index(&current_node.kind, role) {
                     Ok(Some(idx)) => idx,
                     _ => {
@@ -1162,21 +1264,30 @@ impl TreeWalkEngine {
                 let val = self.eval_node_inner(ast, child_ref, lang, env)?;
                 Ok((val, false))
             }
-            Term::Rewrite { .. } => Err(LangError::NotImplemented),
-            Term::Path { .. } => Ok((incoming.unwrap_or(TaggedValue::from(Value::Null)), false)),
-            Term::Equiv { a, b, .. } => {
+            "Rewrite" => Err(LangError::NotImplemented),
+            "Path" => Ok((incoming.unwrap_or(TaggedValue::from(Value::Null)), false)),
+            "Equiv" => {
+                let a = td.get_term("a").expect("Equiv term missing 'a' field");
+                let b = td.get_term("b").expect("Equiv term missing 'b' field");
                 let inc = incoming.unwrap_or(TaggedValue::from(Value::Null));
                 let (av, _) =
-                    self.eval_inner(a, ast, node_ref, lang, env, current_node, Some(inc.clone()))?;
+                    self.eval_inner_td(&a, ast, node_ref, lang, env, current_node, Some(inc.clone()))?;
                 let (bv, _) =
-                    self.eval_inner(b, ast, node_ref, lang, env, current_node, Some(inc))?;
+                    self.eval_inner_td(&b, ast, node_ref, lang, env, current_node, Some(inc))?;
                 let val = Value::Bool(tagged_to_value(&av) == tagged_to_value(&bv));
                 Ok((TaggedValue::from(val), false))
             }
-            Term::Const { value } => Ok((TaggedValue::from(value.clone()), false)),
-            Term::Src { cell } => {
-                let v = self.eval_scheme_tagged(
-                    cell,
+            "Const" => {
+                let value = td
+                    .get("value")
+                    .cloned()
+                    .expect("Const term missing 'value' field");
+                Ok((TaggedValue::from(value), false))
+            }
+            "Src" => {
+                let cell = td.get_term("cell").expect("Src term missing 'cell' field");
+                let v = self.eval_scheme_tagged_td(
+                    &cell,
                     ast,
                     node_ref,
                     lang,
@@ -1186,9 +1297,10 @@ impl TreeWalkEngine {
                 )?;
                 Ok((cell2_src(&v), false))
             }
-            Term::Tgt { cell } => {
-                let v = self.eval_scheme_tagged(
-                    cell,
+            "Tgt" => {
+                let cell = td.get_term("cell").expect("Tgt term missing 'cell' field");
+                let v = self.eval_scheme_tagged_td(
+                    &cell,
                     ast,
                     node_ref,
                     lang,
@@ -1198,9 +1310,15 @@ impl TreeWalkEngine {
                 )?;
                 Ok((cell2_tgt(&v), false))
             }
-            Term::RecordProj { record, field } => {
-                let record_val = self.eval_scheme_tagged(
-                    record,
+            "RecordProj" => {
+                let record = td
+                    .get_term("record")
+                    .expect("RecordProj term missing 'record' field");
+                let field = td
+                    .get_str("field")
+                    .unwrap_or("");
+                let record_val = self.eval_scheme_tagged_td(
+                    &record,
                     ast,
                     node_ref,
                     lang,
@@ -1210,13 +1328,18 @@ impl TreeWalkEngine {
                 )?;
                 Ok((record_proj(&record_val, field), false))
             }
-            Term::RecordWith {
-                record,
-                field,
-                value,
-            } => {
-                let record_val = self.eval_scheme_tagged(
-                    record,
+            "RecordWith" => {
+                let record = td
+                    .get_term("record")
+                    .expect("RecordWith term missing 'record' field");
+                let field = td
+                    .get_str("field")
+                    .unwrap_or("");
+                let value = td
+                    .get_term("value")
+                    .expect("RecordWith term missing 'value' field");
+                let record_val = self.eval_scheme_tagged_td(
+                    &record,
                     ast,
                     node_ref,
                     lang,
@@ -1224,8 +1347,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let value_val = self.eval_scheme_tagged(
-                    value,
+                let value_val = self.eval_scheme_tagged_td(
+                    &value,
                     ast,
                     node_ref,
                     lang,
@@ -1234,12 +1357,18 @@ impl TreeWalkEngine {
                     incoming,
                 )?;
                 let mut map = record_val.as_object().cloned().unwrap_or_default();
-                map.insert(Rc::from(field.as_str()), value_val);
+                map.insert(Rc::from(field), value_val);
                 Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
-            Term::Tag { tag, value } => {
-                let val = self.eval_scheme_tagged(
-                    value,
+            "Tag" => {
+                let tag = td
+                    .get_str("tag")
+                    .unwrap_or("");
+                let value = td
+                    .get_term("value")
+                    .expect("Tag term missing 'value' field");
+                let val = self.eval_scheme_tagged_td(
+                    &value,
                     ast,
                     node_ref,
                     lang,
@@ -1252,9 +1381,12 @@ impl TreeWalkEngine {
                     .unwrap_or(TaggedValue::Null);
                 Ok((tagged, false))
             }
-            Term::CellId { arrow } => {
-                let v = self.eval_scheme_tagged(
-                    arrow,
+            "CellId" => {
+                let arrow = td
+                    .get_term("arrow")
+                    .expect("CellId term missing 'arrow' field");
+                let v = self.eval_scheme_tagged_td(
+                    &arrow,
                     ast,
                     node_ref,
                     lang,
@@ -1264,9 +1396,15 @@ impl TreeWalkEngine {
                 )?;
                 Ok((cell2_id(&v), false))
             }
-            Term::CellCompV { first, second } => {
-                let fst = self.eval_scheme_tagged(
-                    first,
+            "CellCompV" => {
+                let first = td
+                    .get_term("first")
+                    .expect("CellCompV term missing 'first' field");
+                let second = td
+                    .get_term("second")
+                    .expect("CellCompV term missing 'second' field");
+                let fst = self.eval_scheme_tagged_td(
+                    &first,
                     ast,
                     node_ref,
                     lang,
@@ -1274,8 +1412,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let snd = self.eval_scheme_tagged(
-                    second,
+                let snd = self.eval_scheme_tagged_td(
+                    &second,
                     ast,
                     node_ref,
                     lang,
@@ -1285,9 +1423,25 @@ impl TreeWalkEngine {
                 )?;
                 Ok((cell2_comp_v(&fst, &snd), false))
             }
-            Term::Whisker { side, arrow, cell } => {
-                let arrow_val = self.eval_scheme_tagged(
-                    arrow,
+            "Whisker" => {
+                let arrow = td
+                    .get_term("arrow")
+                    .expect("Whisker term missing 'arrow' field");
+                let cell = td
+                    .get_term("cell")
+                    .expect("Whisker term missing 'cell' field");
+                let side_str = match td.get_str("side").unwrap_or("") {
+                    "Left" => "Left",
+                    "Right" => "Right",
+                    other => {
+                        return Err(LangError::engine_node(
+                            format!("Whisker: unknown side '{other}'"),
+                            current_node,
+                        ))
+                    }
+                };
+                let arrow_val = self.eval_scheme_tagged_td(
+                    &arrow,
                     ast,
                     node_ref,
                     lang,
@@ -1295,8 +1449,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let cell_val = self.eval_scheme_tagged(
-                    cell,
+                let cell_val = self.eval_scheme_tagged_td(
+                    &cell,
                     ast,
                     node_ref,
                     lang,
@@ -1304,16 +1458,15 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                let side_str = match side {
-                    Side::Left => "Left",
-                    Side::Right => "Right",
-                };
                 Ok((cell2_whisker(side_str, &arrow_val, &cell_val), false))
             }
-            Term::Refine { sort: _, predicate } => {
+            "Refine" => {
+                let predicate = td
+                    .get_term("predicate")
+                    .expect("Refine term missing 'predicate' field");
                 let inc = incoming.unwrap_or(TaggedValue::Null);
-                let pred = self.eval_scheme_tagged(
-                    predicate,
+                let pred = self.eval_scheme_tagged_td(
+                    &predicate,
                     ast,
                     node_ref,
                     lang,
@@ -1330,9 +1483,15 @@ impl TreeWalkEngine {
                     ))
                 }
             }
-            Term::Cobind { grade, body } => {
-                let grade_val = self.eval_scheme_tagged(
-                    grade,
+            "Cobind" => {
+                let grade = td
+                    .get_term("grade")
+                    .expect("Cobind term missing 'grade' field");
+                let body = td
+                    .get_term("body")
+                    .expect("Cobind term missing 'body' field");
+                let grade_val = self.eval_scheme_tagged_td(
+                    &grade,
                     ast,
                     node_ref,
                     lang,
@@ -1341,8 +1500,8 @@ impl TreeWalkEngine {
                     incoming.clone(),
                 )?;
                 self.collect_grades(&grade_val, env);
-                let v = self.eval_scheme_tagged(
-                    body,
+                let v = self.eval_scheme_tagged_td(
+                    &body,
                     ast,
                     node_ref,
                     lang,
@@ -1352,9 +1511,12 @@ impl TreeWalkEngine {
                 )?;
                 Ok((v, false))
             }
-            Term::Univalence { equiv } => {
-                let equiv_val = self.eval_scheme_tagged(
-                    equiv,
+            "Univalence" => {
+                let equiv = td
+                    .get_term("equiv")
+                    .expect("Univalence term missing 'equiv' field");
+                let equiv_val = self.eval_scheme_tagged_td(
+                    &equiv,
                     ast,
                     node_ref,
                     lang,
@@ -1377,9 +1539,15 @@ impl TreeWalkEngine {
                 }
                 Ok((equiv_val, false))
             }
-            Term::Glue { family, path } => {
-                let _ = self.eval_scheme_tagged(
-                    path,
+            "Glue" => {
+                let family = td
+                    .get_term("family")
+                    .expect("Glue term missing 'family' field");
+                let path = td
+                    .get_term("path")
+                    .expect("Glue term missing 'path' field");
+                let _ = self.eval_scheme_tagged_td(
+                    &path,
                     ast,
                     node_ref,
                     lang,
@@ -1387,8 +1555,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let family_val = self.eval_scheme_tagged(
-                    family,
+                let family_val = self.eval_scheme_tagged_td(
+                    &family,
                     ast,
                     node_ref,
                     lang,
@@ -1398,9 +1566,15 @@ impl TreeWalkEngine {
                 )?;
                 Ok((family_val, false))
             }
-            Term::Fibrant { base, family } => {
-                let _ = self.eval_scheme_tagged(
-                    family,
+            "Fibrant" => {
+                let base = td
+                    .get_term("base")
+                    .expect("Fibrant term missing 'base' field");
+                let family = td
+                    .get_term("family")
+                    .expect("Fibrant term missing 'family' field");
+                let _ = self.eval_scheme_tagged_td(
+                    &family,
                     ast,
                     node_ref,
                     lang,
@@ -1408,8 +1582,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let base_val = self.eval_scheme_tagged(
-                    base,
+                let base_val = self.eval_scheme_tagged_td(
+                    &base,
                     ast,
                     node_ref,
                     lang,
@@ -1419,9 +1593,18 @@ impl TreeWalkEngine {
                 )?;
                 Ok((base_val, false))
             }
-            Term::JElim { path, motive, base } => {
-                let path_val = self.eval_scheme_tagged(
-                    path,
+            "JElim" => {
+                let path = td
+                    .get_term("path")
+                    .expect("JElim term missing 'path' field");
+                let motive = td
+                    .get_term("motive")
+                    .expect("JElim term missing 'motive' field");
+                let base = td
+                    .get_term("base")
+                    .expect("JElim term missing 'base' field");
+                let path_val = self.eval_scheme_tagged_td(
+                    &path,
                     ast,
                     node_ref,
                     lang,
@@ -1429,8 +1612,8 @@ impl TreeWalkEngine {
                     current_node,
                     incoming.clone(),
                 )?;
-                let base_val = self.eval_scheme_tagged(
-                    base,
+                let base_val = self.eval_scheme_tagged_td(
+                    &base,
                     ast,
                     node_ref,
                     lang,
@@ -1440,8 +1623,8 @@ impl TreeWalkEngine {
                 )?;
                 if let Some(tag) = path_val.get("__tag__").and_then(|v| v.as_str()) {
                     if tag == "Path" || tag == "Rewrite" {
-                        let motive_val = self.eval_scheme_tagged(
-                            motive,
+                        let motive_val = self.eval_scheme_tagged_td(
+                            &motive,
                             ast,
                             node_ref,
                             lang,
@@ -1454,6 +1637,10 @@ impl TreeWalkEngine {
                 }
                 Ok((base_val, false))
             }
+            _ => Err(LangError::engine_node(
+                format!("eval_inner_td: unknown tag '{}'", td.tag()),
+                current_node,
+            )),
         }
     }
 
@@ -1464,7 +1651,7 @@ impl TreeWalkEngine {
     fn eval_arr(
         &self,
         op: &str,
-        args: &[Term],
+        args: &[TermData],
         source: &ArrSource,
         lit: Option<&Value>,
         ast: &Ast,
@@ -1539,7 +1726,7 @@ impl TreeWalkEngine {
         // Evaluate sub-scheme args (each gets the same incoming context).
         let mut arg_vals = Vec::with_capacity(args.len());
         for arg in args {
-            let (v, pushed) = self.eval_inner(
+            let (v, pushed) = self.eval_inner_td(
                 arg,
                 ast,
                 node_ref,
@@ -1716,7 +1903,7 @@ impl TreeWalkEngine {
     fn eval_derived_step(
         &self,
         op: &str,
-        raw_args: &[Term],
+        raw_args: &[TermData],
         ast: &Ast,
         node_ref: AstRef,
         lang: &Language,
@@ -1746,7 +1933,7 @@ impl TreeWalkEngine {
                     )
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let cond_val = self.eval_scheme_tagged(
+                let cond_val = self.eval_scheme_tagged_td(
                     cond,
                     ast,
                     node_ref,
@@ -1756,7 +1943,7 @@ impl TreeWalkEngine {
                     Some(current.clone()),
                 )?;
                 if is_truthy(&cond_val) {
-                    let new_val = self.eval_scheme_tagged(
+                    let new_val = self.eval_scheme_tagged_td(
                         body,
                         ast,
                         node_ref,
@@ -1804,7 +1991,7 @@ impl TreeWalkEngine {
                 };
                 let count_n = as_num(&counter).map_err(|e| e.with_node(current_node))?;
                 if count_n > Num::Int(0) {
-                    let new_acc = self.eval_scheme_tagged(
+                    let new_acc = self.eval_scheme_tagged_td(
                         body,
                         ast,
                         node_ref,
@@ -1831,7 +2018,7 @@ impl TreeWalkEngine {
                     )
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let new_val = self.eval_scheme_tagged(
+                let new_val = self.eval_scheme_tagged_td(
                     body,
                     ast,
                     node_ref,
@@ -1869,7 +2056,7 @@ impl TreeWalkEngine {
                     LangError::engine_node("loop_step: missing body proc".to_string(), current_node)
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let closure_val = self.eval_scheme_tagged(
+                let closure_val = self.eval_scheme_tagged_td(
                     body_proc,
                     ast,
                     node_ref,
@@ -2608,14 +2795,14 @@ impl TreeWalkEngine {
                 // Grade-based op call: `add(1, 2)` where `add` is an `op`.
                 if let Some(op_decl) = lang.op_decl(callee) {
                     let op_incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
-                    let op_term = Term::Op {
-                        name: callee.to_string(),
-                        args: vec![],
-                        source: ArrSource::Native,
-                        lit: None,
-                    };
-                    let (mut result, pushed) = self.eval_inner(
-                        &op_term,
+                    let op_td = TermData::op(
+                        callee.to_string(),
+                        vec![],
+                        &ArrSource::Native,
+                        None,
+                    );
+                    let (mut result, pushed) = self.eval_inner_td(
+                        &op_td,
                         ast,
                         _node_ref,
                         lang,

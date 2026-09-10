@@ -72,7 +72,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use handl_language::Value as JsonValue;
-use handl_language::{ArrSource, Ast, LangError, Language, SchemeVersion, Side, Term};
+use handl_language::{ArrSource, Ast, LangError, Language, SchemeVersion, Term};
+use plugin_engine::TermData;
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -813,6 +814,10 @@ fn compile_node<M: Module>(
 /// `incoming_val` is the cranelift IR value representing the incoming value
 /// pointer flowing through the arrow. After this function returns, the builder
 /// is in the block containing the result value.
+///
+/// This is the `&Term` entry point: it converts the scheme to [`TermData`]
+/// (ADR-0103 Phase 6) and delegates to [`compile_scheme_td`], which dispatches
+/// on the `__tag__` field instead of matching the `Term` enum.
 fn compile_scheme(
     builder: &mut FunctionBuilder,
     scheme: &Term,
@@ -823,9 +828,43 @@ fn compile_scheme(
     ptr_type: types::Type,
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
-    match scheme {
-        Term::Arr { value } => {
-            let lit_idx = pools.add_literal(value.clone());
+    let td = TermData::from_term(scheme);
+    compile_scheme_td(
+        builder,
+        &td,
+        ctx_param,
+        incoming_val,
+        helpers,
+        pools,
+        ptr_type,
+        ffi_ops,
+    )
+}
+
+/// The [`TermData`]-driven counterpart of [`compile_scheme`].
+///
+/// Dispatches on [`TermData::tag`] and reads variant fields via the
+/// `get`/`get_str`/`get_term`/`get_term_list` accessors. Derived forms
+/// (`CellId`/`Src`/`Tgt`/`CellCompV`/`Whisker`/`Const`/`RecordProj`) are
+/// rewritten to their `Op`/`Arr` lowering using [`TermData`] constructors and
+/// recompiled recursively, so no `Term` enum value is constructed for them.
+fn compile_scheme_td(
+    builder: &mut FunctionBuilder,
+    td: &TermData,
+    ctx_param: Value,
+    incoming_val: Value,
+    helpers: &HelperRefs,
+    pools: &mut ConstantPools,
+    ptr_type: types::Type,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
+) -> Result<(Value, bool), LangError> {
+    match td.tag() {
+        "Arr" => {
+            let value = td
+                .get("value")
+                .cloned()
+                .expect("Arr term missing 'value' field");
+            let lit_idx = pools.add_literal(value);
             let lit_idx_val = builder.ins().iconst(types::I64, lit_idx as i64);
             let call = builder
                 .ins()
@@ -833,29 +872,38 @@ fn compile_scheme(
             Ok((builder.inst_results(call)[0], false))
         }
 
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } => compile_arr(
-            builder,
-            op,
-            args,
-            source,
-            lit.as_ref(),
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-
-        Term::Seq { fst, snd } => {
-            let (fst_val, fst_pushed) = compile_scheme(
+        "Op" => {
+            let op = td
+                .get_str("name")
+                .expect("Op term missing 'name' field")
+                .to_string();
+            let args = td.get_term_list("args");
+            let source = td
+                .arr_source()
+                .expect("Op term missing or malformed 'source' field");
+            // `lit` is stored as `null` when `None`; treat Null as absent.
+            let lit = td.get("lit").filter(|v| !v.is_null());
+            compile_arr(
                 builder,
-                fst,
+                &op,
+                &args,
+                &source,
+                lit,
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
+            let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
+            let (fst_val, fst_pushed) = compile_scheme_td(
+                builder,
+                &fst,
                 ctx_param,
                 incoming_val,
                 helpers,
@@ -863,8 +911,8 @@ fn compile_scheme(
                 ptr_type,
                 ffi_ops,
             )?;
-            let (snd_val, snd_pushed) = compile_scheme(
-                builder, snd, ctx_param, fst_val, helpers, pools, ptr_type, ffi_ops,
+            let (snd_val, snd_pushed) = compile_scheme_td(
+                builder, &snd, ctx_param, fst_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if fst_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -872,7 +920,10 @@ fn compile_scheme(
             Ok((snd_val, snd_pushed))
         }
 
-        Term::First { inner } => {
+        "First" => {
+            let inner = td
+                .get_term("inner")
+                .expect("First term missing 'inner' field");
             let fst = {
                 let call = builder
                     .ins()
@@ -887,8 +938,8 @@ fn compile_scheme(
             };
             // Now that both components are extracted, drop the original pair.
             builder.ins().call(helpers.drop_value, &[incoming_val]);
-            let (inner_result, inner_pushed) = compile_scheme(
-                builder, inner, ctx_param, fst, helpers, pools, ptr_type, ffi_ops,
+            let (inner_result, inner_pushed) = compile_scheme_td(
+                builder, &inner, ctx_param, fst, helpers, pools, ptr_type, ffi_ops,
             )?;
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -900,7 +951,9 @@ fn compile_scheme(
             Ok((result, false))
         }
 
-        Term::Choice { l, r } => {
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice term missing 'l' field");
+            let r = td.get_term("r").expect("Choice term missing 'r' field");
             let is_left = builder
                 .ins()
                 .call(helpers.either_is_left, &[ctx_param, incoming_val]);
@@ -924,8 +977,8 @@ fn compile_scheme(
                     .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (l_result, l_pushed) = compile_scheme(
-                builder, l, ctx_param, left_val, helpers, pools, ptr_type, ffi_ops,
+            let (l_result, l_pushed) = compile_scheme_td(
+                builder, &l, ctx_param, left_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if l_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -941,8 +994,8 @@ fn compile_scheme(
                     .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (r_result, r_pushed) = compile_scheme(
-                builder, r, ctx_param, right_val, helpers, pools, ptr_type, ffi_ops,
+            let (r_result, r_pushed) = compile_scheme_td(
+                builder, &r, ctx_param, right_val, helpers, pools, ptr_type, ffi_ops,
             )?;
             if r_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -954,18 +1007,27 @@ fn compile_scheme(
             Ok((builder.block_params(merge_block)[0], false))
         }
 
-        Term::Loop { body } => compile_loop(
-            builder,
-            body,
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
+        "Loop" => {
+            let body = td
+                .get_term("body")
+                .expect("Loop term missing 'body' field");
+            compile_loop(
+                builder,
+                &body,
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
 
-        Term::App { callee, args } => {
+        "App" => {
+            let callee = td
+                .get_term("callee")
+                .expect("App term missing 'callee' field");
+            let args = td.get_term_list("args");
             // Clone incoming for the callee so that the callee and the args
             // don't share the same consumable pointer. Without this, if the
             // callee is a consuming combinator (First/Choice/Loop/extend_env)
@@ -979,9 +1041,9 @@ fn compile_scheme(
                     .call(helpers.clone, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (callee_val, c_pushed) = compile_scheme(
+            let (callee_val, c_pushed) = compile_scheme_td(
                 builder,
-                callee,
+                &callee,
                 ctx_param,
                 callee_incoming,
                 helpers,
@@ -994,7 +1056,7 @@ fn compile_scheme(
             }
             let arg_ptrs = compile_args_v2(
                 builder,
-                args,
+                &args,
                 ctx_param,
                 incoming_val,
                 helpers,
@@ -1013,9 +1075,14 @@ fn compile_scheme(
         // handler at compile time, then compile the resulting handler-free
         // scheme. Uses `eliminate_and_check` to surface unhandled
         // capabilities as a compile-time error, matching the tree-walk,
-        // bytecode, and typecheck engines.
-        Term::Handle { .. } => {
-            let eliminated = handl_language::eliminate_and_check(scheme)
+        // bytecode, and typecheck engines. `eliminate_and_check` operates on
+        // the `Term` enum, so the `TermData` is converted back via
+        // [`TermData::to_term`] for this one case.
+        "Handle" => {
+            let term = td
+                .to_term()
+                .map_err(|e| LangError::engine(e.to_string()))?;
+            let eliminated = handl_language::eliminate_and_check(&term)
                 .map_err(|e| LangError::engine(e.to_string()))?;
             compile_scheme(
                 builder,
@@ -1029,83 +1096,20 @@ fn compile_scheme(
             )
         }
 
-        Term::Iter { .. } => Err(LangError::NotImplemented),
-        Term::Child { .. } => Err(LangError::NotImplemented),
-        Term::Path { .. } => Err(LangError::NotImplemented),
-        Term::Equiv { .. } => Err(LangError::NotImplemented),
-        Term::CellId { arrow } => compile_scheme(
-            builder,
-            &Term::Op {
-                name: "cell2_id".to_string(),
-                args: vec![arrow.as_ref().clone()],
-                source: ArrSource::Native,
-                lit: None,
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::Src { cell } => compile_scheme(
-            builder,
-            &Term::Op {
-                name: "cell2_src".to_string(),
-                args: vec![cell.as_ref().clone()],
-                source: ArrSource::Native,
-                lit: None,
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::Tgt { cell } => compile_scheme(
-            builder,
-            &Term::Op {
-                name: "cell2_tgt".to_string(),
-                args: vec![cell.as_ref().clone()],
-                source: ArrSource::Native,
-                lit: None,
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::CellCompV { first, second } => compile_scheme(
-            builder,
-            &Term::Op {
-                name: "cell2_comp_v".to_string(),
-                args: vec![first.as_ref().clone(), second.as_ref().clone()],
-                source: ArrSource::Native,
-                lit: None,
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::Whisker { side, arrow, cell } => {
-            let op = match side {
-                Side::Left => "cell2_whisker_left",
-                Side::Right => "cell2_whisker_right",
-            };
-            compile_scheme(
+        "Iter" => Err(LangError::NotImplemented),
+        "Child" => Err(LangError::NotImplemented),
+        "Path" => Err(LangError::NotImplemented),
+        "Equiv" => Err(LangError::NotImplemented),
+        // HoTT/cell combinators lower to native `cell2_*` ops. The lowering
+        // is expressed with [`TermData`] constructors and recompiled, so no
+        // `Term` enum value is built.
+        "CellId" => {
+            let arrow = td
+                .get_term("arrow")
+                .expect("CellId term missing 'arrow' field");
+            compile_scheme_td(
                 builder,
-                &Term::Op {
-                    name: op.to_string(),
-                    args: vec![arrow.as_ref().clone(), cell.as_ref().clone()],
-                    source: ArrSource::Native,
-                    lit: None,
-                },
+                &TermData::op("cell2_id", vec![arrow], &ArrSource::Native, None),
                 ctx_param,
                 incoming_val,
                 helpers,
@@ -1114,47 +1118,138 @@ fn compile_scheme(
                 ffi_ops,
             )
         }
-        Term::Const { value } => compile_scheme(
-            builder,
-            &Term::Arr {
-                value: value.clone(),
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::RecordProj { record, field } => compile_scheme(
-            builder,
-            &Term::Op {
-                name: "record_proj".to_string(),
-                args: vec![
-                    record.as_ref().clone(),
-                    Term::Arr {
-                        value: JsonValue::String(field.clone()),
-                    },
-                ],
-                source: ArrSource::Native,
-                lit: None,
-            },
-            ctx_param,
-            incoming_val,
-            helpers,
-            pools,
-            ptr_type,
-            ffi_ops,
-        ),
-        Term::RecordWith { .. } => Err(LangError::NotImplemented),
-        Term::Tag { .. } => Err(LangError::NotImplemented),
-        Term::Univalence { .. } => Err(LangError::NotImplemented),
-        Term::Glue { .. } => Err(LangError::NotImplemented),
-        Term::Fibrant { .. } => Err(LangError::NotImplemented),
-        Term::JElim { .. } => Err(LangError::NotImplemented),
-        Term::Refine { .. } => Err(LangError::NotImplemented),
-        Term::Cobind { .. } => Err(LangError::NotImplemented),
-        Term::Rewrite { .. } => Err(LangError::NotImplemented),
+        "Src" => {
+            let cell = td
+                .get_term("cell")
+                .expect("Src term missing 'cell' field");
+            compile_scheme_td(
+                builder,
+                &TermData::op("cell2_src", vec![cell], &ArrSource::Native, None),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "Tgt" => {
+            let cell = td
+                .get_term("cell")
+                .expect("Tgt term missing 'cell' field");
+            compile_scheme_td(
+                builder,
+                &TermData::op("cell2_tgt", vec![cell], &ArrSource::Native, None),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "CellCompV" => {
+            let first = td
+                .get_term("first")
+                .expect("CellCompV term missing 'first' field");
+            let second = td
+                .get_term("second")
+                .expect("CellCompV term missing 'second' field");
+            compile_scheme_td(
+                builder,
+                &TermData::op(
+                    "cell2_comp_v",
+                    vec![first, second],
+                    &ArrSource::Native,
+                    None,
+                ),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "Whisker" => {
+            let arrow = td
+                .get_term("arrow")
+                .expect("Whisker term missing 'arrow' field");
+            let cell = td
+                .get_term("cell")
+                .expect("Whisker term missing 'cell' field");
+            let op = match td.get_str("side").unwrap_or("") {
+                "Left" => "cell2_whisker_left",
+                "Right" => "cell2_whisker_right",
+                other => {
+                    return Err(LangError::engine(format!(
+                        "Whisker: unknown side '{other}'"
+                    )))
+                }
+            };
+            compile_scheme_td(
+                builder,
+                &TermData::op(op, vec![arrow, cell], &ArrSource::Native, None),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "Const" => {
+            let value = td
+                .get("value")
+                .cloned()
+                .expect("Const term missing 'value' field");
+            compile_scheme_td(
+                builder,
+                &TermData::arr(value),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "RecordProj" => {
+            let record = td
+                .get_term("record")
+                .expect("RecordProj term missing 'record' field");
+            let field = td
+                .get_str("field")
+                .expect("RecordProj term missing 'field' field")
+                .to_string();
+            compile_scheme_td(
+                builder,
+                &TermData::op(
+                    "record_proj",
+                    vec![record, TermData::arr(JsonValue::String(field))],
+                    &ArrSource::Native,
+                    None,
+                ),
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        "RecordWith" => Err(LangError::NotImplemented),
+        "Tag" => Err(LangError::NotImplemented),
+        "Univalence" => Err(LangError::NotImplemented),
+        "Glue" => Err(LangError::NotImplemented),
+        "Fibrant" => Err(LangError::NotImplemented),
+        "JElim" => Err(LangError::NotImplemented),
+        "Refine" => Err(LangError::NotImplemented),
+        "Cobind" => Err(LangError::NotImplemented),
+        "Rewrite" => Err(LangError::NotImplemented),
+        other => Err(LangError::engine(format!(
+            "compile: unknown Term tag '{other}'"
+        ))),
     }
 }
 
@@ -1163,7 +1258,7 @@ fn compile_scheme(
 /// See the module-level "Loop native-code model" docs for the full strategy.
 fn compile_loop(
     builder: &mut FunctionBuilder,
-    body: &Term,
+    body: &TermData,
     ctx_param: Value,
     incoming_val: Value,
     helpers: &HelperRefs,
@@ -1269,7 +1364,7 @@ fn compile_loop(
     // Body continuation: compile the body with current_pair as incoming.
     builder.switch_to_block(body_cont_block);
     builder.seal_block(body_cont_block);
-    let (body_result, body_pushed) = compile_scheme(
+    let (body_result, body_pushed) = compile_scheme_td(
         builder,
         body,
         ctx_param,
@@ -1377,7 +1472,7 @@ fn compile_loop(
 fn compile_arr(
     builder: &mut FunctionBuilder,
     op: &str,
-    args: &[Term],
+    args: &[TermData],
     source: &ArrSource,
     lit: Option<&JsonValue>,
     ctx_param: Value,
@@ -1657,7 +1752,7 @@ fn int_arith_op_code(op: &str) -> Option<u64> {
 /// args).
 fn compile_args_v2(
     builder: &mut FunctionBuilder,
-    args: &[Term],
+    args: &[TermData],
     ctx_param: Value,
     incoming_val: Value,
     helpers: &HelperRefs,
@@ -1699,7 +1794,7 @@ fn compile_args_v2(
                 .call(helpers.clone, &[ctx_param, incoming_val]);
             builder.inst_results(call)[0]
         };
-        let (arg_ptr, arg_pushed) = compile_scheme(
+        let (arg_ptr, arg_pushed) = compile_scheme_td(
             builder,
             &args[i],
             ctx_param,

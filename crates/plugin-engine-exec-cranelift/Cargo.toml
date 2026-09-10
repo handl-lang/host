@@ -9,6 +9,7 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 handl-language = {path = "../handl-language" }
 handl-platform = {path = "../platform" }
+plugin-engine = {path = "../plugin-engine" }
 handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
 handl-plugin-ffi = {path = "../plugin-ffi" }
 handl-runtime = {path = "../handl-runtime" }
