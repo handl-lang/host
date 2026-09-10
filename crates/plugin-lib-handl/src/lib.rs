@@ -78,13 +78,15 @@
 //! those transforms to its own source.
 
 pub mod lint;
+pub mod model;
 pub mod op_registry;
 pub mod transform;
 pub use lint::HandlNativeLint;
+pub use model::{HandlModel, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -759,18 +761,44 @@ fn tags_from_json(v: &serde_json::Value) -> Option<Vec<(String, String)>> {
     Some(out)
 }
 
+thread_local! {
+    /// When `true`, [`analyze_source`] skips the installed self-hosted
+    /// loader and uses the bootstrap transforms. Used by canonical kit
+    /// construction so repeated `Kit::new()` calls do not route built-in
+    /// `.hnl` module sources through the process-wide loader.
+    static SKIP_LOADER: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Run `f` with the self-hosted loader disabled for source preparation.
+///
+/// Built-in module construction uses the bootstrap transforms regardless
+/// of whether a loader has been installed in the current process.
+pub fn with_loader_disabled<R>(f: impl FnOnce() -> R) -> R {
+    SKIP_LOADER.with(|s| s.set(true));
+    struct Guard;
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            SKIP_LOADER.with(|s| s.set(false));
+        }
+    }
+    let _guard = Guard;
+    f()
+}
+
 /// Run the full source-preparation pipeline once.  When a [`HandlLoader`]
 /// is installed this is a single `loader.analyze` evaluation; otherwise it
 /// runs the bootstrap transforms.
 fn analyze_source(src: &str) -> SourceAnalysis {
-    if let Some(v) = loader_call("analyze", src) {
-        if let (Some(prepared), Some(imports)) = (
-            v.get("source")
-                .and_then(|s| s.as_str())
-                .map(|s| s.to_string()),
-            v.get("imports").and_then(imports_from_json),
-        ) {
-            return SourceAnalysis { prepared, imports };
+    if !SKIP_LOADER.with(|s| s.get()) {
+        if let Some(v) = loader_call("analyze", src) {
+            if let (Some(prepared), Some(imports)) = (
+                v.get("source")
+                    .and_then(|s| s.as_str())
+                    .map(|s| s.to_string()),
+                v.get("imports").and_then(imports_from_json),
+            ) {
+                return SourceAnalysis { prepared, imports };
+            }
         }
     }
     let stripped = bootstrap::strip_declaration_lines(&bootstrap::strip_comment_lines(src));
@@ -960,7 +988,9 @@ fn build_runtime(
         Some(Rc::new(modules) as Rc<dyn ModuleLookup>)
     };
     let globals = handl_runtime::fp::canonical_fp_host_functions(module_chain);
-    Runtime::from_registry_with_globals(lang, &registry, &config, Some(globals), None)
+    let runtime =
+        Runtime::from_registry_with_globals(lang, &registry, &config, Some(globals), None)?;
+    Ok(runtime)
 }
 
 // ---------------------------------------------------------------------------
@@ -1472,7 +1502,8 @@ static LOADER: std::sync::OnceLock<HandlLoader> = std::sync::OnceLock::new();
 /// construction routes text transforms through `loader.hnl`.  The first
 /// installation wins; later calls return the rejected loader.
 pub fn install_loader(loader: HandlLoader) -> Result<(), HandlLoader> {
-    LOADER.set(loader)
+    let result = LOADER.set(loader);
+    result
 }
 
 /// The installed [`HandlLoader`], if any.
@@ -1483,7 +1514,8 @@ pub fn loader() -> Option<&'static HandlLoader> {
 /// Call a transform on the installed loader; `None` when no loader is
 /// installed or the call fails (callers fall back to `bootstrap`).
 fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
-    loader()?.call(func, src).ok()
+    let result = loader()?.call(func, src).ok();
+    result
 }
 
 /// The record field names exposed by `str-handl.hnl`.
@@ -1540,7 +1572,9 @@ pub const STR_HANDL_FUNCS: &[&str] = &[
 /// The source imports `char`, so the supplied resolver must map `"char"` to
 /// a `char` backend (typically [`CharModule`](handl_plugin_lib_char_native::CharModule)).
 pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_resolver(resolver)
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
+        .with_resolver(resolver)
+        .with_eval_engine("bytecode")
 }
 
 // ---------------------------------------------------------------------------

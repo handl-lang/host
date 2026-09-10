@@ -50,11 +50,7 @@ fn add_handler() -> Value {
     })
 }
 
-fn model_ctx<'a>(
-    lang: &'a Language,
-    ast: &'a Ast,
-    handler_stack: Vec<Value>,
-) -> ModelCtx<'a> {
+fn model_ctx<'a>(lang: &'a Language, ast: &'a Ast, handler_stack: Vec<Value>) -> ModelCtx<'a> {
     let lang_view: &dyn plugin_engine::LanguageView = lang;
     let ast_view: &dyn plugin_engine::AstView = ast;
     ModelCtx {
@@ -82,7 +78,9 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
         .insert("Addable".to_string(), add_handler());
 
     // Sanity-check the Language registration API.
-    let decl = lang.op_decl("add").expect("add op_decl should be registered");
+    let decl = lang
+        .op_decl("add")
+        .expect("add op_decl should be registered");
     assert_eq!(decl.get("grade").and_then(Value::as_str), Some("Addable"));
     assert!(lang.handler_for_grade("Addable").is_some());
 
@@ -92,10 +90,7 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
     // 4. Construct an `add` term with two `Number` arguments.
     let add_term = Term::Op {
         name: "add".to_string(),
-        args: vec![
-            Term::Arr { value: left },
-            Term::Arr { value: right },
-        ],
+        args: vec![Term::Arr { value: left }, Term::Arr { value: right }],
         source: ArrSource::Native,
         lit: None,
     };
@@ -118,7 +113,10 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
     );
     assert_eq!(result.get("value").and_then(Value::as_f64), Some(3.0));
     assert_eq!(
-        result.get("grades").and_then(Value::as_array).map(|a| a.len()),
+        result
+            .get("grades")
+            .and_then(Value::as_array)
+            .map(|a| a.len()),
         Some(1)
     );
 }

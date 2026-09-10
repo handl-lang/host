@@ -70,4 +70,3 @@ fn equiv_equal() {
 
     assert_eq!(result, json!(true));
 }
-

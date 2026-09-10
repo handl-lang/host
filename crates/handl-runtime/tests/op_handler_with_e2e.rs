@@ -48,8 +48,7 @@ fn op_handler_with_runs_end_to_end() {
     // Build a concrete Handler value: `add` returns a constant `Number`.
     // In a full implementation the source `handler` would produce this map;
     // for the end-to-end `with` test we insert it directly.
-    let add_impl = serde_json::to_value(Term::Arr { value: json!(3.0) })
-        .expect("Term serializes");
+    let add_impl = serde_json::to_value(Term::Arr { value: json!(3.0) }).expect("Term serializes");
     let handler_value = json!({
         "__tag__": "Handler",
         "__registry__": "handl.canonical",

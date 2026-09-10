@@ -1,35 +1,46 @@
 --- value_model.hnl
 ---
---- Design sketch for ADR-0103: a Handl-authored `ValueModel` arrow.
+--- ADR-0103 prototype: a Handl-authored value model.
 ---
---- This file is intentionally not fully executable. It shows the intended
---- dispatch shape over the frontier `Term` forms for the value model.
+--- The host serializes a `Term` as a JSON object with a `__tag__` field and
+--- invokes `run(term, incoming, ctx)`.  Implemented cases recurse via an
+--- explicit `self` parameter (the standard handl recursion pattern).
 ---
---- `Term`, `Value`, and `ModelCtx` are host-provided primitive types.
+--- This module depends on the host `tag` capability to mint the
+--- `{"__tag__":"LangError", ...}` error values returned for unimplemented
+--- or failing cases.
 
-op run : (Term, Value, ModelCtx) ~> Value
+do {
+  run_ :: [self, term, incoming, ctx] ~> match term.__tag__ {
+    "Arr": term.value,
+    "Const": term.value,
+    "Seq": self(self, term.snd, self(self, term.fst, incoming, ctx), ctx),
+    "First": tag.tag("LangError", { message: "First not implemented" }),
+    "Choice": tag.tag("LangError", { message: "Choice not implemented" }),
+    "App": tag.tag("LangError", { message: "App not implemented" }),
+    "Handle": tag.tag("LangError", { message: "Handle not implemented" }),
+    "CellId": self(self, term.arrow, incoming, ctx),
+    "CellCompV": self(self, term.second, self(self, term.first, incoming, ctx), ctx),
+    "Refine": if self(self, term.predicate, incoming, ctx) {
+      incoming
+    } else {
+      tag.tag("LangError", { message: "refine failed" })
+    },
+    "Cobind": self(self, term.body, incoming, ctx),
+    "RecordProj": tag.tag("LangError", { message: "RecordProj not implemented" }),
+    "RecordWith": tag.tag("LangError", { message: "RecordWith not implemented" }),
+    "Tag": tag.tag(term.tag, { value: self(self, term.value, incoming, ctx) }),
+    "Op": if term.name == "const" {
+      term.lit
+    } else {
+      if term.name == "add" {
+        self(self, term.args[0], incoming, ctx) + self(self, term.args[1], incoming, ctx)
+      } else {
+        tag.tag("LangError", { message: "Op " + term.name + " not implemented" })
+      }
+    },
+    _: tag.tag("LangError", { message: "unimplemented term tag: " + term.__tag__ })
+  }
 
-run = [term, incoming, ctx] ~> match term {
-  CellId(arrow): run(arrow, incoming, ctx),
-
-  CellCompV(first, second):
-    run(second, run(first, incoming, ctx), ctx),
-
-  Witness(_, proof): run(proof, incoming, ctx),
-
-  Refine(_, predicate):
-    if run(predicate, incoming, ctx) then incoming else error("refine failed"),
-
-  Cobind(_, body): run(body, incoming, ctx),
-
-  Univalence(equiv):
-    -- The equivalence is evaluated and wrapped as a `Path` in the model.
-    run(equiv, incoming, ctx),
-
-  CellCompH: error("not yet implemented"),
-  Glue:      error("not yet implemented"),
-  Fibrant:   error("not yet implemented"),
-  JElim:     error("not yet implemented"),
-
-  _: error("unknown term shape")
+  { run: [term, incoming, ctx] ~> run_(run_, term, incoming, ctx) }
 }

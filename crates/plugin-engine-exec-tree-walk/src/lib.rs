@@ -108,7 +108,10 @@ use handl_language::{
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
-use handl_value::{TaggedValue, tagged_to_value};
+use handl_value::{
+    TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
+    tagged_to_value,
+};
 use plugin_engine::{Model, ModelCtx, RewriteResult};
 
 // Thread-local storage for the current AST and Language, so the
@@ -1168,7 +1171,7 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((v.get("__src__").cloned().unwrap_or(TaggedValue::Null), false))
+                Ok((cell2_src(&v), false))
             }
             Term::Tgt { cell } => {
                 let v = self.eval_scheme_tagged(
@@ -1180,7 +1183,7 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((v.get("__tgt__").cloned().unwrap_or(TaggedValue::Null), false))
+                Ok((cell2_tgt(&v), false))
             }
             Term::RecordProj { record, field } => {
                 let record_val = self.eval_scheme_tagged(
@@ -1192,15 +1195,13 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((
-                    record_val
-                        .get(field)
-                        .cloned()
-                        .unwrap_or(TaggedValue::Null),
-                    false,
-                ))
+                Ok((record_proj(&record_val, field), false))
             }
-            Term::RecordWith { record, field, value } => {
+            Term::RecordWith {
+                record,
+                field,
+                value,
+            } => {
                 let record_val = self.eval_scheme_tagged(
                     record,
                     ast,
@@ -1219,10 +1220,7 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                let mut map = record_val
-                    .as_object()
-                    .cloned()
-                    .unwrap_or_default();
+                let mut map = record_val.as_object().cloned().unwrap_or_default();
                 map.insert(Rc::from(field.as_str()), value_val);
                 Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
@@ -1251,7 +1249,7 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((v, false))
+                Ok((cell2_id(&v), false))
             }
             Term::CellCompV { first, second } => {
                 let fst = self.eval_scheme_tagged(
@@ -1261,7 +1259,7 @@ impl TreeWalkEngine {
                     lang,
                     env,
                     current_node,
-                    incoming,
+                    incoming.clone(),
                 )?;
                 let snd = self.eval_scheme_tagged(
                     second,
@@ -1270,17 +1268,22 @@ impl TreeWalkEngine {
                     lang,
                     env,
                     current_node,
-                    Some(fst),
+                    incoming,
                 )?;
-                Ok((snd, false))
+                Ok((cell2_comp_v(&fst, &snd), false))
             }
             Term::Whisker { side, arrow, cell } => {
-                let (first, second) = match side {
-                    Side::Left => (cell, arrow),
-                    Side::Right => (arrow, cell),
-                };
-                let fst = self.eval_scheme_tagged(
-                    first,
+                let arrow_val = self.eval_scheme_tagged(
+                    arrow,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    incoming.clone(),
+                )?;
+                let cell_val = self.eval_scheme_tagged(
+                    cell,
                     ast,
                     node_ref,
                     lang,
@@ -1288,16 +1291,11 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                let snd = self.eval_scheme_tagged(
-                    second,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    Some(fst),
-                )?;
-                Ok((snd, false))
+                let side_str = match side {
+                    Side::Left => "Left",
+                    Side::Right => "Right",
+                };
+                Ok((cell2_whisker(side_str, &arrow_val, &cell_val), false))
             }
             Term::Refine { sort: _, predicate } => {
                 let inc = incoming.unwrap_or(TaggedValue::Null);
@@ -3126,7 +3124,7 @@ impl TreeWalkEngine {
                                 return Err(LangError::engine_node(
                                     format!("arrow_field: unknown Arrow field '{}'", field),
                                     current_node,
-                                ))
+                                ));
                             }
                         };
                         Ok((v, false))
@@ -3581,24 +3579,6 @@ impl TreeWalkEngine {
             // Frontier: transport a value along a path. The path is already
             // evaluated for effects; the runtime result is the value itself.
             "transport" => Ok((args.get(1).cloned().unwrap_or(TaggedValue::Null), false)),
-            // Frontier: horizontal cell composition. Both cells are evaluated
-            // with the same incoming value; the result is a tagged record.
-            "cell_hcomp" => {
-                let mut map = FxHashMap::default();
-                map.insert(
-                    Rc::from("__tag__"),
-                    TaggedValue::Str(Rc::from("CellCompH")),
-                );
-                map.insert(
-                    Rc::from("left"),
-                    args.first().cloned().unwrap_or(TaggedValue::Null),
-                );
-                map.insert(
-                    Rc::from("right"),
-                    args.get(1).cloned().unwrap_or(TaggedValue::Null),
-                );
-                Ok((TaggedValue::Obj(Rc::new(map)), false))
-            }
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
                 current_node,
@@ -8555,19 +8535,143 @@ mod tests {
             arrow: Box::new(lit(7)),
         };
         let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
-        assert_eq!(result, json!(7));
+        assert_eq!(
+            result,
+            json!({"__tag__": "Cell2", "__src__": 7, "__tgt__": 7, "value": 7})
+        );
     }
 
     #[test]
-    fn cell_comp_v_composes_vertically() {
+    fn cell_comp_v_returns_cell2_with_second_value() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
         let scheme = Term::CellCompV {
             first: Box::new(lit(7)),
-            second: Box::new(Term::arr_native("id", vec![])),
+            second: Box::new(lit(8)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(
+            result,
+            json!({"__tag__": "Cell2", "__src__": 7, "__tgt__": 8, "value": 8})
+        );
+    }
+
+    #[test]
+    fn cell_comp_v_extracted_value_matches_surface() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let inner = Term::CellCompV {
+            first: Box::new(lit(1)),
+            second: Box::new(lit(3)),
+        };
+        let scheme = Term::RecordProj {
+            record: Box::new(inner),
+            field: "value".to_string(),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn whisker_left_attaches_arrow_on_left() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let cell = Term::CellId {
+            arrow: Box::new(lit(2)),
+        };
+        let scheme = Term::Whisker {
+            side: Side::Left,
+            arrow: Box::new(lit(5)),
+            cell: Box::new(cell),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "__tag__": "Cell2",
+                "__src__": {"__tag__": "Arrow", "first": 5, "second": 2},
+                "__tgt__": {"__tag__": "Arrow", "first": 5, "second": 2},
+                "value": 2
+            })
+        );
+    }
+
+    #[test]
+    fn whisker_right_attaches_arrow_on_right() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let cell = Term::CellId {
+            arrow: Box::new(lit(2)),
+        };
+        let scheme = Term::Whisker {
+            side: Side::Right,
+            arrow: Box::new(lit(5)),
+            cell: Box::new(cell),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "__tag__": "Cell2",
+                "__src__": {"__tag__": "Arrow", "first": 2, "second": 5},
+                "__tgt__": {"__tag__": "Arrow", "first": 2, "second": 5},
+                "value": 2
+            })
+        );
+    }
+
+    #[test]
+    fn src_projects_cell2_source() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let cell = Term::CellId {
+            arrow: Box::new(lit(7)),
+        };
+        let scheme = Term::Src {
+            cell: Box::new(cell),
         };
         let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
         assert_eq!(result, json!(7));
+    }
+
+    #[test]
+    fn tgt_projects_cell2_target() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let cell = Term::CellId {
+            arrow: Box::new(lit(7)),
+        };
+        let scheme = Term::Tgt {
+            cell: Box::new(cell),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(7));
+    }
+
+    #[test]
+    fn src_falls_back_to_bare_value() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let scheme = Term::Src {
+            cell: Box::new(lit(9)),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(9));
+    }
+
+    #[test]
+    fn record_proj_extracts_cell2_value() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let inner = Term::CellId {
+            arrow: Box::new(lit(42)),
+        };
+        let scheme = Term::RecordProj {
+            record: Box::new(inner),
+            field: "value".to_string(),
+        };
+        let result = eval_standalone(&engine, &scheme, &mut env).unwrap();
+        assert_eq!(result, json!(42));
     }
 
     #[test]
@@ -8660,7 +8764,8 @@ mod tests {
     fn jelim_runs_motive_on_path() {
         let engine = TreeWalkEngine::new();
         let mut env = ScopeStack::new();
-        let path = Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
+        let path =
+            Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
         let scheme = Term::JElim {
             path: Box::new(path),
             motive: Box::new(lit("motive")),

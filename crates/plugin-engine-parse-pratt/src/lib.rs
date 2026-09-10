@@ -545,7 +545,11 @@ impl PrattEngine {
                 );
                 let start = self.child_span(left);
                 let span = Self::span_union(start, cursor.last_span());
-                left = self.push_spanned(infix_row.child_shape.node_kind.as_str(), Value::Object(payload_fields), span);
+                left = self.push_spanned(
+                    infix_row.child_shape.node_kind.as_str(),
+                    Value::Object(payload_fields),
+                    span,
+                );
                 continue;
             }
 
@@ -2424,8 +2428,14 @@ mod tests {
         assert_eq!(root.kind, "function");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 2);
-        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
-        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].payload, json!("A"));
+        assert_eq!(
+            ast.nodes()[children[0].as_u64().unwrap() as usize].kind,
+            "paren"
+        );
+        assert_eq!(
+            ast.nodes()[children[1].as_u64().unwrap() as usize].payload,
+            json!("A")
+        );
     }
 
     #[test]
@@ -2450,9 +2460,18 @@ mod tests {
         assert_eq!(root.kind, "graded_arrow");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 3);
-        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
-        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].payload, json!("Addable"));
-        assert_eq!(ast.nodes()[children[2].as_u64().unwrap() as usize].payload, json!("A"));
+        assert_eq!(
+            ast.nodes()[children[0].as_u64().unwrap() as usize].kind,
+            "paren"
+        );
+        assert_eq!(
+            ast.nodes()[children[1].as_u64().unwrap() as usize].payload,
+            json!("Addable")
+        );
+        assert_eq!(
+            ast.nodes()[children[2].as_u64().unwrap() as usize].payload,
+            json!("A")
+        );
     }
 
     #[test]
@@ -2480,7 +2499,10 @@ mod tests {
         assert_eq!(root.kind, "graded_arrow");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 3);
-        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].kind, "array");
+        assert_eq!(
+            ast.nodes()[children[1].as_u64().unwrap() as usize].kind,
+            "array"
+        );
     }
 
     #[test]
@@ -2654,38 +2676,62 @@ mod tests {
         let engine = PrattEngine::new();
         let lang = literal_lang();
         let cases: Vec<(&str, Vec<Token>, usize)> = vec![
-            ("cell_id", vec![
-                tok("token.keyword.id2", "id2"),
-                tok("token.identifier", "a"),
-            ], 1),
-            ("univalence", vec![
-                tok("token.keyword.univalence", "univalence"),
-                tok("token.identifier", "e"),
-            ], 1),
-            ("glue", vec![
-                tok("token.keyword.glue", "glue"),
-                tok("token.identifier", "A"),
-                tok("token.comma", ","),
-                tok("token.identifier", "p"),
-            ], 2),
-            ("fibrant", vec![
-                tok("token.keyword.fibrant", "fibrant"),
-                tok("token.identifier", "A"),
-                tok("token.comma", ","),
-                tok("token.identifier", "B"),
-            ], 2),
-            ("j", vec![
-                tok("token.keyword.j", "j"),
-                tok("token.identifier", "p"),
-                tok("token.comma", ","),
-                tok("token.identifier", "M"),
-                tok("token.comma", ","),
-                tok("token.identifier", "a"),
-            ], 3),
-            ("cobox", vec![
-                tok("token.keyword.cobox", "cobox"),
-                tok("token.identifier", "a"),
-            ], 1),
+            (
+                "cell_id",
+                vec![
+                    tok("token.keyword.id2", "id2"),
+                    tok("token.identifier", "a"),
+                ],
+                1,
+            ),
+            (
+                "univalence",
+                vec![
+                    tok("token.keyword.univalence", "univalence"),
+                    tok("token.identifier", "e"),
+                ],
+                1,
+            ),
+            (
+                "glue",
+                vec![
+                    tok("token.keyword.glue", "glue"),
+                    tok("token.identifier", "A"),
+                    tok("token.comma", ","),
+                    tok("token.identifier", "p"),
+                ],
+                2,
+            ),
+            (
+                "fibrant",
+                vec![
+                    tok("token.keyword.fibrant", "fibrant"),
+                    tok("token.identifier", "A"),
+                    tok("token.comma", ","),
+                    tok("token.identifier", "B"),
+                ],
+                2,
+            ),
+            (
+                "j",
+                vec![
+                    tok("token.keyword.j", "j"),
+                    tok("token.identifier", "p"),
+                    tok("token.comma", ","),
+                    tok("token.identifier", "M"),
+                    tok("token.comma", ","),
+                    tok("token.identifier", "a"),
+                ],
+                3,
+            ),
+            (
+                "cobox",
+                vec![
+                    tok("token.keyword.cobox", "cobox"),
+                    tok("token.identifier", "a"),
+                ],
+                1,
+            ),
         ];
         for (expected, tokens, n) in cases {
             let ast = engine
@@ -2693,12 +2739,7 @@ mod tests {
                 .unwrap();
             let root = ast.nodes().last().unwrap();
             assert_eq!(root.kind, expected, "root kind for {}", expected);
-            let children = root
-                .payload
-                .get("children")
-                .unwrap()
-                .as_array()
-                .unwrap();
+            let children = root.payload.get("children").unwrap().as_array().unwrap();
             assert_eq!(children.len(), n, "child count for {}", expected);
         }
     }
@@ -2708,46 +2749,78 @@ mod tests {
         let engine = PrattEngine::new();
         let lang = literal_lang();
         let cases: Vec<(&str, Vec<Token>, usize)> = vec![
-            ("cell_comp_v", vec![
-                tok("token.identifier", "a"),
-                tok("token.cell_vcomp", "=>>"),
-                tok("token.identifier", "b"),
-            ], 2),
-            ("cell_comp_h", vec![
-                tok("token.identifier", "a"),
-                tok("token.cell_hcomp", "=>|"),
-                tok("token.identifier", "b"),
-            ], 2),
-            ("whisker_left", vec![
-                tok("token.identifier", "h"),
-                tok("token.at_left", "<@"),
-                tok("token.identifier", "alpha"),
-            ], 2),
-            ("whisker_right", vec![
-                tok("token.identifier", "h"),
-                tok("token.at_right", "@>"),
-                tok("token.identifier", "alpha"),
-            ], 2),
-            ("transport", vec![
-                tok("token.identifier", "p"),
-                tok("token.sharp", "#"),
-                tok("token.identifier", "v"),
-            ], 2),
-            ("refine", vec![
-                tok("token.identifier", "A"),
-                tok("token.keyword.where", "where"),
-                tok("token.identifier", "P"),
-            ], 2),
-            ("witness", vec![
-                tok("token.identifier", "v"),
-                tok("token.keyword.as", "as"),
-                tok("token.identifier", "G"),
-            ], 2),
-            ("cobind", vec![
-                tok("token.identifier", "G"),
-                tok("token.cobind", "?>"),
-                tok("token.identifier", "body"),
-            ], 2),
+            (
+                "cell_comp_v",
+                vec![
+                    tok("token.identifier", "a"),
+                    tok("token.cell_vcomp", "=>>"),
+                    tok("token.identifier", "b"),
+                ],
+                2,
+            ),
+            (
+                "cell_comp_h",
+                vec![
+                    tok("token.identifier", "a"),
+                    tok("token.cell_hcomp", "=>|"),
+                    tok("token.identifier", "b"),
+                ],
+                2,
+            ),
+            (
+                "whisker_left",
+                vec![
+                    tok("token.identifier", "h"),
+                    tok("token.at_left", "<@"),
+                    tok("token.identifier", "alpha"),
+                ],
+                2,
+            ),
+            (
+                "whisker_right",
+                vec![
+                    tok("token.identifier", "h"),
+                    tok("token.at_right", "@>"),
+                    tok("token.identifier", "alpha"),
+                ],
+                2,
+            ),
+            (
+                "transport",
+                vec![
+                    tok("token.identifier", "p"),
+                    tok("token.sharp", "#"),
+                    tok("token.identifier", "v"),
+                ],
+                2,
+            ),
+            (
+                "refine",
+                vec![
+                    tok("token.identifier", "A"),
+                    tok("token.keyword.where", "where"),
+                    tok("token.identifier", "P"),
+                ],
+                2,
+            ),
+            (
+                "witness",
+                vec![
+                    tok("token.identifier", "v"),
+                    tok("token.keyword.as", "as"),
+                    tok("token.identifier", "G"),
+                ],
+                2,
+            ),
+            (
+                "cobind",
+                vec![
+                    tok("token.identifier", "G"),
+                    tok("token.cobind", "?>"),
+                    tok("token.identifier", "body"),
+                ],
+                2,
+            ),
         ];
         for (expected, tokens, n) in cases {
             let ast = engine
@@ -2755,12 +2828,7 @@ mod tests {
                 .unwrap();
             let root = ast.nodes().last().unwrap();
             assert_eq!(root.kind, expected, "root kind for {}", expected);
-            let children = root
-                .payload
-                .get("children")
-                .unwrap()
-                .as_array()
-                .unwrap();
+            let children = root.payload.get("children").unwrap().as_array().unwrap();
             assert_eq!(children.len(), n, "child count for {}", expected);
         }
     }

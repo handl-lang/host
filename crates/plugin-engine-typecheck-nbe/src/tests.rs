@@ -11216,7 +11216,8 @@ fn marshalable_predicate_for_each_ffi_type() {
         let node_ref = AstRef::new(0);
         let lang = Language::new();
         let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let path = Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
+        let path =
+            Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
         let scheme = Term::JElim {
             path: Box::new(path),
             motive: Box::new(Term::arr_judgment_lit(

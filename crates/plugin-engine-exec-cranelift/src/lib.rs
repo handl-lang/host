@@ -132,7 +132,10 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
-use handl_value::{TaggedValue, tagged_to_value};
+use handl_value::{
+    TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
+    tagged_to_value,
+};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -4527,7 +4530,7 @@ fn apply_native_v2(
                         None => {
                             return ctx.set_error(LangError::engine(
                                 "paren: child index must be a number".to_string(),
-                            ))
+                            ));
                         }
                     };
                     match eval_child_node(ctx, idx) {
@@ -4542,7 +4545,7 @@ fn apply_native_v2(
                             None => {
                                 return ctx.set_error(LangError::engine(
                                     "paren: child index must be a number".to_string(),
-                                ))
+                                ));
                             }
                         };
                         match eval_child_node(ctx, idx) {
@@ -4562,22 +4565,38 @@ fn apply_native_v2(
         }
         // Frontier: transport a value along a path.
         "transport" => Ok(args.get(1).cloned().unwrap_or(TaggedValue::Null)),
-        // Frontier: horizontal cell composition.
-        "cell_hcomp" => {
-            let mut map = FxHashMap::default();
-            map.insert(
-                Rc::from("__tag__"),
-                TaggedValue::Str(Rc::from("CellCompH")),
-            );
-            map.insert(
-                Rc::from("left"),
-                args.first().cloned().unwrap_or(TaggedValue::Null),
-            );
-            map.insert(
-                Rc::from("right"),
-                args.get(1).cloned().unwrap_or(TaggedValue::Null),
-            );
-            Ok(TaggedValue::Obj(Rc::new(map)))
+        // ADR-0104b: 2-cell runtime value helpers.
+        "cell2_id" => {
+            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_id(&arrow))
+        }
+        "cell2_comp_v" => {
+            let first = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let second = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_comp_v(&first, &second))
+        }
+        "cell2_whisker_left" => {
+            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let cell = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_whisker("Left", &arrow, &cell))
+        }
+        "cell2_whisker_right" => {
+            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let cell = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_whisker("Right", &arrow, &cell))
+        }
+        "cell2_src" => {
+            let cell = args.first().cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_src(&cell))
+        }
+        "cell2_tgt" => {
+            let cell = args.first().cloned().unwrap_or(TaggedValue::Null);
+            Ok(cell2_tgt(&cell))
+        }
+        "record_proj" => {
+            let record = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let field = args.get(1).and_then(|v| v.as_str()).unwrap_or("");
+            Ok(record_proj(&record, field))
         }
         _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
     };

@@ -25,27 +25,69 @@ fn frontier_runtime() -> Runtime {
 
     let mut config = kit.runtime_config().clone();
     config.typecheck.clear();
-    Runtime::from_registry(kit.lang().clone(), &registry, &config)
-        .expect("frontier runtime binds")
+    Runtime::from_registry(kit.lang().clone(), &registry, &config).expect("frontier runtime binds")
 }
 
 #[test]
 fn cell_vcomp_composes_end_to_end() {
     let rt = frontier_runtime();
     // `1 + 2` (=> 3) is fed as the incoming value to the second cell (`3`).
-    let result = rt.run(&Source::new("1 + 2 =>> 3")).expect("cell_vcomp runs");
+    let result = rt
+        .run(&Source::new("1 + 2 =>> 3"))
+        .expect("cell_vcomp runs");
     assert_eq!(result, json!(3));
 }
 
 #[test]
 fn cell_hcomp_composes_end_to_end() {
     let rt = frontier_runtime();
-    // Horizontal composition evaluates both cells with the same incoming
-    // value and returns a tagged record combining the two results.
+    // Horizontal composition derives from two whiskers + vertical
+    // composition (ADR-0104b). The returned 2-cell carries composed 1-cell
+    // arrows as its source/target and the second cell's witness value.
     let result = rt.run(&Source::new("1 =>| 2")).expect("cell_hcomp runs");
+    let arrow = json!({"__tag__": "Arrow", "first": 1, "second": 2});
     assert_eq!(
         result,
-        json!({"__tag__": "CellCompH", "left": 1, "right": 2})
+        json!({
+            "__tag__": "Cell2",
+            "__src__": arrow,
+            "__tgt__": arrow,
+            "value": 2
+        })
+    );
+}
+
+#[test]
+fn left_whisker_composes_end_to_end() {
+    let rt = frontier_runtime();
+    let result = rt.run(&Source::new("1 <@ 2")).expect("left whisker runs");
+    let arrow = json!({"__tag__": "Arrow", "first": 1, "second": 2});
+    assert_eq!(
+        result,
+        json!({
+            "__tag__": "Cell2",
+            "__src__": arrow,
+            "__tgt__": arrow,
+            "value": 2
+        })
+    );
+}
+
+#[test]
+fn right_whisker_composes_end_to_end() {
+    let rt = frontier_runtime();
+    // Surface `@>` is "cell @> arrow": the left operand is the cell, the
+    // right operand is the 1-cell arrow whiskered onto the right side.
+    let result = rt.run(&Source::new("1 @> 2")).expect("right whisker runs");
+    let arrow = json!({"__tag__": "Arrow", "first": 1, "second": 2});
+    assert_eq!(
+        result,
+        json!({
+            "__tag__": "Cell2",
+            "__src__": arrow,
+            "__tgt__": arrow,
+            "value": 1
+        })
     );
 }
 
@@ -98,6 +140,11 @@ fn graded_arrow_lexes_parses_runs() {
     let rt = frontier_runtime();
     // `add ~Addable~> Int` produces an `Arrow` record carrying the grade.
     // Effect collection is not yet exposed at runtime, so we assert the record.
-    let result = rt.run(&Source::new("add ~Addable~> Int")).expect("graded arrow runs");
-    assert_eq!(result.get("__tag__").and_then(|v| v.as_str()), Some("Arrow"));
+    let result = rt
+        .run(&Source::new("add ~Addable~> Int"))
+        .expect("graded arrow runs");
+    assert_eq!(
+        result.get("__tag__").and_then(|v| v.as_str()),
+        Some("Arrow")
+    );
 }

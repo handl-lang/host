@@ -1138,46 +1138,66 @@
 # ---------------------------------------------------------------------------
 # Cell/cubical theory surface forms (Term frontier)
 # ---------------------------------------------------------------------------
-# `cell_id` — identity of a cell in a frontier context.
+# `cell_id` — identity of a cell in a frontier context. The surface `id2`
+# returns the witness value, so the Cell2 metadata is projected out.
 - id: eval.cell_id
   node_kind: cell_id
-  scheme: !CellId
-    arrow: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
-# `cell_comp_v` — vertical cell composition.
-- id: eval.cell_comp_v
-  node_kind: cell_comp_v
-  scheme: !CellCompV
-    first: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
-    second: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
-# `cell_comp_h` — horizontal cell composition.
-- id: eval.cell_comp_h
-  node_kind: cell_comp_h
-  scheme: !Op
-    name: cell_hcomp
-    args:
-      - !Op
+  scheme: !RecordProj
+    record: !CellId
+      arrow: !Op
         name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Op
+    field: "value"
+# `cell_comp_v` — vertical cell composition. The surface `=>>` returns the
+# second cell's witness value, so the Cell2 metadata is projected out.
+- id: eval.cell_comp_v
+  node_kind: cell_comp_v
+  scheme: !RecordProj
+    record: !CellCompV
+      first: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+      second: !Op
         name: proj_child
         args: []
         source: Native
         lit: 1
-    source: Native
+    field: "value"
+# `cell_comp_h` — horizontal cell composition. Generic derivation from
+# ADR-0104b: two whiskers followed by vertical composition.
+- id: eval.cell_comp_h
+  node_kind: cell_comp_h
+  scheme: !CellCompV
+    first: !Whisker
+      side: Right
+      arrow: !Tgt
+        cell: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+      cell: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+    second: !Whisker
+      side: Left
+      arrow: !Src
+        cell: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 0
+      cell: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 1
 # `whisker_left` — attach an arrow to the left side of a cell.
 - id: eval.whisker_left
   node_kind: whisker_left
@@ -1194,6 +1214,8 @@
       source: Native
       lit: 1
 # `whisker_right` — attach an arrow to the right side of a cell.
+# Surface `@>` is "cell @> arrow": the left operand is the cell, the right
+# operand is the 1-cell arrow whiskered onto the right side.
 - id: eval.whisker_right
   node_kind: whisker_right
   scheme: !Whisker
@@ -1202,12 +1224,12 @@
       name: proj_child
       args: []
       source: Native
-      lit: 0
+      lit: 1
     cell: !Op
       name: proj_child
       args: []
       source: Native
-      lit: 1
+      lit: 0
 # `univalence` — univalence from an equivalence.
 - id: eval.univalence
   node_kind: univalence

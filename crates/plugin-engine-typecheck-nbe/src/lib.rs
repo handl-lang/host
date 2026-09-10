@@ -428,34 +428,26 @@ impl NbeTypecheckEngine {
             // ADR-0104b minimal core: conservative/identity-like type rules.
             Term::Const { value } => Ok(value.clone()),
             Term::Src { cell } => {
-                let cell_val =
-                    self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
-                Ok(cell_val
-                    .get("__src__")
-                    .cloned()
-                    .unwrap_or(Value::Null))
+                let cell_val = self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+                Ok(cell_val.get("__src__").cloned().unwrap_or(Value::Null))
             }
             Term::Tgt { cell } => {
-                let cell_val =
-                    self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
-                Ok(cell_val
-                    .get("__tgt__")
-                    .cloned()
-                    .unwrap_or(Value::Null))
+                let cell_val = self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+                Ok(cell_val.get("__tgt__").cloned().unwrap_or(Value::Null))
             }
             Term::RecordProj { record, field } => {
                 let record_val =
                     self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming)?;
-                Ok(record_val
-                    .get(field)
-                    .cloned()
-                    .unwrap_or(Value::Null))
+                Ok(record_val.get(field).cloned().unwrap_or(Value::Null))
             }
-            Term::RecordWith { record, field, value } => {
+            Term::RecordWith {
+                record,
+                field,
+                value,
+            } => {
                 let record_val =
                     self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming.clone())?;
-                let value_val =
-                    self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+                let value_val = self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
                 let mut map = match record_val {
                     Value::Object(m) => m.clone(),
                     _ => serde_json::Map::new(),
@@ -464,8 +456,7 @@ impl NbeTypecheckEngine {
                 Ok(Value::Object(map))
             }
             Term::Tag { tag, value } => {
-                let val =
-                    self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+                let val = self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
                 let mut map = match val {
                     Value::Object(m) => m.clone(),
                     _ => {
@@ -513,8 +504,7 @@ impl NbeTypecheckEngine {
             Term::Cobind { grade, body } => {
                 let grade_val =
                     self.eval_type_scheme(lang, ast, node_ref, grade, ctx, incoming.clone())?;
-                let body_val =
-                    self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)?;
+                let body_val = self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)?;
                 let grade = self.grade_string(&grade_val);
                 let mut result = match body_val {
                     Value::Object(m) => m,
@@ -544,11 +534,19 @@ impl NbeTypecheckEngine {
                 self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)
             }
             Term::JElim { path, motive, base } => {
-                let path_val = self.eval_type_scheme(lang, ast, node_ref, path, ctx, incoming.clone())?;
+                let path_val =
+                    self.eval_type_scheme(lang, ast, node_ref, path, ctx, incoming.clone())?;
                 let base_val = self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)?;
                 if let Some(tag) = path_val.get("__tag__").and_then(Value::as_str) {
                     if tag == "Path" || tag == "Rewrite" {
-                        return self.eval_type_scheme(lang, ast, node_ref, motive, ctx, Some(base_val));
+                        return self.eval_type_scheme(
+                            lang,
+                            ast,
+                            node_ref,
+                            motive,
+                            ctx,
+                            Some(base_val),
+                        );
                     }
                 }
                 Ok(base_val)
@@ -5210,13 +5208,16 @@ impl plugin_engine::Model for TypeModel {
                 ast.push(AstNode::new("model"));
                 let node_ref = AstRef::new(0);
                 let lang = Language::new();
-                let mut tctx =
-                    TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                let mut tctx = TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
                 self.0
                     .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
-            Term::Handle { body, target, impl_ } => {
+            Term::Handle {
+                body,
+                target,
+                impl_,
+            } => {
                 let handler = self.run(impl_, incoming.clone(), ctx)?;
                 let _ = target; // retained for diagnostics
                 ctx.push_handler(handler);
@@ -5229,8 +5230,7 @@ impl plugin_engine::Model for TypeModel {
                 ast.push(AstNode::new("model"));
                 let node_ref = AstRef::new(0);
                 let lang = Language::new();
-                let mut tctx =
-                    TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
+                let mut tctx = TypecheckContext::new(&self.0.registry_id, self.0.globals.clone());
                 self.0
                     .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
                     .map_err(|_| plugin_engine::LangError::NotImplemented)

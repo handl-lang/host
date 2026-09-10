@@ -7,8 +7,8 @@
 //! data-driven canonical kit; the `add` op and the `Addable` handler are
 //! registered directly on `lang.ops` and `lang.handlers_by_grade`.
 
-use handl_language::{Ast, Language, Term, Value};
 use handl_language::{ArrSource, tag_value};
+use handl_language::{Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
 use plugin_engine::{Model, ModelCtx};
 use serde_json::json;
@@ -98,7 +98,9 @@ fn with_handle_pipeline_with_canonical_language() {
     let with_term = Term::Handle {
         body: Box::new(body),
         target: "".to_string(),
-        impl_: Box::new(Term::Arr { value: add_handler() }),
+        impl_: Box::new(Term::Arr {
+            value: add_handler(),
+        }),
     };
 
     // 4. Evaluate with `ValueModel`; incoming value carries `Addable`.
@@ -118,7 +120,10 @@ fn with_handle_pipeline_with_canonical_language() {
     );
     assert_eq!(result.get("value").and_then(Value::as_f64), Some(3.0));
     assert_eq!(
-        result.get("grades").and_then(Value::as_array).map(|a| a.len()),
+        result
+            .get("grades")
+            .and_then(Value::as_array)
+            .map(|a| a.len()),
         Some(1)
     );
 }

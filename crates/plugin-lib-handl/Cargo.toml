@@ -11,6 +11,7 @@ handl-runtime = {path = "../handl-runtime" }
 handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-transform = { path = "../plugin-engine-transform" }

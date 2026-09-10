@@ -83,8 +83,12 @@ fn with_handle_returns_number_type() {
     let body = Term::Op {
         name: "add".to_string(),
         args: vec![
-            Term::Arr { value: number_arg(1.0) },
-            Term::Arr { value: number_arg(2.0) },
+            Term::Arr {
+                value: number_arg(1.0),
+            },
+            Term::Arr {
+                value: number_arg(2.0),
+            },
         ],
         source: ArrSource::Native,
         lit: None,
@@ -92,7 +96,9 @@ fn with_handle_returns_number_type() {
     let with_term = Term::Handle {
         body: Box::new(body),
         target: "".to_string(),
-        impl_: Box::new(Term::Arr { value: add_handler() }),
+        impl_: Box::new(Term::Arr {
+            value: add_handler(),
+        }),
     };
 
     // 4. Set up a `ModelCtx` with an empty `handler_stack`.

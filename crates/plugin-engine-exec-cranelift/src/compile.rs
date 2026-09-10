@@ -72,7 +72,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use handl_language::Value as JsonValue;
-use handl_language::{ArrSource, Ast, LangError, Language, SchemeVersion, Term};
+use handl_language::{ArrSource, Ast, LangError, Language, SchemeVersion, Side, Term};
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -1033,13 +1033,119 @@ fn compile_scheme(
         Term::Child { .. } => Err(LangError::NotImplemented),
         Term::Path { .. } => Err(LangError::NotImplemented),
         Term::Equiv { .. } => Err(LangError::NotImplemented),
-        Term::CellId { .. } => Err(LangError::NotImplemented),
-        Term::Src { .. } => Err(LangError::NotImplemented),
-        Term::Tgt { .. } => Err(LangError::NotImplemented),
-        Term::CellCompV { .. } => Err(LangError::NotImplemented),
-        Term::Whisker { .. } => Err(LangError::NotImplemented),
-        Term::Const { .. } => Err(LangError::NotImplemented),
-        Term::RecordProj { .. } => Err(LangError::NotImplemented),
+        Term::CellId { arrow } => compile_scheme(
+            builder,
+            &Term::Op {
+                name: "cell2_id".to_string(),
+                args: vec![arrow.as_ref().clone()],
+                source: ArrSource::Native,
+                lit: None,
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
+        Term::Src { cell } => compile_scheme(
+            builder,
+            &Term::Op {
+                name: "cell2_src".to_string(),
+                args: vec![cell.as_ref().clone()],
+                source: ArrSource::Native,
+                lit: None,
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
+        Term::Tgt { cell } => compile_scheme(
+            builder,
+            &Term::Op {
+                name: "cell2_tgt".to_string(),
+                args: vec![cell.as_ref().clone()],
+                source: ArrSource::Native,
+                lit: None,
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
+        Term::CellCompV { first, second } => compile_scheme(
+            builder,
+            &Term::Op {
+                name: "cell2_comp_v".to_string(),
+                args: vec![first.as_ref().clone(), second.as_ref().clone()],
+                source: ArrSource::Native,
+                lit: None,
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
+        Term::Whisker { side, arrow, cell } => {
+            let op = match side {
+                Side::Left => "cell2_whisker_left",
+                Side::Right => "cell2_whisker_right",
+            };
+            compile_scheme(
+                builder,
+                &Term::Op {
+                    name: op.to_string(),
+                    args: vec![arrow.as_ref().clone(), cell.as_ref().clone()],
+                    source: ArrSource::Native,
+                    lit: None,
+                },
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_ops,
+            )
+        }
+        Term::Const { value } => compile_scheme(
+            builder,
+            &Term::Arr {
+                value: value.clone(),
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
+        Term::RecordProj { record, field } => compile_scheme(
+            builder,
+            &Term::Op {
+                name: "record_proj".to_string(),
+                args: vec![
+                    record.as_ref().clone(),
+                    Term::Arr {
+                        value: JsonValue::String(field.clone()),
+                    },
+                ],
+                source: ArrSource::Native,
+                lit: None,
+            },
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+            ffi_ops,
+        ),
         Term::RecordWith { .. } => Err(LangError::NotImplemented),
         Term::Tag { .. } => Err(LangError::NotImplemented),
         Term::Univalence { .. } => Err(LangError::NotImplemented),
