@@ -1,0 +1,12 @@
+--- Return the tail of `xs` (everything after the first element).
+---
+--- Returns `[]` if `xs` is empty.
+---
+--- @example
+--- `array.shift([1, 2, 3])`
+--- -- => [2, 3]
+---
+export shift :: (xs) ~> match xs {
+  []: [],
+  [h, ...t]: t
+}

@@ -1,0 +1,33 @@
+--- Split an array of `[a, b]` pairs into two arrays.
+---
+--- Returns `[as, bs]`. Elements that are not arrays with at least two
+--- elements are skipped.
+---
+--- @example
+--- `array.unzip([[1, "x"], [2, "y"]])`
+--- -- => [[1, 2], ["x", "y"]]
+---
+
+export unzip :: (xs) ~> do {
+  rev :: (ys) ~> do {
+    r :: [];
+    for h in ys {
+      r = [h, ...r]
+    };
+    r
+  };
+  fs :: [];
+  gs :: [];
+  for x in xs {
+    do {
+      match x {
+        [f, s, ...rest]: do {
+          fs = [f, ...fs];
+          gs = [s, ...gs]
+        },
+        _: null
+      }
+    }
+  };
+  [rev(fs), rev(gs)]
+}

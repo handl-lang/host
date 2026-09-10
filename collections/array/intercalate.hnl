@@ -1,0 +1,42 @@
+--- Join the elements of `xs` with `sep`.
+---
+--- Each element that is an array is spread as-is; `sep` is spread between
+--- consecutive elements.
+---
+--- @example
+--- `array.intercalate(["a", "b", "c"], "-")`
+--- -- => ["a", "-", "b", "-", "c"]
+---
+from "typeof" import * as typeof
+
+export intercalate :: (xs, sep) ~> do {
+  is_arr :: (x) ~> typeof.type_of(x) == "arr"
+  cat :: (a, b) ~> do {
+    r :: []
+    for x in a {
+      r = [x, ...r]
+    }
+    for y in b {
+      r = [y, ...r]
+    }
+    out :: []
+    for v in r {
+      out = [v, ...out]
+    }
+    out
+  }
+  out :: []
+  is_first :: true
+  for x in xs {
+    do {
+      hv :: if is_arr(x) { x } else { [x] }
+      if is_first {
+        is_first = false
+      } else {
+        out = cat(out, sep)
+      };
+      out = cat(out, hv)
+    }
+  }
+  out
+}

@@ -1,0 +1,26 @@
+--- Pair each element of `xs` with its index.
+---
+--- Returns an array of `[index, value]` pairs.
+---
+--- @example
+--- `array.enumerate(["a", "b"])`
+--- -- => [[0, "a"], [1, "b"]]
+---
+export enumerate :: (xs) ~> do {
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  out :: []
+  k :: 0
+  for x in xs {
+    do {
+      out = [[k, x], ...out]
+      k = k + 1
+    }
+  }
+  rev(out)
+}

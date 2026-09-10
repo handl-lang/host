@@ -1,0 +1,37 @@
+--- Return a copy of `xs` without its last element.
+---
+--- Returns `[]` if `xs` is empty.
+---
+--- @example
+--- `array.pop([1, 2, 3])`
+--- -- => [1, 2]
+---
+export pop :: (xs) ~> do {
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  length :: (ys) ~> do {
+    n :: 0
+    for x in ys {
+      n = n + 1
+    }
+    n
+  }
+  take_ :: (ys, n) ~> do {
+    out :: []
+    k :: 0
+    for x in ys {
+      if k < n { out = [x, ...out] };
+      k = k + 1
+    }
+    rev(out)
+  }
+  match xs {
+    []: [],
+    [h, ...t]: take_(xs, length(xs) - 1)
+  }
+}

@@ -1,0 +1,66 @@
+--- Return a copy of `xs` with the element at index `i` removed.
+---
+--- Returns `null` if `i` is negative. Returns `xs` unchanged if `i` is out of
+--- bounds.
+---
+--- @example
+--- `array.remove_at([1, 2, 3], 1)`
+--- -- => [1, 3]
+---
+export remove_at :: (xs, i) ~> do {
+  length :: (ys) ~> do {
+    n :: 0
+    for x in ys {
+      n = n + 1
+    }
+    n
+  }
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  take_ :: (ys, n) ~> do {
+    out :: []
+    k :: 0
+    for x in ys {
+      if k < n { out = [x, ...out] };
+      k = k + 1
+    }
+    rev(out)
+  }
+  drop_ :: (ys, n) ~> do {
+    out :: []
+    k :: 0
+    for x in ys {
+      if k >= n { out = [x, ...out] };
+      k = k + 1
+    }
+    rev(out)
+  }
+  cat :: (a, b) ~> do {
+    r :: []
+    for x in a {
+      r = [x, ...r]
+    }
+    for y in b {
+      r = [y, ...r]
+    }
+    out :: []
+    for w in r {
+      out = [w, ...out]
+    }
+    out
+  }
+  if i < 0 {
+    null
+  } else {
+    if i >= length(xs) {
+      xs
+    } else {
+      cat(take_(xs, i), drop_(xs, i + 1))
+    }
+  }
+}

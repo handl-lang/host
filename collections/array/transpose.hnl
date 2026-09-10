@@ -1,0 +1,94 @@
+--- Transpose a matrix (array of rows) into columns.
+---
+--- Rows may be shorter than others; missing cells become absent. Returns `[]`
+--- when `xs` is empty.
+---
+--- @example
+--- `array.transpose([[1, 2, 3], [4, 5, 6]])`
+--- -- => [[1, 4], [2, 5], [3, 6]]
+---
+from "typeof" import * as typeof
+
+export transpose :: (xs) ~> do {
+  is_arr :: (x) ~> typeof.type_of(x) == "arr"
+  length :: (ys) ~> do {
+    n :: 0
+    for x in ys {
+      n = n + 1
+    }
+    n
+  }
+  nth :: (ys, i) ~> do {
+    out :: null
+    k :: 0
+    for x in ys {
+      do {
+        if k == i { out = x }
+        k = k + 1
+      }
+    }
+    out
+  }
+  rev :: (ys) ~> do {
+    r :: []
+    for x in ys {
+      r = [x, ...r]
+    }
+    r
+  }
+  if length(xs) == 0 {
+    []
+  } else {
+    do {
+      rows :: do {
+        r :: []
+        for h in xs {
+          do {
+            row :: if is_arr(h) { h } else { [h] }
+            r = [row, ...r]
+          }
+        }
+        rev(r)
+      }
+      max_cols :: do {
+        m :: 0
+        for row in rows {
+          do {
+            rl :: length(row);
+            if rl > m { m = rl }
+          }
+        }
+        m
+      }
+      if max_cols == 0 {
+        []
+      } else {
+        do {
+          driver :: do {
+            pick :: []
+            for row in rows {
+              if length(row) == max_cols { pick = row }
+            }
+            pick
+          }
+          cols :: []
+          c :: 0
+          for pad in driver {
+            do {
+              col :: do {
+                out :: []
+                for h in rows {
+                  if c < length(h) { out = [nth(h, c), ...out] }
+                }
+                rev(out)
+              }
+              cols = [col, ...cols]
+              c = c + 1
+            }
+          }
+          rev(cols)
+        }
+      }
+    }
+  }
+}

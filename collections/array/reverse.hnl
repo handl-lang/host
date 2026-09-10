@@ -1,0 +1,13 @@
+--- Return a copy of `xs` in reverse order.
+---
+--- @example
+--- `array.reverse([1, 2, 3])`
+--- -- => [3, 2, 1]
+---
+export reverse :: (xs) ~> do {
+  r :: []
+  for x in xs {
+    r = [x, ...r]
+  }
+  r
+}
