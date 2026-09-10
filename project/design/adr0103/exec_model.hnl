@@ -92,13 +92,17 @@
 ---   - A `run(term, incoming, ctx)` arrow was added for Model-trait
 ---     integration (ADR-0103 Phase 8).
 --- The genuine VM instruction-set primitives (`push_scope`, `pop_scope`,
---- `bind`, `lookup`, `call`, `ffi`, `make_closure`, `pattern_match`,
---- `lookup_eval_scheme`) remain as documented spec-only operations that
---- require the Phase 1 VM and are not yet executable on the tree-walk
---- runtime. Structural ops that depend on them (proj_child, proj_env,
---- extend_env, closure, apply, eval_block, eval_rec, call_op, eval, etc.)
---- are defined but will raise errors if invoked — they are tested only
---- for structural definition, not execution.
+--- `bind`, `lookup`, `call`, `ffi`, `make_closure`, `vm_pattern_match`,
+--- `lookup_eval_scheme`, `setfield`, `ctx`) are now wired as host functions
+--- via the `VmPrimitivesModule` (crates/handl-runtime/src/vm_primitives.rs),
+--- making the structural ops that depend on them executable on the tree-walk
+--- runtime for testing. The implementations are minimal — they handle the
+--- common cases needed by the exec model parity tests. The `pattern_match`
+--- Handl wrapper calls `vm_pattern_match` (renamed from the bare
+--- `pattern_match` VM primitive to avoid infinite recursion with the
+--- same-named Handl wrapper). The `ctx` binding is exposed as a zero-arg
+--- `ctx()` host function call (bare `ctx` would evaluate to the string
+--- `"ctx"` on the tree-walk runtime).
 
 do {
   ------------------------------------------------------------------
@@ -316,7 +320,7 @@ do {
   ---
   --- NOTE: Requires the VM `pattern_match` primitive (not yet
   --- available). Defined but not executable.
-  pattern_match :: [pattern, value] ~> pattern_match(pattern, value)
+  pattern_match :: [pattern, value] ~> vm_pattern_match(pattern, value)
 
   --- push_handler: push `handler` onto the context's handler stack.
   --- The handler stack is the algebraic-effect handler chain: `call_op`
@@ -327,8 +331,8 @@ do {
   --- NOTE: Requires `ctx` binding (VM context, not yet available).
   --- Defined but not executable.
   push_handler :: handler_val ~> do {
-    stack :: tget(ctx, "handler_stack")
-    setfield(ctx, "handler_stack", array.concat(stack, [handler_val]))
+    stack :: tget(ctx(), "handler_stack")
+    setfield(ctx(), "handler_stack", array.concat(stack, [handler_val]))
   }
 
   --- pop_handler: pop the top handler from the context's handler stack.
@@ -338,8 +342,8 @@ do {
   --- NOTE: Requires `ctx` binding (VM context, not yet available).
   --- Defined but not executable.
   pop_handler :: unit ~> do {
-    stack :: tget(ctx, "handler_stack")
-    setfield(ctx, "handler_stack", array_drop_last(stack))
+    stack :: tget(ctx(), "handler_stack")
+    setfield(ctx(), "handler_stack", array_drop_last(stack))
   }
 
   --- apply: apply `callee` to the evaluated `args`. This is the
@@ -430,7 +434,7 @@ do {
   --- NOTE: Requires `ctx`/`ffi`/`apply` (VM primitives not yet
   --- available). Defined but not executable.
   call_op :: [name, args] ~> do {
-    stack :: tget(ctx, "handler_stack")
+    stack :: tget(ctx(), "handler_stack")
     h_impl :: find_op_handler(stack, name)
     if h_impl != null {
       apply(h_impl, args)
@@ -495,8 +499,8 @@ do {
   --- NOTE: Requires `ctx` binding (VM context, not yet available).
   --- Defined but not executable.
   export_binding :: [name, value] ~> do {
-    exports :: tget(ctx, "exports")
-    setfield(ctx, "exports", hash_map.set(exports, name, value))
+    exports :: tget(ctx(), "exports")
+    setfield(ctx(), "exports", hash_map.set(exports, name, value))
     value
   }
 

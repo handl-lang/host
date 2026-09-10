@@ -61,6 +61,7 @@ pub mod desugar_pass;
 pub mod erase_pass;
 pub mod fp;
 pub mod runtime_assert_pass;
+pub mod vm_primitives;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
