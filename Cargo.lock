@@ -989,6 +989,7 @@ name = "handl-emitters"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "plugin-engine",
 ]
 
 [[package]]

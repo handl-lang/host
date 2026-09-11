@@ -31,8 +31,10 @@
 #![warn(missing_docs)]
 
 use handl_language::{
-    AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Term, TokenKindDef, Value,
+    ArrSource, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Term, TokenKindDef,
+    Value,
 };
+use plugin_engine::TermData;
 
 /// The contract every migrated rule crate implements.
 ///
@@ -171,13 +173,26 @@ pub fn eval_scheme(
 /// Convenience: `prim_binary("add")` →
 /// `arr("add", [proj_child 0, proj_child 1])`.
 pub fn prim_binary(op: &str) -> Term {
-    Term::arr_native(
+    let td = TermData::op(
         op,
         vec![
-            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-            Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+            TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(0u64)),
+            ),
+            TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(1u64)),
+            ),
         ],
-    )
+        &ArrSource::Native,
+        None,
+    );
+    td.to_term().expect("TermData round-trips to Term")
 }
 
 /// Build an `App` scheme applying `proj_child 0` (the callee) to the
@@ -187,13 +202,23 @@ pub fn prim_binary(op: &str) -> Term {
 /// For a call node with N children, child 0 is the callee and children 1..N
 /// are the arguments.
 pub fn app_call(num_args: usize) -> Term {
-    let args: Vec<Term> = (1..=num_args)
-        .map(|i| Term::arr_native_lit("proj_child", vec![], Value::from(i as u64)))
+    let args: Vec<TermData> = (1..=num_args)
+        .map(|i| {
+            TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(i as u64)),
+            )
+        })
         .collect();
-    Term::app(
-        Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-        args,
-    )
+    let callee = TermData::op(
+        "proj_child",
+        vec![],
+        &ArrSource::Native,
+        Some(Value::from(0u64)),
+    );
+    TermData::app(callee, args).to_term().expect("TermData round-trips to Term")
 }
 
 #[cfg(test)]

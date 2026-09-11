@@ -1651,8 +1651,10 @@ fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
 mod tests {
     use super::*;
     use handl_language::{
-        AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Term, Token, TokenKindDef,
+        ArrSource, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Token,
+        TokenKindDef,
     };
+    use plugin_engine::TermData;
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
@@ -1852,18 +1854,25 @@ mod tests {
             )
             .unwrap();
         // Eval scheme: binary.add → arr(add, [proj_child 0, proj_child 1])
+        let add_scheme = {
+            let lhs = TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(0u64)),
+            );
+            let rhs = TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(1u64)),
+            );
+            TermData::op("add", vec![lhs, rhs], &ArrSource::Native, None)
+                .to_term()
+                .expect("TermData round-trips to Term")
+        };
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Term::arr_native(
-                    "add",
-                    vec![
-                        Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-                    ],
-                ),
-            ))
+            .merge(EvalSchemeDef::new("e.add", "binary.add", add_scheme))
             .unwrap();
         lang
     }
@@ -2120,19 +2129,19 @@ mod tests {
     fn from_registry_with_host_passes_to_eval_engine() {
         // Build a language with a "foreign" node kind that calls "double".
         let mut lang = Language::new();
+        let dbl_scheme = {
+            let arg = TermData::op(
+                "proj_child",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::from(0u64)),
+            );
+            TermData::op("double", vec![arg], &ArrSource::Foreign("double".into()), None)
+                .to_term()
+                .expect("TermData round-trips to Term")
+        };
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.dbl",
-                "foreign.double",
-                Term::arr_foreign(
-                    "double",
-                    vec![Term::arr_native_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
-                ),
-            ))
+            .merge(EvalSchemeDef::new("e.dbl", "foreign.double", dbl_scheme))
             .unwrap();
 
         let reg = default_registry();
