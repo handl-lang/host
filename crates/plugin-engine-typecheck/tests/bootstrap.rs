@@ -83,7 +83,7 @@ fn duplicate_binding_span_points_at_name() {
 
 #[test]
 fn unbound_export() {
-    let report = check_module(lang(), "export sort from \"collection\"").unwrap();
+    let report = check_module(lang(), "export sorter from \"collection\"").unwrap();
     assert!(
         has_diag(&report, "unbound-export", Severity::Error),
         "expected unbound-export error, got: {:?}",
@@ -93,7 +93,7 @@ fn unbound_export() {
 
 #[test]
 fn bound_export_is_clean() {
-    let report = check_module(lang(), "sort = x ~> x; export sort from \"collection\"").unwrap();
+    let report = check_module(lang(), "sorter = x ~> x; export sorter from \"collection\"").unwrap();
     assert!(
         !has_diag(&report, "unbound-export", Severity::Error),
         "should not have unbound-export when name is bound, got: {:?}",
@@ -175,7 +175,7 @@ fn clean_module() {
 fn clean_module_with_import_and_call() {
     let report = check_module(
         lang(),
-        "import sort from \"collection\"; main = sort([3, 1, 2])",
+        "import sorter from \"collection\"; main = sorter([3, 1, 2])",
     )
     .unwrap();
     assert_clean(&report);
@@ -184,7 +184,7 @@ fn clean_module_with_import_and_call() {
 #[test]
 fn all_imports_used() {
     let src =
-        "import sort from \"collection\"; import map from \"fn/map\"; main = sort(map([3, 1, 2]))";
+        "import sorter from \"collection\"; import map from \"fn/map\"; main = sorter(map([3, 1, 2]))";
     let report = check_module(lang(), src).unwrap();
     assert!(
         !has_diag(&report, "unused-import", Severity::Warning),
