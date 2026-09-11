@@ -15,7 +15,8 @@ use crate::contracts::ContractRegistry;
 use crate::loop_invariant::{FIXPOINT_MAX_ITERATIONS, discover_invariant_fixpoint_real};
 use crate::termination::analyze_termination;
 use crate::types::{BaseTy, LoopInvariant, Pred, RefTy, RefinementResult};
-use handl_language::Term;
+use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 /// Infer refinement properties from a `Term`, without annotations.
 ///
@@ -75,12 +76,22 @@ pub fn infer_r(
     registry: &ContractRegistry,
     loop_invs: &mut Vec<LoopInvariant>,
 ) -> Result<(RefTy, RefTy, Pred), String> {
-    match scheme {
+    let td = TermData::from_term(scheme);
+    infer_r_td(&td, registry, loop_invs)
+}
+
+/// Data-driven counterpart of [`infer_r`], operating on [`TermData`].
+fn infer_r_td(
+    td: &TermData,
+    registry: &ContractRegistry,
+    loop_invs: &mut Vec<LoopInvariant>,
+) -> Result<(RefTy, RefTy, Pred), String> {
+    match td.tag() {
         // arr(id) or arr(op): look up contract in registry.
         // RGraph::Id maps to Term::Op { name: "id", ... }.
-        Term::Op {
-            name: op, source, ..
-        } => {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
             if op == "id" {
                 // Identity preserves everything.
                 return Ok((
@@ -90,7 +101,7 @@ pub fn infer_r(
                 ));
             }
             let contract = registry
-                .lookup(op, source)
+                .lookup(op, &source)
                 .ok_or_else(|| format!("Unknown base arrow: {} (source: {:?})", op, source))?;
 
             // Conditional contracts: the guarantee only applies when the
@@ -110,9 +121,11 @@ pub fn infer_r(
 
         // seq(g, h) = comp(g, h): compose refinements (cut rule).
         // RGraph::Comp(g, h) maps to Term::Seq { fst: g, snd: h }.
-        Term::Seq { fst, snd } => {
-            let (gi, _go, gp) = infer_r(fst, registry, loop_invs)?;
-            let (_hi, ho, hp) = infer_r(snd, registry, loop_invs)?;
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            let (gi, _go, gp) = infer_r_td(&fst, registry, loop_invs)?;
+            let (_hi, ho, hp) = infer_r_td(&snd, registry, loop_invs)?;
             // The guarantee of comp is the conjunction of both guarantees.
             let combined = Pred::And(Box::new(gp), Box::new(hp));
             Ok((gi, ho, combined))
@@ -128,8 +141,9 @@ pub fn infer_r(
         // inference (e.g. `map = loop(first(fn.apply))`) can derive
         // `LengthEq` on the side channel without needing explicit cons/tail
         // structure in the graph.
-        Term::First { inner } => {
-            let (gi, go, gp) = infer_r(inner, registry, loop_invs)?;
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            let (gi, go, gp) = infer_r_td(&inner, registry, loop_invs)?;
             let d = RefTy::Plain(BaseTy::Var("d".to_string()));
             let input = RefTy::Prod(Box::new(gi), Box::new(d.clone()));
             let output = RefTy::Prod(Box::new(go), Box::new(d));
@@ -148,9 +162,11 @@ pub fn infer_r(
         // regardless of which arm executes. This lets real semantic content
         // (e.g. Sorted from cons) flow through Choice instead of being
         // dropped to True.
-        Term::Choice { l, r } => {
-            let (gi, go, gp) = infer_r(l, registry, loop_invs)?;
-            let (_ri, _ro, rp) = infer_r(r, registry, loop_invs)?;
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            let (gi, go, gp) = infer_r_td(&l, registry, loop_invs)?;
+            let (_ri, _ro, rp) = infer_r_td(&r, registry, loop_invs)?;
             let d = RefTy::Plain(BaseTy::Var("d".to_string()));
             let input = RefTy::Sum(Box::new(gi), Box::new(d.clone()));
             let output = RefTy::Sum(Box::new(go), Box::new(d));
@@ -166,17 +182,19 @@ pub fn infer_r(
         // so that non-trivial properties like `Sorted(output)` discovered in
         // the body propagate through the loop. The loop's guarantee is the
         // invariant itself -- what holds at the loop exit.
-        Term::Loop { body } => {
-            let (gi, go, gp) = infer_r(body, registry, loop_invs)?;
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            let (gi, go, gp) = infer_r_td(&body, registry, loop_invs)?;
 
             // Start the fixpoint from the body's guarantee, not from True.
             // This lets the fixpoint discover non-trivial invariants (e.g.
             // Sorted(acc)) that are already present in the body's contracts.
+            let body_term = body.to_term().expect("Loop body: TermData -> Term failed");
             let (invariant, how, _trace, verified) =
-                discover_invariant_fixpoint_real(body, registry, &gp, FIXPOINT_MAX_ITERATIONS);
+                discover_invariant_fixpoint_real(&body_term, registry, &gp, FIXPOINT_MAX_ITERATIONS);
 
             loop_invs.push(LoopInvariant {
-                graph: format_scheme(body),
+                graph: format_scheme(&body_term),
                 invariant: invariant.clone(),
                 how_discovered: how,
                 verified_by_smt: verified,
@@ -187,75 +205,96 @@ pub fn infer_r(
         }
 
         // app(callee, args): conservatively return True (not used by inference).
-        Term::App { .. } => Ok((
+        "App" => Ok((
             RefTy::Plain(BaseTy::Var("a".to_string())),
             RefTy::Plain(BaseTy::Var("b".to_string())),
             Pred::True,
         )),
         // Handle nodes are eliminated before inference; treat as identity.
-        Term::Handle { .. } => Ok((
+        "Handle" => Ok((
             RefTy::Plain(BaseTy::Var("a".to_string())),
             RefTy::Plain(BaseTy::Var("a".to_string())),
             Pred::True,
         )),
 
         // Pure constants and child projections: conservatively identity-like.
-        Term::Arr { .. } | Term::Child { .. } => Ok((
+        "Arr" | "Child" => Ok((
             RefTy::Plain(BaseTy::Var("a".to_string())),
             RefTy::Plain(BaseTy::Var("b".to_string())),
             Pred::True,
         )),
-        Term::Iter { .. } => Err("iter contract inference not implemented".to_string()),
+        "Iter" => Err("iter contract inference not implemented".to_string()),
         // Rewrite nodes are not yet supported by contract inference.
-        Term::Rewrite { .. } => Err("rewrite contract inference not implemented".to_string()),
+        "Rewrite" => Err("rewrite contract inference not implemented".to_string()),
         _ => unreachable!(),
     }
 }
 
 /// Format a `Term` into a compact string for use in `LoopInvariant.graph`.
 pub fn format_scheme(scheme: &Term) -> String {
-    match scheme {
-        Term::Op { name: op, .. } => op.clone(),
-        Term::Seq { fst, snd } => {
-            format!("seq({}, {})", format_scheme(fst), format_scheme(snd))
-        }
-        Term::First { inner } => {
-            format!("first({})", format_scheme(inner))
-        }
-        Term::Choice { l, r } => {
-            format!("choice({}, {})", format_scheme(l), format_scheme(r))
-        }
-        Term::Loop { body } => {
-            format!("loop({})", format_scheme(body))
-        }
-        Term::App { callee, .. } => {
-            format!("app({})", format_scheme(callee))
-        }
-        Term::Handle { body, target, .. } => {
-            format!("handle({}, {})", format_scheme(body), target)
-        }
+    let td = TermData::from_term(scheme);
+    format_scheme_td(&td)
+}
 
-        Term::Arr { value } => format!("const({})", value),
-        Term::Child { role } => format!("child({})", role),
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
+/// Data-driven counterpart of [`format_scheme`], operating on [`TermData`].
+fn format_scheme_td(td: &TermData) -> String {
+    match td.tag() {
+        "Op" => td.get_str("name").unwrap_or("").to_string(),
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            format!("seq({}, {})", format_scheme_td(&fst), format_scheme_td(&snd))
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            format!("first({})", format_scheme_td(&inner))
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            format!("choice({}, {})", format_scheme_td(&l), format_scheme_td(&r))
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            format!("loop({})", format_scheme_td(&body))
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            format!("app({})", format_scheme_td(&callee))
+        }
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let target = td.get_str("target").unwrap_or("");
+            format!("handle({}, {})", format_scheme_td(&body), target)
+        }
+        "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(serde_json::Value::Null);
+            format!("const({})", value)
+        }
+        "Child" => {
+            let role = td.get_str("role").unwrap_or("");
+            format!("child({})", role)
+        }
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
             format!(
                 "iter({}, {}, {}, {})",
-                format_scheme(fuel),
-                format_scheme(predicate),
-                format_scheme(step),
-                format_scheme(initial)
+                format_scheme_td(&fuel),
+                format_scheme_td(&predicate),
+                format_scheme_td(&step),
+                format_scheme_td(&initial)
             )
         }
-        Term::Rewrite { source, target, .. } => {
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
             format!(
                 "rewrite({} ~> {})",
-                format_scheme(source),
-                format_scheme(target)
+                format_scheme_td(&source),
+                format_scheme_td(&target)
             )
         }
         _ => unreachable!(),

@@ -46,6 +46,7 @@
 use std::fmt;
 
 use handl_language::Term;
+use plugin_engine::TermData;
 
 // ============================================================================
 // The `Law` type: named equational laws (mirrors Lean4 `Law`)
@@ -201,23 +202,55 @@ pub fn law_verified(_law: Law) -> bool {
 /// assert!(!uses_first(&g));
 /// ```
 pub fn uses_first(scheme: &Term) -> bool {
-    match scheme {
-        Term::First { .. } => true,
-        Term::Seq { fst, snd } => uses_first(fst) || uses_first(snd),
-        Term::Loop { body } => uses_first(body),
-        Term::Choice { l, r } => uses_first(l) || uses_first(r),
-        Term::App { callee, args } => uses_first(callee) || args.iter().any(uses_first),
-        Term::Op { args, .. } => args.iter().any(uses_first),
-        Term::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
+    let td = TermData::from_term(scheme);
+    uses_first_td(&td)
+}
 
-        Term::Rewrite { source, target, .. } => uses_first(source) || uses_first(target),
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => uses_first(fuel) || uses_first(predicate) || uses_first(step) || uses_first(initial),
+/// Data-driven counterpart of [`uses_first`], operating on [`TermData`].
+fn uses_first_td(td: &TermData) -> bool {
+    match td.tag() {
+        "First" => true,
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            uses_first_td(&fst) || uses_first_td(&snd)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            uses_first_td(&body)
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            uses_first_td(&l) || uses_first_td(&r)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            uses_first_td(&callee)
+                || td.get_term_list("args").iter().any(uses_first_td)
+        }
+        "Op" => td.get_term_list("args").iter().any(uses_first_td),
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            uses_first_td(&body) || uses_first_td(&impl_)
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            uses_first_td(&source) || uses_first_td(&target)
+        }
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            uses_first_td(&fuel)
+                || uses_first_td(&predicate)
+                || uses_first_td(&step)
+                || uses_first_td(&initial)
+        }
         _ => unreachable!(),
     }
 }
@@ -257,42 +290,71 @@ pub fn uses_first(scheme: &Term) -> bool {
 /// assert!(!uses_left(&g));
 /// ```
 pub fn uses_left(scheme: &Term) -> bool {
-    match scheme {
-        Term::Choice { l, r } => {
+    let td = TermData::from_term(scheme);
+    uses_left_td(&td)
+}
+
+/// Data-driven counterpart of [`uses_left`], operating on [`TermData`].
+fn uses_left_td(td: &TermData) -> bool {
+    match td.tag() {
+        "Choice" => {
             // A `left(F)` is `Choice { l: F, r: id }`. We recognize it when
             // the right branch is an identity (the pass-through), which is
             // the structural hallmark of the coproduct functor. The left
             // branch carries the active sub-graph F.
-            is_identity(r) || uses_left(l) || uses_left(r)
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            is_identity_td(&r) || uses_left_td(&l) || uses_left_td(&r)
         }
-        Term::Seq { fst, snd } => uses_left(fst) || uses_left(snd),
-        Term::Loop { body } => uses_left(body),
-        Term::First { inner } => uses_left(inner),
-        Term::App { callee, args } => uses_left(callee) || args.iter().any(uses_left),
-        Term::Op { args, .. } => args.iter().any(uses_left),
-        Term::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
-
-        Term::Rewrite { source, target, .. } => uses_left(source) || uses_left(target),
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => uses_left(fuel) || uses_left(predicate) || uses_left(step) || uses_left(initial),
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            uses_left_td(&fst) || uses_left_td(&snd)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            uses_left_td(&body)
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            uses_left_td(&inner)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            uses_left_td(&callee)
+                || td.get_term_list("args").iter().any(uses_left_td)
+        }
+        "Op" => td.get_term_list("args").iter().any(uses_left_td),
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            uses_left_td(&body) || uses_left_td(&impl_)
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            uses_left_td(&source) || uses_left_td(&target)
+        }
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            uses_left_td(&fuel)
+                || uses_left_td(&predicate)
+                || uses_left_td(&step)
+                || uses_left_td(&initial)
+        }
         _ => unreachable!(),
     }
 }
 
-/// Whether a `Term` is the identity arrow (`arr("id")` with no args).
-fn is_identity(scheme: &Term) -> bool {
-    matches!(
-        scheme,
-        Term::Op { name: op,
-            args,
-            ..
-        } if op == "id" && args.is_empty()
-    )
+/// Whether a `TermData` is the identity arrow (`op("id")` with no args).
+fn is_identity_td(td: &TermData) -> bool {
+    td.is_tag("Op")
+        && td.get_str("name") == Some("id")
+        && td.get_term_list("args").is_empty()
 }
 
 // ============================================================================

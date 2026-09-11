@@ -20,7 +20,8 @@
 
 use crate::contracts::ContractRegistry;
 use crate::types::Measure;
-use handl_language::Term;
+use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 /// Termination analysis result for a `Term`.
 #[derive(Debug, Clone)]
@@ -40,13 +41,25 @@ pub struct TerminationResult {
 /// composition of base arrows). For `loop G`, we structurally analyze `G` to
 /// discover whether `C` has a well-founded decreasing measure.
 pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> TerminationResult {
-    match scheme {
-        Term::Loop { body } => analyze_loop_termination(body, registry),
+    let td = TermData::from_term(scheme);
+    analyze_termination_td(&td, registry)
+}
 
-        Term::Seq { fst, snd } => {
+/// Data-driven counterpart of [`analyze_termination`], operating on
+/// [`TermData`].
+fn analyze_termination_td(td: &TermData, registry: &ContractRegistry) -> TerminationResult {
+    match td.tag() {
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            analyze_loop_termination_td(&body, registry)
+        }
+
+        "Seq" => {
             // Composition: both parts must terminate.
-            let tg = analyze_termination(fst, registry);
-            let th = analyze_termination(snd, registry);
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            let tg = analyze_termination_td(&fst, registry);
+            let th = analyze_termination_td(&snd, registry);
             let terminates = tg.terminates && th.terminates;
             let measure = if tg.measure != Measure::None {
                 tg.measure
@@ -70,9 +83,10 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             }
         }
 
-        Term::First { inner } => {
+        "First" => {
             // first(G): G terminates, the second component passes through.
-            let ti = analyze_termination(inner, registry);
+            let inner = td.get_term("inner").expect("First: missing inner");
+            let ti = analyze_termination_td(&inner, registry);
             TerminationResult {
                 terminates: ti.terminates,
                 measure: Measure::None,
@@ -80,10 +94,12 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             }
         }
 
-        Term::Choice { l, r } => {
+        "Choice" => {
             // choice(l, r): both branches must terminate.
-            let tl = analyze_termination(l, registry);
-            let tr = analyze_termination(r, registry);
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            let tl = analyze_termination_td(&l, registry);
+            let tr = analyze_termination_td(&r, registry);
             TerminationResult {
                 terminates: tl.terminates && tr.terminates,
                 measure: Measure::None,
@@ -92,10 +108,10 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
         }
 
         // Base arrows and identity: no loop, direct termination.
-        Term::Op {
-            name: op, source, ..
-        } => {
-            let known = registry.contains(op, source);
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let known = registry.contains(op, &source);
             TerminationResult {
                 terminates: true,
                 measure: Measure::None,
@@ -107,32 +123,32 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
             }
         }
 
-        Term::App { .. } => TerminationResult {
+        "App" => TerminationResult {
             terminates: true,
             measure: Measure::None,
             reason: "app -- direct termination (no loop)".to_string(),
         },
 
         // Handle nodes are eliminated before analysis; treat as terminating.
-        Term::Handle { .. } => TerminationResult {
+        "Handle" => TerminationResult {
             terminates: true,
             measure: Measure::None,
             reason: "handle -- eliminated before analysis".to_string(),
         },
 
         // Pure constants and child projections: direct (no loop).
-        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+        "Arr" | "Child" => TerminationResult {
             terminates: true,
             measure: Measure::None,
             reason: "constant/child -- direct termination (no loop)".to_string(),
         },
-        Term::Iter { .. } => TerminationResult {
+        "Iter" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "iter -- termination not analyzed".to_string(),
         },
         // Rewrite nodes are not yet analyzed; treat as direct termination.
-        Term::Rewrite { .. } => TerminationResult {
+        "Rewrite" => TerminationResult {
             terminates: true,
             measure: Measure::None,
             reason: "rewrite -- direct termination (no loop)".to_string(),
@@ -144,13 +160,14 @@ pub fn analyze_termination(scheme: &Term, registry: &ContractRegistry) -> Termin
 /// Analyze termination of a `loop G` by discovering a decreasing measure on
 /// the feedback channel `C`. The body `G` has type `A*C ~> B*C`; we examine
 /// `G`'s structure to find what it does to `C`.
-fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> TerminationResult {
-    match body {
+fn analyze_loop_termination_td(td: &TermData, registry: &ContractRegistry) -> TerminationResult {
+    match td.tag() {
         // --- Case 1: Side-channel loop ---
         // loop(first(G)): G only touches A, C passes through unchanged.
         // Measure = constant -> does not decrease -> NOT GUARANTEED.
-        Term::First { inner } => {
-            let inner_term = analyze_termination(inner, registry);
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            let inner_term = analyze_termination_td(&inner, registry);
             TerminationResult {
                 terminates: false, // C unchanged -> no decreasing measure
                 measure: Measure::Constant,
@@ -168,13 +185,18 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
         // --- Case 2/3/4/5: Composition body ---
         // loop(seq(left, right)): `right` is what updates C. We inspect right
         // to discover the measure on C.
-        Term::Seq { fst, snd } => analyze_comp_loop_termination(fst, snd, registry),
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            analyze_comp_loop_termination_td(&fst, &snd, registry)
+        }
 
         // --- Case 5: Nested loop ---
         // loop(loop(inner)): the body is itself a loop. Termination of the
         // outer loop depends on termination of the inner loop.
-        Term::Loop { body: inner } => {
-            let inner_result = analyze_loop_termination(inner, registry);
+        "Loop" => {
+            let inner = td.get_term("body").expect("Loop: missing body");
+            let inner_result = analyze_loop_termination_td(&inner, registry);
             TerminationResult {
                 terminates: inner_result.terminates,
                 measure: Measure::Nested(Box::new(inner_result.measure.clone())),
@@ -187,10 +209,10 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
 
         // --- Direct base arrow as loop body ---
         // loop(arr): the arrow itself must decrease C. Check its contract.
-        Term::Op {
-            name: op, source, ..
-        } => {
-            let contract = registry.lookup(op, source);
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let contract = registry.lookup(op, &source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
                     measure_from_effect(op, effect)
@@ -214,39 +236,39 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
         }
 
         // --- loop(app(...)): conservatively not guaranteed ---
-        Term::App { .. } => TerminationResult {
+        "App" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "loop(app(...)): no structural decreasing measure on C".to_string(),
         },
 
         // --- loop(choice(l, r)): conservatively not guaranteed ---
-        Term::Choice { .. } => TerminationResult {
+        "Choice" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "loop(choice(...)): no structural decreasing measure on C".to_string(),
         },
 
         // --- loop(handle(...)): eliminated before analysis ---
-        Term::Handle { .. } => TerminationResult {
+        "Handle" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "loop(handle(...)): handle eliminated before analysis".to_string(),
         },
 
         // --- loop(rewrite(...)): no structural decreasing measure ---
-        Term::Rewrite { .. } => TerminationResult {
+        "Rewrite" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "loop(rewrite(...)): no structural decreasing measure on C".to_string(),
         },
         // --- loop(constant/child): no decrease on C ---
-        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+        "Arr" | "Child" => TerminationResult {
             terminates: false,
             measure: Measure::Constant,
             reason: "loop(constant/child): C unchanged".to_string(),
         },
-        Term::Iter { .. } => TerminationResult {
+        "Iter" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "loop(iter): no structural decreasing measure on C".to_string(),
@@ -257,19 +279,19 @@ fn analyze_loop_termination(body: &Term, registry: &ContractRegistry) -> Termina
 
 /// Analyze `loop(seq(left, right))`. The `right` component is what updates the
 /// feedback channel `C`, so we inspect its structure to discover the measure.
-fn analyze_comp_loop_termination(
-    left: &Term,
-    right: &Term,
+fn analyze_comp_loop_termination_td(
+    left_td: &TermData,
+    right_td: &TermData,
     registry: &ContractRegistry,
 ) -> TerminationResult {
-    match right {
+    match right_td.tag() {
         // right is arr(id): seq(G, id) -- id leaves C unchanged. The decrease
         // (if any) must come from `left`. So recurse into left as the loop body.
         // This is the "fixed-point / accumulator" pattern.
         // Note: id is encoded as Term::Op { name: "id", ... }
         // This arm must come BEFORE the general Arr arm.
-        Term::Op { name: op, .. } if op == "id" => {
-            let left_result = analyze_loop_termination(left, registry);
+        "Op" if right_td.get_str("name") == Some("id") => {
+            let left_result = analyze_loop_termination_td(left_td, registry);
             TerminationResult {
                 terminates: left_result.terminates,
                 measure: left_result.measure,
@@ -281,15 +303,15 @@ fn analyze_comp_loop_termination(
         }
 
         // right is a base arrow: its termination_effect tells us about C.
-        Term::Op {
-            name: op, source, ..
-        } => {
-            let contract = registry.lookup(op, source);
+        "Op" => {
+            let op = right_td.get_str("name").unwrap_or("");
+            let source = right_td.arr_source().unwrap_or(ArrSource::Native);
+            let contract = registry.lookup(op, &source);
             if let Some(c) = contract {
                 if let Some(ref effect) = c.termination_effect {
                     let mut res = measure_from_effect(op, effect);
                     // The left part must also terminate (it may contain a nested loop).
-                    let left_term = analyze_termination(left, registry);
+                    let left_term = analyze_termination_td(left_td, registry);
                     if !left_term.terminates {
                         res.terminates = false;
                         res.reason = format!(
@@ -322,13 +344,13 @@ fn analyze_comp_loop_termination(
         // must come from `left`. We check both the loop-termination analysis
         // of `left` and a structural scan for any consuming arrow (e.g.
         // fold_step with `decrements_length`) buried inside `left`.
-        Term::First { inner: _ } => {
+        "First" => {
             // first(H) leaves the second component (C) unchanged.
             // Check whether left provides a decrease (e.g. left is itself a
             // loop or a consuming arrow like fold_step).
-            let left_result = analyze_termination(left, registry);
-            let left_loop = analyze_loop_termination(left, registry);
-            let fallback = find_decreasing_measure_in(left, registry);
+            let left_result = analyze_termination_td(left_td, registry);
+            let left_loop = analyze_loop_termination_td(left_td, registry);
+            let fallback = find_decreasing_measure_in_td(left_td, registry);
             let measure = if left_loop.measure != Measure::None {
                 left_loop.measure
             } else if let Some((m, _)) = &fallback {
@@ -355,9 +377,10 @@ fn analyze_comp_loop_termination(
 
         // right is a nested loop: seq(G, loop(H)). The inner loop must terminate,
         // and it must decrease C. We analyze the inner loop's termination.
-        Term::Loop { body: inner_body } => {
-            let inner_result = analyze_loop_termination(inner_body, registry);
-            let left_term = analyze_termination(left, registry);
+        "Loop" => {
+            let inner_body = right_td.get_term("body").expect("Loop: missing body");
+            let inner_result = analyze_loop_termination_td(&inner_body, registry);
+            let left_term = analyze_termination_td(left_td, registry);
             let terminates = inner_result.terminates && left_term.terminates;
             TerminationResult {
                 terminates,
@@ -376,11 +399,13 @@ fn analyze_comp_loop_termination(
 
         // right is a composition: seq(G, seq(h1, h2)). Recurse into the
         // right composition to find the measure on C.
-        Term::Seq { fst: h1, snd: h2 } => {
+        "Seq" => {
+            let h1 = right_td.get_term("fst").expect("Seq: missing fst");
+            let h2 = right_td.get_term("snd").expect("Seq: missing snd");
             // The rightmost part (h2) is closest to C. Analyze seq(h1, h2)
             // as a loop body's right side.
-            let inner = analyze_comp_loop_termination(h1, h2, registry);
-            let left_term = analyze_termination(left, registry);
+            let inner = analyze_comp_loop_termination_td(&h1, &h2, registry);
+            let left_term = analyze_termination_td(left_td, registry);
             // If the structural recursion did not find a decreasing measure,
             // scan the ENTIRE right side for any consuming arrow (e.g.
             // consume_one nested inside first(...) within the composition).
@@ -390,7 +415,7 @@ fn analyze_comp_loop_termination(
                     inner.measure,
                     format!("seq(_, seq(_, _)): right composition -- {}", inner.reason),
                 )
-            } else if let Some((m, why)) = find_decreasing_measure_in(right, registry) {
+            } else if let Some((m, why)) = find_decreasing_measure_in_td(right_td, registry) {
                 let t = left_term.terminates;
                 (
                     t,
@@ -416,11 +441,13 @@ fn analyze_comp_loop_termination(
 
         // right is choice(l, r): conservatively no decrease on C,
         // BUT scan for a consuming arrow before giving up.
-        Term::Choice { l: cl, r: cr } => {
-            let left_term = analyze_termination(left, registry);
-            if let Some((m, why)) = find_decreasing_measure_in(left, registry)
-                .or_else(|| find_decreasing_measure_in(cl, registry))
-                .or_else(|| find_decreasing_measure_in(cr, registry))
+        "Choice" => {
+            let cl = right_td.get_term("l").expect("Choice: missing l");
+            let cr = right_td.get_term("r").expect("Choice: missing r");
+            let left_term = analyze_termination_td(left_td, registry);
+            if let Some((m, why)) = find_decreasing_measure_in_td(left_td, registry)
+                .or_else(|| find_decreasing_measure_in_td(&cl, registry))
+                .or_else(|| find_decreasing_measure_in_td(&cr, registry))
             {
                 TerminationResult {
                     terminates: left_term.terminates,
@@ -440,32 +467,32 @@ fn analyze_comp_loop_termination(
         }
 
         // right is app: conservatively no decrease on C.
-        Term::App { .. } => TerminationResult {
+        "App" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "seq(_, app): app does not decrease C".to_string(),
         },
 
         // right is handle: eliminated before analysis.
-        Term::Handle { .. } => TerminationResult {
+        "Handle" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "seq(_, handle): handle eliminated before analysis".to_string(),
         },
 
         // right is a constant or child projection: no decrease on C.
-        Term::Arr { .. } | Term::Child { .. } => TerminationResult {
+        "Arr" | "Child" => TerminationResult {
             terminates: false,
             measure: Measure::Constant,
             reason: "seq(_, constant/child): C unchanged".to_string(),
         },
-        Term::Iter { .. } => TerminationResult {
+        "Iter" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "seq(_, iter): no structural decreasing measure on C".to_string(),
         },
         // right is rewrite: no structural decreasing measure.
-        Term::Rewrite { .. } => TerminationResult {
+        "Rewrite" => TerminationResult {
             terminates: false,
             measure: Measure::None,
             reason: "seq(_, rewrite): rewrite does not decrease C".to_string(),
@@ -480,15 +507,15 @@ fn analyze_comp_loop_termination(
 /// discover termination when the consuming arrow (e.g. `consume_one`) is not
 /// the rightmost leaf of the loop body's right side but is buried inside a
 /// composition such as `seq(first(consume_one), append_to_output)`.
-fn find_decreasing_measure_in(
-    scheme: &Term,
+fn find_decreasing_measure_in_td(
+    td: &TermData,
     registry: &ContractRegistry,
 ) -> Option<(Measure, String)> {
-    match scheme {
-        Term::Op {
-            name: op, source, ..
-        } => {
-            let contract = registry.lookup(op, source)?;
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let contract = registry.lookup(op, &source)?;
             let effect = contract.termination_effect.as_ref()?;
             match effect.as_str() {
                 "decrements_length" => Some((
@@ -508,28 +535,50 @@ fn find_decreasing_measure_in(
                 _ => None,
             }
         }
-        Term::Seq { fst, snd } => find_decreasing_measure_in(fst, registry)
-            .or_else(|| find_decreasing_measure_in(snd, registry)),
-        Term::First { inner } => find_decreasing_measure_in(inner, registry),
-        Term::Choice { l, r } => find_decreasing_measure_in(l, registry)
-            .or_else(|| find_decreasing_measure_in(r, registry)),
-        Term::Loop { body } => find_decreasing_measure_in(body, registry),
-        Term::App { .. } => None,
-        Term::Handle { body, impl_, .. } => find_decreasing_measure_in(body, registry)
-            .or_else(|| find_decreasing_measure_in(impl_, registry)),
-
-        Term::Rewrite { source, target, .. } => find_decreasing_measure_in(source, registry)
-            .or_else(|| find_decreasing_measure_in(target, registry)),
-        Term::Arr { .. } | Term::Child { .. } => None,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => find_decreasing_measure_in(fuel, registry)
-            .or_else(|| find_decreasing_measure_in(predicate, registry))
-            .or_else(|| find_decreasing_measure_in(step, registry))
-            .or_else(|| find_decreasing_measure_in(initial, registry)),
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            find_decreasing_measure_in_td(&fst, registry)
+                .or_else(|| find_decreasing_measure_in_td(&snd, registry))
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            find_decreasing_measure_in_td(&inner, registry)
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            find_decreasing_measure_in_td(&l, registry)
+                .or_else(|| find_decreasing_measure_in_td(&r, registry))
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            find_decreasing_measure_in_td(&body, registry)
+        }
+        "App" => None,
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            find_decreasing_measure_in_td(&body, registry)
+                .or_else(|| find_decreasing_measure_in_td(&impl_, registry))
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            find_decreasing_measure_in_td(&source, registry)
+                .or_else(|| find_decreasing_measure_in_td(&target, registry))
+        }
+        "Arr" | "Child" => None,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            find_decreasing_measure_in_td(&fuel, registry)
+                .or_else(|| find_decreasing_measure_in_td(&predicate, registry))
+                .or_else(|| find_decreasing_measure_in_td(&step, registry))
+                .or_else(|| find_decreasing_measure_in_td(&initial, registry))
+        }
         _ => unreachable!(),
     }
 }

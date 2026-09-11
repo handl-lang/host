@@ -20,6 +20,8 @@ use std::path::PathBuf;
 
 use handl_language::{ArrSource, Term, Value};
 
+use plugin_engine::TermData;
+
 use crate::arrow_parser::{
     ExportDecl, ImportDecl, ParsedFile, parse_arrow_module, parse_arrow_module_no_rewrite,
 };
@@ -191,74 +193,116 @@ fn resolve_apps_inner(scheme: &Term, graph_map: &HashMap<String, Term>, depth: u
         return scheme.clone();
     }
 
-    match scheme {
-        Term::Op { .. } => scheme.clone(),
+    let td = TermData::from_term(scheme);
+    resolve_apps_inner_td(&td, graph_map, depth)
+        .to_term()
+        .expect("resolve_apps_inner: TermData -> Term conversion failed")
+}
 
-        Term::Seq { fst, snd } => Term::Seq {
-            fst: Box::new(resolve_apps_inner(fst, graph_map, depth)),
-            snd: Box::new(resolve_apps_inner(snd, graph_map, depth)),
-        },
+/// Data-driven counterpart of [`resolve_apps_inner`], operating on
+/// [`TermData`] and returning [`TermData`].
+fn resolve_apps_inner_td(
+    td: &TermData,
+    graph_map: &HashMap<String, Term>,
+    depth: usize,
+) -> TermData {
+    // Depth limit to prevent infinite recursion on circular references
+    if depth > 16 {
+        return td.clone();
+    }
 
-        Term::First { inner } => Term::First {
-            inner: Box::new(resolve_apps_inner(inner, graph_map, depth)),
-        },
+    match td.tag() {
+        "Op" => td.clone(),
 
-        Term::Choice { l, r } => Term::Choice {
-            l: Box::new(resolve_apps_inner(l, graph_map, depth)),
-            r: Box::new(resolve_apps_inner(r, graph_map, depth)),
-        },
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            TermData::seq(
+                resolve_apps_inner_td(&fst, graph_map, depth),
+                resolve_apps_inner_td(&snd, graph_map, depth),
+            )
+        }
 
-        Term::Loop { body } => Term::Loop {
-            body: Box::new(resolve_apps_inner(body, graph_map, depth)),
-        },
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            TermData::first(resolve_apps_inner_td(&inner, graph_map, depth))
+        }
 
-        Term::App { callee, args } => {
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            TermData::choice(
+                resolve_apps_inner_td(&l, graph_map, depth),
+                resolve_apps_inner_td(&r, graph_map, depth),
+            )
+        }
+
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            TermData::loop_feedback(resolve_apps_inner_td(&body, graph_map, depth))
+        }
+
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
             // Check if the callee is a reference to a named arrow
-            if let Term::Op { name: op, .. } = callee.as_ref() {
-                if let Some(graph) = graph_map.get(op) {
-                    // Inline the referenced graph (recursively resolved)
-                    return resolve_apps_inner(graph, graph_map, depth + 1);
+            if callee.is_tag("Op") {
+                if let Some(op) = callee.get_str("name") {
+                    if let Some(graph) = graph_map.get(op) {
+                        // Inline the referenced graph (recursively resolved)
+                        let graph_td = TermData::from_term(graph);
+                        return resolve_apps_inner_td(&graph_td, graph_map, depth + 1);
+                    }
                 }
             }
             // If not found, keep the App as-is (inference returns True for App)
-            Term::App {
-                callee: Box::new(resolve_apps_inner(callee, graph_map, depth)),
-                args: args
-                    .iter()
-                    .map(|a| resolve_apps_inner(a, graph_map, depth))
-                    .collect(),
-            }
+            let args: Vec<TermData> = td
+                .get_term_list("args")
+                .iter()
+                .map(|a| resolve_apps_inner_td(a, graph_map, depth))
+                .collect();
+            TermData::app(resolve_apps_inner_td(&callee, graph_map, depth), args)
         }
 
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then resolve apps in the resulting handler-free
         // graph.
-        Term::Handle { .. } => {
-            let eliminated = scheme.eliminate_handlers();
-            resolve_apps_inner(&eliminated, graph_map, depth)
+        "Handle" => {
+            let eliminated = td
+                .to_term()
+                .expect("Handle: TermData -> Term conversion failed")
+                .eliminate_handlers();
+            let eliminated_td = TermData::from_term(&eliminated);
+            resolve_apps_inner_td(&eliminated_td, graph_map, depth)
         }
 
-        Term::Arr { .. } | Term::Child { .. } => scheme.clone(),
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => Term::Iter {
-            fuel: Box::new(resolve_apps_inner(fuel, graph_map, depth)),
-            predicate: Box::new(resolve_apps_inner(predicate, graph_map, depth)),
-            step: Box::new(resolve_apps_inner(step, graph_map, depth)),
-            initial: Box::new(resolve_apps_inner(initial, graph_map, depth)),
-        },
-        Term::Rewrite {
-            source,
-            target,
-            witness,
-        } => Term::Rewrite {
-            source: Box::new(resolve_apps_inner(source, graph_map, depth)),
-            target: Box::new(resolve_apps_inner(target, graph_map, depth)),
-            witness: witness.clone(),
-        },
+        "Arr" | "Child" => td.clone(),
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            TermData::iter(
+                resolve_apps_inner_td(&fuel, graph_map, depth),
+                resolve_apps_inner_td(&predicate, graph_map, depth),
+                resolve_apps_inner_td(&step, graph_map, depth),
+                resolve_apps_inner_td(&initial, graph_map, depth),
+            )
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            // Reconstruct via to_term to preserve the witness field exactly.
+            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
+            if let Term::Rewrite { witness, .. } = witness_term {
+                TermData::rewrite(
+                    resolve_apps_inner_td(&source, graph_map, depth),
+                    resolve_apps_inner_td(&target, graph_map, depth),
+                    &witness,
+                )
+            } else {
+                unreachable!()
+            }
+        }
         _ => unreachable!(),
     }
 }
@@ -722,47 +766,77 @@ fn refinement_to_contract(result: &RefinementResult) -> Contract {
 /// since `Term` has no `ModuleRef` variant, unresolved `App` nodes to
 /// unknown names serve the same role.
 pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool {
-    match scheme {
-        Term::Op { args, .. } => args.iter().any(|a| has_unresolved_apps(a, known_names)),
-        Term::Seq { fst, snd } => {
-            has_unresolved_apps(fst, known_names) || has_unresolved_apps(snd, known_names)
+    let td = TermData::from_term(scheme);
+    has_unresolved_apps_td(&td, known_names)
+}
+
+/// Data-driven counterpart of [`has_unresolved_apps`], operating on
+/// [`TermData`].
+fn has_unresolved_apps_td(td: &TermData, known_names: &HashSet<String>) -> bool {
+    match td.tag() {
+        "Op" => td
+            .get_term_list("args")
+            .iter()
+            .any(|a| has_unresolved_apps_td(a, known_names)),
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            has_unresolved_apps_td(&fst, known_names) || has_unresolved_apps_td(&snd, known_names)
         }
-        Term::First { inner } => has_unresolved_apps(inner, known_names),
-        Term::Choice { l, r } => {
-            has_unresolved_apps(l, known_names) || has_unresolved_apps(r, known_names)
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            has_unresolved_apps_td(&inner, known_names)
         }
-        Term::Loop { body } => has_unresolved_apps(body, known_names),
-        Term::App { callee, args } => {
-            if let Term::Op { name: op, .. } = callee.as_ref() {
-                if !known_names.contains(op) {
-                    return true;
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            has_unresolved_apps_td(&l, known_names) || has_unresolved_apps_td(&r, known_names)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            has_unresolved_apps_td(&body, known_names)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            if callee.is_tag("Op") {
+                if let Some(op) = callee.get_str("name") {
+                    if !known_names.contains(op) {
+                        return true;
+                    }
                 }
             }
-            has_unresolved_apps(callee, known_names)
-                || args.iter().any(|a| has_unresolved_apps(a, known_names))
+            has_unresolved_apps_td(&callee, known_names)
+                || td
+                    .get_term_list("args")
+                    .iter()
+                    .any(|a| has_unresolved_apps_td(a, known_names))
         }
         // `handle body with target = impl_` (ADR-0076): the handler is
         // eliminated at compile time (impl inlined into body), so the
         // combined graph's unresolved apps are the union of body's and
         // impl's.
-        Term::Handle { body, impl_, .. } => {
-            has_unresolved_apps(body, known_names) || has_unresolved_apps(impl_, known_names)
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            has_unresolved_apps_td(&body, known_names)
+                || has_unresolved_apps_td(&impl_, known_names)
         }
-
-        Term::Rewrite { source, target, .. } => {
-            has_unresolved_apps(source, known_names) || has_unresolved_apps(target, known_names)
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            has_unresolved_apps_td(&source, known_names)
+                || has_unresolved_apps_td(&target, known_names)
         }
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            has_unresolved_apps(fuel, known_names)
-                || has_unresolved_apps(predicate, known_names)
-                || has_unresolved_apps(step, known_names)
-                || has_unresolved_apps(initial, known_names)
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            has_unresolved_apps_td(&fuel, known_names)
+                || has_unresolved_apps_td(&predicate, known_names)
+                || has_unresolved_apps_td(&step, known_names)
+                || has_unresolved_apps_td(&initial, known_names)
         }
         _ => unreachable!(),
     }
@@ -771,35 +845,63 @@ pub fn has_unresolved_apps(scheme: &Term, known_names: &HashSet<String>) -> bool
 /// Check whether a `Term` contains any `Arr { op: "module_ref" }` node
 /// (the production representation of a module reference).
 pub fn contains_module_ref(scheme: &Term) -> bool {
-    match scheme {
-        Term::Op { name: op, args, .. } => {
-            op == "module_ref" || args.iter().any(contains_module_ref)
+    let td = TermData::from_term(scheme);
+    contains_module_ref_td(&td)
+}
+
+/// Data-driven counterpart of [`contains_module_ref`], operating on
+/// [`TermData`].
+fn contains_module_ref_td(td: &TermData) -> bool {
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            op == "module_ref" || td.get_term_list("args").iter().any(contains_module_ref_td)
         }
-        Term::Seq { fst, snd } => contains_module_ref(fst) || contains_module_ref(snd),
-        Term::First { inner } => contains_module_ref(inner),
-        Term::Choice { l, r } => contains_module_ref(l) || contains_module_ref(r),
-        Term::Loop { body } => contains_module_ref(body),
-        Term::App { callee, args } => {
-            contains_module_ref(callee) || args.iter().any(contains_module_ref)
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            contains_module_ref_td(&fst) || contains_module_ref_td(&snd)
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            contains_module_ref_td(&inner)
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            contains_module_ref_td(&l) || contains_module_ref_td(&r)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            contains_module_ref_td(&body)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            contains_module_ref_td(&callee)
+                || td.get_term_list("args").iter().any(contains_module_ref_td)
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for module refs.
-        Term::Handle { body, impl_, .. } => contains_module_ref(body) || contains_module_ref(impl_),
-
-        Term::Rewrite { source, target, .. } => {
-            contains_module_ref(source) || contains_module_ref(target)
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            contains_module_ref_td(&body) || contains_module_ref_td(&impl_)
         }
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            contains_module_ref(fuel)
-                || contains_module_ref(predicate)
-                || contains_module_ref(step)
-                || contains_module_ref(initial)
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            contains_module_ref_td(&source) || contains_module_ref_td(&target)
+        }
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            contains_module_ref_td(&fuel)
+                || contains_module_ref_td(&predicate)
+                || contains_module_ref_td(&step)
+                || contains_module_ref_td(&initial)
         }
         _ => unreachable!(),
     }
@@ -808,31 +910,62 @@ pub fn contains_module_ref(scheme: &Term) -> bool {
 /// Check whether a `Term` contains any `Arr { op: "project" }` node
 /// (the production representation of a projection).
 pub fn contains_project(scheme: &Term) -> bool {
-    match scheme {
-        Term::Op { name: op, args, .. } => op == "project" || args.iter().any(contains_project),
-        Term::Seq { fst, snd } => contains_project(fst) || contains_project(snd),
-        Term::First { inner } => contains_project(inner),
-        Term::Choice { l, r } => contains_project(l) || contains_project(r),
-        Term::Loop { body } => contains_project(body),
-        Term::App { callee, args } => contains_project(callee) || args.iter().any(contains_project),
+    let td = TermData::from_term(scheme);
+    contains_project_td(&td)
+}
+
+/// Data-driven counterpart of [`contains_project`], operating on [`TermData`].
+fn contains_project_td(td: &TermData) -> bool {
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            op == "project" || td.get_term_list("args").iter().any(contains_project_td)
+        }
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            contains_project_td(&fst) || contains_project_td(&snd)
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            contains_project_td(&inner)
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            contains_project_td(&l) || contains_project_td(&r)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            contains_project_td(&body)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            contains_project_td(&callee)
+                || td.get_term_list("args").iter().any(contains_project_td)
+        }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
-        Term::Handle { body, impl_, .. } => contains_project(body) || contains_project(impl_),
-
-        Term::Rewrite { source, target, .. } => {
-            contains_project(source) || contains_project(target)
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            contains_project_td(&body) || contains_project_td(&impl_)
         }
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            contains_project(fuel)
-                || contains_project(predicate)
-                || contains_project(step)
-                || contains_project(initial)
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            contains_project_td(&source) || contains_project_td(&target)
+        }
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            contains_project_td(&fuel)
+                || contains_project_td(&predicate)
+                || contains_project_td(&step)
+                || contains_project_td(&initial)
         }
         _ => unreachable!(),
     }
@@ -841,100 +974,115 @@ pub fn contains_project(scheme: &Term) -> bool {
 /// Build a record `Term` from a map of named arrows. Each field is
 /// `arr("field", [arr(name), arrow])`, wrapped in `arr("record", [...])`.
 fn build_module_record(arrows: &HashMap<String, Term>) -> Term {
-    let fields: Vec<Term> = arrows
+    let fields: Vec<TermData> = arrows
         .iter()
-        .map(|(name, scheme)| Term::Op {
-            name: "field".to_string(),
-            args: vec![
-                Term::const_value(Value::String(name.clone())),
-                scheme.clone(),
-            ],
-            source: ArrSource::Native,
-            lit: None,
+        .map(|(name, scheme)| {
+            TermData::op(
+                "field".to_string(),
+                vec![
+                    TermData::arr(Value::String(name.clone())),
+                    TermData::from_term(scheme),
+                ],
+                &ArrSource::Native,
+                None,
+            )
         })
         .collect();
-    Term::Op {
-        name: "record".to_string(),
-        args: fields,
-        source: ArrSource::Native,
-        lit: None,
-    }
+    TermData::op("record".to_string(), fields, &ArrSource::Native, None)
+        .to_term()
+        .expect("build_module_record: TermData -> Term conversion failed")
 }
 
-/// Recursively transform a `Term`, applying a substitution function to each
-/// node bottom-up.
-fn transform_scheme<F>(scheme: &Term, f: &F) -> Term
+/// Data-driven transform: recursively transform a [`TermData`], applying a
+/// substitution function to each node bottom-up. The `handle` case is
+/// eliminated at compile time via `eliminate_handlers`.
+fn transform_scheme_td<F>(td: &TermData, f: &F) -> TermData
 where
-    F: Fn(&Term) -> Term,
+    F: Fn(&TermData) -> TermData,
 {
-    // `handle body with target = impl_` (ADR-0076): eliminate the handler at
-    // compile time, then apply the bottom-up transform to the resulting
-    // handler-free graph. This is handled before the match so the eliminated
-    // graph's children are recursively transformed (and `f` applied
-    // bottom-up) rather than only at the root.
-    if matches!(scheme, Term::Handle { .. }) {
-        let eliminated = scheme.eliminate_handlers();
-        return transform_scheme(&eliminated, f);
-    }
-    let transformed = match scheme {
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } => Term::Op {
-            name: op.clone(),
-            args: args.iter().map(|a| transform_scheme(a, f)).collect(),
-            source: source.clone(),
-            lit: lit.clone(),
-        },
-        Term::Seq { fst, snd } => Term::Seq {
-            fst: Box::new(transform_scheme(fst, f)),
-            snd: Box::new(transform_scheme(snd, f)),
-        },
-        Term::First { inner } => Term::First {
-            inner: Box::new(transform_scheme(inner, f)),
-        },
-        Term::Choice { l, r } => Term::Choice {
-            l: Box::new(transform_scheme(l, f)),
-            r: Box::new(transform_scheme(r, f)),
-        },
-        Term::Loop { body } => Term::Loop {
-            body: Box::new(transform_scheme(body, f)),
-        },
-        Term::App { callee, args } => Term::App {
-            callee: Box::new(transform_scheme(callee, f)),
-            args: args.iter().map(|a| transform_scheme(a, f)).collect(),
-        },
+    let transformed = match td.tag() {
+        "Op" => {
+            let name = td.get_str("name").unwrap_or("").to_string();
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let lit = td.get("lit").filter(|v| !v.is_null()).cloned();
+            let args: Vec<TermData> = td
+                .get_term_list("args")
+                .iter()
+                .map(|a| transform_scheme_td(a, f))
+                .collect();
+            TermData::op(name, args, &source, lit)
+        }
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            TermData::seq(transform_scheme_td(&fst, f), transform_scheme_td(&snd, f))
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            TermData::first(transform_scheme_td(&inner, f))
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            TermData::choice(transform_scheme_td(&l, f), transform_scheme_td(&r, f))
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            TermData::loop_feedback(transform_scheme_td(&body, f))
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            let args: Vec<TermData> = td
+                .get_term_list("args")
+                .iter()
+                .map(|a| transform_scheme_td(a, f))
+                .collect();
+            TermData::app(transform_scheme_td(&callee, f), args)
+        }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then apply the bottom-up transform to the
         // resulting handler-free graph.
-        Term::Handle { .. } => scheme.eliminate_handlers(),
-
-        Term::Arr { value } => Term::Arr {
-            value: value.clone(),
-        },
-        Term::Child { role } => Term::Child { role: role.clone() },
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => Term::Iter {
-            fuel: Box::new(transform_scheme(fuel, f)),
-            predicate: Box::new(transform_scheme(predicate, f)),
-            step: Box::new(transform_scheme(step, f)),
-            initial: Box::new(transform_scheme(initial, f)),
-        },
-        Term::Rewrite {
-            source,
-            target,
-            witness,
-        } => Term::Rewrite {
-            source: Box::new(transform_scheme(source, f)),
-            target: Box::new(transform_scheme(target, f)),
-            witness: witness.clone(),
-        },
+        "Handle" => {
+            let eliminated = td
+                .to_term()
+                .expect("Handle: TermData -> Term conversion failed")
+                .eliminate_handlers();
+            TermData::from_term(&eliminated)
+        }
+        "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(Value::Null);
+            TermData::arr(value)
+        }
+        "Child" => {
+            let role = td.get_str("role").unwrap_or("").to_string();
+            TermData::child(role)
+        }
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            TermData::iter(
+                transform_scheme_td(&fuel, f),
+                transform_scheme_td(&predicate, f),
+                transform_scheme_td(&step, f),
+                transform_scheme_td(&initial, f),
+            )
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
+            if let Term::Rewrite { witness, .. } = witness_term {
+                TermData::rewrite(
+                    transform_scheme_td(&source, f),
+                    transform_scheme_td(&target, f),
+                    &witness,
+                )
+            } else {
+                unreachable!()
+            }
+        }
         _ => unreachable!(),
     };
     f(&transformed)
@@ -1000,12 +1148,14 @@ fn normalize_compile_time_inner(
                 import_records.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to a project from the record.
-                let project = Term::Op {
-                    name: "project".to_string(),
-                    args: vec![record.clone()],
-                    source: ArrSource::Native,
-                    lit: Some(Value::String(remote_name.clone())),
-                };
+                let project = TermData::op(
+                    "project".to_string(),
+                    vec![TermData::from_term(&record)],
+                    &ArrSource::Native,
+                    Some(Value::String(remote_name.clone())),
+                )
+                .to_term()
+                .expect("normalize: project TermData -> Term failed");
                 import_records.insert(local_name.clone(), project);
             }
         }
@@ -1032,56 +1182,65 @@ fn replace_imports_with_projects(
     import_records: &HashMap<String, Term>,
     path_records: &HashMap<String, Term>,
 ) -> Term {
-    transform_scheme(scheme, &|node| match node {
-        Term::App { callee, args } => {
-            if let Term::Op { name: op, .. } = callee.as_ref() {
-                if let Some(replacement) = import_records.get(op) {
-                    return replacement.clone();
+    let td = TermData::from_term(scheme);
+    let import_records_td: HashMap<String, TermData> = import_records
+        .iter()
+        .map(|(k, v)| (k.clone(), TermData::from_term(v)))
+        .collect();
+    let path_records_td: HashMap<String, TermData> = path_records
+        .iter()
+        .map(|(k, v)| (k.clone(), TermData::from_term(v)))
+        .collect();
+    replace_imports_with_projects_td(&td, &import_records_td, &path_records_td)
+        .to_term()
+        .expect("replace_imports_with_projects: TermData -> Term failed")
+}
+
+/// Data-driven counterpart of [`replace_imports_with_projects`], operating on
+/// [`TermData`] and returning [`TermData`].
+fn replace_imports_with_projects_td(
+    td: &TermData,
+    import_records: &HashMap<String, TermData>,
+    path_records: &HashMap<String, TermData>,
+) -> TermData {
+    transform_scheme_td(td, &|node| match node.tag() {
+        "App" => {
+            let callee = node.get_term("callee").expect("App: missing callee");
+            let args = node.get_term_list("args");
+            if callee.is_tag("Op") {
+                if let Some(op) = callee.get_str("name") {
+                    if let Some(replacement) = import_records.get(op) {
+                        return replacement.clone();
+                    }
                 }
             }
             // Not an import reference: keep as-is (already recursed).
-            Term::App {
-                callee: callee.clone(),
-                args: args.clone(),
-            }
+            TermData::app(callee, args)
         }
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } if op == "module_ref" => {
-            if let Some(Value::String(path)) = lit {
+        "Op" if node.get_str("name") == Some("module_ref") => {
+            let lit = node.get("lit").filter(|v| !v.is_null()).cloned();
+            if let Some(Value::String(path)) = &lit {
                 if let Some(replacement) = path_records.get(path) {
                     return replacement.clone();
                 }
             }
-            Term::Op {
-                name: op.clone(),
-                args: args.clone(),
-                source: source.clone(),
-                lit: lit.clone(),
-            }
+            // Not found: keep as-is.
+            node.clone()
         }
         // Bare reference to a named arrow (no args, no lit): if it matches
         // an import name, replace with the project/record node.
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } if args.is_empty() && lit.is_none() => {
-            if let Some(replacement) = import_records.get(op) {
-                return replacement.clone();
+        "Op" => {
+            let op = node.get_str("name").unwrap_or("");
+            let args = node.get_term_list("args");
+            let lit = node.get("lit").filter(|v| !v.is_null());
+            if args.is_empty() && lit.is_none() {
+                if let Some(replacement) = import_records.get(op) {
+                    return replacement.clone();
+                }
             }
-            Term::Op {
-                name: op.clone(),
-                args: args.clone(),
-                source: source.clone(),
-                lit: lit.clone(),
-            }
+            node.clone()
         }
-        other => other.clone(),
+        _ => node.clone(),
     })
 }
 
@@ -1117,7 +1276,9 @@ pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Term, 
     if resolved_arrows.len() == 1 {
         Ok(resolved_arrows.into_iter().next().unwrap().1)
     } else if resolved_arrows.is_empty() {
-        Ok(Term::arr_native("id", vec![]))
+        Ok(TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
+            .to_term()
+            .expect("flatten_program: id TermData -> Term failed"))
     } else {
         Ok(build_module_record(&resolved_arrows))
     }
@@ -1202,53 +1363,73 @@ fn discovery_candidates(name: &str, current_path: &str) -> Vec<String> {
 /// references to arrows that are not explicitly imported (kit-stdlib files
 /// reference other arrows without import declarations).
 fn collect_app_callee_names(scheme: &Term, out: &mut HashSet<String>) {
-    match scheme {
-        Term::Op { args, .. } => {
-            for a in args {
-                collect_app_callee_names(a, out);
+    let td = TermData::from_term(scheme);
+    collect_app_callee_names_td(&td, out)
+}
+
+/// Data-driven counterpart of [`collect_app_callee_names`], operating on
+/// [`TermData`].
+fn collect_app_callee_names_td(td: &TermData, out: &mut HashSet<String>) {
+    match td.tag() {
+        "Op" => {
+            for a in td.get_term_list("args") {
+                collect_app_callee_names_td(&a, out);
             }
         }
-        Term::Seq { fst, snd } => {
-            collect_app_callee_names(fst, out);
-            collect_app_callee_names(snd, out);
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            collect_app_callee_names_td(&fst, out);
+            collect_app_callee_names_td(&snd, out);
         }
-        Term::First { inner } => collect_app_callee_names(inner, out),
-        Term::Choice { l, r } => {
-            collect_app_callee_names(l, out);
-            collect_app_callee_names(r, out);
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            collect_app_callee_names_td(&inner, out);
         }
-        Term::Loop { body } => collect_app_callee_names(body, out),
-        Term::App { callee, args } => {
-            if let Term::Op { name: op, .. } = callee.as_ref() {
-                out.insert(op.clone());
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            collect_app_callee_names_td(&l, out);
+            collect_app_callee_names_td(&r, out);
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            collect_app_callee_names_td(&body, out);
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            if let Some(op) = callee.get_str("name") {
+                out.insert(op.to_string());
             }
-            collect_app_callee_names(callee, out);
-            for a in args {
-                collect_app_callee_names(a, out);
+            collect_app_callee_names_td(&callee, out);
+            for a in td.get_term_list("args") {
+                collect_app_callee_names_td(&a, out);
             }
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — collect callee names from both body and impl.
-        Term::Handle { body, impl_, .. } => {
-            collect_app_callee_names(body, out);
-            collect_app_callee_names(impl_, out);
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            collect_app_callee_names_td(&body, out);
+            collect_app_callee_names_td(&impl_, out);
         }
-
-        Term::Rewrite { source, target, .. } => {
-            collect_app_callee_names(source, out);
-            collect_app_callee_names(target, out);
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            collect_app_callee_names_td(&source, out);
+            collect_app_callee_names_td(&target, out);
         }
-        Term::Arr { .. } | Term::Child { .. } => {}
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            collect_app_callee_names(fuel, out);
-            collect_app_callee_names(predicate, out);
-            collect_app_callee_names(step, out);
-            collect_app_callee_names(initial, out);
+        "Arr" | "Child" => {}
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            collect_app_callee_names_td(&fuel, out);
+            collect_app_callee_names_td(&predicate, out);
+            collect_app_callee_names_td(&step, out);
+            collect_app_callee_names_td(&initial, out);
         }
         _ => unreachable!(),
     }
@@ -1369,34 +1550,47 @@ fn resolve_all_apps(
     known: &HashMap<String, Term>,
     resolving: &HashSet<String>,
 ) -> Term {
-    match scheme {
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } => {
+    let td = TermData::from_term(scheme);
+    resolve_all_apps_td(&td, known, resolving)
+        .to_term()
+        .expect("resolve_all_apps: TermData -> Term conversion failed")
+}
+
+/// Data-driven counterpart of [`resolve_all_apps`], operating on [`TermData`]
+/// and returning [`TermData`].
+fn resolve_all_apps_td(
+    td: &TermData,
+    known: &HashMap<String, Term>,
+    resolving: &HashSet<String>,
+) -> TermData {
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let lit = td.get("lit").filter(|v| !v.is_null()).cloned();
+            let args = td.get_term_list("args");
             // Handle module_ref nodes: replace with inlined record if known.
             if op == "module_ref" {
-                if let Some(Value::String(path)) = lit {
+                if let Some(Value::String(path)) = &lit {
                     if let Some(record) = known.get(path) {
                         if !resolving.contains(path) {
                             let mut new_resolving = resolving.clone();
                             new_resolving.insert(path.clone());
-                            return resolve_all_apps(record, known, &new_resolving);
+                            let record_td = TermData::from_term(record);
+                            return resolve_all_apps_td(&record_td, known, &new_resolving);
                         }
                     }
                 }
             }
             // Handle project nodes: resolve the field from the record.
             if op == "project" && args.len() == 1 {
-                if let Some(Value::String(field)) = lit {
-                    let resolved_record = resolve_all_apps(&args[0], known, resolving);
-                    if let Some(target) = lookup_field_in_record(&resolved_record, field) {
+                if let Some(Value::String(field)) = &lit {
+                    let resolved_record = resolve_all_apps_td(&args[0], known, resolving);
+                    if let Some(target) = lookup_field_in_record_td(&resolved_record, field) {
                         if !resolving.contains(field) {
                             let mut new_resolving = resolving.clone();
                             new_resolving.insert(field.clone());
-                            return resolve_all_apps(&target, known, &new_resolving);
+                            return resolve_all_apps_td(&target, known, &new_resolving);
                         }
                     }
                 }
@@ -1406,43 +1600,55 @@ fn resolve_all_apps(
                 if let Some(target) = known.get(op) {
                     if !resolving.contains(op) {
                         let mut new_resolving = resolving.clone();
-                        new_resolving.insert(op.clone());
-                        return resolve_all_apps(target, known, &new_resolving);
+                        new_resolving.insert(op.to_string());
+                        let target_td = TermData::from_term(target);
+                        return resolve_all_apps_td(&target_td, known, &new_resolving);
                     }
                 }
             }
-            Term::Op {
-                name: op.clone(),
-                args: args
-                    .iter()
-                    .map(|a| resolve_all_apps(a, known, resolving))
-                    .collect(),
-                source: source.clone(),
-                lit: lit.clone(),
-            }
+            let new_args: Vec<TermData> = args
+                .iter()
+                .map(|a| resolve_all_apps_td(a, known, resolving))
+                .collect();
+            TermData::op(op.to_string(), new_args, &source, lit)
         }
-        Term::Seq { fst, snd } => Term::Seq {
-            fst: Box::new(resolve_all_apps(fst, known, resolving)),
-            snd: Box::new(resolve_all_apps(snd, known, resolving)),
-        },
-        Term::First { inner } => Term::First {
-            inner: Box::new(resolve_all_apps(inner, known, resolving)),
-        },
-        Term::Choice { l, r } => Term::Choice {
-            l: Box::new(resolve_all_apps(l, known, resolving)),
-            r: Box::new(resolve_all_apps(r, known, resolving)),
-        },
-        Term::Loop { body } => Term::Loop {
-            body: Box::new(resolve_all_apps(body, known, resolving)),
-        },
-        Term::App { callee, args } => {
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            TermData::seq(
+                resolve_all_apps_td(&fst, known, resolving),
+                resolve_all_apps_td(&snd, known, resolving),
+            )
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            TermData::first(resolve_all_apps_td(&inner, known, resolving))
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            TermData::choice(
+                resolve_all_apps_td(&l, known, resolving),
+                resolve_all_apps_td(&r, known, resolving),
+            )
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            TermData::loop_feedback(resolve_all_apps_td(&body, known, resolving))
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            let args = td.get_term_list("args");
             // First, try to resolve the callee as a known bare-name reference.
-            if let Term::Op { name: op, .. } = callee.as_ref() {
-                if let Some(target) = known.get(op) {
-                    if !resolving.contains(op) {
-                        let mut new_resolving = resolving.clone();
-                        new_resolving.insert(op.clone());
-                        return resolve_all_apps(target, known, &new_resolving);
+            if callee.is_tag("Op") {
+                if let Some(op) = callee.get_str("name") {
+                    if let Some(target) = known.get(op) {
+                        if !resolving.contains(op) {
+                            let mut new_resolving = resolving.clone();
+                            new_resolving.insert(op.to_string());
+                            let target_td = TermData::from_term(target);
+                            return resolve_all_apps_td(&target_td, known, &new_resolving);
+                        }
                     }
                 }
             }
@@ -1452,62 +1658,74 @@ fn resolve_all_apps(
             // This matches `resolve_apps` which inlines
             // `App { callee: arr("name"), args: [] }` by replacing it with
             // the referenced graph.
-            let is_import_ref = is_import_reference(callee);
-            let resolved_callee = resolve_all_apps(callee, known, resolving);
-            if is_import_ref && args.is_empty() && !is_import_reference(&resolved_callee) {
+            let is_import_ref = is_import_reference_td(&callee);
+            let resolved_callee = resolve_all_apps_td(&callee, known, resolving);
+            if is_import_ref && args.is_empty() && !is_import_reference_td(&resolved_callee) {
                 // The import reference resolved to a concrete graph — inline it.
                 return resolved_callee;
             }
-            Term::App {
-                callee: Box::new(resolved_callee),
-                args: args
-                    .iter()
-                    .map(|a| resolve_all_apps(a, known, resolving))
-                    .collect(),
-            }
+            let new_args: Vec<TermData> = args
+                .iter()
+                .map(|a| resolve_all_apps_td(a, known, resolving))
+                .collect();
+            TermData::app(resolved_callee, new_args)
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then resolve apps in the resulting handler-free
         // graph.
-        Term::Handle { .. } => {
-            let eliminated = scheme.eliminate_handlers();
-            resolve_all_apps(&eliminated, known, resolving)
+        "Handle" => {
+            let eliminated = td
+                .to_term()
+                .expect("Handle: TermData -> Term conversion failed")
+                .eliminate_handlers();
+            let eliminated_td = TermData::from_term(&eliminated);
+            resolve_all_apps_td(&eliminated_td, known, resolving)
         }
-
-        Term::Arr { value } => Term::Arr {
-            value: value.clone(),
-        },
-        Term::Child { role } => Term::Child { role: role.clone() },
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => Term::Iter {
-            fuel: Box::new(resolve_all_apps(fuel, known, resolving)),
-            predicate: Box::new(resolve_all_apps(predicate, known, resolving)),
-            step: Box::new(resolve_all_apps(step, known, resolving)),
-            initial: Box::new(resolve_all_apps(initial, known, resolving)),
-        },
-        Term::Rewrite {
-            source,
-            target,
-            witness,
-        } => Term::Rewrite {
-            source: Box::new(resolve_all_apps(source, known, resolving)),
-            target: Box::new(resolve_all_apps(target, known, resolving)),
-            witness: witness.clone(),
-        },
+        "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(Value::Null);
+            TermData::arr(value)
+        }
+        "Child" => {
+            let role = td.get_str("role").unwrap_or("").to_string();
+            TermData::child(role)
+        }
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            TermData::iter(
+                resolve_all_apps_td(&fuel, known, resolving),
+                resolve_all_apps_td(&predicate, known, resolving),
+                resolve_all_apps_td(&step, known, resolving),
+                resolve_all_apps_td(&initial, known, resolving),
+            )
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
+            if let Term::Rewrite { witness, .. } = witness_term {
+                TermData::rewrite(
+                    resolve_all_apps_td(&source, known, resolving),
+                    resolve_all_apps_td(&target, known, resolving),
+                    &witness,
+                )
+            } else {
+                unreachable!()
+            }
+        }
         _ => unreachable!(),
     }
 }
 
-/// Check whether a `Term` is an import reference node — a `project` or
+/// Check whether a `TermData` is an import reference node — a `project` or
 /// `module_ref` node emitted by `rewrite_imports`. Used by
-/// `resolve_all_apps` to determine whether an `App`'s callee is an
+/// `resolve_all_apps_td` to determine whether an `App`'s callee is an
 /// import-rewritten reference that should be inlined after resolution.
-fn is_import_reference(scheme: &Term) -> bool {
-    if let Term::Op { name: op, .. } = scheme {
+fn is_import_reference_td(td: &TermData) -> bool {
+    if td.is_tag("Op") {
+        let op = td.get_str("name").unwrap_or("");
         op == "project" || op == "module_ref"
     } else {
         false
@@ -1516,22 +1734,15 @@ fn is_import_reference(scheme: &Term) -> bool {
 
 /// Look up a field by name in an inlined module record. The record is
 /// expected to be `arr("record", [arr("field", [arr("const", lit: name), value])...])`.
-/// Returns the value `Term` if found.
-fn lookup_field_in_record(record: &Term, field: &str) -> Option<Term> {
-    if let Term::Op { name: op, args, .. } = record {
-        if op == "record" {
-            for f in args {
-                if let Term::Op {
-                    name: fop,
-                    args: fargs,
-                    ..
-                } = f
-                {
-                    if fop == "field" && fargs.len() == 2 {
-                        if let Term::Arr {
-                            value: Value::String(name),
-                        } = &fargs[0]
-                        {
+/// Returns the value `TermData` if found.
+fn lookup_field_in_record_td(td: &TermData, field: &str) -> Option<TermData> {
+    if td.is_tag("Op") && td.get_str("name") == Some("record") {
+        for f in td.get_term_list("args") {
+            if f.is_tag("Op") && f.get_str("name") == Some("field") {
+                let fargs = f.get_term_list("args");
+                if fargs.len() == 2 {
+                    if fargs[0].is_tag("Arr") {
+                        if let Some(name) = fargs[0].get("value").and_then(|v| v.as_str()) {
                             if name == field {
                                 return Some(fargs[1].clone());
                             }

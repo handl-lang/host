@@ -17,6 +17,7 @@ use crate::contracts::ContractRegistry;
 use crate::smt::implies;
 use crate::types::Pred;
 use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 /// Simplify a predicate (delegates to `Pred::simplify`).
 fn simplify(p: &Pred) -> Pred {
@@ -147,7 +148,18 @@ pub fn discover_invariant_fixpoint(
 ///                                           is the invariant itself)
 /// * `app(callee, args)`                    : `I` (conservative -- not used by inference)
 pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &Pred) -> Pred {
-    match scheme {
+    let td = TermData::from_term(scheme);
+    weakest_precondition_td(&td, registry, post)
+}
+
+/// Data-driven counterpart of [`weakest_precondition`], operating on
+/// [`TermData`].
+fn weakest_precondition_td(
+    td: &TermData,
+    registry: &ContractRegistry,
+    post: &Pred,
+) -> Pred {
+    match td.tag() {
         // arr(id) is identity: wp(id, I) = I
         // arr(f) with contract: wp = precondition(f) if guarantee(f) ==> I,
         //                       else True (conservative -- cannot prove the
@@ -160,13 +172,13 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         // Sorted(output)). When the guarantee does not imply the post, we
         // conservatively return True -- the branch simply does not strengthen
         // the invariant.
-        Term::Op {
-            name: op, source, ..
-        } => {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
             if op == "id" {
                 return post.clone();
             }
-            let contract = registry.lookup(op, source);
+            let contract = registry.lookup(op, &source);
             if let Some(c) = contract {
                 if implies(&c.guarantee, post) {
                     // The guarantee is strong enough to establish the post,
@@ -185,93 +197,113 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
         }
 
         // seq(g, h): wp(seq(g, h), I) = wp(g, wp(h, I))  (backwards composition)
-        Term::Seq { fst, snd } => {
-            let wp_snd = weakest_precondition(snd, registry, post);
-            weakest_precondition(fst, registry, &wp_snd)
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            let wp_snd = weakest_precondition_td(&snd, registry, post);
+            weakest_precondition_td(&fst, registry, &wp_snd)
         }
 
         // first(g): C passes through unchanged, so wp(first(g), I) = I
-        Term::First { .. } => post.clone(),
+        "First" => post.clone(),
 
         // choice(l, r): the invariant must hold on both branches, so the
         // weakest precondition is the conjunction of each arm's wp.
         // This makes the fixpoint iteration branch through both arms of
         // conditionals, enabling discovery of conditional invariants.
-        Term::Choice { l, r } => {
-            let wp_l = weakest_precondition(l, registry, post);
-            let wp_r = weakest_precondition(r, registry, post);
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            let wp_l = weakest_precondition_td(&l, registry, post);
+            let wp_r = weakest_precondition_td(&r, registry, post);
             Pred::And(Box::new(wp_l), Box::new(wp_r))
         }
 
         // loop(g): the loop's invariant is the fixpoint, so wp = I
-        Term::Loop { .. } => post.clone(),
+        "Loop" => post.clone(),
 
         // app(callee, args): conservative -- not used by inference
-        Term::App { .. } => post.clone(),
+        "App" => post.clone(),
         // Handle nodes are eliminated before inference; treat as identity.
-        Term::Handle { .. } => post.clone(),
+        "Handle" => post.clone(),
 
         // Pure constants and child projections: treat as identity for now.
-        Term::Arr { .. } | Term::Child { .. } => post.clone(),
-        Term::Iter { .. } => Pred::True,
+        "Arr" | "Child" => post.clone(),
+        "Iter" => Pred::True,
         // Rewrite nodes are not yet analyzed; treat as identity.
-        Term::Rewrite { .. } => post.clone(),
+        "Rewrite" => post.clone(),
         _ => unreachable!(),
     }
 }
 
 /// Collect every base-arrow guarantee appearing anywhere in `scheme`.
 pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut Vec<Pred>) {
-    match scheme {
-        Term::Op {
-            name: op, source, ..
-        } => {
-            if let Some(c) = registry.lookup(op, source) {
+    let td = TermData::from_term(scheme);
+    collect_guarantees_td(&td, registry, out)
+}
+
+/// Data-driven counterpart of [`collect_guarantees`], operating on
+/// [`TermData`].
+fn collect_guarantees_td(td: &TermData, registry: &ContractRegistry, out: &mut Vec<Pred>) {
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            if let Some(c) = registry.lookup(op, &source) {
                 if c.guarantee != Pred::True {
                     out.push(c.guarantee.clone());
                 }
             }
         }
-        Term::Seq { fst, snd } => {
-            collect_guarantees(fst, registry, out);
-            collect_guarantees(snd, registry, out);
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            collect_guarantees_td(&fst, registry, out);
+            collect_guarantees_td(&snd, registry, out);
         }
-        Term::First { inner } => {
-            collect_guarantees(inner, registry, out);
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            collect_guarantees_td(&inner, registry, out);
         }
-        Term::Choice { l, r } => {
-            collect_guarantees(l, registry, out);
-            collect_guarantees(r, registry, out);
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            collect_guarantees_td(&l, registry, out);
+            collect_guarantees_td(&r, registry, out);
         }
-        Term::Loop { body } => {
-            collect_guarantees(body, registry, out);
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            collect_guarantees_td(&body, registry, out);
         }
-        Term::App { callee, args } => {
-            collect_guarantees(callee, registry, out);
-            for arg in args {
-                collect_guarantees(arg, registry, out);
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            collect_guarantees_td(&callee, registry, out);
+            for arg in td.get_term_list("args") {
+                collect_guarantees_td(&arg, registry, out);
             }
         }
-        Term::Handle { body, impl_, .. } => {
-            collect_guarantees(body, registry, out);
-            collect_guarantees(impl_, registry, out);
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            collect_guarantees_td(&body, registry, out);
+            collect_guarantees_td(&impl_, registry, out);
         }
-
-        Term::Rewrite { source, target, .. } => {
-            collect_guarantees(source, registry, out);
-            collect_guarantees(target, registry, out);
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            collect_guarantees_td(&source, registry, out);
+            collect_guarantees_td(&target, registry, out);
         }
-        Term::Arr { .. } | Term::Child { .. } => {}
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            collect_guarantees(fuel, registry, out);
-            collect_guarantees(predicate, registry, out);
-            collect_guarantees(step, registry, out);
-            collect_guarantees(initial, registry, out);
+        "Arr" | "Child" => {}
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            collect_guarantees_td(&fuel, registry, out);
+            collect_guarantees_td(&predicate, registry, out);
+            collect_guarantees_td(&step, registry, out);
+            collect_guarantees_td(&initial, registry, out);
         }
         _ => unreachable!(),
     }
@@ -281,39 +313,62 @@ pub fn collect_guarantees(scheme: &Term, registry: &ContractRegistry, out: &mut 
 /// name (matching either the bare name or the `list.`-prefixed name),
 /// searching recursively through all combinators.
 pub fn graph_contains(scheme: &Term, op: &str) -> bool {
-    match scheme {
-        Term::Op {
-            name: arr_op,
-            source,
-            ..
-        } => {
-            arr_op == op
-                || arr_op == &format!("list.{}", op)
-                || (source == &ArrSource::Native && arr_op == op)
-        }
-        Term::Seq { fst, snd } => graph_contains(fst, op) || graph_contains(snd, op),
-        Term::First { inner } => graph_contains(inner, op),
-        Term::Choice { l, r } => graph_contains(l, op) || graph_contains(r, op),
-        Term::Loop { body } => graph_contains(body, op),
-        Term::App { callee, args } => {
-            graph_contains(callee, op) || args.iter().any(|a| graph_contains(a, op))
-        }
-        Term::Handle { body, impl_, .. } => graph_contains(body, op) || graph_contains(impl_, op),
+    let td = TermData::from_term(scheme);
+    graph_contains_td(&td, op)
+}
 
-        Term::Rewrite { source, target, .. } => {
-            graph_contains(source, op) || graph_contains(target, op)
+/// Data-driven counterpart of [`graph_contains`], operating on [`TermData`].
+fn graph_contains_td(td: &TermData, op: &str) -> bool {
+    match td.tag() {
+        "Op" => {
+            let arr_op = td.get_str("name").unwrap_or("");
+            arr_op == op
+                || arr_op == format!("list.{}", op)
+                || (td.arr_source() == Some(ArrSource::Native) && arr_op == op)
         }
-        Term::Arr { .. } | Term::Child { .. } => false,
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => {
-            graph_contains(fuel, op)
-                || graph_contains(predicate, op)
-                || graph_contains(step, op)
-                || graph_contains(initial, op)
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            graph_contains_td(&fst, op) || graph_contains_td(&snd, op)
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            graph_contains_td(&inner, op)
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            graph_contains_td(&l, op) || graph_contains_td(&r, op)
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            graph_contains_td(&body, op)
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            graph_contains_td(&callee, op)
+                || td.get_term_list("args").iter().any(|a| graph_contains_td(&a, op))
+        }
+        "Handle" => {
+            let body = td.get_term("body").expect("Handle: missing body");
+            let impl_ = td.get_term("impl_").expect("Handle: missing impl_");
+            graph_contains_td(&body, op) || graph_contains_td(&impl_, op)
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            graph_contains_td(&source, op) || graph_contains_td(&target, op)
+        }
+        "Arr" | "Child" => false,
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            graph_contains_td(&fuel, op)
+                || graph_contains_td(&predicate, op)
+                || graph_contains_td(&step, op)
+                || graph_contains_td(&initial, op)
         }
         _ => unreachable!(),
     }
