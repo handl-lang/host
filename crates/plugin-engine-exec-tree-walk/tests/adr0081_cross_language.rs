@@ -11,7 +11,30 @@ use handl_language::{
 };
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
+use plugin_engine::TermData;
 use serde_json::json;
+
+// --- TermData helpers (mirrors `Term` convenience constructors) ------------
+
+fn t(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion")
+}
+
+fn op_native(name: &str, args: Vec<TermData>) -> TermData {
+    if name == "const" && args.is_empty() {
+        TermData::arr(Value::Null)
+    } else {
+        TermData::op(name, args, &ArrSource::Native, None)
+    }
+}
+
+fn op_lit(name: &str, args: Vec<TermData>, lit: impl Into<Value>) -> TermData {
+    if name == "const" && args.is_empty() {
+        TermData::arr(lit.into())
+    } else {
+        TermData::op(name, args, &ArrSource::Native, Some(lit.into()))
+    }
+}
 
 // --- Renamed language builder ---------------------------------------------
 
@@ -31,17 +54,13 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            t(op_lit("proj_env", vec![], Value::String("$payload".into()))),
         ))
         .unwrap();
 
     // `set` (renamed `assign`) — same eval scheme: `assign` native op
     lang.eval
-        .merge(EvalSchemeDef::new(
-            "e.set",
-            "set",
-            Term::arr_native("assign", vec![]),
-        ))
+        .merge(EvalSchemeDef::new("e.set", "set", t(op_native("assign", vec![]))))
         .unwrap();
     lang.ast
         .merge(AstShapeDef::new("ast.set", "set").with_children(vec![
@@ -61,7 +80,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.block2",
             "block2",
-            Term::arr_native("eval_block", vec![]),
+            t(op_native("eval_block", vec![])),
         ))
         .unwrap();
     lang.ast
@@ -78,7 +97,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.ret",
             "ret",
-            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            t(op_lit("proj_child", vec![], Value::from(0u64))),
         ))
         .unwrap();
     lang.ast
@@ -95,7 +114,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.params2",
             "params2",
-            Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            t(op_lit("proj_child", vec![], Value::from(0u64))),
         ))
         .unwrap();
     lang.ast
@@ -112,7 +131,7 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.func2",
             "func2",
-            Term::arr_native("closure", vec![]),
+            t(op_native("closure", vec![])),
         ))
         .unwrap();
     lang.ast
@@ -134,24 +153,24 @@ fn renamed_language() -> Language {
         .merge(EvalSchemeDef::new(
             "e.call",
             "call",
-            Term::seq(
-                Term::seq(
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("route_on_type", vec![], Value::from("string")),
+            t(TermData::seq(
+                TermData::seq(
+                    op_lit("proj_child", vec![], Value::from(0u64)),
+                    op_lit("route_on_type", vec![], Value::from("string")),
                 ),
-                Term::choice(
-                    Term::Op {
-                        name: "call_host".into(),
-                        args: vec![Term::arr_native("proj_rest", vec![])],
-                        source: ArrSource::DynamicForeign,
-                        lit: None,
-                    },
-                    Term::app(
-                        Term::arr_native("id", vec![]),
-                        vec![Term::arr_native("proj_rest", vec![])],
+                TermData::choice(
+                    TermData::op(
+                        "call_host",
+                        vec![op_native("proj_rest", vec![])],
+                        &ArrSource::DynamicForeign,
+                        None,
+                    ),
+                    TermData::app(
+                        op_native("id", vec![]),
+                        vec![op_native("proj_rest", vec![])],
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 

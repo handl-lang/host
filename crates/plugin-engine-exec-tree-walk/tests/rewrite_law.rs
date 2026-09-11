@@ -4,10 +4,14 @@
 //! language's law/rewrite registry and that the stored source and
 //! target terms are run and compared.
 
-use handl_language::{Ast, Language, Term, Value};
+use handl_language::{ArrSource, Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
-use plugin_engine::{Model, ModelCtx, RewriteResult, RewriteWitness};
+use plugin_engine::{Model, ModelCtx, RewriteResult, RewriteWitness, TermData};
 use serde_json::json;
+
+fn t(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion")
+}
 
 fn model_ctx<'a>(
     lang: &'a Language,
@@ -26,11 +30,13 @@ fn model_ctx<'a>(
 }
 
 fn add_zero_law(x: f64) -> Value {
-    let source = Term::op_native(
+    let source = t(TermData::op(
         "add",
-        vec![Term::const_value(json!(0.0)), Term::const_value(json!(x))],
-    );
-    let target = Term::const_value(json!(x));
+        vec![TermData::arr(json!(0.0)), TermData::arr(json!(x))],
+        &ArrSource::Native,
+        None,
+    ));
+    let target = t(TermData::arr(json!(x)));
     json!({
         "source": serde_json::to_value(source).unwrap(),
         "target": serde_json::to_value(target).unwrap(),
@@ -38,8 +44,8 @@ fn add_zero_law(x: f64) -> Value {
 }
 
 fn one_to_two_rewrite() -> Value {
-    let source = Term::const_value(json!(1.0));
-    let target = Term::const_value(json!(2.0));
+    let source = t(TermData::arr(json!(1.0)));
+    let target = t(TermData::arr(json!(2.0)));
     json!({
         "source": serde_json::to_value(source).unwrap(),
         "target": serde_json::to_value(target).unwrap(),
@@ -57,9 +63,11 @@ fn named_law_lookup_returns_equal() {
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
     let incoming = json!(null);
+    let source = t(TermData::arr(json!(null)));
+    let target = t(TermData::arr(json!(null)));
     let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
-        &Term::const_value(json!(null)),
-        &Term::const_value(json!(null)),
+        &source,
+        &target,
         &RewriteWitness::Named("add_zero".to_string()),
         &incoming,
         &mut ctx,
@@ -78,9 +86,11 @@ fn named_rewrite_lookup_returns_rewritten() {
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
     let incoming = json!(null);
+    let source = t(TermData::arr(json!(null)));
+    let target = t(TermData::arr(json!(null)));
     let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
-        &Term::const_value(json!(null)),
-        &Term::const_value(json!(null)),
+        &source,
+        &target,
         &RewriteWitness::Named("one_to_two".to_string()),
         &incoming,
         &mut ctx,
@@ -97,8 +107,8 @@ fn unknown_named_law_falls_back_to_equality_check() {
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
     let incoming = json!(null);
-    let source = Term::const_value(json!(1.0));
-    let target = Term::const_value(json!(1.0));
+    let source = t(TermData::arr(json!(1.0)));
+    let target = t(TermData::arr(json!(1.0)));
     let result = ValueModel::new(TreeWalkEngine::new()).rewrite(
         &source,
         &target,
