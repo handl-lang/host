@@ -36,6 +36,16 @@
 --- This module depends on the host tag capability and on the runtime
 --- hash_map, array, and typeof modules, and on type_model.hnl for HoTT
 --- tag interpretation.
+---
+--- Mutual recursion: synth_node_, check_node_, eval_scheme_, and
+--- eval_judgment_ form a cycle (synth → eval_scheme → eval_judgment →
+--- synth). In a `do` block, later bindings are invisible to earlier
+--- ones, so direct references like `eval_scheme_(eval_scheme_, ...)` fail
+--- when the callee is defined after the caller. The cycle is broken by
+--- passing a `funcs` record as the first parameter to each function.
+--- Each function looks up siblings via `funcs.fn_name(funcs, ...)` instead
+--- of direct references. The `funcs` record is created after all four
+--- functions are defined.
 
 do {
   tget :: [obj, key] ~> hash_map.get_or(obj, key, null)
@@ -328,7 +338,7 @@ do {
     }
   }
 
-  tc_new :: [lang, ast] ~> {
+  tc_new :: [lang, ast] ~> ({
     lang: lang,
     ast: ast,
     gamma: [],
@@ -336,7 +346,7 @@ do {
     results: {},
     node_types: [],
     diagnostics: []
-  }
+  })
 
   tc_extend :: [state, name, typ] ~> do {
     new_gamma :: gamma_extend(state.gamma, name, typ)
@@ -391,7 +401,57 @@ do {
     hash_map.set(state, "diagnostics", new_diags)
   }
 
-  synth_node_ :: [self, state, node_idx] ~> do {
+  --- Non-recursive helpers (defined before the mutually-recursive group) ---
+
+  defer_to_type_model :: [state, term, incoming] ~> ({ val: incoming, state: state })
+
+  apply_type_closure :: [funcs, type_val, arg_type, state] ~> do {
+    closure :: hash_map.get_or(type_val, "body_closure", {})
+    var_name :: hash_map.get_or(closure, "var_name", "x")
+    body_child_idx :: hash_map.get_or(closure, "body_child_idx", 0)
+    mark :: tc_mark(state)
+    extended :: tc_extend(state, var_name, arg_type)
+    body_result :: funcs.synth_node_(funcs, extended, body_child_idx)
+    restored :: tc_restore(body_result.state, mark)
+    { val: body_result.typ, state: restored }
+  }
+
+  eval_arg_type :: [funcs, state, node_idx, args, incoming] ~> do {
+    has_arg :: array.len(args) > 1
+    arg_result :: if has_arg { funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 1), incoming) } else { null }
+    arg_val :: if has_arg { arg_result.val } else { incoming }
+    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
+  }
+
+  eval_first_arg :: [funcs, state, node_idx, args, incoming] ~> do {
+    has_arg :: !array.is_empty(args)
+    arg_result :: if has_arg { funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming) } else { null }
+    arg_val :: if has_arg { arg_result.val } else { incoming }
+    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
+  }
+
+  eval_arg_at :: [funcs, state, node_idx, args, incoming, arg_idx] ~> do {
+    has_arg :: array.len(args) > arg_idx
+    arg_result :: if has_arg { funcs.eval_scheme_(funcs, state, node_idx, array.at(args, arg_idx), incoming) } else { null }
+    arg_val :: if has_arg { arg_result.val } else { incoming }
+    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
+  }
+
+  merge_obj :: [obj, base] ~> while { result: base, remaining: hash_map.keys(obj) } {
+    [st] ~> if array.is_empty(st.remaining) {
+      { out: st.result }
+    } else {
+      do {
+        k :: array.first(st.remaining)
+        v :: hash_map.get_or(obj, k, null)
+        { state: { result: hash_map.set(st.result, k, v), remaining: array.drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- Mutually recursive functions (funcs record breaks the cycle) ---
+
+  synth_node_ :: [funcs, state, node_idx] ~> do {
     node :: ast_node(state.ast, node_idx)
     kind :: node_kind(node)
     rule :: lang_type_rule(state.lang, kind)
@@ -404,7 +464,7 @@ do {
           { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no synth scheme for kind: " + kind) }
         } else {
           do {
-            result :: eval_scheme_(eval_scheme_, state, node_idx, synth_scheme, null)
+            result :: funcs.eval_scheme_(funcs, state, node_idx, synth_scheme, null)
             new_state :: tc_record_node_type(result.state, node_idx, result.val)
             { typ: result.val, state: new_state }
           }
@@ -413,9 +473,7 @@ do {
     }
   }
 
-  synth_node :: [state, node_idx] ~> synth_node_(synth_node_, state, node_idx)
-
-  check_node_ :: [self, state, node_idx, expected] ~> do {
+  check_node_ :: [funcs, state, node_idx, expected] ~> do {
     node :: ast_node(state.ast, node_idx)
     kind :: node_kind(node)
     rule :: lang_type_rule(state.lang, kind)
@@ -426,13 +484,13 @@ do {
         check_scheme :: hash_map.get_or(rule, "check", null)
         if check_scheme != null {
           do {
-            result :: eval_scheme_(eval_scheme_, state, node_idx, check_scheme, expected)
+            result :: funcs.eval_scheme_(funcs, state, node_idx, check_scheme, expected)
             new_state :: tc_record_node_type(result.state, node_idx, expected)
             { ok: true, state: new_state }
           }
         } else {
           do {
-            synth_result :: synth_node_(synth_node_, state, node_idx)
+            synth_result :: funcs.synth_node_(funcs, state, node_idx)
             unify_result :: unify(synth_result.typ, expected, synth_result.state.metas)
             if unify_result.ok {
               do {
@@ -449,11 +507,7 @@ do {
     }
   }
 
-  check_node :: [state, node_idx, expected] ~> check_node_(check_node_, state, node_idx, expected)
-
-  defer_to_type_model :: [state, term, incoming] ~> { val: incoming, state: state }
-
-  eval_scheme_ :: [self, state, node_idx, term, incoming] ~> match tget(term, "__tag__") {
+  eval_scheme_ :: [funcs, state, node_idx, term, incoming] ~> match tget(term, "__tag__") {
     "Arr": { val: tget(term, "value"), state: state },
     "Const": { val: tget(term, "value"), state: state },
     "Op": do {
@@ -477,7 +531,7 @@ do {
       foreign_result :: { val: make_type("TypeError", hash_map.set({}, "message", "foreign op in type rule: " + op_name)), state: state }
       native_or_foreign :: if is_native { native_result } else { foreign_result }
       if is_judgment {
-        eval_judgment_(eval_scheme_, state, node_idx, op_name, op_args, op_lit, incoming)
+        funcs.eval_judgment_(funcs, state, node_idx, op_name, op_args, op_lit, incoming)
       } else {
         native_or_foreign
       }
@@ -485,8 +539,8 @@ do {
     "Seq": do {
       fst_term :: tget(term, "fst")
       snd_term :: tget(term, "snd")
-      fst_result :: self(self, state, node_idx, fst_term, incoming)
-      self(self, fst_result.state, node_idx, snd_term, fst_result.val)
+      fst_result :: funcs.eval_scheme_(funcs, state, node_idx, fst_term, incoming)
+      funcs.eval_scheme_(funcs, fst_result.state, node_idx, snd_term, fst_result.val)
     },
     "First": do {
       inner :: tget(term, "inner")
@@ -496,7 +550,7 @@ do {
       pair_arr :: if is_p { hash_map.get_or(inc, "__pair__", []) } else { if is_a { inc } else { [inc, null] } }
       a :: array.first(pair_arr)
       b :: array.at(pair_arr, 1)
-      result :: self(self, state, node_idx, inner, a)
+      result :: funcs.eval_scheme_(funcs, state, node_idx, inner, a)
       { val: pair(result.val, b), state: result.state }
     },
     "Choice": do {
@@ -506,9 +560,9 @@ do {
       is_valid :: is_either(incoming)
       chosen :: if is_valid {
         if is_left {
-          self(self, state, node_idx, l_term, either_value(incoming))
+          funcs.eval_scheme_(funcs, state, node_idx, l_term, either_value(incoming))
         } else {
-          self(self, state, node_idx, r_term, either_value(incoming))
+          funcs.eval_scheme_(funcs, state, node_idx, r_term, either_value(incoming))
         }
       } else {
         { val: make_type("TypeError", hash_map.set({}, "message", "Choice: incoming is not an Either")), state: state }
@@ -517,14 +571,14 @@ do {
     },
     "Iter": do {
       initial :: tget(term, "initial")
-      self(self, state, node_idx, initial, incoming)
+      funcs.eval_scheme_(funcs, state, node_idx, initial, incoming)
     },
     "Child": { val: make_type("TypeError", hash_map.set({}, "message", "Child: AST recursion is the driver's job")), state: state },
     "Handle": do {
       impl_term :: tget(term, "impl_")
       body_term :: tget(term, "body")
-      impl_result :: self(self, state, node_idx, impl_term, incoming)
-      body_result :: self(self, impl_result.state, node_idx, body_term, incoming)
+      impl_result :: funcs.eval_scheme_(funcs, state, node_idx, impl_term, incoming)
+      body_result :: funcs.eval_scheme_(funcs, impl_result.state, node_idx, body_term, incoming)
       is_fn :: type_tag(body_result.val) == "type.function"
       effects :: hash_map.get_or(impl_result.val, "grades", [])
       new_val :: if is_fn { hash_map.set(body_result.val, "effects", effects) } else { body_result.val }
@@ -533,7 +587,7 @@ do {
     "RecordProj": do {
       record_term :: tget(term, "record")
       field :: tget(term, "field")
-      record_result :: self(self, state, node_idx, record_term, incoming)
+      record_result :: funcs.eval_scheme_(funcs, state, node_idx, record_term, incoming)
       proj_val :: if is_obj(record_result.val) { hash_map.get_or(record_result.val, field, null) } else { null }
       { val: proj_val, state: record_result.state }
     },
@@ -541,77 +595,31 @@ do {
       record_term :: tget(term, "record")
       field :: tget(term, "field")
       value_term :: tget(term, "value")
-      record_result :: self(self, state, node_idx, record_term, incoming)
-      value_result :: self(self, record_result.state, node_idx, value_term, incoming)
+      record_result :: funcs.eval_scheme_(funcs, state, node_idx, record_term, incoming)
+      value_result :: funcs.eval_scheme_(funcs, record_result.state, node_idx, value_term, incoming)
       base :: if is_obj(record_result.val) { record_result.val } else { {} }
       { val: hash_map.set(base, field, value_result.val), state: value_result.state }
     },
     "Tag": do {
       tag_name :: tget(term, "tag")
       value_term :: tget(term, "value")
-      value_result :: self(self, state, node_idx, value_term, incoming)
+      value_result :: funcs.eval_scheme_(funcs, state, node_idx, value_term, incoming)
       { val: make_type(tag_name, value_result.val), state: value_result.state }
     },
     _: defer_to_type_model(state, term, incoming)
   }
 
-  eval_scheme :: [state, node_idx, term, incoming] ~> eval_scheme_(eval_scheme_, state, node_idx, term, incoming)
-
-  apply_type_closure :: [type_val, arg_type, state] ~> do {
-    closure :: hash_map.get_or(type_val, "body_closure", {})
-    var_name :: hash_map.get_or(closure, "var_name", "x")
-    body_child_idx :: hash_map.get_or(closure, "body_child_idx", 0)
-    mark :: tc_mark(state)
-    extended :: tc_extend(state, var_name, arg_type)
-    body_result :: synth_node_(synth_node_, extended, body_child_idx)
-    restored :: tc_restore(body_result.state, mark)
-    { val: body_result.typ, state: restored }
-  }
-
-  eval_arg_type :: [self, state, node_idx, args, incoming] ~> do {
-    has_arg :: array.len(args) > 1
-    arg_result :: if has_arg { self(self, state, node_idx, array.at(args, 1), incoming) } else { null }
-    arg_val :: if has_arg { arg_result.val } else { incoming }
-    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
-  }
-
-  eval_first_arg :: [self, state, node_idx, args, incoming] ~> do {
-    has_arg :: !array.is_empty(args)
-    arg_result :: if has_arg { self(self, state, node_idx, array.first(args), incoming) } else { null }
-    arg_val :: if has_arg { arg_result.val } else { incoming }
-    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
-  }
-
-  eval_arg_at :: [self, state, node_idx, args, incoming, arg_idx] ~> do {
-    has_arg :: array.len(args) > arg_idx
-    arg_result :: if has_arg { self(self, state, node_idx, array.at(args, arg_idx), incoming) } else { null }
-    arg_val :: if has_arg { arg_result.val } else { incoming }
-    { val: arg_val, state: if has_arg { arg_result.state } else { state } }
-  }
-
-  merge_obj :: [obj, base] ~> while { result: base, remaining: hash_map.keys(obj) } {
-    [st] ~> if array.is_empty(st.remaining) {
-      { out: st.result }
-    } else {
-      do {
-        k :: array.first(st.remaining)
-        v :: hash_map.get_or(obj, k, null)
-        { state: { result: hash_map.set(st.result, k, v), remaining: array.drop(st.remaining, 1) } }
-      }
-    }
-  }
-
-  eval_judgment_ :: [self, state, node_idx, op_name, args, lit, incoming] ~> match op_name {
+  eval_judgment_ :: [funcs, state, node_idx, op_name, args, lit, incoming] ~> match op_name {
     "synth_child": do {
       idx :: lit
       child_idx :: child_ref(state.ast, node_idx, idx)
-      result :: synth_node_(synth_node_, state, child_idx)
+      result :: funcs.synth_node_(funcs, state, child_idx)
       { val: result.typ, state: result.state }
     },
     "synth_type_child": do {
       idx :: lit
       child_idx :: child_ref(state.ast, node_idx, idx)
-      result :: synth_node_(synth_node_, state, child_idx)
+      result :: funcs.synth_node_(funcs, state, child_idx)
       { val: result.typ, state: result.state }
     },
     "synth_child_or": do {
@@ -621,20 +629,20 @@ do {
         if array.is_empty(args) {
           { val: make_type("type.unknown", {}), state: state }
         } else {
-          self(self, state, node_idx, array.first(args), incoming)
+          funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
         }
       } else {
         do {
-          result :: synth_node_(synth_node_, state, maybe_child)
+          result :: funcs.synth_node_(funcs, state, maybe_child)
           { val: result.typ, state: result.state }
         }
       }
     },
     "check_child": do {
       idx :: lit
-      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       child_idx :: child_ref(state.ast, node_idx, idx)
-      result :: check_node_(check_node_, state, child_idx, expected)
+      result :: funcs.check_node_(funcs, state, child_idx, expected)
       { val: null, state: result.state }
     },
     "check_child_or": do {
@@ -644,8 +652,8 @@ do {
         { val: null, state: state }
       } else {
         do {
-          expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
-          result :: check_node_(check_node_, state, maybe_child, expected)
+          expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
+          result :: funcs.check_node_(funcs, state, maybe_child, expected)
           { val: null, state: result.state }
         }
       }
@@ -653,19 +661,19 @@ do {
     "eval_child": do {
       idx :: lit
       child_idx :: child_ref(state.ast, node_idx, idx)
-      result :: synth_node_(synth_node_, state, child_idx)
+      result :: funcs.synth_node_(funcs, state, child_idx)
       { val: result.typ, state: result.state }
     },
     "proj_child": do {
       idx :: lit
       child_idx :: child_ref(state.ast, node_idx, idx)
-      result :: synth_node_(synth_node_, state, child_idx)
+      result :: funcs.synth_node_(funcs, state, child_idx)
       { val: result.typ, state: result.state }
     },
     "unify": if array.len(args) >= 2 {
       do {
-        a_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-        b_result :: self(self, a_result.state, node_idx, array.at(args, 1), incoming)
+        a_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+        b_result :: funcs.eval_scheme_(funcs, a_result.state, node_idx, array.at(args, 1), incoming)
         unify_result :: unify(a_result.val, b_result.val, b_result.state.metas)
         if unify_result.ok {
           { val: null, state: hash_map.set(b_result.state, "metas", unify_result.metas) }
@@ -686,8 +694,8 @@ do {
       }
     },
     "subtype": do {
-      sub_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      sup_result :: self(self, sub_result.state, node_idx, array.at(args, 1), incoming)
+      sub_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      sup_result :: funcs.eval_scheme_(funcs, sub_result.state, node_idx, array.at(args, 1), incoming)
       unify_result :: unify(sub_result.val, sup_result.val, sup_result.state.metas)
       if unify_result.ok {
         { val: null, state: hash_map.set(sup_result.state, "metas", unify_result.metas) }
@@ -697,7 +705,7 @@ do {
     },
     "extend": do {
       name :: if lit != null { lit } else { incoming }
-      typ :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      typ :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       { val: incoming, state: tc_extend(state, name, typ) }
     },
     "lookup": do {
@@ -728,9 +736,9 @@ do {
       { val: meta_value(result.id), state: result.state }
     },
     "solve_meta": do {
-      id :: if array.is_empty(args) { lit } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      id :: if array.is_empty(args) { lit } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       val :: if array.len(args) >= 2 {
-        eval_arg_at(self, state, node_idx, args, incoming, 1).val
+        eval_arg_at(funcs, state, node_idx, args, incoming, 1).val
       } else {
         incoming
       }
@@ -739,12 +747,12 @@ do {
     "quote": if array.is_empty(args) {
       { val: incoming, state: state }
     } else {
-      self(self, state, node_idx, array.first(args), incoming)
+      funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
     },
     "normalize": if array.is_empty(args) {
       { val: incoming, state: state }
     } else {
-      self(self, state, node_idx, array.first(args), incoming)
+      funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
     },
     "construct": do {
       tag_name :: lit
@@ -754,7 +762,7 @@ do {
         } else {
           do {
             arg :: array.first(st.remaining)
-            val_result :: self(self, st.state, node_idx, arg, incoming)
+            val_result :: funcs.eval_scheme_(funcs, st.state, node_idx, arg, incoming)
             new_payload :: if is_obj(val_result.val) {
               merge_obj(val_result.val, st.result)
             } else {
@@ -771,8 +779,8 @@ do {
       { val: make_type(tag_name, payload_result.payload), state: payload_result.state }
     },
     "match_type": do {
-      value_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      cases_result :: self(self, value_result.state, node_idx, array.at(args, 1), incoming)
+      value_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      cases_result :: funcs.eval_scheme_(funcs, value_result.state, node_idx, array.at(args, 1), incoming)
       { val: cases_result.val, state: cases_result.state }
     },
     "bind": do {
@@ -810,7 +818,7 @@ do {
     },
     "field": do {
       field_name :: lit
-      val_result :: self(self, state, node_idx, array.first(args), incoming)
+      val_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       { val: hash_map.set({}, field_name, val_result.val), state: val_result.state }
     },
     "make_array": while { result: [], remaining: args, state: state } {
@@ -819,14 +827,14 @@ do {
       } else {
         do {
           arg :: array.first(st.remaining)
-          val_result :: self(self, st.state, node_idx, arg, incoming)
+          val_result :: funcs.eval_scheme_(funcs, st.state, node_idx, arg, incoming)
           { state: { result: [...st.result, val_result.val], remaining: array.drop(st.remaining, 1), state: val_result.state } }
         }
       }
     },
     "type_field": do {
       field_name :: lit
-      type_result :: self(self, state, node_idx, array.first(args), incoming)
+      type_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       { val: hash_map.get_or(type_result.val, field_name, null), state: type_result.state }
     },
     "synth_last_child": do {
@@ -837,7 +845,7 @@ do {
       } else {
         do {
           last_idx :: array.last(children)
-          result :: synth_node_(synth_node_, state, last_idx)
+          result :: funcs.synth_node_(funcs, state, last_idx)
           { val: result.typ, state: result.state }
         }
       }
@@ -856,12 +864,12 @@ do {
             } else {
               do {
                 child_idx :: array.first(st.remaining)
-                result :: synth_node_(synth_node_, st.state, child_idx)
+                result :: funcs.synth_node_(funcs, st.state, child_idx)
                 { state: { state: result.state, remaining: array.drop(st.remaining, 1) } }
               }
             }
           }
-          result :: synth_node_(synth_node_, block_result, last_idx)
+          result :: funcs.synth_node_(funcs, block_result, last_idx)
           { val: result.typ, state: result.state }
         }
       }
@@ -873,7 +881,7 @@ do {
         { val: null, state: state }
       } else {
         do {
-          expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+          expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
           last_idx :: array.last(children)
           block_state :: while { state: state, remaining: array.drop(children, 1) } {
             [st] ~> if array.is_empty(st.remaining) {
@@ -881,18 +889,18 @@ do {
             } else {
               do {
                 child_idx :: array.first(st.remaining)
-                result :: synth_node_(synth_node_, st.state, child_idx)
+                result :: funcs.synth_node_(funcs, st.state, child_idx)
                 { state: { state: result.state, remaining: array.drop(st.remaining, 1) } }
               }
             }
           }
-          check_result :: check_node_(check_node_, block_state, last_idx, expected)
+          check_result :: funcs.check_node_(funcs, block_state, last_idx, expected)
           { val: null, state: check_result.state }
         }
       }
     },
     "check_all_children": do {
-      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       node :: ast_node(state.ast, node_idx)
       children :: node_children(node)
       check_result :: while { state: state, remaining: children } {
@@ -901,7 +909,7 @@ do {
         } else {
           do {
             child_idx :: array.first(st.remaining)
-            result :: check_node_(check_node_, st.state, child_idx, expected)
+            result :: funcs.check_node_(funcs, st.state, child_idx, expected)
             { state: { state: result.state, remaining: array.drop(st.remaining, 1) } }
           }
         }
@@ -916,7 +924,7 @@ do {
       } else {
         do {
           last_idx :: array.last(children)
-          result :: synth_node_(synth_node_, state, last_idx)
+          result :: funcs.synth_node_(funcs, state, last_idx)
           { val: result.typ, state: result.state }
         }
       }
@@ -929,7 +937,7 @@ do {
       } else {
         do {
           last_idx :: array.last(children)
-          result :: synth_node_(synth_node_, state, last_idx)
+          result :: funcs.synth_node_(funcs, state, last_idx)
           { val: result.typ, state: result.state }
         }
       }
@@ -945,7 +953,7 @@ do {
           body_idx :: array.at(children, 1)
           param_meta :: tc_fresh_meta(state)
           extended :: tc_extend(param_meta.state, "x", meta_value(param_meta.id))
-          body_result :: synth_node_(synth_node_, extended, body_idx)
+          body_result :: funcs.synth_node_(funcs, extended, body_idx)
           zonked_param :: zonk(meta_value(param_meta.id), body_result.state.metas)
           zonked_body :: zonk(body_result.typ, body_result.state.metas)
           fn_type :: make_type("type.function", hash_map.set(hash_map.set({}, "param", zonked_param), "body", zonked_body))
@@ -961,7 +969,7 @@ do {
       } else {
         do {
           expr_idx :: array.first(children)
-          expr_result :: synth_node_(synth_node_, state, expr_idx)
+          expr_result :: funcs.synth_node_(funcs, state, expr_idx)
           { val: expr_result.typ, state: expr_result.state }
         }
       }
@@ -974,14 +982,14 @@ do {
       } else {
         do {
           first_idx :: array.first(children)
-          result :: synth_node_(synth_node_, state, first_idx)
+          result :: funcs.synth_node_(funcs, state, first_idx)
           { val: result.typ, state: result.state }
         }
       }
     },
     "record_field_type": do {
       field_value :: if lit != null { lit } else { incoming }
-      container_result :: self(self, state, node_idx, array.first(args), incoming)
+      container_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       container :: container_result.val
       if type_tag(container) == "type.array" {
         { val: hash_map.get_or(container, "element", null), state: container_result.state }
@@ -994,7 +1002,7 @@ do {
       }
     },
     "array_element_type": do {
-      array_type :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      array_type :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       { val: hash_map.get_or(array_type, "element", null), state: state }
     },
     "synth_object_record": do {
@@ -1026,27 +1034,27 @@ do {
       { val: make_type("type.record", hash_map.set({}, "fields", fields)), state: state }
     },
     "check_object_record": do {
-      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       { val: null, state: state }
     },
     "construct_pi": do {
       var_name :: if lit != null { lit } else { "x" }
-      param :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      param :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       body_child_idx :: child_ref(state.ast, node_idx, 1)
       closure :: hash_map.set(hash_map.set({}, "var_name", var_name), "body_child_idx", body_child_idx)
       payload :: hash_map.set(hash_map.set({}, "param", param), "body_closure", closure)
       { val: make_type("type.pi", payload), state: state }
     },
     "pi_apply": do {
-      pi_result :: self(self, state, node_idx, array.first(args), incoming)
+      pi_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       pi_val :: pi_result.val
-      arg_type_result :: eval_arg_type(self, pi_result.state, node_idx, args, incoming)
-      body_result :: apply_type_closure(pi_val, arg_type_result.val, arg_type_result.state)
+      arg_type_result :: eval_arg_type(funcs, pi_result.state, node_idx, args, incoming)
+      body_result :: apply_type_closure(funcs, pi_val, arg_type_result.val, arg_type_result.state)
       { val: body_result.val, state: body_result.state }
     },
     "unify_pi": do {
-      pi_a_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      pi_b_result :: self(self, pi_a_result.state, node_idx, array.at(args, 1), incoming)
+      pi_a_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      pi_b_result :: funcs.eval_scheme_(funcs, pi_a_result.state, node_idx, array.at(args, 1), incoming)
       param_a :: hash_map.get_or(pi_a_result.val, "param", null)
       param_b :: hash_map.get_or(pi_b_result.val, "param", null)
       unify_param :: unify(param_a, param_b, pi_b_result.state.metas)
@@ -1054,8 +1062,8 @@ do {
         do {
           fresh_state :: hash_map.set(pi_b_result.state, "metas", unify_param.metas)
           fresh :: tc_fresh_meta(fresh_state)
-          body_a :: apply_type_closure(pi_a_result.val, meta_value(fresh.id), fresh.state)
-          body_b :: apply_type_closure(pi_b_result.val, meta_value(fresh.id), body_a.state)
+          body_a :: apply_type_closure(funcs, pi_a_result.val, meta_value(fresh.id), fresh.state)
+          body_b :: apply_type_closure(funcs, pi_b_result.val, meta_value(fresh.id), body_a.state)
           unify_body :: unify(body_a.val, body_b.val, body_b.state.metas)
           if unify_body.ok {
             { val: null, state: hash_map.set(body_b.state, "metas", unify_body.metas) }
@@ -1068,22 +1076,22 @@ do {
       }
     },
     "check_pi_body": do {
-      pi_result :: self(self, state, node_idx, array.first(args), incoming)
+      pi_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       pi_val :: pi_result.val
       param_type :: hash_map.get_or(pi_val, "param", null)
       closure :: hash_map.get_or(pi_val, "body_closure", {})
       var_name :: hash_map.get_or(closure, "var_name", "x")
       mark :: tc_mark(pi_result.state)
       extended :: tc_extend(pi_result.state, var_name, param_type)
-      expected_body :: apply_type_closure(pi_val, param_type, extended)
+      expected_body :: apply_type_closure(funcs, pi_val, param_type, extended)
       body_child_idx :: child_ref(state.ast, node_idx, 1)
-      check_result :: check_node_(check_node_, expected_body.state, body_child_idx, expected_body.val)
+      check_result :: funcs.check_node_(funcs, expected_body.state, body_child_idx, expected_body.val)
       restored :: tc_restore(check_result.state, mark)
       { val: null, state: restored }
     },
     "construct_sigma": do {
       var_name :: if lit != null { lit } else { "x" }
-      param :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      param :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       body_child_idx :: child_ref(state.ast, node_idx, 1)
       closure :: hash_map.set(hash_map.set({}, "var_name", var_name), "body_child_idx", body_child_idx)
       payload :: hash_map.set(hash_map.set({}, "param", param), "body_closure", closure)
@@ -1091,22 +1099,22 @@ do {
     },
     "construct_forall": do {
       var_name :: if lit != null { lit } else { "x" }
-      kind :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      kind :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       body_child_idx :: child_ref(state.ast, node_idx, 1)
       closure :: hash_map.set(hash_map.set({}, "var_name", var_name), "body_child_idx", body_child_idx)
       payload :: hash_map.set(hash_map.set({}, "kind", kind), "body_closure", closure)
       { val: make_type("type.forall", payload), state: state }
     },
     "forall_apply": do {
-      forall_result :: self(self, state, node_idx, array.first(args), incoming)
+      forall_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       forall_val :: forall_result.val
-      arg_type_result :: eval_arg_type(self, forall_result.state, node_idx, args, incoming)
-      body_result :: apply_type_closure(forall_val, arg_type_result.val, arg_type_result.state)
+      arg_type_result :: eval_arg_type(funcs, forall_result.state, node_idx, args, incoming)
+      body_result :: apply_type_closure(funcs, forall_val, arg_type_result.val, arg_type_result.state)
       { val: body_result.val, state: body_result.state }
     },
     "unify_forall": do {
-      fa_a_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      fa_b_result :: self(self, fa_a_result.state, node_idx, array.at(args, 1), incoming)
+      fa_a_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      fa_b_result :: funcs.eval_scheme_(funcs, fa_a_result.state, node_idx, array.at(args, 1), incoming)
       kind_a :: hash_map.get_or(fa_a_result.val, "kind", null)
       kind_b :: hash_map.get_or(fa_b_result.val, "kind", null)
       unify_kind :: unify(kind_a, kind_b, fa_b_result.state.metas)
@@ -1114,8 +1122,8 @@ do {
         do {
           fresh_state :: hash_map.set(fa_b_result.state, "metas", unify_kind.metas)
           fresh :: tc_fresh_meta(fresh_state)
-          body_a :: apply_type_closure(fa_a_result.val, meta_value(fresh.id), fresh.state)
-          body_b :: apply_type_closure(fa_b_result.val, meta_value(fresh.id), body_a.state)
+          body_a :: apply_type_closure(funcs, fa_a_result.val, meta_value(fresh.id), fresh.state)
+          body_b :: apply_type_closure(funcs, fa_b_result.val, meta_value(fresh.id), body_a.state)
           unify_body :: unify(body_a.val, body_b.val, body_b.state.metas)
           if unify_body.ok {
             { val: null, state: hash_map.set(body_b.state, "metas", unify_body.metas) }
@@ -1129,12 +1137,12 @@ do {
     },
     "construct_vau": { val: make_type("type.vau", {}), state: state },
     "vau_apply": do {
-      vau_result :: self(self, state, node_idx, array.first(args), incoming)
+      vau_result :: funcs.eval_scheme_(funcs, state, node_idx, array.first(args), incoming)
       { val: vau_result.val, state: vau_result.state }
     },
     "unify_vau": do {
-      vau_a_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      vau_b_result :: self(self, vau_a_result.state, node_idx, array.at(args, 1), incoming)
+      vau_a_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      vau_b_result :: funcs.eval_scheme_(funcs, vau_a_result.state, node_idx, array.at(args, 1), incoming)
       param_a :: hash_map.get_or(vau_a_result.val, "param", null)
       param_b :: hash_map.get_or(vau_b_result.val, "param", null)
       unify_param :: unify(param_a, param_b, vau_b_result.state.metas)
@@ -1142,8 +1150,8 @@ do {
         do {
           fresh_state :: hash_map.set(vau_b_result.state, "metas", unify_param.metas)
           fresh :: tc_fresh_meta(fresh_state)
-          body_a :: apply_type_closure(vau_a_result.val, meta_value(fresh.id), fresh.state)
-          body_b :: apply_type_closure(vau_b_result.val, meta_value(fresh.id), body_a.state)
+          body_a :: apply_type_closure(funcs, vau_a_result.val, meta_value(fresh.id), fresh.state)
+          body_b :: apply_type_closure(funcs, vau_b_result.val, meta_value(fresh.id), body_a.state)
           unify_body :: unify(body_a.val, body_b.val, body_b.state.metas)
           if unify_body.ok {
             { val: null, state: hash_map.set(body_b.state, "metas", unify_body.metas) }
@@ -1156,14 +1164,14 @@ do {
       }
     },
     "construct_eq": do {
-      left_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      right_result :: self(self, left_result.state, node_idx, array.at(args, 1), incoming)
+      left_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      right_result :: funcs.eval_scheme_(funcs, left_result.state, node_idx, array.at(args, 1), incoming)
       payload :: hash_map.set(hash_map.set({}, "left", left_result.val), "right", right_result.val)
       { val: make_type("type.eq", payload), state: right_result.state }
     },
     "construct_empty": { val: make_type("type.empty", {}), state: state },
     "check_refl": do {
-      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      expected :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       lhs :: hash_map.get_or(expected, "left", null)
       rhs :: hash_map.get_or(expected, "right", null)
       if lhs == rhs {
@@ -1173,7 +1181,7 @@ do {
       }
     },
     "eq_reduce": do {
-      eq_val :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      eq_val :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       lhs :: hash_map.get_or(eq_val, "left", null)
       rhs :: hash_map.get_or(eq_val, "right", null)
       if lhs == rhs {
@@ -1183,11 +1191,11 @@ do {
       }
     },
     "construct_universe": do {
-      level :: if lit != null { lit } else { if array.is_empty(args) { 0 } else { eval_first_arg(self, state, node_idx, args, incoming).val } }
+      level :: if lit != null { lit } else { if array.is_empty(args) { 0 } else { eval_first_arg(funcs, state, node_idx, args, incoming).val } }
       { val: make_type("type.universe", hash_map.set({}, "level", level)), state: state }
     },
     "universe_level": do {
-      type_val :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      type_val :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       if type_tag(type_val) == "type.universe" {
         { val: hash_map.get_or(type_val, "level", 0), state: state }
       } else {
@@ -1195,21 +1203,21 @@ do {
       }
     },
     "universe_max": do {
-      level_a_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      level_b_result :: self(self, level_a_result.state, node_idx, array.at(args, 1), incoming)
+      level_a_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      level_b_result :: funcs.eval_scheme_(funcs, level_a_result.state, node_idx, array.at(args, 1), incoming)
       max_level :: if level_a_result.val > level_b_result.val { level_a_result.val } else { level_b_result.val }
       { val: max_level, state: level_b_result.state }
     },
     "construct_membership": do {
-      value_result :: self(self, state, node_idx, array.at(args, 0), incoming)
-      collection_result :: self(self, value_result.state, node_idx, array.at(args, 1), incoming)
+      value_result :: funcs.eval_scheme_(funcs, state, node_idx, array.at(args, 0), incoming)
+      collection_result :: funcs.eval_scheme_(funcs, value_result.state, node_idx, array.at(args, 1), incoming)
       payload :: hash_map.set(hash_map.set({}, "value", value_result.val), "collection", collection_result.val)
       { val: make_type("type.membership", payload), state: collection_result.state }
     },
     "check_membership": do {
-      value :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      value :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       collection :: if array.len(args) > 1 {
-        eval_arg_at(self, state, node_idx, args, incoming, 1).val
+        eval_arg_at(funcs, state, node_idx, args, incoming, 1).val
       } else {
         if lit != null { make_type(lit, {}) } else { null }
       }
@@ -1230,7 +1238,7 @@ do {
       }
     },
     "eval_membership": do {
-      membership_val :: if array.is_empty(args) { incoming } else { eval_first_arg(self, state, node_idx, args, incoming).val }
+      membership_val :: if array.is_empty(args) { incoming } else { eval_first_arg(funcs, state, node_idx, args, incoming).val }
       value :: hash_map.get_or(membership_val, "value", null)
       collection :: hash_map.get_or(membership_val, "collection", null)
       col_tag :: type_tag(collection)
@@ -1280,13 +1288,31 @@ do {
     _: { val: make_type("TypeError", hash_map.set({}, "message", "unknown judgment op: " + op_name)), state: state }
   }
 
+  --- funcs record: resolves the mutual recursion cycle ---
+  --- Created after all four functions are defined so each can look ---
+  --- up its siblings via funcs.fn_name(funcs, ...) at call time. ---
+  funcs :: ({
+    synth_node_: synth_node_,
+    check_node_: check_node_,
+    eval_scheme_: eval_scheme_,
+    eval_judgment_: eval_judgment_
+  })
+
+  --- Wrapper functions (public API) ---
+
+  synth_node :: [state, node_idx] ~> funcs.synth_node_(funcs, state, node_idx)
+
+  check_node :: [state, node_idx, expected] ~> funcs.check_node_(funcs, state, node_idx, expected)
+
+  eval_scheme :: [state, node_idx, term, incoming] ~> funcs.eval_scheme_(funcs, state, node_idx, term, incoming)
+
   typecheck_ :: [self, lang, ast] ~> if array.is_empty(ast) {
     { typ: null, diagnostics: [], node_types: [] }
   } else {
     do {
       root_idx :: array.len(ast) - 1
       state :: tc_new(lang, ast)
-      result :: synth_node_(synth_node_, state, root_idx)
+      result :: funcs.synth_node_(funcs, state, root_idx)
       zonked :: zonk(result.typ, result.state.metas)
       { typ: zonked, diagnostics: result.state.diagnostics, node_types: result.state.node_types }
     }
@@ -1294,12 +1320,12 @@ do {
 
   typecheck :: [lang, ast] ~> typecheck_(typecheck_, lang, ast)
 
-  {
+  ({
     typecheck: typecheck,
-    synth: [state, node_idx] ~> synth_node_(synth_node_, state, node_idx),
-    check: [state, node_idx, expected] ~> check_node_(check_node_, state, node_idx, expected),
+    synth: [state, node_idx] ~> funcs.synth_node_(funcs, state, node_idx),
+    check: [state, node_idx, expected] ~> funcs.check_node_(funcs, state, node_idx, expected),
     unify: [a, b, metas] ~> unify_(unify_, a, b, metas),
     extend: [state, name, typ] ~> tc_extend(state, name, typ),
     lookup: [state, name] ~> tc_lookup(state, name)
-  }
+  })
 }
