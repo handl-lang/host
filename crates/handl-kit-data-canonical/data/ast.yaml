@@ -708,9 +708,13 @@
     required:
       - children
     type: object
-# `for` — iteration (3 children: iterator + collection + body).
+# `for` — iteration (3 children: pattern + collection + body).
 - id: ast.for
   node_kind: for
+  children:
+    - role: pattern
+    - role: collection
+    - role: body
   payload_schema:
     properties:
       children:

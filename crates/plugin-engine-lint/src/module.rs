@@ -250,6 +250,32 @@ fn walk_vars(lang: &Language, ast: &Ast, node_ref: AstRef, occs: &mut Vec<VarOcc
         return;
     }
 
+    // Pattern-binder form (`pattern` + `body` roles): the `pattern` child
+    // introduces a local name for the `body`, while any other children (e.g.
+    // the `collection` of a `for` loop) are still checked in the outer scope.
+    // Identified data-drivenly — covers `for` loops and `match` arms.
+    let pattern_idx = lang.child_role_index(&node.kind, "pattern").ok().flatten();
+    let body_idx = lang.child_role_index(&node.kind, "body").ok().flatten();
+    if let (Some(pi), Some(_bi)) = (pattern_idx, body_idx) {
+        let children = child_indices(node);
+        if let Some(&pref) = children.get(pi)
+            && let Some((name, span)) = name_at(lang, ast, AstRef::new(pref))
+        {
+            occs.push(VarOcc {
+                name,
+                role: VarRole::Param,
+                span,
+            });
+        }
+        for (pos, &c) in children.iter().enumerate() {
+            if pos == pi {
+                continue;
+            }
+            walk_vars(lang, ast, AstRef::new(c), occs);
+        }
+        return;
+    }
+
     // Name leaf: a reference.
     if let Some((name, span)) = name_at(lang, ast, node_ref) {
         occs.push(VarOcc {

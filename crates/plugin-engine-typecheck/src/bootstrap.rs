@@ -570,24 +570,31 @@ fn check_expr(
         return;
     }
 
-    // Pattern arm (`pattern: body`): bind the pattern names, then check
-    // the body. Identified data-drivenly by the `pattern` + `body` child
-    // roles (ADR-0081) — covers `match` arms and any other arm-like form.
+    // Pattern binder (`pattern` role) scoped over a `body` role: bind the
+    // pattern names, then check the body in the extended scope. All other
+    // children (e.g. the `collection` of a `for` loop) are checked in the
+    // outer scope. Identified data-drivenly by the `pattern` + `body` child
+    // roles (ADR-0081) — covers `match` arms, `for` loops, and any other
+    // similar form.
     let pattern_idx = lang.child_role_index(&node.kind, "pattern").ok().flatten();
     let body_idx = lang.child_role_index(&node.kind, "body").ok().flatten();
     if let (Some(pi), Some(bi)) = (pattern_idx, body_idx) {
         let children = children_of(node);
-        let mut arm_scope = scope.clone();
+        let mut body_scope = scope.clone();
         if let Some(&pattern_raw) = children.get(pi) {
-            pattern_bound_names(lang, ast, AstRef::new(pattern_raw), &mut arm_scope);
+            pattern_bound_names(lang, ast, AstRef::new(pattern_raw), &mut body_scope);
         }
-        if let Some(&body_raw) = children.get(bi) {
+        for (pos, &child_raw) in children.iter().enumerate() {
+            if pos == pi {
+                continue;
+            }
+            let child_scope = if pos == bi { &body_scope } else { scope };
             check_expr(
                 lang,
                 src,
                 ast,
-                AstRef::new(body_raw),
-                &arm_scope,
+                AstRef::new(child_raw),
+                child_scope,
                 stmt,
                 diags,
                 references,
