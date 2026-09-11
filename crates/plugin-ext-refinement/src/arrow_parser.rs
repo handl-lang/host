@@ -43,7 +43,7 @@ use std::collections::{HashMap, HashSet};
 use handl_language::{Ast, AstNode, Language, Term, Value};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use plugin_engine::{ArrSource, TermData};
+use plugin_engine::{ArrSource, RewriteWitness, TermData};
 
 use crate::arrow_lang::arrow_language;
 
@@ -655,20 +655,38 @@ fn rewrite_scheme_td(
         "Rewrite" => {
             let source = td.get_term("source").expect("Rewrite: missing source");
             let target = td.get_term("target").expect("Rewrite: missing target");
-            // Reconstruct via to_term to preserve the witness field exactly.
-            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
-            if let Term::Rewrite { witness, .. } = witness_term {
-                TermData::rewrite(
-                    rewrite_scheme_td(&source, import_map, local_names),
-                    rewrite_scheme_td(&target, import_map, local_names),
-                    &witness,
-                )
-            } else {
-                unreachable!()
-            }
+            let witness = parse_rewrite_witness(td);
+            TermData::rewrite(
+                rewrite_scheme_td(&source, import_map, local_names),
+                rewrite_scheme_td(&target, import_map, local_names),
+                &witness,
+            )
         }
         // Unknown/unsupported tags: preserve as-is.
         _ => td.clone(),
+    }
+}
+
+/// Parse the `witness` field of a `Rewrite` [`TermData`] into a
+/// [`RewriteWitness`]. Falls back to `Compute` for missing or unrecognised
+/// witnesses so that data-driven reconstruction never panics.
+fn parse_rewrite_witness(td: &TermData) -> RewriteWitness {
+    match td.get("witness") {
+        Some(w) => {
+            let tag = w.get("__tag__").and_then(|v| v.as_str()).unwrap_or("");
+            match tag {
+                "Named" => w
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .map(|s| RewriteWitness::Named(s.to_string()))
+                    .unwrap_or(RewriteWitness::Compute),
+                "Compute" => RewriteWitness::Compute,
+                "HandlerHint" => RewriteWitness::HandlerHint,
+                "Cast" => RewriteWitness::Cast,
+                _ => RewriteWitness::Compute,
+            }
+        }
+        None => RewriteWitness::Compute,
     }
 }
 
