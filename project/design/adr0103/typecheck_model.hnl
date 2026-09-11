@@ -495,37 +495,38 @@ do {
     field_role :: child_role_index(state, kind, "field")
     callee_role :: child_role_index(state, kind, "callee")
     args_role :: child_role_index(state, kind, "args")
-    is_field_access :: kind == "field-access" || (target_role != null && field_role != null)
-    is_call :: kind == "call" || (callee_role != null && args_role != null)
-    if is_field_access {
+    statements_role :: child_role_index(state, kind, "statements")
+    condition_role :: child_role_index(state, kind, "condition")
+    then_role :: child_role_index(state, kind, "then")
+    value_role :: child_role_index(state, kind, "value")
+    is_field_access :: target_role != null && field_role != null
+    is_call :: callee_role != null && args_role != null
+    is_block :: statements_role != null
+    is_assign :: target_role != null && value_role != null
+    is_if :: condition_role != null && then_role != null
+    is_return :: value_role != null && target_role == null
+    is_canonical :: is_field_access || is_call || is_block || is_assign || is_if || is_return
+    if is_canonical {
       do {
-        result :: funcs.eval_judgment_(funcs, state, node_idx, "field_access", [], null, null)
+        result :: funcs.eval_judgment_(funcs, state, node_idx, kind, [], null, null)
         new_state :: tc_record_node_type(result.state, node_idx, result.val)
         { typ: result.val, state: new_state }
       }
     } else {
-      if is_call {
-        do {
-          result :: funcs.eval_judgment_(funcs, state, node_idx, "call", [], null, null)
-          new_state :: tc_record_node_type(result.state, node_idx, result.val)
-          { typ: result.val, state: new_state }
-        }
-      } else {
-        do {
-          rule :: lang_type_rule(state, kind)
-          if rule == null {
-            { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
-          } else {
-            do {
-              synth_scheme :: hash_map.get_or(rule, "synth", null)
-              if synth_scheme == null {
-                { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no synth scheme for kind: " + kind) }
-              } else {
-                do {
-                  result :: funcs.eval_scheme_(funcs, state, node_idx, synth_scheme, null)
-                  new_state :: tc_record_node_type(result.state, node_idx, result.val)
-                  { typ: result.val, state: new_state }
-                }
+      do {
+        rule :: lang_type_rule(state, kind)
+        if rule == null {
+          { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
+        } else {
+          do {
+            synth_scheme :: hash_map.get_or(rule, "synth", null)
+            if synth_scheme == null {
+              { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no synth scheme for kind: " + kind) }
+            } else {
+              do {
+                result :: funcs.eval_scheme_(funcs, state, node_idx, synth_scheme, null)
+                new_state :: tc_record_node_type(result.state, node_idx, result.val)
+                { typ: result.val, state: new_state }
               }
             }
           }
@@ -1342,13 +1343,181 @@ do {
         { val: false, state: tc_add_diagnostic(state, "error", "type is not FFI-marshalable: " + tag) }
       }
     },
-    "field_access": {
-      val: make_type("type.unknown", {}),
-      state: tc_add_diagnostic(state, "warning", "field_access: data-driven stub")
+    "block": do {
+      node :: ast_node(state.ast, node_idx)
+      children :: node_children(node)
+      if array.is_empty(children) {
+        { val: make_type("type.unit", {}), state: state }
+      } else {
+        do {
+          last_idx :: array.last(children)
+          prefix_len :: array.len(children) - 1
+          prefix :: array.take(children, prefix_len)
+          prefix_state :: while { state: state, remaining: prefix } {
+            [st] ~> if array.is_empty(st.remaining) {
+              { out: st.state }
+            } else {
+              do {
+                child_idx :: array.first(st.remaining)
+                step :: funcs.synth_node_(funcs, st.state, child_idx)
+                { state: { state: step.state, remaining: array.drop(st.remaining, 1) } }
+              }
+            }
+          }
+          result :: funcs.synth_node_(funcs, prefix_state, last_idx)
+          { val: result.typ, state: result.state }
+        }
+      }
     },
-    "call": {
-      val: make_type("type.unknown", {}),
-      state: tc_add_diagnostic(state, "warning", "call: data-driven stub")
+    "assign": do {
+      target_idx :: child_role_index(state, kind, "target")
+      value_idx :: child_role_index(state, kind, "value")
+      if target_idx == null || value_idx == null {
+        { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "assign: missing target or value role") }
+      } else {
+        do {
+          target_node :: ast_node(state.ast, child_ref(state.ast, node_idx, target_idx))
+          target_kind :: node_kind(target_node)
+          target_name :: if target_kind == "var" {
+            hash_map.get_or(node_payload(target_node), "name", "")
+          } else {
+            if target_kind == "type-annot" {
+              do {
+                subject_role :: child_role_index(state, target_kind, "subject")
+                if subject_role == null {
+                  ""
+                } else {
+                  do {
+                    subject_node :: ast_node(state.ast, child_ref(state.ast, child_ref(state.ast, node_idx, target_idx), subject_role))
+                    hash_map.get_or(node_payload(subject_node), "name", "")
+                  }
+                }
+              }
+            } else {
+              ""
+            }
+          }
+          value_result :: funcs.synth_node_(funcs, state, child_ref(state.ast, node_idx, value_idx))
+          if target_name == "" {
+            { val: make_type("type.unit", {}), state: tc_add_diagnostic(value_result.state, "warning", "assign: could not determine target name") }
+          } else {
+            { val: make_type("type.unit", {}), state: tc_extend(value_result.state, target_name, value_result.typ) }
+          }
+        }
+      }
+    },
+    "if": do {
+      cond_idx :: child_role_index(state, kind, "condition")
+      then_idx :: child_role_index(state, kind, "then")
+      else_idx :: child_role_index(state, kind, "else")
+      if cond_idx == null || then_idx == null {
+        { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "if: missing condition or then role") }
+      } else {
+        do {
+          cond_result :: funcs.synth_node_(funcs, state, child_ref(state.ast, node_idx, cond_idx))
+          cond_unify :: unify(cond_result.typ, make_type("type.bool", {}), cond_result.state.metas)
+          cond_state :: if cond_unify.ok {
+            hash_map.set(cond_result.state, "metas", cond_unify.metas)
+          } else {
+            tc_add_diagnostic(cond_result.state, "error", "if: condition is not boolean")
+          }
+          then_result :: funcs.synth_node_(funcs, cond_state, child_ref(state.ast, node_idx, then_idx))
+          else_result :: if else_idx == null {
+            { typ: then_result.typ, state: then_result.state }
+          } else {
+            do {
+              r :: funcs.synth_node_(funcs, then_result.state, child_ref(state.ast, node_idx, else_idx))
+              { typ: r.typ, state: r.state }
+            }
+          }
+          unified :: unify(then_result.typ, else_result.typ, else_result.state.metas)
+          if unified.ok {
+            { val: then_result.typ, state: hash_map.set(else_result.state, "metas", unified.metas) }
+          } else {
+            { val: make_type("type.unknown", {}), state: tc_add_diagnostic(else_result.state, "error", "if: then and else branches do not unify") }
+          }
+        }
+      }
+    },
+    "return": do {
+      value_idx :: child_role_index(state, kind, "value")
+      if value_idx == null {
+        { val: make_type("type.unit", {}), state: tc_add_diagnostic(state, "error", "return: missing value role") }
+      } else {
+        do {
+          result :: funcs.synth_node_(funcs, state, child_ref(state.ast, node_idx, value_idx))
+          { val: result.typ, state: result.state }
+        }
+      }
+    },
+    "call": do {
+      callee_idx :: child_role_index(state, kind, "callee")
+      args_idx :: child_role_index(state, kind, "args")
+      if callee_idx == null || args_idx == null {
+        { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "call: missing callee or args role") }
+      } else {
+        do {
+          node :: ast_node(state.ast, node_idx)
+          children :: node_children(node)
+          callee_result :: funcs.synth_node_(funcs, state, child_ref(state.ast, node_idx, callee_idx))
+          call_state :: while { current: callee_result.typ, state: callee_result.state, idx: args_idx } {
+            [st] ~> if st.idx >= array.len(children) {
+              { out: { current: st.current, state: st.state } }
+            } else {
+              do {
+                param :: hash_map.get_or(st.current, "param", null)
+                body :: hash_map.get_or(st.current, "body", null)
+                if param == null || body == null {
+                  { out: { current: make_type("type.unknown", {}), state: tc_add_diagnostic(st.state, "error", "call: callee is not a function") } }
+                } else {
+                  do {
+                    arg_idx :: array.at(children, st.idx)
+                    arg_check :: funcs.check_node_(funcs, st.state, arg_idx, param)
+                    { state: { current: body, state: arg_check.state, idx: st.idx + 1 } }
+                  }
+                }
+              }
+            }
+          }
+          { val: call_state.current, state: call_state.state }
+        }
+      }
+    },
+    "field_access": do {
+      target_idx :: child_role_index(state, kind, "target")
+      field_idx :: child_role_index(state, kind, "field")
+      if target_idx == null || field_idx == null {
+        { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "field_access: missing target or field role") }
+      } else {
+        do {
+          target_result :: funcs.synth_node_(funcs, state, child_ref(state.ast, node_idx, target_idx))
+          field_node :: ast_node(state.ast, child_ref(state.ast, node_idx, field_idx))
+          field_name :: hash_map.get_or(node_payload(field_node), "name", "")
+          if field_name == "" {
+            { val: make_type("type.unknown", {}), state: tc_add_diagnostic(target_result.state, "warning", "field_access: could not determine field name") }
+          } else {
+            do {
+              target_tag :: type_tag(target_result.typ)
+              if target_tag == "type.record" {
+                do {
+                  fields :: hash_map.get_or(target_result.typ, "fields", {})
+                  field_type :: hash_map.get_or(fields, field_name, null)
+                  if field_type == null {
+                    { val: make_type("type.unknown", {}), state: tc_add_diagnostic(target_result.state, "warning", "field_access: record has no field " + field_name) }
+                  } else {
+                    { val: field_type, state: target_result.state }
+                  }
+                }
+              } else {
+                do {
+                  fresh :: tc_fresh_meta(target_result.state)
+                  { val: meta_value(fresh.id), state: fresh.state }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "foreign_type": do {
       op_name :: lit
@@ -1441,4 +1610,5 @@ do {
     extend: [state, name, typ] ~> tc_extend(state, name, typ),
     lookup: [state, name] ~> tc_lookup(state, name)
   })
+}
 }

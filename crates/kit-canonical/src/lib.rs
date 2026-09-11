@@ -1737,9 +1737,7 @@ impl Kit {
     /// [`LangError::NotImplemented`] if the `"handl"` engine is not
     /// registered or the model failed to load.
     pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
-        eprintln!("[DBG typecheck_handl] parsing...");
         let ast = self.parse(input)?;
-        eprintln!("[DBG typecheck_handl] parsed, ast len={}", ast.len());
         // Lazily initialize and reuse a single HandlTypecheckEngine so the
         // model is loaded once per Kit and the canonical Language is
         // marshaled at most once per engine (ADR-0105).
@@ -1754,7 +1752,6 @@ impl Kit {
         let engine = self.handl_typecheck_engine.borrow();
         let engine = engine.as_ref().ok_or_else(|| LangError::engine("handl engine missing"))?;
         let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
-        eprintln!("[DBG typecheck_handl] calling engine.typecheck...");
         let result = engine.typecheck(self.runtime.lang(), &req)?;
         if result.diagnostics.iter().any(|d| d.severity == "error") {
             let messages = result
@@ -1765,7 +1762,6 @@ impl Kit {
                 .join("; ");
             return Err(LangError::engine(format!("typecheck errors: {messages}")));
         }
-        eprintln!("[DBG typecheck_handl] done, typ={}", result.typ);
         Ok(result.typ)
     }
 

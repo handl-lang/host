@@ -169,9 +169,11 @@ fn typecheck_simple_assign_via_adapter() {
     match engine.typecheck(&lang, &req) {
         Ok(result) => {
             // The adapter plumbing works.  The type may be imperfect
-            // (skeleton model); we only assert non-panic.
-            let _ = result.typ;
-            let _ = result.diagnostics;
+            // (skeleton model); we only assert non-panic and useful output.
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for x = 42"
+            );
             let _ = result.node_types;
         }
         Err(handl_language::LangError::NotImplemented) => {
@@ -184,7 +186,8 @@ fn typecheck_simple_assign_via_adapter() {
     }
 }
 
-/// A `do { x = 1; x }` block should also typecheck without panicking.
+/// A `do { x = 1; x }` block should typecheck without panicking and
+/// produce a non-null type or a diagnostic (no hang).
 #[test]
 fn typecheck_do_block_via_adapter() {
     let lang = canonical_lang();
@@ -193,7 +196,64 @@ fn typecheck_do_block_via_adapter() {
     let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
     let req = TypecheckRequest::new(ast);
 
-    let _ = engine.typecheck(&lang, &req);
+    match engine.typecheck(&lang, &req) {
+        Ok(result) => {
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for a do block"
+            );
+        }
+        Err(handl_language::LangError::NotImplemented) => {}
+        Err(e) => {
+            eprintln!("typecheck returned error for do block (ok): {e}");
+        }
+    }
+}
+
+/// A simple `if` should typecheck without hanging and produce useful output.
+#[test]
+fn typecheck_if_via_adapter() {
+    let lang = canonical_lang();
+    let ast = parse("if true { 1 } else { 2 }", &lang);
+
+    let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
+    let req = TypecheckRequest::new(ast);
+
+    match engine.typecheck(&lang, &req) {
+        Ok(result) => {
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for if"
+            );
+        }
+        Err(handl_language::LangError::NotImplemented) => {}
+        Err(e) => {
+            eprintln!("typecheck returned error for if (ok): {e}");
+        }
+    }
+}
+
+/// A simple `return` inside a block should typecheck without hanging.
+#[test]
+fn typecheck_return_via_adapter() {
+    let lang = canonical_lang();
+    let ast = parse("do { return 1 }", &lang);
+
+    let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
+    let req = TypecheckRequest::new(ast);
+
+    match engine.typecheck(&lang, &req) {
+        Ok(result) => {
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for return"
+            );
+        }
+        Err(handl_language::LangError::NotImplemented) => {}
+        Err(e) => {
+            eprintln!("typecheck returned error for return (ok): {e}");
+        }
+    }
 }
 
 // ===========================================================================

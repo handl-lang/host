@@ -50,13 +50,14 @@ const TYPECHECK_MODEL_FUNCS: &[&str] = &["typecheck"];
 /// `Language` and `Ast` to JSON values, calling the model's `typecheck`
 /// function, and unmarshaling the result.
 ///
-/// If the model fails to load at construction time, `model` is `None` and
-/// [`TypecheckEngine::typecheck`] returns [`LangError::NotImplemented`].
+/// The typecheck model is loaded on the first call to [`TypecheckEngine::typecheck`],
+/// so constructing the engine is cheap and the one-time model-load cost is only
+/// paid when the `--handl` path is actually used.
 pub struct HandlTypecheckEngine {
     /// The bound eval engine that runs the model's arrows.
     eval_engine: Box<dyn EvalEngine>,
-    /// The loaded typecheck model module (`None` if loading failed).
-    model: Option<Rc<HandlModule>>,
+    /// Lazily-initialized typecheck model module.
+    model: Rc<RefCell<Option<Rc<HandlModule>>>>,
     /// Module registry for `Foreign` op lookup (type rules may call host
     /// functions).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
@@ -75,49 +76,55 @@ impl HandlTypecheckEngine {
     /// fails, a warning is logged and the engine degrades to returning
     /// [`LangError::NotImplemented`] from [`TypecheckEngine::typecheck`].
     pub fn new(eval_engine: Box<dyn EvalEngine>) -> Self {
-        eprintln!("[DBG HandlTypecheckEngine::new] start");
-        // The typecheck model is a bootstrap model: use the fast Rust
-        // bootstrap transforms instead of the self-hosted loader pipeline.
-        // The loader's `analyze` is prohibitively slow on the ~51k-char
-        // model source (it hangs), and the bootstrap transforms produce
-        // identical output for canonical sources.
-        let model = match handl_plugin_lib_handl::with_loader_disabled(||
-            HandlModule::new(
-                "typecheck_model",
-                TYPECHECK_MODEL_HNL,
-                TYPECHECK_MODEL_FUNCS,
-            )
-            // Wire stdlib dependencies the model needs. The typecheck model
-            // walks the AST and manages the typing context using the runtime
-            // `array`, `hash_map`, and `typeof` modules, and constructs tagged
-            // type values via the host `tag` capability (see the model header).
-            .with_dependency(stdlib::module("array").expect("array module"))
-            .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
-            .with_dependency(stdlib::module("typeof").expect("typeof module"))
-            .with_dependency(stdlib::module("obj").expect("obj module"))
-            .with_dependency(TagModule)
-            .try_into_loaded()
-        ) {
-            Ok(module) => {
-                eprintln!("[DBG HandlTypecheckEngine::new] model loaded ok");
-                Some(Rc::new(module))
-            }
-            Err(msg) => {
-                eprintln!(
-                    "handl-plugin-engine-typecheck-handl: failed to load \
-                     typecheck model: {msg}; typecheck will return \
-                     NotImplemented"
-                );
-                None
-            }
-        };
-        Self {
+        let this = Self {
             eval_engine,
-            model,
+            model: Rc::new(RefCell::new(None)),
             modules: None,
             globals: HashMap::new(),
             cached_lang: Rc::new(RefCell::new(None)),
+        };
+        if let Err(e) = this.ensure_model() {
+            eprintln!("handl-plugin-engine-typecheck-handl: model load at construction: {e}");
         }
+        this
+    }
+
+    /// Load the embedded `.hnl` typecheck model on first use.
+    fn ensure_model(&self) -> Result<Rc<HandlModule>, LangError> {
+        let mut cell = self.model.borrow_mut();
+        if cell.is_none() {
+            // The typecheck model is a bootstrap model: use the fast Rust
+            // bootstrap transforms instead of the self-hosted loader pipeline.
+            // The loader's `analyze` is prohibitively slow on the ~51k-char
+            // model source (it hangs), and the bootstrap transforms produce
+            // identical output for canonical sources.
+            let loaded = handl_plugin_lib_handl::with_loader_disabled(||
+                HandlModule::new(
+                    "typecheck_model",
+                    TYPECHECK_MODEL_HNL,
+                    TYPECHECK_MODEL_FUNCS,
+                )
+                // Wire stdlib dependencies the model needs. The typecheck model
+                // walks the AST and manages the typing context using the runtime
+                // `array`, `hash_map`, and `typeof` modules, and constructs tagged
+                // type values via the host `tag` capability (see the model header).
+                .with_dependency(stdlib::module("array").expect("array module"))
+                .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
+                .with_dependency(stdlib::module("typeof").expect("typeof module"))
+                .with_dependency(stdlib::module("obj").expect("obj module"))
+                .with_dependency(TagModule)
+                .try_into_loaded()
+            )
+            .map_err(|msg| {
+                LangError::engine(format!(
+                    "handl-plugin-engine-typecheck-handl: failed to load typecheck model: {msg}"
+                ))
+            })?;
+            *cell = Some(Rc::new(loaded));
+        }
+        let module = cell.as_ref().unwrap().clone();
+        drop(cell);
+        Ok(module)
     }
 
     /// Marshal a [`Language`] into a [`Value`] for the model.
@@ -233,9 +240,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
         lang: &Language,
         req: &TypecheckRequest,
     ) -> Result<TypecheckResult, LangError> {
-        eprintln!("[DBG typecheck] start");
-        let model = self.model.as_ref().ok_or(LangError::NotImplemented)?;
-        eprintln!("[DBG typecheck] model ok, marshaling lang...");
+        let model = self.ensure_model()?;
         let lang_ptr = lang as *const _ as usize;
         let lang_val = {
             let cache = self.cached_lang.borrow();
@@ -255,13 +260,10 @@ impl TypecheckEngine for HandlTypecheckEngine {
                 new_val
             }
         };
-        eprintln!("[DBG typecheck] lang marshaled, marshaling ast...");
         let ast_val = Self::marshal_ast(&req.ast)?;
-        eprintln!("[DBG typecheck] ast marshaled, getting func...");
         let func = model
             .function("typecheck")
             .ok_or_else(|| LangError::engine("typecheck-handl: model has no 'typecheck' export"))?;
-        eprintln!("[DBG typecheck] calling model func...");
         let args = vec![lang_val, ast_val];
         let mut ctx = EvalContext::new();
         let result_val = match func.call(&args, &mut ctx) {
@@ -270,7 +272,6 @@ impl TypecheckEngine for HandlTypecheckEngine {
                 // The model hit a construct it cannot evaluate. Return a
                 // graceful typecheck result with a diagnostic instead of an
                 // engine error, so callers can report it like a type error.
-                eprintln!("[DBG typecheck] model call failed gracefully; returning diagnostic: {e:?}");
                 return Ok(TypecheckResult {
                     typ: Value::Null,
                     diagnostics: vec![TypecheckDiagnostic {
@@ -282,7 +283,6 @@ impl TypecheckEngine for HandlTypecheckEngine {
                 });
             }
         };
-        eprintln!("[DBG typecheck] model returned, unmarshaling...");
         Self::unmarshal_result(&result_val)
     }
 
@@ -369,7 +369,7 @@ mod tests {
     fn constructs_and_loads_model() {
         let e = engine();
         assert!(
-            e.model.is_some(),
+            e.model.borrow().is_some(),
             "typecheck model should load at construction time"
         );
     }
