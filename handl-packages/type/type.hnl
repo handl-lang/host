@@ -82,5 +82,15 @@ op "type.may" : (Value, String) -> Bool
   guarantee: True
 op "type.not" : (Value, String) -> Bool
   guarantee: True
-op "type.when" : (Value, String) -> Value
-  guarantee: True
+--- ## Type values (type-as-values)
+---
+--- Runtime type values: tagged values representing types. Import these
+--- in type signatures and type-level handl code.
+
+export Int :: { "__tag__": "int", "__registry__": "type", "kind": "primitive" }
+export Str :: { "__tag__": "str", "__registry__": "type", "kind": "primitive" }
+export Bool :: { "__tag__": "bool", "__registry__": "type", "kind": "primitive" }
+export Null :: { "__tag__": "null", "__registry__": "type", "kind": "primitive" }
+export Float :: { "__tag__": "float", "__registry__": "type", "kind": "primitive" }
+export Number :: { "__tag__": "number", "__registry__": "type", "kind": "primitive" }
+export Nat :: { "__tag__": "nat", "__registry__": "type", "kind": "primitive" }
