@@ -100,6 +100,7 @@ members = [
   "crates/plugin-engine-exec",
   "crates/plugin-engine-typecheck",
   "crates/plugin-engine-typecheck-nbe",
+  "crates/plugin-engine-typecheck-handl",
   "crates/plugin-engine-parse-pratt",
   "crates/plugin-engine-exec-tree-walk",
   "crates/plugin-engine-test",
@@ -238,6 +239,7 @@ handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
 handl-plugin-engine-exec = { path = "crates/plugin-engine-exec" }
 handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
 handl-plugin-engine-typecheck-nbe = { path = "crates/plugin-engine-typecheck-nbe" }
+handl-plugin-engine-typecheck-handl = { path = "crates/plugin-engine-typecheck-handl" }
 handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-test = { path = "crates/plugin-engine-test" }

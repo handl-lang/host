@@ -1393,6 +1393,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-engine-typecheck-handl"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-tree-walk",
+ "handl-plugin-engine-typecheck",
+ "handl-plugin-lib-handl",
+ "plugin-engine",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-engine-typecheck-nbe"
 version = "0.1.0"
 dependencies = [

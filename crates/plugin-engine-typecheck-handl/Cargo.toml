@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-engine-typecheck-handl"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { path = "../handl-language" }
+handl-platform = { path = "../platform" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+plugin-engine = { path = "../plugin-engine" }
+serde_json = { workspace = true }
