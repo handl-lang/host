@@ -322,31 +322,40 @@ do {
     }
   }
 
-  lang_type_rule :: [lang, kind] ~> while { found: null, remaining: hash_map.get_or(lang, "types", []) } {
-    [state] ~> if array.is_empty(state.remaining) {
-      { out: state.found }
+  index_type_rules :: [types_arr] ~> while { idx: 0, result: {} } {
+    [st] ~> if st.idx >= array.len(types_arr) {
+      { out: st.result }
     } else {
       do {
-        rule :: array.first(state.remaining)
-        rule_kind :: hash_map.get_or(rule, "node_kind", "")
-        if rule_kind == kind {
-          { out: rule }
-        } else {
-          { state: { found: state.found, remaining: array.drop(state.remaining, 1) } }
-        }
+        rule :: array.at(types_arr, st.idx)
+        kind :: hash_map.get_or(rule, "node_kind", "")
+        new_result :: if kind != "" { hash_map.set(st.result, kind, rule) } else { st.result }
+        { state: { idx: st.idx + 1, result: new_result } }
       }
     }
   }
 
-  tc_new :: [lang, ast] ~> ({
-    lang: lang,
+  lang_type_rule :: [state, kind] ~> hash_map.get_or(hash_map.get_or(state, "type_index", {}), kind, null)
+
+  tc_new :: [ast, type_index] ~> ({
     ast: ast,
+    type_index: type_index,
     gamma: [],
     metas: [],
     results: {},
     node_types: [],
-    diagnostics: []
+    diagnostics: [],
+    fuel: 50000,
+    exhausted: false
   })
+
+  tc_burn_fuel :: state ~> if state.fuel > 0 {
+    hash_map.set(state, "fuel", state.fuel - 1)
+  } else {
+    hash_map.set(state, "exhausted", true)
+  }
+
+  tc_fuel_exhausted :: state ~> hash_map.get_or(state, "exhausted", false)
 
   tc_extend :: [state, name, typ] ~> do {
     new_gamma :: gamma_extend(state.gamma, name, typ)
@@ -451,10 +460,10 @@ do {
 
   --- Mutually recursive functions (funcs record breaks the cycle) ---
 
-  synth_node_ :: [funcs, state, node_idx] ~> do {
+  synth_node_impl_ :: [funcs, state, node_idx] ~> do {
     node :: ast_node(state.ast, node_idx)
     kind :: node_kind(node)
-    rule :: lang_type_rule(state.lang, kind)
+    rule :: lang_type_rule(state, kind)
     if rule == null {
       { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
     } else {
@@ -473,10 +482,10 @@ do {
     }
   }
 
-  check_node_ :: [funcs, state, node_idx, expected] ~> do {
+  check_node_impl_ :: [funcs, state, node_idx, expected] ~> do {
     node :: ast_node(state.ast, node_idx)
     kind :: node_kind(node)
-    rule :: lang_type_rule(state.lang, kind)
+    rule :: lang_type_rule(state, kind)
     if rule == null {
       { ok: false, state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
     } else {
@@ -507,7 +516,7 @@ do {
     }
   }
 
-  eval_scheme_ :: [funcs, state, node_idx, term, incoming] ~> match tget(term, "__tag__") {
+  eval_scheme_impl_ :: [funcs, state, node_idx, term, incoming] ~> match tget(term, "__tag__") {
     "Arr": { val: tget(term, "value"), state: state },
     "Const": { val: tget(term, "value"), state: state },
     "Op": do {
@@ -609,7 +618,7 @@ do {
     _: defer_to_type_model(state, term, incoming)
   }
 
-  eval_judgment_ :: [funcs, state, node_idx, op_name, args, lit, incoming] ~> match op_name {
+  eval_judgment_impl_ :: [funcs, state, node_idx, op_name, args, lit, incoming] ~> match op_name {
     "synth_child": do {
       idx :: lit
       child_idx :: child_ref(state.ast, node_idx, idx)
@@ -1288,6 +1297,46 @@ do {
     _: { val: make_type("TypeError", hash_map.set({}, "message", "unknown judgment op: " + op_name)), state: state }
   }
 
+  --- Fuel wrappers: ensure the main typecheck driver and every
+  --- recursive fixpoint step burns a little fuel, and return a
+  --- graceful diagnostic instead of looping forever.
+
+  synth_node_ :: [funcs, state, node_idx] ~> do {
+    state :: tc_burn_fuel(state)
+    if tc_fuel_exhausted(state) {
+      { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "typecheck fuel exhausted") }
+    } else {
+      synth_node_impl_(funcs, state, node_idx)
+    }
+  }
+
+  check_node_ :: [funcs, state, node_idx, expected] ~> do {
+    state :: tc_burn_fuel(state)
+    if tc_fuel_exhausted(state) {
+      { ok: false, state: tc_add_diagnostic(state, "error", "typecheck fuel exhausted") }
+    } else {
+      check_node_impl_(funcs, state, node_idx, expected)
+    }
+  }
+
+  eval_scheme_ :: [funcs, state, node_idx, term, incoming] ~> do {
+    state :: tc_burn_fuel(state)
+    if tc_fuel_exhausted(state) {
+      { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "typecheck fuel exhausted") }
+    } else {
+      eval_scheme_impl_(funcs, state, node_idx, term, incoming)
+    }
+  }
+
+  eval_judgment_ :: [funcs, state, node_idx, op_name, args, lit, incoming] ~> do {
+    state :: tc_burn_fuel(state)
+    if tc_fuel_exhausted(state) {
+      { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "typecheck fuel exhausted") }
+    } else {
+      eval_judgment_impl_(funcs, state, node_idx, op_name, args, lit, incoming)
+    }
+  }
+
   --- funcs record: resolves the mutual recursion cycle ---
   --- Created after all four functions are defined so each can look ---
   --- up its siblings via funcs.fn_name(funcs, ...) at call time. ---
@@ -1311,7 +1360,9 @@ do {
   } else {
     do {
       root_idx :: array.len(ast) - 1
-      state :: tc_new(lang, ast)
+      types_arr :: hash_map.get_or(lang, "types", [])
+      type_index :: index_type_rules(types_arr)
+      state :: tc_new(ast, type_index)
       result :: funcs.synth_node_(funcs, state, root_idx)
       zonked :: zonk(result.typ, result.state.metas)
       { typ: zonked, diagnostics: result.state.diagnostics, node_types: result.state.node_types }

@@ -19,6 +19,7 @@
 
 #![warn(missing_docs)]
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -61,6 +62,9 @@ pub struct HandlTypecheckEngine {
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// Globals injected into the root context.
     globals: HashMap<String, Value>,
+    /// Cached marshaled `Language` value, keyed by `Language` pointer, so
+    /// the canonical `Language` is serialized at most once per engine.
+    cached_lang: Rc<RefCell<Option<(usize, Value)>>>,
 }
 
 impl HandlTypecheckEngine {
@@ -112,6 +116,7 @@ impl HandlTypecheckEngine {
             model,
             modules: None,
             globals: HashMap::new(),
+            cached_lang: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -231,7 +236,25 @@ impl TypecheckEngine for HandlTypecheckEngine {
         eprintln!("[DBG typecheck] start");
         let model = self.model.as_ref().ok_or(LangError::NotImplemented)?;
         eprintln!("[DBG typecheck] model ok, marshaling lang...");
-        let lang_val = Self::marshal_language(lang)?;
+        let lang_ptr = lang as *const _ as usize;
+        let lang_val = {
+            let cache = self.cached_lang.borrow();
+            if let Some((ptr, val)) = cache.as_ref() {
+                if *ptr == lang_ptr {
+                    val.clone()
+                } else {
+                    drop(cache);
+                    let new_val = Self::marshal_language(lang)?;
+                    *self.cached_lang.borrow_mut() = Some((lang_ptr, new_val.clone()));
+                    new_val
+                }
+            } else {
+                drop(cache);
+                let new_val = Self::marshal_language(lang)?;
+                *self.cached_lang.borrow_mut() = Some((lang_ptr, new_val.clone()));
+                new_val
+            }
+        };
         eprintln!("[DBG typecheck] lang marshaled, marshaling ast...");
         let ast_val = Self::marshal_ast(&req.ast)?;
         eprintln!("[DBG typecheck] ast marshaled, getting func...");
@@ -241,9 +264,24 @@ impl TypecheckEngine for HandlTypecheckEngine {
         eprintln!("[DBG typecheck] calling model func...");
         let args = vec![lang_val, ast_val];
         let mut ctx = EvalContext::new();
-        let result_val = func
-            .call(&args, &mut ctx)
-            .map_err(|e| LangError::engine(format!("typecheck-handl: model call: {e}")))?;
+        let result_val = match func.call(&args, &mut ctx) {
+            Ok(v) => v,
+            Err(e) => {
+                // The model hit a construct it cannot evaluate. Return a
+                // graceful typecheck result with a diagnostic instead of an
+                // engine error, so callers can report it like a type error.
+                eprintln!("[DBG typecheck] model call failed gracefully; returning diagnostic");
+                return Ok(TypecheckResult {
+                    typ: Value::Null,
+                    diagnostics: vec![TypecheckDiagnostic {
+                        severity: "error".to_string(),
+                        message: format!("typecheck model cannot handle construct: {e}"),
+                        span: None,
+                    }],
+                    node_types: HashMap::new(),
+                });
+            }
+        };
         eprintln!("[DBG typecheck] model returned, unmarshaling...");
         Self::unmarshal_result(&result_val)
     }
@@ -254,6 +292,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             model: self.model.clone(),
             modules: self.modules.clone(),
             globals: self.globals.clone(),
+            cached_lang: self.cached_lang.clone(),
         })
     }
 
@@ -266,6 +305,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             model: self.model.clone(),
             modules: Some(modules),
             globals: self.globals.clone(),
+            cached_lang: self.cached_lang.clone(),
         })
     }
 
@@ -277,6 +317,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             model: self.model.clone(),
             modules: self.modules.clone(),
             globals,
+            cached_lang: self.cached_lang.clone(),
         })
     }
 }
@@ -288,6 +329,7 @@ impl Clone for HandlTypecheckEngine {
             model: self.model.clone(),
             modules: self.modules.clone(),
             globals: self.globals.clone(),
+            cached_lang: self.cached_lang.clone(),
         }
     }
 }

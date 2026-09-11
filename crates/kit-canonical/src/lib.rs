@@ -48,6 +48,7 @@ use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -1173,6 +1174,9 @@ pub struct Kit {
     /// The base directory for resolving relative `import "path"` paths
     /// (Phase 9.5). `None` → resolve against the process CWD.
     module_root: Option<PathBuf>,
+    /// A lazily-initialized Handl-authored typecheck engine, reused across
+    /// `typecheck_handl` calls so the model is loaded once per `Kit`.
+    handl_typecheck_engine: RefCell<Option<HandlTypecheckEngine>>,
 }
 
 impl std::fmt::Debug for Kit {
@@ -1538,6 +1542,7 @@ impl Kit {
         Ok(Kit {
             runtime,
             module_root,
+            handl_typecheck_engine: RefCell::new(None),
         })
     }
 
@@ -1735,16 +1740,31 @@ impl Kit {
         eprintln!("[DBG typecheck_handl] parsing...");
         let ast = self.parse(input)?;
         eprintln!("[DBG typecheck_handl] parsed, ast len={}", ast.len());
-        // Construct a fresh HandlTypecheckEngine (the model is embedded at
-        // compile time, so this is cheap). The runtime's bound typecheck
-        // engine is "nbe" by config; this method explicitly uses the
-        // Handl-authored model instead.
-        let engine = HandlTypecheckEngine::new(Box::new(
-            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-        ));
+        // Lazily initialize and reuse a single HandlTypecheckEngine so the
+        // model is loaded once per Kit and the canonical Language is
+        // marshaled at most once per engine (ADR-0105).
+        {
+            let mut cell = self.handl_typecheck_engine.borrow_mut();
+            if cell.is_none() {
+                *cell = Some(HandlTypecheckEngine::new(Box::new(
+                    handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+                )));
+            }
+        }
+        let engine = self.handl_typecheck_engine.borrow();
+        let engine = engine.as_ref().ok_or_else(|| LangError::engine("handl engine missing"))?;
         let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
         eprintln!("[DBG typecheck_handl] calling engine.typecheck...");
         let result = engine.typecheck(self.runtime.lang(), &req)?;
+        if result.diagnostics.iter().any(|d| d.severity == "error") {
+            let messages = result
+                .diagnostics
+                .iter()
+                .map(|d| d.message.as_str())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(LangError::engine(format!("typecheck errors: {messages}")));
+        }
         eprintln!("[DBG typecheck_handl] done, typ={}", result.typ);
         Ok(result.typ)
     }
