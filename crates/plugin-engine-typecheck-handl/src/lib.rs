@@ -270,7 +270,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
                 // The model hit a construct it cannot evaluate. Return a
                 // graceful typecheck result with a diagnostic instead of an
                 // engine error, so callers can report it like a type error.
-                eprintln!("[DBG typecheck] model call failed gracefully; returning diagnostic");
+                eprintln!("[DBG typecheck] model call failed gracefully; returning diagnostic: {e:?}");
                 return Ok(TypecheckResult {
                     typ: Value::Null,
                     diagnostics: vec![TypecheckDiagnostic {

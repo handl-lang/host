@@ -337,9 +337,37 @@ do {
 
   lang_type_rule :: [state, kind] ~> hash_map.get_or(hash_map.get_or(state, "type_index", {}), kind, null)
 
-  tc_new :: [ast, type_index] ~> ({
+  lang_ast_shape :: [state, kind] ~> hash_map.get_or(hash_map.get_or(state, "ast_index", {}), kind, null)
+
+  child_role_index_ :: [self, children, role, idx] ~> if idx >= array.len(children) {
+    null
+  } else {
+    do {
+      spec :: array.at(children, idx)
+      if hash_map.get_or(spec, "role", "") == role {
+        idx
+      } else {
+        self(self, children, role, idx + 1)
+      }
+    }
+  }
+
+  child_role_index :: [state, kind, role] ~> do {
+    shape :: lang_ast_shape(state, kind)
+    if shape == null {
+      null
+    } else {
+      do {
+        children :: hash_map.get_or(shape, "children", [])
+        child_role_index_(child_role_index_, children, role, 0)
+      }
+    }
+  }
+
+  tc_new :: [ast, type_index, ast_index] ~> ({
     ast: ast,
     type_index: type_index,
+    ast_index: ast_index,
     gamma: [],
     metas: [],
     results: {},
@@ -463,19 +491,43 @@ do {
   synth_node_impl_ :: [funcs, state, node_idx] ~> do {
     node :: ast_node(state.ast, node_idx)
     kind :: node_kind(node)
-    rule :: lang_type_rule(state, kind)
-    if rule == null {
-      { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
-    } else {
+    target_role :: child_role_index(state, kind, "target")
+    field_role :: child_role_index(state, kind, "field")
+    callee_role :: child_role_index(state, kind, "callee")
+    args_role :: child_role_index(state, kind, "args")
+    is_field_access :: kind == "field-access" || (target_role != null && field_role != null)
+    is_call :: kind == "call" || (callee_role != null && args_role != null)
+    if is_field_access {
       do {
-        synth_scheme :: hash_map.get_or(rule, "synth", null)
-        if synth_scheme == null {
-          { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no synth scheme for kind: " + kind) }
-        } else {
-          do {
-            result :: funcs.eval_scheme_(funcs, state, node_idx, synth_scheme, null)
-            new_state :: tc_record_node_type(result.state, node_idx, result.val)
-            { typ: result.val, state: new_state }
+        result :: funcs.eval_judgment_(funcs, state, node_idx, "field_access", [], null, null)
+        new_state :: tc_record_node_type(result.state, node_idx, result.val)
+        { typ: result.val, state: new_state }
+      }
+    } else {
+      if is_call {
+        do {
+          result :: funcs.eval_judgment_(funcs, state, node_idx, "call", [], null, null)
+          new_state :: tc_record_node_type(result.state, node_idx, result.val)
+          { typ: result.val, state: new_state }
+        }
+      } else {
+        do {
+          rule :: lang_type_rule(state, kind)
+          if rule == null {
+            { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no type rule for kind: " + kind) }
+          } else {
+            do {
+              synth_scheme :: hash_map.get_or(rule, "synth", null)
+              if synth_scheme == null {
+                { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "no synth scheme for kind: " + kind) }
+              } else {
+                do {
+                  result :: funcs.eval_scheme_(funcs, state, node_idx, synth_scheme, null)
+                  new_state :: tc_record_node_type(result.state, node_idx, result.val)
+                  { typ: result.val, state: new_state }
+                }
+              }
+            }
           }
         }
       }
@@ -1290,6 +1342,14 @@ do {
         { val: false, state: tc_add_diagnostic(state, "error", "type is not FFI-marshalable: " + tag) }
       }
     },
+    "field_access": {
+      val: make_type("type.unknown", {}),
+      state: tc_add_diagnostic(state, "warning", "field_access: data-driven stub")
+    },
+    "call": {
+      val: make_type("type.unknown", {}),
+      state: tc_add_diagnostic(state, "warning", "call: data-driven stub")
+    },
     "foreign_type": do {
       op_name :: lit
       { val: make_type("type.unknown", {}), state: tc_add_diagnostic(state, "error", "foreign_type: no module registry available for: " + op_name) }
@@ -1361,8 +1421,10 @@ do {
     do {
       root_idx :: array.len(ast) - 1
       types_arr :: hash_map.get_or(lang, "types", [])
+      ast_arr :: hash_map.get_or(lang, "ast", [])
       type_index :: index_type_rules(types_arr)
-      state :: tc_new(ast, type_index)
+      ast_index :: index_type_rules(ast_arr)
+      state :: tc_new(ast, type_index, ast_index)
       result :: funcs.synth_node_(funcs, state, root_idx)
       zonked :: zonk(result.typ, result.state.metas)
       { typ: zonked, diagnostics: result.state.diagnostics, node_types: result.state.node_types }

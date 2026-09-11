@@ -37,12 +37,12 @@ is_canonical() {
   ' "$f"
 }
 
-# Known files that are canonical but currently broken for unrelated reasons
-# (keyword collisions, unclosed blocks, etc.). Keep this list short and
-# remove entries as the underlying issues are fixed.
+# Known non-canonical / dialect files that the heuristic detector does not
+# catch on its own. Keep this list short and remove entries as detection
+# improves.
 SKIP_LIST=(
   "handl-packages/collections/array/first.hnl"
-  "handl-packages/collections/array/at.hnl"
+  "handl-packages/collections/array.hnl"
 )
 
 is_skipped() {

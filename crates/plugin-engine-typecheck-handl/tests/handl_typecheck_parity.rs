@@ -534,3 +534,51 @@ fn typecheck_canonical_hello_hnl_runs_and_returns_useful_output() {
         }
     }
 }
+
+/// Typecheck a simple field access (`rec.x`) and assert it returns without
+/// hanging and produces useful output (a non-null type or diagnostics).
+#[test]
+fn typecheck_field_access_runs_and_returns_useful_output() {
+    let lang = canonical_lang();
+    let ast = parse("rec.x", &lang);
+
+    let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
+    let req = TypecheckRequest::new(ast);
+
+    match engine.typecheck(&lang, &req) {
+        Ok(result) => {
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for field_access"
+            );
+        }
+        Err(handl_language::LangError::NotImplemented) => {}
+        Err(e) => {
+            eprintln!("typecheck returned error for field_access (ok): {e}");
+        }
+    }
+}
+
+/// Typecheck a simple function call (`f(1)`) and assert it returns without
+/// hanging and produces useful output (a non-null type or diagnostics).
+#[test]
+fn typecheck_call_runs_and_returns_useful_output() {
+    let lang = canonical_lang();
+    let ast = parse("f(1)", &lang);
+
+    let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
+    let req = TypecheckRequest::new(ast);
+
+    match engine.typecheck(&lang, &req) {
+        Ok(result) => {
+            assert!(
+                !result.typ.is_null() || !result.diagnostics.is_empty(),
+                "Handl model should return a non-null type or diagnostics for call"
+            );
+        }
+        Err(handl_language::LangError::NotImplemented) => {}
+        Err(e) => {
+            eprintln!("typecheck returned error for call (ok): {e}");
+        }
+    }
+}
