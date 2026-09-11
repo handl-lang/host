@@ -127,7 +127,7 @@ mod tests {
         // Build a minimal language with the runtime-assert and type-annot
         // shapes. In practice the canonical kit data is loaded, but for
         // unit tests we construct a language that has the shapes.
-        let mut lang = Language::new();
+        let lang = Language::new();
         // The shapes are loaded from YAML in the canonical kit; for testing
         // we rely on the canonical data being embedded. If the language is
         // empty, role_index falls back to None and we use positional.

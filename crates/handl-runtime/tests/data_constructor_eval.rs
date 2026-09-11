@@ -9,9 +9,10 @@
 //! bound as the `pred` argument under the tree-walk engine. The result must
 //! carry the argument *value* (`{"tag":"Zero"}`), not the string `"pred"`.
 
-use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Term, Value};
+use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Value};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::{Runtime, desugar_pass::apply_desugar};
+use plugin_engine::{ArrSource, TermData};
 use serde_json::json;
 
 /// A `Language` with just the eval schemes needed for this regression: `var`
@@ -23,21 +24,32 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            TermData::op(
+                "proj_env",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::String("$payload".into())),
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.assign",
             "assign",
-            Term::arr_native("assign", vec![]),
+            TermData::op("assign", vec![], &ArrSource::Native, None)
+                .to_term()
+                .expect("TermData -> Term"),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.json",
             "json",
-            Term::arr_native("json", vec![]),
+            TermData::op("json", vec![], &ArrSource::Native, None)
+                .to_term()
+                .expect("TermData -> Term"),
         ))
         .unwrap();
     lang

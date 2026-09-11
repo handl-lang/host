@@ -11,11 +11,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_kit_data_canonical;
-use handl_language::{Source, Term};
+use handl_language::Source;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_runtime::{EngineRegistry, Runtime};
+use plugin_engine::TermData;
 use serde_json::json;
 
 #[test]
@@ -48,7 +49,12 @@ fn op_handler_with_runs_end_to_end() {
     // Build a concrete Handler value: `add` returns a constant `Number`.
     // In a full implementation the source `handler` would produce this map;
     // for the end-to-end `with` test we insert it directly.
-    let add_impl = serde_json::to_value(Term::Arr { value: json!(3.0) }).expect("Term serializes");
+    let add_impl = serde_json::to_value(
+        &TermData::arr(json!(3.0))
+            .to_term()
+            .expect("TermData -> Term"),
+    )
+    .expect("Term serializes");
     let handler_value = json!({
         "__tag__": "Handler",
         "__registry__": "handl.canonical",

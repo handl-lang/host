@@ -56,11 +56,17 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use handl_runtime::vm_primitives::VmPrimitivesModule;
-use plugin_engine::{AstNode, Model, ModelCtx};
+use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 const EXEC_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/exec_model.hnl");
 const VALUE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/value_model.hnl");
+
+/// Convert a `TermData` back to `Term` for passing to `Model::run` (which
+/// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+fn to_term(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion failed")
+}
 
 /// All function names exported by the exec model module (structural ops +
 /// `run`).
@@ -224,17 +230,15 @@ fn exec_model_number_add_matches_value_model() {
     let exec_result = call_op("number_add", &[operands.clone()]);
 
     // Run number_add through the value model by constructing an Op term.
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "number_add",
         vec![
-            Term::Arr {
-                value: number_value(7, &["Addable"]),
-            },
-            Term::Arr {
-                value: number_value(8, &["Addable"]),
-            },
+            TermData::arr(number_value(7, &["Addable"])),
+            TermData::arr(number_value(8, &["Addable"])),
         ],
-    );
+        &ArrSource::Native,
+        None,
+    ));
     let vm_result = value_model_run(&term, Value::Null);
 
     assert_eq!(exec_result, number_value(15, &["Addable"]));
@@ -580,7 +584,7 @@ fn exec_model_export_binding_returns_value() {
 
 #[test]
 fn exec_model_run_arr() {
-    let term = Term::Arr { value: json!(5) };
+    let term = to_term(TermData::arr(json!(5)));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(5));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -588,7 +592,7 @@ fn exec_model_run_arr() {
 
 #[test]
 fn exec_model_run_const() {
-    let term = Term::Const { value: json!(7) };
+    let term = to_term(TermData::const_value(json!(7)));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(7));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -596,10 +600,10 @@ fn exec_model_run_const() {
 
 #[test]
 fn exec_model_run_seq() {
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(2));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -607,10 +611,7 @@ fn exec_model_run_seq() {
 
 #[test]
 fn exec_model_run_tag() {
-    let term = Term::Tag {
-        tag: "ok".to_string(),
-        value: Box::new(Term::Arr { value: json!(42) }),
-    };
+    let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!({ "__tag__": "ok", "value": 42 }));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -618,15 +619,13 @@ fn exec_model_run_tag() {
 
 #[test]
 fn exec_model_run_record_proj() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "a": 1, "b": 2 }),
-        },
-        Term::RecordProj {
-            record: Box::new(Term::op_native("id", vec![])),
-            field: "a".to_string(),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "a": 1, "b": 2 })),
+        TermData::record_proj(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            "a",
+        ),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(1));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -634,16 +633,14 @@ fn exec_model_run_record_proj() {
 
 #[test]
 fn exec_model_run_record_with() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "a": 1, "b": 2 }),
-        },
-        Term::RecordWith {
-            record: Box::new(Term::op_native("id", vec![])),
-            field: "a".to_string(),
-            value: Box::new(Term::Arr { value: json!(10) }),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "a": 1, "b": 2 })),
+        TermData::record_with(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            "a",
+            TermData::arr(json!(10)),
+        ),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!({ "a": 10, "b": 2 }));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -651,10 +648,12 @@ fn exec_model_run_record_with() {
 
 #[test]
 fn exec_model_run_op_add() {
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "add",
-        vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
-    );
+        vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+        &ArrSource::Native,
+        None,
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(3));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -662,10 +661,12 @@ fn exec_model_run_op_add() {
 
 #[test]
 fn exec_model_run_op_mul() {
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "mul",
-        vec![Term::Arr { value: json!(3) }, Term::Arr { value: json!(4) }],
-    );
+        vec![TermData::arr(json!(3)), TermData::arr(json!(4))],
+        &ArrSource::Native,
+        None,
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(12));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -673,10 +674,10 @@ fn exec_model_run_op_mul() {
 
 #[test]
 fn exec_model_run_op_is_pos() {
-    let term = Term::seq(
-        Term::Arr { value: json!(3) },
-        Term::op_native("is_pos", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(3)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(true));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -684,10 +685,10 @@ fn exec_model_run_op_is_pos() {
 
 #[test]
 fn exec_model_run_op_inc() {
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(6));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -695,13 +696,11 @@ fn exec_model_run_op_inc() {
 
 #[test]
 fn exec_model_run_path() {
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::Arr { value: json!(1) }),
-            Box::new(Term::Arr { value: json!(2) }),
-        ),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(
         result,
@@ -717,11 +716,11 @@ fn exec_model_run_path() {
 
 #[test]
 fn exec_model_run_equiv_bool() {
-    let term = Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    };
+    let term = to_term(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(true));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -729,9 +728,7 @@ fn exec_model_run_equiv_bool() {
 
 #[test]
 fn exec_model_run_cell_id() {
-    let term = Term::CellId {
-        arrow: Box::new(Term::Arr { value: json!(7) }),
-    };
+    let term = to_term(TermData::cell_id(TermData::arr(json!(7))));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(
         result,
@@ -748,14 +745,14 @@ fn exec_model_run_cell_id() {
 #[test]
 fn exec_model_run_rewrite() {
     use handl_language::RewriteWitness;
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Rewrite {
-            source: Box::new(Term::Arr { value: json!(1) }),
-            target: Box::new(Term::op_native("id", vec![])),
-            witness: RewriteWitness::Named("x".to_string()),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::rewrite(
+            TermData::arr(json!(1)),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            &RewriteWitness::Named("x".to_string()),
+        ),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(5));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -763,13 +760,13 @@ fn exec_model_run_rewrite() {
 
 #[test]
 fn exec_model_run_refine() {
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Refine {
-            sort: Box::new(Term::op_native("id", vec![])),
-            predicate: Box::new(Term::op_native("is_pos", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(5));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -777,13 +774,13 @@ fn exec_model_run_refine() {
 
 #[test]
 fn exec_model_run_cobind() {
-    let term = Term::seq(
-        Term::Arr { value: json!(99) },
-        Term::Cobind {
-            grade: Box::new(Term::op_native("id", vec![])),
-            body: Box::new(Term::op_native("id", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(99)),
+        TermData::cobind(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(99));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -791,12 +788,12 @@ fn exec_model_run_cobind() {
 
 #[test]
 fn exec_model_run_iter() {
-    let term = Term::Iter {
-        fuel: Box::new(Term::Arr { value: json!(10) }),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-        step: Box::new(Term::op_native("dec", vec![])),
-        initial: Box::new(Term::Arr { value: json!(3) }),
-    };
+    let term = to_term(TermData::iter(
+        TermData::arr(json!(10)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        TermData::op("dec", vec![], &ArrSource::Native, None),
+        TermData::arr(json!(3)),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(0));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -804,12 +801,10 @@ fn exec_model_run_iter() {
 
 #[test]
 fn exec_model_run_first() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "__pair__": [1, 2] }),
-        },
-        Term::first(Term::op_native("inc", vec![])),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "__pair__": [1, 2] })),
+        TermData::first(TermData::op("inc", vec![], &ArrSource::Native, None)),
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(
         result,
@@ -820,15 +815,13 @@ fn exec_model_run_first() {
 
 #[test]
 fn exec_model_run_choice_left() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "__either__": "left", "value": 5 }),
-        },
-        Term::choice(
-            Term::op_native("inc", vec![]),
-            Term::op_native("dec", vec![]),
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "__either__": "left", "value": 5 })),
+        TermData::choice(
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+            TermData::op("dec", vec![], &ArrSource::Native, None),
         ),
-    );
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(6));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -836,15 +829,13 @@ fn exec_model_run_choice_left() {
 
 #[test]
 fn exec_model_run_choice_right() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "__either__": "right", "value": 5 }),
-        },
-        Term::choice(
-            Term::op_native("inc", vec![]),
-            Term::op_native("dec", vec![]),
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "__either__": "right", "value": 5 })),
+        TermData::choice(
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+            TermData::op("dec", vec![], &ArrSource::Native, None),
         ),
-    );
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(4));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -852,17 +843,13 @@ fn exec_model_run_choice_right() {
 
 #[test]
 fn exec_model_run_app_tag() {
-    let term = Term::app(
-        Term::Arr {
-            value: json!("tag.tag"),
-        },
+    let term = to_term(TermData::app(
+        TermData::arr(json!("tag.tag")),
         vec![
-            Term::Arr { value: json!("ok") },
-            Term::Arr {
-                value: json!({ "value": 42 }),
-            },
+            TermData::arr(json!("ok")),
+            TermData::arr(json!({ "value": 42 })),
         ],
-    );
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!({ "__tag__": "ok", "value": 42 }));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -870,39 +857,34 @@ fn exec_model_run_app_tag() {
 
 #[test]
 fn exec_model_run_handle_number_add() {
-    use handl_language::ArrSource;
-    let handler_impl = serde_json::to_value(&Term::Op {
-        name: "number_add".to_string(),
-        args: vec![],
-        source: ArrSource::Native,
-        lit: None,
-    })
+    let handler_impl = serde_json::to_value(&to_term(TermData::op(
+        "number_add",
+        vec![],
+        &ArrSource::Native,
+        None,
+    )))
     .unwrap();
     let handler = json!({
         "__tag__": "Handler",
         "grades": ["Addable"],
         "impls": { "add": handler_impl }
     });
-    let term = Term::seq(
-        Term::Arr {
-            value: number_value(0, &["Addable"]),
-        },
-        Term::handle(
-            Term::op_native(
+    let term = to_term(TermData::seq(
+        TermData::arr(number_value(0, &["Addable"])),
+        TermData::handle(
+            TermData::op(
                 "add",
                 vec![
-                    Term::Arr {
-                        value: number_value(1, &["Addable"]),
-                    },
-                    Term::Arr {
-                        value: number_value(2, &["Addable"]),
-                    },
+                    TermData::arr(number_value(1, &["Addable"])),
+                    TermData::arr(number_value(2, &["Addable"])),
                 ],
+                &ArrSource::Native,
+                None,
             ),
             "Number",
-            Term::Arr { value: handler },
+            TermData::arr(handler),
         ),
-    );
+    ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, number_value(3, &["Addable"]));
     assert_eq!(result, rust_run(&term, Value::Null));
@@ -918,40 +900,39 @@ fn exec_model_parity_with_value_model_and_rust() {
     // tree-walk engine all agree — confirming the exec model's `run` is a
     // faithful member of the model family on the overlapping tags.
     let cases: Vec<(Term, Value)> = vec![
-        (Term::Arr { value: json!(5) }, json!(5)),
-        (Term::Const { value: json!(7) }, json!(7)),
+        (to_term(TermData::arr(json!(5))), json!(5)),
+        (to_term(TermData::const_value(json!(7))), json!(7)),
         (
-            Term::seq(
-                Term::Arr { value: json!(1) },
-                Term::op_native("inc", vec![]),
-            ),
+            to_term(TermData::seq(
+                TermData::arr(json!(1)),
+                TermData::op("inc", vec![], &ArrSource::Native, None),
+            )),
             json!(2),
         ),
         (
-            Term::op_native(
+            to_term(TermData::op(
                 "add",
-                vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
-            ),
+                vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+                &ArrSource::Native,
+                None,
+            )),
             json!(3),
         ),
         (
-            Term::op_native(
+            to_term(TermData::op(
                 "mul",
-                vec![Term::Arr { value: json!(3) }, Term::Arr { value: json!(4) }],
-            ),
+                vec![TermData::arr(json!(3)), TermData::arr(json!(4))],
+                &ArrSource::Native,
+                None,
+            )),
             json!(12),
         ),
         (
-            Term::Tag {
-                tag: "ok".to_string(),
-                value: Box::new(Term::Arr { value: json!(42) }),
-            },
+            to_term(TermData::tag_value("ok", TermData::arr(json!(42)))),
             json!({ "__tag__": "ok", "value": 42 }),
         ),
         (
-            Term::CellId {
-                arrow: Box::new(Term::Arr { value: json!(7) }),
-            },
+            to_term(TermData::cell_id(TermData::arr(json!(7)))),
             json!({
                 "__tag__": "Cell2",
                 "__src__": 7,
@@ -960,14 +941,14 @@ fn exec_model_parity_with_value_model_and_rust() {
             }),
         ),
         (
-            Term::seq(
-                Term::Arr { value: json!(5) },
-                Term::Rewrite {
-                    source: Box::new(Term::Arr { value: json!(1) }),
-                    target: Box::new(Term::op_native("id", vec![])),
-                    witness: handl_language::RewriteWitness::Named("w".to_string()),
-                },
-            ),
+            to_term(TermData::seq(
+                TermData::arr(json!(5)),
+                TermData::rewrite(
+                    TermData::arr(json!(1)),
+                    TermData::op("id", vec![], &ArrSource::Native, None),
+                    &handl_language::RewriteWitness::Named("w".to_string()),
+                ),
+            )),
             json!(5),
         ),
     ];
@@ -1007,7 +988,7 @@ fn exec_model_module_loads_all_ops() {
 fn exec_model_adapter_is_model() {
     // The HandlModelAdapter wrapping the exec model satisfies the Model
     // trait and can run terms.
-    let term = Term::Arr { value: json!(42) };
+    let term = to_term(TermData::arr(json!(42)));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(42));
 }

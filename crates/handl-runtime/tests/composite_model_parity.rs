@@ -18,10 +18,16 @@ use handl_plugin_lib_handl::{HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{AstNode, CompositeModel, Model, ModelCtx, is_hott_tag};
+use plugin_engine::{ArrSource, AstNode, CompositeModel, Model, ModelCtx, TermData, is_hott_tag};
 use serde_json::json;
 
 const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
+
+/// Convert a `TermData` back to `Term` for passing to `Model::run` (which
+/// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+fn to_term(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion failed")
+}
 
 /// Build a `HandlModelAdapter` from the `arrow_model.hnl` module.
 fn handl_adapter() -> HandlModelAdapter {
@@ -110,7 +116,7 @@ fn either_right(v: Value) -> Value {
 
 #[test]
 fn parity_arr_const() {
-    let term = Term::Arr { value: json!(5) };
+    let term = to_term(TermData::arr(json!(5)));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(rust, json!(5));
     assert_eq!(composite, rust);
@@ -118,10 +124,10 @@ fn parity_arr_const() {
 
 #[test]
 fn parity_seq() {
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(2));
@@ -129,12 +135,10 @@ fn parity_seq() {
 
 #[test]
 fn parity_first() {
-    let term = Term::seq(
-        Term::Arr {
-            value: pair(json!(1), json!(2)),
-        },
-        Term::first(Term::op_native("inc", vec![])),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(pair(json!(1), json!(2))),
+        TermData::first(TermData::op("inc", vec![], &ArrSource::Native, None)),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, pair(json!(2), json!(2)));
@@ -142,15 +146,13 @@ fn parity_first() {
 
 #[test]
 fn parity_choice_left() {
-    let term = Term::seq(
-        Term::Arr {
-            value: either_left(json!(5)),
-        },
-        Term::choice(
-            Term::op_native("inc", vec![]),
-            Term::op_native("dec", vec![]),
+    let term = to_term(TermData::seq(
+        TermData::arr(either_left(json!(5))),
+        TermData::choice(
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+            TermData::op("dec", vec![], &ArrSource::Native, None),
         ),
-    );
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(6));
@@ -158,15 +160,13 @@ fn parity_choice_left() {
 
 #[test]
 fn parity_choice_right() {
-    let term = Term::seq(
-        Term::Arr {
-            value: either_right(json!(5)),
-        },
-        Term::choice(
-            Term::op_native("inc", vec![]),
-            Term::op_native("dec", vec![]),
+    let term = to_term(TermData::seq(
+        TermData::arr(either_right(json!(5))),
+        TermData::choice(
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+            TermData::op("dec", vec![], &ArrSource::Native, None),
         ),
-    );
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(4));
@@ -174,14 +174,10 @@ fn parity_choice_right() {
 
 #[test]
 fn parity_loop() {
-    let term = Term::seq(
-        Term::Arr {
-            value: pair(json!(1), json!(2)),
-        },
-        Term::loop_feedback(Term::Arr {
-            value: pair(json!(42), json!(0)),
-        }),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(pair(json!(1), json!(2))),
+        TermData::loop_feedback(TermData::arr(pair(json!(42), json!(0)))),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(42));
@@ -189,12 +185,12 @@ fn parity_loop() {
 
 #[test]
 fn parity_iter() {
-    let term = Term::Iter {
-        fuel: Box::new(Term::Arr { value: json!(10) }),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-        step: Box::new(Term::op_native("dec", vec![])),
-        initial: Box::new(Term::Arr { value: json!(3) }),
-    };
+    let term = to_term(TermData::iter(
+        TermData::arr(json!(10)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        TermData::op("dec", vec![], &ArrSource::Native, None),
+        TermData::arr(json!(3)),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(0));
@@ -202,17 +198,13 @@ fn parity_iter() {
 
 #[test]
 fn parity_app_tag() {
-    let term = Term::app(
-        Term::Arr {
-            value: json!("tag.tag"),
-        },
+    let term = to_term(TermData::app(
+        TermData::arr(json!("tag.tag")),
         vec![
-            Term::Arr { value: json!("ok") },
-            Term::Arr {
-                value: json!({ "value": 42 }),
-            },
+            TermData::arr(json!("ok")),
+            TermData::arr(json!({ "value": 42 })),
         ],
-    );
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!({ "__tag__": "ok", "value": 42 }));
@@ -220,15 +212,13 @@ fn parity_app_tag() {
 
 #[test]
 fn parity_record_proj() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "a": 1, "b": 2 }),
-        },
-        Term::RecordProj {
-            record: Box::new(Term::op_native("id", vec![])),
-            field: "a".to_string(),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "a": 1, "b": 2 })),
+        TermData::record_proj(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            "a",
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(1));
@@ -236,16 +226,14 @@ fn parity_record_proj() {
 
 #[test]
 fn parity_record_with() {
-    let term = Term::seq(
-        Term::Arr {
-            value: json!({ "a": 1, "b": 2 }),
-        },
-        Term::RecordWith {
-            record: Box::new(Term::op_native("id", vec![])),
-            field: "a".to_string(),
-            value: Box::new(Term::Arr { value: json!(10) }),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!({ "a": 1, "b": 2 })),
+        TermData::record_with(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            "a",
+            TermData::arr(json!(10)),
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!({ "a": 10, "b": 2 }));
@@ -253,10 +241,7 @@ fn parity_record_with() {
 
 #[test]
 fn parity_tag() {
-    let term = Term::Tag {
-        tag: "ok".to_string(),
-        value: Box::new(Term::Arr { value: json!(42) }),
-    };
+    let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!({ "__tag__": "ok", "value": 42 }));
@@ -268,13 +253,13 @@ fn parity_tag() {
 
 #[test]
 fn parity_refine() {
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Refine {
-            sort: Box::new(Term::op_native("id", vec![])),
-            predicate: Box::new(Term::op_native("is_pos", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(5));
@@ -282,13 +267,13 @@ fn parity_refine() {
 
 #[test]
 fn parity_cobind() {
-    let term = Term::seq(
-        Term::Arr { value: json!(99) },
-        Term::Cobind {
-            grade: Box::new(Term::op_native("id", vec![])),
-            body: Box::new(Term::op_native("id", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(99)),
+        TermData::cobind(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(99));
@@ -296,13 +281,11 @@ fn parity_cobind() {
 
 #[test]
 fn parity_path() {
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::Arr { value: json!(1) }),
-            Box::new(Term::Arr { value: json!(2) }),
-        ),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(
@@ -318,11 +301,11 @@ fn parity_path() {
 
 #[test]
 fn parity_equiv_bool() {
-    let term = Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    };
+    let term = to_term(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(true));
@@ -330,20 +313,18 @@ fn parity_equiv_bool() {
 
 #[test]
 fn parity_equiv_path() {
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::Equiv {
-            a: Box::new(Term::Arr { value: json!(1) }),
-            b: Box::new(Term::op_native("id", vec![])),
-            path: Some(Box::new(Term::Path {
-                endpoints: (
-                    Box::new(Term::Arr { value: json!(1) }),
-                    Box::new(Term::Arr { value: json!(1) }),
-                ),
-                witness: None,
-            })),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::equiv(
+            TermData::arr(json!(1)),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            Some(TermData::path(
+                TermData::arr(json!(1)),
+                TermData::arr(json!(1)),
+                None,
+            )),
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(true));
@@ -351,9 +332,7 @@ fn parity_equiv_path() {
 
 #[test]
 fn parity_cell_id() {
-    let term = Term::CellId {
-        arrow: Box::new(Term::Arr { value: json!(7) }),
-    };
+    let term = to_term(TermData::cell_id(TermData::arr(json!(7))));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(
@@ -369,10 +348,10 @@ fn parity_cell_id() {
 
 #[test]
 fn parity_cell_comp_v() {
-    let term = Term::CellCompV {
-        first: Box::new(Term::Arr { value: json!(1) }),
-        second: Box::new(Term::Arr { value: json!(2) }),
-    };
+    let term = to_term(TermData::cell_comp_v(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
 }
@@ -380,26 +359,22 @@ fn parity_cell_comp_v() {
 #[test]
 fn parity_whisker_left() {
     use handl_language::Side;
-    let term = Term::Whisker {
-        side: Side::Left,
-        arrow: Box::new(Term::Arr { value: json!(3) }),
-        cell: Box::new(Term::CellId {
-            arrow: Box::new(Term::Arr { value: json!(4) }),
-        }),
-    };
+    let term = to_term(TermData::whisker(
+        &Side::Left,
+        TermData::arr(json!(3)),
+        TermData::cell_id(TermData::arr(json!(4))),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
 }
 
 #[test]
 fn parity_univalence() {
-    let term = Term::Univalence {
-        equiv: Box::new(Term::Equiv {
-            a: Box::new(Term::Arr { value: json!(1) }),
-            b: Box::new(Term::Arr { value: json!(1) }),
-            path: None,
-        }),
-    };
+    let term = to_term(TermData::univalence(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    )));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
 }
@@ -408,29 +383,29 @@ fn parity_univalence() {
 fn parity_glue_fibrant_jelim() {
     // `Glue`, `Fibrant`, and `JElim` all return the incoming/base value when
     // their path/family arguments do not provide a genuine path/cell.
-    let glue = Term::seq(
-        Term::Arr { value: json!(99) },
-        Term::Glue {
-            path: Box::new(Term::op_native("id", vec![])),
-            family: Box::new(Term::op_native("id", vec![])),
-        },
-    );
-    let fibrant = Term::seq(
-        Term::Arr { value: json!(99) },
-        Term::Fibrant {
-            base: Box::new(Term::op_native("id", vec![])),
-            family: Box::new(Term::op_native("id", vec![])),
-        },
-    );
+    let glue = to_term(TermData::seq(
+        TermData::arr(json!(99)),
+        TermData::glue(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+        ),
+    ));
+    let fibrant = to_term(TermData::seq(
+        TermData::arr(json!(99)),
+        TermData::fibrant(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let path_obj = json!({ "__tag__": "Path", "from": 1, "to": 1, "witness": null });
-    let jelim = Term::seq(
-        Term::Arr { value: path_obj },
-        Term::JElim {
-            path: Box::new(Term::op_native("id", vec![])),
-            motive: Box::new(Term::op_native("id", vec![])),
-            base: Box::new(Term::Arr { value: json!(99) }),
-        },
-    );
+    let jelim = to_term(TermData::seq(
+        TermData::arr(path_obj),
+        TermData::jelim(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::arr(json!(99)),
+        ),
+    ));
     for term in [glue, fibrant, jelim] {
         let (composite, rust) = eval(&term, Value::Null);
         assert_eq!(composite, rust);
@@ -441,14 +416,14 @@ fn parity_glue_fibrant_jelim() {
 #[test]
 fn parity_rewrite() {
     use handl_language::RewriteWitness;
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Rewrite {
-            source: Box::new(Term::Arr { value: json!(1) }),
-            target: Box::new(Term::op_native("id", vec![])),
-            witness: RewriteWitness::Named("x".to_string()),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::rewrite(
+            TermData::arr(json!(1)),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            &RewriteWitness::Named("x".to_string()),
+        ),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(5));
@@ -460,10 +435,12 @@ fn parity_rewrite() {
 
 #[test]
 fn parity_op_arithmetic() {
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "add",
-        vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
-    );
+        vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+        &ArrSource::Native,
+        None,
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(3));
@@ -471,10 +448,10 @@ fn parity_op_arithmetic() {
 
 #[test]
 fn parity_op_is_pos() {
-    let term = Term::seq(
-        Term::Arr { value: json!(3) },
-        Term::op_native("is_pos", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(3)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, json!(true));
@@ -482,39 +459,34 @@ fn parity_op_is_pos() {
 
 #[test]
 fn parity_handle_number_add() {
-    use handl_language::ArrSource;
-    let handler_impl = serde_json::to_value(&Term::Op {
-        name: "number_add".to_string(),
-        args: vec![],
-        source: ArrSource::Native,
-        lit: None,
-    })
+    let handler_impl = serde_json::to_value(&to_term(TermData::op(
+        "number_add",
+        vec![],
+        &ArrSource::Native,
+        None,
+    )))
     .unwrap();
     let handler = json!({
         "__tag__": "Handler",
         "grades": ["Addable"],
         "impls": { "add": handler_impl }
     });
-    let term = Term::seq(
-        Term::Arr {
-            value: number_value(0, &["Addable"]),
-        },
-        Term::handle(
-            Term::op_native(
+    let term = to_term(TermData::seq(
+        TermData::arr(number_value(0, &["Addable"])),
+        TermData::handle(
+            TermData::op(
                 "add",
                 vec![
-                    Term::Arr {
-                        value: number_value(1, &["Addable"]),
-                    },
-                    Term::Arr {
-                        value: number_value(2, &["Addable"]),
-                    },
+                    TermData::arr(number_value(1, &["Addable"])),
+                    TermData::arr(number_value(2, &["Addable"])),
                 ],
+                &ArrSource::Native,
+                None,
             ),
             "Number",
-            Term::Arr { value: handler },
+            TermData::arr(handler),
         ),
-    );
+    ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);
     assert_eq!(rust, number_value(3, &["Addable"]));

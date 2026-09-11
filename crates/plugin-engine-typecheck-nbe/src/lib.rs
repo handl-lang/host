@@ -98,6 +98,7 @@ use handl_plugin_engine_typecheck::{
     TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
 };
 use handl_plugin_lib_tag::TypeRegistry;
+use plugin_engine::TermData;
 
 mod predicate_eval;
 mod totality_check;
@@ -338,38 +339,82 @@ impl NbeTypecheckEngine {
         ctx: &mut TypecheckContext,
         incoming: Option<Value>,
     ) -> Result<Value, LangError> {
-        match scheme {
-            Term::Arr { value } => Ok(value.clone()),
-            Term::Op {
-                name: op,
-                args,
-                source,
-                lit,
-            } => match source {
-                ArrSource::Judgment => {
-                    self.eval_judgment(op, args, lit.as_ref(), lang, ast, node_ref, ctx, incoming)
+        // Thin `&Term` entry point (ADR-0103): convert once to the data
+        // representation and delegate to the `TermData`-dispatching inner
+        // function. Public callers and recursive `eval_judgment` sub-scheme
+        // evaluations go through here; the inner function recurses on
+        // `&TermData` directly.
+        let td = TermData::from_term(scheme);
+        self.eval_type_scheme_td(lang, ast, node_ref, &td, ctx, incoming)
+    }
+
+    /// `TermData`-dispatching counterpart of [`Self::eval_type_scheme`].
+    ///
+    /// Dispatches on [`TermData::tag`] instead of matching `Term` variants
+    /// (ADR-0103). Sub-terms are recovered with [`TermData::get_term`] and
+    /// recursed on directly, avoiding the `Term` enum entirely on the hot
+    /// path. The two arms that need a `&Term` for external helpers
+    /// (`Handle` → `infer_effect_row`/`eliminate_and_check`; `Op` →
+    /// `eval_judgment`'s `&[Term]` slice) convert back via
+    /// [`TermData::to_term`].
+    fn eval_type_scheme_td(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        node_ref: AstRef,
+        scheme: &TermData,
+        ctx: &mut TypecheckContext,
+        incoming: Option<Value>,
+    ) -> Result<Value, LangError> {
+        match scheme.tag() {
+            "Arr" => Ok(scheme.get("value").cloned().unwrap_or(Value::Null)),
+            "Op" => {
+                let op = scheme.get_str("name").unwrap_or("");
+                let source = scheme.arr_source().ok_or_else(|| {
+                    LangError::engine("typecheck: Op term missing 'source' field")
+                })?;
+                // `lit` is stored as `null` when absent; treat null as None
+                // (semantically equivalent for the judgment/native consumers,
+                // which both collapse Some(Null)/None to the same result).
+                let lit = scheme.get("lit").filter(|v| !v.is_null());
+                match source {
+                    ArrSource::Judgment => {
+                        // `eval_judgment` takes `&[Term]`; recover the args as
+                        // `Term`s once at this seam.
+                        let args = self.term_list_to_terms(scheme, "args")?;
+                        self.eval_judgment(op, &args, lit, lang, ast, node_ref, ctx, incoming)
+                    }
+                    ArrSource::Native | ArrSource::DynamicForeign => {
+                        self.eval_native_arr(op, lit, incoming)
+                    }
+                    ArrSource::Foreign(name) => {
+                        // ADR-0054 pure-eval path: type rules themselves must
+                        // never contain `Foreign` ops — they are effectful host
+                        // calls and have no place in a pure typecheck scheme.
+                        // This is enforced unconditionally (regardless of the
+                        // `pure` flag), since type rules are static data, not
+                        // user programs.
+                        Err(LangError::engine(format!(
+                            "typecheck: foreign op '{}' is not allowed in type rules (pure-eval path, ADR-0054)",
+                            name
+                        )))
+                    }
                 }
-                ArrSource::Native | ArrSource::DynamicForeign => {
-                    self.eval_native_arr(op, lit.as_ref(), incoming)
-                }
-                ArrSource::Foreign(name) => {
-                    // ADR-0054 pure-eval path: type rules themselves must
-                    // never contain `Foreign` ops — they are effectful host
-                    // calls and have no place in a pure typecheck scheme.
-                    // This is enforced unconditionally (regardless of the
-                    // `pure` flag), since type rules are static data, not
-                    // user programs.
-                    Err(LangError::engine(format!(
-                        "typecheck: foreign op '{}' is not allowed in type rules (pure-eval path, ADR-0054)",
-                        name
-                    )))
-                }
-            },
-            Term::Seq { fst, snd } => {
-                let fst_val = self.eval_type_scheme(lang, ast, node_ref, fst, ctx, incoming)?;
-                self.eval_type_scheme(lang, ast, node_ref, snd, ctx, Some(fst_val))
             }
-            Term::First { inner } => {
+            "Seq" => {
+                let fst = scheme.get_term("fst").ok_or_else(|| {
+                    LangError::engine("typecheck: Seq missing 'fst' field")
+                })?;
+                let snd = scheme.get_term("snd").ok_or_else(|| {
+                    LangError::engine("typecheck: Seq missing 'snd' field")
+                })?;
+                let fst_val = self.eval_type_scheme_td(lang, ast, node_ref, &fst, ctx, incoming)?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &snd, ctx, Some(fst_val))
+            }
+            "First" => {
+                let inner = scheme.get_term("inner").ok_or_else(|| {
+                    LangError::engine("typecheck: First missing 'inner' field")
+                })?;
                 let inc = incoming
                     .ok_or_else(|| LangError::engine("typecheck: First: missing incoming value"))?;
                 let pair = inc.as_array().ok_or_else(|| {
@@ -382,10 +427,16 @@ impl NbeTypecheckEngine {
                 }
                 let a = pair[0].clone();
                 let b = pair[1].clone();
-                let result = self.eval_type_scheme(lang, ast, node_ref, inner, ctx, Some(a))?;
+                let result = self.eval_type_scheme_td(lang, ast, node_ref, &inner, ctx, Some(a))?;
                 Ok(Value::Array(vec![result, b]))
             }
-            Term::Choice { l, r } => {
+            "Choice" => {
+                let l = scheme.get_term("l").ok_or_else(|| {
+                    LangError::engine("typecheck: Choice missing 'l' field")
+                })?;
+                let r = scheme.get_term("r").ok_or_else(|| {
+                    LangError::engine("typecheck: Choice missing 'r' field")
+                })?;
                 let inc = incoming.ok_or_else(|| {
                     LangError::engine("typecheck: Choice: missing incoming value")
                 })?;
@@ -402,8 +453,8 @@ impl NbeTypecheckEngine {
                     LangError::engine("typecheck: Choice: incoming missing value key")
                 })?;
                 match side {
-                    "left" => self.eval_type_scheme(lang, ast, node_ref, l, ctx, Some(value)),
-                    "right" => self.eval_type_scheme(lang, ast, node_ref, r, ctx, Some(value)),
+                    "left" => self.eval_type_scheme_td(lang, ast, node_ref, &l, ctx, Some(value)),
+                    "right" => self.eval_type_scheme_td(lang, ast, node_ref, &r, ctx, Some(value)),
                     other => Err(LangError::engine(format!(
                         "typecheck: Choice: unknown side '{}'",
                         other
@@ -413,50 +464,70 @@ impl NbeTypecheckEngine {
             // Minimal rule (ADR-0098): `iter` returns the state, which
             // has the same type as `initial`. The full rule (fuel : A ~>
             // Nat, predicate : A ~> Bool, step : A ~> A) is deferred.
-            Term::Iter { initial, .. } => {
-                self.eval_type_scheme(lang, ast, node_ref, initial, ctx, incoming)
+            "Iter" => {
+                let initial = scheme.get_term("initial").ok_or_else(|| {
+                    LangError::engine("typecheck: Iter missing 'initial' field")
+                })?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &initial, ctx, incoming)
             }
-            Term::Child { .. } => Err(LangError::NotImplemented),
-            Term::Loop { .. } => Err(LangError::NotImplemented),
-            Term::App { .. } => Err(LangError::NotImplemented),
-            Term::Rewrite { .. } => Err(LangError::NotImplemented),
-            Term::Path { .. } => Ok(incoming.unwrap_or(Value::Null)),
-            Term::Equiv { .. } => Ok(self
+            "Child" => Err(LangError::NotImplemented),
+            "Loop" => Err(LangError::NotImplemented),
+            "App" => Err(LangError::NotImplemented),
+            "Rewrite" => Err(LangError::NotImplemented),
+            "Path" => Ok(incoming.unwrap_or(Value::Null)),
+            "Equiv" => Ok(self
                 .registry
                 .construct("type.bool", &Value::Null)
                 .unwrap_or(Value::Null)),
             // ADR-0104b minimal core: conservative/identity-like type rules.
-            Term::Const { value } => Ok(value.clone()),
-            Term::Src { cell } => {
-                let cell_val = self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+            "Const" => Ok(scheme.get("value").cloned().unwrap_or(Value::Null)),
+            "Src" => {
+                let cell = scheme.get_term("cell").ok_or_else(|| {
+                    LangError::engine("typecheck: Src missing 'cell' field")
+                })?;
+                let cell_val = self.eval_type_scheme_td(lang, ast, node_ref, &cell, ctx, incoming)?;
                 Ok(cell_val.get("__src__").cloned().unwrap_or(Value::Null))
             }
-            Term::Tgt { cell } => {
-                let cell_val = self.eval_type_scheme(lang, ast, node_ref, cell, ctx, incoming)?;
+            "Tgt" => {
+                let cell = scheme.get_term("cell").ok_or_else(|| {
+                    LangError::engine("typecheck: Tgt missing 'cell' field")
+                })?;
+                let cell_val = self.eval_type_scheme_td(lang, ast, node_ref, &cell, ctx, incoming)?;
                 Ok(cell_val.get("__tgt__").cloned().unwrap_or(Value::Null))
             }
-            Term::RecordProj { record, field } => {
+            "RecordProj" => {
+                let record = scheme.get_term("record").ok_or_else(|| {
+                    LangError::engine("typecheck: RecordProj missing 'record' field")
+                })?;
+                let field = scheme.get_str("field").unwrap_or("");
                 let record_val =
-                    self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming)?;
+                    self.eval_type_scheme_td(lang, ast, node_ref, &record, ctx, incoming)?;
                 Ok(record_val.get(field).cloned().unwrap_or(Value::Null))
             }
-            Term::RecordWith {
-                record,
-                field,
-                value,
-            } => {
+            "RecordWith" => {
+                let record = scheme.get_term("record").ok_or_else(|| {
+                    LangError::engine("typecheck: RecordWith missing 'record' field")
+                })?;
+                let field = scheme.get_str("field").unwrap_or("").to_string();
+                let value = scheme.get_term("value").ok_or_else(|| {
+                    LangError::engine("typecheck: RecordWith missing 'value' field")
+                })?;
                 let record_val =
-                    self.eval_type_scheme(lang, ast, node_ref, record, ctx, incoming.clone())?;
-                let value_val = self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+                    self.eval_type_scheme_td(lang, ast, node_ref, &record, ctx, incoming.clone())?;
+                let value_val = self.eval_type_scheme_td(lang, ast, node_ref, &value, ctx, incoming)?;
                 let mut map = match record_val {
                     Value::Object(m) => m.clone(),
                     _ => serde_json::Map::new(),
                 };
-                map.insert(field.clone(), value_val);
+                map.insert(field, value_val);
                 Ok(Value::Object(map))
             }
-            Term::Tag { tag, value } => {
-                let val = self.eval_type_scheme(lang, ast, node_ref, value, ctx, incoming)?;
+            "Tag" => {
+                let tag = scheme.get_str("tag").unwrap_or("").to_string();
+                let value = scheme.get_term("value").ok_or_else(|| {
+                    LangError::engine("typecheck: Tag missing 'value' field")
+                })?;
+                let val = self.eval_type_scheme_td(lang, ast, node_ref, &value, ctx, incoming)?;
                 let mut map = match val {
                     Value::Object(m) => m.clone(),
                     _ => {
@@ -465,7 +536,7 @@ impl NbeTypecheckEngine {
                         m
                     }
                 };
-                map.insert("__tag__".to_string(), Value::String(tag.clone()));
+                map.insert("__tag__".to_string(), Value::String(tag));
                 Ok(Value::Object(map))
             }
             // `handle body with target = impl_` (ADR-0076): eliminate the
@@ -478,12 +549,25 @@ impl NbeTypecheckEngine {
             // the `effects` field on the resulting function type (if any). The
             // row records which capabilities the scheme manages (the `Handle`
             // targets). Structural inference always produces a closed row.
-            Term::Handle { .. } => {
-                let row = infer_effect_row(scheme);
-                let eliminated = handl_language::eliminate_and_check(scheme)
+            //
+            // This arm needs a `&Term` for the external `infer_effect_row` /
+            // `eliminate_and_check` helpers, so it converts back via
+            // [`TermData::to_term`] (the only `Term`-enum touch in the
+            // inner function).
+            "Handle" => {
+                let scheme_term = scheme.to_term().map_err(LangError::engine)?;
+                let row = infer_effect_row(&scheme_term);
+                let eliminated = handl_language::eliminate_and_check(&scheme_term)
                     .map_err(|e| LangError::engine(e.to_string()))?;
-                let result =
-                    self.eval_type_scheme(lang, ast, node_ref, &eliminated, ctx, incoming)?;
+                let eliminated_td = TermData::from_term(&eliminated);
+                let result = self.eval_type_scheme_td(
+                    lang,
+                    ast,
+                    node_ref,
+                    &eliminated_td,
+                    ctx,
+                    incoming,
+                )?;
                 // If the result is a type.function, attach the effects field.
                 if ctx.registry.as_type_tag(&result) == Some("type.function") {
                     let effects_val = self.effect_row_to_type_value(&row, ctx)?;
@@ -495,16 +579,28 @@ impl NbeTypecheckEngine {
                 }
                 Ok(result)
             }
-            Term::CellId { arrow } => {
-                self.eval_type_scheme(lang, ast, node_ref, arrow, ctx, incoming)
+            "CellId" => {
+                let arrow = scheme.get_term("arrow").ok_or_else(|| {
+                    LangError::engine("typecheck: CellId missing 'arrow' field")
+                })?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &arrow, ctx, incoming)
             }
-            Term::Refine { sort, predicate: _ } => {
-                self.eval_type_scheme(lang, ast, node_ref, sort, ctx, incoming)
+            "Refine" => {
+                let sort = scheme.get_term("sort").ok_or_else(|| {
+                    LangError::engine("typecheck: Refine missing 'sort' field")
+                })?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &sort, ctx, incoming)
             }
-            Term::Cobind { grade, body } => {
+            "Cobind" => {
+                let grade = scheme.get_term("grade").ok_or_else(|| {
+                    LangError::engine("typecheck: Cobind missing 'grade' field")
+                })?;
+                let body = scheme.get_term("body").ok_or_else(|| {
+                    LangError::engine("typecheck: Cobind missing 'body' field")
+                })?;
                 let grade_val =
-                    self.eval_type_scheme(lang, ast, node_ref, grade, ctx, incoming.clone())?;
-                let body_val = self.eval_type_scheme(lang, ast, node_ref, body, ctx, incoming)?;
+                    self.eval_type_scheme_td(lang, ast, node_ref, &grade, ctx, incoming.clone())?;
+                let body_val = self.eval_type_scheme_td(lang, ast, node_ref, &body, ctx, incoming)?;
                 let grade = self.grade_string(&grade_val);
                 let mut result = match body_val {
                     Value::Object(m) => m,
@@ -520,30 +616,48 @@ impl NbeTypecheckEngine {
                 );
                 Ok(Value::Object(result))
             }
-            Term::Univalence { equiv } => {
-                let _ = self.eval_type_scheme(lang, ast, node_ref, equiv, ctx, incoming)?;
+            "Univalence" => {
+                let equiv = scheme.get_term("equiv").ok_or_else(|| {
+                    LangError::engine("typecheck: Univalence missing 'equiv' field")
+                })?;
+                let _ = self.eval_type_scheme_td(lang, ast, node_ref, &equiv, ctx, incoming)?;
                 Ok(self
                     .registry
                     .construct("type.bool", &Value::Null)
                     .unwrap_or(Value::Null))
             }
-            Term::Glue { family, .. } => {
-                self.eval_type_scheme(lang, ast, node_ref, family, ctx, incoming)
+            "Glue" => {
+                let family = scheme.get_term("family").ok_or_else(|| {
+                    LangError::engine("typecheck: Glue missing 'family' field")
+                })?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &family, ctx, incoming)
             }
-            Term::Fibrant { base, .. } => {
-                self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)
+            "Fibrant" => {
+                let base = scheme.get_term("base").ok_or_else(|| {
+                    LangError::engine("typecheck: Fibrant missing 'base' field")
+                })?;
+                self.eval_type_scheme_td(lang, ast, node_ref, &base, ctx, incoming)
             }
-            Term::JElim { path, motive, base } => {
+            "JElim" => {
+                let path = scheme.get_term("path").ok_or_else(|| {
+                    LangError::engine("typecheck: JElim missing 'path' field")
+                })?;
+                let motive = scheme.get_term("motive").ok_or_else(|| {
+                    LangError::engine("typecheck: JElim missing 'motive' field")
+                })?;
+                let base = scheme.get_term("base").ok_or_else(|| {
+                    LangError::engine("typecheck: JElim missing 'base' field")
+                })?;
                 let path_val =
-                    self.eval_type_scheme(lang, ast, node_ref, path, ctx, incoming.clone())?;
-                let base_val = self.eval_type_scheme(lang, ast, node_ref, base, ctx, incoming)?;
+                    self.eval_type_scheme_td(lang, ast, node_ref, &path, ctx, incoming.clone())?;
+                let base_val = self.eval_type_scheme_td(lang, ast, node_ref, &base, ctx, incoming)?;
                 if let Some(tag) = path_val.get("__tag__").and_then(Value::as_str) {
                     if tag == "Path" || tag == "Rewrite" {
-                        return self.eval_type_scheme(
+                        return self.eval_type_scheme_td(
                             lang,
                             ast,
                             node_ref,
-                            motive,
+                            &motive,
                             ctx,
                             Some(base_val),
                         );
@@ -553,6 +667,18 @@ impl NbeTypecheckEngine {
             }
             _ => Ok(incoming.unwrap_or(Value::Null)),
         }
+    }
+
+    /// Recover a `TermData` list field as a `Vec<Term>` (ADR-0103 seam).
+    ///
+    /// Used at the `Op` → `eval_judgment` boundary, where the judgment
+    /// dispatcher still takes a `&[Term]` slice. Each element is converted
+    /// back via [`TermData::to_term`].
+    fn term_list_to_terms(&self, td: &TermData, field: &str) -> Result<Vec<Term>, LangError> {
+        td.get_term_list(field)
+            .iter()
+            .map(|t| t.to_term().map_err(LangError::engine))
+            .collect()
     }
 
     /// Extract a grade name from a value, falling back to its tag or "?".
@@ -5179,8 +5305,18 @@ impl plugin_engine::Model for TypeModel {
         incoming: Self::Value,
         ctx: &mut plugin_engine::ModelCtx,
     ) -> Result<Self::Value, plugin_engine::LangError> {
-        match term {
-            Term::Rewrite { target, .. } => self.run(target, incoming, ctx),
+        // Thin `&Term` entry point (ADR-0103): convert once to `TermData` and
+        // dispatch on the tag. Sub-terms that must recurse through the
+        // `Model::run(&Term)` trait boundary are converted back via
+        // [`TermData::to_term`]; the `Op` arm reuses the original `term`
+        // parameter for the `eval_type_scheme` fallback (no conversion).
+        let td = TermData::from_term(term);
+        match td.tag() {
+            "Rewrite" => {
+                let target = td.get_term("target").ok_or(plugin_engine::LangError::NotImplemented)?;
+                let target_term = target.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                self.run(&target_term, incoming, ctx)
+            }
             // `Child { role }` (ADR-0081): resolve the named child role to a
             // child position via the language view, project that child out of
             // the current node, then run the child's type-rule `synth`
@@ -5192,7 +5328,8 @@ impl plugin_engine::Model for TypeModel {
             // downcasts. Non-`handl_language` views return `NotImplemented`.
             // TODO: give `plugin_engine::LangError` a payload so real errors
             // can be propagated instead of collapsed to `NotImplemented`.
-            Term::Child { role } => {
+            "Child" => {
+                let role = td.get_str("role").unwrap_or("");
                 let ast = ctx
                     .ast
                     .as_any()
@@ -5235,33 +5372,40 @@ impl plugin_engine::Model for TypeModel {
                     )
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
-            Term::Path {
-                endpoints: (a, b), ..
-            } => {
-                let b_val = self.run(b, incoming.clone(), ctx)?;
+            "Path" => {
+                let a = td.get_term("from").ok_or(plugin_engine::LangError::NotImplemented)?;
+                let b = td.get_term("to").ok_or(plugin_engine::LangError::NotImplemented)?;
+                let b_term = b.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let b_val = self.run(&b_term, incoming.clone(), ctx)?;
                 if b_val.is_null() {
-                    self.run(a, incoming, ctx)
+                    let a_term = a.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                    self.run(&a_term, incoming, ctx)
                 } else {
                     Ok(b_val)
                 }
             }
-            Term::Equiv { .. } => Ok(self
+            "Equiv" => Ok(self
                 .0
                 .registry
                 .construct("type.bool", &Value::Null)
                 .unwrap_or(Value::Null)),
-            // `Term::Op`: grade-based dispatch — evaluate each arg with
+            // `Op`: grade-based dispatch — evaluate each arg with
             // `incoming`, then consult the handler stack / language-level
             // handler before falling back to the type-native dispatch.
-            Term::Op {
-                name, args, source, ..
-            } => {
+            "Op" => {
+                let name = td.get_str("name").unwrap_or("");
+                let source = td.arr_source().ok_or(plugin_engine::LangError::NotImplemented)?;
                 let op_name = match source {
-                    ArrSource::Native => name.clone(),
+                    ArrSource::Native => name.to_string(),
                     ArrSource::Foreign(n) => n.clone(),
-                    _ => name.clone(),
+                    _ => name.to_string(),
                 };
-                if let Some(v) = self.dispatch_type_op(&op_name, args, incoming.clone(), ctx)? {
+                let args: Vec<Term> = td
+                    .get_term_list("args")
+                    .iter()
+                    .map(|t| t.to_term().map_err(|_| plugin_engine::LangError::NotImplemented))
+                    .collect::<Result<_, _>>()?;
+                if let Some(v) = self.dispatch_type_op(&op_name, &args, incoming.clone(), ctx)? {
                     return Ok(v);
                 }
                 let mut ast = Ast::new();
@@ -5273,15 +5417,14 @@ impl plugin_engine::Model for TypeModel {
                     .eval_type_scheme(&lang, &ast, node_ref, term, &mut tctx, Some(incoming))
                     .map_err(|_| plugin_engine::LangError::NotImplemented)
             }
-            Term::Handle {
-                body,
-                target,
-                impl_,
-            } => {
-                let handler = self.run(impl_, incoming.clone(), ctx)?;
-                let _ = target; // retained for diagnostics
+            "Handle" => {
+                let body = td.get_term("body").ok_or(plugin_engine::LangError::NotImplemented)?;
+                let impl_ = td.get_term("impl_").ok_or(plugin_engine::LangError::NotImplemented)?;
+                let impl_term = impl_.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let body_term = body.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let handler = self.run(&impl_term, incoming.clone(), ctx)?;
                 ctx.push_handler(handler);
-                let result = self.run(body, incoming, ctx);
+                let result = self.run(&body_term, incoming, ctx);
                 ctx.pop_handler();
                 result
             }
@@ -5336,7 +5479,9 @@ impl plugin_engine::Model for TypeModel {
             }
             _ => (source.clone(), target.clone(), false),
         };
-        if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
+        if TermData::from_term(&source).is_tag("Rewrite")
+            || TermData::from_term(&target).is_tag("Rewrite")
+        {
             return Ok(plugin_engine::RewriteResult::Unsupported);
         }
         let a = self.run(&source, incoming.clone(), ctx)?;

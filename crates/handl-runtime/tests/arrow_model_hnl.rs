@@ -4,11 +4,12 @@
 use std::rc::Rc;
 
 use handl_kit_data_canonical::assemble;
-use handl_language::{Ast, AstNode, EvalSchemeDef, Term, Value};
+use handl_language::{Ast, AstNode, EvalSchemeDef, Value};
 use handl_plugin_lib_handl::{HandlModelEngine, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+use plugin_engine::TermData;
 
 const ARROW_MODEL_HNL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -24,9 +25,7 @@ fn handl_arrow_model_evaluates_arr_const() {
         .merge(EvalSchemeDef::new(
             "e.test",
             "test.root",
-            Term::Arr {
-                value: Value::from(5),
-            },
+            TermData::arr(Value::from(5)).to_term().expect("TermData -> Term"),
         ))
         .unwrap();
 

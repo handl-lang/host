@@ -12,9 +12,10 @@
 
 use handl_language::{
     AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, LiteralKind,
-    Source, Term, Token, Tokens,
+    Source, Token, Tokens,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+use plugin_engine::{ArrSource, TermData};
 use serde_json::{Value, json};
 use std::rc::Rc;
 
@@ -85,26 +86,54 @@ fn arith_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Term::arr_native(
+            TermData::op(
                 "add",
                 vec![
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(0u64)),
+                    ),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(1u64)),
+                    ),
                 ],
-            ),
+                &ArrSource::Native,
+                None,
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.mul",
             "binary.mul",
-            Term::arr_native(
+            TermData::op(
                 "mul",
                 vec![
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(0u64)),
+                    ),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(1u64)),
+                    ),
                 ],
-            ),
+                &ArrSource::Native,
+                None,
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
 

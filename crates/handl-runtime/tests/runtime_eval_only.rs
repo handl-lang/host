@@ -7,9 +7,10 @@
 //! `LangError::NotImplemented`, and `eval` works on the provided `Ast`.
 
 use handl_language::{
-    Ast, AstNode, EvalSchemeDef, LangError, Language, Source, Term, Tokens, Value,
+    Ast, AstNode, EvalSchemeDef, LangError, Language, Source, Tokens, Value,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+use plugin_engine::{ArrSource, TermData};
 use serde_json::json;
 use std::rc::Rc;
 
@@ -33,13 +34,27 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Term::arr_native(
+            TermData::op(
                 "add",
                 vec![
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(0u64)),
+                    ),
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(1u64)),
+                    ),
                 ],
-            ),
+                &ArrSource::Native,
+                None,
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
     // var → arr("proj_env", lit: "$payload") reads name from payload
@@ -47,7 +62,14 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.var",
             "var",
-            Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            TermData::op(
+                "proj_env",
+                vec![],
+                &ArrSource::Native,
+                Some(Value::String("$payload".into())),
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
     // let → value >>> arr("extend_env", lit: "$payload") >>> body
@@ -55,13 +77,30 @@ fn eval_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.let",
             "let",
-            Term::seq(
-                Term::seq(
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+            TermData::seq(
+                TermData::seq(
+                    TermData::op(
+                        "proj_child",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::from(0u64)),
+                    ),
+                    TermData::op(
+                        "extend_env",
+                        vec![],
+                        &ArrSource::Native,
+                        Some(Value::String("$payload".into())),
+                    ),
                 ),
-                Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-            ),
+                TermData::op(
+                    "proj_child",
+                    vec![],
+                    &ArrSource::Native,
+                    Some(Value::from(1u64)),
+                ),
+            )
+            .to_term()
+            .expect("TermData -> Term"),
         ))
         .unwrap();
     lang

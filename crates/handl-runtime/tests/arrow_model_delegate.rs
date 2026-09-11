@@ -19,10 +19,16 @@ use handl_plugin_lib_handl::{HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{AstNode, Model, ModelCtx};
+use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
+
+/// Convert a `TermData` back to `Term` for passing to `Model::run` (which
+/// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+fn to_term(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion failed")
+}
 
 /// Build a `HandlModule` for the arrow model (mirrors `composite_model_parity`).
 fn arrow_module() -> HandlModule {
@@ -75,13 +81,11 @@ fn run_model<M: Model<Value = Value>>(model: &M, term: &Term, incoming: Value) -
 /// `NotImplemented`), matching the direct `HandlModelAdapter` output.
 #[test]
 fn delegated_path_matches_adapter() {
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::Arr { value: json!(1) }),
-            Box::new(Term::Arr { value: json!(2) }),
-        ),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let adapter = run_model(&handl_adapter(), &term, Value::Null);
     assert_eq!(
@@ -95,13 +99,11 @@ fn delegated_path_matches_adapter() {
 /// Rust `ValueModel`, confirming the delegate is a faithful replacement.
 #[test]
 fn delegated_path_matches_rust_default() {
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::Arr { value: json!(1) }),
-            Box::new(Term::Arr { value: json!(2) }),
-        ),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let rust = run_model(&rust_model(), &term, Value::Null);
     assert_eq!(delegated, rust);
@@ -115,11 +117,11 @@ fn delegated_path_matches_rust_default() {
 /// the direct adapter.
 #[test]
 fn delegated_equiv_matches_adapter() {
-    let term = Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    };
+    let term = to_term(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let adapter = run_model(&handl_adapter(), &term, Value::Null);
     assert_eq!(delegated, json!(true));
@@ -129,11 +131,11 @@ fn delegated_equiv_matches_adapter() {
 /// The delegated `Equiv` result matches the default Rust `ValueModel`.
 #[test]
 fn delegated_equiv_matches_rust_default() {
-    let term = Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    };
+    let term = to_term(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let rust = run_model(&rust_model(), &term, Value::Null);
     assert_eq!(delegated, rust);
@@ -147,13 +149,13 @@ fn delegated_equiv_matches_rust_default() {
 /// matching the direct adapter.
 #[test]
 fn delegated_refine_matches_adapter() {
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Refine {
-            sort: Box::new(Term::op_native("id", vec![])),
-            predicate: Box::new(Term::op_native("is_pos", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let adapter = run_model(&handl_adapter(), &term, Value::Null);
     assert_eq!(delegated, json!(5));
@@ -163,13 +165,13 @@ fn delegated_refine_matches_adapter() {
 /// The delegated `Refine` result matches the default Rust `ValueModel`.
 #[test]
 fn delegated_refine_matches_rust_default() {
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Refine {
-            sort: Box::new(Term::op_native("id", vec![])),
-            predicate: Box::new(Term::op_native("is_pos", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let rust = run_model(&rust_model(), &term, Value::Null);
     assert_eq!(delegated, rust);
@@ -186,14 +188,14 @@ fn delegated_refine_matches_rust_default() {
 #[test]
 fn delegated_rewrite_matches_adapter() {
     use handl_language::RewriteWitness;
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Rewrite {
-            source: Box::new(Term::Arr { value: json!(1) }),
-            target: Box::new(Term::op_native("id", vec![])),
-            witness: RewriteWitness::Named("x".to_string()),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::rewrite(
+            TermData::arr(json!(1)),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            &RewriteWitness::Named("x".to_string()),
+        ),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let adapter = run_model(&handl_adapter(), &term, Value::Null);
     assert_eq!(delegated, json!(5));
@@ -204,14 +206,14 @@ fn delegated_rewrite_matches_adapter() {
 #[test]
 fn delegated_rewrite_matches_rust_default() {
     use handl_language::RewriteWitness;
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Rewrite {
-            source: Box::new(Term::Arr { value: json!(1) }),
-            target: Box::new(Term::op_native("id", vec![])),
-            witness: RewriteWitness::Named("x".to_string()),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::rewrite(
+            TermData::arr(json!(1)),
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            &RewriteWitness::Named("x".to_string()),
+        ),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     let rust = run_model(&rust_model(), &term, Value::Null);
     assert_eq!(delegated, rust);
@@ -226,10 +228,10 @@ fn delegated_rewrite_matches_rust_default() {
 /// when a delegate is configured. This guards the `is_hott_tag` boundary.
 #[test]
 fn delegated_model_still_handles_core_tags_in_rust() {
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let delegated = run_model(&delegated_model(), &term, Value::Null);
     assert_eq!(delegated, json!(2));
     assert_eq!(delegated, run_model(&rust_model(), &term, Value::Null));

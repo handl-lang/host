@@ -24,10 +24,16 @@ use handl_plugin_lib_handl::{HandlModel, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{AstNode, Model, ModelCtx};
+use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
+
+/// Convert a `TermData` back to `Term` for passing to `Model::run` (which
+/// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+fn to_term(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion failed")
+}
 
 /// Build the Handl arrow model from `arrow_model.hnl`.
 fn handl_model() -> HandlModel {
@@ -85,31 +91,36 @@ fn pair(a: Value, b: Value) -> Value {
 /// arrows. Both the exec model and the arrow model evaluate it to `120`.
 fn factorial_mul_chain() -> Term {
     // 5 * (4 * (3 * (2 * 1)))
-    Term::op_native(
+    to_term(TermData::op(
         "mul",
         vec![
-            Term::Arr { value: json!(5) },
-            Term::op_native(
+            TermData::arr(json!(5)),
+            TermData::op(
                 "mul",
                 vec![
-                    Term::Arr { value: json!(4) },
-                    Term::op_native(
+                    TermData::arr(json!(4)),
+                    TermData::op(
                         "mul",
                         vec![
-                            Term::Arr { value: json!(3) },
-                            Term::op_native(
+                            TermData::arr(json!(3)),
+                            TermData::op(
                                 "mul",
-                                vec![
-                                    Term::Arr { value: json!(2) },
-                                    Term::Arr { value: json!(1) },
-                                ],
+                                vec![TermData::arr(json!(2)), TermData::arr(json!(1))],
+                                &ArrSource::Native,
+                                None,
                             ),
                         ],
+                        &ArrSource::Native,
+                        None,
                     ),
                 ],
+                &ArrSource::Native,
+                None,
             ),
         ],
-    )
+        &ArrSource::Native,
+        None,
+    ))
 }
 
 /// Build an [`Term::Iter`] countdown term that complements the mul-chain
@@ -123,12 +134,12 @@ fn factorial_mul_chain() -> Term {
 /// The mul-chain above is the canonical `factorial(5) = 120` arrow; this
 /// variant confirms the exec and arrow models agree on `Iter` itself.
 fn factorial_iter() -> Term {
-    Term::Iter {
-        fuel: Box::new(Term::Arr { value: json!(10) }),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-        step: Box::new(Term::op_native("dec", vec![])),
-        initial: Box::new(Term::Arr { value: json!(5) }),
-    }
+    to_term(TermData::iter(
+        TermData::arr(json!(10)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        TermData::op("dec", vec![], &ArrSource::Native, None),
+        TermData::arr(json!(5)),
+    ))
 }
 
 /// `factorial(5) = 120` via a nested `mul` `Op` chain — exec model.
@@ -185,16 +196,20 @@ fn factorial_mul_chain_non_null_incoming() {
 /// A smaller factorial `factorial(3) = 6` confirms the chain scales.
 #[test]
 fn factorial_three_is_six() {
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "mul",
         vec![
-            Term::Arr { value: json!(3) },
-            Term::op_native(
+            TermData::arr(json!(3)),
+            TermData::op(
                 "mul",
-                vec![Term::Arr { value: json!(2) }, Term::Arr { value: json!(1) }],
+                vec![TermData::arr(json!(2)), TermData::arr(json!(1))],
+                &ArrSource::Native,
+                None,
             ),
         ],
-    );
+        &ArrSource::Native,
+        None,
+    ));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(6));
     assert_eq!(handl, json!(6));
@@ -204,7 +219,7 @@ fn factorial_three_is_six() {
 /// `factorial(1) = 1` (base case) — a single `Arr` constant.
 #[test]
 fn factorial_one_is_one() {
-    let term = Term::Arr { value: json!(1) };
+    let term = to_term(TermData::arr(json!(1)));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(1));
     assert_eq!(handl, json!(1));
@@ -214,7 +229,7 @@ fn factorial_one_is_one() {
 /// `factorial(0) = 1` (empty product) — a single `Arr` constant.
 #[test]
 fn factorial_zero_is_one() {
-    let term = Term::Arr { value: json!(1) };
+    let term = to_term(TermData::arr(json!(1)));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(1));
     assert_eq!(handl, json!(1));
@@ -226,8 +241,6 @@ fn factorial_zero_is_one() {
 /// will consume (ADR-0103 Phase 6).
 #[test]
 fn factorial_mul_chain_termdata_roundtrip() {
-    use plugin_engine::TermData;
-
     let term = factorial_mul_chain();
     let data = TermData::from_term(&term);
     assert_eq!(data.tag(), "Op");
@@ -242,12 +255,10 @@ fn factorial_mul_chain_termdata_roundtrip() {
 /// second. This exercises `First` (fan-out) parity with the factorial value.
 #[test]
 fn factorial_in_pair_first() {
-    let term = Term::seq(
-        Term::Arr {
-            value: pair(json!(120), json!(0)),
-        },
-        Term::first(Term::op_native("id", vec![])),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(pair(json!(120), json!(0))),
+        TermData::first(TermData::op("id", vec![], &ArrSource::Native, None)),
+    ));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, pair(json!(120), json!(0)));
     assert_eq!(handl, pair(json!(120), json!(0)));

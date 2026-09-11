@@ -22,10 +22,16 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use plugin_engine::{
-    AstNode, CompositeDataModel, CompositeModel, Model, ModelCtx, ModelData, TermData,
+    ArrSource, AstNode, CompositeDataModel, CompositeModel, Model, ModelCtx, ModelData, TermData,
     is_hott_tag,
 };
 use serde_json::json;
+
+/// Convert a `TermData` back to `Term` for passing to `Model::run` (which
+/// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+fn to_term(td: TermData) -> Term {
+    td.to_term().expect("TermData -> Term conversion failed")
+}
 
 const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
 
@@ -93,7 +99,7 @@ fn run_handl(term: &Term, incoming: Value) -> Value {
 #[test]
 fn handl_adapter_runs_arr_const() {
     let adapter = handl_adapter();
-    let term = Term::Arr { value: json!(5) };
+    let term = to_term(TermData::arr(json!(5)));
     let result = run_model(&adapter, &term, Value::Null);
     assert_eq!(result, json!(5));
 }
@@ -102,10 +108,10 @@ fn handl_adapter_runs_arr_const() {
 #[test]
 fn handl_adapter_runs_seq() {
     let adapter = handl_adapter();
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let result = run_model(&adapter, &term, Value::Null);
     assert_eq!(result, json!(2));
 }
@@ -114,10 +120,12 @@ fn handl_adapter_runs_seq() {
 #[test]
 fn handl_adapter_runs_op_add() {
     let adapter = handl_adapter();
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "add",
-        vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
-    );
+        vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+        &ArrSource::Native,
+        None,
+    ));
     let result = run_model(&adapter, &term, Value::Null);
     assert_eq!(result, json!(3));
 }
@@ -126,7 +134,7 @@ fn handl_adapter_runs_op_add() {
 #[test]
 fn handl_adapter_matches_handl_model() {
     let adapter = handl_adapter();
-    let term = Term::Arr { value: json!(42) };
+    let term = to_term(TermData::arr(json!(42)));
     let adapter_result = run_model(&adapter, &term, Value::Null);
     let handl_result = run_handl(&term, Value::Null);
     assert_eq!(adapter_result, handl_result);
@@ -140,37 +148,37 @@ fn handl_adapter_matches_handl_model() {
 /// `is_hott_tag` returns `true` for HoTT-specific tags.
 #[test]
 fn is_hott_tag_true_for_hott_tags() {
-    assert!(is_hott_tag(&Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: None,
-    }));
-    assert!(is_hott_tag(&Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    }));
-    assert!(is_hott_tag(&Term::CellId {
-        arrow: Box::new(Term::Arr { value: json!(1) }),
-    }));
-    assert!(is_hott_tag(&Term::Refine {
-        sort: Box::new(Term::op_native("id", vec![])),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-    }));
+    assert!(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        None,
+    )
+    .is_hott_tag());
+    assert!(TermData::equiv(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(1)),
+        None,
+    )
+    .is_hott_tag());
+    assert!(TermData::cell_id(TermData::arr(json!(1))).is_hott_tag());
+    assert!(TermData::refine(
+        TermData::op("id", vec![], &ArrSource::Native, None),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+    )
+    .is_hott_tag());
 }
 
 /// `is_hott_tag` returns `false` for core arrow-calculus tags.
 #[test]
 fn is_hott_tag_false_for_core_tags() {
-    assert!(!is_hott_tag(&Term::Arr { value: json!(5) }));
-    assert!(!is_hott_tag(&Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    )));
-    assert!(!is_hott_tag(&Term::op_native("add", vec![])));
-    assert!(!is_hott_tag(&Term::Tag {
-        tag: "ok".to_string(),
-        value: Box::new(Term::Arr { value: json!(1) }),
-    }));
+    assert!(!TermData::arr(json!(5)).is_hott_tag());
+    assert!(!TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    )
+    .is_hott_tag());
+    assert!(!TermData::op("add", vec![], &ArrSource::Native, None).is_hott_tag());
+    assert!(!TermData::tag_value("ok", TermData::arr(json!(1))).is_hott_tag());
 }
 
 /// The composite model delegates HoTT tags to the Handl adapter and
@@ -179,10 +187,11 @@ fn is_hott_tag_false_for_core_tags() {
 fn composite_delegates_hott_path() {
     let composite = composite_model();
     let rust = rust_model();
-    let term = Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let composite_result = run_model(&composite, &term, Value::Null);
     let rust_result = run_model(&rust, &term, Value::Null);
     assert_eq!(composite_result, rust_result);
@@ -196,10 +205,10 @@ fn composite_delegates_hott_path() {
 #[test]
 fn composite_uses_rust_for_core_tags() {
     let composite = composite_model();
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let result = run_model(&composite, &term, Value::Null);
     assert_eq!(result, json!(2));
 }
@@ -210,13 +219,13 @@ fn composite_uses_rust_for_core_tags() {
 fn composite_refine_matches_rust() {
     let composite = composite_model();
     let rust = rust_model();
-    let term = Term::seq(
-        Term::Arr { value: json!(5) },
-        Term::Refine {
-            sort: Box::new(Term::op_native("id", vec![])),
-            predicate: Box::new(Term::op_native("is_pos", vec![])),
-        },
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        ),
+    ));
     let composite_result = run_model(&composite, &term, Value::Null);
     let rust_result = run_model(&rust, &term, Value::Null);
     assert_eq!(composite_result, rust_result);
@@ -313,7 +322,7 @@ fn termdata_roundtrip_tag() {
 /// constant arrow.
 #[test]
 fn all_models_agree_arr_const() {
-    let term = Term::Arr { value: json!(5) };
+    let term = to_term(TermData::arr(json!(5)));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
     let composite = run_model(&composite_model(), &term, Value::Null);
@@ -327,10 +336,10 @@ fn all_models_agree_arr_const() {
 /// All three models agree on `Seq` + `inc`.
 #[test]
 fn all_models_agree_seq_inc() {
-    let term = Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    );
+    let term = to_term(TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    ));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
     let composite = run_model(&composite_model(), &term, Value::Null);
@@ -344,10 +353,12 @@ fn all_models_agree_seq_inc() {
 /// All three models agree on `add` over two constants.
 #[test]
 fn all_models_agree_op_add() {
-    let term = Term::op_native(
+    let term = to_term(TermData::op(
         "add",
-        vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
-    );
+        vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+        &ArrSource::Native,
+        None,
+    ));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
     let composite = run_model(&composite_model(), &term, Value::Null);
@@ -361,12 +372,12 @@ fn all_models_agree_op_add() {
 /// All three models agree on `Iter` (countdown).
 #[test]
 fn all_models_agree_iter() {
-    let term = Term::Iter {
-        fuel: Box::new(Term::Arr { value: json!(10) }),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-        step: Box::new(Term::op_native("dec", vec![])),
-        initial: Box::new(Term::Arr { value: json!(3) }),
-    };
+    let term = to_term(TermData::iter(
+        TermData::arr(json!(10)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        TermData::op("dec", vec![], &ArrSource::Native, None),
+        TermData::arr(json!(3)),
+    ));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
     let composite = run_model(&composite_model(), &term, Value::Null);
@@ -381,10 +392,11 @@ fn all_models_agree_iter() {
 /// the Handl adapter, which matches the Rust model).
 #[test]
 fn all_models_agree_path() {
-    let term = Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: Some(Box::new(Term::Arr { value: json!(3) })),
-    };
+    let term = to_term(TermData::path(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        Some(TermData::arr(json!(3))),
+    ));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
     let composite = run_model(&composite_model(), &term, Value::Null);
@@ -403,114 +415,63 @@ fn all_models_agree_path() {
 /// `TermData::is_hott_tag()` returns `true` for HoTT-specific tags.
 #[test]
 fn termdata_is_hott_tag_true_for_hott_tags() {
-    assert!(TermData::from_term(&Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: None,
-    })
+    assert!(TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None).is_hott_tag());
+    assert!(TermData::equiv(TermData::arr(json!(1)), TermData::arr(json!(1)), None).is_hott_tag());
+    assert!(TermData::cell_id(TermData::arr(json!(1))).is_hott_tag());
+    assert!(TermData::src(TermData::arr(json!(1))).is_hott_tag());
+    assert!(TermData::tgt(TermData::arr(json!(1))).is_hott_tag());
+    assert!(TermData::cell_comp_v(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
+    assert!(TermData::whisker(
+        &plugin_engine::Side::Left,
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+    )
     .is_hott_tag());
-    assert!(TermData::from_term(&Term::Equiv {
-        a: Box::new(Term::Arr { value: json!(1) }),
-        b: Box::new(Term::Arr { value: json!(1) }),
-        path: None,
-    })
+    assert!(TermData::univalence(TermData::arr(json!(1))).is_hott_tag());
+    assert!(TermData::glue(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
+    assert!(TermData::fibrant(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
+    assert!(TermData::jelim(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        TermData::arr(json!(3)),
+    )
     .is_hott_tag());
-    assert!(TermData::from_term(&Term::CellId {
-        arrow: Box::new(Term::Arr { value: json!(1) }),
-    })
+    assert!(TermData::refine(
+        TermData::op("id", vec![], &ArrSource::Native, None),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+    )
     .is_hott_tag());
-    assert!(TermData::from_term(&Term::Src {
-        cell: Box::new(Term::Arr { value: json!(1) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Tgt {
-        cell: Box::new(Term::Arr { value: json!(1) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::CellCompV {
-        first: Box::new(Term::Arr { value: json!(1) }),
-        second: Box::new(Term::Arr { value: json!(2) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Whisker {
-        side: plugin_engine::Side::Left,
-        arrow: Box::new(Term::Arr { value: json!(1) }),
-        cell: Box::new(Term::Arr { value: json!(2) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Univalence {
-        equiv: Box::new(Term::Arr { value: json!(1) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Glue {
-        family: Box::new(Term::Arr { value: json!(1) }),
-        path: Box::new(Term::Arr { value: json!(2) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Fibrant {
-        base: Box::new(Term::Arr { value: json!(1) }),
-        family: Box::new(Term::Arr { value: json!(2) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::JElim {
-        path: Box::new(Term::Arr { value: json!(1) }),
-        motive: Box::new(Term::Arr { value: json!(2) }),
-        base: Box::new(Term::Arr { value: json!(3) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Refine {
-        sort: Box::new(Term::op_native("id", vec![])),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Cobind {
-        grade: Box::new(Term::Arr { value: json!(1) }),
-        body: Box::new(Term::Arr { value: json!(2) }),
-    })
-    .is_hott_tag());
-    assert!(TermData::from_term(&Term::Rewrite {
-        source: Box::new(Term::Arr { value: json!(1) }),
-        target: Box::new(Term::Arr { value: json!(2) }),
-        witness: plugin_engine::RewriteWitness::Compute,
-    })
+    assert!(TermData::cobind(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
+    assert!(TermData::rewrite(
+        TermData::arr(json!(1)),
+        TermData::arr(json!(2)),
+        &plugin_engine::RewriteWitness::Compute,
+    )
     .is_hott_tag());
 }
 
 /// `TermData::is_hott_tag()` returns `false` for core arrow-calculus tags.
 #[test]
 fn termdata_is_hott_tag_false_for_core_tags() {
-    assert!(!TermData::from_term(&Term::Arr { value: json!(5) }).is_hott_tag());
-    assert!(!TermData::from_term(&Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    ))
+    assert!(!TermData::arr(json!(5)).is_hott_tag());
+    assert!(!TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    )
     .is_hott_tag());
-    assert!(!TermData::from_term(&Term::op_native("add", vec![])).is_hott_tag());
-    assert!(!TermData::from_term(&Term::Tag {
-        tag: "ok".to_string(),
-        value: Box::new(Term::Arr { value: json!(1) }),
-    })
-    .is_hott_tag());
-    assert!(!TermData::from_term(&Term::First {
-        inner: Box::new(Term::Arr { value: json!(1) }),
-    })
-    .is_hott_tag());
+    assert!(!TermData::op("add", vec![], &ArrSource::Native, None).is_hott_tag());
+    assert!(!TermData::tag_value("ok", TermData::arr(json!(1))).is_hott_tag());
+    assert!(!TermData::first(TermData::arr(json!(1))).is_hott_tag());
 }
 
 /// `TermData::tag()` extracts the `"__tag__"` field as a string and returns
 /// the empty string when the field is absent.
 #[test]
 fn termdata_tag_extracts_tag_string() {
-    assert_eq!(TermData::from_term(&Term::Arr { value: json!(5) }).tag(), "Arr");
+    assert_eq!(TermData::arr(json!(5)).tag(), "Arr");
+    assert_eq!(TermData::op("add", vec![], &ArrSource::Native, None).tag(), "Op");
     assert_eq!(
-        TermData::from_term(&Term::op_native("add", vec![])).tag(),
-        "Op"
-    );
-    assert_eq!(
-        TermData::from_term(&Term::Path {
-            endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-            witness: None,
-        })
-        .tag(),
+        TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None).tag(),
         "Path"
     );
     // A bare value (not a tagged record) yields the empty string.
@@ -582,33 +543,30 @@ fn composite_data_model_delegates_hott_tags() {
         CompositeDataModel::new(PrimaryData, DelegateData, TermData::is_hott_tag);
 
     // HoTT tag → delegate.
-    let hott = TermData::from_term(&Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: None,
-    });
+    let hott = TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None);
     let bundle = data_ctx();
     let ctx = bundle.ctx();
     let result = composite.run_data(&hott, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "delegate", "tag": "Path" }));
 
     // Core tag → primary.
-    let core = TermData::from_term(&Term::Arr { value: json!(5) });
+    let core = TermData::arr(json!(5));
     let result = composite.run_data(&core, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "primary", "tag": "Arr" }));
 
     // Another core tag → primary.
-    let core_seq = TermData::from_term(&Term::seq(
-        Term::Arr { value: json!(1) },
-        Term::op_native("inc", vec![]),
-    ));
+    let core_seq = TermData::seq(
+        TermData::arr(json!(1)),
+        TermData::op("inc", vec![], &ArrSource::Native, None),
+    );
     let result = composite.run_data(&core_seq, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "primary", "tag": "Seq" }));
 
     // Another HoTT tag → delegate.
-    let refine = TermData::from_term(&Term::Refine {
-        sort: Box::new(Term::op_native("id", vec![])),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-    });
+    let refine = TermData::refine(
+        TermData::op("id", vec![], &ArrSource::Native, None),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+    );
     let result = composite.run_data(&refine, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "delegate", "tag": "Refine" }));
 }
@@ -623,16 +581,13 @@ fn composite_data_model_custom_predicate() {
     let composite =
         CompositeDataModel::new(PrimaryData, DelegateData, delegates_arr);
 
-    let arr = TermData::from_term(&Term::Arr { value: json!(5) });
+    let arr = TermData::arr(json!(5));
     let bundle = data_ctx();
     let ctx = bundle.ctx();
     let result = composite.run_data(&arr, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "delegate", "tag": "Arr" }));
 
-    let path = TermData::from_term(&Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: None,
-    });
+    let path = TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None);
     let result = composite.run_data(&path, &Value::Null, &ctx).unwrap();
     assert_eq!(result, json!({ "model": "primary", "tag": "Path" }));
 }
