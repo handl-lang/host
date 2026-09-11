@@ -10,6 +10,8 @@ handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
+handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
 plugin-engine = { path = "../plugin-engine" }
 serde_json = { workspace = true }
 
@@ -20,6 +22,3 @@ handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-lib-char-native = { path = "../plugin-lib-char-native" }
-handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
-handl-plugin-lib-tag = { path = "../plugin-lib-tag" }

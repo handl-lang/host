@@ -29,6 +29,8 @@ use handl_plugin_engine_typecheck::{
     TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
 };
 use handl_plugin_lib_handl::HandlModule;
+use handl_plugin_lib_stdlib as stdlib;
+use handl_plugin_lib_tag::TagModule;
 
 /// The embedded typecheck model source (ADR-0103/0105).
 const TYPECHECK_MODEL_HNL: &str =
@@ -74,6 +76,14 @@ impl HandlTypecheckEngine {
             TYPECHECK_MODEL_HNL,
             TYPECHECK_MODEL_FUNCS,
         )
+        // Wire stdlib dependencies the model needs. The typecheck model
+        // walks the AST and manages the typing context using the runtime
+        // `array`, `hash_map`, and `typeof` modules, and constructs tagged
+        // type values via the host `tag` capability (see the model header).
+        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
+        .with_dependency(stdlib::module("typeof").expect("typeof module"))
+        .with_dependency(TagModule)
         .try_into_loaded()
         {
             Ok(module) => Some(Rc::new(module)),
