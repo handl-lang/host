@@ -27,6 +27,8 @@ use handl_platform::config::HostConfig;
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, TypeSignature};
 use handl_plugin_engine_exec::ImportResolver;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_typecheck::TypecheckEngine;
+use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
@@ -1370,6 +1372,12 @@ impl Kit {
                 handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
             ))),
         );
+        registry.register_typecheck(
+            "handl",
+            Box::new(HandlTypecheckEngine::new(Box::new(
+                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+            ))),
+        );
         let registry = Rc::new(registry);
 
         // Build the module-registry chain (outermost first):
@@ -1708,6 +1716,35 @@ impl Kit {
         Ok(result.typ)
     }
 
+    /// Typecheck `input` using the Handl-authored typecheck model
+    /// (`"handl"` engine), returning the synthesized type (ADR-0105).
+    ///
+    /// Like [`Kit::typecheck`], this lexes, parses, and typechecks the
+    /// input, but explicitly selects the `"handl"` typecheck engine
+    /// (the Handl-authored `.hnl` model adapter) instead of the
+    /// default `"nbe"` engine. If the model failed to load at
+    /// construction time, the adapter returns
+    /// [`LangError::NotImplemented`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on any stage failure, or
+    /// [`LangError::NotImplemented`] if the `"handl"` engine is not
+    /// registered or the model failed to load.
+    pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
+        let ast = self.parse(input)?;
+        // Construct a fresh HandlTypecheckEngine (the model is embedded at
+        // compile time, so this is cheap). The runtime's bound typecheck
+        // engine is "nbe" by config; this method explicitly uses the
+        // Handl-authored model instead.
+        let engine = HandlTypecheckEngine::new(Box::new(
+            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+        ));
+        let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
+        let result = engine.typecheck(self.runtime.lang(), &req)?;
+        Ok(result.typ)
+    }
+
     /// Convenience: `eval(parse(lex(input)?)?)` with a typecheck stage
     /// (Phase 10.1).
     ///
@@ -1820,6 +1857,12 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
     registry.register_typecheck(
         "nbe",
         Box::new(NbeTypecheckEngine::new(Box::new(
+            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+        ))),
+    );
+    registry.register_typecheck(
+        "handl",
+        Box::new(HandlTypecheckEngine::new(Box::new(
             handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
         ))),
     );

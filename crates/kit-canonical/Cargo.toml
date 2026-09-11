@@ -16,6 +16,7 @@ handl-plugin-engine-exec-bytecode = { workspace = true }
 handl-plugin-engine-exec-cranelift = { workspace = true }
 handl-plugin-engine-typecheck = { workspace = true }
 handl-plugin-engine-typecheck-nbe = { workspace = true }
+handl-plugin-engine-typecheck-handl = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-lib-lang-lex = { workspace = true }
 handl-plugin-lib-lang-parse = { workspace = true }
