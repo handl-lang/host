@@ -4,7 +4,8 @@
 # canonical tools see them, mirroring plugin-ext-refinement::detect_dialect.
 set -euo pipefail
 
-HNL=./target/debug/hnl
+cargo build --release -p handl-host-cli
+HNL=./target/release/hnl
 status=0
 
 # Equivalent of plugin-ext-refinement::detect_dialect for shell-side filtering.
@@ -98,12 +99,12 @@ fi
 echo
 echo "== hnl typecheck =="
 tc_status=0
-for f in "${canonical_files[@]}"; do
-  if ! "$HNL" typecheck "$f"; then
+if [ "${#canonical_files[@]}" -gt 0 ]; then
+  if ! "$HNL" typecheck "${canonical_files[@]}"; then
     tc_status=1
     status=1
   fi
-done
+fi
 if [ "$tc_status" -eq 0 ]; then
   echo "PASS: typecheck"
 else

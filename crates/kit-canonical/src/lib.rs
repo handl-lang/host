@@ -21,6 +21,8 @@ pub mod handl_module {
     pub use handl_plugin_lib_handl::*;
 }
 
+use std::fs;
+
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Language, Source, Span, Tokens, Value};
 use handl_platform::config::HostConfig;
@@ -412,6 +414,14 @@ fn build_stdlib_registry() -> ModuleRegistry {
 /// cannot depend on this crate (dep cycle), so the name set lives here
 /// where the wiring lives.
 pub fn canonical_wire_names() -> std::collections::HashSet<String> {
+    if let Some(path) = wire_prelude_cache_path() {
+        if let Ok(text) = fs::read_to_string(&path) {
+            if let Ok(arr) = serde_json::from_str::<Vec<String>>(&text) {
+                return arr.into_iter().collect();
+            }
+        }
+    }
+
     let registry = build_stdlib_registry();
     let mut names = std::collections::HashSet::new();
     // Module names (qualified `mod.fn` wires) and their local function
@@ -439,7 +449,27 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
     for extra in ["self", "hello", "greet", "field_access"] {
         names.insert(extra.to_string());
     }
+
+    if let Some(path) = wire_prelude_cache_path() {
+        if let Ok(parent) = path.parent().ok_or(()) {
+            let _ = fs::create_dir_all(parent);
+            let arr: Vec<&str> = names.iter().map(String::as_str).collect();
+            let _ = fs::write(&path, serde_json::to_string_pretty(&arr).unwrap_or_default());
+        }
+    }
+
     names
+}
+
+fn wire_prelude_cache_path() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("HNL_WIRE_PRELUDE_CACHE") {
+        return Some(PathBuf::from(path));
+    }
+    std::env::current_exe()
+        .ok()?
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|d| d.join("hnl-wire-prelude.json"))
 }
 
 // ---------------------------------------------------------------------------
