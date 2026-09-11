@@ -2,15 +2,22 @@
 
 ## Status
 
-Proposed.
+Accepted — Phases 1–2 complete, Phase 3 in progress, Phase 4 pending,
+Phase 5 in progress (this update). The Handl typecheck models are
+authored and parse; the `HandlTypecheckEngine` adapter compiles and
+passes 23 tests; the adapter is wired into `kit-canonical`. The models
+are skeletons — full typechecking is not yet working end-to-end. The
+Rust typecheck crates are NOT deleted (pending production-ready models).
 
 ## Context
 
 ADR-0103 established that the kernel is generic evaluator/VM infrastructure,
 not the calculus. Five Handl-authored models were created: `exec_model.hnl`,
 `arrow_model.hnl`, `type_model.hnl`, `meta_model.hnl`, and `value_model.hnl`.
-The `Term` → `TermData` migration is in progress (4,311 → 3,086 references
-migrated so far).
+The `Term` → `TermData` migration is in progress (4,311 → ~3,086 references
+migrated so far; 1,225 migrated across bytecode compiler, tree-walk engine,
+Cranelift compiler, refinement engine (partial), `handl-language` (partial),
+NBE typechecker (`lib.rs`), `handl-runtime` (tests), `plugin-engine`).
 
 Three Rust crates currently own typechecking:
 
@@ -20,10 +27,15 @@ Three Rust crates currently own typechecking:
 | `plugin-engine-typecheck-nbe` | ~5,500 + 11,364 tests | NBE engine: AST walk, context, unification, dependent types |
 | `plugin-lib-lang-typecheck` | ~229 | Host function `typecheck.typecheck(lang, ast)` |
 
-`type_model.hnl` (459 lines) covers HoTT tag-to-judgment interpretation but
-not the surrounding driver: AST traversal, typing context Γ, unification,
-metavariables, dependent-type closures, predicate evaluation, totality
-checking, or module-level scope checks.
+`type_model.hnl` (817 lines, extended from 459) covers HoTT
+tag-to-judgment interpretation — now with 26 new judgment ops
+(unification, metavariables, transport, and `Src`/`Tgt`/`CellId`/
+`CellCompV`/`Whisker`/`Univalence`/`Glue`/`Fibrant`/`JElim`/
+`RecordProj`/`RecordWith` tag arms) — but not the surrounding driver:
+AST traversal, typing context Γ, unification, metavariables,
+dependent-type closures, predicate evaluation, totality checking, or
+module-level scope checks. Those are the job of the three new models
+authored in Phase 1 (below).
 
 The bootstrap problem: `kit-canonical` hard-wires
 `NbeTypecheckEngine::new(...)` at compile time. But the tree-walk eval
@@ -140,9 +152,11 @@ abstraction) and `handl-language` (the `Language`/`Ast` types).
 
 ## Migration Plan
 
-### Phase 1: Author the Handl typecheck models
+### Phase 1: Author the Handl typecheck models — COMPLETE
 
-1. **`typecheck_model.hnl`** — the driver:
+All four models authored and parse successfully:
+
+1. **`typecheck_model.hnl`** (1,305 lines) — the driver:
    - `typecheck(lang, ast)` entry point
    - AST walk via `lang.types[node.kind]` → `TypeRuleDef` → `synth`/`check`
    - Γ context management (extend, lookup, bind, result)
@@ -152,46 +166,71 @@ abstraction) and `handl-language` (the `Language`/`Ast` types).
    - Unification + metavariable store
    - Delegates tag interpretation to `type_model.hnl`
 
-2. **`scope_model.hnl`** — module-level checks (replaces `bootstrap.rs`):
+2. **`scope_model.hnl`** (801 lines) — module-level checks (replaces
+   `bootstrap.rs`):
    - Collect bindings (imports, exports, `name = expr`)
    - Detect duplicates
    - Unbound-wire detection
    - Unused-import detection
    - `rec` region well-formedness
 
-3. **`totality_model.hnl`** — termination checking:
+3. **`totality_model.hnl`** (718 lines) — termination checking:
    - `check_totality(ast, expr_ref, lang)`
    - Decreasing argument/field detection
    - Measure-based termination
 
-4. Extend `type_model.hnl` if needed for judgment-level HoTT ops
-   not yet covered.
+4. **`type_model.hnl`** extended from 459 to 817 lines with 26 new
+   HoTT judgment ops (unification, metavariables, transport, and
+   `Src`/`Tgt`/`CellId`/`CellCompV`/`Whisker`/`Univalence`/`Glue`/
+   `Fibrant`/`JElim`/`RecordProj`/`RecordWith` tag arms).
 
-### Phase 2: Write the `HandlTypecheckEngine` adapter
+**Caveat:** the models parse and load, but they are skeletons — the
+judgment ops and AST-walk logic are structurally complete but not yet
+semantically validated against the Rust NBE engine. Full typechecking
+is not yet working end-to-end.
 
-1. Create `HandlTypecheckEngine` in a new thin crate or in
-   `plugin-engine`:
+### Phase 2: Write the `HandlTypecheckEngine` adapter — COMPLETE
+
+1. `HandlTypecheckEngine` created in a new thin crate
+   `plugin-engine-typecheck-handl`:
    - `new(eval_engine: Box<dyn EvalEngine>) -> Self`
    - Embeds model source via `include_str!`
-   - Loads models into `HandlModule` at construction
+   - Loads models into `HandlModule` at construction, wiring stdlib
+     `array`/`hash_map`/`typeof`/`tag` dependencies
    - `typecheck(&self, lang, req)` marshals `Language` + `Ast` to
      `Value`, calls model, unmarshals `TypecheckResult`
    - Implements `TypecheckEngine` trait
+   - Graceful degradation: if the model fails to load, returns
+     `LangError::NotImplemented` (the crate always compiles)
 
-2. Move `TypecheckEngine` trait + `TypecheckRequest`/`Result`/`Diagnostic`
-   to `plugin-engine` or `handl-runtime` (they're small data types).
+2. `TypecheckEngine` trait + `TypecheckRequest`/`Result`/`Diagnostic`
+   remain in `plugin-engine-typecheck` (not yet moved).
 
-### Phase 3: Wire and verify
+**Test status:** 23 tests pass (6 unit in `lib.rs` + 14 in
+`handl_typecheck_parity.rs` + 3 in `integration.rs`).
 
-1. Register `HandlTypecheckEngine` in `kit-canonical` under `"nbe"`.
-2. Route `hnl typecheck` through `Kit::typecheck` instead of
-   `check_module_with_prelude`.
-3. Port NBE tests as Handl-level parity tests.
-4. Run the dogfood gate (`hnl fmt --check && hnl lint && hnl typecheck
-   && hnl test`).
-5. Verify all 177 corpus files still pass.
+### Phase 3: Wire and verify — IN PROGRESS
 
-### Phase 4: Delete the Rust crates
+1. ✅ `HandlTypecheckEngine` registered in `kit-canonical` under the
+   `"nbe"` name (alongside the existing `NbeTypecheckEngine`).
+2. ⏳ `hnl typecheck` still routes through
+   `check_module_with_prelude` (not yet switched to `Kit::typecheck`).
+3. ⏳ NBE tests not yet ported as Handl-level parity tests.
+4. ⏳ Dogfood gate testing in progress — the adapter is wired but the
+   models return errors when called (graceful degradation); the gate
+   still passes because `hnl typecheck` uses the bootstrap path.
+5. ⏳ 177 corpus files not yet verified through the Handl models.
+
+**Stdlib wiring fix:** the adapter now wires `array`, `hash_map`,
+`typeof`, and `tag` modules as dependencies of the typecheck model
+(via `with_dependency` in `HandlTypecheckEngine::new`). Without this,
+the model failed to load because it calls `array.first`, `hash_map.get`,
+`typeof.type_of`, and `tag.tag` at runtime.
+
+### Phase 4: Delete the Rust crates — PENDING
+
+Cannot proceed until the Handl models are production-ready (full
+typechecking working end-to-end with parity against the NBE engine).
 
 1. Delete `crates/plugin-engine-typecheck-nbe/` (the NBE engine).
 2. Delete `crates/plugin-engine-typecheck/` (the bootstrap checker).
@@ -203,10 +242,57 @@ abstraction) and `handl-language` (the `Language`/`Ast` types).
 5. Update `Cargo.toml` workspace members.
 6. Update all downstream `Cargo.toml` dependencies.
 
-### Phase 5: Update ADR-0103
+### Phase 5: Update ADRs — IN PROGRESS (this update)
 
-Mark ADR-0103's typechecker migration as complete. Update reference
-counts. Update the ADR-0105 status to Accepted.
+ADR-0103 updated with the new models, adapter, Term:: reference counts,
+and ADR-0105 cross-reference. ADR-0105 status changed from Proposed to
+Accepted. ADR-0103's typechecker migration will be marked complete once
+Phase 4 (delete Rust crates) is done.
+
+## Current state
+
+### What works
+
+- All four models (`typecheck_model.hnl`, `scope_model.hnl`,
+  `totality_model.hnl`, extended `type_model.hnl`) parse and load via
+  the `HandlModule` loader.
+- `HandlTypecheckEngine` adapter compiles and implements the
+  `TypecheckEngine` trait.
+- 23 tests pass: model loading, type-model tag interpretation,
+  typecheck-driver smoke tests, totality-model smoke tests, and
+  integration tests (adapter construction + typecheck invocation).
+- The adapter is wired into `kit-canonical` (registered under `"nbe"`).
+- Stdlib dependencies (`array`, `hash_map`, `typeof`, `tag`) are wired
+  into the adapter so the model loads successfully.
+
+### What doesn't work yet
+
+- **Models are skeletons.** The judgment ops and AST-walk logic are
+  structurally authored but not semantically validated. Calling
+  `typecheck(lang, ast)` on a real program returns errors (graceful
+  degradation — the adapter returns `LangError::NotImplemented` or
+  the model returns diagnostics).
+- **Full typechecking is not working end-to-end.** No real program has
+  been successfully typechecked through the Handl models.
+- **`hnl typecheck` still uses the Rust bootstrap path**
+  (`check_module_with_prelude`), not the Handl models. The dogfood gate
+  is unaffected.
+- **stdlib `array.is_empty.hnl` has a parse error.** This does not
+  block the adapter (the model loads without it), but it is a known
+  gap to fix.
+- **NBE test suite not ported.** The 11,364 lines of NBE tests have
+  not been ported to Handl-level parity tests.
+- **Rust typecheck crates are NOT deleted.** They remain in the
+  workspace and are still the production typechecker.
+
+### Commit history (this session)
+
+- `152932ad` — feat: author Handl typecheck models and adapter for
+  ADR-0105 (Phase 1 + Phase 2: models + adapter crate).
+- `a2b5b11f` — feat: wire HandlTypecheckEngine into kit-canonical with
+  parity tests (Phase 3 start: wiring + 23 tests).
+- `d017b4b7` — feat: wire stdlib deps in adapter and extend
+  type_model.hnl with HoTT ops (stdlib fix + 26 new judgment ops).
 
 ## Open Questions
 

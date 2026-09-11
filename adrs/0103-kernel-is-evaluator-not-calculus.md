@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted — phases 1–9 authored; Phase 4/6 migration in progress.
+Accepted — phases 1–9 authored; Phase 4/6 migration in progress;
+ADR-0105 (typechecker in Handl) accepted and in progress.
 
 - Phase 1 (VM design): `vm_design.md` with target 19-instruction ISA.
 - Phase 2 (exec model): `exec_model.hnl` authored and loadable; structural
@@ -17,13 +18,23 @@ Accepted — phases 1–9 authored; Phase 4/6 migration in progress.
   `ModelDataAdapter` bridge. Tree-walk `ValueModel` has opt-in
   `with_arrow_model_delegate` that routes HoTT tags to `arrow_model.hnl`
   instead of Rust `NotImplemented` arms. Full enum removal pending.
-- Phase 5 (type model): `type_model.hnl` authored and loadable; 23 parity
-  tests pass against the Handl type model adapter.
+- Phase 5 (type model): `type_model.hnl` extended from 459 to 817 lines
+  with 26 new HoTT judgment ops (unification, metavariables, transport,
+  and `Src`/`Tgt`/`CellId`/`CellCompV`/`Whisker`/`Univalence`/`Glue`/
+  `Fibrant`/`JElim`/`RecordProj`/`RecordWith` tag arms). 23 parity tests
+  pass against the Handl type model adapter. Three new companion models
+  authored for ADR-0105: `typecheck_model.hnl` (1,305 lines, the driver),
+  `scope_model.hnl` (801 lines, module-level scope checks), and
+  `totality_model.hnl` (718 lines, termination checking). See ADR-0105.
 - Phase 6 (TermData foundation): `TermData` newtype over
   `serde_json::Value` with all 28 constructors, `from_term`/`to_term`,
   `as_value`/`into_value`, `tag`/`is_hott_tag`. `ModelData` trait and
-  `CompositeDataModel` provide a parallel data-driven path. Full migration
-  of all ~4,311 `Term::` references and enum removal remain as future work.
+  `CompositeDataModel` provide a parallel data-driven path. Migration
+  in progress: `Term::` references down from ~4,311 to ~3,086 (1,225
+  migrated). Migrated crates: bytecode compiler, tree-walk engine,
+  Cranelift compiler, refinement engine (partial), `handl-language`
+  (partial), NBE typechecker (`lib.rs`), `handl-runtime` (tests),
+  `plugin-engine`. Full enum removal remains as future work.
 - Phase 7 (meta model): `meta_model.hnl` authored; `load_model` tested
   via mock `fs`/`parse` FFI; all exports covered.
 - Phase 8 (parity tests): arrow, value, composite, type, exec, meta,
@@ -32,16 +43,23 @@ Accepted — phases 1–9 authored; Phase 4/6 migration in progress.
   suites. The bytecode engine has `Arith`/`Ffi` hardware-boundary
   instructions toward the target ISA.
 
-The full migration of all ~4,311 `Term::` references to `TermData` and
-the removal of the `Term` enum remain as future work. The NBE
-typechecker (`plugin-engine-typecheck-nbe`, 1,282 references) is the
-largest single consumer and will require its own migration pass.
+The migration of `Term::` references to `TermData` is in progress
+(~4,311 → ~3,086, 1,225 migrated). The NBE typechecker
+(`plugin-engine-typecheck-nbe`) has had its `lib.rs` migrated; the
+remaining ~1,282 references in its test suite and deeper modules will
+require their own pass. ADR-0105 tracks the plan to delete the Rust
+typecheck crates entirely and replace them with the Handl-authored
+models; a thin `HandlTypecheckEngine` adapter
+(`plugin-engine-typecheck-handl`) is wired into `kit-canonical` and
+passes 23 tests, but the models are not yet production-ready (see
+ADR-0105 for the known gaps).
 
 ## Implementation Summary
 
 ### Model files (Handl data, ADR-0103 vision)
 
-All five model files are authored in `project/design/adr0103/`:
+Eight model files are authored in `project/design/adr0103/` (five
+original + three new for ADR-0105):
 
 - `arrow_model.hnl` (393 lines) — Sanada's arrow calculus with algebraic
   effects and handlers, point-free and serializable. Drop-in replacement
@@ -52,9 +70,27 @@ All five model files are authored in `project/design/adr0103/`:
   (`number_add`, `record`, `field_access`, `tag_construct`, `arrow_field`,
   `array`) are tested; VM-primitive-dependent ops are defined but await
   runtime VM primitive wiring.
-- `type_model.hnl` (459 lines) — HoTT interpretation of arrow-calculus tags
-  as type/proof judgments. Types as spaces, values as points, equality as
-  paths, equivalence as bijection + paths, rewrites as 2-cells.
+- `type_model.hnl` (817 lines, extended from 459) — HoTT interpretation
+  of arrow-calculus tags as type/proof judgments. Types as spaces, values
+  as points, equality as paths, equivalence as bijection + paths, rewrites
+  as 2-cells. Extended with 26 new HoTT judgment ops: unification,
+  metavariables, transport, and `Src`/`Tgt`/`CellId`/`CellCompV`/
+  `Whisker`/`Univalence`/`Glue`/`Fibrant`/`JElim`/`RecordProj`/
+  `RecordWith` tag arms.
+- `typecheck_model.hnl` (1,305 lines, new — ADR-0105) — the typechecker
+  driver: AST walk, Γ context management, unification, dependent-type
+  closures (Pi/Sigma/Forall/Vau), and dispatch of tag interpretation to
+  `type_model.hnl`. Parses and loads via the adapter; full typechecking
+  not yet working end-to-end (skeleton).
+- `scope_model.hnl` (801 lines, new — ADR-0105) — module-level scope
+  checker: source splitting, binding collection (imports/exports/
+  `name = expr`/data constructors), duplicate detection, unbound-wire
+  detection, unused-import detection, `rec` region well-formedness.
+  Replaces `bootstrap.rs`. Parses and loads; not yet wired into the CLI.
+- `totality_model.hnl` (718 lines, new — ADR-0105) — termination
+  checking: structural-recursion analysis, decreasing-argument detection,
+  measure-based termination. Replaces `totality_check.rs` (407 lines).
+  Parses and loads; not yet wired into the CLI.
 - `meta_model.hnl` (283 lines) — models as data: `load_model`, `compose`,
   `run_model`, `validate_model`, `identity_model`, `pipeline`,
   `parallel`, `trace_model`. `load_model` tested via mock `fs`/`parse` FFI.
@@ -141,6 +177,23 @@ structures, bytecode examples.
   `as_value`/`into_value`, `is_hott_tag`. The target representation that
   will replace the `Term` enum.
 
+### Phase 6b: HandlTypecheckEngine adapter (ADR-0105)
+
+- `HandlTypecheckEngine` in
+  `crates/plugin-engine-typecheck-handl/src/lib.rs` — a thin Rust
+  adapter that implements the `TypecheckEngine` trait by loading and
+  calling the Handl-authored `typecheck_model.hnl`. It embeds the model
+  source via `include_str!`, loads it into a `HandlModule` at
+  construction (wiring stdlib `array`/`hash_map`/`typeof`/`tag`
+  dependencies), marshals `Language`/`Ast` to JSON `Value`s, invokes the
+  model's `typecheck(lang, ast)` function via the bound eval engine
+  (tree-walk by default), and unmarshals the `{ typ, diagnostics,
+  node_types }` result. If the model fails to load, the adapter degrades
+  gracefully to `LangError::NotImplemented`. Wired into `kit-canonical`
+  under the `"nbe"` name; 23 tests pass (6 unit + 14 parity + 3
+  integration). The models are skeletons — full typechecking is not yet
+  working end-to-end (see ADR-0105).
+
 ### Infrastructure fixes
 
 - `value_model.hnl` expanded from minimal prototype (stubs) to full
@@ -168,11 +221,15 @@ The migration seams are in place (`TermData`, `ModelData`,
 `ValueModel::with_arrow_model_delegate`, `Instr::Arith`/`Instr::Ffi`).
 The following work remains to complete the literal ADR end-state:
 
-1. **Migrate `Term::` references to `TermData`** (~4,311 references
-   across 13 crates). The largest consumer is
-   `plugin-engine-typecheck-nbe` (1,282 references), which will require
-   its own migration pass. Other major consumers: `plugin-ext-refinement`
-   (708), `handl-runtime` (723), `handl-language` (409),
+1. **Migrate `Term::` references to `TermData`** (~4,311 → ~3,086
+   references; 1,225 migrated so far across bytecode compiler, tree-walk
+   engine, Cranelift compiler, refinement engine (partial),
+   `handl-language` (partial), NBE typechecker (`lib.rs`), `handl-runtime`
+   (tests), `plugin-engine`). The largest remaining consumer is
+   `plugin-engine-typecheck-nbe` (~1,282 references in its test suite and
+   deeper modules), which will require its own migration pass. Other
+   major remaining consumers: `plugin-ext-refinement` (708),
+   `handl-runtime` (723), `handl-language` (409),
    `plugin-engine-exec-cranelift` (353), `plugin-engine` (289),
    `plugin-engine-exec-bytecode` (279), `plugin-engine-exec-tree-walk`
    (208).
@@ -183,9 +240,12 @@ The following work remains to complete the literal ADR end-state:
    the runtime so `exec_model.hnl`'s structural ops become executable.
 4. **Migrate remaining bytecode instructions** to the target 19-instruction
    ISA, replacing `NativeOp`/`ForeignOp` string dispatch.
-5. **Integrate type model into the typechecker** — build the
-   `HandlTypeModel` adapter into `plugin-engine-typecheck-nbe` as an
-   alternative to Rust `Term` dispatch for HoTT judgments.
+5. **Make the Handl typecheck models production-ready** (ADR-0105) — the
+   `typecheck_model.hnl`/`scope_model.hnl`/`totality_model.hnl` skeletons
+   parse and load, and the `HandlTypecheckEngine` adapter is wired into
+   `kit-canonical` with 23 passing tests, but full typechecking is not
+   yet working end-to-end. Once the models are production-ready, delete
+   the Rust typecheck crates per ADR-0105.
 6. **Wire arrow model delegation into production engines** — the
    `with_arrow_model_delegate` seam is opt-in and tested; making it the
    default requires performance validation.
@@ -816,12 +876,21 @@ loaded, validated, composed, and run inside the language.
 - `crates/plugin-engine-exec-bytecode/src/compile.rs` — thin dispatcher
 - `crates/plugin-engine-exec-cranelift/src/compile.rs` — thin dispatcher
 - `crates/plugin-engine-typecheck-nbe/src/lib.rs` — thin dispatcher
+- `crates/plugin-engine-typecheck-handl/src/lib.rs` —
+  `HandlTypecheckEngine` adapter (ADR-0105; new)
 
 ### Models (Handl-authored data)
 - `project/design/adr0103/arrow_model.hnl` — arrow calculus (new)
 - `project/design/adr0103/exec_model.hnl` — exec model (update)
-- `project/design/adr0103/type_model.hnl` — type model, HoTT (new)
+- `project/design/adr0103/type_model.hnl` — type model, HoTT (new,
+  extended to 817 lines with 26 new judgment ops)
 - `project/design/adr0103/meta_model.hnl` — meta-model (new)
+- `project/design/adr0103/typecheck_model.hnl` — typechecker driver
+  (new, ADR-0105)
+- `project/design/adr0103/scope_model.hnl` — module-level scope checker
+  (new, ADR-0105)
+- `project/design/adr0103/totality_model.hnl` — termination checker
+  (new, ADR-0105)
 
 ### Language analysis
 - `crates/handl-language/src/law_inference.rs` — update for JSON terms
