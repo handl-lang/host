@@ -8,7 +8,8 @@
 
 use std::collections::HashMap;
 
-use handl_language::Term;
+use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_all_arrows, load_arrow_file, resolve_apps};
 use crate::arrow_parser::{
@@ -23,6 +24,16 @@ use crate::types::Measure;
 /// now have `import`/`export` declarations (ADR-0077 Phase 6).
 fn parse_module_arrows(src: &str) -> Result<ParsedFile, String> {
     parse_arrow_module_no_rewrite(src).map(|m| m.arrows)
+}
+
+/// Convert `TermData` back to `Term` (bootstrap compatibility).
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` (no args, no literal).
+fn op(name: &str) -> TermData {
+    TermData::op(name, vec![], &ArrSource::Native, None)
 }
 
 // Embed the actual .hnl stdlib files for testing.
@@ -45,128 +56,84 @@ const REDUCE_RICH_HNL: &str = include_str!("../../../handl-packages/fn/reduce_ri
 // ============================================================================
 
 fn insert_graph() -> Term {
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("prim.compare", vec![])),
-            snd: Box::new(Term::Choice {
-                l: Box::new(Term::arr_native("cons", vec![])),
-                r: Box::new(Term::arr_native("cons", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("prim.compare"),
+        TermData::choice(op("cons"), op("cons")),
+    )))
 }
 
 fn sort_graph() -> Term {
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(insert_graph()),
-            snd: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        TermData::from_term(&insert_graph()),
+        TermData::first(op("id")),
+    )))
 }
 
 fn map_graph() -> Term {
-    Term::Loop {
-        body: Box::new(Term::First {
-            inner: Box::new(Term::arr_native("fn.apply", vec![])),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::first(op("fn.apply"))))
 }
 
 fn filter_graph() -> Term {
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("filter_step", vec![])),
-            snd: Box::new(Term::arr_native("id", vec![])),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("filter_step"),
+        op("id"),
+    )))
 }
 
 fn fold_graph() -> Term {
     // fold = loop(fold_step) — returns both channels (element stream + accumulator)
-    Term::Loop {
-        body: Box::new(Term::arr_native("fold_step", vec![])),
-    }
+    td(TermData::loop_feedback(op("fold_step")))
 }
 
 fn reduce_graph() -> Term {
     // reduce = loop(fold_step >>> first(id)) — projects to accumulator only
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("fold_step", vec![])),
-            snd: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("fold_step"),
+        TermData::first(op("id")),
+    )))
 }
 
 fn scan_graph() -> Term {
     // scan = loop(fold_step >>> first(list.cons))
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("fold_step", vec![])),
-            snd: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("list.cons", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("fold_step"),
+        TermData::first(op("list.cons")),
+    )))
 }
 
 fn take_graph() -> Term {
     // take = loop(list.head >>> (cons ||| id))
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("list.head", vec![])),
-            snd: Box::new(Term::Choice {
-                l: Box::new(Term::arr_native("cons", vec![])),
-                r: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("list.head"),
+        TermData::choice(op("cons"), op("id")),
+    )))
 }
 
 fn drop_graph() -> Term {
     // drop = loop(list.tail >>> first(id))
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("list.tail", vec![])),
-            snd: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        op("list.tail"),
+        TermData::first(op("id")),
+    )))
 }
 
 fn nested_map_graph() -> Term {
     // nested_map = loop(loop(first(fn.apply)))
     // The outer loop contains an inner loop that is a map.
-    Term::Loop {
-        body: Box::new(Term::Loop {
-            body: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("fn.apply", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::loop_feedback(
+        TermData::first(op("fn.apply")),
+    )))
 }
 
 fn zip_graph() -> Term {
     // zip = loop(first(list.head) >>> (first(list.tail) >>> list.cons))
-    Term::Loop {
-        body: Box::new(Term::Seq {
-            fst: Box::new(Term::First {
-                inner: Box::new(Term::arr_native("list.head", vec![])),
-            }),
-            snd: Box::new(Term::Seq {
-                fst: Box::new(Term::First {
-                    inner: Box::new(Term::arr_native("list.tail", vec![])),
-                }),
-                snd: Box::new(Term::arr_native("list.cons", vec![])),
-            }),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        TermData::first(op("list.head")),
+        TermData::seq(
+            TermData::first(op("list.tail")),
+            op("list.cons"),
+        ),
+    )))
 }
 
 // ============================================================================

@@ -121,9 +121,36 @@ impl HandlTypecheckEngine {
     /// `lang.types`, `lang.eval`, etc. via `hash_map.get_or`), so this uses
     /// `serde_json::to_value` directly rather than the tagged
     /// `__language__` wrapper.
+    ///
+    /// `FragmentSet<T>` fields (`types`, `eval`, `grammar`, `ast`, etc.)
+    /// serialize as `{by_key, id_index, override_chain}` objects, but the
+    /// model expects arrays of fragment values. This method post-processes
+    /// the serialized `Language` to extract `by_key` values as arrays for
+    /// each `FragmentSet` field.
     fn marshal_language(lang: &Language) -> Result<Value, LangError> {
-        serde_json::to_value(lang)
-            .map_err(|e| LangError::engine(format!("typecheck-handl: marshal lang: {e}")))
+        let mut val = serde_json::to_value(lang)
+            .map_err(|e| LangError::engine(format!("typecheck-handl: marshal lang: {e}")))?;
+        // Convert FragmentSet fields from {by_key, id_index, override_chain}
+        // objects to arrays of by_key values, which is what the model expects.
+        if let Some(obj) = val.as_object_mut() {
+            for field in [
+                "tokens", "grammar", "eval", "types", "ast", "transforms",
+                "caps", "options", "lexer_rules", "lints",
+            ] {
+                if let Some(fs) = obj.get_mut(field) {
+                    if let Some(fs_obj) = fs.as_object() {
+                        if fs_obj.contains_key("by_key") {
+                            if let Some(by_key) = fs_obj.get("by_key") {
+                                if let Some(by_key_obj) = by_key.as_object() {
+                                    *fs = Value::Array(by_key_obj.values().cloned().collect());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(val)
     }
 
     /// Marshal an [`Ast`] into a [`Value`] for the model.

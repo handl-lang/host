@@ -11,6 +11,7 @@
 //! - Termination analysis reports Constant (side-channel loops)
 
 use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::{ParsedFile, parse_arrow_file};
@@ -27,70 +28,44 @@ const PROTOCOL_HNL: &str = include_str!("../../../handl-packages/state/protocol.
 // Hand-built state machine graphs (matching the .hnl files)
 // ============================================================================
 
+/// Convert `TermData` back to `Term` (bootstrap compatibility).
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` (no args, no literal).
+fn op(name: &str) -> TermData {
+    TermData::op(name, vec![], &ArrSource::Native, None)
+}
+
 /// Build the counter state machine arrow graph:
 ///   loop(comp(choice(arr("state.inc"), arr("state.dec")), first(id)))
 fn counter_graph() -> Term {
-    use Term::*;
+    let handle_event = TermData::choice(op("state.inc"), op("state.dec"));
 
-    let handle_event = Choice {
-        l: Box::new(Term::arr_native("state.inc", vec![])),
-        r: Box::new(Term::arr_native("state.dec", vec![])),
-    };
+    let body = TermData::seq(handle_event, TermData::first(op("id")));
 
-    let body = Seq {
-        fst: Box::new(handle_event),
-        snd: Box::new(First {
-            inner: Box::new(Term::arr_native("id", vec![])),
-        }),
-    };
-
-    Loop {
-        body: Box::new(body),
-    }
+    td(TermData::loop_feedback(body))
 }
 
 /// Build the buffer state machine arrow graph:
 ///   loop(comp(choice(arr("state.push"), arr("state.pop")), first(id)))
 fn buffer_graph() -> Term {
-    use Term::*;
+    let handle_event = TermData::choice(op("state.push"), op("state.pop"));
 
-    let handle_event = Choice {
-        l: Box::new(Term::arr_native("state.push", vec![])),
-        r: Box::new(Term::arr_native("state.pop", vec![])),
-    };
+    let body = TermData::seq(handle_event, TermData::first(op("id")));
 
-    let body = Seq {
-        fst: Box::new(handle_event),
-        snd: Box::new(First {
-            inner: Box::new(Term::arr_native("id", vec![])),
-        }),
-    };
-
-    Loop {
-        body: Box::new(body),
-    }
+    td(TermData::loop_feedback(body))
 }
 
 /// Build the protocol state machine arrow graph:
 ///   loop(comp(choice(arr("state.idle_to_active"), arr("state.active_to_done")), first(id)))
 fn protocol_graph() -> Term {
-    use Term::*;
+    let handle_event = TermData::choice(op("state.idle_to_active"), op("state.active_to_done"));
 
-    let handle_event = Choice {
-        l: Box::new(Term::arr_native("state.idle_to_active", vec![])),
-        r: Box::new(Term::arr_native("state.active_to_done", vec![])),
-    };
+    let body = TermData::seq(handle_event, TermData::first(op("id")));
 
-    let body = Seq {
-        fst: Box::new(handle_event),
-        snd: Box::new(First {
-            inner: Box::new(Term::arr_native("id", vec![])),
-        }),
-    };
-
-    Loop {
-        body: Box::new(body),
-    }
+    td(TermData::loop_feedback(body))
 }
 
 // ============================================================================
@@ -651,7 +626,7 @@ fn test_infer_protocol_from_disk() {
 #[test]
 fn test_state_inc_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Term::arr_native("state.inc", vec![]);
+    let graph = td(op("state.inc"));
     let result = infer_refinement(&graph, &registry).expect("state.inc inference");
     assert_eq!(
         result.guarantee,
@@ -662,7 +637,7 @@ fn test_state_inc_direct_inference() {
 #[test]
 fn test_state_dec_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Term::arr_native("state.dec", vec![]);
+    let graph = td(op("state.dec"));
     let result = infer_refinement(&graph, &registry).expect("state.dec inference");
     assert_eq!(
         result.guarantee,
@@ -673,7 +648,7 @@ fn test_state_dec_direct_inference() {
 #[test]
 fn test_state_push_direct_inference() {
     let registry = ContractRegistry::minimal();
-    let graph = Term::arr_native("state.push", vec![]);
+    let graph = td(op("state.push"));
     let result = infer_refinement(&graph, &registry).expect("state.push inference");
     assert_eq!(
         result.guarantee,

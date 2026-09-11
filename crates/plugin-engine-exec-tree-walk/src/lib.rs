@@ -103,7 +103,7 @@ use std::rc::Rc;
 use rustc_hash::FxHashMap;
 
 use handl_language::{
-    ArrSource, Ast, AstNode, AstRef, LangError, Language, Side, Term, Value, tag_value,
+    ArrSource, Ast, AstNode, AstRef, LangError, Language, Term, Value, tag_value,
 };
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
@@ -5125,15 +5125,30 @@ impl Model for ValueModel {
             .cloned()
             .map(TaggedValue::from)
             .collect();
-        match term {
-            Term::Seq { fst, snd } => {
-                let fst_val = self.run(fst, incoming, ctx)?;
-                self.run(snd, fst_val, ctx)
+        // ADR-0103 Phase 6: dispatch on the `__tag__` field via TermData
+        // instead of matching the `Term` enum. The `&Term` entry point
+        // converts once to TermData and dispatches here.
+        let td = TermData::from_term(term);
+        match td.tag() {
+            "Seq" => {
+                let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
+                let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
+                let fst_term = fst.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let snd_term = snd.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let fst_val = self.run(&fst_term, incoming, ctx)?;
+                self.run(&snd_term, fst_val, ctx)
             }
-            Term::Rewrite { target, .. } => match self.run(target, incoming, ctx) {
-                Ok(v) => Ok(v),
-                Err(_) => Err(plugin_engine::LangError::NotImplemented),
-            },
+            "Rewrite" => {
+                let target = td
+                    .get_term("target")
+                    .expect("Rewrite term missing 'target' field");
+                let target_term =
+                    target.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                match self.run(&target_term, incoming, ctx) {
+                    Ok(v) => Ok(v),
+                    Err(_) => Err(plugin_engine::LangError::NotImplemented),
+                }
+            }
             // `Child { role }` (ADR-0081): resolve the named child role to a
             // child position via the language view, project that child out of
             // the current node, then run the child's own eval scheme.
@@ -5144,7 +5159,10 @@ impl Model for ValueModel {
             // downcasts. Non-`handl_language` views return `NotImplemented`.
             // TODO: give `plugin_engine::LangError` a payload so real errors
             // can be propagated instead of collapsed to `NotImplemented`.
-            Term::Child { role } => {
+            "Child" => {
+                let role = td
+                    .get_str("role")
+                    .expect("Child term missing 'role' field");
                 let ast = ctx
                     .ast
                     .as_any()
@@ -5200,19 +5218,22 @@ impl Model for ValueModel {
             // `handle body with target = impl_`: evaluate `impl_` to a
             // handler value, push it onto `ctx.handler_stack`, run `body`,
             // then pop. `target` is retained for diagnostics.
-            Term::Handle {
-                body,
-                target,
-                impl_,
-            } => {
-                let handler = self.run(impl_, incoming.clone(), ctx)?;
-                let _ = target; // retained for diagnostics
+            "Handle" => {
+                let body = td.get_term("body").expect("Handle term missing 'body' field");
+                let impl_ = td
+                    .get_term("impl_")
+                    .expect("Handle term missing 'impl_' field");
+                let body_term =
+                    body.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let impl_term =
+                    impl_.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let handler = self.run(&impl_term, incoming.clone(), ctx)?;
                 ctx.push_handler(handler.clone());
                 self.0
                     .handler_stack
                     .borrow_mut()
                     .push(TaggedValue::from(handler));
-                let result = self.run(body, incoming, ctx);
+                let result = self.run(&body_term, incoming, ctx);
                 ctx.pop_handler();
                 self.0.handler_stack.borrow_mut().pop();
                 result
@@ -5221,29 +5242,53 @@ impl Model for ValueModel {
             // `incoming`, then consult the handler stack (and the incoming
             // value's `impls`) for a handler providing the op before
             // falling back to the engine's native dispatch.
-            Term::Op {
-                name, args, source, ..
-            } => {
+            "Op" => {
+                let name = td
+                    .get_str("name")
+                    .expect("Op term missing 'name' field")
+                    .to_string();
+                let args_td = td.get_term_list("args");
+                let source = td
+                    .arr_source()
+                    .expect("Op term missing or malformed 'source' field");
                 let op_name = match source {
                     ArrSource::Native => name.clone(),
-                    ArrSource::Foreign(n) => n.clone(),
+                    ArrSource::Foreign(n) => n,
                     _ => name.clone(),
                 };
-                if let Some(v) = self.dispatch_op(&op_name, args, incoming.clone(), ctx)? {
+                // Convert args back to `Term` for `dispatch_op` (which
+                // takes `&[Term]`). This is the thin-wrapper round-trip.
+                let mut args = Vec::with_capacity(args_td.len());
+                for arg_td in &args_td {
+                    args.push(
+                        arg_td
+                            .to_term()
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?,
+                    );
+                }
+                if let Some(v) = self.dispatch_op(&op_name, &args, incoming.clone(), ctx)? {
                     return Ok(v);
                 }
                 self.eval_scheme_term(term, incoming)
             }
-            Term::Path {
-                endpoints: (a, b),
-                witness,
-            } => {
-                let a_val = self.run(a, incoming.clone(), ctx)?;
-                let b_val = self.run(b, incoming.clone(), ctx)?;
-                let w_val = if let Some(w) = witness {
-                    self.run(w, incoming, ctx)?
-                } else {
-                    Value::Null
+            "Path" => {
+                let a = td.get_term("from").expect("Path term missing 'from' field");
+                let b = td.get_term("to").expect("Path term missing 'to' field");
+                let a_term =
+                    a.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let b_term =
+                    b.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let a_val = self.run(&a_term, incoming.clone(), ctx)?;
+                let b_val = self.run(&b_term, incoming.clone(), ctx)?;
+                let w_val = match td.get("witness") {
+                    Some(v) if !v.is_null() => {
+                        let w_td = TermData(v.clone());
+                        let w_term = w_td
+                            .to_term()
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        self.run(&w_term, incoming, ctx)?
+                    }
+                    _ => Value::Null,
                 };
                 Ok(serde_json::json!({
                     "__tag__": "Path",
@@ -5252,18 +5297,29 @@ impl Model for ValueModel {
                     "witness": w_val
                 }))
             }
-            Term::Equiv { a, b, path } => {
-                let a_val = self.run(a, incoming.clone(), ctx)?;
-                let b_val = self.run(b, incoming.clone(), ctx)?;
+            "Equiv" => {
+                let a = td.get_term("a").expect("Equiv term missing 'a' field");
+                let b = td.get_term("b").expect("Equiv term missing 'b' field");
+                let a_term =
+                    a.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let b_term =
+                    b.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let a_val = self.run(&a_term, incoming.clone(), ctx)?;
+                let b_val = self.run(&b_term, incoming.clone(), ctx)?;
                 let mut eq = a_val == b_val;
-                if let Some(p) = path {
-                    let p_val = self.run(p, incoming, ctx)?;
-                    if let Value::Object(obj) = &p_val {
-                        if obj.get("__tag__").and_then(Value::as_str) == Some("Path") {
-                            let from = obj.get("from");
-                            let to = obj.get("to");
-                            if from == Some(&a_val) && to == Some(&b_val) {
-                                eq = true;
+                if let Some(p) = td.get_term("path") {
+                    if !p.as_value().is_null() {
+                        let p_term = p
+                            .to_term()
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        let p_val = self.run(&p_term, incoming, ctx)?;
+                        if let Value::Object(obj) = &p_val {
+                            if obj.get("__tag__").and_then(Value::as_str) == Some("Path") {
+                                let from = obj.get("from");
+                                let to = obj.get("to");
+                                if from == Some(&a_val) && to == Some(&b_val) {
+                                    eq = true;
+                                }
                             }
                         }
                     }
@@ -5313,7 +5369,9 @@ impl Model for ValueModel {
             plugin_engine::RewriteWitness::Compute => (source.clone(), target.clone(), true),
             _ => (source.clone(), target.clone(), false),
         };
-        if matches!(source, Term::Rewrite { .. }) || matches!(target, Term::Rewrite { .. }) {
+        if TermData::from_term(&source).is_tag("Rewrite")
+            || TermData::from_term(&target).is_tag("Rewrite")
+        {
             return Ok(RewriteResult::Unsupported);
         }
         let a = self.run(&source, incoming.clone(), ctx)?;
@@ -5979,7 +6037,7 @@ fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term};
+    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Side, Term};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;

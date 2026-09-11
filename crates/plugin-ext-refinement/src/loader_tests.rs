@@ -11,6 +11,7 @@
 //!   reported.
 
 use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
@@ -23,12 +24,9 @@ use crate::types::{BaseTy, Pred, RefTy};
 
 /// Convenience: native arr with no args.
 fn arr(op: &str) -> Term {
-    Term::Op {
-        name: op.to_string(),
-        args: vec![],
-        source: ArrSource::Native,
-        lit: None,
-    }
+    TermData::op(op, vec![], &ArrSource::Native, None)
+        .to_term()
+        .expect("TermData -> Term conversion")
 }
 
 /// The total number of axioms across the bundled `prim.hnl`, `list.hnl`,

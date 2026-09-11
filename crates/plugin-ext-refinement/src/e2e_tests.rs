@@ -6,7 +6,18 @@
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
-use handl_language::Term;
+use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
+
+/// Convert `TermData` back to `Term` (bootstrap compatibility).
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` (no args, no literal).
+fn op(name: &str) -> TermData {
+    TermData::op(name, vec![], &ArrSource::Native, None)
+}
 
 /// Build the `insert` arrow graph as a Term:
 ///   loop(comp(compare_step, choice(cons_before, cons_after)))
@@ -26,84 +37,53 @@ fn insert_graph() -> Term {
     // The inference engine reads the graph structure and infers Sorted
     // from the Choice WP branching through both arms.
 
-    use Term::*;
-
     // The loop body: compare elem with head, then choice
-    let compare_step = Term::arr_native("prim.compare", vec![]);
-    let cons_before = Term::arr_native("cons", vec![]); // cons elem before head
-    let cons_after = Term::arr_native("cons", vec![]); // cons head, recurse
+    let compare_step = op("prim.compare");
+    let cons_before = op("cons"); // cons elem before head
+    let cons_after = op("cons"); // cons head, recurse
 
-    let body = Seq {
-        fst: Box::new(compare_step),
-        snd: Box::new(Choice {
-            l: Box::new(cons_before),
-            r: Box::new(cons_after),
-        }),
-    };
-
-    Loop {
-        body: Box::new(body),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        compare_step,
+        TermData::choice(cons_before, cons_after),
+    )))
 }
 
 /// Build the `sort` arrow graph:
 ///   loop(comp(insert, first(id)))
 fn sort_graph() -> Term {
-    use Term::*;
+    let insert_step = TermData::from_term(&insert_graph());
+    let pass_through = TermData::first(op("id"));
 
-    let insert_step = insert_graph();
-    let pass_through = First {
-        inner: Box::new(Term::arr_native("id", vec![])),
-    };
-
-    let body = Seq {
-        fst: Box::new(insert_step),
-        snd: Box::new(pass_through),
-    };
-
-    Loop {
-        body: Box::new(body),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        insert_step,
+        pass_through,
+    )))
 }
 
 /// Build the `map` arrow graph:
 ///   loop(first(f))
 fn map_graph() -> Term {
-    use Term::*;
-
-    Loop {
-        body: Box::new(First {
-            inner: Box::new(Term::arr_native("fn.apply", vec![])),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::first(op("fn.apply"))))
 }
 
 /// Build the `filter` arrow graph:
 ///   loop(comp(filter_step, id))
 fn filter_graph() -> Term {
-    use Term::*;
+    let filter_step = op("filter_step");
+    let pass_through = op("id");
 
-    let filter_step = Term::arr_native("filter_step", vec![]);
-    let pass_through = Term::arr_native("id", vec![]);
-
-    Loop {
-        body: Box::new(Seq {
-            fst: Box::new(filter_step),
-            snd: Box::new(pass_through),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        filter_step,
+        pass_through,
+    )))
 }
 
 /// Build the `fold` arrow graph:
 ///   loop(fold_step) — returns both channels (element stream + accumulator)
 fn fold_graph() -> Term {
-    use Term::*;
+    let step = op("fold_step");
 
-    let step = Term::arr_native("fold_step", vec![]);
-
-    Loop {
-        body: Box::new(step),
-    }
+    td(TermData::loop_feedback(step))
 }
 
 #[cfg(test)]
@@ -290,7 +270,7 @@ mod tests {
         // Direct inference on the `cons` atom should produce a non-trivial
         // guarantee containing Sorted (the enriched conditional contract).
         let registry = ContractRegistry::minimal();
-        let graph = Term::arr_native("cons", vec![]);
+        let graph = td(op("cons"));
         let result = infer_refinement(&graph, &registry).expect("cons inference");
         // The guarantee is Sorted(output) && LengthPlusOne(output, tail).
         assert_ne!(
@@ -372,7 +352,7 @@ mod tests {
         // Direct inference on the `cons` atom should now include IsPerm in
         // its guarantee (alongside Sorted and LengthPlusOne).
         let registry = ContractRegistry::minimal();
-        let graph = Term::arr_native("cons", vec![]);
+        let graph = td(op("cons"));
         let result = infer_refinement(&graph, &registry).expect("cons inference");
         let pretty = result.guarantee.pretty();
         assert!(
@@ -418,17 +398,11 @@ mod tests {
         // The pattern recognizer should add IsPerm(input, output) to any
         // loop whose body contains cons (the list constructor). This test
         // verifies the recognizer fires for a simple cons-containing loop.
-        use Term::*;
-        let body = Seq {
-            fst: Box::new(Term::arr_native("list.tail", vec![])),
-            snd: Box::new(Choice {
-                l: Box::new(Term::arr_native("cons", vec![])),
-                r: Box::new(Term::arr_native("id", vec![])),
-            }),
-        };
-        let graph = Loop {
-            body: Box::new(body),
-        };
+        let body = TermData::seq(
+            op("list.tail"),
+            TermData::choice(op("cons"), op("id")),
+        );
+        let graph = td(TermData::loop_feedback(body));
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("loop inference");
         let pretty = result.guarantee.pretty();
@@ -446,110 +420,79 @@ mod tests {
 
     /// vec.push = arr("list.cons")
     fn vec_push_graph() -> Term {
-        Term::arr_native("list.cons", vec![])
+        td(op("list.cons"))
     }
 
     /// vec.pop = arr("list.head")
     fn vec_pop_graph() -> Term {
-        Term::arr_native("list.head", vec![])
+        td(op("list.head"))
     }
 
     /// vec.get = comp(arr("list.nth"), first(id))
     fn vec_get_graph() -> Term {
-        use Term::*;
-        Seq {
-            fst: Box::new(Term::arr_native("list.nth", vec![])),
-            snd: Box::new(First {
-                inner: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }
+        td(TermData::seq(
+            op("list.nth"),
+            TermData::first(op("id")),
+        ))
     }
 
     /// queue.enqueue = arr("list.append")
     fn queue_enqueue_graph() -> Term {
-        Term::arr_native("list.append", vec![])
+        td(op("list.append"))
     }
 
     /// queue.dequeue = arr("list.head")
     fn queue_dequeue_graph() -> Term {
-        Term::arr_native("list.head", vec![])
+        td(op("list.head"))
     }
 
     /// take = loop(comp(arr("list.head"), choice(arr("cons"), arr("id"))))
     fn take_graph() -> Term {
-        use Term::*;
-        Loop {
-            body: Box::new(Seq {
-                fst: Box::new(Term::arr_native("list.head", vec![])),
-                snd: Box::new(Choice {
-                    l: Box::new(Term::arr_native("cons", vec![])),
-                    r: Box::new(Term::arr_native("id", vec![])),
-                }),
-            }),
-        }
+        td(TermData::loop_feedback(TermData::seq(
+            op("list.head"),
+            TermData::choice(op("cons"), op("id")),
+        )))
     }
 
     /// drop = loop(comp(arr("list.tail"), first(id)))
     fn drop_graph() -> Term {
-        use Term::*;
-        Loop {
-            body: Box::new(Seq {
-                fst: Box::new(Term::arr_native("list.tail", vec![])),
-                snd: Box::new(First {
-                    inner: Box::new(Term::arr_native("id", vec![])),
-                }),
-            }),
-        }
+        td(TermData::loop_feedback(TermData::seq(
+            op("list.tail"),
+            TermData::first(op("id")),
+        )))
     }
 
     /// reduce = loop(comp(arr("fold_step"), first(id)))
     fn reduce_graph() -> Term {
-        use Term::*;
-        Loop {
-            body: Box::new(Seq {
-                fst: Box::new(Term::arr_native("fold_step", vec![])),
-                snd: Box::new(First {
-                    inner: Box::new(Term::arr_native("id", vec![])),
-                }),
-            }),
-        }
+        td(TermData::loop_feedback(TermData::seq(
+            op("fold_step"),
+            TermData::first(op("id")),
+        )))
     }
 
     /// scan = loop(comp(arr("fold_step"), first(arr("list.cons"))))
     fn scan_graph() -> Term {
-        use Term::*;
-        Loop {
-            body: Box::new(Seq {
-                fst: Box::new(Term::arr_native("fold_step", vec![])),
-                snd: Box::new(First {
-                    inner: Box::new(Term::arr_native("list.cons", vec![])),
-                }),
-            }),
-        }
+        td(TermData::loop_feedback(TermData::seq(
+            op("fold_step"),
+            TermData::first(op("list.cons")),
+        )))
     }
 
     /// zip = loop(comp(first(arr("list.head")),
     ///                  comp(first(arr("list.tail")), arr("list.cons"))))
     fn zip_graph() -> Term {
-        use Term::*;
-        Loop {
-            body: Box::new(Seq {
-                fst: Box::new(First {
-                    inner: Box::new(Term::arr_native("list.head", vec![])),
-                }),
-                snd: Box::new(Seq {
-                    fst: Box::new(First {
-                        inner: Box::new(Term::arr_native("list.tail", vec![])),
-                    }),
-                    snd: Box::new(Term::arr_native("list.cons", vec![])),
-                }),
-            }),
-        }
+        td(TermData::loop_feedback(TermData::seq(
+            TermData::first(op("list.head")),
+            TermData::seq(
+                TermData::first(op("list.tail")),
+                op("list.cons"),
+            ),
+        )))
     }
 
     /// reverse = arr("list.reverse") -- direct atom with non-trivial guarantee.
     fn reverse_graph() -> Term {
-        Term::arr_native("list.reverse", vec![])
+        td(op("list.reverse"))
     }
 
     #[test]

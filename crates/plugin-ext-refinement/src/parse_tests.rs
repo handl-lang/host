@@ -9,6 +9,7 @@
 //! - The Pratt parser can be loaded and inferred end-to-end from disk
 
 use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::{ParsedFile, parse_arrow_file};
@@ -23,6 +24,16 @@ const PRATT_HNL: &str = include_str!("../../../handl-packages/parse-pratt/pratt.
 // Hand-built Pratt parser graph (matching the .hnl file)
 // ============================================================================
 
+/// Convert `TermData` back to `Term` (bootstrap compatibility).
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` (no args, no literal).
+fn op(name: &str) -> TermData {
+    TermData::op(name, vec![], &ArrSource::Native, None)
+}
+
 /// Build the Pratt parser arrow graph as a Term:
 ///   loop(parse_atom >>> parse_ops)
 /// where:
@@ -36,38 +47,23 @@ const PRATT_HNL: &str = include_str!("../../../handl-packages/parse-pratt/pratt.
 ///   - LengthSubOne(output, input) -- tokens are consumed
 ///   - Nested(ListLength) -- termination via token list decrease
 fn pratt_graph() -> Term {
-    use Term::*;
-
     // apply_op = arr("parse.consume") >>> arr("parse.make_node")
-    let apply_op = Seq {
-        fst: Box::new(Term::arr_native("parse.consume", vec![])),
-        snd: Box::new(Term::arr_native("parse.make_node", vec![])),
-    };
+    let apply_op = TermData::seq(op("parse.consume"), op("parse.make_node"));
 
     // parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
-    let parse_ops = Loop {
-        body: Box::new(Seq {
-            fst: Box::new(Term::arr_native("parse.peek", vec![])),
-            snd: Box::new(Choice {
-                l: Box::new(apply_op),
-                r: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    };
+    let parse_ops = TermData::loop_feedback(TermData::seq(
+        op("parse.peek"),
+        TermData::choice(apply_op, op("id")),
+    ));
 
     // parse_atom = arr("parse.consume") >>> arr("parse.atom_value")
-    let parse_atom = Seq {
-        fst: Box::new(Term::arr_native("parse.consume", vec![])),
-        snd: Box::new(Term::arr_native("parse.atom_value", vec![])),
-    };
+    let parse_atom = TermData::seq(op("parse.consume"), op("parse.atom_value"));
 
     // pratt = loop(parse_atom >>> parse_ops)
-    Loop {
-        body: Box::new(Seq {
-            fst: Box::new(parse_atom),
-            snd: Box::new(parse_ops),
-        }),
-    }
+    td(TermData::loop_feedback(TermData::seq(
+        parse_atom,
+        parse_ops,
+    )))
 }
 
 // ============================================================================
@@ -363,22 +359,12 @@ fn test_parse_ops_inner_loop_inference() {
     // Test the inner loop in isolation:
     //   parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
     //   apply_op  = arr("parse.consume") >>> arr("parse.make_node")
-    use Term::*;
+    let apply_op = TermData::seq(op("parse.consume"), op("parse.make_node"));
 
-    let apply_op = Seq {
-        fst: Box::new(Term::arr_native("parse.consume", vec![])),
-        snd: Box::new(Term::arr_native("parse.make_node", vec![])),
-    };
-
-    let parse_ops = Loop {
-        body: Box::new(Seq {
-            fst: Box::new(Term::arr_native("parse.peek", vec![])),
-            snd: Box::new(Choice {
-                l: Box::new(apply_op),
-                r: Box::new(Term::arr_native("id", vec![])),
-            }),
-        }),
-    };
+    let parse_ops = td(TermData::loop_feedback(TermData::seq(
+        op("parse.peek"),
+        TermData::choice(apply_op, op("id")),
+    )));
 
     let registry = ContractRegistry::minimal();
     let result = infer_refinement(&parse_ops, &registry);
@@ -419,7 +405,7 @@ fn test_parse_ops_inner_loop_inference() {
 fn test_parse_consume_direct_inference() {
     // Direct inference on the parse.consume atom should produce LengthSubOne.
     let registry = ContractRegistry::minimal();
-    let graph = Term::arr_native("parse.consume", vec![]);
+    let graph = td(op("parse.consume"));
     let result = infer_refinement(&graph, &registry).expect("parse.consume inference");
 
     assert_eq!(

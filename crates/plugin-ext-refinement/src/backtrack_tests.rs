@@ -10,6 +10,7 @@
 //! - End-to-end load and infer from disk works
 
 use handl_language::{ArrSource, Term};
+use plugin_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::parse_arrow_file;
@@ -24,6 +25,16 @@ const BACKTRACK_HNL: &str = include_str!("../../../handl-packages/parse-backtrac
 // Hand-built backtracking parser graph (matching the .hnl file)
 // ============================================================================
 
+/// Convert `TermData` back to `Term` (bootstrap compatibility).
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` (no args, no literal).
+fn op(name: &str) -> TermData {
+    TermData::op(name, vec![], &ArrSource::Native, None)
+}
+
 /// Build the backtracking parser arrow graph as a Term:
 ///   backtrack = parse.try_atom >>> (parse.extract_success ||| (parse.extract_error >>> parse.try_op))
 ///
@@ -35,22 +46,13 @@ const BACKTRACK_HNL: &str = include_str!("../../../handl-packages/parse-backtrac
 /// The inference engine conjoins both Choice arms' guarantees.
 fn backtrack_graph() -> Term {
     // extract_error -> parse.try_op
-    let retry = Term::Seq {
-        fst: Box::new(Term::arr_native("parse.extract_error", vec![])),
-        snd: Box::new(Term::arr_native("parse.try_op", vec![])),
-    };
+    let retry = TermData::seq(op("parse.extract_error"), op("parse.try_op"));
 
     // extract_success ||| retry
-    let branch = Term::Choice {
-        l: Box::new(Term::arr_native("parse.extract_success", vec![])),
-        r: Box::new(retry),
-    };
+    let branch = TermData::choice(op("parse.extract_success"), retry);
 
     // parse.try_atom >>> branch
-    Term::Seq {
-        fst: Box::new(Term::arr_native("parse.try_atom", vec![])),
-        snd: Box::new(branch),
-    }
+    td(TermData::seq(op("parse.try_atom"), branch))
 }
 
 // ============================================================================
@@ -215,13 +217,10 @@ fn test_choice_conjoins_backtrack_arms() {
     let registry = ContractRegistry::minimal();
 
     // Just the choice part: extract_success ||| (extract_error >>> parse.try_op)
-    let choice_part = Term::Choice {
-        l: Box::new(Term::arr_native("parse.extract_success", vec![])),
-        r: Box::new(Term::Seq {
-            fst: Box::new(Term::arr_native("parse.extract_error", vec![])),
-            snd: Box::new(Term::arr_native("parse.try_op", vec![])),
-        }),
-    };
+    let choice_part = td(TermData::choice(
+        op("parse.extract_success"),
+        TermData::seq(op("parse.extract_error"), op("parse.try_op")),
+    ));
 
     let result = infer_refinement(&choice_part, &registry).unwrap();
     let pretty = result.guarantee.pretty();

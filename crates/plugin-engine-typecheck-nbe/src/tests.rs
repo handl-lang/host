@@ -5,7 +5,8 @@
 
 use super::*;
 use handl_language::fragments::{AstShapeDef, ChildRoleSpec, EvalSchemeDef, TypeRuleDef};
-use handl_language::{Ast, AstNode, Language, Term, Value};
+use handl_language::{ArrSource, Ast, AstNode, Language, Term, Value};
+use plugin_engine::TermData;
 use handl_platform::ModuleLookup;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
@@ -32,6 +33,51 @@ fn type_float() -> Value {
 /// The expected tagged type value for `type.string` in `handl.canonical`.
 fn type_string() -> Value {
     json!({"__tag__":"type.string","__registry__":"handl.canonical"})
+}
+
+// --- TermData-based helpers (ADR-0103 migration) ---------------------------
+// These mirror the `Term::arr_*` convenience constructors but build via
+// `TermData`, the data representation of `Term`. `td` converts a `TermData`
+// back to a `Term` at the typechecker API boundary (`TypeRuleDef::new`,
+// `.with_check`, `EvalSchemeDef::new`).
+
+/// Convert a `TermData` to a `Term` at the typechecker API boundary.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData → Term conversion")
+}
+
+/// Judgment op carrying a literal payload (mirrors `Term::arr_judgment_lit`).
+fn arr_judgment_lit(op: &str, args: Vec<TermData>, lit: impl Into<Value>) -> TermData {
+    TermData::op(op, args, &ArrSource::Judgment, Some(lit.into()))
+}
+
+/// Judgment op with no literal payload (mirrors `Term::arr_judgment`).
+fn arr_judgment(op: &str, args: Vec<TermData>) -> TermData {
+    TermData::op(op, args, &ArrSource::Judgment, None)
+}
+
+/// Native op carrying a literal payload (mirrors `Term::arr_native_lit`).
+fn arr_native_lit(op: &str, args: Vec<TermData>, lit: impl Into<Value>) -> TermData {
+    let lit = lit.into();
+    if op == "const" && args.is_empty() {
+        TermData::const_value(lit)
+    } else {
+        TermData::op(op, args, &ArrSource::Native, Some(lit))
+    }
+}
+
+/// Native op with no literal payload (mirrors `Term::arr_native`).
+fn arr_native(op: &str, args: Vec<TermData>) -> TermData {
+    if op == "const" && args.is_empty() {
+        TermData::const_value(Value::Null)
+    } else {
+        TermData::op(op, args, &ArrSource::Native, None)
+    }
+}
+
+/// Foreign (host) op (mirrors `Term::arr_foreign`).
+fn arr_foreign(name: &str, args: Vec<TermData>) -> TermData {
+    TermData::op(name, args, &ArrSource::Foreign(name.to_string()), None)
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +128,7 @@ fn typecheck_lit_synth_type_number() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -105,14 +151,14 @@ fn node_types_populated_after_typecheck() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     lang.types
         .merge(TypeRuleDef::new(
             "type.wrap",
             "wrap",
-            Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+            td(arr_judgment_lit("synth_child", vec![], Value::from(0u64))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -143,13 +189,13 @@ fn typecheck_var_lookup() {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::seq(
-                    Term::arr_judgment_lit("extend", vec![], Value::from("x")),
-                    Term::arr_judgment_lit("lookup", vec![], Value::from("x")),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                TermData::seq(
+                    arr_judgment_lit("extend", vec![], Value::from("x")),
+                    arr_judgment_lit("lookup", vec![], Value::from("x")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -172,7 +218,7 @@ fn typecheck_seq_threading() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // Rule for "wrap": synth = synth_child(0) >>> bind("t") >>> result("t")
@@ -180,13 +226,13 @@ fn typecheck_seq_threading() {
         .merge(TypeRuleDef::new(
             "type.wrap",
             "wrap",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("t")),
-                    Term::arr_judgment_lit("result", vec![], Value::from("t")),
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("t")),
+                    arr_judgment_lit("result", vec![], Value::from("t")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [lit(42), wrap{children:[0]}]  — root is wrap (last node)
@@ -212,13 +258,13 @@ fn typecheck_unify_success() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::seq(
-                    Term::arr_judgment_lit("unify", vec![], type_number()),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                TermData::seq(
+                    arr_judgment_lit("unify", vec![], type_number()),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -241,10 +287,10 @@ fn typecheck_unify_failure() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::arr_judgment_lit("unify", vec![], type_string()),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment_lit("unify", vec![], type_string()),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -283,13 +329,13 @@ fn typecheck_fresh_meta_and_solve() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("fresh_meta", vec![], Value::Null),
-                Term::seq(
-                    Term::arr_judgment_lit("unify", vec![], type_number()),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            td(TermData::seq(
+                arr_judgment_lit("fresh_meta", vec![], Value::Null),
+                TermData::seq(
+                    arr_judgment_lit("unify", vec![], type_number()),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -311,7 +357,7 @@ fn typecheck_box_clone() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -335,7 +381,7 @@ fn typecheck_with_modules() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -365,15 +411,15 @@ fn typecheck_construct_with_payload() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct",
-                vec![Term::arr_native_lit(
+                vec![arr_native_lit(
                     "const",
                     vec![],
                     json!({"param": type_number()}),
                 )],
                 Value::from("type.pi"),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -403,7 +449,7 @@ fn typecheck_check_node_fallback() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // wrap rule: check_child(0, construct(type.number))
@@ -413,19 +459,19 @@ fn typecheck_check_node_fallback() {
             TypeRuleDef::new(
                 "type.wrap",
                 "wrap",
-                // synth: just return type.number (not used in this test path,
+                td(// synth: just return type.number (not used in this test path,
                 // but required for the rule to be valid)
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment_lit("construct", vec![], Value::from("type.number"))),
             )
-            .with_check(Term::arr_judgment_lit(
+            .with_check(td(arr_judgment_lit(
                 "check_child",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.number"),
                 )],
                 Value::from(0u64),
-            )),
+            ))),
         )
         .unwrap();
     // AST: [lit(42), wrap{children:[0]}]
@@ -451,7 +497,7 @@ fn typecheck_with_registry_id() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -481,7 +527,7 @@ fn typecheck_node_payload() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment("node_payload", vec![]),
+            td(arr_judgment("node_payload", vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -504,13 +550,13 @@ fn typecheck_lookup_var_by_index() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::seq(
-                    Term::arr_judgment_lit("extend", vec![], Value::from("x")),
-                    Term::arr_judgment_lit("lookup_var", vec![], Value::from(0u64)),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                TermData::seq(
+                    arr_judgment_lit("extend", vec![], Value::from("x")),
+                    arr_judgment_lit("lookup_var", vec![], Value::from(0u64)),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -533,16 +579,16 @@ fn typecheck_unify_two_args() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -564,7 +610,7 @@ fn typecheck_unknown_judgment_op_errors() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment("bogus_op", vec![]),
+            td(arr_judgment("bogus_op", vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -590,7 +636,7 @@ fn typecheck_unsupported_native_op_errors() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_native("add", vec![]),
+            td(arr_native("add", vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -617,10 +663,10 @@ fn typecheck_const_and_id_native_ops() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::from(42)),
-                Term::arr_native("id", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::from(42)),
+                arr_native("id", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -645,17 +691,17 @@ fn typecheck_choice_combinator() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit(
+            td(TermData::seq(
+                arr_native_lit(
                     "const",
                     vec![],
                     json!({"__choice__": "left", "value": Value::Null}),
                 ),
-                Term::choice(
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                TermData::choice(
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -680,18 +726,18 @@ fn typecheck_first_combinator() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit(
+            td(TermData::seq(
+                arr_native_lit(
                     "const",
                     vec![],
                     Value::Array(vec![type_number(), type_string()]),
                 ),
-                Term::first(Term::arr_judgment_lit(
+                TermData::first(arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.bool"),
                 )),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -714,7 +760,7 @@ fn typecheck_loop_not_implemented() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::loop_feedback(Term::arr_judgment("id", vec![])),
+            td(TermData::loop_feedback(arr_judgment("id", vec![]))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -732,7 +778,7 @@ fn typecheck_app_not_implemented() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::app(Term::arr_judgment("id", vec![]), vec![]),
+            td(TermData::app(arr_judgment("id", vec![]), vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -761,16 +807,16 @@ fn typecheck_match_type_dispatches() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment(
                     "match_type",
                     vec![
-                        Term::arr_native("id", vec![]),
-                        Term::arr_native_lit("const", vec![], cases),
+                        arr_native("id", vec![]),
+                        arr_native_lit("const", vec![], cases),
                     ],
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -794,7 +840,7 @@ fn typecheck_eval_child_delegates_to_eval() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // wrap type rule: synth = eval_child(0) >>> construct(type.string)
@@ -804,10 +850,10 @@ fn typecheck_eval_child_delegates_to_eval() {
         .merge(TypeRuleDef::new(
             "type.wrap",
             "wrap",
-            Term::seq(
-                Term::arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [lit(42), wrap{children:[0]}]
@@ -867,7 +913,7 @@ fn foreign_op_in_type_rule_rejected() {
         .merge(TypeRuleDef::new(
             "type.io",
             "io",
-            Term::arr_foreign("fs.read", vec![]),
+            td(arr_foreign("fs.read", vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -896,7 +942,7 @@ fn native_op_in_type_rule_allowed() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_native_lit("const", vec![], Value::from(42)),
+            td(arr_native_lit("const", vec![], Value::from(42))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -919,7 +965,7 @@ fn eval_child_pure_succeeds() {
         .merge(EvalSchemeDef::new(
             "eval.lit",
             "lit",
-            Term::arr_native_lit("const", vec![], Value::from(42)),
+            td(arr_native_lit("const", vec![], Value::from(42))),
         ))
         .unwrap();
     // lit type rule: synth = construct(type.number)
@@ -927,7 +973,7 @@ fn eval_child_pure_succeeds() {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // wrap type rule: synth = eval_child(0) >>> construct(type.string)
@@ -935,10 +981,10 @@ fn eval_child_pure_succeeds() {
         .merge(TypeRuleDef::new(
             "type.wrap",
             "wrap",
-            Term::seq(
-                Term::arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [lit(42), wrap{children:[0]}]
@@ -963,7 +1009,7 @@ fn eval_child_with_foreign_rejected() {
         .merge(EvalSchemeDef::new(
             "eval.io",
             "io",
-            Term::arr_foreign("fs.read", vec![]),
+            td(arr_foreign("fs.read", vec![])),
         ))
         .unwrap();
     // wrapper type rule: synth = eval_child(0) >>> construct(type.string)
@@ -971,10 +1017,10 @@ fn eval_child_with_foreign_rejected() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [io, wrapper{children:[0]}]
@@ -1006,7 +1052,7 @@ fn pure_flag_disabled_allows_foreign() {
         .merge(EvalSchemeDef::new(
             "eval.io",
             "io",
-            Term::arr_foreign("fs.read", vec![]),
+            td(arr_foreign("fs.read", vec![])),
         ))
         .unwrap();
     // wrapper type rule: synth = eval_child(0) >>> construct(type.string)
@@ -1014,10 +1060,10 @@ fn pure_flag_disabled_allows_foreign() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("eval_child", vec![], Value::from(0u64)),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [io, wrapper{children:[0]}]
@@ -1075,10 +1121,10 @@ fn json_type_construct_number() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::from(42)),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::from(42)),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1100,10 +1146,10 @@ fn json_type_construct_string() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::from("hello")),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::from("hello")),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1125,10 +1171,10 @@ fn json_type_construct_bool() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::from(true)),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::from(true)),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1150,10 +1196,10 @@ fn json_type_construct_null() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::Null),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::Null),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1176,7 +1222,7 @@ fn payload_field_extracts_name() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
+            td(arr_judgment_lit("payload_field", vec![], Value::from("name"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1199,11 +1245,11 @@ fn field_builds_single_field_object() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "field",
-                vec![Term::arr_native_lit("const", vec![], Value::from(42))],
+                vec![arr_native_lit("const", vec![], Value::from(42))],
                 Value::from("param"),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1227,20 +1273,20 @@ fn extend_from_incoming() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], Value::from("x")),
-                Term::seq(
-                    Term::arr_judgment(
+            td(TermData::seq(
+                arr_native_lit("const", vec![], Value::from("x")),
+                TermData::seq(
+                    arr_judgment(
                         "extend",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct",
                             vec![],
                             Value::from("type.number"),
                         )],
                     ),
-                    Term::arr_judgment_lit("lookup", vec![], Value::from("x")),
+                    arr_judgment_lit("lookup", vec![], Value::from("x")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1263,10 +1309,10 @@ fn value_rule_dispatches_on_json_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
 
@@ -1298,10 +1344,10 @@ fn let_rule_extends_gamma_and_synths_body() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // var rule: node_payload >>> lookup (name from incoming)
@@ -1309,10 +1355,10 @@ fn let_rule_extends_gamma_and_synths_body() {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("lookup", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("lookup", vec![]),
+            )),
         ))
         .unwrap();
     // let rule: synth_child(0) >>> bind("vartype")
@@ -1322,26 +1368,26 @@ fn let_rule_extends_gamma_and_synths_body() {
         .merge(TypeRuleDef::new(
             "type.let",
             "let",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("vartype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
-                        Term::seq(
-                            Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("vartype")),
+                    TermData::seq(
+                        arr_judgment_lit("payload_field", vec![], Value::from("name")),
+                        TermData::seq(
+                            arr_judgment(
                                 "extend",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("vartype"),
                                 )],
                             ),
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 
@@ -1370,10 +1416,10 @@ fn function_rule_constructs_function_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // function rule: synth_child(0) >>> bind("paramtype")
@@ -1384,29 +1430,29 @@ fn function_rule_constructs_function_type() {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -1419,7 +1465,7 @@ fn function_rule_constructs_function_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 
@@ -1477,16 +1523,16 @@ fn unify_tagged_type_values_same_tag_same_fields() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_native_lit("const", vec![], fun_a),
-                        Term::arr_native_lit("const", vec![], fun_b),
+                        arr_native_lit("const", vec![], fun_a),
+                        arr_native_lit("const", vec![], fun_b),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1513,13 +1559,13 @@ fn unify_tagged_type_values_same_tag_different_fields() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_native_lit("const", vec![], fun_a),
-                    Term::arr_native_lit("const", vec![], fun_b),
+                    arr_native_lit("const", vec![], fun_a),
+                    arr_native_lit("const", vec![], fun_b),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1546,13 +1592,13 @@ fn unify_tagged_type_values_different_tags() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_native_lit("const", vec![], type_number()),
-                    Term::arr_native_lit("const", vec![], type_string()),
+                    arr_native_lit("const", vec![], type_number()),
+                    arr_native_lit("const", vec![], type_string()),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1584,16 +1630,16 @@ fn unify_recursive_nested_type_values() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_native_lit("const", vec![], outer_a),
-                        Term::arr_native_lit("const", vec![], outer_b),
+                        arr_native_lit("const", vec![], outer_a),
+                        arr_native_lit("const", vec![], outer_b),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1619,23 +1665,23 @@ fn type_field_extracts_from_type_value() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "type_field",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "construct",
                                 vec![],
                                 Value::from("type.number"),
                             )],
                             Value::from("param"),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "construct",
                                 vec![],
                                 Value::from("type.string"),
@@ -1646,7 +1692,7 @@ fn type_field_extracts_from_type_value() {
                     Value::from("type.function"),
                 )],
                 Value::from("param"),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -1669,10 +1715,10 @@ fn synth_last_child_synthesizes_last_child() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // block rule: synth_last_child
@@ -1680,7 +1726,7 @@ fn synth_last_child_synthesizes_last_child() {
         .merge(TypeRuleDef::new(
             "type.block",
             "block",
-            Term::arr_judgment("synth_last_child", vec![]),
+            td(arr_judgment("synth_last_child", vec![])),
         ))
         .unwrap();
     // AST: [value(1), value(2), value(42), block{children:[0,1,2]}]
@@ -1707,7 +1753,7 @@ fn synth_last_child_empty_block_returns_unit() {
         .merge(TypeRuleDef::new(
             "type.block",
             "block",
-            Term::arr_judgment("synth_last_child", vec![]),
+            td(arr_judgment("synth_last_child", vec![])),
         ))
         .unwrap();
     // AST: [block{children:[]}]
@@ -1731,10 +1777,10 @@ fn call_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // function rule: synth_child(0) >>> bind("paramtype")
@@ -1744,29 +1790,29 @@ fn call_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -1779,7 +1825,7 @@ fn call_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // call rule: synth_child(0) >>> bind("funtype")
@@ -1789,16 +1835,16 @@ fn call_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.call",
             "call",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -1807,9 +1853,9 @@ fn call_rule_returns_body_type() {
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -1818,7 +1864,7 @@ fn call_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), function{children:[0,1]},
@@ -1853,10 +1899,10 @@ fn check_rule_type_annot() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // type-annot rule: synth = synth_child(0), check = check_child(0)
@@ -1867,13 +1913,13 @@ fn check_rule_type_annot() {
             TypeRuleDef::new(
                 "type.type-annot",
                 "type-annot",
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                td(arr_judgment_lit("synth_child", vec![], Value::from(0u64))),
             )
-            .with_check(Term::arr_judgment_lit(
+            .with_check(td(arr_judgment_lit(
                 "check_child",
                 vec![],
                 Value::from(0u64),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: synth = check_child(0, [construct(type.number)])
@@ -1887,18 +1933,18 @@ fn check_rule_type_annot() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), type-annot{children:[0]}, wrapper{children:[1]}]
@@ -1930,9 +1976,9 @@ fn check_json_value_matches_number() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // wrapper rule: synth = check_child(0, [construct(type.number)])
@@ -1944,18 +1990,18 @@ fn check_json_value_matches_number() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), wrapper{children:[0]}]
@@ -1981,9 +2027,9 @@ fn check_json_value_mismatch() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.string
@@ -1991,18 +2037,18 @@ fn check_json_value_mismatch() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.string"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), wrapper{children:[0]}]
@@ -2032,9 +2078,9 @@ fn check_json_value_matches_string() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                td(arr_judgment_lit("construct", vec![], Value::from("type.string"))),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.string
@@ -2042,18 +2088,18 @@ fn check_json_value_matches_string() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.string"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     // AST: [value("hello"), wrapper{children:[0]}]
@@ -2081,12 +2127,12 @@ fn check_value_rule_uses_check_json_value() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.number >>> construct(type.string)
@@ -2094,18 +2140,18 @@ fn check_value_rule_uses_check_json_value() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), wrapper{children:[0]}]
@@ -2133,12 +2179,12 @@ fn check_block_rule_checks_last_child() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // block rule: synth = synth_last_child, check = check_last_child
@@ -2147,9 +2193,9 @@ fn check_block_rule_checks_last_child() {
             TypeRuleDef::new(
                 "type.block",
                 "block",
-                Term::arr_judgment("synth_last_child", vec![]),
+                td(arr_judgment("synth_last_child", vec![])),
             )
-            .with_check(Term::arr_judgment("check_last_child", vec![])),
+            .with_check(td(arr_judgment("check_last_child", vec![]))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.number >>> construct(type.string)
@@ -2157,18 +2203,18 @@ fn check_block_rule_checks_last_child() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value(42), block{children:[0,1]}, wrapper{children:[2]}]
@@ -2202,12 +2248,12 @@ fn check_if_rule_checks_both_branches() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // if rule: synth = (the canonical synth), check = directed check
@@ -2219,48 +2265,48 @@ fn check_if_rule_checks_both_branches() {
             TypeRuleDef::new(
                 "type.if",
                 "if",
-                // synth: synth_child(0) >>> bind("tcond")
+                td(// synth: synth_child(0) >>> bind("tcond")
                 //   >>> unify(result("tcond"), construct(type.bool))
                 //   >>> synth_child(1) >>> bind("tthen")
                 //   >>> unify(result("tthen"), synth_child(2))
                 //   >>> result("tthen")
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("tcond")),
-                        Term::seq(
-                            Term::arr_judgment(
+                TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("tcond")),
+                        TermData::seq(
+                            arr_judgment(
                                 "unify",
                                 vec![
-                                    Term::arr_judgment_lit("result", vec![], Value::from("tcond")),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit("result", vec![], Value::from("tcond")),
+                                    arr_judgment_lit(
                                         "construct",
                                         vec![],
                                         Value::from("type.bool"),
                                     ),
                                 ],
                             ),
-                            Term::seq(
-                                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                                Term::seq(
-                                    Term::arr_judgment_lit("bind", vec![], Value::from("tthen")),
-                                    Term::seq(
-                                        Term::arr_judgment(
+                            TermData::seq(
+                                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                                TermData::seq(
+                                    arr_judgment_lit("bind", vec![], Value::from("tthen")),
+                                    TermData::seq(
+                                        arr_judgment(
                                             "unify",
                                             vec![
-                                                Term::arr_judgment_lit(
+                                                arr_judgment_lit(
                                                     "result",
                                                     vec![],
                                                     Value::from("tthen"),
                                                 ),
-                                                Term::arr_judgment_lit(
+                                                arr_judgment_lit(
                                                     "synth_child",
                                                     vec![],
                                                     Value::from(2u64),
                                                 ),
                                             ],
                                         ),
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("tthen"),
@@ -2270,33 +2316,33 @@ fn check_if_rule_checks_both_branches() {
                             ),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct",
                             vec![],
                             Value::from("type.bool"),
                         )],
                         Value::from(0u64),
                     ),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -2305,7 +2351,7 @@ fn check_if_rule_checks_both_branches() {
                         ),
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.number >>> construct(type.string)
@@ -2313,18 +2359,18 @@ fn check_if_rule_checks_both_branches() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(true), value(42), value("hello"),
@@ -2406,7 +2452,7 @@ fn template_rule_returns_type_string() {
         .merge(TypeRuleDef::new(
             "type.template",
             "template",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.string"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2429,7 +2475,7 @@ fn assign_rule_returns_type_unit() {
         .merge(TypeRuleDef::new(
             "type.assign",
             "assign",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.unit")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.unit"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2452,7 +2498,7 @@ fn loop_rule_returns_type_unit() {
         .merge(TypeRuleDef::new(
             "type.loop",
             "loop",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.unit")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.unit"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2475,10 +2521,10 @@ fn pipe_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // function rule: synth_child(0) >>> bind("paramtype")
@@ -2488,29 +2534,29 @@ fn pipe_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -2523,7 +2569,7 @@ fn pipe_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // pipe rule: synth_child(1) >>> bind("funtype")
@@ -2534,16 +2580,16 @@ fn pipe_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.pipe",
             "pipe",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -2552,9 +2598,9 @@ fn pipe_rule_returns_body_type() {
                             )],
                             Value::from(0u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -2563,7 +2609,7 @@ fn pipe_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), function{children:[0,1]},
@@ -2606,10 +2652,10 @@ fn match_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // match rule: synth_match_arms
@@ -2617,7 +2663,7 @@ fn match_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.match",
             "match",
-            Term::arr_judgment("synth_match_arms", vec![]),
+            td(arr_judgment("synth_match_arms", vec![])),
         ))
         .unwrap();
     lang
@@ -2772,17 +2818,17 @@ fn record_field_type_extracts_field() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], record_ty),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_native_lit("const", vec![], record_ty),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("rt")),
+                    arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
+                        vec![arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("name"),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2808,17 +2854,17 @@ fn record_field_type_missing_field_errors() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], record_ty),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_native_lit("const", vec![], record_ty),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("rt")),
+                    arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
+                        vec![arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("email"),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2849,7 +2895,7 @@ fn field_access_rule_returns_field_type() {
         .merge(TypeRuleDef::new(
             "type.record",
             "record",
-            Term::arr_native_lit("const", vec![], record_ty),
+            td(arr_native_lit("const", vec![], record_ty)),
         ))
         .unwrap();
     // field-access rule: synth_child(0) >>> bind("record_type")
@@ -2858,15 +2904,15 @@ fn field_access_rule_returns_field_type() {
         .merge(TypeRuleDef::new(
             "type.field-access",
             "field-access",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("record_type")),
-                    Term::seq(
-                        Term::arr_judgment_lit("payload_field", vec![], Value::from("field")),
-                        Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("record_type")),
+                    TermData::seq(
+                        arr_judgment_lit("payload_field", vec![], Value::from("field")),
+                        arr_judgment(
                             "record_field_type",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("record_type"),
@@ -2874,7 +2920,7 @@ fn field_access_rule_returns_field_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [record, field-access{field: "name", children: [0]}]
@@ -2899,10 +2945,10 @@ fn array_element_type_extracts_element() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], type_array(type_number())),
-                Term::arr_judgment("array_element_type", vec![]),
-            ),
+            td(TermData::seq(
+                arr_native_lit("const", vec![], type_array(type_number())),
+                arr_judgment("array_element_type", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -2925,10 +2971,10 @@ fn array_rule_with_elements_carries_element_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // array rule: synth_first_child_or_unknown >>> bind("element_type")
@@ -2937,15 +2983,15 @@ fn array_rule_with_elements_carries_element_type() {
         .merge(TypeRuleDef::new(
             "type.array",
             "array",
-            Term::seq(
-                Term::arr_judgment("synth_first_child_or_unknown", vec![]),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("element_type")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment("synth_first_child_or_unknown", vec![]),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("element_type")),
+                    arr_judgment_lit(
                         "construct",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("element_type"),
@@ -2955,7 +3001,7 @@ fn array_rule_with_elements_carries_element_type() {
                         Value::from("type.array"),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value(2), array{children: [0, 1]}]
@@ -2981,10 +3027,10 @@ fn index_rule_returns_element_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // array rule: synth_first_child_or_unknown >>> bind("element_type")
@@ -2993,15 +3039,15 @@ fn index_rule_returns_element_type() {
         .merge(TypeRuleDef::new(
             "type.array",
             "array",
-            Term::seq(
-                Term::arr_judgment("synth_first_child_or_unknown", vec![]),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("element_type")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment("synth_first_child_or_unknown", vec![]),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("element_type")),
+                    arr_judgment_lit(
                         "construct",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("element_type"),
@@ -3011,7 +3057,7 @@ fn index_rule_returns_element_type() {
                         Value::from("type.array"),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // index rule: synth_child(0) >>> array_element_type
@@ -3019,10 +3065,10 @@ fn index_rule_returns_element_type() {
         .merge(TypeRuleDef::new(
             "type.index",
             "index",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::arr_judgment("array_element_type", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                arr_judgment("array_element_type", vec![]),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value(2), array{children: [0, 1]},
@@ -3056,12 +3102,12 @@ fn merge_value_rule(lang: &mut Language) {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
 }
@@ -3074,46 +3120,46 @@ fn merge_wrapper_rule(lang: &mut Language, expected_tag: &str) {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from(expected_tag),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
 }
 
 /// Build the canonical `binary.add` synth scheme (both children type.number,
 /// result type.number). Shared by all binary arithmetic ops in these tests.
-fn binary_arith_synth() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-        Term::seq(
-            Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-            Term::seq(
-                Term::arr_judgment(
+fn binary_arith_synth() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        TermData::seq(
+            arr_judgment_lit("bind", vec![], Value::from("a")),
+            TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_judgment_lit("result", vec![], Value::from("a")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 ),
-                Term::seq(
-                    Term::arr_judgment(
+                TermData::seq(
+                    arr_judgment(
                         "unify",
                         vec![
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                     ),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ),
             ),
         ),
@@ -3122,30 +3168,30 @@ fn binary_arith_synth() -> Term {
 
 /// Build the directed check scheme for binary arithmetic ops: verify the
 /// expected type is type.number, then check both operands against type.number.
-fn binary_arith_check() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-        Term::seq(
-            Term::arr_judgment(
+fn binary_arith_check() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("bind", vec![], Value::from("expected")),
+        TermData::seq(
+            arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_judgment_lit("result", vec![], Value::from("expected")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("result", vec![], Value::from("expected")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ],
             ),
-            Term::seq(
-                Term::arr_judgment_lit(
+            TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
@@ -3159,20 +3205,20 @@ fn binary_arith_check() -> Term {
 
 /// Build the canonical `binary.eq` synth scheme (unify both operand types,
 /// result type.bool). Shared by all binary comparison ops in these tests.
-fn binary_compare_synth() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-        Term::seq(
-            Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-            Term::seq(
-                Term::arr_judgment(
+fn binary_compare_synth() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        TermData::seq(
+            arr_judgment_lit("bind", vec![], Value::from("a")),
+            TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        arr_judgment_lit("result", vec![], Value::from("a")),
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                arr_judgment_lit("construct", vec![], Value::from("type.bool")),
             ),
         ),
     )
@@ -3181,24 +3227,24 @@ fn binary_compare_synth() -> Term {
 /// Build the directed check scheme for binary comparison ops: verify the
 /// expected type is type.bool, then synth child 0, bind its type, and check
 /// child 1 against the same type.
-fn binary_compare_check() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-        Term::seq(
-            Term::arr_judgment(
+fn binary_compare_check() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("bind", vec![], Value::from("expected")),
+        TermData::seq(
+            arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_judgment_lit("result", vec![], Value::from("expected")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                    arr_judgment_lit("result", vec![], Value::from("expected")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                 ],
             ),
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("operand_type")),
-                    Term::arr_judgment_lit(
+            TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("operand_type")),
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "result",
                             vec![],
                             Value::from("operand_type"),
@@ -3213,28 +3259,28 @@ fn binary_compare_check() -> Term {
 
 /// Build the canonical `binary.and` synth scheme (both children type.bool,
 /// result type.bool). Shared by all binary logic ops in these tests.
-fn binary_logic_synth() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-        Term::seq(
-            Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-            Term::seq(
-                Term::arr_judgment(
+fn binary_logic_synth() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        TermData::seq(
+            arr_judgment_lit("bind", vec![], Value::from("a")),
+            TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                        arr_judgment_lit("result", vec![], Value::from("a")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                     ],
                 ),
-                Term::seq(
-                    Term::arr_judgment(
+                TermData::seq(
+                    arr_judgment(
                         "unify",
                         vec![
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                         ],
                     ),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                 ),
             ),
         ),
@@ -3243,30 +3289,30 @@ fn binary_logic_synth() -> Term {
 
 /// Build the directed check scheme for binary logic ops: verify the expected
 /// type is type.bool, then check both operands against type.bool.
-fn binary_logic_check() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-        Term::seq(
-            Term::arr_judgment(
+fn binary_logic_check() -> TermData {
+    TermData::seq(
+        arr_judgment_lit("bind", vec![], Value::from("expected")),
+        TermData::seq(
+            arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_judgment_lit("result", vec![], Value::from("expected")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                    arr_judgment_lit("result", vec![], Value::from("expected")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                 ],
             ),
-            Term::seq(
-                Term::arr_judgment_lit(
+            TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.bool"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.bool"),
@@ -3280,20 +3326,20 @@ fn binary_logic_check() -> Term {
 
 /// Build the canonical `unary.neg` synth scheme (child type.number, result
 /// type.number). For `unary.not` pass `type.bool` instead.
-fn unary_synth(result_tag: &str) -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-        Term::seq(
-            Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-            Term::seq(
-                Term::arr_judgment(
+fn unary_synth(result_tag: &str) -> TermData {
+    TermData::seq(
+        arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        TermData::seq(
+            arr_judgment_lit("bind", vec![], Value::from("a")),
+            TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from(result_tag)),
+                        arr_judgment_lit("result", vec![], Value::from("a")),
+                        arr_judgment_lit("construct", vec![], Value::from(result_tag)),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from(result_tag)),
+                arr_judgment_lit("construct", vec![], Value::from(result_tag)),
             ),
         ),
     )
@@ -3301,20 +3347,20 @@ fn unary_synth(result_tag: &str) -> Term {
 
 /// Build the directed check scheme for unary ops: verify the expected type
 /// matches `expected_tag`, then check the single operand against the same tag.
-fn unary_check(expected_tag: &str) -> Term {
-    Term::seq(
-        Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-        Term::seq(
-            Term::arr_judgment(
+fn unary_check(expected_tag: &str) -> TermData {
+    TermData::seq(
+        arr_judgment_lit("bind", vec![], Value::from("expected")),
+        TermData::seq(
+            arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_judgment_lit("result", vec![], Value::from("expected")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from(expected_tag)),
+                    arr_judgment_lit("result", vec![], Value::from("expected")),
+                    arr_judgment_lit("construct", vec![], Value::from(expected_tag)),
                 ],
             ),
-            Term::arr_judgment_lit(
+            arr_judgment_lit(
                 "check_child",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from(expected_tag),
@@ -3336,8 +3382,8 @@ fn check_binary_add_against_number_succeeds() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.binary.add", "binary.add", binary_arith_synth())
-                .with_check(binary_arith_check()),
+            TypeRuleDef::new("type.binary.add", "binary.add", td(binary_arith_synth()))
+                .with_check(td(binary_arith_check())),
         )
         .unwrap();
     merge_wrapper_rule(&mut lang, "type.number");
@@ -3363,8 +3409,8 @@ fn check_binary_add_against_string_fails() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.binary.add", "binary.add", binary_arith_synth())
-                .with_check(binary_arith_check()),
+            TypeRuleDef::new("type.binary.add", "binary.add", td(binary_arith_synth()))
+                .with_check(td(binary_arith_check())),
         )
         .unwrap();
     // Wrapper checks binary.add against type.string — the check rule unifies
@@ -3395,8 +3441,8 @@ fn check_binary_eq_against_bool_succeeds() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.binary.eq", "binary.eq", binary_compare_synth())
-                .with_check(binary_compare_check()),
+            TypeRuleDef::new("type.binary.eq", "binary.eq", td(binary_compare_synth()))
+                .with_check(td(binary_compare_check())),
         )
         .unwrap();
     merge_wrapper_rule(&mut lang, "type.bool");
@@ -3422,8 +3468,8 @@ fn check_binary_eq_against_number_fails() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.binary.eq", "binary.eq", binary_compare_synth())
-                .with_check(binary_compare_check()),
+            TypeRuleDef::new("type.binary.eq", "binary.eq", td(binary_compare_synth()))
+                .with_check(td(binary_compare_check())),
         )
         .unwrap();
     // Wrapper checks binary.eq against type.number — the check rule unifies
@@ -3454,8 +3500,8 @@ fn check_binary_and_against_bool_succeeds() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.binary.and", "binary.and", binary_logic_synth())
-                .with_check(binary_logic_check()),
+            TypeRuleDef::new("type.binary.and", "binary.and", td(binary_logic_synth()))
+                .with_check(td(binary_logic_check())),
         )
         .unwrap();
     merge_wrapper_rule(&mut lang, "type.bool");
@@ -3482,8 +3528,8 @@ fn check_unary_neg_against_number_succeeds() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.unary.neg", "unary.neg", unary_synth("type.number"))
-                .with_check(unary_check("type.number")),
+            TypeRuleDef::new("type.unary.neg", "unary.neg", td(unary_synth("type.number")))
+                .with_check(td(unary_check("type.number"))),
         )
         .unwrap();
     merge_wrapper_rule(&mut lang, "type.number");
@@ -3508,8 +3554,8 @@ fn check_unary_not_against_bool_succeeds() {
     merge_value_rule(&mut lang);
     lang.types
         .merge(
-            TypeRuleDef::new("type.unary.not", "unary.not", unary_synth("type.bool"))
-                .with_check(unary_check("type.bool")),
+            TypeRuleDef::new("type.unary.not", "unary.not", td(unary_synth("type.bool")))
+                .with_check(td(unary_check("type.bool"))),
         )
         .unwrap();
     merge_wrapper_rule(&mut lang, "type.bool");
@@ -3536,10 +3582,10 @@ fn flow_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // function rule: synth_child(0) >>> bind("paramtype")
@@ -3549,29 +3595,29 @@ fn flow_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -3584,7 +3630,7 @@ fn flow_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // flow rule: synth_child(1) >>> bind("funtype")
@@ -3595,16 +3641,16 @@ fn flow_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.flow",
             "flow",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -3613,9 +3659,9 @@ fn flow_rule_returns_body_type() {
                             )],
                             Value::from(0u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -3624,7 +3670,7 @@ fn flow_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), function{children:[0,1]},
@@ -3659,10 +3705,10 @@ fn mood_int_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // function rule (same as above)
@@ -3670,29 +3716,29 @@ fn mood_int_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -3705,7 +3751,7 @@ fn mood_int_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // mood.int rule: same as flow/pipe
@@ -3713,16 +3759,16 @@ fn mood_int_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.mood.int",
             "mood.int",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -3731,9 +3777,9 @@ fn mood_int_rule_returns_body_type() {
                             )],
                             Value::from(0u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -3742,7 +3788,7 @@ fn mood_int_rule_returns_body_type() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), function{children:[0,1]},
@@ -3773,12 +3819,12 @@ fn check_let_rule_checks_body() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // let rule: synth = (canonical), check = directed check
@@ -3790,49 +3836,49 @@ fn check_let_rule_checks_body() {
             TypeRuleDef::new(
                 "type.let",
                 "let",
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("vartype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("vartype")),
+                        TermData::seq(
+                            arr_judgment_lit("payload_field", vec![], Value::from("name")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "extend",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("vartype"),
                                     )],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
                             ),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("vartype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("vartype")),
+                        TermData::seq(
+                            arr_judgment_lit("payload_field", vec![], Value::from("name")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "extend",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("vartype"),
                                     )],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "check_child",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("expected"),
@@ -3843,7 +3889,7 @@ fn check_let_rule_checks_body() {
                         ),
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.string >>> construct(type.string)
@@ -3851,18 +3897,18 @@ fn check_let_rule_checks_body() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.string"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), let{name:"x", children:[0,1]},
@@ -3899,12 +3945,12 @@ fn check_let_rule_fails_on_body_mismatch() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // let rule: synth + check (same as above)
@@ -3913,49 +3959,49 @@ fn check_let_rule_fails_on_body_mismatch() {
             TypeRuleDef::new(
                 "type.let",
                 "let",
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("vartype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("vartype")),
+                        TermData::seq(
+                            arr_judgment_lit("payload_field", vec![], Value::from("name")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "extend",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("vartype"),
                                     )],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                                arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
                             ),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("vartype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("payload_field", vec![], Value::from("name")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("vartype")),
+                        TermData::seq(
+                            arr_judgment_lit("payload_field", vec![], Value::from("name")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "extend",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("vartype"),
                                     )],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "check_child",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("expected"),
@@ -3966,7 +4012,7 @@ fn check_let_rule_fails_on_body_mismatch() {
                         ),
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.number >>> construct(type.number)
@@ -3974,18 +4020,18 @@ fn check_let_rule_fails_on_body_mismatch() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), let{name:"x", children:[0,1]},
@@ -4020,12 +4066,12 @@ fn check_function_rule_checks_both_children() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // function rule: synth = (canonical), check = directed check
@@ -4036,29 +4082,29 @@ fn check_function_rule_checks_both_children() {
             TypeRuleDef::new(
                 "type.function",
                 "function",
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::seq(
-                                Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                                Term::arr_judgment_lit(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                        TermData::seq(
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            TermData::seq(
+                                arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                                arr_judgment_lit(
                                     "construct",
                                     vec![
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("paramtype"),
                                             )],
                                             Value::from("param"),
                                         ),
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("bodytype"),
@@ -4071,16 +4117,16 @@ fn check_function_rule_checks_both_children() {
                             ),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -4089,11 +4135,11 @@ fn check_function_rule_checks_both_children() {
                         )],
                         Value::from(0u64),
                     ),
-                    Term::arr_judgment_lit(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -4103,7 +4149,7 @@ fn check_function_rule_checks_both_children() {
                         Value::from(1u64),
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.function{number,string}
@@ -4113,14 +4159,14 @@ fn check_function_rule_checks_both_children() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit("const", vec![], expected_fn.clone())],
+                    vec![arr_native_lit("const", vec![], expected_fn.clone())],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), function{children:[0,1]},
@@ -4157,12 +4203,12 @@ fn check_function_rule_fails_on_param_mismatch() {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // function rule: synth + check (same as above)
@@ -4171,29 +4217,29 @@ fn check_function_rule_fails_on_param_mismatch() {
             TypeRuleDef::new(
                 "type.function",
                 "function",
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                        Term::seq(
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::seq(
-                                Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                                Term::arr_judgment_lit(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                        TermData::seq(
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            TermData::seq(
+                                arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                                arr_judgment_lit(
                                     "construct",
                                     vec![
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("paramtype"),
                                             )],
                                             Value::from("param"),
                                         ),
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("bodytype"),
@@ -4206,16 +4252,16 @@ fn check_function_rule_fails_on_param_mismatch() {
                             ),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -4224,11 +4270,11 @@ fn check_function_rule_fails_on_param_mismatch() {
                         )],
                         Value::from(0u64),
                     ),
-                    Term::arr_judgment_lit(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -4238,7 +4284,7 @@ fn check_function_rule_fails_on_param_mismatch() {
                         Value::from(1u64),
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
     // wrapper rule: check child 0 against type.function{number,string}
@@ -4248,14 +4294,14 @@ fn check_function_rule_fails_on_param_mismatch() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit("const", vec![], expected_fn.clone())],
+                    vec![arr_native_lit("const", vec![], expected_fn.clone())],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value("hello"), value("hello"), function{children:[0,1]},
@@ -4295,12 +4341,12 @@ fn array_check_lang() -> Language {
             TypeRuleDef::new(
                 "type.value",
                 "value",
-                Term::seq(
-                    Term::arr_judgment("node_payload", vec![]),
-                    Term::arr_judgment("json_type_construct", vec![]),
-                ),
+                td(TermData::seq(
+                    arr_judgment("node_payload", vec![]),
+                    arr_judgment("json_type_construct", vec![]),
+                )),
             )
-            .with_check(Term::arr_judgment("check_json_value", vec![])),
+            .with_check(td(arr_judgment("check_json_value", vec![]))),
         )
         .unwrap();
     // array rule: synth = synth_first_child_or_unknown >>> bind("element_type")
@@ -4312,15 +4358,15 @@ fn array_check_lang() -> Language {
             TypeRuleDef::new(
                 "type.array",
                 "array",
-                Term::seq(
-                    Term::arr_judgment("synth_first_child_or_unknown", vec![]),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("element_type")),
-                        Term::arr_judgment_lit(
+                td(TermData::seq(
+                    arr_judgment("synth_first_child_or_unknown", vec![]),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("element_type")),
+                        arr_judgment_lit(
                             "construct",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("element_type"),
@@ -4330,22 +4376,22 @@ fn array_check_lang() -> Language {
                             Value::from("type.array"),
                         ),
                     ),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::arr_judgment(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                arr_judgment(
                     "check_all_children",
-                    vec![Term::arr_judgment(
+                    vec![arr_judgment(
                         "array_element_type",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "result",
                             vec![],
                             Value::from("expected"),
                         )],
                     )],
                 ),
-            )),
+            ))),
         )
         .unwrap();
     lang
@@ -4364,10 +4410,10 @@ fn handle_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // handle rule: synth = synth_child(0)  (the body's type)
@@ -4375,7 +4421,7 @@ fn handle_rule_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.handle",
             "handle",
-            Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+            td(arr_judgment_lit("synth_child", vec![], Value::from(0u64))),
         ))
         .unwrap();
     // AST: [value(42), block{children:[]}, handle{children:[0, 1]}]
@@ -4410,18 +4456,18 @@ fn check_all_children_checks_all_elements() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit(
+                    vec![arr_native_lit(
                         "const",
                         vec![],
                         type_array(type_number()),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -4449,18 +4495,18 @@ fn check_all_children_fails_on_mismatch() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit(
+                    vec![arr_native_lit(
                         "const",
                         vec![],
                         type_array(type_string()),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value(2), value(3), array{children:[0,1,2]},
@@ -4496,18 +4542,18 @@ fn check_array_rule_against_matching_array_type() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit(
+                    vec![arr_native_lit(
                         "const",
                         vec![],
                         type_array(type_number()),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.unit")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.unit")),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value(2), value(3), array{children:[0,1,2]},
@@ -4540,18 +4586,18 @@ fn check_array_rule_fails_on_element_mismatch() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit(
+                    vec![arr_native_lit(
                         "const",
                         vec![],
                         type_array(type_number()),
                     )],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [value(1), value("hello"), array{children:[0,1]},
@@ -4580,38 +4626,38 @@ fn check_array_rule_fails_on_element_mismatch() {
 
 /// Build the canonical mood.cnd synth scheme (3 children, all type.number,
 /// result type.number).
-fn mood_cnd_synth() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit(
+fn mood_cnd_synth() -> TermData {
+    TermData::seq(
+        arr_judgment_lit(
             "check_child",
-            vec![Term::arr_judgment_lit(
+            vec![arr_judgment_lit(
                 "construct",
                 vec![],
                 Value::from("type.number"),
             )],
             Value::from(0u64),
         ),
-        Term::seq(
-            Term::arr_judgment_lit(
+        TermData::seq(
+            arr_judgment_lit(
                 "check_child",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.number"),
                 )],
                 Value::from(1u64),
             ),
-            Term::seq(
-                Term::arr_judgment_lit(
+            TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "construct",
                         vec![],
                         Value::from("type.number"),
                     )],
                     Value::from(2u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
             ),
         ),
     )
@@ -4619,28 +4665,28 @@ fn mood_cnd_synth() -> Term {
 
 /// Build the canonical mood.neg/norm/pot synth scheme (2 children, all
 /// type.number, result type.number).
-fn mood_binary_synth() -> Term {
-    Term::seq(
-        Term::arr_judgment_lit(
+fn mood_binary_synth() -> TermData {
+    TermData::seq(
+        arr_judgment_lit(
             "check_child",
-            vec![Term::arr_judgment_lit(
+            vec![arr_judgment_lit(
                 "construct",
                 vec![],
                 Value::from("type.number"),
             )],
             Value::from(0u64),
         ),
-        Term::seq(
-            Term::arr_judgment_lit(
+        TermData::seq(
+            arr_judgment_lit(
                 "check_child",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.number"),
                 )],
                 Value::from(1u64),
             ),
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            arr_judgment_lit("construct", vec![], Value::from("type.number")),
         ),
     )
 }
@@ -4658,7 +4704,7 @@ fn mood_cnd_rule_returns_type_number() {
         .merge(TypeRuleDef::new(
             "type.mood.cnd",
             "mood.cnd",
-            mood_cnd_synth(),
+            td(mood_cnd_synth()),
         ))
         .unwrap();
     // AST: [value(1), value(2), value(3), mood.cnd{children:[0,1,2]}]
@@ -4685,7 +4731,7 @@ fn mood_neg_rule_returns_type_number() {
         .merge(TypeRuleDef::new(
             "type.mood.neg",
             "mood.neg",
-            mood_binary_synth(),
+            td(mood_binary_synth()),
         ))
         .unwrap();
     // AST: [value(1), value(2), mood.neg{children:[0,1]}]
@@ -4711,7 +4757,7 @@ fn mood_cnd_rule_fails_on_non_number() {
         .merge(TypeRuleDef::new(
             "type.mood.cnd",
             "mood.cnd",
-            mood_cnd_synth(),
+            td(mood_cnd_synth()),
         ))
         .unwrap();
     // AST: [value(1), value("hello"), value(3), mood.cnd{children:[0,1,2]}]
@@ -4742,9 +4788,9 @@ fn merge_object_rule(lang: &mut Language) {
             TypeRuleDef::new(
                 "type.object",
                 "object",
-                Term::arr_judgment("synth_object_record", vec![]),
+                td(arr_judgment("synth_object_record", vec![])),
             )
-            .with_check(Term::arr_judgment("check_object_record", vec![])),
+            .with_check(td(arr_judgment("check_object_record", vec![]))),
         )
         .unwrap();
 }
@@ -4794,14 +4840,14 @@ fn object_check_against_matching_record() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit("const", vec![], record_ty)],
+                    vec![arr_native_lit("const", vec![], record_ty)],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [object{entries: [...]}, wrapper{children:[0]}]
@@ -4830,10 +4876,10 @@ fn merge_var_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("lookup", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("lookup", vec![]),
+            )),
         ))
         .unwrap();
 }
@@ -4845,24 +4891,24 @@ fn merge_pi_rule(lang: &mut Language) {
             TypeRuleDef::new(
                 "type.pi",
                 "pi",
-                Term::arr_judgment_lit(
+                td(arr_judgment_lit(
                     "construct_pi",
-                    vec![Term::arr_judgment_lit(
+                    vec![arr_judgment_lit(
                         "synth_child",
                         vec![],
                         Value::from(0u64),
                     )],
                     Value::from("x"),
-                ),
+                )),
             )
-            .with_check(Term::seq(
-                Term::arr_judgment_lit("bind", vec![], Value::from("expected")),
-                Term::seq(
-                    Term::arr_judgment_lit(
+            .with_check(td(TermData::seq(
+                arr_judgment_lit("bind", vec![], Value::from("expected")),
+                TermData::seq(
+                    arr_judgment_lit(
                         "check_child",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("expected"),
@@ -4871,9 +4917,9 @@ fn merge_pi_rule(lang: &mut Language) {
                         )],
                         Value::from(0u64),
                     ),
-                    Term::arr_judgment_lit(
+                    arr_judgment_lit(
                         "check_pi_body",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "result",
                             vec![],
                             Value::from("expected"),
@@ -4881,7 +4927,7 @@ fn merge_pi_rule(lang: &mut Language) {
                         Value::Null,
                     ),
                 ),
-            )),
+            ))),
         )
         .unwrap();
 }
@@ -4892,15 +4938,15 @@ fn merge_sigma_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.sigma",
             "sigma",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct_sigma",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "synth_child",
                     vec![],
                     Value::from(0u64),
                 )],
                 Value::from("x"),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -4911,15 +4957,15 @@ fn merge_forall_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.forall",
             "forall",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct_forall",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "synth_child",
                     vec![],
                     Value::from(0u64),
                 )],
                 Value::from("x"),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -4930,15 +4976,15 @@ fn merge_vau_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.vau",
             "vau",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct_vau_type",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "synth_child",
                     vec![],
                     Value::from(0u64),
                 )],
                 Value::from("x"),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -5034,20 +5080,20 @@ fn pi_apply_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pitype")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pitype")),
+                    arr_judgment_lit(
                         "pi_apply",
                         vec![
-                            Term::arr_judgment_lit("result", vec![], Value::from("pitype")),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_judgment_lit("result", vec![], Value::from("pitype")),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi{children:[0,1]}, wrapper{children:[2]}]
@@ -5079,20 +5125,20 @@ fn pi_apply_non_dependent_body() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pitype")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pitype")),
+                    arr_judgment_lit(
                         "pi_apply",
                         vec![
-                            Term::arr_judgment_lit("result", vec![], Value::from("pitype")),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_judgment_lit("result", vec![], Value::from("pitype")),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), pi{children:[0,1]}, wrapper{children:[2]}]
@@ -5125,24 +5171,24 @@ fn unify_pi_succeeds_on_matching_types() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pa")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("pb")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pa")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("pb")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "unify_pi",
                                     vec![
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
+                                        arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.string"),
@@ -5151,7 +5197,7 @@ fn unify_pi_succeeds_on_matching_types() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi_a{children:[0,1]},
@@ -5185,24 +5231,24 @@ fn unify_pi_fails_on_mismatched_params() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pa")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("pb")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pa")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("pb")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "unify_pi",
                                     vec![
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
+                                        arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.string"),
@@ -5211,7 +5257,7 @@ fn unify_pi_fails_on_mismatched_params() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi_a{children:[0,1]},
@@ -5252,24 +5298,24 @@ fn unify_skips_body_closure_for_pi() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pa")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("pb")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pa")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("pb")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "unify",
                                     vec![
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pa")),
-                                        Term::arr_judgment_lit("result", vec![], Value::from("pb")),
+                                        arr_judgment_lit("result", vec![], Value::from("pa")),
+                                        arr_judgment_lit("result", vec![], Value::from("pb")),
                                     ],
                                     Value::Null,
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.string"),
@@ -5278,7 +5324,7 @@ fn unify_skips_body_closure_for_pi() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), pi_a{children:[0,1]},
@@ -5316,16 +5362,16 @@ fn context_mark_restore_works() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pitype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pitype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "pi_apply",
                             vec![
-                                Term::arr_judgment_lit("result", vec![], Value::from("pitype")),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit("result", vec![], Value::from("pitype")),
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.number"),
@@ -5333,13 +5379,13 @@ fn context_mark_restore_works() {
                             ],
                             Value::Null,
                         ),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodyresult")),
-                            Term::arr_judgment_lit("lookup", vec![], Value::from("x")),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodyresult")),
+                            arr_judgment_lit("lookup", vec![], Value::from("x")),
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi{children:[0,1]}, wrapper{children:[2]}]
@@ -5375,24 +5421,24 @@ fn check_pi_body_succeeds() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pitype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pitype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("pitype"),
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.string")),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi_a{children:[0,1]},
@@ -5426,24 +5472,24 @@ fn check_pi_body_fails_on_mismatched_body() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("pitype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("pitype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("pitype"),
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.string")),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), pi_a{children:[0,1]},
@@ -5484,21 +5530,21 @@ fn fanout_rule_returns_function_type() {
         .merge(TypeRuleDef::new(
             "type.fanout",
             "fanout",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct",
                 vec![
-                    Term::arr_judgment_lit(
+                    arr_judgment_lit(
                         "field",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct",
                             vec![],
                             Value::from("type.unknown"),
                         )],
                         Value::from("param"),
                     ),
-                    Term::arr_judgment_lit(
+                    arr_judgment_lit(
                         "field",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct",
                             vec![],
                             Value::from("type.unknown"),
@@ -5507,7 +5553,7 @@ fn fanout_rule_returns_function_type() {
                     ),
                 ],
                 Value::from("type.function"),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), value("hello"), fanout{children:[0,1]}]
@@ -5564,29 +5610,29 @@ fn merge_function_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
-                            Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            arr_judgment_lit(
                                 "construct",
                                 vec![
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("paramtype"),
                                         )],
                                         Value::from("param"),
                                     ),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit(
                                         "field",
-                                        vec![Term::arr_judgment_lit(
+                                        vec![arr_judgment_lit(
                                             "result",
                                             vec![],
                                             Value::from("bodytype"),
@@ -5599,7 +5645,7 @@ fn merge_function_rule(lang: &mut Language) {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -5612,105 +5658,105 @@ fn merge_fanout_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.fanout",
             "fanout",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("ftype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("gtype")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "type_field",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("ftype"),
                                     )],
                                     Value::from("param"),
                                 ),
-                                Term::seq(
-                                    Term::arr_judgment_lit("bind", vec![], Value::from("A1")),
-                                    Term::seq(
-                                        Term::arr_judgment_lit(
+                                TermData::seq(
+                                    arr_judgment_lit("bind", vec![], Value::from("A1")),
+                                    TermData::seq(
+                                        arr_judgment_lit(
                                             "type_field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("ftype"),
                                             )],
                                             Value::from("body"),
                                         ),
-                                        Term::seq(
-                                            Term::arr_judgment_lit("bind", vec![], Value::from("B")),
-                                            Term::seq(
-                                                Term::arr_judgment_lit(
+                                        TermData::seq(
+                                            arr_judgment_lit("bind", vec![], Value::from("B")),
+                                            TermData::seq(
+                                                arr_judgment_lit(
                                                     "type_field",
-                                                    vec![Term::arr_judgment_lit(
+                                                    vec![arr_judgment_lit(
                                                         "result",
                                                         vec![],
                                                         Value::from("gtype"),
                                                     )],
                                                     Value::from("param"),
                                                 ),
-                                                Term::seq(
-                                                    Term::arr_judgment_lit("bind", vec![], Value::from("A2")),
-                                                    Term::seq(
-                                                        Term::arr_judgment_lit(
+                                                TermData::seq(
+                                                    arr_judgment_lit("bind", vec![], Value::from("A2")),
+                                                    TermData::seq(
+                                                        arr_judgment_lit(
                                                             "type_field",
-                                                            vec![Term::arr_judgment_lit(
+                                                            vec![arr_judgment_lit(
                                                                 "result",
                                                                 vec![],
                                                                 Value::from("gtype"),
                                                             )],
                                                             Value::from("body"),
                                                         ),
-                                                        Term::seq(
-                                                            Term::arr_judgment_lit("bind", vec![], Value::from("C")),
-                                                            Term::seq(
-                                                                Term::arr_judgment(
+                                                        TermData::seq(
+                                                            arr_judgment_lit("bind", vec![], Value::from("C")),
+                                                            TermData::seq(
+                                                                arr_judgment(
                                                                     "unify",
                                                                     vec![
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "result",
                                                                             vec![],
                                                                             Value::from("A1"),
                                                                         ),
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "result",
                                                                             vec![],
                                                                             Value::from("A2"),
                                                                         ),
                                                                     ],
                                                                 ),
-                                                                Term::arr_judgment_lit(
+                                                                arr_judgment_lit(
                                                                     "construct",
                                                                     vec![
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "field",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "result",
                                                                                 vec![],
                                                                                 Value::from("A1"),
                                                                             )],
                                                                             Value::from("param"),
                                                                         ),
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "field",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "construct",
-                                                                                vec![Term::arr_judgment_lit(
+                                                                                vec![arr_judgment_lit(
                                                                                     "field",
-                                                                                    vec![Term::arr_judgment(
+                                                                                    vec![arr_judgment(
                                                                                         "make_array",
                                                                                         vec![
-                                                                                            Term::arr_judgment_lit(
+                                                                                            arr_judgment_lit(
                                                                                                 "result",
                                                                                                 vec![],
                                                                                                 Value::from("B"),
                                                                                             ),
-                                                                                            Term::arr_judgment_lit(
+                                                                                            arr_judgment_lit(
                                                                                                 "result",
                                                                                                 vec![],
                                                                                                 Value::from("C"),
@@ -5738,7 +5784,7 @@ fn merge_fanout_rule(lang: &mut Language) {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -5820,80 +5866,80 @@ fn merge_product_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.product",
             "product",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("ftype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("gtype")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "type_field",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("ftype"),
                                     )],
                                     Value::from("param"),
                                 ),
-                                Term::seq(
-                                    Term::arr_judgment_lit("bind", vec![], Value::from("A")),
-                                    Term::seq(
-                                        Term::arr_judgment_lit(
+                                TermData::seq(
+                                    arr_judgment_lit("bind", vec![], Value::from("A")),
+                                    TermData::seq(
+                                        arr_judgment_lit(
                                             "type_field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("ftype"),
                                             )],
                                             Value::from("body"),
                                         ),
-                                        Term::seq(
-                                            Term::arr_judgment_lit("bind", vec![], Value::from("B")),
-                                            Term::seq(
-                                                Term::arr_judgment_lit(
+                                        TermData::seq(
+                                            arr_judgment_lit("bind", vec![], Value::from("B")),
+                                            TermData::seq(
+                                                arr_judgment_lit(
                                                     "type_field",
-                                                    vec![Term::arr_judgment_lit(
+                                                    vec![arr_judgment_lit(
                                                         "result",
                                                         vec![],
                                                         Value::from("gtype"),
                                                     )],
                                                     Value::from("param"),
                                                 ),
-                                                Term::seq(
-                                                    Term::arr_judgment_lit("bind", vec![], Value::from("C")),
-                                                    Term::seq(
-                                                        Term::arr_judgment_lit(
+                                                TermData::seq(
+                                                    arr_judgment_lit("bind", vec![], Value::from("C")),
+                                                    TermData::seq(
+                                                        arr_judgment_lit(
                                                             "type_field",
-                                                            vec![Term::arr_judgment_lit(
+                                                            vec![arr_judgment_lit(
                                                                 "result",
                                                                 vec![],
                                                                 Value::from("gtype"),
                                                             )],
                                                             Value::from("body"),
                                                         ),
-                                                        Term::seq(
-                                                            Term::arr_judgment_lit("bind", vec![], Value::from("D")),
-                                                            Term::arr_judgment_lit(
+                                                        TermData::seq(
+                                                            arr_judgment_lit("bind", vec![], Value::from("D")),
+                                                            arr_judgment_lit(
                                                                 "construct",
                                                                 vec![
-                                                                    Term::arr_judgment_lit(
+                                                                    arr_judgment_lit(
                                                                         "field",
-                                                                        vec![Term::arr_judgment_lit(
+                                                                        vec![arr_judgment_lit(
                                                                             "construct",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "field",
-                                                                                vec![Term::arr_judgment(
+                                                                                vec![arr_judgment(
                                                                                     "make_array",
                                                                                     vec![
-                                                                                        Term::arr_judgment_lit(
+                                                                                        arr_judgment_lit(
                                                                                             "result",
                                                                                             vec![],
                                                                                             Value::from("A"),
                                                                                         ),
-                                                                                        Term::arr_judgment_lit(
+                                                                                        arr_judgment_lit(
                                                                                             "result",
                                                                                             vec![],
                                                                                             Value::from("C"),
@@ -5906,21 +5952,21 @@ fn merge_product_rule(lang: &mut Language) {
                                                                         )],
                                                                         Value::from("param"),
                                                                     ),
-                                                                    Term::arr_judgment_lit(
+                                                                    arr_judgment_lit(
                                                                         "field",
-                                                                        vec![Term::arr_judgment_lit(
+                                                                        vec![arr_judgment_lit(
                                                                             "construct",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "field",
-                                                                                vec![Term::arr_judgment(
+                                                                                vec![arr_judgment(
                                                                                     "make_array",
                                                                                     vec![
-                                                                                        Term::arr_judgment_lit(
+                                                                                        arr_judgment_lit(
                                                                                             "result",
                                                                                             vec![],
                                                                                             Value::from("B"),
                                                                                         ),
-                                                                                        Term::arr_judgment_lit(
+                                                                                        arr_judgment_lit(
                                                                                             "result",
                                                                                             vec![],
                                                                                             Value::from("D"),
@@ -5947,7 +5993,7 @@ fn merge_product_rule(lang: &mut Language) {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -5993,96 +6039,96 @@ fn merge_choice_rule(lang: &mut Language) {
         .merge(TypeRuleDef::new(
             "type.choice",
             "choice",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("ftype")),
-                    Term::seq(
-                        Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                        Term::seq(
-                            Term::arr_judgment_lit("bind", vec![], Value::from("gtype")),
-                            Term::seq(
-                                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    TermData::seq(
+                        arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        TermData::seq(
+                            arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            TermData::seq(
+                                arr_judgment_lit(
                                     "type_field",
-                                    vec![Term::arr_judgment_lit(
+                                    vec![arr_judgment_lit(
                                         "result",
                                         vec![],
                                         Value::from("ftype"),
                                     )],
                                     Value::from("param"),
                                 ),
-                                Term::seq(
-                                    Term::arr_judgment_lit("bind", vec![], Value::from("A")),
-                                    Term::seq(
-                                        Term::arr_judgment_lit(
+                                TermData::seq(
+                                    arr_judgment_lit("bind", vec![], Value::from("A")),
+                                    TermData::seq(
+                                        arr_judgment_lit(
                                             "type_field",
-                                            vec![Term::arr_judgment_lit(
+                                            vec![arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("ftype"),
                                             )],
                                             Value::from("body"),
                                         ),
-                                        Term::seq(
-                                            Term::arr_judgment_lit("bind", vec![], Value::from("C1")),
-                                            Term::seq(
-                                                Term::arr_judgment_lit(
+                                        TermData::seq(
+                                            arr_judgment_lit("bind", vec![], Value::from("C1")),
+                                            TermData::seq(
+                                                arr_judgment_lit(
                                                     "type_field",
-                                                    vec![Term::arr_judgment_lit(
+                                                    vec![arr_judgment_lit(
                                                         "result",
                                                         vec![],
                                                         Value::from("gtype"),
                                                     )],
                                                     Value::from("param"),
                                                 ),
-                                                Term::seq(
-                                                    Term::arr_judgment_lit("bind", vec![], Value::from("B")),
-                                                    Term::seq(
-                                                        Term::arr_judgment_lit(
+                                                TermData::seq(
+                                                    arr_judgment_lit("bind", vec![], Value::from("B")),
+                                                    TermData::seq(
+                                                        arr_judgment_lit(
                                                             "type_field",
-                                                            vec![Term::arr_judgment_lit(
+                                                            vec![arr_judgment_lit(
                                                                 "result",
                                                                 vec![],
                                                                 Value::from("gtype"),
                                                             )],
                                                             Value::from("body"),
                                                         ),
-                                                        Term::seq(
-                                                            Term::arr_judgment_lit("bind", vec![], Value::from("C2")),
-                                                            Term::seq(
-                                                                Term::arr_judgment(
+                                                        TermData::seq(
+                                                            arr_judgment_lit("bind", vec![], Value::from("C2")),
+                                                            TermData::seq(
+                                                                arr_judgment(
                                                                     "unify",
                                                                     vec![
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "result",
                                                                             vec![],
                                                                             Value::from("C1"),
                                                                         ),
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "result",
                                                                             vec![],
                                                                             Value::from("C2"),
                                                                         ),
                                                                     ],
                                                                 ),
-                                                                Term::arr_judgment_lit(
+                                                                arr_judgment_lit(
                                                                     "construct",
                                                                     vec![
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "field",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "construct",
-                                                                                vec![Term::arr_judgment_lit(
+                                                                                vec![arr_judgment_lit(
                                                                                     "field",
-                                                                                    vec![Term::arr_judgment(
+                                                                                    vec![arr_judgment(
                                                                                         "make_array",
                                                                                         vec![
-                                                                                            Term::arr_judgment_lit(
+                                                                                            arr_judgment_lit(
                                                                                                 "result",
                                                                                                 vec![],
                                                                                                 Value::from("A"),
                                                                                             ),
-                                                                                            Term::arr_judgment_lit(
+                                                                                            arr_judgment_lit(
                                                                                                 "result",
                                                                                                 vec![],
                                                                                                 Value::from("B"),
@@ -6095,9 +6141,9 @@ fn merge_choice_rule(lang: &mut Language) {
                                                                             )],
                                                                             Value::from("param"),
                                                                         ),
-                                                                        Term::arr_judgment_lit(
+                                                                        arr_judgment_lit(
                                                                             "field",
-                                                                            vec![Term::arr_judgment_lit(
+                                                                            vec![arr_judgment_lit(
                                                                                 "result",
                                                                                 vec![],
                                                                                 Value::from("C1"),
@@ -6119,7 +6165,7 @@ fn merge_choice_rule(lang: &mut Language) {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
 }
@@ -6248,20 +6294,20 @@ fn forall_apply_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("foralltype")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("foralltype")),
+                    arr_judgment_lit(
                         "forall_apply",
                         vec![
-                            Term::arr_judgment_lit("result", vec![], Value::from("foralltype")),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_judgment_lit("result", vec![], Value::from("foralltype")),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), forall{children:[0,1]}, wrapper{children:[2]}]
@@ -6339,20 +6385,20 @@ fn vau_apply_returns_body_type() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("vautype")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("vautype")),
+                    arr_judgment_lit(
                         "vau_apply",
                         vec![
-                            Term::arr_judgment_lit("result", vec![], Value::from("vautype")),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_judgment_lit("result", vec![], Value::from("vautype")),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                         Value::Null,
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [value(42), var("x"), vau{children:[0,1]}, wrapper{children:[2]}]
@@ -6392,7 +6438,7 @@ fn construct_universe_creates_type_universe() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+            td(arr_judgment_lit("construct_universe", vec![], Value::from(0u64))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6416,7 +6462,7 @@ fn construct_universe_with_level() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit("construct_universe", vec![], Value::from(3u64)),
+            td(arr_judgment_lit("construct_universe", vec![], Value::from(3u64))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6439,10 +6485,10 @@ fn construct_universe_with_arg() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "construct_universe",
-                vec![Term::arr_native_lit("const", vec![], Value::from(2u64))],
-            ),
+                vec![arr_native_lit("const", vec![], Value::from(2u64))],
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6465,13 +6511,13 @@ fn unify_same_level_universes_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("unify", vec![], type_universe(0)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            td(TermData::seq(
+                arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("unify", vec![], type_universe(0)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6494,10 +6540,10 @@ fn unify_different_level_universes_fails() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
-                Term::arr_judgment_lit("unify", vec![], type_universe(1)),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                arr_judgment_lit("unify", vec![], type_universe(1)),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6524,13 +6570,13 @@ fn unify_same_nonzero_level_universes_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("unify", vec![], type_universe(2)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            td(TermData::seq(
+                arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                TermData::seq(
+                    arr_judgment_lit("unify", vec![], type_universe(2)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6554,10 +6600,10 @@ fn universe_level_extracts_from_universe() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
-                Term::arr_judgment("universe_level", vec![Term::arr_native("id", vec![])]),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                arr_judgment("universe_level", vec![arr_native("id", vec![])]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6580,10 +6626,10 @@ fn universe_level_returns_zero_for_base_type() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::arr_judgment("universe_level", vec![Term::arr_native("id", vec![])]),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment("universe_level", vec![arr_native("id", vec![])]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6606,13 +6652,13 @@ fn universe_max_computes_max() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "universe_max",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(1u64)),
-                    Term::arr_native_lit("const", vec![], Value::from(3u64)),
+                    arr_native_lit("const", vec![], Value::from(1u64)),
+                    arr_native_lit("const", vec![], Value::from(3u64)),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6635,13 +6681,13 @@ fn universe_max_computes_max_reversed() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "universe_max",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(5u64)),
-                    Term::arr_native_lit("const", vec![], Value::from(2u64)),
+                    arr_native_lit("const", vec![], Value::from(5u64)),
+                    arr_native_lit("const", vec![], Value::from(2u64)),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6667,27 +6713,27 @@ fn universe_max_with_universe_levels() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "universe_max",
                 vec![
-                    Term::arr_judgment(
+                    arr_judgment(
                         "universe_level",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct_universe",
                             vec![],
                             Value::from(2u64),
                         )],
                     ),
-                    Term::arr_judgment(
+                    arr_judgment(
                         "universe_level",
-                        vec![Term::arr_judgment_lit(
+                        vec![arr_judgment_lit(
                             "construct_universe",
                             vec![],
                             Value::from(4u64),
                         )],
                     ),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6721,13 +6767,13 @@ fn construct_membership_creates_type_membership() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "construct_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(42)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_native_lit("const", vec![], Value::from(42)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6758,13 +6804,13 @@ fn check_membership_number_in_type_number() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(42)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_native_lit("const", vec![], Value::from(42)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6787,13 +6833,13 @@ fn check_membership_string_in_type_number() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from("hello")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_native_lit("const", vec![], Value::from("hello")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6816,13 +6862,13 @@ fn check_membership_number_in_type_string() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(42)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                    arr_native_lit("const", vec![], Value::from(42)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6845,13 +6891,13 @@ fn check_membership_string_in_type_string() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from("hello")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                    arr_native_lit("const", vec![], Value::from("hello")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6874,13 +6920,13 @@ fn check_membership_bool_in_type_bool() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::from(true)),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                    arr_native_lit("const", vec![], Value::from(true)),
+                    arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6903,13 +6949,13 @@ fn check_membership_null_in_type_null() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], Value::Null),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.null")),
+                    arr_native_lit("const", vec![], Value::Null),
+                    arr_judgment_lit("construct", vec![], Value::from("type.null")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6932,13 +6978,13 @@ fn check_membership_array_in_type_array() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], json!([1, 2])),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.array")),
+                    arr_native_lit("const", vec![], json!([1, 2])),
+                    arr_judgment_lit("construct", vec![], Value::from("type.array")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6961,13 +7007,13 @@ fn check_membership_object_in_type_object() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_membership",
                 vec![
-                    Term::arr_native_lit("const", vec![], json!({})),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.object")),
+                    arr_native_lit("const", vec![], json!({})),
+                    arr_judgment_lit("construct", vec![], Value::from("type.object")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -6992,16 +7038,16 @@ fn eval_membership_reduces_to_evidence() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "eval_membership",
-                vec![Term::arr_judgment(
+                vec![arr_judgment(
                     "construct_membership",
                     vec![
-                        Term::arr_native_lit("const", vec![], Value::from(42)),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_native_lit("const", vec![], Value::from(42)),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 )],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7024,16 +7070,16 @@ fn eval_membership_reduces_to_empty() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "eval_membership",
-                vec![Term::arr_judgment(
+                vec![arr_judgment(
                     "construct_membership",
                     vec![
-                        Term::arr_native_lit("const", vec![], Value::from("hello")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_native_lit("const", vec![], Value::from("hello")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 )],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7056,7 +7102,7 @@ fn construct_collection_creates_type_collection() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment_lit("construct_collection", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct_collection", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7110,13 +7156,13 @@ fn construct_eq_creates_type_eq() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "construct_eq",
                 vec![
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7138,7 +7184,7 @@ fn construct_empty_creates_type_empty() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment("construct_empty", vec![]),
+            td(arr_judgment("construct_empty", vec![])),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7163,13 +7209,13 @@ fn check_refl_succeeds_when_sides_equal() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "check_refl",
-                    vec![Term::arr_native_lit("const", vec![], eq_type)],
+                    vec![arr_native_lit("const", vec![], eq_type)],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7193,10 +7239,10 @@ fn check_refl_fails_when_sides_differ() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "check_refl",
-                vec![Term::arr_native_lit("const", vec![], eq_type)],
-            ),
+                vec![arr_native_lit("const", vec![], eq_type)],
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7224,10 +7270,10 @@ fn eq_reduce_returns_refl_when_equal() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "eq_reduce",
-                vec![Term::arr_native_lit("const", vec![], eq_type)],
-            ),
+                vec![arr_native_lit("const", vec![], eq_type)],
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7251,10 +7297,10 @@ fn eq_reduce_returns_empty_when_not_equal() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "eq_reduce",
-                vec![Term::arr_native_lit("const", vec![], eq_type)],
-            ),
+                vec![arr_native_lit("const", vec![], eq_type)],
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7281,16 +7327,16 @@ fn unify_eq_types_unifies_both_sides() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "unify",
                     vec![
-                        Term::arr_native_lit("const", vec![], eq_a),
-                        Term::arr_native_lit("const", vec![], eq_b),
+                        arr_native_lit("const", vec![], eq_a),
+                        arr_native_lit("const", vec![], eq_b),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7317,13 +7363,13 @@ fn unify_eq_types_fails_on_mismatch() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "unify",
                 vec![
-                    Term::arr_native_lit("const", vec![], eq_a),
-                    Term::arr_native_lit("const", vec![], eq_b),
+                    arr_native_lit("const", vec![], eq_a),
+                    arr_native_lit("const", vec![], eq_b),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7355,16 +7401,16 @@ fn subtype_same_type_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "subtype",
                     vec![
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                        Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7388,16 +7434,16 @@ fn subtype_universe_lower_to_higher_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "subtype",
                     vec![
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7421,16 +7467,16 @@ fn subtype_universe_same_level_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "subtype",
                     vec![
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7453,13 +7499,13 @@ fn subtype_universe_higher_to_lower_fails() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "subtype",
                 vec![
-                    Term::arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
-                    Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                    arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
+                    arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7487,16 +7533,16 @@ fn subtype_universe_zero_to_two_succeeds() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment(
                     "subtype",
                     vec![
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
-                        Term::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                        arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
                     ],
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7519,13 +7565,13 @@ fn subtype_different_base_types_fails() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::arr_judgment(
+            td(arr_judgment(
                 "subtype",
                 vec![
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7555,19 +7601,19 @@ fn subtype_meta_solves() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("fresh_meta", vec![], Value::Null),
-                Term::seq(
-                    Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment_lit("fresh_meta", vec![], Value::Null),
+                TermData::seq(
+                    arr_judgment(
                         "subtype",
                         vec![
-                            Term::arr_native("id", vec![]),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            arr_native("id", vec![]),
+                            arr_judgment_lit("construct", vec![], Value::from("type.number")),
                         ],
                     ),
-                    Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                    arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7824,17 +7870,17 @@ fn row_poly_field_access_on_open_record() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_native_lit("const", vec![], open_rec),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("rt")),
-                    Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_native_lit("const", vec![], open_rec),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("rt")),
+                    arr_judgment_lit(
                         "record_field_type",
-                        vec![Term::arr_judgment_lit("result", vec![], Value::from("rt"))],
+                        vec![arr_judgment_lit("result", vec![], Value::from("rt"))],
                         Value::from("name"),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7865,14 +7911,14 @@ fn row_poly_check_object_record_open_expected() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit("const", vec![], open_rec)],
+                    vec![arr_native_lit("const", vec![], open_rec)],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     // AST: [object{entries: [{key:"name", value:"Luis"},
@@ -7908,14 +7954,14 @@ fn row_poly_check_object_record_closed_rejects_extra() {
         .merge(TypeRuleDef::new(
             "type.wrapper",
             "wrapper",
-            Term::seq(
-                Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit(
                     "check_child",
-                    vec![Term::arr_native_lit("const", vec![], closed_rec)],
+                    vec![arr_native_lit("const", vec![], closed_rec)],
                     Value::from(0u64),
                 ),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -7949,10 +7995,10 @@ fn fresh_row_meta_creates_meta() {
         .merge(TypeRuleDef::new(
             "type.test",
             "test",
-            Term::seq(
-                Term::arr_judgment_lit("fresh_row_meta", vec![], Value::Null),
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.string")),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("fresh_row_meta", vec![], Value::Null),
+                arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -8070,16 +8116,16 @@ fn row_poly_function_call_subsumption() {
         .merge(TypeRuleDef::new(
             "type.call",
             "call",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -8088,9 +8134,9 @@ fn row_poly_function_call_subsumption() {
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -8099,7 +8145,7 @@ fn row_poly_function_call_subsumption() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // "fn_val" node: always synths to a fixed function type with an open
@@ -8119,7 +8165,7 @@ fn row_poly_function_call_subsumption() {
         .merge(TypeRuleDef::new(
             "type.fn_val",
             "fn_val",
-            Term::arr_native_lit("const", vec![], fn_type),
+            td(arr_native_lit("const", vec![], fn_type)),
         ))
         .unwrap();
     // AST: [object{entries: [{key:"name", value:"Luis"},
@@ -8158,16 +8204,16 @@ fn row_poly_function_call_closed_rejects_extra() {
         .merge(TypeRuleDef::new(
             "type.call",
             "call",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("funtype")),
-                    Term::seq(
-                        Term::arr_judgment_lit(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    TermData::seq(
+                        arr_judgment_lit(
                             "check_child",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "type_field",
-                                vec![Term::arr_judgment_lit(
+                                vec![arr_judgment_lit(
                                     "result",
                                     vec![],
                                     Value::from("funtype"),
@@ -8176,9 +8222,9 @@ fn row_poly_function_call_closed_rejects_extra() {
                             )],
                             Value::from(1u64),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "type_field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "result",
                                 vec![],
                                 Value::from("funtype"),
@@ -8187,7 +8233,7 @@ fn row_poly_function_call_closed_rejects_extra() {
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // "fn_val" node: synths to a function with a CLOSED record param.
@@ -8204,7 +8250,7 @@ fn row_poly_function_call_closed_rejects_extra() {
         .merge(TypeRuleDef::new(
             "type.fn_val",
             "fn_val",
-            Term::arr_native_lit("const", vec![], fn_type),
+            td(arr_native_lit("const", vec![], fn_type)),
         ))
         .unwrap();
     // AST: [object{name:"Luis", age:30}, fn_val, call{children:[1,0]}]
@@ -8299,10 +8345,10 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.value",
             "value",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("json_type_construct", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("json_type_construct", vec![]),
+            )),
         ))
         .unwrap();
     // var: node_payload >>> lookup
@@ -8310,10 +8356,10 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::seq(
-                Term::arr_judgment("node_payload", vec![]),
-                Term::arr_judgment("lookup", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment("node_payload", vec![]),
+                arr_judgment("lookup", vec![]),
+            )),
         ))
         .unwrap();
     // if: synth cond, unify with type.bool, synth then, unify with else,
@@ -8322,49 +8368,49 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.if",
             "if",
-            Term::seq(
-                Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                Term::seq(
-                    Term::arr_judgment_lit("bind", vec![], Value::from("tcond")),
-                    Term::seq(
-                        Term::arr_judgment(
+            td(TermData::seq(
+                arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                TermData::seq(
+                    arr_judgment_lit("bind", vec![], Value::from("tcond")),
+                    TermData::seq(
+                        arr_judgment(
                             "unify",
                             vec![
-                                Term::arr_judgment_lit("result", vec![], Value::from("tcond")),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit("result", vec![], Value::from("tcond")),
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.bool"),
                                 ),
                             ],
                         ),
-                        Term::seq(
-                            Term::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Term::seq(
-                                Term::arr_judgment_lit("bind", vec![], Value::from("tthen")),
-                                Term::seq(
-                                    Term::arr_judgment(
+                        TermData::seq(
+                            arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            TermData::seq(
+                                arr_judgment_lit("bind", vec![], Value::from("tthen")),
+                                TermData::seq(
+                                    arr_judgment(
                                         "unify",
                                         vec![
-                                            Term::arr_judgment_lit(
+                                            arr_judgment_lit(
                                                 "result",
                                                 vec![],
                                                 Value::from("tthen"),
                                             ),
-                                            Term::arr_judgment_lit(
+                                            arr_judgment_lit(
                                                 "synth_child",
                                                 vec![],
                                                 Value::from(2u64),
                                             ),
                                         ],
                                     ),
-                                    Term::arr_judgment_lit("result", vec![], Value::from("tthen")),
+                                    arr_judgment_lit("result", vec![], Value::from("tthen")),
                                 ),
                             ),
                         ),
                     ),
                 ),
-            ),
+            )),
         ))
         .unwrap();
     // Numeric binary ops (add/sub): synth child 0, unify with type.number,
@@ -8374,39 +8420,39 @@ fn rec_test_lang() -> Language {
             .merge(TypeRuleDef::new(
                 format!("type.{}", kind),
                 kind,
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-                        Term::seq(
-                            Term::arr_judgment(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("a")),
+                        TermData::seq(
+                            arr_judgment(
                                 "unify",
                                 vec![
-                                    Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit("result", vec![], Value::from("a")),
+                                    arr_judgment_lit(
                                         "construct",
                                         vec![],
                                         Value::from("type.number"),
                                     ),
                                 ],
                             ),
-                            Term::seq(
-                                Term::arr_judgment(
+                            TermData::seq(
+                                arr_judgment(
                                     "unify",
                                     vec![
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "synth_child",
                                             vec![],
                                             Value::from(1u64),
                                         ),
-                                        Term::arr_judgment_lit(
+                                        arr_judgment_lit(
                                             "construct",
                                             vec![],
                                             Value::from("type.number"),
                                         ),
                                     ],
                                 ),
-                                Term::arr_judgment_lit(
+                                arr_judgment_lit(
                                     "construct",
                                     vec![],
                                     Value::from("type.number"),
@@ -8414,7 +8460,7 @@ fn rec_test_lang() -> Language {
                             ),
                         ),
                     ),
-                ),
+                )),
             ))
             .unwrap();
     }
@@ -8425,26 +8471,26 @@ fn rec_test_lang() -> Language {
             .merge(TypeRuleDef::new(
                 format!("type.{}", kind),
                 kind,
-                Term::seq(
-                    Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
-                    Term::seq(
-                        Term::arr_judgment_lit("bind", vec![], Value::from("a")),
-                        Term::seq(
-                            Term::arr_judgment(
+                td(TermData::seq(
+                    arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    TermData::seq(
+                        arr_judgment_lit("bind", vec![], Value::from("a")),
+                        TermData::seq(
+                            arr_judgment(
                                 "unify",
                                 vec![
-                                    Term::arr_judgment_lit("result", vec![], Value::from("a")),
-                                    Term::arr_judgment_lit(
+                                    arr_judgment_lit("result", vec![], Value::from("a")),
+                                    arr_judgment_lit(
                                         "synth_child",
                                         vec![],
                                         Value::from(1u64),
                                     ),
                                 ],
                             ),
-                            Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                            arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                         ),
                     ),
-                ),
+                )),
             ))
             .unwrap();
     }
@@ -8453,7 +8499,7 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.return",
             "return",
-            Term::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+            td(arr_judgment_lit("synth_child", vec![], Value::from(0u64))),
         ))
         .unwrap();
     // let: delegate to the synth_let judgment (handles the v0.1
@@ -8462,7 +8508,7 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.let",
             "let",
-            Term::arr_judgment("synth_let", vec![]),
+            td(arr_judgment("synth_let", vec![])),
         ))
         .unwrap();
     // rec: delegate to the synth_rec judgment (fixpoint typing).
@@ -8470,7 +8516,7 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.rec",
             "rec",
-            Term::arr_judgment("synth_rec", vec![]),
+            td(arr_judgment("synth_rec", vec![])),
         ))
         .unwrap();
     // fresh: mints a fresh metavariable on every synth (used by the
@@ -8479,7 +8525,7 @@ fn rec_test_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.fresh",
             "fresh",
-            Term::arr_judgment("fresh_meta", vec![]),
+            td(arr_judgment("fresh_meta", vec![])),
         ))
         .unwrap();
     // AST shape roles: assign has target/value, return has value.
@@ -8695,15 +8741,15 @@ fn rec_occurs_check_rejects_cyclic_type() {
         .merge(TypeRuleDef::new(
             "type.array",
             "array",
-            Term::arr_judgment_lit(
+            td(arr_judgment_lit(
                 "construct",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "field",
-                    vec![Term::arr_judgment("synth_first_child_or_unknown", vec![])],
+                    vec![arr_judgment("synth_first_child_or_unknown", vec![])],
                     Value::from("element"),
                 )],
                 Value::from("type.array"),
-            ),
+            )),
         ))
         .unwrap();
     // AST: [var("a"), array{[0]}, var("a"), assign{[2,1]} (a = [a]),
@@ -8783,22 +8829,22 @@ fn effect_row_handle_attaches_effects_to_function_type() {
         .merge(TypeRuleDef::new(
             "type.handler",
             "handler",
-            Term::handle(
-                Term::arr_judgment_lit(
+            td(TermData::handle(
+                arr_judgment_lit(
                     "construct",
                     vec![
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "construct",
                                 vec![],
                                 Value::from("type.number"),
                             )],
                             Value::from("param"),
                         ),
-                        Term::arr_judgment_lit(
+                        arr_judgment_lit(
                             "field",
-                            vec![Term::arr_judgment_lit(
+                            vec![arr_judgment_lit(
                                 "construct",
                                 vec![],
                                 Value::from("type.string"),
@@ -8809,8 +8855,8 @@ fn effect_row_handle_attaches_effects_to_function_type() {
                     Value::from("type.function"),
                 ),
                 "map",
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9051,21 +9097,21 @@ fn effect_row_nested_handles_union_ops() {
     // Simpler: a Handle whose body is a Seq(handle(..., "map", ...),
     // handle(..., "serialize", ...)). The outer Handle targets "log".
     // infer_effect_row = {log, map, serialize}.
-    let make_fun = Term::arr_judgment_lit(
+    let make_fun = arr_judgment_lit(
         "construct",
         vec![
-            Term::arr_judgment_lit(
+            arr_judgment_lit(
                 "field",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.number"),
                 )],
                 Value::from("param"),
             ),
-            Term::arr_judgment_lit(
+            arr_judgment_lit(
                 "field",
-                vec![Term::arr_judgment_lit(
+                vec![arr_judgment_lit(
                     "construct",
                     vec![],
                     Value::from("type.string"),
@@ -9075,27 +9121,27 @@ fn effect_row_nested_handles_union_ops() {
         ],
         Value::from("type.function"),
     );
-    let inner = Term::seq(
-        Term::handle(
+    let inner = TermData::seq(
+        TermData::handle(
             make_fun.clone(),
             "map",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            arr_judgment_lit("construct", vec![], Value::from("type.number")),
         ),
-        Term::handle(
+        TermData::handle(
             make_fun.clone(),
             "serialize",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            arr_judgment_lit("construct", vec![], Value::from("type.number")),
         ),
     );
     lang.types
         .merge(TypeRuleDef::new(
             "type.nested_handler",
             "nhandler",
-            Term::handle(
+            td(TermData::handle(
                 inner,
                 "log",
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-            ),
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9162,7 +9208,7 @@ fn predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.var",
             "var",
-            Term::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+            td(arr_native_lit("proj_env", vec![], Value::from("$payload"))),
         ))
         .unwrap();
     // function: create a closure.
@@ -9170,7 +9216,7 @@ fn predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.function",
             "function",
-            Term::arr_native("closure", vec![]),
+            td(arr_native("closure", vec![])),
         ))
         .unwrap();
     // call: apply child 0 (callee) to child 1 (arg).
@@ -9178,14 +9224,14 @@ fn predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.call",
             "call",
-            Term::app(
-                Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                vec![Term::arr_native_lit(
+            td(TermData::app(
+                arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                vec![arr_native_lit(
                     "proj_child",
                     vec![],
                     Value::from(1u64),
                 )],
-            ),
+            )),
         ))
         .unwrap();
     // binary.mod: mod(child(0), child(1))
@@ -9193,13 +9239,13 @@ fn predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.binary.mod",
             "binary.mod",
-            Term::arr_native(
+            td(arr_native(
                 "mod",
                 vec![
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
-            ),
+            )),
         ))
         .unwrap();
     // binary.eq: eq(child(0), child(1))
@@ -9207,13 +9253,13 @@ fn predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.binary.eq",
             "binary.eq",
-            Term::arr_native(
+            td(arr_native(
                 "eq",
                 vec![
-                    Term::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Term::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ],
-            ),
+            )),
         ))
         .unwrap();
 
@@ -9223,7 +9269,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // var → lookup from Γ
@@ -9231,7 +9277,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::arr_judgment_lit("lookup", vec![], Value::from("$payload")),
+            td(arr_judgment_lit("lookup", vec![], Value::from("$payload"))),
         ))
         .unwrap();
     // function → synth_function (constructs type.function{param, body})
@@ -9239,7 +9285,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::arr_judgment("synth_function", vec![]),
+            td(arr_judgment("synth_function", vec![])),
         ))
         .unwrap();
     // binary.mod → type.number
@@ -9247,7 +9293,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.binary.mod",
             "binary.mod",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // binary.eq → type.bool
@@ -9255,7 +9301,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.binary.eq",
             "binary.eq",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.bool"))),
         ))
         .unwrap();
     // type-annot → synth_type_annot
@@ -9263,7 +9309,7 @@ fn predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.type-annot",
             "type-annot",
-            Term::arr_judgment("synth_type_annot", vec![]),
+            td(arr_judgment("synth_type_annot", vec![])),
         ))
         .unwrap();
 
@@ -9371,10 +9417,10 @@ fn marshalable_judgment_accepts_ffi_type() {
         .merge(TypeRuleDef::new(
             "type.ffi_arg",
             "ffi_arg",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.i32")),
-                Term::arr_judgment("marshalable", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.i32")),
+                arr_judgment("marshalable", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9393,10 +9439,10 @@ fn marshalable_judgment_rejects_non_ffi_type() {
         .merge(TypeRuleDef::new(
             "type.ffi_arg",
             "ffi_arg",
-            Term::seq(
-                Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Term::arr_judgment("marshalable", vec![]),
-            ),
+            td(TermData::seq(
+                arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                arr_judgment("marshalable", vec![]),
+            )),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9468,7 +9514,7 @@ fn foreign_type_looks_up_signature_from_module_registry() {
         .merge(TypeRuleDef::new(
             "type.ffi_call",
             "ffi_call",
-            Term::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts")),
+            td(arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9493,7 +9539,7 @@ fn foreign_type_errors_when_op_has_no_signature() {
         .merge(TypeRuleDef::new(
             "type.ffi_call",
             "ffi_call",
-            Term::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.plain")),
+            td(arr_judgment_lit("foreign_type", vec![], Value::from("ffi.plain"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -9553,7 +9599,7 @@ fn foreign_type_errors_without_module_registry() {
         .merge(TypeRuleDef::new(
             "type.ffi_call",
             "ffi_call",
-            Term::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts")),
+            td(arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts"))),
         ))
         .unwrap();
     let mut ast = Ast::new();
@@ -10210,7 +10256,7 @@ fn b1_b2_fallback_b1_blocked_b2_proven() {
         .merge(TypeRuleDef::new(
             "type.binary.neq",
             "binary.neq",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.bool"))),
         ))
         .unwrap();
 
@@ -10550,14 +10596,14 @@ fn meta_predicate_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "eval.var",
             "var",
-            Term::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+            td(arr_native_lit("proj_env", vec![], Value::from("$payload"))),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "eval.function",
             "function",
-            Term::arr_native("closure", vec![]),
+            td(arr_native("closure", vec![])),
         ))
         .unwrap();
 
@@ -10567,7 +10613,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.lit",
             "lit",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // var → lookup from Γ
@@ -10575,7 +10621,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.var",
             "var",
-            Term::arr_judgment_lit("lookup", vec![], Value::from("$payload")),
+            td(arr_judgment_lit("lookup", vec![], Value::from("$payload"))),
         ))
         .unwrap();
     // function → synth_function
@@ -10583,7 +10629,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.function",
             "function",
-            Term::arr_judgment("synth_function", vec![]),
+            td(arr_judgment("synth_function", vec![])),
         ))
         .unwrap();
     // binary.add → type.number (both children type.number)
@@ -10591,7 +10637,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.binary.add",
             "binary.add",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.number"))),
         ))
         .unwrap();
     // type-annot → synth_type_annot
@@ -10599,7 +10645,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.type-annot",
             "type-annot",
-            Term::arr_judgment("synth_type_annot", vec![]),
+            td(arr_judgment("synth_type_annot", vec![])),
         ))
         .unwrap();
     // assign → type.unit (statement with side effects; matches canonical)
@@ -10607,7 +10653,7 @@ fn meta_predicate_lang() -> Language {
         .merge(TypeRuleDef::new(
             "type.assign",
             "assign",
-            Term::arr_judgment_lit("construct", vec![], Value::from("type.unit")),
+            td(arr_judgment_lit("construct", vec![], Value::from("type.unit"))),
         ))
         .unwrap();
 
