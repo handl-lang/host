@@ -1621,6 +1621,7 @@ dependencies = [
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-lib-handl",
+ "plugin-engine",
  "serde",
  "serde_json",
  "serde_yaml",

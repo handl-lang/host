@@ -40,9 +40,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use handl_language::{ArrSource, Ast, AstNode, Language, Term, Value};
+use handl_language::{Ast, AstNode, Language, Term, Value};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
+use plugin_engine::{ArrSource, TermData};
 
 use crate::arrow_lang::arrow_language;
 
@@ -538,117 +539,158 @@ fn rewrite_scheme(
     import_map: &HashMap<String, (String, String)>,
     local_names: &HashSet<String>,
 ) -> Term {
-    match scheme {
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } => {
+    let td = TermData::from_term(scheme);
+    rewrite_scheme_td(&td, import_map, local_names)
+        .to_term()
+        .expect("rewrite_scheme: TermData -> Term conversion failed")
+}
+
+/// Data-driven counterpart of [`rewrite_scheme`], operating on [`TermData`]
+/// instead of the `Term` enum. Dispatches on `td.tag()` and accesses fields
+/// via `get_term` / `get_str` / `arr_source`, constructing results with
+/// `TermData` constructors.
+fn rewrite_scheme_td(
+    td: &TermData,
+    import_map: &HashMap<String, (String, String)>,
+    local_names: &HashSet<String>,
+) -> TermData {
+    match td.tag() {
+        "Op" => {
             // Recurse into args first (bottom-up).
-            let new_args: Vec<Term> = args
+            let new_args: Vec<TermData> = td
+                .get_term_list("args")
                 .iter()
-                .map(|a| rewrite_scheme(a, import_map, local_names))
+                .map(|a| rewrite_scheme_td(a, import_map, local_names))
                 .collect();
 
             // Check if this is a bare reference to an imported name.
-            if args.is_empty() && lit.is_none() && *source == ArrSource::Native {
-                if let Some((path, remote_name)) = import_map.get(op) {
-                    if !local_names.contains(op) {
-                        if remote_name == "*" {
-                            // Whole-module import: the whole module record.
-                            return module_ref_node(path);
-                        } else {
-                            // Named import: project the field from the module.
-                            return project_node(module_ref_node(path), remote_name);
+            let is_bare_ref = new_args.is_empty()
+                && td.get("lit").map(|v| v.is_null()).unwrap_or(true)
+                && td.arr_source() == Some(ArrSource::Native);
+            if is_bare_ref {
+                if let Some(op) = td.get_str("name") {
+                    if let Some((path, remote_name)) = import_map.get(op) {
+                        if !local_names.contains(op) {
+                            if remote_name == "*" {
+                                // Whole-module import: the whole module record.
+                                return module_ref_node_td(path);
+                            } else {
+                                // Named import: project the field from the module.
+                                return project_node_td(module_ref_node_td(path), remote_name);
+                            }
                         }
                     }
                 }
             }
 
-            Term::Op {
-                name: op.clone(),
-                args: new_args,
-                source: source.clone(),
-                lit: lit.clone(),
-            }
+            // Not a bare reference — rebuild the Op with rewritten args.
+            let source = td.arr_source().unwrap_or(ArrSource::Native);
+            let lit = td.get("lit").filter(|v| !v.is_null()).cloned();
+            let name = td.get_str("name").unwrap_or("").to_string();
+            TermData::op(name, new_args, &source, lit)
         }
-        Term::Seq { fst, snd } => Term::Seq {
-            fst: Box::new(rewrite_scheme(fst, import_map, local_names)),
-            snd: Box::new(rewrite_scheme(snd, import_map, local_names)),
-        },
-        Term::First { inner } => Term::First {
-            inner: Box::new(rewrite_scheme(inner, import_map, local_names)),
-        },
-        Term::Choice { l, r } => Term::Choice {
-            l: Box::new(rewrite_scheme(l, import_map, local_names)),
-            r: Box::new(rewrite_scheme(r, import_map, local_names)),
-        },
-        Term::Loop { body } => Term::Loop {
-            body: Box::new(rewrite_scheme(body, import_map, local_names)),
-        },
-        Term::App { callee, args } => Term::App {
-            callee: Box::new(rewrite_scheme(callee, import_map, local_names)),
-            args: args
+        "Seq" => {
+            let fst = td.get_term("fst").expect("Seq: missing fst");
+            let snd = td.get_term("snd").expect("Seq: missing snd");
+            TermData::seq(
+                rewrite_scheme_td(&fst, import_map, local_names),
+                rewrite_scheme_td(&snd, import_map, local_names),
+            )
+        }
+        "First" => {
+            let inner = td.get_term("inner").expect("First: missing inner");
+            TermData::first(rewrite_scheme_td(&inner, import_map, local_names))
+        }
+        "Choice" => {
+            let l = td.get_term("l").expect("Choice: missing l");
+            let r = td.get_term("r").expect("Choice: missing r");
+            TermData::choice(
+                rewrite_scheme_td(&l, import_map, local_names),
+                rewrite_scheme_td(&r, import_map, local_names),
+            )
+        }
+        "Loop" => {
+            let body = td.get_term("body").expect("Loop: missing body");
+            TermData::loop_feedback(rewrite_scheme_td(&body, import_map, local_names))
+        }
+        "App" => {
+            let callee = td.get_term("callee").expect("App: missing callee");
+            let args: Vec<TermData> = td
+                .get_term_list("args")
                 .iter()
-                .map(|a| rewrite_scheme(a, import_map, local_names))
-                .collect(),
-        },
+                .map(|a| rewrite_scheme_td(a, import_map, local_names))
+                .collect();
+            TermData::app(rewrite_scheme_td(&callee, import_map, local_names), args)
+        }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then rewrite the resulting handler-free graph.
-        Term::Handle { .. } => {
-            let eliminated = scheme.eliminate_handlers();
-            rewrite_scheme(&eliminated, import_map, local_names)
+        "Handle" => {
+            let eliminated = td
+                .to_term()
+                .expect("Handle: TermData -> Term conversion failed")
+                .eliminate_handlers();
+            let eliminated_td = TermData::from_term(&eliminated);
+            rewrite_scheme_td(&eliminated_td, import_map, local_names)
         }
-
-        Term::Arr { value } => Term::Arr {
-            value: value.clone(),
-        },
-        Term::Child { role } => Term::Child { role: role.clone() },
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => Term::Iter {
-            fuel: Box::new(rewrite_scheme(fuel, import_map, local_names)),
-            predicate: Box::new(rewrite_scheme(predicate, import_map, local_names)),
-            step: Box::new(rewrite_scheme(step, import_map, local_names)),
-            initial: Box::new(rewrite_scheme(initial, import_map, local_names)),
-        },
-        Term::Rewrite {
-            source,
-            target,
-            witness,
-        } => Term::Rewrite {
-            source: Box::new(rewrite_scheme(source, import_map, local_names)),
-            target: Box::new(rewrite_scheme(target, import_map, local_names)),
-            witness: witness.clone(),
-        },
+        "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(Value::Null);
+            TermData::arr(value)
+        }
+        "Child" => {
+            let role = td.get_str("role").unwrap_or("").to_string();
+            TermData::child(role)
+        }
+        "Iter" => {
+            let fuel = td.get_term("fuel").expect("Iter: missing fuel");
+            let predicate = td.get_term("predicate").expect("Iter: missing predicate");
+            let step = td.get_term("step").expect("Iter: missing step");
+            let initial = td.get_term("initial").expect("Iter: missing initial");
+            TermData::iter(
+                rewrite_scheme_td(&fuel, import_map, local_names),
+                rewrite_scheme_td(&predicate, import_map, local_names),
+                rewrite_scheme_td(&step, import_map, local_names),
+                rewrite_scheme_td(&initial, import_map, local_names),
+            )
+        }
+        "Rewrite" => {
+            let source = td.get_term("source").expect("Rewrite: missing source");
+            let target = td.get_term("target").expect("Rewrite: missing target");
+            // Reconstruct via to_term to preserve the witness field exactly.
+            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
+            if let Term::Rewrite { witness, .. } = witness_term {
+                TermData::rewrite(
+                    rewrite_scheme_td(&source, import_map, local_names),
+                    rewrite_scheme_td(&target, import_map, local_names),
+                    &witness,
+                )
+            } else {
+                unreachable!()
+            }
+        }
         _ => unreachable!(),
     }
 }
 
-/// Build a `module_ref` node: `Arr { op: "module_ref", args: [], source:
+/// Build a `module_ref` node: `Op { name: "module_ref", args: [], source:
 /// Native, lit: Some(path) }`.
-fn module_ref_node(path: &str) -> Term {
-    Term::Op {
-        name: "module_ref".to_string(),
-        args: vec![],
-        source: ArrSource::Native,
-        lit: Some(Value::String(path.to_string())),
-    }
+fn module_ref_node_td(path: &str) -> TermData {
+    TermData::op(
+        "module_ref".to_string(),
+        vec![],
+        &ArrSource::Native,
+        Some(Value::String(path.to_string())),
+    )
 }
 
-/// Build a `project` node: `Arr { op: "project", args: [record], source:
+/// Build a `project` node: `Op { name: "project", args: [record], source:
 /// Native, lit: Some(field) }`.
-fn project_node(record: Term, field: &str) -> Term {
-    Term::Op {
-        name: "project".to_string(),
-        args: vec![record],
-        source: ArrSource::Native,
-        lit: Some(Value::String(field.to_string())),
-    }
+fn project_node_td(record: TermData, field: &str) -> TermData {
+    TermData::op(
+        "project".to_string(),
+        vec![record],
+        &ArrSource::Native,
+        Some(Value::String(field.to_string())),
+    )
 }
 
 /// Parse a single `import` line into an [`ImportDecl`].
@@ -1256,8 +1298,58 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
         return Ok(Term::const_value(node.payload.clone()));
     }
 
+    // `paren` — parenthesised expression. The eval scheme is just
+    // `Op { name: "paren" }` without a proj_child, so handle it directly
+    // by materializing the single inner child.
+    if kind == "paren" {
+        let children = get_children(&node.payload)?;
+        let inner_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or("paren: missing inner child")? as usize;
+        return materialize_node(ast, inner_idx, lang);
+    }
+
     // `binary.lte` / `binary.lt` are handled by the arrow `Language`'s
     // data-driven eval-scheme overrides for `binary.lte` / `binary.lt`.
+
+    // Arrow combinator kinds — the canonical grammar produces dedicated
+    // node kinds (`first`, `choice`, `flow`, etc.) for arrow combinators.
+    // Lower them to the corresponding `Term` variants directly, since the
+    // eval schemes produce `Op { name: "first" }` templates that would
+    // otherwise not be lowered.
+    if kind == "first" || kind == "second" {
+        let children = get_children(&node.payload)?;
+        let inner_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or("first/second: missing inner child")? as usize;
+        let inner = materialize_node(ast, inner_idx, lang)?;
+        if kind == "first" {
+            return Ok(Term::First {
+                inner: Box::new(inner),
+            });
+        }
+        // `second` maps to `First` on the second component — represent as
+        // `First` wrapping a `Second` marker is not needed; the eval scheme
+        // handles it. For now, treat it as a regular op.
+        return Ok(Term::arr_native(kind, vec![inner]));
+    }
+    if kind == "choice" {
+        let children = get_children(&node.payload)?;
+        let l_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or("choice: missing left child")? as usize;
+        let r_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or("choice: missing right child")? as usize;
+        return Ok(Term::Choice {
+            l: Box::new(materialize_node(ast, l_idx, lang)?),
+            r: Box::new(materialize_node(ast, r_idx, lang)?),
+        });
+    }
 
     // `call` — function call. Dispatch on callee name for arrow combinators.
     if kind == "call" {
@@ -1424,165 +1516,189 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
 /// Walk a [`Term`] template (from the eval definition), substituting
 /// `proj_child(N)` placeholders with materialized children and resolving
 /// `$str_child0` / `$payload` / `proj_rest` conventions.
+///
+/// Thin wrapper that converts to [`TermData`] and delegates to
+/// [`walk_scheme_td`].
 fn walk_scheme(scheme: &Term, ast: &Ast, node: &AstNode, lang: &Language) -> Result<Term, String> {
-    match scheme {
-        Term::Op {
-            name: op,
-            args,
-            source,
-            lit,
-        } => match op.as_str() {
-            "proj_child" => {
-                // Recurse into child N of the current node.
-                let idx = lit
-                    .as_ref()
-                    .and_then(|v| v.as_u64())
-                    .ok_or("proj_child: missing index literal")? as usize;
-                let children = get_children(&node.payload)?;
-                let child_arena_idx = children
-                    .get(idx)
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| format!("proj_child: child {} not found", idx))?
-                    as usize;
-                materialize_node(ast, child_arena_idx, lang)
-            }
-            "$str_child0" => {
-                // The op name is child 0's payload string (arr("name") / app("name")).
-                let children = get_children(&node.payload)?;
-                let child0_idx = children
-                    .first()
-                    .and_then(|v| v.as_u64())
-                    .ok_or("$str_child0: missing child 0")?
-                    as usize;
-                let child0 = ast
-                    .nodes()
-                    .get(child0_idx)
-                    .ok_or("$str_child0: child 0 out of bounds")?;
-                let name = child0
-                    .payload
-                    .as_str()
-                    .ok_or("$str_child0: child 0 payload is not a string")?
-                    .to_string();
-                let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Term::Op {
-                    name: name,
-                    args: materialized_args,
-                    source: source.clone(),
-                    lit: None,
-                })
-            }
-            "$payload" => {
-                // The op name is the current node's payload string (bare identifier).
-                let name = node
-                    .payload
-                    .as_str()
-                    .ok_or("$payload: node payload is not a string")?
-                    .to_string();
-                let materialized_args = walk_args(args, ast, node, lang)?;
-                Ok(Term::Op {
-                    name: name,
-                    args: materialized_args,
-                    source: source.clone(),
-                    lit: None,
-                })
-            }
-            "proj_rest" => {
-                // proj_rest should only appear inside an args list (handled by
-                // walk_args). If reached here, it's a malformed eval scheme.
-                Err("proj_rest: should only appear in an args list".to_string())
-            }
-            _ => {
-                // Normal arr: walk args recursively, resolve $payload in lit.
-                let materialized_args = walk_args(args, ast, node, lang)?;
-                let materialized_lit = resolve_lit(lit, node);
-                Ok(Term::Op {
-                    name: op.clone(),
-                    args: materialized_args,
-                    source: source.clone(),
-                    lit: materialized_lit,
-                })
-            }
-        },
+    let td = TermData::from_term(scheme);
+    let result = walk_scheme_td(&td, ast, node, lang)?;
+    result.to_term().map_err(|e| format!("walk_scheme: {}", e))
+}
 
-        Term::Seq { fst, snd } => Ok(Term::Seq {
-            fst: Box::new(walk_scheme(fst, ast, node, lang)?),
-            snd: Box::new(walk_scheme(snd, ast, node, lang)?),
-        }),
+/// Data-driven counterpart of [`walk_scheme`], operating on [`TermData`].
+fn walk_scheme_td(
+    td: &TermData,
+    ast: &Ast,
+    node: &AstNode,
+    lang: &Language,
+) -> Result<TermData, String> {
+    match td.tag() {
+        "Op" => {
+            let op = td.get_str("name").unwrap_or("");
+            match op {
+                "proj_child" => {
+                    // Recurse into child N of the current node.
+                    let idx = td
+                        .get("lit")
+                        .and_then(|v| v.as_u64())
+                        .ok_or("proj_child: missing index literal")? as usize;
+                    let children = get_children(&node.payload)?;
+                    let child_arena_idx = children
+                        .get(idx)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| format!("proj_child: child {} not found", idx))?
+                        as usize;
+                    let child_term = materialize_node(ast, child_arena_idx, lang)?;
+                    Ok(TermData::from_term(&child_term))
+                }
+                "$str_child0" => {
+                    // The op name is child 0's payload string (arr("name") / app("name")).
+                    let children = get_children(&node.payload)?;
+                    let child0_idx = children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .ok_or("$str_child0: missing child 0")? as usize;
+                    let child0 = ast
+                        .nodes()
+                        .get(child0_idx)
+                        .ok_or("$str_child0: child 0 out of bounds")?;
+                    let name = child0
+                        .payload
+                        .as_str()
+                        .ok_or("$str_child0: child 0 payload is not a string")?
+                        .to_string();
+                    let materialized_args =
+                        walk_args_td(&td.get_term_list("args"), ast, node, lang)?;
+                    let source = td.arr_source().unwrap_or(ArrSource::Native);
+                    Ok(TermData::op(name, materialized_args, &source, None))
+                }
+                "$payload" => {
+                    // The op name is the current node's payload string (bare identifier).
+                    let name = node
+                        .payload
+                        .as_str()
+                        .ok_or("$payload: node payload is not a string")?
+                        .to_string();
+                    let materialized_args =
+                        walk_args_td(&td.get_term_list("args"), ast, node, lang)?;
+                    let source = td.arr_source().unwrap_or(ArrSource::Native);
+                    Ok(TermData::op(name, materialized_args, &source, None))
+                }
+                "proj_rest" => {
+                    // proj_rest should only appear inside an args list (handled by
+                    // walk_args). If reached here, it's a malformed eval scheme.
+                    Err("proj_rest: should only appear in an args list".to_string())
+                }
+                _ => {
+                    // Normal arr: walk args recursively, resolve $payload in lit.
+                    let materialized_args =
+                        walk_args_td(&td.get_term_list("args"), ast, node, lang)?;
+                    let lit_val = td.get("lit").filter(|v| !v.is_null());
+                    let materialized_lit = resolve_lit_val(lit_val, node);
+                    let source = td.arr_source().unwrap_or(ArrSource::Native);
+                    Ok(TermData::op(
+                        op.to_string(),
+                        materialized_args,
+                        &source,
+                        materialized_lit,
+                    ))
+                }
+            }
+        }
 
-        Term::First { inner } => Ok(Term::First {
-            inner: Box::new(walk_scheme(inner, ast, node, lang)?),
-        }),
+        "Seq" => {
+            let fst = td.get_term("fst").ok_or("Seq: missing fst")?;
+            let snd = td.get_term("snd").ok_or("Seq: missing snd")?;
+            Ok(TermData::seq(
+                walk_scheme_td(&fst, ast, node, lang)?,
+                walk_scheme_td(&snd, ast, node, lang)?,
+            ))
+        }
 
-        Term::Choice { l, r } => Ok(Term::Choice {
-            l: Box::new(walk_scheme(l, ast, node, lang)?),
-            r: Box::new(walk_scheme(r, ast, node, lang)?),
-        }),
+        "First" => {
+            let inner = td.get_term("inner").ok_or("First: missing inner")?;
+            Ok(TermData::first(walk_scheme_td(&inner, ast, node, lang)?))
+        }
 
-        Term::Loop { body } => Ok(Term::Loop {
-            body: Box::new(walk_scheme(body, ast, node, lang)?),
-        }),
+        "Choice" => {
+            let l = td.get_term("l").ok_or("Choice: missing l")?;
+            let r = td.get_term("r").ok_or("Choice: missing r")?;
+            Ok(TermData::choice(
+                walk_scheme_td(&l, ast, node, lang)?,
+                walk_scheme_td(&r, ast, node, lang)?,
+            ))
+        }
 
-        Term::App { callee, args } => {
-            let materialized_callee = walk_scheme(callee, ast, node, lang)?;
-            let materialized_args = walk_args(args, ast, node, lang)?;
-            Ok(Term::App {
-                callee: Box::new(materialized_callee),
-                args: materialized_args,
-            })
+        "Loop" => {
+            let body = td.get_term("body").ok_or("Loop: missing body")?;
+            Ok(TermData::loop_feedback(walk_scheme_td(&body, ast, node, lang)?))
+        }
+
+        "App" => {
+            let callee = td.get_term("callee").ok_or("App: missing callee")?;
+            let materialized_callee = walk_scheme_td(&callee, ast, node, lang)?;
+            let materialized_args = walk_args_td(&td.get_term_list("args"), ast, node, lang)?;
+            Ok(TermData::app(materialized_callee, materialized_args))
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the handler
         // at compile time, then walk the resulting handler-free graph.
-        Term::Handle { .. } => {
-            let eliminated = scheme.eliminate_handlers();
-            walk_scheme(&eliminated, ast, node, lang)
+        "Handle" => {
+            let eliminated = td
+                .to_term()
+                .map_err(|e| format!("Handle: {}", e))?
+                .eliminate_handlers();
+            let eliminated_td = TermData::from_term(&eliminated);
+            walk_scheme_td(&eliminated_td, ast, node, lang)
         }
 
-        Term::Arr { value } => Ok(Term::Arr {
-            value: value.clone(),
-        }),
-        Term::Child { .. } => Err("child projection not supported".to_string()),
-        Term::Iter {
-            fuel,
-            predicate,
-            step,
-            initial,
-        } => Ok(Term::Iter {
-            fuel: Box::new(walk_scheme(fuel, ast, node, lang)?),
-            predicate: Box::new(walk_scheme(predicate, ast, node, lang)?),
-            step: Box::new(walk_scheme(step, ast, node, lang)?),
-            initial: Box::new(walk_scheme(initial, ast, node, lang)?),
-        }),
-        Term::Rewrite { .. } => Err("rewrite scheme not supported".to_string()),
+        "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(Value::Null);
+            Ok(TermData::arr(value))
+        }
+        "Child" => Err("child projection not supported".to_string()),
+        "Iter" => {
+            let fuel = td.get_term("fuel").ok_or("Iter: missing fuel")?;
+            let predicate = td.get_term("predicate").ok_or("Iter: missing predicate")?;
+            let step = td.get_term("step").ok_or("Iter: missing step")?;
+            let initial = td.get_term("initial").ok_or("Iter: missing initial")?;
+            Ok(TermData::iter(
+                walk_scheme_td(&fuel, ast, node, lang)?,
+                walk_scheme_td(&predicate, ast, node, lang)?,
+                walk_scheme_td(&step, ast, node, lang)?,
+                walk_scheme_td(&initial, ast, node, lang)?,
+            ))
+        }
+        "Rewrite" => Err("rewrite scheme not supported".to_string()),
         _ => unreachable!(),
     }
 }
 
 /// Walk a list of argument schemes, expanding `proj_rest` placeholders into
 /// the materialized children 1..N of the current node.
-fn walk_args(
-    args: &[Term],
+///
+/// Operates on [`TermData`] (data-driven).
+fn walk_args_td(
+    args: &[TermData],
     ast: &Ast,
     node: &AstNode,
     lang: &Language,
-) -> Result<Vec<Term>, String> {
+) -> Result<Vec<TermData>, String> {
     let mut result = Vec::new();
     for arg in args {
-        if let Term::Op { name: op, .. } = arg {
-            if op == "proj_rest" {
-                // Expand to materialized children 1..N (all children after
-                // the string-name child 0).
-                let children = get_children(&node.payload)?;
-                for i in 1..children.len() {
-                    let child_idx = children[i]
-                        .as_u64()
-                        .ok_or("proj_rest: child index not a number")?
-                        as usize;
-                    result.push(materialize_node(ast, child_idx, lang)?);
-                }
-                continue;
+        if arg.tag() == "Op" && arg.get_str("name") == Some("proj_rest") {
+            // Expand to materialized children 1..N (all children after
+            // the string-name child 0).
+            let children = get_children(&node.payload)?;
+            for i in 1..children.len() {
+                let child_idx = children[i]
+                    .as_u64()
+                    .ok_or("proj_rest: child index not a number")? as usize;
+                let child_term = materialize_node(ast, child_idx, lang)?;
+                result.push(TermData::from_term(&child_term));
             }
+            continue;
         }
-        result.push(walk_scheme(arg, ast, node, lang)?);
+        result.push(walk_scheme_td(arg, ast, node, lang)?);
     }
     Ok(result)
 }
@@ -1591,8 +1707,10 @@ fn walk_args(
 ///
 /// If `lit` is the string `"$payload"`, it is replaced with the node's actual
 /// payload value. Otherwise, the literal is passed through unchanged.
-fn resolve_lit(lit: &Option<Value>, node: &AstNode) -> Option<Value> {
-    lit.as_ref().and_then(|v| {
+///
+/// Takes an `Option<&Value>` (as produced by [`TermData::get`]).
+fn resolve_lit_val(lit: Option<&Value>, node: &AstNode) -> Option<Value> {
+    lit.and_then(|v| {
         if v == &Value::String("$payload".to_string()) {
             Some(node.payload.clone())
         } else {
@@ -2318,6 +2436,9 @@ fn parse_arrow_file_legacy(src: &str) -> Result<ParsedFile, String> {
 
 /// Legacy: parse a simple arrow expression using the ad-hoc tokenizer +
 /// recursive-descent parser.
+///
+/// The parser builds [`TermData`] internally and converts to [`Term`] at the
+/// end (thin-wrapper pattern).
 fn parse_arrow_expr_legacy(src: &str) -> Result<Term, String> {
     let tokens = tokenize(src)?;
     let mut parser = Parser::new(&tokens);
@@ -2328,7 +2449,7 @@ fn parse_arrow_expr_legacy(src: &str) -> Result<Term, String> {
             tokens.len() - parser.pos
         ));
     }
-    Ok(scheme)
+    scheme.to_term().map_err(|e| format!("legacy parse: {}", e))
 }
 
 // ============================================================================
@@ -2538,40 +2659,34 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a full arrow expression (top-level entry point).
-    fn parse_expr(&mut self) -> Result<Term, String> {
+    fn parse_expr(&mut self) -> Result<TermData, String> {
         self.parse_seq()
     }
 
     /// Parse a sequence expression: `choice_expr (">>>" choice_expr)*`.
-    fn parse_seq(&mut self) -> Result<Term, String> {
+    fn parse_seq(&mut self) -> Result<TermData, String> {
         let mut left = self.parse_choice_expr()?;
         while self.peek() == Some(&Token::Flow) {
             self.next(); // consume >>>
             let right = self.parse_choice_expr()?;
-            left = Term::Seq {
-                fst: Box::new(left),
-                snd: Box::new(right),
-            };
+            left = TermData::seq(left, right);
         }
         Ok(left)
     }
 
     /// Parse a choice expression: `atom ("|||" atom)*`.
-    fn parse_choice_expr(&mut self) -> Result<Term, String> {
+    fn parse_choice_expr(&mut self) -> Result<TermData, String> {
         let mut left = self.parse_atom()?;
         while self.peek() == Some(&Token::ChoiceOp) {
             self.next(); // consume |||
             let right = self.parse_atom()?;
-            left = Term::Choice {
-                l: Box::new(left),
-                r: Box::new(right),
-            };
+            left = TermData::choice(left, right);
         }
         Ok(left)
     }
 
     /// Parse an atom: the simplest unit of an arrow expression.
-    fn parse_atom(&mut self) -> Result<Term, String> {
+    fn parse_atom(&mut self) -> Result<TermData, String> {
         match self.next() {
             Some(Token::LParen) => {
                 let inner = self.parse_expr()?;
@@ -2579,7 +2694,7 @@ impl<'a> Parser<'a> {
                 Ok(inner)
             }
             Some(Token::Ident(name)) => match name.as_str() {
-                "id" => Ok(Term::arr_native("id", vec![])),
+                "id" => Ok(arr_native_td("id", vec![])),
                 "arr" => self.parse_arr(),
                 "app" => self.parse_app(),
                 "comp" => self.parse_comp(),
@@ -2587,17 +2702,14 @@ impl<'a> Parser<'a> {
                 "choice" => self.parse_choice(),
                 "loop" => self.parse_loop(),
                 "rec" => self.parse_loop(), // v0.1: rec(body) alias for loop(body)
-                _ => Ok(Term::App {
-                    callee: Box::new(Term::arr_native(name, vec![])),
-                    args: vec![],
-                }),
+                _ => Ok(TermData::app(arr_native_td(name, vec![]), vec![])),
             },
             Some(t) => Err(format!("expected identifier, got {:?}", t)),
             None => Err("unexpected end of input".to_string()),
         }
     }
 
-    fn parse_arr(&mut self) -> Result<Term, String> {
+    fn parse_arr(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let name = match self.next() {
             Some(Token::StringLit(s)) => s.clone(),
@@ -2605,10 +2717,10 @@ impl<'a> Parser<'a> {
         };
         let args = self.parse_optional_args()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::arr_native(name, args))
+        Ok(arr_native_td(name, args))
     }
 
-    fn parse_app(&mut self) -> Result<Term, String> {
+    fn parse_app(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let name = match self.next() {
             Some(Token::StringLit(s)) => s.clone(),
@@ -2616,55 +2728,42 @@ impl<'a> Parser<'a> {
         };
         let args = self.parse_optional_args()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::App {
-            callee: Box::new(Term::arr_native(name, vec![])),
-            args,
-        })
+        Ok(TermData::app(arr_native_td(name, vec![]), args))
     }
 
-    fn parse_comp(&mut self) -> Result<Term, String> {
+    fn parse_comp(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let fst = self.parse_expr()?;
         self.expect(&Token::Comma)?;
         let snd = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::Seq {
-            fst: Box::new(fst),
-            snd: Box::new(snd),
-        })
+        Ok(TermData::seq(fst, snd))
     }
 
-    fn parse_first(&mut self) -> Result<Term, String> {
+    fn parse_first(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let inner = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::First {
-            inner: Box::new(inner),
-        })
+        Ok(TermData::first(inner))
     }
 
-    fn parse_choice(&mut self) -> Result<Term, String> {
+    fn parse_choice(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let l = self.parse_expr()?;
         self.expect(&Token::Comma)?;
         let r = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::Choice {
-            l: Box::new(l),
-            r: Box::new(r),
-        })
+        Ok(TermData::choice(l, r))
     }
 
-    fn parse_loop(&mut self) -> Result<Term, String> {
+    fn parse_loop(&mut self) -> Result<TermData, String> {
         self.expect(&Token::LParen)?;
         let body = self.parse_expr()?;
         self.expect(&Token::RParen)?;
-        Ok(Term::Loop {
-            body: Box::new(body),
-        })
+        Ok(TermData::loop_feedback(body))
     }
 
-    fn parse_optional_args(&mut self) -> Result<Vec<Term>, String> {
+    fn parse_optional_args(&mut self) -> Result<Vec<TermData>, String> {
         if self.peek() == Some(&Token::Comma) {
             self.next(); // consume comma
             let mut args = vec![self.parse_expr()?];
@@ -2677,4 +2776,10 @@ impl<'a> Parser<'a> {
             Ok(vec![])
         }
     }
+}
+
+/// Build a native `Op` [`TermData`] (the data-driven counterpart of
+/// `Term::arr_native`): `Op { name, args, source: Native, lit: null }`.
+fn arr_native_td(name: impl Into<String>, args: Vec<TermData>) -> TermData {
+    TermData::op(name, args, &ArrSource::Native, None)
 }

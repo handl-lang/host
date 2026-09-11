@@ -10,6 +10,7 @@ native-z3 = ["dep:z3"]
 [dependencies]
 handl-platform = {path = "../platform" }
 handl-language = {path = "../handl-language" }
+plugin-engine = {path = "../plugin-engine" }
 handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
 handl-plugin-engine-lex = {path = "../plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
