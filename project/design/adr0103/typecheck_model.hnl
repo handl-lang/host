@@ -432,7 +432,7 @@ do {
           }
         } else {
           do {
-            synth_result :: self(self, state, node_idx)
+            synth_result :: synth_node_(synth_node_, state, node_idx)
             unify_result :: unify(synth_result.typ, expected, synth_result.state.metas)
             if unify_result.ok {
               do {
@@ -477,7 +477,7 @@ do {
       foreign_result :: { val: make_type("TypeError", hash_map.set({}, "message", "foreign op in type rule: " + op_name)), state: state }
       native_or_foreign :: if is_native { native_result } else { foreign_result }
       if is_judgment {
-        eval_judgment_(eval_judgment_, state, node_idx, op_name, op_args, op_lit, incoming)
+        eval_judgment_(eval_scheme_, state, node_idx, op_name, op_args, op_lit, incoming)
       } else {
         native_or_foreign
       }
@@ -1281,12 +1281,12 @@ do {
   }
 
   typecheck_ :: [self, lang, ast] ~> if array.is_empty(ast) {
-    { typ: make_type("TypeError", hash_map.set({}, "message", "empty ast")), diagnostics: [], node_types: [] }
+    { typ: null, diagnostics: [], node_types: [] }
   } else {
     do {
       root_idx :: array.len(ast) - 1
       state :: tc_new(lang, ast)
-      result :: self(self, state, root_idx)
+      result :: synth_node_(synth_node_, state, root_idx)
       zonked :: zonk(result.typ, result.state.metas)
       { typ: zonked, diagnostics: result.state.diagnostics, node_types: result.state.node_types }
     }

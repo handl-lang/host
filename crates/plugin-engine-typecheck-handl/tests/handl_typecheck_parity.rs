@@ -108,6 +108,7 @@ fn typecheck_model_module() -> HandlModule {
     .with_dependency(stdlib::module("array").expect("array module"))
     .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
     .with_dependency(stdlib::module("typeof").expect("typeof module"))
+    .with_dependency(stdlib::module("obj").expect("obj module"))
 }
 
 // ===========================================================================

@@ -17,8 +17,9 @@ use std::sync::OnceLock;
 
 use handl_language::{
     AstShapeRef, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow, Language, PairShape,
-    Term,
 };
+use plugin_engine::TermData;
+use handl_language::ArrSource;
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
 static ARROW_LANG: OnceLock<Language> = OnceLock::new();
@@ -103,18 +104,22 @@ pub fn arrow_language() -> &'static Language {
         // operators with arrow-calculus `Term` templates. This lets the arrow
         // materializer avoid hardcoded `kind == "flow"` / `kind == "binary.*"`
         // branches: it walks the data-driven eval scheme instead.
-        let flow = Term::Seq {
-            fst: Box::new(Term::arr_native_lit(
-                "proj_child",
+        let flow = TermData::seq(
+            TermData::op(
+                "proj_child".to_string(),
                 vec![],
-                serde_json::Value::from(0u64),
-            )),
-            snd: Box::new(Term::arr_native_lit(
-                "proj_child",
+                &ArrSource::Native,
+                Some(serde_json::Value::from(0u64)),
+            ),
+            TermData::op(
+                "proj_child".to_string(),
                 vec![],
-                serde_json::Value::from(1u64),
-            )),
-        };
+                &ArrSource::Native,
+                Some(serde_json::Value::from(1u64)),
+            ),
+        )
+        .to_term()
+        .expect("arrow_lang: flow TermData -> Term failed");
         lang.eval
             .merge(
                 EvalSchemeDef::new("eval.flow.arrow", "flow", flow)
@@ -122,13 +127,25 @@ pub fn arrow_language() -> &'static Language {
             )
             .expect("override flow eval scheme");
 
-        let bin_lt = Term::App {
-            callee: Box::new(Term::arr_native("lt", vec![])),
-            args: vec![
-                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(0u64)),
-                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(1u64)),
+        let bin_lt = TermData::app(
+            TermData::op("lt".to_string(), vec![], &ArrSource::Native, None),
+            vec![
+                TermData::op(
+                    "proj_child".to_string(),
+                    vec![],
+                    &ArrSource::Native,
+                    Some(serde_json::Value::from(0u64)),
+                ),
+                TermData::op(
+                    "proj_child".to_string(),
+                    vec![],
+                    &ArrSource::Native,
+                    Some(serde_json::Value::from(1u64)),
+                ),
             ],
-        };
+        )
+        .to_term()
+        .expect("arrow_lang: bin_lt TermData -> Term failed");
         lang.eval
             .merge(
                 EvalSchemeDef::new("eval.binary.lt.arrow", "binary.lt", bin_lt)
@@ -136,13 +153,25 @@ pub fn arrow_language() -> &'static Language {
             )
             .expect("override binary.lt eval scheme");
 
-        let bin_lte = Term::App {
-            callee: Box::new(Term::arr_native("lte", vec![])),
-            args: vec![
-                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(0u64)),
-                Term::arr_native_lit("proj_child", vec![], serde_json::Value::from(1u64)),
+        let bin_lte = TermData::app(
+            TermData::op("lte".to_string(), vec![], &ArrSource::Native, None),
+            vec![
+                TermData::op(
+                    "proj_child".to_string(),
+                    vec![],
+                    &ArrSource::Native,
+                    Some(serde_json::Value::from(0u64)),
+                ),
+                TermData::op(
+                    "proj_child".to_string(),
+                    vec![],
+                    &ArrSource::Native,
+                    Some(serde_json::Value::from(1u64)),
+                ),
             ],
-        };
+        )
+        .to_term()
+        .expect("arrow_lang: bin_lte TermData -> Term failed");
         lang.eval
             .merge(
                 EvalSchemeDef::new("eval.binary.lte.arrow", "binary.lte", bin_lte)
@@ -157,6 +186,7 @@ pub fn arrow_language() -> &'static Language {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_language::Term;
 
     #[test]
     fn arrow_language_loads_successfully() {

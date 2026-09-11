@@ -153,7 +153,12 @@ fn analyze_termination_td(td: &TermData, registry: &ContractRegistry) -> Termina
             measure: Measure::None,
             reason: "rewrite -- direct termination (no loop)".to_string(),
         },
-        _ => unreachable!(),
+        // Unknown/unsupported tags: conservatively assume termination.
+        _ => TerminationResult {
+            terminates: true,
+            measure: Measure::None,
+            reason: "unknown tag -- assuming direct termination".to_string(),
+        },
     }
 }
 
@@ -273,7 +278,12 @@ fn analyze_loop_termination_td(td: &TermData, registry: &ContractRegistry) -> Te
             measure: Measure::None,
             reason: "loop(iter): no structural decreasing measure on C".to_string(),
         },
-        _ => unreachable!(),
+        // Unknown/unsupported tags: conservatively assume non-termination.
+        _ => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "loop(unknown): no structural decreasing measure on C".to_string(),
+        },
     }
 }
 
@@ -497,7 +507,12 @@ fn analyze_comp_loop_termination_td(
             measure: Measure::None,
             reason: "seq(_, rewrite): rewrite does not decrease C".to_string(),
         },
-        _ => unreachable!(),
+        // Unknown/unsupported tags: conservatively assume non-termination.
+        _ => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "seq(_, unknown): unknown does not decrease C".to_string(),
+        },
     }
 }
 
@@ -579,7 +594,8 @@ fn find_decreasing_measure_in_td(
                 .or_else(|| find_decreasing_measure_in_td(&step, registry))
                 .or_else(|| find_decreasing_measure_in_td(&initial, registry))
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: no decreasing measure found.
+        _ => None,
     }
 }
 

@@ -790,7 +790,9 @@ pub fn with_loader_disabled<R>(f: impl FnOnce() -> R) -> R {
 /// runs the bootstrap transforms.
 fn analyze_source(src: &str) -> SourceAnalysis {
     if !SKIP_LOADER.with(|s| s.get()) {
+        eprintln!("[DBG analyze_source] calling loader analyze, src len={}", src.len());
         if let Some(v) = loader_call("analyze", src) {
+            eprintln!("[DBG analyze_source] loader returned ok");
             if let (Some(prepared), Some(imports)) = (
                 v.get("source")
                     .and_then(|s| s.as_str())
@@ -799,7 +801,11 @@ fn analyze_source(src: &str) -> SourceAnalysis {
             ) {
                 return SourceAnalysis { prepared, imports };
             }
+        } else {
+            eprintln!("[DBG analyze_source] loader returned None, falling back to bootstrap");
         }
+    } else {
+        eprintln!("[DBG analyze_source] SKIP_LOADER is true, using bootstrap");
     }
     let stripped = bootstrap::strip_declaration_lines(&bootstrap::strip_comment_lines(src));
     let exported = bootstrap::transform_export_to_object(&stripped);

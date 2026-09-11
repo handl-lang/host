@@ -16,7 +16,7 @@
 //!   cannot cross the `HandlFunction` boundary, so they evaluate the
 //!   serialized [`crate::function_value::FunctionValue`] body through
 //!   `EvalContext::eval_expr` natively. The arrow-free `array.*` surface
-//!   lives in `handl-packages/collections/array.hnl` as pure handl.
+//!   lives in `handl-packages/collections/array/index.hnl` as pure handl.
 //! - [`hash_map`] — the `hash_map.*` object ops. Native because handl has
 //!   no object-key-iteration primitive (`keys`/`values`/`entries`/
 //!   `merge`/`pick`/`omit`/`invert` need to enumerate a record's fields)
@@ -134,7 +134,7 @@ pub const HASH_SET_OPS: &[&str] = &[
 /// `drop_while`/`scan`/`foldr`/`find_*`) and the variable-arity members
 /// (`push` takes `v...`; `range` takes an optional `step` — arrow params
 /// cannot be rest patterns) stay native; the remaining surface is pure
-/// handl in `handl-packages/collections/array.hnl`.
+/// handl in `handl-packages/collections/array/index.hnl`.
 pub const ARRAY_OPS: &[&str] = &[
     "array.push",
     "array.range",
@@ -263,7 +263,7 @@ pub fn collections_op_registry() -> OpRegistry {
     r.register("hash_set.unique_by", Arc::new(hs::UniqueBy));
 
     // array — only the arrow-taking and variable-arity ops stay native
-    // (the rest are pure handl in `handl-packages/collections/array.hnl`).
+    // (the rest are pure handl in `handl-packages/collections/array/index.hnl`).
     r.register("array.push", Arc::new(array::Push));
     r.register("array.range", Arc::new(array::Range));
     r.register("array.take_while", Arc::new(array::TakeWhile));

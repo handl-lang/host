@@ -667,7 +667,8 @@ fn rewrite_scheme_td(
                 unreachable!()
             }
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: preserve as-is.
+        _ => td.clone(),
     }
 }
 
@@ -1112,9 +1113,11 @@ fn try_parse_simple_rec(src: &str) -> Option<Term> {
     // Extract the body between `{` and `}` and parse it recursively.
     let body_src = rest[1..close_idx].trim();
     let body_scheme = parse_arrow_expr(body_src).ok()?;
-    Some(Term::Loop {
-        body: Box::new(body_scheme),
-    })
+    Some(
+        TermData::loop_feedback(TermData::from_term(&body_scheme))
+            .to_term()
+            .expect("try_parse_simple_rec: TermData -> Term failed"),
+    )
 }
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
@@ -1285,17 +1288,23 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
             .as_str()
             .ok_or("var: payload is not a string")?;
         if name == "id" {
-            return Ok(Term::arr_native("id", vec![]));
+            return Ok(TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
+                .to_term()
+                .expect("materialize_node: id TermData -> Term failed"));
         }
-        return Ok(Term::App {
-            callee: Box::new(Term::arr_native(name, vec![])),
-            args: vec![],
-        });
+        return Ok(TermData::app(
+            TermData::op(name.to_string(), vec![], &ArrSource::Native, None),
+            vec![],
+        )
+        .to_term()
+        .expect("materialize_node: var App TermData -> Term failed"));
     }
 
     // `value` — literal (number, string, etc.). Produces a constant `Arr`.
     if kind == "value" {
-        return Ok(Term::const_value(node.payload.clone()));
+        return Ok(TermData::const_value(node.payload.clone())
+            .to_term()
+            .expect("materialize_node: value TermData -> Term failed"));
     }
 
     // `paren` — parenthesised expression. The eval scheme is just
@@ -1326,14 +1335,21 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
             .ok_or("first/second: missing inner child")? as usize;
         let inner = materialize_node(ast, inner_idx, lang)?;
         if kind == "first" {
-            return Ok(Term::First {
-                inner: Box::new(inner),
-            });
+            return Ok(TermData::first(TermData::from_term(&inner))
+                .to_term()
+                .expect("materialize_node: first TermData -> Term failed"));
         }
         // `second` maps to `First` on the second component — represent as
         // `First` wrapping a `Second` marker is not needed; the eval scheme
         // handles it. For now, treat it as a regular op.
-        return Ok(Term::arr_native(kind, vec![inner]));
+        return Ok(TermData::op(
+            kind.to_string(),
+            vec![TermData::from_term(&inner)],
+            &ArrSource::Native,
+            None,
+        )
+        .to_term()
+        .expect("materialize_node: second TermData -> Term failed"));
     }
     if kind == "choice" {
         let children = get_children(&node.payload)?;
@@ -1345,10 +1361,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
             .get(1)
             .and_then(|v| v.as_u64())
             .ok_or("choice: missing right child")? as usize;
-        return Ok(Term::Choice {
-            l: Box::new(materialize_node(ast, l_idx, lang)?),
-            r: Box::new(materialize_node(ast, r_idx, lang)?),
-        });
+        let l = materialize_node(ast, l_idx, lang)?;
+        let r = materialize_node(ast, r_idx, lang)?;
+        return Ok(TermData::choice(TermData::from_term(&l), TermData::from_term(&r))
+            .to_term()
+            .expect("materialize_node: choice TermData -> Term failed"));
     }
 
     // `call` — function call. Dispatch on callee name for arrow combinators.
@@ -1396,9 +1413,12 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                             .as_u64()
                             .ok_or("arr: child index not a number")?
                             as usize;
-                        args.push(materialize_node(ast, idx, lang)?);
+                        let arg_term = materialize_node(ast, idx, lang)?;
+                        args.push(TermData::from_term(&arg_term));
                     }
-                    return Ok(Term::arr_native(op_name, args));
+                    return Ok(TermData::op(op_name, args, &ArrSource::Native, None)
+                        .to_term()
+                        .expect("materialize_node: arr TermData -> Term failed"));
                 }
                 "comp" => {
                     // comp(a, b) → Seq { fst: a, snd: b }
@@ -1411,10 +1431,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                         .and_then(|v| v.as_u64())
                         .ok_or("comp: missing second arg")?
                         as usize;
-                    return Ok(Term::Seq {
-                        fst: Box::new(materialize_node(ast, a_idx, lang)?),
-                        snd: Box::new(materialize_node(ast, b_idx, lang)?),
-                    });
+                    let a = materialize_node(ast, a_idx, lang)?;
+                    let b = materialize_node(ast, b_idx, lang)?;
+                    return Ok(TermData::seq(TermData::from_term(&a), TermData::from_term(&b))
+                        .to_term()
+                        .expect("materialize_node: comp TermData -> Term failed"));
                 }
                 "first" => {
                     // first(a) → First { inner: a }
@@ -1422,9 +1443,10 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                         .get(args_start)
                         .and_then(|v| v.as_u64())
                         .ok_or("first: missing arg")? as usize;
-                    return Ok(Term::First {
-                        inner: Box::new(materialize_node(ast, a_idx, lang)?),
-                    });
+                    let a = materialize_node(ast, a_idx, lang)?;
+                    return Ok(TermData::first(TermData::from_term(&a))
+                        .to_term()
+                        .expect("materialize_node: first-call TermData -> Term failed"));
                 }
                 "choice" => {
                     // choice(a, b) → Choice { l: a, r: b }
@@ -1438,10 +1460,13 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                         .and_then(|v| v.as_u64())
                         .ok_or("choice: missing second arg")?
                         as usize;
-                    return Ok(Term::Choice {
-                        l: Box::new(materialize_node(ast, a_idx, lang)?),
-                        r: Box::new(materialize_node(ast, b_idx, lang)?),
-                    });
+                    let a = materialize_node(ast, a_idx, lang)?;
+                    let b = materialize_node(ast, b_idx, lang)?;
+                    return Ok(
+                        TermData::choice(TermData::from_term(&a), TermData::from_term(&b))
+                            .to_term()
+                            .expect("materialize_node: choice-call TermData -> Term failed"),
+                    );
                 }
                 "loop" => {
                     // loop(body) → Loop { body }
@@ -1450,9 +1475,10 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                         .and_then(|v| v.as_u64())
                         .ok_or("loop: missing body arg")?
                         as usize;
-                    return Ok(Term::Loop {
-                        body: Box::new(materialize_node(ast, body_idx, lang)?),
-                    });
+                    let body = materialize_node(ast, body_idx, lang)?;
+                    return Ok(TermData::loop_feedback(TermData::from_term(&body))
+                        .to_term()
+                        .expect("materialize_node: loop TermData -> Term failed"));
                 }
                 "app" => {
                     // app("name", ...args) → App { callee: arr_native("name"), args }
@@ -1476,12 +1502,15 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                             .as_u64()
                             .ok_or("app: child index not a number")?
                             as usize;
-                        args.push(materialize_node(ast, idx, lang)?);
+                        let arg_term = materialize_node(ast, idx, lang)?;
+                        args.push(TermData::from_term(&arg_term));
                     }
-                    return Ok(Term::App {
-                        callee: Box::new(Term::arr_native(callee_name, vec![])),
+                    return Ok(TermData::app(
+                        TermData::op(callee_name, vec![], &ArrSource::Native, None),
                         args,
-                    });
+                    )
+                    .to_term()
+                    .expect("materialize_node: app TermData -> Term failed"));
                 }
                 _ => {
                     // Non-combinator call with var callee — treat as App
@@ -1492,12 +1521,15 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                             .as_u64()
                             .ok_or("call: child index not a number")?
                             as usize;
-                        args.push(materialize_node(ast, idx, lang)?);
+                        let arg_term = materialize_node(ast, idx, lang)?;
+                        args.push(TermData::from_term(&arg_term));
                     }
-                    return Ok(Term::App {
-                        callee: Box::new(Term::arr_native(callee_name, vec![])),
+                    return Ok(TermData::app(
+                        TermData::op(callee_name, vec![], &ArrSource::Native, None),
                         args,
-                    });
+                    )
+                    .to_term()
+                    .expect("materialize_node: call-default TermData -> Term failed"));
                 }
             }
         }
@@ -1669,7 +1701,8 @@ fn walk_scheme_td(
             ))
         }
         "Rewrite" => Err("rewrite scheme not supported".to_string()),
-        _ => unreachable!(),
+        // Unknown/unsupported tags: return an error.
+        _ => Err(format!("walk_scheme_td: unsupported tag '{}'", td.tag())),
     }
 }
 
@@ -1876,9 +1909,9 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode, lang: &Language) -> Result<Ter
     // (e.g. `id(state.acc)` in the base case signals reduce vs fold).
     let body_scheme = analyze_branch_ast(ast, body_idx, base_body_idx, lang)?;
 
-    Ok(Term::Loop {
-        body: Box::new(body_scheme),
-    })
+    Ok(TermData::loop_feedback(TermData::from_term(&body_scheme))
+        .to_term()
+        .expect("rich_loop_to_scheme: TermData -> Term failed"))
 }
 
 /// Analyze the recursive case arm body AST and map it to a [`Term`] graph.
@@ -1915,6 +1948,21 @@ fn analyze_branch_ast(
     base_case_idx: Option<usize>,
     lang: &Language,
 ) -> Result<Term, String> {
+    analyze_branch_ast_td(ast, root_idx, base_case_idx, lang)?
+        .to_term()
+        .map_err(|e| format!("analyze_branch_ast: {}", e))
+}
+
+/// Data-driven counterpart of [`analyze_branch_ast`], returning [`TermData`].
+///
+/// Constructs `TermData` for each recognized pattern using the `TermData`
+/// constructors instead of direct `Term` enum construction.
+fn analyze_branch_ast_td(
+    ast: &Ast,
+    root_idx: usize,
+    base_case_idx: Option<usize>,
+    lang: &Language,
+) -> Result<TermData, String> {
     let mut collector = PatternCollector::default();
     collector.collect(ast, root_idx);
     // Also collect from the base case arm to detect projection patterns
@@ -1938,7 +1986,8 @@ fn analyze_branch_ast(
                 .nodes()
                 .get(nested_idx)
                 .ok_or("nested loop_rich/rec node out of bounds")?;
-            return rich_loop_to_scheme(ast, nested_node, lang);
+            let nested_td = rich_loop_to_scheme(ast, nested_node, lang)?;
+            return Ok(TermData::from_term(&nested_td));
         }
     }
 
@@ -1947,27 +1996,21 @@ fn analyze_branch_ast(
     let has_suffix =
         |set: &HashSet<String>, suffix: &str| set.iter().any(|name| name.ends_with(suffix));
 
+    // Helper: construct a native op TermData.
+    let arr_native = |name: &str| TermData::op(name.to_string(), vec![], &ArrSource::Native, None);
+
     // 1. prim.compare → insert pattern
     if collector.var_names.contains("prim.compare") {
-        let step = Term::arr_native("prim.compare", vec![]);
-        let choice = Term::Choice {
-            l: Box::new(Term::arr_native("cons", vec![])),
-            r: Box::new(Term::arr_native("cons", vec![])),
-        };
-        return Ok(Term::Seq {
-            fst: Box::new(step),
-            snd: Box::new(choice),
-        });
+        let step = arr_native("prim.compare");
+        let choice = TermData::choice(arr_native("cons"), arr_native("cons"));
+        return Ok(TermData::seq(step, choice));
     }
 
     // 2. *.p in arrow_call → filter pattern
     if has_suffix(&collector.app_left_names, ".p") {
-        let step = Term::arr_native("filter_step", vec![]);
-        let rest = Term::arr_native("id", vec![]);
-        return Ok(Term::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
+        let step = arr_native("filter_step");
+        let rest = arr_native("id");
+        return Ok(TermData::seq(step, rest));
     }
 
     // 3. *.f in call with *.acc argument → fold or reduce pattern.
@@ -1976,7 +2019,7 @@ fn analyze_branch_ast(
     //    - fold: no projection → `fold_step` — returns both channels.
     for (callee, args) in &collector.call_callee_args {
         if callee.ends_with(".f") && args.iter().any(|a| a.ends_with(".acc")) {
-            let step = Term::arr_native("fold_step", vec![]);
+            let step = arr_native("fold_step");
             // Check for reduce: `id` called with a `*.acc` argument
             // (projection pattern — discards the element stream).
             let has_id_on_acc = collector
@@ -1986,13 +2029,8 @@ fn analyze_branch_ast(
                 .unwrap_or(false);
             if has_id_on_acc {
                 // reduce: projects to accumulator only.
-                let rest = Term::First {
-                    inner: Box::new(Term::arr_native("id", vec![])),
-                };
-                return Ok(Term::Seq {
-                    fst: Box::new(step),
-                    snd: Box::new(rest),
-                });
+                let rest = TermData::first(arr_native("id"));
+                return Ok(TermData::seq(step, rest));
             } else {
                 // fold: returns both channels (no projection).
                 return Ok(step);
@@ -2002,17 +2040,9 @@ fn analyze_branch_ast(
 
     // 4. insert in arrow_call → sort pattern
     if collector.app_left_names.contains("insert") {
-        let step = Term::App {
-            callee: Box::new(Term::arr_native("insert", vec![])),
-            args: vec![],
-        };
-        let rest = Term::First {
-            inner: Box::new(Term::arr_native("id", vec![])),
-        };
-        return Ok(Term::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
+        let step = TermData::app(arr_native("insert"), vec![]);
+        let rest = TermData::first(arr_native("id"));
+        return Ok(TermData::seq(step, rest));
     }
 
     // 5. *.f in arrow_call with *.acc in right args → scan pattern
@@ -2020,14 +2050,9 @@ fn analyze_branch_ast(
     //    each intermediate result onto an output list.
     for (left, right_args) in &collector.app_left_args {
         if left.ends_with(".f") && right_args.iter().any(|a| a.ends_with(".acc")) {
-            let step = Term::arr_native("fold_step", vec![]);
-            let rest = Term::First {
-                inner: Box::new(Term::arr_native("list.cons", vec![])),
-            };
-            return Ok(Term::Seq {
-                fst: Box::new(step),
-                snd: Box::new(rest),
-            });
+            let step = arr_native("fold_step");
+            let rest = TermData::first(arr_native("list.cons"));
+            return Ok(TermData::seq(step, rest));
         }
     }
 
@@ -2047,52 +2072,29 @@ fn analyze_branch_ast(
         && collector.call_callee_args.contains_key("list.tail")
         && !collector.let_bound_callees.contains("list.head")
     {
-        let step1 = Term::First {
-            inner: Box::new(Term::arr_native("list.head", vec![])),
-        };
-        let step2 = Term::First {
-            inner: Box::new(Term::arr_native("list.tail", vec![])),
-        };
-        let cons = Term::arr_native("list.cons", vec![]);
-        return Ok(Term::Seq {
-            fst: Box::new(step1),
-            snd: Box::new(Term::Seq {
-                fst: Box::new(step2),
-                snd: Box::new(cons),
-            }),
-        });
+        let step1 = TermData::first(arr_native("list.head"));
+        let step2 = TermData::first(arr_native("list.tail"));
+        let cons = arr_native("list.cons");
+        return Ok(TermData::seq(step1, TermData::seq(step2, cons)));
     }
 
     // 7. list.head in arrow_call → take pattern
     if collector.app_left_names.contains("list.head") {
-        let step = Term::arr_native("list.head", vec![]);
-        let choice = Term::Choice {
-            l: Box::new(Term::arr_native("cons", vec![])),
-            r: Box::new(Term::arr_native("id", vec![])),
-        };
-        return Ok(Term::Seq {
-            fst: Box::new(step),
-            snd: Box::new(choice),
-        });
+        let step = arr_native("list.head");
+        let choice = TermData::choice(arr_native("cons"), arr_native("id"));
+        return Ok(TermData::seq(step, choice));
     }
 
     // 8. list.tail in arrow_call → drop pattern
     if collector.call_callee_args.contains_key("list.tail") {
-        let step = Term::arr_native("list.tail", vec![]);
-        let rest = Term::First {
-            inner: Box::new(Term::arr_native("id", vec![])),
-        };
-        return Ok(Term::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
+        let step = arr_native("list.tail");
+        let rest = TermData::first(arr_native("id"));
+        return Ok(TermData::seq(step, rest));
     }
 
     // 9. *.f in arrow_call → map pattern
     if has_suffix(&collector.app_left_names, ".f") {
-        return Ok(Term::First {
-            inner: Box::new(Term::arr_native("fn.apply", vec![])),
-        });
+        return Ok(TermData::first(arr_native("fn.apply")));
     }
 
     Err("could not analyze branch body — no recognised pattern found".to_string())

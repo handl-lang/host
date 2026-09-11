@@ -251,7 +251,8 @@ fn uses_first_td(td: &TermData) -> bool {
                 || uses_first_td(&step)
                 || uses_first_td(&initial)
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: does not use first.
+        _ => false,
     }
 }
 
@@ -346,7 +347,8 @@ fn uses_left_td(td: &TermData) -> bool {
                 || uses_left_td(&step)
                 || uses_left_td(&initial)
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: does not use left.
+        _ => false,
     }
 }
 

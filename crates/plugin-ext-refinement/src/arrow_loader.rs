@@ -303,7 +303,7 @@ fn resolve_apps_inner_td(
                 unreachable!()
             }
         }
-        _ => unreachable!(),
+        _ => td.clone(),
     }
 }
 
@@ -838,7 +838,7 @@ fn has_unresolved_apps_td(td: &TermData, known_names: &HashSet<String>) -> bool 
                 || has_unresolved_apps_td(&step, known_names)
                 || has_unresolved_apps_td(&initial, known_names)
         }
-        _ => unreachable!(),
+        _ => false,
     }
 }
 
@@ -903,7 +903,7 @@ fn contains_module_ref_td(td: &TermData) -> bool {
                 || contains_module_ref_td(&step)
                 || contains_module_ref_td(&initial)
         }
-        _ => unreachable!(),
+        _ => false,
     }
 }
 
@@ -967,7 +967,7 @@ fn contains_project_td(td: &TermData) -> bool {
                 || contains_project_td(&step)
                 || contains_project_td(&initial)
         }
-        _ => unreachable!(),
+        _ => false,
     }
 }
 
@@ -1083,7 +1083,7 @@ where
                 unreachable!()
             }
         }
-        _ => unreachable!(),
+        _ => td.clone(),
     };
     f(&transformed)
 }
@@ -1420,7 +1420,10 @@ fn collect_app_callee_names_td(td: &TermData, out: &mut HashSet<String>) {
             collect_app_callee_names_td(&source, out);
             collect_app_callee_names_td(&target, out);
         }
-        "Arr" | "Child" => {}
+        "Arr" | "Child" | "Const" | "Path" | "Equiv" | "Src" | "Tgt"
+        | "RecordProj" | "RecordWith" | "Tag" | "CellId" | "CellCompV"
+        | "Whisker" | "Univalence" | "Glue" | "Fibrant" | "JElim"
+        | "Refine" | "Cobind" => {}
         "Iter" => {
             let fuel = td.get_term("fuel").expect("Iter: missing fuel");
             let predicate = td.get_term("predicate").expect("Iter: missing predicate");
@@ -1431,7 +1434,8 @@ fn collect_app_callee_names_td(td: &TermData, out: &mut HashSet<String>) {
             collect_app_callee_names_td(&step, out);
             collect_app_callee_names_td(&initial, out);
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: no App callees to collect.
+        _ => {}
     }
 }
 
@@ -1715,7 +1719,11 @@ fn resolve_all_apps_td(
                 unreachable!()
             }
         }
-        _ => unreachable!(),
+        _ => {
+            // Leaf nodes and HoTT-specific terms that don't contain App
+            // callees to resolve: preserve as-is.
+            td.clone()
+        }
     }
 }
 

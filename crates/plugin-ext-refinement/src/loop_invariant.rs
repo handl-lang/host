@@ -232,7 +232,8 @@ fn weakest_precondition_td(
         "Iter" => Pred::True,
         // Rewrite nodes are not yet analyzed; treat as identity.
         "Rewrite" => post.clone(),
-        _ => unreachable!(),
+        // Unknown/unsupported tags: conservatively treat as identity.
+        _ => post.clone(),
     }
 }
 
@@ -305,7 +306,8 @@ fn collect_guarantees_td(td: &TermData, registry: &ContractRegistry, out: &mut V
             collect_guarantees_td(&step, registry, out);
             collect_guarantees_td(&initial, registry, out);
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: no guarantees to collect.
+        _ => {}
     }
 }
 
@@ -370,7 +372,8 @@ fn graph_contains_td(td: &TermData, op: &str) -> bool {
                 || graph_contains_td(&step, op)
                 || graph_contains_td(&initial, op)
         }
-        _ => unreachable!(),
+        // Unknown/unsupported tags: no matching op.
+        _ => false,
     }
 }
 

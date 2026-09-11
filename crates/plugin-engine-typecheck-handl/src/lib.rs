@@ -71,22 +71,33 @@ impl HandlTypecheckEngine {
     /// fails, a warning is logged and the engine degrades to returning
     /// [`LangError::NotImplemented`] from [`TypecheckEngine::typecheck`].
     pub fn new(eval_engine: Box<dyn EvalEngine>) -> Self {
-        let model = match HandlModule::new(
-            "typecheck_model",
-            TYPECHECK_MODEL_HNL,
-            TYPECHECK_MODEL_FUNCS,
-        )
-        // Wire stdlib dependencies the model needs. The typecheck model
-        // walks the AST and manages the typing context using the runtime
-        // `array`, `hash_map`, and `typeof` modules, and constructs tagged
-        // type values via the host `tag` capability (see the model header).
-        .with_dependency(stdlib::module("array").expect("array module"))
-        .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
-        .with_dependency(stdlib::module("typeof").expect("typeof module"))
-        .with_dependency(TagModule)
-        .try_into_loaded()
-        {
-            Ok(module) => Some(Rc::new(module)),
+        eprintln!("[DBG HandlTypecheckEngine::new] start");
+        // The typecheck model is a bootstrap model: use the fast Rust
+        // bootstrap transforms instead of the self-hosted loader pipeline.
+        // The loader's `analyze` is prohibitively slow on the ~51k-char
+        // model source (it hangs), and the bootstrap transforms produce
+        // identical output for canonical sources.
+        let model = match handl_plugin_lib_handl::with_loader_disabled(||
+            HandlModule::new(
+                "typecheck_model",
+                TYPECHECK_MODEL_HNL,
+                TYPECHECK_MODEL_FUNCS,
+            )
+            // Wire stdlib dependencies the model needs. The typecheck model
+            // walks the AST and manages the typing context using the runtime
+            // `array`, `hash_map`, and `typeof` modules, and constructs tagged
+            // type values via the host `tag` capability (see the model header).
+            .with_dependency(stdlib::module("array").expect("array module"))
+            .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
+            .with_dependency(stdlib::module("typeof").expect("typeof module"))
+            .with_dependency(stdlib::module("obj").expect("obj module"))
+            .with_dependency(TagModule)
+            .try_into_loaded()
+        ) {
+            Ok(module) => {
+                eprintln!("[DBG HandlTypecheckEngine::new] model loaded ok");
+                Some(Rc::new(module))
+            }
             Err(msg) => {
                 eprintln!(
                     "handl-plugin-engine-typecheck-handl: failed to load \
@@ -117,11 +128,13 @@ impl HandlTypecheckEngine {
 
     /// Marshal an [`Ast`] into a [`Value`] for the model.
     ///
-    /// The model expects a raw serialized `Ast` JSON array (it indexes
-    /// `ast[i]` and reads `node.kind`/`node.payload`/`node.children`), so
-    /// this uses `serde_json::to_value` directly.
+    /// The model expects a raw serialized `Ast` as a JSON **array** of
+    /// nodes (it indexes `ast[i]` and reads `node.kind`/`node.payload`/
+    /// `node.payload.children`). `Ast` serializes as `{"nodes": [...]}`
+    /// via serde, so we extract the `nodes` slice and serialize that
+    /// directly to produce the expected array shape.
     fn marshal_ast(ast: &Ast) -> Result<Value, LangError> {
-        serde_json::to_value(ast)
+        serde_json::to_value(ast.nodes())
             .map_err(|e| LangError::engine(format!("typecheck-handl: marshal ast: {e}")))
     }
 
@@ -188,21 +201,23 @@ impl TypecheckEngine for HandlTypecheckEngine {
         lang: &Language,
         req: &TypecheckRequest,
     ) -> Result<TypecheckResult, LangError> {
+        eprintln!("[DBG typecheck] start");
         let model = self.model.as_ref().ok_or(LangError::NotImplemented)?;
-
+        eprintln!("[DBG typecheck] model ok, marshaling lang...");
         let lang_val = Self::marshal_language(lang)?;
+        eprintln!("[DBG typecheck] lang marshaled, marshaling ast...");
         let ast_val = Self::marshal_ast(&req.ast)?;
-
+        eprintln!("[DBG typecheck] ast marshaled, getting func...");
         let func = model
             .function("typecheck")
             .ok_or_else(|| LangError::engine("typecheck-handl: model has no 'typecheck' export"))?;
-
+        eprintln!("[DBG typecheck] calling model func...");
         let args = vec![lang_val, ast_val];
         let mut ctx = EvalContext::new();
         let result_val = func
             .call(&args, &mut ctx)
             .map_err(|e| LangError::engine(format!("typecheck-handl: model call: {e}")))?;
-
+        eprintln!("[DBG typecheck] model returned, unmarshaling...");
         Self::unmarshal_result(&result_val)
     }
 

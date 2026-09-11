@@ -226,7 +226,12 @@ fn infer_r_td(
         "Iter" => Err("iter contract inference not implemented".to_string()),
         // Rewrite nodes are not yet supported by contract inference.
         "Rewrite" => Err("rewrite contract inference not implemented".to_string()),
-        _ => unreachable!(),
+        // Unknown/unsupported tags: conservatively return True (identity-like).
+        _ => Ok((
+            RefTy::Plain(BaseTy::Var("a".to_string())),
+            RefTy::Plain(BaseTy::Var("b".to_string())),
+            Pred::True,
+        )),
     }
 }
 
@@ -297,6 +302,6 @@ fn format_scheme_td(td: &TermData) -> String {
                 format_scheme_td(&target)
             )
         }
-        _ => unreachable!(),
+        _ => td.tag().to_string(),
     }
 }

@@ -1732,7 +1732,9 @@ impl Kit {
     /// [`LangError::NotImplemented`] if the `"handl"` engine is not
     /// registered or the model failed to load.
     pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
+        eprintln!("[DBG typecheck_handl] parsing...");
         let ast = self.parse(input)?;
+        eprintln!("[DBG typecheck_handl] parsed, ast len={}", ast.len());
         // Construct a fresh HandlTypecheckEngine (the model is embedded at
         // compile time, so this is cheap). The runtime's bound typecheck
         // engine is "nbe" by config; this method explicitly uses the
@@ -1741,7 +1743,9 @@ impl Kit {
             handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
         ));
         let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
+        eprintln!("[DBG typecheck_handl] calling engine.typecheck...");
         let result = engine.typecheck(self.runtime.lang(), &req)?;
+        eprintln!("[DBG typecheck_handl] done, typ={}", result.typ);
         Ok(result.typ)
     }
 
