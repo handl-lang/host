@@ -33,6 +33,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_value::{sym_from_parent_value, tagged_to_value, TaggedValue};
 use serde_json::{Map, Value, json};
 
 // ---------------------------------------------------------------------------
@@ -435,6 +436,90 @@ impl Function for ArrayDropLastFn {
 }
 
 // ---------------------------------------------------------------------------
+// Nominal identity primitives (ADR-0106 §2 — Phase 2 kernel)
+// ---------------------------------------------------------------------------
+
+/// `sym()` / `sym(parent)` — mint a fresh nominal identity (ADR-0106 §2).
+///
+/// - `sym()` — fresh nominal identity with no parent (a root sym).
+/// - `sym(A)` — fresh nominal identity whose nominal parent is `A`; `A`
+///   must itself be a nominal object (`{"__sym__": ...}`), otherwise a
+///   `TypeMismatch` error is returned.
+///
+/// The returned value is the explicit JSON encoding
+/// `{"__sym__": {"handle": <n>, "name": "...", "parent": <sym or null>}}`.
+/// Identity is the `handle`, minted from a global counter: two distinct
+/// `sym()` calls are never equal, even though both display the same
+/// presentation name (`"sym"` — names are presentation only).
+///
+/// The implementation delegates to `handl-value`, the single owner of the
+/// nominal value model and its serialization (ADR-0106 "Implementation
+/// notes": `crates/handl-value` — the value model; objects gain a nominal
+/// identity field while remaining serializable tagged data).
+struct SymFn;
+
+impl Function for SymFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        // Default display name — presentation only, never part of identity.
+        const DEFAULT_NAME: &str = "sym";
+        let tv = match args.len() {
+            0 => handl_value::sym(DEFAULT_NAME),
+            1 => sym_from_parent_value(DEFAULT_NAME, &TaggedValue::from(args[0].clone()))
+                .map_err(EvalError::TypeMismatch)?,
+            n => {
+                return Err(EvalError::Other(format!(
+                    "sym: expected 0 or 1 argument (sym() or sym(parent)), got {}",
+                    n
+                )))
+            }
+        };
+        Ok(tagged_to_value(&tv))
+    }
+}
+
+/// `instance_of(value, nominal)` — instanceof over the nominal parent chain
+/// (ADR-0106 §2).
+///
+/// Walks `value`'s nominal parent chain (inclusive of the value itself):
+/// `Float instanceof Number` and `Float instanceof Float` are both true;
+/// `Number instanceof Float` is false (parent→child is not an instance).
+///
+/// - The `nominal` argument must itself be a nominal object; otherwise a
+///   `TypeMismatch` error is returned.
+/// - A non-nominal `value` is simply not an instance of any nominal:
+///   returns `Bool(false)` (no error).
+///
+/// TODO(ADR-0106 Phase 3/4): built-in tagged values from `type.hnl`
+/// (`{"__tag__": "int", "__registry__": "type", ...}` etc.) do not yet
+/// carry nominal identities. Once `type.hnl` migrates to `sym()`-parented
+/// identities (`Float := sym(Number)`, `Int := sym(Number)`) and the tag
+/// registry maps value tags onto those identities, `instance_of` should map
+/// a tagged value (e.g. `3.14` with `__tag__: "float"`) onto its nominal
+/// identity so `instanceof` works for built-in scalars too. Until then,
+/// `instance_of` only recognizes first-class `{"__sym__": ...}` values.
+struct InstanceOfFn;
+
+impl Function for InstanceOfFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let value = args.get(0).cloned().unwrap_or(Value::Null);
+        let nominal = args.get(1).cloned().ok_or_else(|| {
+            EvalError::Other("instance_of: expected two arguments (value, nominal)".to_string())
+        })?;
+        let nominal_tv = TaggedValue::from(nominal);
+        if !nominal_tv.is_sym() {
+            return Err(EvalError::TypeMismatch(
+                "instance_of: second argument must be a nominal object (see ADR-0106 §2)"
+                    .to_string(),
+            ));
+        }
+        let value_tv = TaggedValue::from(value);
+        Ok(Value::Bool(handl_value::has_ancestor(
+            &value_tv, &nominal_tv,
+        )))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // VmPrimitivesModule — the Module that registers all VM primitive host functions
 // ---------------------------------------------------------------------------
 
@@ -465,6 +550,8 @@ pub struct VmPrimitivesModule {
     eval_fn: EvalFn,
     find_op_handler_fn: FindOpHandlerFn,
     array_drop_last_fn: ArrayDropLastFn,
+    sym_fn: SymFn,
+    instance_of_fn: InstanceOfFn,
 }
 
 impl VmPrimitivesModule {
@@ -489,6 +576,8 @@ impl VmPrimitivesModule {
             eval_fn: EvalFn,
             find_op_handler_fn: FindOpHandlerFn,
             array_drop_last_fn: ArrayDropLastFn,
+            sym_fn: SymFn,
+            instance_of_fn: InstanceOfFn,
         }
     }
 }
@@ -522,6 +611,8 @@ impl Module for VmPrimitivesModule {
             "eval" => Some(&self.eval_fn as &dyn Function),
             "find_op_handler" => Some(&self.find_op_handler_fn as &dyn Function),
             "array_drop_last" => Some(&self.array_drop_last_fn as &dyn Function),
+            "sym" => Some(&self.sym_fn as &dyn Function),
+            "instance_of" => Some(&self.instance_of_fn as &dyn Function),
             _ => None,
         }
     }
@@ -544,6 +635,8 @@ impl Module for VmPrimitivesModule {
             ("eval", &self.eval_fn as &dyn Function),
             ("find_op_handler", &self.find_op_handler_fn as &dyn Function),
             ("array_drop_last", &self.array_drop_last_fn as &dyn Function),
+            ("sym", &self.sym_fn as &dyn Function),
+            ("instance_of", &self.instance_of_fn as &dyn Function),
         ]
     }
 }

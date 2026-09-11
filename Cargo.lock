@@ -2283,6 +2283,7 @@ dependencies = [
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
  "handl-plugin-module",
+ "handl-value",
  "plugin-engine",
  "serde",
  "serde_json",
