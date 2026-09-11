@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use handl_language::{ArrSource, Term, Value};
 
-use plugin_engine::TermData;
+use plugin_engine::{RewriteWitness, TermData};
 
 use crate::arrow_parser::{
     ExportDecl, ImportDecl, ParsedFile, parse_arrow_module, parse_arrow_module_no_rewrite,
@@ -28,6 +28,29 @@ use crate::arrow_parser::{
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use crate::types::{Contract, Pred, RefinementResult};
+
+/// Parse the `witness` field of a `Rewrite` [`TermData`] into a
+/// [`RewriteWitness`]. Falls back to `Compute` for missing or unrecognised
+/// witnesses so that data-driven reconstruction never panics.
+fn parse_rewrite_witness(td: &TermData) -> RewriteWitness {
+    match td.get("witness") {
+        Some(w) => {
+            let tag = w.get("__tag__").and_then(|v| v.as_str()).unwrap_or("");
+            match tag {
+                "Named" => w
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .map(|s| RewriteWitness::Named(s.to_string()))
+                    .unwrap_or(RewriteWitness::Compute),
+                "Compute" => RewriteWitness::Compute,
+                "HandlerHint" => RewriteWitness::HandlerHint,
+                "Cast" => RewriteWitness::Cast,
+                _ => RewriteWitness::Compute,
+            }
+        }
+        None => RewriteWitness::Compute,
+    }
+}
 
 // ============================================================================
 // Public API
@@ -291,17 +314,12 @@ fn resolve_apps_inner_td(
         "Rewrite" => {
             let source = td.get_term("source").expect("Rewrite: missing source");
             let target = td.get_term("target").expect("Rewrite: missing target");
-            // Reconstruct via to_term to preserve the witness field exactly.
-            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
-            if let Term::Rewrite { witness, .. } = witness_term {
-                TermData::rewrite(
-                    resolve_apps_inner_td(&source, graph_map, depth),
-                    resolve_apps_inner_td(&target, graph_map, depth),
-                    &witness,
-                )
-            } else {
-                unreachable!()
-            }
+            let witness = parse_rewrite_witness(td);
+            TermData::rewrite(
+                resolve_apps_inner_td(&source, graph_map, depth),
+                resolve_apps_inner_td(&target, graph_map, depth),
+                &witness,
+            )
         }
         _ => td.clone(),
     }
@@ -1072,16 +1090,12 @@ where
         "Rewrite" => {
             let source = td.get_term("source").expect("Rewrite: missing source");
             let target = td.get_term("target").expect("Rewrite: missing target");
-            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
-            if let Term::Rewrite { witness, .. } = witness_term {
-                TermData::rewrite(
-                    transform_scheme_td(&source, f),
-                    transform_scheme_td(&target, f),
-                    &witness,
-                )
-            } else {
-                unreachable!()
-            }
+            let witness = parse_rewrite_witness(td);
+            TermData::rewrite(
+                transform_scheme_td(&source, f),
+                transform_scheme_td(&target, f),
+                &witness,
+            )
         }
         _ => td.clone(),
     };
@@ -1708,16 +1722,12 @@ fn resolve_all_apps_td(
         "Rewrite" => {
             let source = td.get_term("source").expect("Rewrite: missing source");
             let target = td.get_term("target").expect("Rewrite: missing target");
-            let witness_term = td.to_term().expect("Rewrite: TermData -> Term failed");
-            if let Term::Rewrite { witness, .. } = witness_term {
-                TermData::rewrite(
-                    resolve_all_apps_td(&source, known, resolving),
-                    resolve_all_apps_td(&target, known, resolving),
-                    &witness,
-                )
-            } else {
-                unreachable!()
-            }
+            let witness = parse_rewrite_witness(td);
+            TermData::rewrite(
+                resolve_all_apps_td(&source, known, resolving),
+                resolve_all_apps_td(&target, known, resolving),
+                &witness,
+            )
         }
         _ => {
             // Leaf nodes and HoTT-specific terms that don't contain App
