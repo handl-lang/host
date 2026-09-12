@@ -31,7 +31,6 @@ use handl_plugin_engine_exec::ImportResolver;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
-use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_ext_diag::Severity;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
@@ -1235,7 +1234,7 @@ impl Kit {
     pub fn new() -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone();
+        let config = kit.runtime_config().clone().with_typecheck("handl");
         Self::build_kit(lang, config, None, HashMap::new())
     }
 
@@ -1250,7 +1249,7 @@ impl Kit {
     pub fn with_eval(eval_name: &str) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone().with_eval(eval_name);
+        let config = kit.runtime_config().clone().with_eval(eval_name).with_typecheck("handl");
         Self::build_kit(lang, config, None, HashMap::new())
     }
 
@@ -1265,7 +1264,7 @@ impl Kit {
     pub fn new_with_module_root(module_root: PathBuf) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone();
+        let config = kit.runtime_config().clone().with_typecheck("handl");
         Self::build_kit(lang, config, Some(module_root), HashMap::new())
     }
 
@@ -1287,7 +1286,7 @@ impl Kit {
     pub fn new_with_project(project_root: PathBuf) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone();
+        let config = kit.runtime_config().clone().with_typecheck("handl");
         let deps = load_project_dependencies(&project_root)?;
         Self::build_kit(lang, config, Some(project_root), deps)
     }
@@ -1325,7 +1324,7 @@ impl Kit {
     fn discover_inner(start: &Path, eval_name: Option<&str>) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let mut config = kit.runtime_config().clone();
+        let mut config = kit.runtime_config().clone().with_typecheck("handl");
         if let Some(name) = eval_name {
             config = config.with_eval(name);
         }
@@ -1400,12 +1399,6 @@ impl Kit {
         registry.register_compile(
             "native",
             Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
-        );
-        registry.register_typecheck(
-            "nbe",
-            Box::new(NbeTypecheckEngine::new(Box::new(
-                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-            ))),
         );
         registry.register_typecheck(
             "handl",
@@ -1929,12 +1922,6 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
     registry.register_compile(
         "native",
         Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
-    );
-    registry.register_typecheck(
-        "nbe",
-        Box::new(NbeTypecheckEngine::new(Box::new(
-            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-        ))),
     );
     registry.register_typecheck(
         "handl",
