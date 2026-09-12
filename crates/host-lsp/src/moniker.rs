@@ -23,10 +23,6 @@
 //! { "scheme": "handl", "identifier": "collection/sort", "unique": "identifier" }
 //! ```
 
-// These entry points are not yet wired into the LSP dispatch loop (handlers.rs
-// is intentionally untouched); suppress dead-code warnings until they are.
-#![allow(dead_code)]
-
 use serde_json::{Value, json};
 
 use crate::refinement::find_arrows_root;

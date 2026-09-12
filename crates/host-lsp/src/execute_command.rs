@@ -15,10 +15,6 @@
 //! success or `{ "error": "..." }` on failure (unknown command, missing
 //! arguments, etc.).
 
-// These entry points are not yet wired into the LSP dispatch loop (handlers.rs
-// is intentionally untouched); suppress dead-code warnings until they are.
-#![allow(dead_code)]
-
 use serde_json::{Value, json};
 
 use crate::formatting::format_document_json;

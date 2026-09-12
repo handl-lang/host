@@ -48,7 +48,6 @@ pub use semantic_tokens::*;
 mod semantic_tokens_tests;
 
 /// Tooling / LSP host that decouples formatter and diagnostics from parser internals.
-#[allow(dead_code)]
 pub struct ToolingHost<K: Plugin> {
     kit: K,
     completion: Option<Box<dyn CompletionPlugin>>,

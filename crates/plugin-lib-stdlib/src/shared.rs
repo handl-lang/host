@@ -542,25 +542,6 @@ where
     Ok(results)
 }
 
-/// Filter an iterator by a predicate function, collecting matching items.
-#[allow(dead_code)]
-pub(crate) fn filter_iter<'a, I>(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    iter: I,
-) -> Result<Vec<serde_json::Value>, EvalError>
-where
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    let mut results = Vec::new();
-    for item in iter {
-        if is_truthy_fn(ctx, fn_val, item)? {
-            results.push(item.clone());
-        }
-    }
-    Ok(results)
-}
-
 /// Filter an iterator by a callable predicate (arrow-value or FunctionValue).
 pub fn filter_callable_iter<'a, I>(
     ctx: &mut EvalContext,
@@ -577,25 +558,6 @@ where
         }
     }
     Ok(results)
-}
-
-/// Fold an iterator with a two-param function and an initial accumulator.
-#[allow(dead_code)]
-pub(crate) fn fold_iter<'a, I>(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    iter: I,
-    init: serde_json::Value,
-) -> Result<serde_json::Value, EvalError>
-where
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    let mut acc = init;
-    for item in iter {
-        let result = apply_fn2(ctx, fn_val, &acc, item)?;
-        acc = result;
-    }
-    Ok(acc)
 }
 
 /// Fold an iterator with a two-param callable (arrow-value or FunctionValue).
@@ -653,31 +615,3 @@ where
     Ok(None)
 }
 
-/// Find the first matching element from a reverse iterator.
-/// Returns `None` if no match.
-#[allow(dead_code)]
-pub(crate) fn find_first_rev<'a, I>(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    iter: I,
-) -> Result<Option<serde_json::Value>, EvalError>
-where
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    find_first(ctx, fn_val, iter)
-}
-
-/// Find the index of the first matching element from a reverse iterator.
-/// The index is relative to the reversed iteration order.
-/// Returns `None` if no match.
-#[allow(dead_code)]
-pub(crate) fn find_index_rev<'a, I>(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    iter: I,
-) -> Result<Option<usize>, EvalError>
-where
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    find_index(ctx, fn_val, iter)
-}
