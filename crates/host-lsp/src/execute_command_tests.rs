@@ -50,7 +50,7 @@ fn execute_command_format_file_returns_edits() {
 #[test]
 fn execute_command_show_contract_on_non_arrow_returns_error() {
     // A plain `.hnl` file that is not an arrow file has no contract.
-    let source = "x = 42";
+    let source = "x :: match input { []: 0 }";
     let args = vec![json!({ "source": source })];
     let result = execute_command("handl.showContract", &args);
     assert!(

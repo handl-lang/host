@@ -37,15 +37,15 @@ fn linked_editing_on_close_paren_returns_matching_open() {
 
 #[test]
 fn linked_editing_on_identifier_returns_all_occurrences() {
-    // `sort = ... sort` — cursor on `sort` links every occurrence.
-    let source = "sort = 1; sort";
-    let offset = source.find("sort").unwrap();
+    // `myfn = ... myfn` — cursor on `myfn` links every occurrence.
+    let source = "myfn = 1; myfn";
+    let offset = source.find("myfn").unwrap();
     let result = linked_editing_ranges(source, offset).expect("should link identifier");
     let ranges = result.get("ranges").and_then(|r| r.as_array()).unwrap();
     assert_eq!(
         ranges.len(),
         2,
-        "expected two occurrences of `sort`: {result:?}"
+        "expected two occurrences of `myfn`: {result:?}"
     );
 }
 

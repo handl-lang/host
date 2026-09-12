@@ -83,13 +83,13 @@ fn prepare_call_hierarchy_returns_item_for_named_arrow() {
 fn prepare_call_hierarchy_returns_item_for_unnamed_file_stem_arrow() {
     // An unnamed arrow file: the whole file is one arrow whose name is the
     // file stem. The cursor sits on an identifier matching the file stem.
-    let source = "sort >>> id";
-    let offset = source.find("sort").unwrap();
+    let source = "myarrow >>> id";
+    let offset = source.find("myarrow").unwrap();
 
-    let file_path = "/tmp/handl-lsp-call-hierarchy-unnamed/arrows/collection/sort.hnl";
+    let file_path = "/tmp/handl-lsp-call-hierarchy-unnamed/arrows/collection/myarrow.hnl";
     let items = prepare_call_hierarchy(source, offset, Some(file_path));
     assert_eq!(items.len(), 1, "expected one item for the file-stem arrow");
-    assert_eq!(items[0]["name"].as_str().unwrap(), "sort");
+    assert_eq!(items[0]["name"].as_str().unwrap(), "myarrow");
     assert_eq!(items[0]["kind"].as_u64().unwrap(), 12);
 }
 

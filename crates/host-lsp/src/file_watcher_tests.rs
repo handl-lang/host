@@ -22,10 +22,10 @@ fn watched_files_changed_filters_to_hnl() {
 
 #[test]
 fn watched_files_changed_for_finds_referencing_documents() {
-    // `main.hnl` references `sort` (the changed file's stem) → affected.
+    // `main.hnl` references `myarrow` (the changed file's stem) → affected.
     // `other.hnl` does not → not affected.
-    let changed = vec!["file:///repo/handl-packages/sort.hnl".to_string()];
-    let main_src = "result = sort ~> map";
+    let changed = vec!["file:///repo/handl-packages/myarrow.hnl".to_string()];
+    let main_src = "result = myarrow ~> map";
     let other_src = "result = filter ~> reduce";
     let docs = vec![
         OpenDocument {

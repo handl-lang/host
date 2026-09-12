@@ -533,9 +533,7 @@ pub fn handle_completion(
                 .map(|item| {
                     let mut map = serde_json::Map::new();
                     map.insert("label".to_string(), json!(item.label));
-                    if let Some(kind) = item.kind {
-                        map.insert("kind".to_string(), json!(kind));
-                    }
+                    map.insert("kind".to_string(), json!(item.kind.unwrap_or(6)));
                     if let Some(detail) = item.detail {
                         map.insert("detail".to_string(), json!(detail));
                     }

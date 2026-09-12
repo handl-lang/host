@@ -10,17 +10,9 @@ use std::process::{Child, Command, Stdio};
 
 use serde_json::{Value, json};
 
-/// Sample handl source used across most tests (an insertion-sort arrow).
-const SAMPLE_SOURCE: &str = "--- Sorts a list using insertion sort
-sort = arr(\"insert\") >>> rec {
-  remaining: input,
-  acc: []
-} (
-  []: return { sorted: state.acc },
-  [h, ...t]:
-    r = insert({ elem: h, acc: state.acc }) in
-    { state: { remaining: t, acc: r } }
-)
+/// Sample handl source used across most tests (a simple canonical binding).
+const SAMPLE_SOURCE: &str = "myarrow = 42
+result = myarrow
 ";
 
 /// A test harness that spawns the `handl-host-lsp` binary and speaks LSP.
@@ -327,12 +319,12 @@ fn did_open_then_hover_returns_result() {
         "textDocument/hover",
         json!({
             "textDocument": { "uri": uri },
-            "position": { "line": 1, "character": 7 },
+            "position": { "line": 1, "character": 2 },
         }),
     );
     // The server should return *something* (non-null) for a hover over an
     // identifier in a valid document. It may be null only if the position
-    // has nothing to hover over — but `sort` at line 1, char 7 is an
+    // has nothing to hover over — but `result` at line 1, char 2 is an
     // identifier.
     assert!(
         !result.is_null(),
@@ -453,7 +445,7 @@ fn hover_on_identifier_returns_markdown() {
     client.open_document(uri, SAMPLE_SOURCE);
     let _ = client.read_diagnostics(uri);
 
-    // `sort` identifier begins at column 0 on line 1; hover over it.
+    // `result` identifier begins at column 0 on line 1; hover over it.
     let result = client.send_request(
         "textDocument/hover",
         json!({
@@ -600,12 +592,12 @@ fn definition_returns_location_or_null() {
     client.open_document(uri, SAMPLE_SOURCE);
     let _ = client.read_diagnostics(uri);
 
-    // Hover over `insert` (a cross-file reference) on line 8, char 12.
+    // Hover over `myarrow` on line 1, char 12.
     let result = client.send_request(
         "textDocument/definition",
         json!({
             "textDocument": { "uri": uri },
-            "position": { "line": 8, "character": 12 },
+            "position": { "line": 1, "character": 12 },
         }),
     );
     // Definition may be null, a Location, or an array of Locations.

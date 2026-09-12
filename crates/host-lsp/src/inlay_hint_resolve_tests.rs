@@ -8,7 +8,7 @@ use crate::inlay_hint_resolve::resolve_inlay_hint;
 const ARROW_SOURCE: &str = "id >>> id";
 
 /// A non-arrow source (refinement inference returns `None`).
-const NON_ARROW_SOURCE: &str = "x = 42";
+const NON_ARROW_SOURCE: &str = "x :: match input { []: 0 }";
 
 #[test]
 fn resolve_inlay_hint_adds_tooltip_and_label() {

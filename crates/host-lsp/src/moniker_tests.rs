@@ -2,19 +2,19 @@ use crate::moniker::moniker;
 
 #[test]
 fn moniker_for_arrow_file_uses_relative_path() {
-    // An arrow file under /repo/handl-packages/collection/sort.hnl yields the
-    // moniker `collection/sort` (path relative to the kit root,
+    // An arrow file under /repo/handl-packages/collection/myarrow.hnl yields the
+    // moniker `collection/myarrow` (path relative to the kit root,
     // extension stripped).
-    let source = "sort = 1";
-    let offset = source.find("sort").unwrap();
-    let path = "/repo/handl-packages/collection/sort.hnl";
+    let source = "myarrow = 1";
+    let offset = source.find("myarrow").unwrap();
+    let path = "/repo/handl-packages/collection/myarrow.hnl";
     let result = moniker(source, offset, Some(path));
     assert_eq!(result.len(), 1, "expected one moniker: {result:?}");
     let m = &result[0];
     assert_eq!(m["scheme"].as_str(), Some("handl"));
     assert_eq!(
         m["identifier"].as_str(),
-        Some("collection/sort"),
+        Some("collection/myarrow"),
         "identifier should be relative to kit root: {m:?}"
     );
     assert_eq!(m["unique"].as_str(), Some("identifier"));
@@ -64,9 +64,9 @@ fn moniker_on_non_identifier_returns_empty() {
 
 #[test]
 fn moniker_without_file_path_falls_back_to_name() {
-    let source = "sort = 1";
-    let offset = source.find("sort").unwrap();
+    let source = "myarrow = 1";
+    let offset = source.find("myarrow").unwrap();
     let result = moniker(source, offset, None);
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0]["identifier"].as_str(), Some("sort"));
+    assert_eq!(result[0]["identifier"].as_str(), Some("myarrow"));
 }
