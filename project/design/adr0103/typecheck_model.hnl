@@ -164,16 +164,16 @@ do {
 
   is_meta :: v ~> if type_of(v) == "obj" {
     do {
-      id :: v.__meta__
-      if id == null { false } else { id != 0 }
+      id :: get_or(v, "__meta__", null)
+      if type_of(id) == "num" { id != 0 } else { false }
     }
   } else {
     false
   }
 
   meta_id :: v ~> if type_of(v) == "obj" {
-    id :: v.__meta__
-    if id == null { 0 } else { id }
+    id :: get_or(v, "__meta__", null)
+    if type_of(id) == "num" { id } else { 0 }
   } else { 0 }
 
   meta_value :: id ~> set({}, "__meta__", id)
