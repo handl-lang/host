@@ -14,7 +14,7 @@ fn eval(input: &str) -> serde_json::Value {
 fn eval_time(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "from \"../../handl-packages/time-c\" import {{ now_ms, instant_ns, elapsed_ns }}\n{}",
+        "do {{\n  from \"../../handl-packages/time-c\" import {{ now_ms, instant_ns, elapsed_ns }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")

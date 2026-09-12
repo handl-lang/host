@@ -356,7 +356,13 @@ mod bootstrap {
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                     let name = strip_export_name(&rest[..sep_pos]);
-                    let expr_start = rest[sep_pos + sep_len..].trim();
+                    let is_type_only =
+                        sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                    let expr_start = if is_type_only {
+                        "null"
+                    } else {
+                        rest[sep_pos + sep_len..].trim()
+                    };
                     let mut expr_lines = Vec::new();
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
@@ -408,15 +414,17 @@ mod bootstrap {
     }
 
     /// Find the position and length of the binding separator in `s`: the `::`
-    /// bind token (canonical), the `:=` graded-bind token, or a legacy `=`
-    /// (skipping `==`, `>=`, `<=`, `!=`, `=>`). `::` and `:=` take precedence
-    /// and return immediately; the first bare `=` is remembered but the scan
-    /// continues. Returns `None` if no binding separator is found.
+    /// bind token (canonical), the `:=` graded-bind token, a legacy `=`
+    /// (skipping `==`, `>=`, `<=`, `!=`, `=>`), or a bare `:` for type-only
+    /// exports. `::` and `:=` return immediately; the first bare `=` and the
+    /// first bare `:` are remembered so a stronger `::`/`:=`/later `=` wins.
+    /// Returns `None` if no binding separator is found.
     pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
         let bytes = s.as_bytes();
         let mut i = 0;
         let mut depth: i32 = 0;
         let mut first_eq: Option<usize> = None;
+        let mut first_colon: Option<usize> = None;
         while i < bytes.len() {
             let c = bytes[i];
             match c {
@@ -428,6 +436,9 @@ mod bootstrap {
                     }
                     if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
                         return Some((i, 2)); // :=  graded bind
+                    }
+                    if first_colon.is_none() {
+                        first_colon = Some(i);
                     }
                 }
                 b'=' if depth == 0 => {
@@ -449,7 +460,10 @@ mod bootstrap {
             }
             i += 1;
         }
-        first_eq.map(|pos| (pos, 1))
+        if let Some(pos) = first_eq {
+            return Some((pos, 1));
+        }
+        first_colon.map(|pos| (pos, 1))
     }
 
     /// Strip generics `<...>` and type annotation `: Type` from an export

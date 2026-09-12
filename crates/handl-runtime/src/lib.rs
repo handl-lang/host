@@ -60,6 +60,7 @@
 pub mod desugar_pass;
 pub mod erase_pass;
 pub mod fp;
+pub mod module_prep;
 pub mod runtime_assert_pass;
 pub mod vm_primitives;
 
@@ -1491,6 +1492,12 @@ impl ModuleLoader {
         // are the executable import op and resolve through this loader.
         // See ADR-0096 §"Module-name imports".
         let src = self.strip_module_decl_lines(&src, resolved);
+        // Canonical `.hnl` modules are prepared the same way as
+        // `handl_plugin_lib_handl` does: top-level `export` declarations
+        // become an object literal so multi-export modules evaluate to a
+        // record and type-only exports like `export Clock<T>: Grade` are
+        // safe to run.
+        let src = module_prep::prepare_module(&src);
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
