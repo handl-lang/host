@@ -1,0 +1,11 @@
+--- Prepend `v` onto the front of `c`, returning the new list.
+---
+--- @example
+--- `list.push([2, 3], 1)`
+--- -- => [1, 2, 3]
+---
+cap "list.push"
+op "list.push" : (List(T), T) ~[Total]~> List(T)
+  guarantee: true
+
+export push :: [c, v] ~> [v, ...c]

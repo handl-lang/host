@@ -1,0 +1,20 @@
+--- Return the number of elements in `xs`.
+---
+--- Feedback region: `while` is the v0.1 surface sugar over the kernel
+--- `Loop` primitive. The state record `{ ys, n }` is the hidden
+--- feedback wire `S`; the count is the exit wire.
+---
+--- @example
+--- `list.len([1, 2, 3])`
+--- -- => 3
+---
+cap "list.len"
+op "list.len" : List(T) ~[Total]~> Nat
+  guarantee: true
+
+export len :: xs ~> while { ys: xs, n: 0 } {
+  [ys, n] ~> match ys {
+    []: { out: n },
+    [h, ...t]: { state: { ys: t, n: n + 1 } }
+  }
+}

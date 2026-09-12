@@ -1,0 +1,17 @@
+--- Peek at the front cell of `xs` without consuming the list.
+---
+--- Composes the shared cell decomposition: `uncons >>> fst`. Raises
+--- `collection is empty` when `xs` is empty.
+---
+--- @example
+--- `list.peek([1, 2, 3])`
+--- -- => 1
+---
+cap "list.peek"
+op "list.peek" : List(T) ~[Pop 1]~> T
+  guarantee: true
+
+export peek :: xs ~> match xs {
+  []: error.raise("collection is empty"),
+  [h, ...t]: h
+}

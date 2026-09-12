@@ -1,0 +1,16 @@
+--- Test whether `xs` has no elements.
+---
+--- @example
+--- `list.is_empty([])`
+--- -- => true
+--- `list.is_empty([1])`
+--- -- => false
+---
+cap "list.is_empty"
+op "list.is_empty" : List(T) ~[Total]~> Bool
+  guarantee: true
+
+export is_empty :: xs ~> match xs {
+  []: true,
+  [h, ...t]: false
+}

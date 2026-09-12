@@ -1,0 +1,17 @@
+--- Remove and return the front cell of `xs`, yielding the tail.
+---
+--- Composes the shared cell decomposition: `uncons >>> snd`. Raises
+--- `collection is empty` when `xs` is empty.
+---
+--- @example
+--- `list.pop([1, 2, 3])`
+--- -- => [2, 3]
+---
+cap "list.pop"
+op "list.pop" : List(T) ~[Pop 1]~> List(T)
+  guarantee: true
+
+export pop :: xs ~> match xs {
+  []: error.raise("collection is empty"),
+  [h, ...t]: t
+}
