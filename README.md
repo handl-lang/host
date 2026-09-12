@@ -59,7 +59,7 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 - `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-emitters`, `handl-test-utils`, `handl-defining-handl`.
 - `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`).
 - `crates/plugin-ext-*` — capability contracts and default category plugins (`diag`, `fmt`, `lint`, `kit`, `cli`, `lsp`, `eval`, `refinement`, `build`, `compile`, `plugin`).
-- `crates/plugin-engine-*` — concrete language/tooling engines (`lex`, `lex-pattern`, `parse`, `parse-pratt`, `fmt`, `lint`, `typecheck`, `typecheck-nbe`, `test`, `transform`, `transform-rewrite`, `transform-parallel`, `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`).
+- `crates/plugin-engine-*` — concrete language/tooling engines (`lex`, `lex-pattern`, `parse`, `parse-pratt`, `fmt`, `lint`, `typecheck`, `typecheck-handl`, `test`, `transform`, `transform-rewrite`, `transform-parallel`, `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`).
 - `crates/plugin-lib-*` / `crates/crate-*` — standard library, native ops, and utility libraries.
 - `crates/plugin-applier-*` / `crates/plugin-load*` — applier composition and loaders.
 - `crates/host-*` — CLI, LSP, and shared tooling host.

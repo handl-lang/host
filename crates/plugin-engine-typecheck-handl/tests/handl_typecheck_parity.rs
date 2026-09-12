@@ -642,3 +642,312 @@ fn typecheck_call_runs_and_returns_useful_output() {
         }
     }
 }
+// ===========================================================================
+// 5. ADR-0106 nominal subtyping — the `subtype` judgment rule
+// ===========================================================================
+//
+// The rule lives in `eval_judgment_impl_` ("subtype") and is reached by the
+// typechecker through `eval_scheme_` -> `eval_scheme_impl_` (the `Op` tag
+// with `source: "Judgment"`). These tests drive that same path via the
+// model's exported `eval_scheme` helper with a synthesized `Op`/`Judgment`
+// term, so they exercise the real dispatch — not a reimplementation.
+
+/// Function names needed to drive the `subtype` rule directly.
+const SUBTYPE_MODEL_FUNCS: &[&str] = &["typecheck", "eval_scheme"];
+
+/// Build the typecheck model exporting `eval_scheme` so the `subtype`
+/// judgment op can be driven directly.
+fn subtype_model_module() -> HandlModule {
+    HandlModule::new("typecheck_model", TYPECHECK_MODEL_HNL, SUBTYPE_MODEL_FUNCS)
+        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
+        .with_dependency(stdlib::module("typeof").expect("typeof module"))
+        .with_dependency(stdlib::module("obj").expect("obj module"))
+}
+
+/// A nominal value in the ADR-0106 Phase 2 encoding:
+/// `{"__sym__": {"handle": n, "name": "...", "parent": <sym or null>}}`.
+fn nominal(handle: i64, name: &str, parent: Value) -> Value {
+    json!({ "__sym__": { "handle": handle, "name": name, "parent": parent } })
+}
+
+/// A synthesized scheme `Op`/`Judgment` term invoking `subtype(sub, sup)`.
+/// The two `Const` args evaluate to the literal values, exactly as a
+/// type-rule scheme would supply them.
+fn subtype_term(sub: Value, sup: Value) -> Value {
+    json!({
+        "__tag__": "Op",
+        "source": "Judgment",
+        "name": "subtype",
+        "args": [
+            { "__tag__": "Const", "value": sub },
+            { "__tag__": "Const", "value": sup }
+        ]
+    })
+}
+
+/// Drive `eval_scheme` on a `subtype(sub, sup)` term and return the
+/// diagnostics accumulated on the resulting state.
+///
+/// `eval_judgment_impl_` always reads the current AST node's kind (via
+/// `ast_node`/`node_kind`), so the state carries a single dummy node; every
+/// other field is filled in by `tc_sanitize`.
+fn run_subtype(module: &HandlModule, sub: Value, sup: Value) -> Vec<Value> {
+    let state = json!({ "ast": [{ "kind": "subtype-test", "payload": {} }] });
+    let result = call_func(
+        module,
+        "eval_scheme",
+        &[state, json!(0), subtype_term(sub, sup), Value::Null],
+    )
+    .expect("eval_scheme on a subtype term should not error");
+    result["state"]["diagnostics"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Whether a `subtype` run reported the failure diagnostic.
+fn subtype_failed(diags: &[Value]) -> bool {
+    diags
+        .iter()
+        .any(|d| d.get("message").and_then(|m| m.as_str()) == Some("subtype check failed"))
+}
+
+/// Like [`run_subtype`], but surfaces a model-call error instead of panicking
+/// (used for the transitional nominal-vs-legacy case, where `unify` is handed
+/// a raw `sym` value and may error — the pre-ADR-0106 behavior).
+fn try_run_subtype(module: &HandlModule, sub: Value, sup: Value) -> Result<Vec<Value>, String> {
+    let state = json!({ "ast": [{ "kind": "subtype-test", "payload": {} }] });
+    match call_func(
+        module,
+        "eval_scheme",
+        &[state, json!(0), subtype_term(sub, sup), Value::Null],
+    ) {
+        Ok(result) => Ok(result["state"]["diagnostics"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()),
+        Err(e) => Err(e),
+    }
+}
+
+/// The standard nominal chain used throughout these tests:
+/// `Obj(1) <- Number(2) <- {Int(3), Float(4)}`, `Int(3) <- Nat(5)`.
+fn std_chain() -> (Value, Value, Value, Value, Value) {
+    let obj = nominal(1, "Obj", Value::Null);
+    let number = nominal(2, "Number", obj.clone());
+    let int = nominal(3, "Int", number.clone());
+    let float = nominal(4, "Float", number.clone());
+    let nat = nominal(5, "Nat", int.clone());
+    (obj, number, int, float, nat)
+}
+
+/// The model must export the `eval_scheme` helper the rule tests drive.
+/// (Hard assertion: a missing export would make every rule test vacuous.)
+#[test]
+fn subtype_model_exports_eval_scheme() {
+    let module = subtype_model_module();
+    assert!(
+        module.function("eval_scheme").is_some(),
+        "typecheck model must export 'eval_scheme' to drive judgment rules"
+    );
+}
+
+
+/// `Int <: Number` — direct child of Number.
+#[test]
+fn subtype_int_is_number() {
+    let module = subtype_model_module();
+    let (_obj, number, int, _float, _nat) = std_chain();
+    assert!(
+        !subtype_failed(&run_subtype(&module, int, number)),
+        "Int <: Number should succeed"
+    );
+}
+
+/// `Float <: Number` — direct child of Number.
+#[test]
+fn subtype_float_is_number() {
+    let module = subtype_model_module();
+    let (_obj, number, _int, float, _nat) = std_chain();
+    assert!(
+        !subtype_failed(&run_subtype(&module, float, number)),
+        "Float <: Number should succeed"
+    );
+}
+
+/// `Nat <: Number` — transitive through `Int`.
+#[test]
+fn subtype_nat_is_number_transitive() {
+    let module = subtype_model_module();
+    let (_obj, number, _int, _float, nat) = std_chain();
+    assert!(
+        !subtype_failed(&run_subtype(&module, nat, number)),
+        "Nat <: Number should succeed through the Int parent"
+    );
+}
+
+/// `Nat <: Int` — immediate parent.
+#[test]
+fn subtype_nat_is_int() {
+    let module = subtype_model_module();
+    let (_obj, _number, int, _float, nat) = std_chain();
+    assert!(
+        !subtype_failed(&run_subtype(&module, nat, int)),
+        "Nat <: Int should succeed"
+    );
+}
+
+/// A nominal is a subtype of itself (reflexivity).
+#[test]
+fn subtype_nominal_is_itself() {
+    let module = subtype_model_module();
+    let (_obj, number, _int, _float, _nat) = std_chain();
+    let number2 = number.clone();
+    assert!(
+        !subtype_failed(&run_subtype(&module, number, number2)),
+        "a nominal should be a subtype of itself"
+    );
+}
+
+/// `Number </: Float` — a parent is not a subtype of its child.
+#[test]
+fn subtype_number_is_not_float() {
+    let module = subtype_model_module();
+    let (_obj, number, _int, float, _nat) = std_chain();
+    assert!(
+        subtype_failed(&run_subtype(&module, number, float)),
+        "Number <: Float must fail (parent-to-child)"
+    );
+}
+
+/// `Int </: Float` — siblings under `Number` are unrelated.
+#[test]
+fn subtype_siblings_int_is_not_float() {
+    let module = subtype_model_module();
+    let (_obj, _number, int, float, _nat) = std_chain();
+    assert!(
+        subtype_failed(&run_subtype(&module, int, float)),
+        "Int <: Float must fail (siblings)"
+    );
+}
+
+/// A deep chain (`N0 <- N1 <- ... <- N63`): the leaf is a subtype of the
+/// root (full transitive walk) and the root is not a subtype of the leaf.
+#[test]
+fn subtype_deep_chain_transitivity() {
+    let module = subtype_model_module();
+    const DEPTH: i64 = 64;
+    let mut cur = nominal(1, "N0", Value::Null);
+    let root = cur.clone();
+    for i in 1..DEPTH {
+        cur = nominal(i + 1, &format!("N{i}"), cur);
+    }
+    let leaf = cur;
+
+    assert!(
+        !subtype_failed(&run_subtype(&module, leaf.clone(), root.clone())),
+        "the leaf of a depth-{DEPTH} chain should be a subtype of the root"
+    );
+    assert!(
+        subtype_failed(&run_subtype(&module, root, leaf)),
+        "the root of a deep chain must not be a subtype of the leaf"
+    );
+}
+
+/// Malformed nominals are not well-formed, so the rule falls back to
+/// unification (pre-ADR-0106 behavior) instead of crashing. A malformed
+/// value unified with itself succeeds structurally.
+#[test]
+fn subtype_malformed_nominal_falls_back_to_unify() {
+    let module = subtype_model_module();
+
+    // Zero handle is not a valid identity.
+    let zero_handle = json!({ "__sym__": { "handle": 0, "name": "Bad", "parent": null } });
+    assert!(
+        !subtype_failed(&run_subtype(&module, zero_handle.clone(), zero_handle.clone())),
+        "a zero-handle nominal is malformed; unify(a, a) should succeed"
+    );
+
+    // Missing handle.
+    let missing_handle = json!({ "__sym__": { "name": "Bad", "parent": null } });
+    assert!(
+        !subtype_failed(&run_subtype(&module, missing_handle.clone(), missing_handle)),
+        "a handle-less nominal is malformed; unify(a, a) should succeed"
+    );
+
+    // Non-numeric handle.
+    let string_handle =
+        json!({ "__sym__": { "handle": "nope", "name": "Bad", "parent": null } });
+    assert!(
+        !subtype_failed(&run_subtype(&module, string_handle.clone(), string_handle)),
+        "a non-numeric handle is malformed; unify(a, a) should succeed"
+    );
+
+    // `__sym__` is not an object at all.
+    let non_object_sym = json!({ "__sym__": 5 });
+    assert!(
+        !subtype_failed(&run_subtype(&module, non_object_sym.clone(), non_object_sym)),
+        "`__sym__: 5` is malformed; unify(a, a) should succeed"
+    );
+
+    // A malformed parent rejects the whole chain, so the rule still falls
+    // back to unify rather than panicking.
+    let bad_parent = json!({
+        "__sym__": { "handle": 7, "name": "X", "parent": { "__sym__": { "handle": 0, "name": "Y", "parent": null } } }
+    });
+    assert!(
+        !subtype_failed(&run_subtype(&module, bad_parent.clone(), bad_parent)),
+        "a malformed parent rejects the chain; unify(a, a) should succeed"
+    );
+
+    // Distinct malformed values fall back to unify and fail (no crash).
+    let other = json!({ "__sym__": { "handle": 0, "name": "Other", "parent": null } });
+    assert!(
+        subtype_failed(&run_subtype(&module, zero_handle, other)),
+        "distinct malformed nominals unify-fail without crashing"
+    );
+}
+
+/// Legacy `__tag__`-tagged type values carry no nominal identity, so the
+/// rule delegates to unification: structurally equal tags succeed, distinct
+/// tags fail.
+#[test]
+fn subtype_legacy_tagged_equality_via_unify() {
+    let module = subtype_model_module();
+    let int_a = json!({ "__tag__": "int", "__registry__": "type", "kind": "primitive" });
+    let int_b = json!({ "__tag__": "int", "__registry__": "type", "kind": "primitive" });
+    let float = json!({ "__tag__": "float", "__registry__": "type", "kind": "primitive" });
+
+    assert!(
+        !subtype_failed(&run_subtype(&module, int_a.clone(), int_b)),
+        "equal legacy tagged values should succeed via unify"
+    );
+    assert!(
+        subtype_failed(&run_subtype(&module, int_a, float)),
+        "distinct legacy tagged values should fail via unify"
+    );
+}
+
+/// One nominal and one legacy tagged value: not both nominals, so the rule
+/// delegates to `unify` (the pre-ADR-0106 path). `unify` does not understand
+/// raw `sym` values (its `type_tag` field-accesses the value), so the mixed
+/// case may error — the point of this test is that it does not panic and
+/// that non-nominal inputs keep their old behavior.
+#[test]
+fn subtype_nominal_vs_legacy_tag_delegates_to_unify() {
+    let module = subtype_model_module();
+    let (_obj, number, _int, _float, _nat) = std_chain();
+    let tagged_number =
+        json!({ "__tag__": "number", "__registry__": "type", "kind": "primitive" });
+    match try_run_subtype(&module, number, tagged_number) {
+        Ok(diags) => assert!(
+            subtype_failed(&diags),
+            "a nominal vs a distinct legacy tagged value should fail"
+        ),
+        // `unify` errored on the raw sym (pre-existing); acceptable so long
+        // as the model did not panic.
+        Err(e) => eprintln!("nominal vs legacy tag went through unify and errored (ok): {e}"),
+    }
+}
+

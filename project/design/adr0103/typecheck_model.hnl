@@ -182,6 +182,81 @@ do {
 
   meta_value :: id ~> set({}, "__meta__", id)
 
+  --- ADR-0106 Phase 2/4: nominal (`{"__sym__": ...}`) readers. These mirror
+  --- the defensive style of `is_meta`/`meta_id` — every field read is
+  --- type-guarded before use, and any malformed shape yields `null` so the
+  --- caller can fall back (see the `subtype` rule below).
+  ---
+  --- NB: a well-formed nominal is decoded by the engine into a distinct
+  --- `sym` value, so `v.__sym__` (engine field access) would fail; reads go
+  --- through `tget` (a host op that sees the serialized `{"__sym__": ...}`
+  --- object).
+
+  --- The `handle` of a well-formed nominal, or `null` when `v` is not a
+  --- nominal / `__sym__` is missing or not an object / `handle` is missing,
+  --- non-numeric, or zero (identity handles are minted from 1).
+  sym_handle :: v ~> if type_of(v) == "obj" {
+    do {
+      inner :: tget(v, "__sym__")
+      if type_of(inner) == "obj" {
+        do {
+          h :: tget(inner, "handle")
+          if type_of(h) == "num" { if h != 0 { h } else { null } } else { null }
+        }
+      } else {
+        null
+      }
+    }
+  } else {
+    null
+  }
+
+  --- The nominal parent of `v` (a nominal or `null`), or `null` when `v` is
+  --- not a nominal. A present-but-malformed `parent` is caught by
+  --- `sym_chain`, which rejects the whole chain.
+  sym_parent :: v ~> if type_of(v) == "obj" {
+    do {
+      inner :: tget(v, "__sym__")
+      if type_of(inner) == "obj" { tget(inner, "parent") } else { null }
+    }
+  } else {
+    null
+  }
+
+  --- `sym_chain(v)` — the ADR-0106 Phase 2 encoding is
+  --- `{"__sym__": {"handle": n, "name": "...", "parent": <sym or null>}}`.
+  --- Returns the handle chain as an array of numbers, outermost-first (the
+  --- nominal's own handle at index 0), or `null` when `v` is not a
+  --- well-formed nominal (missing `__sym__`, missing/non-numeric/zero
+  --- `handle`, or malformed `parent`). Walks iteratively (no deep
+  --- interpreter recursion) and returns `null` at any well-formedness
+  --- failure, so a malformed node rejects the whole chain.
+  sym_chain :: v ~> while { out: [], cur: v } {
+    [st] ~> do {
+      h :: sym_handle(st.cur)
+      if h == null {
+        { out: null }
+      } else {
+        parent :: sym_parent(st.cur)
+        new_out :: [...st.out, h]
+        if parent == null {
+          { out: new_out }
+        } else {
+          { state: { out: new_out, cur: parent } }
+        }
+      }
+    }
+  }
+
+  --- Membership over a chain (both are small arrays of handles).
+  chain_has :: [xs, h] ~> do {
+    found :: false
+    for x in xs {
+      if x == h { found = true }
+    }
+    found
+  }
+
   type_tag :: v ~> if type_of(v) == "obj" {
     tag :: v.__tag__
     if tag == null { "" } else { tag }
@@ -964,11 +1039,27 @@ do {
     "subtype": do {
       sub_result :: funcs.eval_scheme_(funcs, s, node_idx, at(args, 0), incoming)
       sup_result :: funcs.eval_scheme_(funcs, sub_result["state"], node_idx, at(args, 1), incoming)
-      unify_result :: unify(funcs, sub_result.val, sup_result.val, sup_result["state"].metas)
-      if unify_result.ok {
-        { val: null, state: set(sup_result["state"], "metas", unify_result.metas) }
+      sub_chain :: sym_chain(sub_result.val)
+      sup_chain :: sym_chain(sup_result.val)
+      if sub_chain != null && sup_chain != null {
+        --- Both sides are well-formed sym-nominals (ADR-0106 §2/§14): the
+        --- `sym` parent graph *is* the subtyping relation, so `sub <: sup`
+        --- holds iff the sub chain contains the sup's own handle. Runtime
+        --- `instanceof` walks this same chain.
+        if chain_has(sub_chain, first_value(sup_chain)) {
+          { val: null, state: sup_result["state"] }
+        } else {
+          { val: null, state: tc_add_diagnostic(sup_result["state"], "error", "subtype check failed") }
+        }
       } else {
-        { val: null, state: tc_add_diagnostic(sup_result["state"], "error", "subtype check failed") }
+        --- Legacy tagged type values (and any non-nominal / malformed
+        --- input) keep the pre-ADR-0106 behavior: delegate to unification.
+        unify_result :: unify(funcs, sub_result.val, sup_result.val, sup_result["state"].metas)
+        if unify_result.ok {
+          { val: null, state: set(sup_result["state"], "metas", unify_result.metas) }
+        } else {
+          { val: null, state: tc_add_diagnostic(sup_result["state"], "error", "subtype check failed") }
+        }
       }
     },
     "extend": do {
@@ -1917,12 +2008,17 @@ do {
 
   typecheck :: [lang, ast] ~> typecheck_(typecheck_, lang, ast)
 
+  --- Public record. `eval_scheme` drives a scheme term through the same
+  --- dispatch the typechecker uses (`eval_scheme_` -> `eval_scheme_impl_` ->
+  --- `eval_judgment_impl_`). Exported alongside the other inspection helpers
+  --- so judgment rules (e.g. `subtype`) can be exercised directly.
   {
     typecheck: typecheck,
     synth: [s, node_idx] ~> funcs.synth_node_(funcs, s, node_idx),
     check: [s, node_idx, expected] ~> funcs.check_node_(funcs, s, node_idx, expected),
     unify: [a, b, metas] ~> unify_(unify_, funcs, a, b, metas),
     extend: [s, name, typ] ~> tc_extend(s, name, typ),
-    lookup: [s, name] ~> tc_lookup(s, name)
+    lookup: [s, name] ~> tc_lookup(s, name),
+    eval_scheme: eval_scheme
   }
 }

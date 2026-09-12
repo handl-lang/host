@@ -414,12 +414,18 @@ recorded here as known gaps; neither changes the semantics.
   dimension payloads and add explicit tests for `f<(a >>> b)>` versus
   `(f<a>) >>> b`.
 
-Nominal subtyping itself (this ADR's §14) is implemented: `<:` is decided by
-the `sym` parent chain in `check_subtype` (crate
-`handl-plugin-engine-typecheck-nbe`), and runtime `instanceof` walks the same
-chain (`sym.instanceof`, `VmPrimitivesModule` in `handl-runtime`), with a
-legacy `__tag__` bridge until `type.hnl` finishes migrating to sym-parented
-identities.
+Nominal subtyping itself (this ADR's §14) is implemented in the Handl-authored
+typecheck model, `project/design/adr0103/typecheck_model.hnl` (crate
+`handl-plugin-engine-typecheck-handl`, loaded via `include_str!`): the
+`subtype` judgment op reads the `sym` parent chain (`sym_chain`) and succeeds
+iff the sub chain contains the sup's own handle, falling back to unification
+for legacy `__tag__` values. Runtime `instanceof` walks the same chain
+(`sym.instanceof`, `VmPrimitivesModule` in `handl-runtime`), with a legacy
+`__tag__` bridge until `type.hnl` finishes migrating to sym-parented
+identities. Note: the original Rust implementation lived in the crate
+`handl-plugin-engine-typecheck-nbe`; that crate was deleted on `main` during
+integration (superseded by the Handl model per ADR-0105), so the rule now
+lives in the model, not in any `*-nbe` crate.
 
 ## Implementation notes
 
