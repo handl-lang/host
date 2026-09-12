@@ -221,8 +221,16 @@ do {
           if c == ")" || c == "]" || c == "}" {
             { state: { xs: t, i: i + 1, depth: depth - 1, feq: feq } }
           } else {
-            if c == ":" && depth == 0 && atc(s, i + 1) == ":" {
-              { out: { pos: i, len: 2 } }
+            if c == ":" && depth == 0 {
+              if atc(s, i + 1) == ":" {
+                { out: { pos: i, len: 2 } }   -- ::  bind
+              } else {
+                if atc(s, i + 1) == "=" {
+                  { out: { pos: i, len: 2 } }   -- :=  graded bind
+                } else {
+                  { state: { xs: t, i: i + 1, depth: depth, feq: feq } }
+                }
+              }
             } else {
               if c == "=" && depth == 0 {
                 p :: if i > 0 { atc(s, i - 1) } else { "" }
@@ -247,8 +255,36 @@ do {
   }
 
   -- ---------------------------------------------------------------------
+  -- strip_export_name — Strip generics `<...>` and type annotation
+  -- `: Type` from an export name portion, returning the bare name.
+  -- e.g. `len<T>: List(T) ~[Total]~> Nat ` -> `len`
+  -- ---------------------------------------------------------------------
+
+  strip_export_name :: s ~> do {
+    while { xs: char.chars(s), i: 0, depth: 0, acc: "" } {
+      [xs, i, depth, acc] ~> match xs {
+        []: { out: acc },
+        [c, ...t]: if depth == 0 && (c == "<" || c == ":") {
+          { out: acc }
+        } else {
+          if c == "(" || c == "[" || c == "{" {
+            { state: { xs: t, i: i + 1, depth: depth + 1, acc: acc + c } }
+          } else {
+            if c == ")" || c == "]" || c == "}" {
+              { state: { xs: t, i: i + 1, depth: depth - 1, acc: acc + c } }
+            } else {
+              { state: { xs: t, i: i + 1, depth: depth, acc: acc + c } }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  -- ---------------------------------------------------------------------
   -- transform_export_to_object — rewrite top-level
-  -- `export name <::|=> expr` declarations into an object literal
+  -- `export name : Type ~> Grade := expr` or `export name :: expr`
+  -- declarations into an object literal
   -- `{ name: expr, ... }`.  No exports → source unchanged.
   -- ---------------------------------------------------------------------
 
@@ -291,7 +327,7 @@ do {
           } else {
             expr0 :: trim(sdrop(rest, sep.pos + sep.len))
             { state: { xs: t, entries: entries2,
-                       cur: { name: trim(stake(rest, sep.pos)),
+                       cur: { name: trim(strip_export_name(stake(rest, sep.pos))),
                               lines: if slen(expr0) == 0 { [] } else { [expr0] } } } }
           }
         } else {

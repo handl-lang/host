@@ -1,9 +1,10 @@
 --- list — the `list` container, written arrow-native.
 ---
---- This module is now an **aggregator**: each arrow lives in its own
+--- This module is an **aggregator**: each arrow lives in its own
 --- `collections/list/<name>.hnl` file (one arrow per file, `export
---- <name> = ...`, with its own doc comment). This file imports them and
---- assembles the `list.*` record that the runtime exposes.
+--- <name><T>: Type ~> Grade := ...`, with its own doc comment).
+--- This file imports them and assembles the `list.*` record the runtime
+--- exposes.
 ---
 --- This module follows the generic arrow calculus (ADR: "Generic Arrow
 --- Calculus for Any Dimension", docs/adrs/): arrows are primitive, there
