@@ -47,8 +47,6 @@ members = [
   "crates/plugin-lib-lang-run-compiled",
   "crates/plugin-lib-kv",
   "crates/plugin-lib-kv-hashmap",
-  "crates/plugin-lib-os",
-  "crates/plugin-lib-os-std",
   "crates/plugin-lib-otlp",
   "crates/plugin-lib-otlp-std",
   "crates/plugin-lib-parse",
@@ -186,8 +184,6 @@ handl-plugin-lib-lang-compile = { path = "crates/plugin-lib-lang-compile" }
 handl-plugin-lib-lang-run-compiled = { path = "crates/plugin-lib-lang-run-compiled" }
 handl-plugin-lib-kv = { path = "crates/plugin-lib-kv" }
 handl-plugin-lib-kv-hashmap = { path = "crates/plugin-lib-kv-hashmap" }
-handl-plugin-lib-os = { path = "crates/plugin-lib-os" }
-handl-plugin-lib-os-std = { path = "crates/plugin-lib-os-std" }
 handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
 handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
 handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }

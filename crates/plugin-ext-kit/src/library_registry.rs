@@ -14,9 +14,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("module-runtime", || {
         Box::new(handl_plugin_module::ModuleRuntime::default()) as LibraryPlugin
     });
-    reg.register("os-std", || {
-        Box::new(handl_plugin_lib_os_std::LibraryPlugin::new()) as LibraryPlugin
-    });
     // Table-driven libraries (former plugin-lib-{hello,utils,cmp,json,
     // toml,yaml,stats,collections}).
     for name in [

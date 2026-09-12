@@ -1,0 +1,59 @@
+--- Pure path manipulation over strings.
+---
+--- @details
+--- These are the `os` path operations implemented in pure handl using the
+--- `str` package. `resolve` currently normalizes by joining; symlink
+--- resolution via `realpath(3)` is left for a later FFI extension.
+
+from "../grade" import { Effect }
+from "str" import * as str
+
+--- Join path components with a forward slash.
+--- @param {parts} - list of path components
+--- @returns {String - the joined path}
+export join: (List String) -> String := (parts) ~> str.join(parts, "/")
+
+--- Resolve a sequence of path components to a single path.
+--- @param {parts} - list of path components
+--- @returns {String - the resolved path}
+--- @details
+--- Currently this is a placeholder: it joins the components. Realpath
+--- semantics will be added once the FFI supports C-allocated output.
+export resolve: (List String) ~[Effect]~> String := (parts) ~> str.join(parts, "/")
+
+--- Return the last component of a path.
+--- @param {p} - the path
+--- @returns {String - the file name portion}
+export basename: String -> String := (p) ~> do {
+  i = str.rfind(p, "/");
+  if i > -1 {
+    str.slice(p, i + 1, str.length(p))
+  } else {
+    p
+  }
+}
+
+--- Return the directory component of a path.
+--- @param {p} - the path
+--- @returns {String - the directory portion}
+export dirname: String -> String := (p) ~> do {
+  i = str.rfind(p, "/");
+  if i > -1 {
+    str.slice(p, 0, i)
+  } else {
+    "."
+  }
+}
+
+--- Return the file extension, including the leading dot, or the empty string.
+--- @param {p} - the path
+--- @returns {String - the extension}
+export extname: String -> String := (p) ~> do {
+  base = basename(p);
+  i = str.rfind(base, ".");
+  if i > -1 {
+    str.slice(base, i, str.length(base))
+  } else {
+    ""
+  }
+}
