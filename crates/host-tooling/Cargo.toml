@@ -19,6 +19,3 @@ serde_json = "1"
 
 [dev-dependencies]
 handl-plugin-loader-native.workspace = true
-handl-plugin-lsp-completion.workspace = true
-handl-plugin-lsp-goto.workspace = true
-handl-plugin-lsp-symbol.workspace = true

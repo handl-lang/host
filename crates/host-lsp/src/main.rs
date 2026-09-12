@@ -155,10 +155,7 @@ use std::io::{self, BufRead};
 use handl_host_tooling::{
     SemanticTokensPlugin, TextContentChange, ToolingHost, canonical_semantic_tokens,
 };
-use handl_plugin_lsp_completion::BasicCompletion;
-use handl_plugin_lsp_goto::BasicGotoDef;
-use handl_plugin_lsp_hover::BasicHover;
-use handl_plugin_lsp_symbol::BasicDocumentSymbols;
+use handl_plugin_lsp_std::BasicLsp;
 
 use document::DocumentStore;
 use handlers::{
@@ -220,10 +217,10 @@ fn main() {
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
     let host = ToolingHost::new(noop_kit::NoopKit::new())
-        .with_completion_plugin(Box::new(BasicCompletion::new()))
-        .with_goto_def_plugin(Box::new(BasicGotoDef::new()))
-        .with_document_symbols_plugin(Box::new(BasicDocumentSymbols::new()))
-        .with_hover_plugin(Box::new(BasicHover::new()));
+        .with_completion_plugin(Box::new(BasicLsp::new()))
+        .with_goto_def_plugin(Box::new(BasicLsp::new()))
+        .with_document_symbols_plugin(Box::new(BasicLsp::new()))
+        .with_hover_plugin(Box::new(BasicLsp::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 

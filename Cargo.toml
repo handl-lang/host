@@ -74,11 +74,7 @@ members = [
   "crates/platform",
   "crates/plugin-diag-expression",
   "crates/plugin-lsp",
-  "crates/plugin-lsp-completion",
-  "crates/plugin-lsp-goto",
-  "crates/plugin-lsp-hover",
   "crates/plugin-lsp-std",
-  "crates/plugin-lsp-symbol",
   "crates/plugin-exec-cache",
   "crates/plugin-exec-trace",
   "crates/plugin-exec-counter",
@@ -218,11 +214,7 @@ handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-lsp = { path = "crates/plugin-lsp" }
-handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
-handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
-handl-plugin-lsp-hover = { path = "crates/plugin-lsp-hover" }
 handl-plugin-lsp-std = { path = "crates/plugin-lsp-std" }
-handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
 handl-plugin-exec-trace = { path = "crates/plugin-exec-trace" }
 handl-plugin-exec-counter = { path = "crates/plugin-exec-counter" }
