@@ -733,12 +733,36 @@ pub struct PackageResolver<'a> {
     pub fallback: Option<&'a dyn ModuleResolver>,
 }
 
+/// Normalize a path-like import spec to its module name.
+///
+/// Strips a leading `./`, strips a trailing `.hnl`, then takes the basename
+/// after the last `/`: `./reverse.hnl` → `reverse`;
+/// `collections/array/reverse.hnl` → `reverse`. Bare names such as
+/// `"reverse"` are returned unchanged.
+fn normalize_module_name(name: &str) -> &str {
+    let name = name.strip_prefix("./").unwrap_or(name);
+    let name = name.strip_suffix(".hnl").unwrap_or(name);
+    name.rsplit('/').next().unwrap_or(name)
+}
+
+/// Resolve a (possibly path-like) module `name` through the module table,
+/// building it with `resolver`.
+///
+/// Relative paths such as `./reverse.hnl` normalize to their module name;
+/// bare names are matched directly. Returns `None` when neither form is in
+/// the table (callers then consult their own fallback resolver).
+fn resolve_in_table(
+    name: &str,
+    resolver: &dyn ModuleResolver,
+) -> Option<Arc<dyn Module + Send + Sync>> {
+    let normalized = normalize_module_name(name);
+    let spec = module_spec(normalized).or_else(|| module_spec(name))?;
+    Some(Arc::new(build_module(spec, resolver)))
+}
+
 impl ModuleResolver for PackageResolver<'_> {
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-        if let Some(spec) = module_spec(name) {
-            return Some(Arc::new(build_module(spec, self)));
-        }
-        self.fallback.and_then(|f| f.resolve(name))
+        resolve_in_table(name, self).or_else(|| self.fallback.and_then(|f| f.resolve(name)))
     }
 }
 
@@ -848,10 +872,7 @@ impl Plugin for PackagePlugin {
         }
         impl ModuleResolver for FallbackResolver<'_> {
             fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-                if let Some(spec) = module_spec(name) {
-                    return Some(Arc::new(build_module(spec, self)));
-                }
-                self.inner.and_then(|f| f.resolve(name))
+                resolve_in_table(name, self).or_else(|| self.inner.and_then(|f| f.resolve(name)))
             }
         }
         let fallback = FallbackResolver {
@@ -893,4 +914,23 @@ pub fn library(lib_name: &str) -> Option<Box<dyn Plugin + Send + Sync>> {
         .iter()
         .find(|p| p.lib_name == lib_name)
         .map(|spec| Box::new(PackagePlugin::new(spec)) as Box<dyn Plugin + Send + Sync>)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_module_name;
+
+    #[test]
+    fn normalizes_relative_import_paths() {
+        // Relative path with extension and leading `./`.
+        assert_eq!(normalize_module_name("./reverse.hnl"), "reverse");
+        // Bare name is unchanged.
+        assert_eq!(normalize_module_name("reverse"), "reverse");
+        // Deep path keeps only the basename (minus extension).
+        assert_eq!(normalize_module_name("a/b/c.hnl"), "c");
+        // Nested `collections/array` path.
+        assert_eq!(normalize_module_name("collections/array/reverse.hnl"), "reverse");
+        // Private module name.
+        assert_eq!(normalize_module_name("./_reflect.hnl"), "_reflect");
+    }
 }
