@@ -73,6 +73,15 @@ and a thin handl adapter.
    every change; `plugin-lsp` may cache per-document exported-name tables if
    profiling shows it is necessary, but the initial implementation does not.
 
+6. **Everything is optional.** The `lsp` fragment itself is optional; a
+   `Language` without one returns empty or `null` LSP responses. Each
+   top-level section (`import`, `export`, `hover`, `goto`, `completion`,
+   `document_symbol`) is optional; a language with no imports, no comments, or
+   no outline simply omits the corresponding section. Inside an export rule,
+   `signature`, `docs`, `dotted_last_segment`, and `fallback` are optional.
+   `plugin-lsp` ignores missing data and never assumes a construct exists
+   unless the language declares it.
+
 ## Consequences
 
 - Adding a new handl export form (e.g. `op` or `handler`) is an `lsp.yaml` edit
@@ -85,6 +94,9 @@ and a thin handl adapter.
 - `!Match` is shared vocabulary with `lints.yaml` and `transforms.yaml`, so
   validation, condition evaluation, and third-party fragment authoring are
   consistent.
+- A third-party kit can contribute only the LSP features it wants (e.g. only
+  `document_symbol` or only `completion`) by including just those sections in
+  its own `lsp.yaml`; the generic engine treats missing sections as disabled.
 - The generic engine is larger and more abstract than the current hand-coded
   plugins. It must be tested with a minimal `Language` and `lsp.yaml` in
   `plugin-lsp/tests`.

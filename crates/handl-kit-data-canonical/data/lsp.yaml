@@ -1,8 +1,12 @@
 # LSP surface for the canonical handl language.
 #
-# All handl-specific editor behavior is declared here. `plugin-lsp` reads this
-# fragment from `Language` and implements the LSP requests generically.
-# No handl keyword, AST shape, or token text is hard-coded in `plugin-lsp`.
+# This is *one* concrete `lsp.yaml` instance for handl. `plugin-lsp` reads the
+# `lsp` fragment from `Language` and implements the LSP requests generically.
+#
+# No section, field, or rule here is mandatory. A language without comments can
+# omit `docs`; one without imports can omit `import`; one without an outline can
+# omit `document_symbol`. `plugin-lsp` simply ignores any absent section and
+# returns `null`/`[]` for that LSP request.
 
 lsp:
   import:
