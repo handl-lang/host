@@ -311,7 +311,7 @@ fn contract_symbols(
 
 fn general_symbols(
     classes: &TokenClasses,
-    source: &str,
+    _source: &str,
     lines: &LineMap,
     tokens: &[SpannedToken],
 ) -> Vec<Value> {

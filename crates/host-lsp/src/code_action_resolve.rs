@@ -14,6 +14,8 @@
 //! the `edit` from the matching action into the item. Items without a `data`
 //! field are returned unchanged.
 
+#![allow(dead_code)]
+
 use serde_json::Value;
 
 use crate::code_actions::code_actions;

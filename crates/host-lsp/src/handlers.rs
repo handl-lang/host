@@ -17,7 +17,6 @@ use crate::document_highlight;
 use crate::document_link;
 use crate::line_map::LineMap;
 use crate::execute_command;
-use crate::file_watcher;
 use crate::folding_ranges;
 use crate::formatting;
 use crate::implementation;

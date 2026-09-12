@@ -82,7 +82,7 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
         None => return results,
     };
 
-    let root_path = Path::new(root);
+    let _root_path = Path::new(root);
 
     // Locate the kit root. `find_arrows_root` looks for
     // `/handl-packages/<pkg>/` within the path string.

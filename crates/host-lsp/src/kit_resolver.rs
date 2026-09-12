@@ -9,6 +9,8 @@
 //! section headers (`[language]`), string values (`key = "value"`), comments
 //! (`#`), and empty lines. No external TOML dependency is used.
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};

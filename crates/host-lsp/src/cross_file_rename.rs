@@ -23,7 +23,6 @@ use serde_json::{Value, json};
 use handl_kit_canonical::{SpannedToken, TokenClasses};
 use handl_language::Span;
 
-use crate::diagnostics::offset_to_position;
 use crate::kit_resolver::kit_for_file;
 use crate::refinement::find_arrows_root;
 use crate::symbols::{find_definition, find_references, span_to_range};

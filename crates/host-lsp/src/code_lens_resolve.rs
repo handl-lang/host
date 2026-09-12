@@ -14,6 +14,8 @@
 //!
 //! [`RefinementEngine`]: crate::refinement::RefinementEngine
 
+#![allow(dead_code)]
+
 use serde_json::{Value, json};
 
 use crate::refinement::{RefinementEngine, format_refinement_summary};
