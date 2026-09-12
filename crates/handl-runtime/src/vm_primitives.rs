@@ -487,16 +487,29 @@ impl Function for SymFn {
 /// - The `nominal` argument must itself be a nominal object; otherwise a
 ///   `TypeMismatch` error is returned.
 /// - A non-nominal `value` is simply not an instance of any nominal:
-///   returns `Bool(false)` (no error).
+///   returns `Bool(false)` (no error) — EXCEPT for the Phase 4
+///   legacy-tag bridge below.
 ///
-/// TODO(ADR-0106 Phase 3/4): built-in tagged values from `type.hnl`
-/// (`{"__tag__": "int", "__registry__": "type", ...}` etc.) do not yet
-/// carry nominal identities. Once `type.hnl` migrates to `sym()`-parented
-/// identities (`Float := sym(Number)`, `Int := sym(Number)`) and the tag
-/// registry maps value tags onto those identities, `instance_of` should map
-/// a tagged value (e.g. `3.14` with `__tag__: "float"`) onto its nominal
-/// identity so `instanceof` works for built-in scalars too. Until then,
-/// `instance_of` only recognizes first-class `{"__sym__": ...}` values.
+/// Phase 4 legacy-tag bridge (ADR-0106 migration note): built-in tagged
+/// values from `type.hnl` (`{"__tag__": "int", "__registry__": "type",
+/// ...}` etc.) do not carry nominal identities, so a `__tag__`-tagged datum
+/// bridges onto the standard nominal chain by name:
+///
+/// ```text
+/// datum `__tag__` ⇒ roles it satisfies
+///   "int"    ⇒ Int, Number
+///   "float"  ⇒ Float, Number
+///   "nat"    ⇒ Nat, Int, Number
+///   "number" ⇒ Number
+/// ```
+///
+/// `instanceof` holds iff the queried nominal's own presentation name is one
+/// of the datum's roles, so siblings (`int` vs `Float`) and descendants
+/// (`number` datum vs `Int` nominal) are correctly `false`. The `__tag__`
+/// string is legacy junk; the datum's *meaning* is the roles it bridges onto.
+/// See [`legacy_tag_instance_of`] for the exact rule and its limitation.
+///
+/// Plain values (`42`, `"x"`, …) still return `false` (no error).
 struct InstanceOfFn;
 
 impl Function for InstanceOfFn {
@@ -505,22 +518,93 @@ impl Function for InstanceOfFn {
         let nominal = args.get(1).cloned().ok_or_else(|| {
             EvalError::Other("instance_of: expected two arguments (value, nominal)".to_string())
         })?;
-        let nominal_tv = TaggedValue::from(nominal);
+        let nominal_tv = TaggedValue::from(nominal.clone());
         if !nominal_tv.is_sym() {
             return Err(EvalError::TypeMismatch(
                 "instance_of: second argument must be a nominal object (see ADR-0106 §2)"
                     .to_string(),
             ));
         }
-        let value_tv = TaggedValue::from(value);
-        Ok(Value::Bool(handl_value::has_ancestor(
-            &value_tv, &nominal_tv,
-        )))
+        let value_tv = TaggedValue::from(value.clone());
+        // Fast path: genuine nominal values walk the real parent chain.
+        if value_tv.is_sym() {
+            return Ok(Value::Bool(handl_value::has_ancestor(
+                &value_tv, &nominal_tv,
+            )));
+        }
+        // Phase 4 legacy-tag bridge: a `__tag__`-tagged datum (no nominal
+        // identity of its own) bridges onto the standard chain when the
+        // queried nominal is in it — see the tag→nominal mapping table on
+        // `InstanceOfFn`.
+        if let Some(tag) = value.get("__tag__").and_then(|t| t.as_str()) {
+            if legacy_tag_roles(tag).is_some() {
+                return Ok(Value::Bool(legacy_tag_instance_of(&nominal, tag)));
+            }
+        }
+        Ok(Value::Bool(false))
     }
 }
 
 // ---------------------------------------------------------------------------
-// VmPrimitivesModule — the Module that registers all VM primitive host functions
+// Phase 4 legacy-tag bridge helpers (ADR-0106 migration note).
+// ---------------------------------------------------------------------------
+
+/// The standard nominal roles a legacy-tagged datum satisfies, nearest
+/// first. `instanceof` holds iff the queried nominal's *own* presentation
+/// name (its outermost `__sym__.name`) is one of the datum's roles.
+///
+/// ```text
+/// datum `__tag__` ⇒ roles it satisfies
+///   "int"    ⇒ Int, Number
+///   "float"  ⇒ Float, Number
+///   "nat"    ⇒ Nat, Int, Number
+///   "number" ⇒ Number
+/// ```
+fn legacy_tag_roles(tag: &str) -> Option<&'static [&'static str]> {
+    match tag {
+        "int" => Some(&["Int", "Number"]),
+        "float" => Some(&["Float", "Number"]),
+        "nat" => Some(&["Nat", "Int", "Number"]),
+        "number" => Some(&["Number"]),
+        _ => None,
+    }
+}
+
+/// Whether a legacy-`__tag__` datum is an instance of `nominal`.
+///
+/// The bridge is name-based because a tagged datum carries no handle: the
+/// queried nominal's own name must be one of the datum's
+/// [`legacy_tag_roles`]. Only the queried nominal's *own* node is consulted,
+/// so a datum is never an instance of one of its own subtypes
+/// (`Int` datum vs `MyInt := sym(Int)` is `false`, matching the real
+/// parent-chain rule that `instanceof` is "is-a", not "has-subtype").
+/// Anonymous/named-less nominals (`sym()` with no name) never bridge.
+///
+/// Documented limitation: the match is by presentation name, so a nominal
+/// that merely *claims* a standard name bridges too — the same trust model
+/// as the legacy `__tag__` strings themselves, and a non-issue once
+/// `type.hnl` mints real nominal identities.
+fn legacy_tag_instance_of(nominal: &Value, tag: &str) -> bool {
+    let roles = match legacy_tag_roles(tag) {
+        Some(r) => r,
+        None => return false,
+    };
+    let own = match nominal
+        .get("__sym__")
+        .and_then(|v| v.as_object())
+        .and_then(|m| m.get("name"))
+        .and_then(|v| v.as_str())
+    {
+        Some(n) if !n.is_empty() => n.to_ascii_lowercase(),
+        _ => return false,
+    };
+    roles
+        .iter()
+        .any(|role| role.to_ascii_lowercase() == own)
+}
+
+// ---------------------------------------------------------------------------
+// VmPrimitivesModule — the Module that registers all VM primitive host fns
 // ---------------------------------------------------------------------------
 
 /// A host-function module providing the VM primitives that `exec_model.hnl`

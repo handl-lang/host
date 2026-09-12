@@ -250,3 +250,135 @@ fn vm_instance_of_wrong_arity_errors() {
     let msg = format!("{:?}", err);
     assert!(msg.contains("expected two arguments"), "{}", msg);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4 legacy-tag bridge (ADR-0106 migration note): tag→nominal mapping.
+// Datum `__tag__` ⇒ nominal role: int⇒Int, float⇒Float, nat⇒Nat (via Int),
+// number⇒Number. `sym()` mints anonymous ("sym") parents here, so the
+// bridge resolves by depth — hand-built chains below use named syms.
+// ---------------------------------------------------------------------------
+
+/// Build a named standard chain: Obj <- Number <- {Int <- Nat, Float}.
+/// Names matter: the bridge separates Int-branch from Float-branch via
+/// presentation names (`chain_node_branch`).
+fn named_chain() -> (Value, Value, Value, Value) {
+    let obj = json!({"__sym__": {"handle": 101, "name": "Obj", "parent": null}});
+    let number = json!({"__sym__": {"handle": 102, "name": "Number", "parent": obj}});
+    let int = json!({"__sym__": {"handle": 103, "name": "Int", "parent": number.clone()}});
+    let float = json!({"__sym__": {"handle": 104, "name": "Float", "parent": number.clone()}});
+    let nat = json!({"__sym__": {"handle": 105, "name": "Nat", "parent": int.clone()}});
+    (number, int, float, nat)
+}
+
+/// A legacy `type.hnl`-style datum: `{"__tag__": tag, ...}`.
+fn tagged_datum(tag: &str) -> Value {
+    json!({"__tag__": tag, "__registry__": "type", "kind": "primitive"})
+}
+
+#[test]
+fn vm_instance_of_legacy_float_datum_vs_number() {
+    let (number, _, _, _) = named_chain();
+    assert_eq!(
+        call("instance_of", &[tagged_datum("float"), number.clone()]),
+        json!(true)
+    );
+}
+
+#[test]
+fn vm_instance_of_legacy_int_datum_vs_number() {
+    let (number, _, _, _) = named_chain();
+    assert_eq!(
+        call("instance_of", &[tagged_datum("int"), number.clone()]),
+        json!(true)
+    );
+}
+
+#[test]
+fn vm_instance_of_legacy_nat_datum_vs_int_and_number() {
+    let (number, int, _, _) = named_chain();
+    assert_eq!(
+        call("instance_of", &[tagged_datum("nat"), int.clone()]),
+        json!(true)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("nat"), number.clone()]),
+        json!(true)
+    );
+}
+
+#[test]
+fn vm_instance_of_legacy_negative_sibling_and_reverse() {
+    let (number, int, float, _) = named_chain();
+    assert_eq!(
+        call("instance_of", &[tagged_datum("int"), float.clone()]),
+        json!(false)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("float"), int.clone()]),
+        json!(false)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("number"), int.clone()]),
+        json!(false)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("number"), float.clone()]),
+        json!(false)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("number"), number.clone()]),
+        json!(true)
+    );
+}
+
+#[test]
+fn vm_instance_of_legacy_unknown_tags_and_plain_values_untouched() {
+    let (number, _, _, _) = named_chain();
+    for v in [
+        tagged_datum("str"),
+        tagged_datum("bool"),
+        tagged_datum("nope"),
+        json!(42),
+        json!("s"),
+        json!(null),
+    ] {
+        assert_eq!(
+            call("instance_of", &[v.clone(), number.clone()]),
+            json!(false)
+        );
+    }
+}
+
+#[test]
+fn vm_instance_of_legacy_bridges_by_name_not_subtype_or_anonymous() {
+    let (number, int, float, _) = named_chain();
+    // Case-insensitive presentation-name match.
+    let lower = json!({"__sym__": {"handle": 201, "name": "number", "parent": null}});
+    assert_eq!(
+        call("instance_of", &[tagged_datum("int"), lower]),
+        json!(true)
+    );
+    // `instanceof` is "is-a", not "has-subtype": an `Int` datum is not an
+    // instance of a nominal *derived from* Int (MyInt := sym(Int)).
+    let my_int = json!({"__sym__": {"handle": 202, "name": "MyInt", "parent": int.clone()}});
+    assert_eq!(
+        call("instance_of", &[tagged_datum("int"), my_int]),
+        json!(false)
+    );
+    // A named-less nominal (`sym()` anonymous) never bridges a legacy datum.
+    let anon = json!({"__sym__": {"handle": 203, "name": "sym", "parent": number}});
+    assert_eq!(
+        call("instance_of", &[tagged_datum("float"), anon]),
+        json!(false)
+    );
+    // Sanity: the genuine nominals still answer via their own names.
+    assert_eq!(
+        call("instance_of", &[tagged_datum("nat"), int]),
+        json!(true)
+    );
+    assert_eq!(
+        call("instance_of", &[tagged_datum("nat"), float]),
+        json!(false)
+    );
+}
+

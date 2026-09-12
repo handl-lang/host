@@ -392,6 +392,35 @@ capabilities) is an arrangement of these two.
   (`Float := sym(Number)`), which changes equality semantics for every
   consumer of the `type` package.
 
+## Phase 4 conformance note (graded arrows and dimensions)
+
+Verified against the current tree while implementing the nominal-subtyping
+rule. Two surface deviations from the conceptual notation in this ADR are
+recorded here as known gaps; neither changes the semantics.
+
+- **Graded arrows.** This ADR writes the graded arrow as `A -[R]~> B`.
+  The canonical grammar instead parses the ternary graded arrow `A ~G~> B`
+  (`grammar.graded_arrow.infix` in `handl-kit-data-canonical/data/grammar.yaml`),
+  with `grade`/`sort`/`grades` declarations carrying the algebra
+  (ADR-0098/0100, ADR-0102; see `crates/kit-canonical/tests/graded_theory.rs`
+  and `crates/plugin-engine-exec-tree-walk/tests/graded_e2e.rs`). The grade is
+  still an object and grade composition is still an arrow, as required — only
+  the bracket notation differs. TODO(ADR-0106): either add `-[R]~>` as sugar
+  for `~R~>` or amend this ADR's notation to match the canonical grammar.
+- **Dimensions.** `f<...>` specialization parses through the existing generic
+  call rules (ADR-0060) and is not yet restricted to "anything" (values,
+  arrows, proofs, grades, algebras) — the accepted dimension payloads are the
+  ones the generic call dispatcher understands today. TODO(ADR-0106): widen
+  dimension payloads and add explicit tests for `f<(a >>> b)>` versus
+  `(f<a>) >>> b`.
+
+Nominal subtyping itself (this ADR's §14) is implemented: `<:` is decided by
+the `sym` parent chain in `check_subtype` (crate
+`handl-plugin-engine-typecheck-nbe`), and runtime `instanceof` walks the same
+chain (`sym.instanceof`, `VmPrimitivesModule` in `handl-runtime`), with a
+legacy `__tag__` bridge until `type.hnl` finishes migrating to sym-parented
+identities.
+
 ## Implementation notes
 
 - `crates/handl-runtime/src/vm_primitives.rs` — today's VM primitives host
