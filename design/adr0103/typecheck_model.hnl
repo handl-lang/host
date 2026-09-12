@@ -230,6 +230,28 @@ do {
     if id < len(metas) { at(metas, id) } else { null }
   }
 
+  zonk_fields :: [self, zonk, val, metas, ks, result] ~> if is_empty(ks) {
+    result
+  } else {
+    do {
+      key :: first_value(ks)
+      field_val :: get_or(val, key, null)
+      zonked :: zonk(field_val, metas)
+      new_result :: set(result, key, zonked)
+      self(self, zonk, val, metas, drop(ks, 1), new_result)
+    }
+  }
+
+  zonk_list :: [self, zonk, metas, xs, result] ~> if is_empty(xs) {
+    result
+  } else {
+    do {
+      head_val :: first_value(xs)
+      zonked :: zonk(head_val, metas)
+      self(self, zonk, metas, drop(xs, 1), [...result, zonked])
+    }
+  }
+
   zonk :: [self, val, metas] ~> if is_meta(val) {
     do {
       id :: meta_id(val)
@@ -242,32 +264,10 @@ do {
     }
   } else {
     if is_obj(val) {
-      while { result: {}, remaining: keys(val) } {
-        [s] ~> if is_empty(s.remaining) {
-          { out: s.result }
-        } else {
-          do {
-            key :: first_value(s.remaining)
-            field_val :: get_or(val, key, null)
-            zonked :: self(self, field_val, metas)
-            new_result :: set(s.result, key, zonked)
-            { state: { result: new_result, remaining: drop(s.remaining, 1) } }
-          }
-        }
-      }
+      zonk_fields(zonk_fields, self, val, metas, keys(val), {})
     } else {
       if type_of(val) == "arr" {
-        while { result: [], remaining: val } {
-          [s] ~> if is_empty(s.remaining) {
-            { out: s.result }
-          } else {
-            do {
-              head_val :: first_value(s.remaining)
-              zonked :: self(self, head_val, metas)
-              { state: { result: [...s.result, zonked], remaining: drop(s.remaining, 1) } }
-            }
-          }
-        }
+        zonk_list(zonk_list, self, metas, val, [])
       } else {
         val
       }
