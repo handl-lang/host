@@ -37,8 +37,7 @@
         ],
         "aliases": [
           "handl"
-        ],
-        "configuration": "./language-configuration.json"
+        ]
       }
     ],
     "configurationDefaults": {

@@ -849,7 +849,7 @@ fn import_path_completions(
         return None;
     }
     let prev = tokens.get(idx.checked_sub(1)?)?;
-    if !classes.is_keyword(&prev.kind) || (prev.text != "import" && prev.text != "from") {
+    if prev.text != "import" && prev.text != "from" {
         return None;
     }
     let base = base_dir(path)?;

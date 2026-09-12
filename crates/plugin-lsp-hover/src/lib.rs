@@ -39,7 +39,7 @@ fn token_hover(source: &str, pos: usize, path: &str) -> Option<String> {
         .enumerate()
         .find(|(_, t)| t.span.start <= pos && pos < t.span.end)?;
     if classes.is_string(token.kind.as_str()) {
-        if let Some(md) = import_spec_hover(&tokens, index, &classes, path) {
+        if let Some(md) = import_spec_hover(&tokens, index, path) {
             return Some(md);
         }
     }
@@ -49,15 +49,10 @@ fn token_hover(source: &str, pos: usize, path: &str) -> Option<String> {
 
 /// Hover for an import-string token: resolve the module and show its top
 /// `---` doc comments.
-fn import_spec_hover(
-    tokens: &[SpannedToken],
-    index: usize,
-    classes: &TokenClasses,
-    path: &str,
-) -> Option<String> {
+fn import_spec_hover(tokens: &[SpannedToken], index: usize, path: &str) -> Option<String> {
     let tok = &tokens[index];
     let prev = tokens.get(index.checked_sub(1)?)?;
-    if !classes.is_keyword(&prev.kind) || (prev.text != "import" && prev.text != "from") {
+    if prev.text != "import" && prev.text != "from" {
         return None;
     }
     let current_dir = base_dir(path)?;
@@ -575,14 +570,14 @@ fn find_import_for_name(source: &str, name: &str, current_dir: &Path) -> Option<
     let classes = TokenClasses::new(kit.language());
     let mut i = 0;
     while i < tokens.len() {
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "from" {
+        if tokens[i].text == "from" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
                 continue;
             }
             let import_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&import_tok.kind) || import_tok.text != "import" {
+            if import_tok.text != "import" {
                 i += 1;
                 continue;
             }
@@ -608,14 +603,14 @@ fn find_import_for_name(source: &str, name: &str, current_dir: &Path) -> Option<
             return Some((path, full));
         }
 
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "import" {
+        if tokens[i].text == "import" {
             let name_tok = tokens.get(i + 1)?;
             if !classes.is_identifier(&name_tok.kind) {
                 i += 1;
                 continue;
             }
             let from_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&from_tok.kind) || from_tok.text != "from" {
+            if from_tok.text != "from" {
                 i += 1;
                 continue;
             }
@@ -648,14 +643,14 @@ fn find_module_import(source: &str, mod_name: &str, current_dir: &Path) -> Optio
     let classes = TokenClasses::new(kit.language());
     let mut i = 0;
     while i < tokens.len() {
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "from" {
+        if tokens[i].text == "from" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
                 continue;
             }
             let import_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&import_tok.kind) || import_tok.text != "import" {
+            if import_tok.text != "import" {
                 i += 1;
                 continue;
             }
@@ -680,7 +675,7 @@ fn find_module_import(source: &str, mod_name: &str, current_dir: &Path) -> Optio
             continue;
         }
 
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "import" {
+        if tokens[i].text == "import" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
