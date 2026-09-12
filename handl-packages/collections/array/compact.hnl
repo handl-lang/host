@@ -4,17 +4,12 @@
 --- `array.compact([1, null, 2, null, 3])`
 --- -- => [1, 2, 3]
 ---
+from "./reverse.hnl" import * as reverse
+
 export compact<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  rev :: (ys) ~> do {
-    r :: []
-    for x in ys {
-      r = [x, ...r]
-    }
-    r
-  }
   out :: []
   for x in xs {
     if x != null { out = [x, ...out] }
   }
-  rev(out)
+  reverse.reverse(out)
 }

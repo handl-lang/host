@@ -7,14 +7,9 @@
 --- `array.intersperse(["a", "b", "c"], ",")`
 --- -- => ["a", ",", "b", ",", "c"]
 ---
+from "./reverse.hnl" import * as reverse
+
 export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
-  rev :: (ys) ~> do {
-    r :: []
-    for x in ys {
-      r = [x, ...r]
-    }
-    r
-  }
   out :: []
   is_first :: true
   for x in xs {
@@ -27,5 +22,5 @@ export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
       out = [x, ...out]
     }
   }
-  rev(out)
+  reverse.reverse(out)
 }
