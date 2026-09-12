@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 use super::common::{
-    arr, b, num, obj as object_value, require_array, require_object, require_one_array,
+    b, num, obj as object_value, require_array, require_object, require_one_array,
     require_one_object,
 };
 
@@ -293,57 +293,6 @@ impl Function for IsEmpty {
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_object(args)?;
         Ok(b(input.is_empty()))
-    }
-}
-
-/// `collections.hash_map.keys(map: hash_map) → array<string>`
-#[derive(Clone, Copy)]
-pub struct Keys;
-
-impl Function for Keys {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_one_object(args)?;
-        let keys: Vec<Value> = input.keys().map(|k| Value::String(k.clone())).collect();
-        Ok(arr(&keys))
-    }
-}
-
-/// `collections.hash_map.values(map: hash_map) → array`
-#[derive(Clone, Copy)]
-pub struct Values;
-
-impl Function for Values {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_one_object(args)?;
-        let values: Vec<Value> = input.values().cloned().collect();
-        Ok(arr(&values))
-    }
-}
-
-/// `collections.hash_map.entries(map: hash_map) → array<[string, value]>`
-#[derive(Clone, Copy)]
-pub struct Entries;
-
-impl Function for Entries {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_one_object(args)?;
-        let entries: Vec<Value> = input
-            .iter()
-            .map(|(k, v)| Value::Array(vec![Value::String(k.clone()), v.clone()]))
-            .collect();
-        Ok(arr(&entries))
     }
 }
 
