@@ -772,10 +772,83 @@ impl ModuleResolver for PackageResolver<'_> {
 /// The default table resolver (no fallback).
 pub static DEFAULT_RESOLVER: PackageResolver<'static> = PackageResolver { fallback: None };
 
+// ---------------------------------------------------------------------------
+// TableImportResolver -- runtime evaluation of `import`/`from` statements
+// ---------------------------------------------------------------------------
+
+/// An [`ImportResolver`](handl_plugin_lib_handl::ImportResolver) that resolves
+/// `.hnl` import statements through the **module table**.
+///
+/// The runtime evaluates `import`/`from` statements via `prim_import`, which
+/// asks the resolver for the target module's bindings as a
+/// `serde_json::Value::Object`. A handl closure cannot cross that boundary as
+/// a callable, so each binding is the *string* `"<module>.<field>"` -- exactly
+/// the callee form a qualified `mod.fn` already produces. The string is then
+/// dispatched to the importer's module registry, whose `<module>` entry is the
+/// dependency the importer registered (via `with_resolver`). This keeps
+/// `from "x" import * as m` (`m.f`) working *and* enables named imports
+/// (`from "./x.hnl" import f` -> bare `f(...)`).
+///
+/// `path` is normalized to a module name ([`normalize_module_name`]) and the
+/// module is built from the table -- cached, so repeated imports of the same
+/// module never re-evaluate its source.
+pub struct TableImportResolver {
+    cache: Mutex<HashMap<String, Arc<serde_json::Value>>>,
+}
+
+impl TableImportResolver {
+    /// Create an empty resolver with a fresh module-binding cache.
+    pub fn new() -> Self {
+        Self {
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for TableImportResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
+    fn resolve_import(
+        &self,
+        path: &str,
+    ) -> Result<serde_json::Value, handl_language::LangError> {
+        let name = normalize_module_name(path).to_string();
+        if let Ok(cache) = self.cache.lock() {
+            if let Some(value) = cache.get(&name) {
+                return Ok((**value).clone());
+            }
+        }
+        let spec = module_spec(&name).ok_or_else(|| {
+            handl_language::LangError::engine(format!(
+                "import: module `{name}` (path `{path}`) is not in the package table"
+            ))
+        })?;
+        let module = build_module(spec, &DEFAULT_RESOLVER);
+        let mut obj = serde_json::Map::new();
+        for (fname, _f) in module.functions() {
+            obj.insert(
+                fname.to_string(),
+                serde_json::Value::String(format!("{}.{}", module.name(), fname)),
+            );
+        }
+        let value = Arc::new(serde_json::Value::Object(obj));
+        if let Ok(mut cache) = self.cache.lock() {
+            cache.insert(name, Arc::clone(&value));
+        }
+        Ok((*value).clone())
+    }
+}
+
 /// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and
 /// dependency modules through `resolver`.
 pub fn build_module(spec: &ModuleSpec, resolver: &dyn ModuleResolver) -> HandlModule {
-    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs).with_resolver(resolver);
+    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
+        .with_resolver(resolver)
+        .with_import_resolver(Arc::new(TableImportResolver::new()));
     for dep in spec.deps {
         if let Some(dep_module) = resolver.resolve(dep) {
             module = module.with_dependency_arc(dep_module);
