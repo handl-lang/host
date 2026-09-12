@@ -10,10 +10,26 @@
 use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Span, Term, Value};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
+use plugin_engine::{ArrSource, TermData};
+
+/// Convert `TermData` back to `Term` for APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` with no literal payload.
+fn op(name: &str, args: Vec<TermData>) -> TermData {
+    TermData::op(name, args, &ArrSource::Native, None)
+}
+
+/// Build a native `op` `TermData` with a literal payload.
+fn op_lit(name: &str, args: Vec<TermData>, lit: Value) -> TermData {
+    TermData::op(name, args, &ArrSource::Native, Some(lit))
+}
 
 /// `arr(proj_child, lit: i)` — reference the i-th child node.
-fn pc(i: u64) -> Term {
-    Term::arr_native_lit("proj_child", vec![], Value::from(i))
+fn pc(i: u64) -> TermData {
+    op_lit("proj_child", vec![], Value::from(i))
 }
 
 #[test]
@@ -25,7 +41,7 @@ fn eval_error_includes_span() {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Term::arr_native("add", vec![pc(0), pc(1)]),
+            td(op("add", vec![pc(0), pc(1)])),
         ))
         .unwrap();
 

@@ -2,8 +2,13 @@
 
 use handl_language::{Ast, Language, Term};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
-use plugin_engine::{Model, ModelCtx};
+use plugin_engine::{Model, ModelCtx, TermData};
 use serde_json::json;
+
+/// Convert `TermData` back to `Term` for engine APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
 
 fn model_ctx<'a>(
     lang: &'a Language,
@@ -28,13 +33,11 @@ fn path_value() {
     let current_node = plugin_engine::AstNode;
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::const_value(json!(1.0))),
-            Box::new(Term::const_value(json!(2.0))),
-        ),
-        witness: Some(Box::new(Term::const_value(json!("w")))),
-    };
+    let term = td(TermData::path(
+        TermData::arr(json!(1.0)),
+        TermData::arr(json!(2.0)),
+        Some(TermData::arr(json!("w"))),
+    ));
 
     let result = ValueModel::new(TreeWalkEngine::new())
         .run(&term, json!(null), &mut ctx)
@@ -58,11 +61,11 @@ fn equiv_equal() {
     let current_node = plugin_engine::AstNode;
     let mut ctx = model_ctx(&lang, &ast, &current_node);
 
-    let term = Term::Equiv {
-        a: Box::new(Term::const_value(json!(3.0))),
-        b: Box::new(Term::const_value(json!(3.0))),
-        path: None,
-    };
+    let term = td(TermData::equiv(
+        TermData::arr(json!(3.0)),
+        TermData::arr(json!(3.0)),
+        None,
+    ));
 
     let result = ValueModel::new(TreeWalkEngine::new())
         .run(&term, json!(null), &mut ctx)

@@ -29,4 +29,5 @@ handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-tag = { workspace = true }
 handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
 handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
+plugin-engine = { workspace = true }
 serde_json = { workspace = true }

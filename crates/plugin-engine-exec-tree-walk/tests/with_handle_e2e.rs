@@ -1,8 +1,8 @@
 //! End-to-end integration test for the `with`/`handle` surface syntax
 //! combined with `ValueModel` and grade-based handler dispatch.
 //!
-//! The test demonstrates that a `Term::Handle` pushes a handler onto the
-//! runtime handler stack, and that a graded `Term::Op` inside the body
+//! The test demonstrates that a `TermData::handle` pushes a handler onto the
+//! runtime handler stack, and that a graded `TermData::op` inside the body
 //! dispatches to that handler. The canonical `Language` is built from the
 //! data-driven canonical kit; the `add` op and the `Addable` handler are
 //! registered directly on `lang.ops` and `lang.handlers_by_grade`.
@@ -10,8 +10,13 @@
 use handl_language::{ArrSource, tag_value};
 use handl_language::{Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
-use plugin_engine::{Model, ModelCtx};
+use plugin_engine::{Model, ModelCtx, TermData};
 use serde_json::json;
+
+/// Convert `TermData` back to `Term` for engine APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
 
 /// A canonical `Number` value carrying the `Addable` grade.
 fn number_value(grades: &[&str], value: f64) -> Value {
@@ -41,12 +46,7 @@ fn add_handler() -> Value {
         "__registry__": "handl.canonical",
         "grades": ["Addable"],
         "impls": {
-            "add": serde_json::to_value(Term::Op {
-                name: "number_add".to_string(),
-                args: vec![],
-                source: ArrSource::Native,
-                lit: None,
-            }).unwrap()
+            "add": serde_json::to_value(td(TermData::op("number_add", vec![], &ArrSource::Native, None))).unwrap()
         }
     })
 }
@@ -83,25 +83,19 @@ fn with_handle_pipeline_with_canonical_language() {
     // 3. Manually construct the desugared form of:
     //      with NumberHandler do add(1, 2)
     //    `impl_` is the handler value; `body` is the graded `add` call.
-    let left = Term::Arr {
-        value: number_value(&["Addable"], 1.0),
-    };
-    let right = Term::Arr {
-        value: number_value(&["Addable"], 2.0),
-    };
-    let body = Term::Op {
-        name: "add".to_string(),
-        args: vec![left, right],
-        source: ArrSource::Native,
-        lit: None,
-    };
-    let with_term = Term::Handle {
-        body: Box::new(body),
-        target: "".to_string(),
-        impl_: Box::new(Term::Arr {
-            value: add_handler(),
-        }),
-    };
+    let left = TermData::arr(number_value(&["Addable"], 1.0));
+    let right = TermData::arr(number_value(&["Addable"], 2.0));
+    let body = TermData::op(
+        "add",
+        vec![left, right],
+        &ArrSource::Native,
+        None,
+    );
+    let with_term = td(TermData::handle(
+        body,
+        "",
+        TermData::arr(add_handler()),
+    ));
 
     // 4. Evaluate with `ValueModel`; incoming value carries `Addable`.
     let ast = Ast::new();

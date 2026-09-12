@@ -3,10 +3,20 @@
 //! Constructs `op` declarations and `Handler` values directly in Rust and
 //! drives them through `ValueModel::dispatch_op`.
 
-use handl_language::{Ast, Language, Term, Value};
+use handl_language::{ArrSource, Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
-use plugin_engine::{Model, ModelCtx};
+use plugin_engine::{Model, ModelCtx, TermData};
 use serde_json::json;
+
+/// Convert `TermData` back to `Term` for engine APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` with no literal payload.
+fn op(name: &str, args: Vec<TermData>) -> TermData {
+    TermData::op(name, args, &ArrSource::Native, None)
+}
 
 fn number_value(grades: &[&str]) -> Value {
     json!({
@@ -33,7 +43,7 @@ fn add_handler(return_value: Value) -> Value {
         "__registry__": "handl.canonical",
         "grades": ["Addable"],
         "impls": {
-            "add": serde_json::to_value(Term::const_value(return_value)).unwrap()
+            "add": serde_json::to_value(td(TermData::arr(return_value))).unwrap()
         }
     })
 }
@@ -60,10 +70,13 @@ fn model_ctx<'a>(
 }
 
 fn add_term() -> Term {
-    Term::op_native(
+    td(op(
         "add",
-        vec![Term::const_value(json!(1.0)), Term::const_value(json!(2.0))],
-    )
+        vec![
+            TermData::arr(json!(1.0)),
+            TermData::arr(json!(2.0)),
+        ],
+    ))
 }
 
 fn setup() -> (Language, Ast, Value) {

@@ -2,11 +2,22 @@
 //! (folded from `plugin-lib-arrow-iter`). The composite `*_step` ops are
 //! interpreted by the v2 tree-walk engine.
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Term, Value};
+use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::ScopeStack;
 use handl_plugin_engine_exec_tree_walk::v2::V2Interpreter;
 use handl_plugin_lib_stdlib::arrow_iter::{fix_loop, for_loop, while_loop};
+use plugin_engine::TermData;
 use serde_json::json;
+
+/// Convert `TermData` back to `Term` for engine APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
+
+/// Build a native `op` `TermData` with no literal payload.
+fn op(name: &str, args: Vec<TermData>) -> TermData {
+    TermData::op(name, args, &ArrSource::Native, None)
+}
 
 /// Construct a pair value `{"__pair__": [a, b]}`.
 fn pair(a: Value, b: Value) -> Value {
@@ -40,12 +51,12 @@ fn while_loop_counts_down_to_zero() {
     // Start at 5: 5 -> 4 -> 3 -> 2 -> 1 -> 0 (cond falsy) -> return 0.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let cond = Term::arr_native("is_pos", vec![]);
-    let body = Term::arr_native("dec", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], json!(5)),
-        while_loop(cond, body),
-    );
+    let cond = td(op("is_pos", vec![]));
+    let body = td(op("dec", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(json!(5)),
+        TermData::from_term(&while_loop(cond, body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(0));
 }
@@ -56,11 +67,11 @@ fn for_loop_accumulates_increments() {
     // 0 -> 1 -> 2 -> 3 -> 4 -> 5 (counter hits 0) -> return 5.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let body = Term::arr_native("inc", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], pair(json!(5), json!(0))),
-        for_loop(body),
-    );
+    let body = td(op("inc", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(pair(json!(5), json!(0))),
+        TermData::from_term(&for_loop(body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(5));
 }
@@ -71,11 +82,11 @@ fn fix_loop_halves_to_zero() {
     // 100 -> 50 -> 25 -> 12 -> 6 -> 3 -> 1 -> 0 -> 0 (fixpoint) -> 0.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let body = Term::arr_native("half_floor", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], json!(100)),
-        fix_loop(body),
-    );
+    let body = td(op("half_floor", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(json!(100)),
+        TermData::from_term(&fix_loop(body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(0));
 }
@@ -85,12 +96,12 @@ fn while_loop_zero_iterations() {
     // cond = is_pos, body = dec. Start at 0: cond falsy immediately.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let cond = Term::arr_native("is_pos", vec![]);
-    let body = Term::arr_native("dec", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], json!(0)),
-        while_loop(cond, body),
-    );
+    let cond = td(op("is_pos", vec![]));
+    let body = td(op("dec", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(json!(0)),
+        TermData::from_term(&while_loop(cond, body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(0));
 }
@@ -100,11 +111,11 @@ fn for_loop_zero_iterations() {
     // body = inc. Input = pair(0, 99): zero iterations -> return 99.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let body = Term::arr_native("inc", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], pair(json!(0), json!(99))),
-        for_loop(body),
-    );
+    let body = td(op("inc", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(pair(json!(0), json!(99))),
+        TermData::from_term(&for_loop(body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(99));
 }
@@ -114,11 +125,11 @@ fn fix_loop_already_at_fixpoint() {
     // body = half_floor. Start at 0: 0 -> 0 (fixpoint) -> return 0.
     let engine = V2Interpreter::new();
     let mut env = ScopeStack::new();
-    let body = Term::arr_native("half_floor", vec![]);
-    let s = Term::seq(
-        Term::arr_native_lit("const", vec![], json!(0)),
-        fix_loop(body),
-    );
+    let body = td(op("half_floor", vec![]));
+    let s = td(TermData::seq(
+        TermData::arr(json!(0)),
+        TermData::from_term(&fix_loop(body)),
+    ));
     let result = eval_standalone(&engine, &s, &mut env).unwrap();
     assert_eq!(result, json!(0));
 }

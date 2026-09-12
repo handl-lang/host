@@ -8,8 +8,13 @@
 
 use handl_language::{ArrSource, Ast, Language, Term, Value};
 use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
-use plugin_engine::{Model, ModelCtx};
+use plugin_engine::{Model, ModelCtx, TermData};
 use serde_json::json;
+
+/// Convert `TermData` back to `Term` for engine APIs that require `Term`.
+fn td(t: TermData) -> Term {
+    t.to_term().expect("TermData -> Term conversion")
+}
 
 /// A `Number` value carrying the `Addable` grade.
 fn number_value(grades: &[&str], value: f64) -> Value {
@@ -40,12 +45,7 @@ fn add_handler() -> Value {
         "__registry__": "handl.canonical",
         "grades": ["Addable"],
         "impls": {
-            "add": serde_json::to_value(Term::Op {
-                name: "number_add".to_string(),
-                args: vec![],
-                source: ArrSource::Native,
-                lit: None,
-            }).unwrap()
+            "add": serde_json::to_value(td(TermData::op("number_add", vec![], &ArrSource::Native, None))).unwrap()
         }
     })
 }
@@ -88,12 +88,12 @@ fn sort_grade_op_handler_pipeline_with_canonical_language() {
     let incoming = number_value(&["Addable"], 0.0);
 
     // 4. Construct an `add` term with two `Number` arguments.
-    let add_term = Term::Op {
-        name: "add".to_string(),
-        args: vec![Term::Arr { value: left }, Term::Arr { value: right }],
-        source: ArrSource::Native,
-        lit: None,
-    };
+    let add_term = td(TermData::op(
+        "add",
+        vec![TermData::arr(left), TermData::arr(right)],
+        &ArrSource::Native,
+        None,
+    ));
 
     // 5. Create a `ModelCtx` with the canonical `Language`, a minimal `Ast`,
     //    and an empty `handler_stack`.

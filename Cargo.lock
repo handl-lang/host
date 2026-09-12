@@ -2023,6 +2023,7 @@ dependencies = [
  "handl-plugin-module",
  "hex",
  "iri-string",
+ "plugin-engine",
  "serde",
  "serde_json",
  "serde_yaml",
