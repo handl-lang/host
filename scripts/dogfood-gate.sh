@@ -7,14 +7,6 @@ set -euo pipefail
 cargo build --release -p handl-host-cli
 HNL=./target/release/hnl
 
-# Optional flags to pass to `hnl typecheck` (e.g. `--handl`).
-# Also accepted as the first argument: `bash scripts/dogfood-gate.sh --handl`.
-TYPECHECK_FLAGS=${TYPECHECK_FLAGS:-}
-for arg in "$@"; do
-  if [[ "$arg" == "--handl" ]]; then
-    TYPECHECK_FLAGS=--handl
-  fi
-done
 
 status=0
 
@@ -107,22 +99,18 @@ else
 fi
 
 echo
-if [ -n "$TYPECHECK_FLAGS" ]; then
-  echo "== hnl typecheck $TYPECHECK_FLAGS =="
-else
-  echo "== hnl typecheck =="
-fi
+echo "== hnl typecheck =="
 tc_status=0
 if [ "${#canonical_files[@]}" -gt 0 ]; then
-  if ! "$HNL" typecheck $TYPECHECK_FLAGS "${canonical_files[@]}"; then
+  if ! "$HNL" typecheck "${canonical_files[@]}"; then
     tc_status=1
     status=1
   fi
 fi
 if [ "$tc_status" -eq 0 ]; then
-  echo "PASS: typecheck${TYPECHECK_FLAGS:+ ($TYPECHECK_FLAGS)}"
+  echo "PASS: typecheck"
 else
-  echo "FAIL: typecheck${TYPECHECK_FLAGS:+ ($TYPECHECK_FLAGS)}"
+  echo "FAIL: typecheck"
 fi
 
 echo
