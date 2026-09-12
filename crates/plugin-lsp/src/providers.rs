@@ -4,10 +4,11 @@
 //! language-agnostic data (`ExportMatch`, etc.) that `LspEngine` formats into
 //! host LSP responses.
 
-use handl_host_tooling::lsp::DocumentSymbol;
+use handl_host_tooling::lsp::{CompletionItem, DocumentSymbol, Position, Range, TextEdit};
 use handl_language::{
-    Ast, AstNode, AstRef, LangError, Language, LspMatch, LspRule, Span, Token, Tokens, Value,
+    Ast, AstNode, AstRef, LangError, Language, LspDef, LspMatch, LspRule, Span, Token, Tokens, Value,
 };
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use handl_plugin_engine_lex_pattern::lex;
@@ -549,22 +550,7 @@ pub(crate) fn run_import_hover(
         .and_then(|s| s.strip_suffix('"'))
         .unwrap_or(&token.text);
 
-    let layouts = rule
-        .config
-        .get("module_layouts")
-        .and_then(Value::as_array)
-        .map(|arr| as_string_list(arr))
-        .unwrap_or_default();
-    let layouts = if layouts.is_empty() {
-        vec![
-            "{spec}".into(),
-            "{spec}.hnl".into(),
-            "{dir}/{dir}.hnl".into(),
-            "{dir}/mod.hnl".into(),
-        ]
-    } else {
-        layouts
-    };
+    let layouts = module_layouts_patterns(rule);
 
     let base = base_dir(path)?;
     let target = resolve_module_path(spec, &base, &layouts)?;
@@ -575,25 +561,83 @@ pub(crate) fn run_import_hover(
     Some(format!("**module** `{}`\n\n{}", spec, docs))
 }
 
-/// Resolve an import `spec` to an existing `.hnl` file using the configured
+/// Default module layout patterns for `import_hover` / `import_name` when a
+/// rule does not declare its own.
+const DEFAULT_LAYOUTS: &[&str] = &["{spec}", "{spec}.hnl", "{dir}/{dir}.hnl", "{dir}/mod.hnl"];
+
+/// Read the `module_layouts` field from a rule's config.
+///
+/// Supports both the flat string form (`["{spec}"]`) and the object form
+/// (`[{ pattern: "{spec}" }]`), which is the canonical `lsp.yaml` spelling.
+fn module_layouts_patterns(rule: &LspRule) -> Vec<String> {
+    rule.config
+        .get("module_layouts")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    if let Some(s) = v.as_str() {
+                        Some(s.to_string())
+                    } else if let Some(obj) = v.as_object() {
+                        obj.get("pattern").and_then(Value::as_str).map(String::from)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Expand a layout pattern string using the import `spec`.
+///
+/// Supported placeholders:
+/// - `{spec}`: the import specifier as written.
+/// - `{dir}`: in non-final path components, the specifier with any trailing
+///   extension stripped; in the final component, the file stem of the specifier.
+fn expand_layout_pattern(pattern: &str, spec: &str) -> Option<PathBuf> {
+    let spec_path = Path::new(spec);
+    let spec_no_ext = spec_path.with_extension("");
+    let stem = spec_path.file_stem().and_then(|s| s.to_str())?;
+
+    let mut out = PathBuf::new();
+    let components: Vec<&str> = pattern.split('/').collect();
+    let last = components.len().saturating_sub(1);
+
+    for (i, comp) in components.iter().enumerate() {
+        let is_last = i == last;
+        let expanded = if comp.contains("{spec}") {
+            comp.replace("{spec}", spec)
+        } else if comp.contains("{dir}") {
+            let dir = if is_last { stem } else { spec_no_ext.to_str()? };
+            comp.replace("{dir}", dir)
+        } else {
+            (*comp).to_string()
+        };
+        if !expanded.is_empty() {
+            out.push(&expanded);
+        }
+    }
+
+    Some(out)
+}
+
+/// Resolve an import `spec` to an existing file using the configured
 /// module layout patterns.
 fn resolve_module_path(spec: &str, base: &Path, layouts: &[String]) -> Option<PathBuf> {
+    let layouts: Vec<&str> = if layouts.is_empty() {
+        DEFAULT_LAYOUTS.to_vec()
+    } else {
+        layouts.iter().map(|s| s.as_str()).collect()
+    };
+
     for pat in layouts {
-        let candidate = match pat.as_str() {
-            "{spec}" => base.join(spec),
-            "{spec}.hnl" => base.join(spec).with_extension("hnl"),
-            "{dir}/{dir}.hnl" => {
-                let dir = base.join(Path::new(spec).with_extension(""));
-                let name = dir.file_stem().and_then(|s| s.to_str())?;
-                dir.join(format!("{name}.hnl"))
-            }
-            "{dir}/mod.hnl" => {
-                let dir = base.join(Path::new(spec).with_extension(""));
-                dir.join("mod.hnl")
-            }
-            _ => continue,
-        };
-        let resolved = candidate.canonicalize().ok().unwrap_or_else(|| candidate.clone());
+        let rel = expand_layout_pattern(pat, spec)?;
+        let candidate = base.join(&rel);
+        let resolved = candidate
+            .canonicalize()
+            .ok()
+            .unwrap_or_else(|| candidate.clone());
         if resolved.is_file() {
             return Some(resolved);
         }
@@ -649,4 +693,257 @@ fn base_dir(path: &str) -> Option<PathBuf> {
             }
         })
         .and_then(|p| p.canonicalize().ok().or(Some(p)))
+}
+
+/// Convert a byte offset in `src` to an LSP 0-based line/character position.
+fn byte_to_position(src: &str, offset: usize) -> Position {
+    let clamped = offset.min(src.len());
+    let prefix = &src[..clamped];
+    let line = prefix.bytes().filter(|&b| b == b'\n').count() as u32;
+    let line_start = prefix.rfind('\n').map(|i| i + 1).unwrap_or(0);
+    let character = (clamped - line_start) as u32;
+    Position { line, character }
+}
+
+/// Collect exported names from `module` using an `export` rule.
+fn collect_export_names(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    rule: &LspRule,
+) -> Vec<(String, Option<String>)> {
+    let mut out = Vec::new();
+    for stmt in &module.statements {
+        let Some(node) = stmt.ast.nodes().last() else {
+            continue;
+        };
+        let Some(span) = node.span else {
+            continue;
+        };
+        if let Some(m) = run_export(lang, module, span.start, rule) {
+            let detail = m.signature.or(m.docs);
+            out.push((m.name, detail));
+        }
+    }
+    out
+}
+
+/// Evaluate a single `kind: import_path` completion rule.
+pub(crate) fn run_import_path(
+    _lang: &Language,
+    module: &ParsedModule<'_>,
+    pos: usize,
+    path: &str,
+    rule: &LspRule,
+) -> Vec<CompletionItem> {
+    let Some((idx, token)) = module
+        .tokens
+        .iter()
+        .enumerate()
+        .find(|(_, t)| t.start <= pos && pos < t.end)
+    else {
+        return Vec::new();
+    };
+    if !is_string_token(token) {
+        return Vec::new();
+    }
+
+    let preceding = rule
+        .config
+        .get("preceding_tokens")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| vec!["token.keyword.from".into(), "token.keyword.import".into()]);
+    let Some(prev) = module.tokens.get(idx.saturating_sub(1)) else {
+        return Vec::new();
+    };
+    if !preceding.iter().any(|k| k == &prev.kind) {
+        return Vec::new();
+    }
+
+    let spec = token.text[1..token.text.len() - 1].to_string();
+    let Some(base) = base_dir(path) else {
+        return Vec::new();
+    };
+    let patterns = module_layouts_patterns(rule);
+    if patterns.is_empty() {
+        return Vec::new();
+    }
+
+    let start = byte_to_position(module.src, token.start);
+    let end = byte_to_position(module.src, token.end);
+    let range = Range { start, end };
+
+    let mut items = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for pat in &patterns {
+        let Some(rel) = expand_layout_pattern(pat, &spec) else {
+            continue;
+        };
+        let candidate = base.join(&rel);
+        let resolved = candidate
+            .canonicalize()
+            .ok()
+            .unwrap_or_else(|| candidate.clone());
+        if !resolved.exists() || (!resolved.is_dir() && !resolved.is_file()) {
+            continue;
+        }
+        let Some(rel_str) = rel.to_str() else {
+            continue;
+        };
+        let rel_str = rel_str.to_string();
+        if !seen.insert(rel_str.clone()) {
+            continue;
+        }
+        let new_text = format!("\"{}\"", rel_str);
+        let mut item = CompletionItem::new(&rel_str);
+        item.detail = resolved
+            .is_dir()
+            .then_some("directory".to_string());
+        item.text_edit = Some(TextEdit { range: range.clone(), new_text });
+        items.push(item);
+    }
+
+    items
+}
+
+/// Evaluate a single `kind: import_name` completion rule.
+pub(crate) fn run_import_name(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    def: &LspDef,
+    pos: usize,
+    path: &str,
+    rule: &LspRule,
+) -> Vec<CompletionItem> {
+    let name_tokens: Vec<String> = rule
+        .config
+        .get("name_tokens")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| vec!["token.keyword.import".into()]);
+
+    let Some((idx, _)) = module
+        .tokens
+        .iter()
+        .enumerate()
+        .rfind(|(_, t)| t.start <= pos)
+    else {
+        return Vec::new();
+    };
+
+    let import_idx = if name_tokens.iter().any(|k| k == &module.tokens[idx].kind) {
+        idx
+    } else if idx > 0 && name_tokens.iter().any(|k| k == &module.tokens[idx - 1].kind) {
+        idx - 1
+    } else {
+        return Vec::new();
+    };
+
+    let Some(spec_tok) = module.tokens.get(import_idx.saturating_sub(1)).filter(|t| is_string_token(t)) else {
+        return Vec::new();
+    };
+
+    let preceding = rule
+        .config
+        .get("preceding_tokens")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| vec!["token.keyword.from".into(), "token.keyword.import".into()]);
+    if let Some(prev) = module.tokens.get(import_idx.saturating_sub(2)) {
+        if !preceding.iter().any(|k| k == &prev.kind) {
+            return Vec::new();
+        }
+    }
+
+    let spec = &spec_tok.text[1..spec_tok.text.len() - 1];
+    let Some(base) = base_dir(path) else {
+        return Vec::new();
+    };
+    let layouts = module_layouts_patterns(rule);
+    let Some(target) = resolve_module_path(spec, &base, &layouts) else {
+        return Vec::new();
+    };
+    let Ok(target_src) = fs::read_to_string(&target) else {
+        return Vec::new();
+    };
+    let Ok(target_module) = parse_module(lang, &target_src) else {
+        return Vec::new();
+    };
+
+    let export_rules: Vec<String> = rule
+        .config
+        .get("export_rules")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| {
+            def.rules
+                .iter()
+                .filter_map(|(id, r)| if r.kind == "export" { Some(id.clone()) } else { None })
+                .collect()
+        });
+
+    let mut items = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for rule_id in &export_rules {
+        let Some(export_rule) = def.rules.get(rule_id.as_str()) else {
+            continue;
+        };
+        if export_rule.kind != "export" {
+            continue;
+        }
+        for (name, detail) in collect_export_names(lang, &target_module, export_rule) {
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            let mut item = CompletionItem::new(&name);
+            item.detail = detail;
+            items.push(item);
+        }
+    }
+
+    items
+}
+
+/// Evaluate a single `kind: export_name` completion rule.
+pub(crate) fn run_exported_names(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    def: &LspDef,
+    rule: &LspRule,
+) -> Vec<CompletionItem> {
+    let export_rules: Vec<String> = rule
+        .config
+        .get("export_rules")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| {
+            def.rules
+                .iter()
+                .filter_map(|(id, r)| if r.kind == "export" { Some(id.clone()) } else { None })
+                .collect()
+        });
+
+    let mut items = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for rule_id in &export_rules {
+        let Some(export_rule) = def.rules.get(rule_id.as_str()) else {
+            continue;
+        };
+        if export_rule.kind != "export" {
+            continue;
+        }
+        for (name, detail) in collect_export_names(lang, module, export_rule) {
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            let mut item = CompletionItem::new(&name);
+            item.detail = detail;
+            items.push(item);
+        }
+    }
+
+    items
 }

@@ -31,9 +31,34 @@ impl<'l> LspEngine<'l> {
     }
 
     /// Evaluate `textDocument/completion` against the language's rules.
-    pub fn completion(&self, _request: &CompletionRequest) -> CompletionResponse {
-        // TODO: dispatch `kind` handlers from `Language::lsp` rules.
-        CompletionResponse(Vec::new())
+    pub fn completion(&self, request: &CompletionRequest) -> CompletionResponse {
+        let Some(def) = self.def else {
+            return CompletionResponse(Vec::new());
+        };
+        let Some(rule_ids) = def.lsp.get("textDocument/completion") else {
+            return CompletionResponse(Vec::new());
+        };
+
+        let module = match providers::parse_module(self.lang, &request.source) {
+            Ok(m) => m,
+            Err(_) => return CompletionResponse(Vec::new()),
+        };
+
+        let mut out = Vec::new();
+        for rule_id in rule_ids {
+            let Some(rule) = def.rules.get(rule_id) else {
+                continue;
+            };
+            let items = match rule.kind.as_str() {
+                "import_path" => providers::run_import_path(self.lang, &module, request.pos, &request.path, rule),
+                "import_name" => providers::run_import_name(self.lang, &module, def, request.pos, &request.path, rule),
+                "export_name" => providers::run_exported_names(self.lang, &module, def, rule),
+                _ => Vec::new(),
+            };
+            out.extend(items);
+        }
+
+        CompletionResponse(out)
     }
 
     /// Evaluate `textDocument/hover` against the language's rules.

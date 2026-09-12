@@ -1029,6 +1029,10 @@ dependencies = [
  "handl-plugin-ext-lint",
  "handl-plugin-ext-lsp",
  "handl-plugin-ext-refinement",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-hover",
+ "handl-plugin-lsp-symbol",
  "serde",
  "serde_json",
  "tempfile",
@@ -2230,10 +2234,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lsp"
+version = "0.1.0"
+dependencies = [
+ "handl-host-tooling",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform-rewrite",
+ "handl-plugin-ext-diag",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lsp-completion"
 version = "0.1.0"
 dependencies = [
  "handl-host-tooling",
+ "handl-kit-canonical",
  "handl-platform",
 ]
 
@@ -2242,7 +2263,32 @@ name = "handl-plugin-lsp-goto"
 version = "0.1.0"
 dependencies = [
  "handl-host-tooling",
+ "handl-kit-canonical",
+ "handl-language",
  "handl-platform",
+]
+
+[[package]]
+name = "handl-plugin-lsp-hover"
+version = "0.1.0"
+dependencies = [
+ "handl-host-tooling",
+ "handl-kit-canonical",
+ "handl-language",
+ "handl-platform",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lsp-std"
+version = "0.1.0"
+dependencies = [
+ "handl-host-tooling",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-lsp",
 ]
 
 [[package]]
@@ -2250,6 +2296,7 @@ name = "handl-plugin-lsp-symbol"
 version = "0.1.0"
 dependencies = [
  "handl-host-tooling",
+ "handl-kit-canonical",
  "handl-platform",
 ]
 

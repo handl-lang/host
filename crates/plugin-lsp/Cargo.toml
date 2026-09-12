@@ -13,3 +13,6 @@ handl-plugin-engine-parse-pratt.workspace = true
 handl-plugin-engine-transform-rewrite.workspace = true
 handl-plugin-ext-diag.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+handl-kit-data-canonical.workspace = true
