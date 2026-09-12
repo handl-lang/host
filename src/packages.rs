@@ -73,9 +73,18 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     registry: None,
 };
 
+const CRAND_MODULE: ModuleSpec = ModuleSpec {
+    name: "crand",
+    hnl: include_str!("../../../handl-packages/rand-c/crand.hnl"),
+    funcs: &["next_i32"],
+    ops: &[],
+    registry: None,
+};
+
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
     CLOCK_GETTIME_MODULE,
+    CRAND_MODULE,
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
         name: "bool",
