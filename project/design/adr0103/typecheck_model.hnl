@@ -469,7 +469,8 @@ do {
   }
 
   tc_record_node_type :: [s, node_idx, typ] ~> do {
-    i :: if type_of(node_idx) == "arr" { at(node_idx, 0) } else { node_idx }
+    raw_i :: if type_of(node_idx) == "arr" { at(node_idx, 0) } else { node_idx }
+    i :: typeof.to_number(raw_i)
     while { result: s.node_types, idx: 0 } {
       [st] ~> if st.idx >= i {
         { out: set(s, "node_types", concat(concat(slice(st.result, 0, i), [typ]), drop(st.result, i + 1))) }
@@ -480,7 +481,7 @@ do {
         } else {
           concat(st.result, [null])
         }
-        new_idx :: st.idx + 1
+        new_idx :: typeof.to_number(st.idx) + 1
         { state: { result: new_result, idx: new_idx } }
       }
     }
