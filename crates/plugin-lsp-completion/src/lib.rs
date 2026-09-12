@@ -5,7 +5,8 @@ use std::fs::{read_dir, read_to_string};
 use std::path::{Path, PathBuf};
 
 use handl_host_tooling::lsp::{
-    CompletionItem, CompletionPlugin, CompletionRequest, CompletionResponse,
+    CompletionItem, CompletionPlugin, CompletionRequest, CompletionResponse, Position, Range,
+    TextEdit,
 };
 use handl_kit_canonical::{Kit, SpannedToken, TokenClasses};
 use handl_platform::PlatformError;
@@ -830,6 +831,23 @@ fn base_dir(path: &str) -> Option<PathBuf> {
     .and_then(|p| p.canonicalize().ok().or(Some(p)))
 }
 
+fn offset_to_position(text: &str, offset: usize) -> Position {
+    let mut line = 0u32;
+    let mut col = 0u32;
+    for (i, c) in text.char_indices() {
+        if i >= offset {
+            break;
+        }
+        if c == '\n' {
+            line += 1;
+            col = 0;
+        } else {
+            col += 1;
+        }
+    }
+    Position { line, character: col }
+}
+
 fn token_at(tokens: &[SpannedToken], pos: usize) -> Option<usize> {
     tokens
         .iter()
@@ -874,6 +892,16 @@ fn import_path_completions(
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("");
+    let content_start = tok.span.start + 1;
+    let content_end = if source.get(tok.span.end.saturating_sub(1)..tok.span.end) == Some("\"") {
+        tok.span.end - 1
+    } else {
+        tok.span.end
+    };
+    let replace_range = Range {
+        start: offset_to_position(source, content_start),
+        end: offset_to_position(source, content_end),
+    };
     let mut items = Vec::new();
     for entry in read_dir(&search_dir).ok()? {
         let entry = entry.ok()?;
@@ -904,7 +932,10 @@ fn import_path_completions(
         let mut item = CompletionItem::new(label);
         item.kind = Some(KIND_FILE);
         item.detail = Some(if is_dir { "directory".into() } else { "file".into() });
-        item.insert_text = Some(full);
+        item.text_edit = Some(TextEdit {
+            range: replace_range.clone(),
+            new_text: full,
+        });
         items.push(item);
         // Also suggest `dir/dir.hnl` as a file when a directory carries the
         // canonical module-file layout.
@@ -919,7 +950,10 @@ fn import_path_completions(
                 let mut child_item = CompletionItem::new(format!("{name}.hnl"));
                 child_item.kind = Some(KIND_FILE);
                 child_item.detail = Some("module file".into());
-                child_item.insert_text = Some(child_full);
+                child_item.text_edit = Some(TextEdit {
+                    range: replace_range.clone(),
+                    new_text: child_full,
+                });
                 items.push(child_item);
             }
         }

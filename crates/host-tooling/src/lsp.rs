@@ -1,5 +1,26 @@
 use handl_platform::PlatformError;
 
+/// LSP 0-based line/character position.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Position {
+    pub line: u32,
+    pub character: u32,
+}
+
+/// LSP range defined by two positions.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Range {
+    pub start: Position,
+    pub end: Position,
+}
+
+/// A single LSP text edit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextEdit {
+    pub range: Range,
+    pub new_text: String,
+}
+
 /// A single LSP completion candidate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompletionItem {
@@ -8,6 +29,7 @@ pub struct CompletionItem {
     pub kind: Option<i64>,
     pub insert_text: Option<String>,
     pub insert_text_format: Option<i64>,
+    pub text_edit: Option<TextEdit>,
 }
 
 impl CompletionItem {
@@ -18,6 +40,7 @@ impl CompletionItem {
             kind: None,
             insert_text: None,
             insert_text_format: None,
+            text_edit: None,
         }
     }
 }

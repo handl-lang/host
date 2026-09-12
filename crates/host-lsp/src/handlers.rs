@@ -545,6 +545,15 @@ pub fn handle_completion(
                     if let Some(fmt) = item.insert_text_format {
                         map.insert("insertTextFormat".to_string(), json!(fmt));
                     }
+                    if let Some(edit) = item.text_edit {
+                        map.insert("textEdit".to_string(), json!({
+                            "range": {
+                                "start": { "line": edit.range.start.line, "character": edit.range.start.character },
+                                "end": { "line": edit.range.end.line, "character": edit.range.end.character },
+                            },
+                            "newText": edit.new_text,
+                        }));
+                    }
                     Value::Object(map)
                 })
                 .collect();
