@@ -47,11 +47,12 @@
     arity: 2
     block_children:
       - 1
-# `graded_arrow.infix` — ternary graded arrow `A ~G~> B`. The Pratt engine
-# special-cases `token.tilde` because the declarative grammar cannot express
-# an infix operator whose closing delimiter is a different token (`~>`).
-# The row still declares the binding power and resulting `graded_arrow`
-# node shape for the special-case code to use.
+# `graded_arrow.infix` — ternary graded arrow, canonical spelling
+# `A ~[R]~> B` (legacy shorthand `A ~ R ~> B` is accepted too). The Pratt
+# engine special-cases `token.tilde` because the declarative grammar cannot
+# express an infix operator whose closing delimiter is a different token
+# (`~>`). The row still declares the binding power and resulting
+# `graded_arrow` node shape for the special-case code to use.
 - id: grammar.graded_arrow.infix
   token: token.tilde
   position: Infix

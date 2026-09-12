@@ -171,7 +171,7 @@ the same `sym` discipline as §2, applied to generics.
 Grades annotate arrows and are themselves objects:
 
 ```handl
-A -[R]~> B
+A ~[R]~> B
 Usage, Effect, Permission, Cost        -- grade objects
 gradeCompose : (R, R) ~> R
 ```
@@ -291,7 +291,7 @@ The entire language derives from ten forms:
 | `f(x)`       | application                                 |
 | `f<...>`     | dimension specialization                    |
 | `(A, B)`     | product                                     |
-| `A -[R]~> B` | graded arrow                                |
+| `A ~[R]~> B` | graded arrow                                |
 
 And from these, everything else derives:
 
@@ -343,7 +343,7 @@ And from these, everything else derives:
              │   ├─► A ~> B                                        │
              │   │     ├─► >>>  composition (do-blocks lower here) │
              │   │     ├─► f(x) application                        │
-             │   │     └─► A -[R]~> B   graded arrows              │
+             │   │     └─► A ~[R]~> B   graded arrows              │
              │   └─► f<...> dimensions (types, arrows, proofs,     │
              │           grades, algebras, compositions)           │
              └─────────────────────────────────────────────────────┘
@@ -385,7 +385,7 @@ capabilities) is an arrangement of these two.
   must be optimized aggressively (deforestation of state pairs) to match
   imperative performance.
 - **Surface syntax design pressure.** Everything rides on `<...>`, `~>`,
-  `>>>`, and `-[R]~>`; precedence rules (e.g. `f<(a >>> b)>` vs
+  `>>>`, and `~[R]~>`; precedence rules (e.g. `f<(a >>> b)>` vs
   `(f<a>) >>> b`) must be pinned early and documented.
 - **Migration of `type.hnl`.** `Int`/`Number`/`Float` are currently tagged
   value objects; they must become `sym`-parented identities
@@ -395,18 +395,23 @@ capabilities) is an arrangement of these two.
 ## Phase 4 conformance note (graded arrows and dimensions)
 
 Verified against the current tree while implementing the nominal-subtyping
-rule. Two surface deviations from the conceptual notation in this ADR are
-recorded here as known gaps; neither changes the semantics.
+rule.
 
-- **Graded arrows.** This ADR writes the graded arrow as `A -[R]~> B`.
-  The canonical grammar instead parses the ternary graded arrow `A ~G~> B`
-  (`grammar.graded_arrow.infix` in `handl-kit-data-canonical/data/grammar.yaml`),
-  with `grade`/`sort`/`grades` declarations carrying the algebra
-  (ADR-0098/0100, ADR-0102; see `crates/kit-canonical/tests/graded_theory.rs`
-  and `crates/plugin-engine-exec-tree-walk/tests/graded_e2e.rs`). The grade is
-  still an object and grade composition is still an arrow, as required — only
-  the bracket notation differs. TODO(ADR-0106): either add `-[R]~>` as sugar
-  for `~R~>` or amend this ADR's notation to match the canonical grammar.
+- **Graded arrows — conformant.** The canonical surface is the bracketed
+  ternary graded arrow
+
+  ```
+  A ~[R]~> B
+  ```
+
+  (the legacy shorthand `A ~R~> B` is still accepted). Both spellings parse
+  to the same `graded_arrow` node in `crates/plugin-engine-parse-pratt`
+  (which special-cases `~` because the declarative grammar cannot express an
+  infix operator whose closing delimiter is a different token). The bracket
+  holds the grade expression — the grade list for multi-grade arrows — and an
+  empty list (`A ~[]~> B`) is rejected. Grade/sort declarations carry the
+  algebra as before (ADR-0098/0100, ADR-0102; `graded_theory.rs`,
+  `graded_e2e.rs`). ADR notation and implementation now agree.
 - **Dimensions.** `f<...>` specialization parses through the existing generic
   call rules (ADR-0060) and is not yet restricted to "anything" (values,
   arrows, proofs, grades, algebras) — the accepted dimension payloads are the
@@ -437,7 +442,7 @@ lives in the model, not in any `*-nbe` crate.
 - `crates/handl-value` — the value model. Objects gain a nominal identity
   field (the `sym` parent chain) while remaining serializable tagged data.
 - `crates/handl-language` — lexer/parser/desugar. Surface forms to parse and
-  lower: `sym()`, `sym(A)`, `A ~> B`, `A -[R]~> B`, `f<...>`, `(A, B)`,
+  lower: `sym()`, `sym(A)`, `A ~> B`, `A ~[R]~> B`, `f<...>`, `(A, B)`,
   `>>>`, and `do { ... }` lowering to `>>>` chains.
 - `handl-packages/type/type.hnl` — type-as-values. `Int`, `Str`, `Bool`,
   `Null`, `Float`, `Number`, `Nat` are currently tagged objects

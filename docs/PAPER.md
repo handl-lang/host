@@ -3,9 +3,9 @@
 > This paper presents the arrow-first thesis. The normative kernel design is
 > [ADR-0106: the object/arrow kernel](../project/adrs/0106-object-arrow-kernel.md),
 > which folds the arrow calculus into a single object world (`sym()`/`sym(A)`,
-> arrows, and `<>` dimensions). Note that ADR-0106 writes the graded arrow as
-> `A -[R]~> B`, while the canonical surface grammar currently parses `A ~G~> B`
-> (see the ADR's Phase 4 conformance note).
+> arrows, and `<>` dimensions). The graded arrow is written `A ~[R]~> B` in
+> both the ADR and the canonical grammar (the legacy `A ~R~> B` shorthand is
+> still accepted).
 
 ## Abstract
 

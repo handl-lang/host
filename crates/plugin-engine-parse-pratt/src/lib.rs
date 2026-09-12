@@ -514,13 +514,38 @@ impl PrattEngine {
                 }
             }
 
-            // Special-case: ternary graded arrow `A ~ grade ~> B`.
+            // Special-case: ternary graded arrow. Two spellings, one node:
+            //
+            //   A ~[R]~> B     canonical (ADR-0106 §17) — grade is the
+            //                  bracketed grade expression/list `R`
+            //   A ~ R ~> B     legacy shorthand
+            //
             // The declarative grammar cannot express an infix operator whose
             // closing delimiter is a different token, so we handle `~` here:
             // parse the grade expression, consume `~>`, parse the right side,
             // and build a `graded_arrow` node directly.
             if next.kind == "token.tilde" || infix_row.id == "grammar.graded_arrow.infix" {
-                let _op = cursor.advance()?;
+                let op_tok = cursor.advance()?;
+                // Canonical bracketed grade: `~[` … `]~>`. An empty grade list
+                // (`~[]~>`) is a graded arrow with no grade — reject it rather
+                // than mint a grade-less arrow.
+                let bracketed = cursor
+                    .peek()
+                    .map(|t| t.kind.as_str() == "token.lbracket")
+                    .unwrap_or(false);
+                let empty_bracket = bracketed
+                    && cursor
+                        .tokens
+                        .get(cursor.pos + 1)
+                        .map(|t| t.kind.as_str() == "token.rbracket")
+                        .unwrap_or(false);
+                if empty_bracket {
+                    return Err(LangError::engine_at(
+                        "graded arrow: empty grade list (`A ~[]~> B`)".to_string(),
+                        cursor.current_span().or(op_tok.span()),
+                        Some("token".to_string()),
+                    ));
+                }
                 let grade_rbp = Self::lookup_row(lang, "token.arrow", GrammarPosition::Infix)
                     .and_then(|r| r.binding_power.map(|(l, _)| l.saturating_add(1)))
                     .unwrap_or(11);
@@ -2624,6 +2649,97 @@ mod tests {
             "array"
         );
     }
+
+    /// The canonical bracketed spelling `A ~[R]~> B` (ADR-0106 §17) parses to
+    /// the same `graded_arrow` node/payload as the legacy `A ~ R ~> B`.
+    #[test]
+    fn bracketed_graded_arrow_matches_legacy_spelling() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // `(A, A) ~[Addable]~> A` — canonical.
+        let bracketed = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "A"),
+            tok("token.comma", ","),
+            tok("token.identifier", "A"),
+            tok("token.rparen", ")"),
+            tok("token.tilde", "~"),
+            tok("token.lbracket", "["),
+            tok("token.identifier", "Addable"),
+            tok("token.rbracket", "]"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "A"),
+        ]));
+        // `(A, A) ~ Addable ~> A` — legacy shorthand.
+        let legacy = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "A"),
+            tok("token.comma", ","),
+            tok("token.identifier", "A"),
+            tok("token.rparen", ")"),
+            tok("token.tilde", "~"),
+            tok("token.identifier", "Addable"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "A"),
+        ]));
+        let a = engine.parse(&lang, &bracketed).unwrap();
+        let b = engine.parse(&lang, &legacy).unwrap();
+        for ast in [&a, &b] {
+            let root = ast.nodes().last().unwrap();
+            assert_eq!(root.kind, "graded_arrow");
+            let children = root.payload.get("children").unwrap().as_array().unwrap();
+            assert_eq!(children.len(), 3, "graded arrow is ternary");
+            // Left is the `(A, A)` paren; right is `A`.
+            assert_eq!(
+                ast.nodes()[children[0].as_u64().unwrap() as usize].kind,
+                "paren"
+            );
+            assert_eq!(
+                ast.nodes()[children[2].as_u64().unwrap() as usize].payload,
+                json!("A")
+            );
+        }
+        // The bracketed spelling's grade child is the grade *list* (`array`),
+        // exactly as the unbracketed `~ [Addable] ~>` array literal is.
+        let root_a = a.nodes().last().unwrap();
+        let ca = root_a.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(
+            a.nodes()[ca[1].as_u64().unwrap() as usize].kind,
+            "array",
+            "bracketed grade is the grade list",
+        );
+        // The legacy spelling's grade child is the bare grade identifier.
+        let root_b = b.nodes().last().unwrap();
+        let cb = root_b.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(
+            b.nodes()[cb[1].as_u64().unwrap() as usize].payload,
+            json!("Addable"),
+        );
+    }
+
+    /// An empty bracketed grade list is rejected (`A ~[]~> B`).
+    #[test]
+    fn bracketed_graded_arrow_with_empty_grade_errors() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "A"),
+            tok("token.tilde", "~"),
+            tok("token.lbracket", "["),
+            tok("token.rbracket", "]"),
+            tok("token.arrow", "~>"),
+            tok("token.identifier", "B"),
+        ]));
+        let err = engine
+            .parse(&lang, &req)
+            .expect_err("`~[]~>` must not parse");
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("empty grade list"),
+            "diagnostic should name the empty grade list, got: {msg}",
+        );
+    }
+
 
     #[test]
     fn tilde_arrow_maximal_munch_lexes_as_single_token() {
