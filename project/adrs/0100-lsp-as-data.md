@@ -53,11 +53,12 @@ and a thin handl adapter.
    The old `plugin-lsp-completion`, `plugin-lsp-goto`, `plugin-lsp-hover`, and
    `plugin-lsp-symbol` crates are deleted and removed from the workspace.
 
-3. **Validation and resilience.** `merge_fragments` and
-   `handl_plugin_engine_transform::validate` already check token kinds, AST
-   shapes, roles, and `TransformCondition` references at `Language` build time.
-   `lsp.yaml` reuses the same `!Match` vocabulary, so the same validation
-   applies. Missing or unknown roles, tokens, or node kinds are caught when the
+3. **Validation and resilience.** `merge_fragments` will be extended to
+   load `lsp.yaml` and merge it into a new `Language::lsp` field. A new
+   `validate_lsp` pass (analogous to `validate_transforms` for lint rules)
+   will check token kinds, AST shapes, roles, payload paths, and
+   `TransformCondition` references at `Language` build time. Missing or unknown
+   roles, tokens, node kinds, or export-rule ids are caught when the
    `Language` is assembled, not at LSP request time.
 
 4. **Fallbacks and robustness.** Each export rule declares `fallback: source`
@@ -91,6 +92,20 @@ and a thin handl adapter.
    registration crate. Any handl-specific code that cannot be expressed in
    `lsp.yaml` is a defect in the data model, not a reason to add Rust to
    `plugin-lsp-std`.
+
+## Related work
+
+- Supersedes `project/adrs/archived/ADR-LSP.md` (separate `plugin-lsp-*` plugins)
+  and `project/adrs/ADR-LSP-remaining.md` (hover/source-position plugins).
+  ADR-0100 keeps the thin `host-lsp` dispatcher but makes the plugins generic
+  and data-driven rather than handl-specific.
+- Builds on ADR-0044 (language as data), ADR-0081 (AST child roles), and
+  ADR-0097 (lint rules as data). The `lsp.yaml` fragment uses the same
+  `!Match` vocabulary and the same `Language` fragment mechanics.
+- Does not replace ADR-0096 (runtime module resolution). The `lsp.yaml`
+  `import.module_layouts` are editor-side path completion patterns only; the
+  runtime resolver is unchanged. A future ADR may unify the two if the editor
+  and runtime can share a single module-resolution data fragment.
 
 ## Status
 
