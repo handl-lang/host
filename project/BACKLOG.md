@@ -59,7 +59,7 @@ Order: RFC-0001 → 0002/0003 → 0005 → 0007 → 0004 → 0006.
 
 ## Test framework primitives (ADR-0092 unblockers)
 
-- Add `time.sleep_ms` to `handl-packages/time` + `plugin-lib-time-native`
+- Add `time.sleep_ms` to `handl-packages/time`
   (medium priority — deferred from the initial `time` contract; effectful,
   belongs behind a capability, not needed by `benchmark`/`property`/`fuzz`).
 - Strengthen `rand.seeded_*` contract guarantees: add a determinism

@@ -46,14 +46,15 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::{Mutex, OnceLock};
 
-use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::{EvalContext, EvalError, Function, Module};
 use libloading::Library;
-use serde_json::Value as JsonValue;
+use serde_json::{Map, Value as JsonValue, json};
 
 use crate::cranelift_shim::resolve_shim;
 use crate::error::last_errno;
 use crate::marshal::{
-    CArg, CRet, CRetKind, marshal_call_args, return_kind, unmarshal_return, wrap_out_buf_return,
+    CArg, CRet, CRetKind, descriptor_consumes_handl_arg, marshal_call_args, return_kind,
+    unmarshal_return, wrap_out_buf_return, wrap_out_struct_return,
 };
 
 mod cranelift_shim;
@@ -305,12 +306,185 @@ impl Function for FfiOpFunction {
         }
 
         // Unmarshal return, then wrap as `{ ret, buf }` when an `out_buf`
-        // descriptor was used (ADR-0083 §2.1).
+        // or `out_struct` descriptor was used (ADR-0083 §2.1).
         let raw_ret = unmarshal_return(&self.return_descriptor, &ret)?;
-        if marshaled.out_bufs.is_empty() {
+        if !marshaled.out_structs.is_empty() {
+            Ok(wrap_out_struct_return(&raw_ret, &marshaled.out_structs))
+        } else if marshaled.out_bufs.is_empty() {
             Ok(raw_ret)
         } else {
             Ok(wrap_out_buf_return(&raw_ret, &marshaled.out_bufs))
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Host `ffi` module
+// ---------------------------------------------------------------------------
+
+fn require_str<'a>(arg: &'a JsonValue, what: &str) -> Result<&'a str, EvalError> {
+    arg.as_str()
+        .ok_or_else(|| EvalError::TypeMismatch(format!("{what} must be a string")))
+}
+
+fn require_array<'a>(arg: &'a JsonValue, what: &str) -> Result<&'a Vec<JsonValue>, EvalError> {
+    arg.as_array()
+        .ok_or_else(|| EvalError::TypeMismatch(format!("{what} must be an array")))
+}
+
+fn require_string_array(arg: &JsonValue, what: &str) -> Result<Vec<String>, EvalError> {
+    arg.as_array()
+        .ok_or_else(|| EvalError::TypeMismatch(format!("{what} must be an array of strings")))?
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            v.as_str()
+                .map(String::from)
+                .ok_or_else(|| EvalError::TypeMismatch(format!("{what}[{i}] must be a string")))
+        })
+        .collect()
+}
+
+/// `ffi.call(lib, sym, all_args, descriptors, ret_kind, errno?) -> Value`
+///
+/// Immediately call the C symbol with the given descriptors.
+pub struct FfiCall;
+
+impl Function for FfiCall {
+    fn call(&self, args: &[JsonValue], ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if args.len() < 5 {
+            return Err(EvalError::TypeMismatch(
+                "ffi.call(lib, sym, all_args, descriptors, ret_kind, errno?)".to_string(),
+            ));
+        }
+        let lib = require_str(&args[0], "lib")?;
+        let sym = require_str(&args[1], "sym")?;
+        let all_args = require_array(&args[2], "all_args")?;
+        let descriptors = require_string_array(&args[3], "descriptors")?;
+        let ret_kind = require_str(&args[4], "ret_kind")?;
+        let error_on_lt_zero = args.get(5).and_then(|v| v.as_bool()).unwrap_or(false);
+
+        let op = FfiOpFunction::new(lib, sym, descriptors, ret_kind, error_on_lt_zero);
+        op.call(all_args, ctx)
+    }
+}
+
+/// `ffi.bind(lib, sym, bound_args, descriptors, ret_kind, errno?) -> Function`
+///
+/// Returns a first-class function value (a `FunctionValue`) that captures
+/// the bound handl arguments. When called, it invokes `ffi.call` with the
+/// bound prefix followed by the caller-supplied remaining arguments.
+pub struct FfiBind;
+
+impl Function for FfiBind {
+    fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if args.len() < 5 {
+            return Err(EvalError::TypeMismatch(
+                "ffi.bind(lib, sym, bound_args, descriptors, ret_kind, errno?)".to_string(),
+            ));
+        }
+        let lib = require_str(&args[0], "lib")?;
+        let sym = require_str(&args[1], "sym")?;
+        let bound = require_array(&args[2], "bound_args")?;
+        let descriptors = require_string_array(&args[3], "descriptors")?;
+        let ret_kind = require_str(&args[4], "ret_kind")?;
+        let error_on_lt_zero = args.get(5).and_then(|v| v.as_bool()).unwrap_or(false);
+
+        let non_out_count = descriptors
+            .iter()
+            .filter(|d| descriptor_consumes_handl_arg(d))
+            .count();
+        if bound.len() > non_out_count {
+            return Err(EvalError::TypeMismatch(format!(
+                "bound_args has {} values but only {} consume a handl argument",
+                bound.len(),
+                non_out_count
+            )));
+        }
+        let unbound_count = non_out_count - bound.len();
+
+        // Build the handl expression `ffi.call(__lib, __sym, [...], ...)`.
+        let mut arg_names: Vec<String> = bound
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("__b{i}"))
+            .collect();
+        for i in 0..unbound_count {
+            arg_names.push(format!("__arg_{i}"));
+        }
+        let args_list = arg_names.join(", ");
+        let body = format!(
+            "ffi.call(__lib, __sym, [{args_list}], __descriptors, __ret_kind, __errno)"
+        );
+
+        // Captured constants for the closure.
+        let mut captured = Vec::new();
+        captured.push(json!("__lib"));
+        captured.push(JsonValue::String(lib.to_string()));
+        captured.push(json!("__sym"));
+        captured.push(JsonValue::String(sym.to_string()));
+        for (i, v) in bound.iter().enumerate() {
+            captured.push(json!(format!("__b{i}")));
+            captured.push(v.clone());
+        }
+        captured.push(json!("__descriptors"));
+        captured.push(JsonValue::Array(
+            descriptors.iter().map(|s| JsonValue::String(s.clone())).collect(),
+        ));
+        captured.push(json!("__ret_kind"));
+        captured.push(JsonValue::String(ret_kind.to_string()));
+        captured.push(json!("__errno"));
+        captured.push(JsonValue::Bool(error_on_lt_zero));
+
+        // Captured array is [[name, value], ...].
+        let mut captured_pairs = Vec::new();
+        let mut it = captured.into_iter();
+        while let (Some(name), Some(value)) = (it.next(), it.next()) {
+            let mut pair = Vec::new();
+            pair.push(name);
+            pair.push(value);
+            captured_pairs.push(JsonValue::Array(pair));
+        }
+
+        // Unbound parameters.
+        let mut params = Vec::new();
+        for i in 0..unbound_count {
+            let mut obj = Map::new();
+            obj.insert("name".to_string(), JsonValue::String(format!("__arg_{i}")));
+            obj.insert("schema".to_string(), JsonValue::Null);
+            obj.insert("pattern".to_string(), JsonValue::Null);
+            params.push(JsonValue::Object(obj));
+        }
+
+        let mut obj = Map::new();
+        obj.insert("body".to_string(), JsonValue::String(body));
+        obj.insert("params".to_string(), JsonValue::Array(params));
+        obj.insert("captured".to_string(), JsonValue::Array(captured_pairs));
+        Ok(JsonValue::Object(obj))
+    }
+}
+
+static FFI_BIND: FfiBind = FfiBind;
+static FFI_CALL: FfiCall = FfiCall;
+
+/// The host `ffi` module, exposing `ffi.bind` and `ffi.call`.
+#[derive(Clone, Copy)]
+pub struct FfiModule;
+
+impl Module for FfiModule {
+    fn name(&self) -> &str {
+        "ffi"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        match name {
+            "bind" => Some(&FFI_BIND),
+            "call" => Some(&FFI_CALL),
+            _ => None,
+        }
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        vec![("bind", &FFI_BIND as &dyn Function), ("call", &FFI_CALL as &dyn Function)]
     }
 }

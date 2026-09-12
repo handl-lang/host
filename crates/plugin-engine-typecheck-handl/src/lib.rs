@@ -26,6 +26,7 @@ use std::rc::Rc;
 use handl_language::{Ast, LangError, Language, Value};
 use handl_platform::{EvalContext, Module};
 use handl_plugin_engine_exec::EvalEngine;
+use plugin_engine::{Term, TermData};
 use handl_plugin_engine_typecheck::{
     TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
 };
@@ -158,7 +159,30 @@ impl HandlTypecheckEngine {
                 }
             }
         }
+        // Convert scheme terms from serde's externally-tagged Term enum to the
+        // tagged-record TermData shape the Handl model consumes (ADR-0103).
+        Self::convert_schemes_to_term_data(&mut val);
         Ok(val)
+    }
+
+    /// Convert `Term` scheme values under `types`/`eval` to `TermData` tagged records.
+    fn convert_schemes_to_term_data(val: &mut Value) {
+        let Some(obj) = val.as_object_mut() else { return };
+        for field in ["types", "eval"] {
+            let Some(arr) = obj.get_mut(field).and_then(|v| v.as_array_mut()) else {
+                continue;
+            };
+            for rule in arr {
+                let Some(rule_obj) = rule.as_object_mut() else { continue };
+                for scheme_key in ["synth", "check", "scheme"] {
+                    if let Some(scheme) = rule_obj.get_mut(scheme_key) {
+                        if let Ok(term) = serde_json::from_value::<Term>(scheme.clone()) {
+                            *scheme = TermData::from_term(&term).0;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Marshal an [`Ast`] into a [`Value`] for the model.

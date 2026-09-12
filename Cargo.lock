@@ -1072,6 +1072,7 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-handl",
  "handl-plugin-ext-diag",
+ "handl-plugin-ffi",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",
@@ -1083,7 +1084,6 @@ dependencies = [
  "handl-plugin-lib-rand-native",
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
- "handl-plugin-lib-time-native",
  "handl-plugin-lib-unicode-native",
  "handl-plugin-module",
  "handl-runtime",
@@ -2038,15 +2038,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-module",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-time-native"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
  "serde_json",
 ]
 
