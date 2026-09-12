@@ -72,18 +72,17 @@ pub const STACK_OPS: &[&str] = &["stack.new", "stack.from", "stack.to_array"];
 /// `pop_*`/`peek_*` members are pure handl over `error.raise`.
 pub const DEQUE_OPS: &[&str] = &["deque.new", "deque.from", "deque.to_array"];
 
-/// `hash_map.*` op names (mostly native). `keys`/`values`/`entries` are
-/// now pure handl over `obj.*` and are no longer registered here.
+/// `hash_map.*` op names (mostly native). `keys`/`values`/`entries` and
+/// the simple inspection/membership surface (`len`/`is_empty`/`has`/
+/// `has_key`/`clone_deep`) are now pure handl and are no longer registered
+/// here.
 pub const HASH_MAP_OPS: &[&str] = &[
     "hash_map.new",
     "hash_map.from",
     "hash_map.to_object",
-    "hash_map.len",
-    "hash_map.is_empty",
     "hash_map.get",
     "hash_map.set",
     "hash_map.remove",
-    "hash_map.has",
     "hash_map.size",
     "hash_map.get_or",
     "hash_map.deep_get",
@@ -96,13 +95,11 @@ pub const HASH_MAP_OPS: &[&str] = &[
     "hash_map.filter_keys",
     "hash_map.filter_values",
     "hash_map.invert",
-    "hash_map.clone_deep",
     "hash_map.pick",
     "hash_map.omit",
     "hash_map.merge",
     "hash_map.deep_merge",
     "hash_map.from_entries",
-    "hash_map.has_key",
 ];
 
 /// `hash_set.*` op names (all native — serialized-key dedup semantics).
@@ -181,12 +178,9 @@ pub fn collections_op_registry() -> OpRegistry {
     r.register("hash_map.new", Arc::new(hm::New));
     r.register("hash_map.from", Arc::new(hm::From));
     r.register("hash_map.to_object", Arc::new(hm::ToObject));
-    r.register("hash_map.len", Arc::new(hm::Len));
-    r.register("hash_map.is_empty", Arc::new(hm::IsEmpty));
     r.register("hash_map.get", Arc::new(hm::Get));
     r.register("hash_map.set", Arc::new(hm::Set));
     r.register("hash_map.remove", Arc::new(hm::Remove));
-    r.register("hash_map.has", Arc::new(hm::Has));
     r.register("hash_map.size", Arc::new(hm::Size));
     r.register("hash_map.get_or", Arc::new(hm::GetOr));
     r.register("hash_map.deep_get", Arc::new(hm::DeepGet));
@@ -199,13 +193,11 @@ pub fn collections_op_registry() -> OpRegistry {
     r.register("hash_map.filter_keys", Arc::new(hm::FilterKeys));
     r.register("hash_map.filter_values", Arc::new(hm::FilterValues));
     r.register("hash_map.invert", Arc::new(hm::Invert));
-    r.register("hash_map.clone_deep", Arc::new(hm::CloneDeep));
     r.register("hash_map.pick", Arc::new(hm::Pick));
     r.register("hash_map.omit", Arc::new(hm::Omit));
     r.register("hash_map.merge", Arc::new(hm::Merge));
     r.register("hash_map.deep_merge", Arc::new(hm::DeepMerge));
     r.register("hash_map.from_entries", Arc::new(hm::FromEntries));
-    r.register("hash_map.has_key", Arc::new(hm::Has));
 
     // hash_set
     use hash_set as hs;
