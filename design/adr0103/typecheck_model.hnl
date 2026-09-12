@@ -50,9 +50,13 @@
 do {
   tget :: [obj, key] ~> get_or(obj, key, null)
 
-  is_obj :: v ~> if type_of(v) == "obj" { true } else { false }
+  is_obj :: v ~> if type_of(v) == "obj" {
+    if get_or(v, "__tag__", null) == null && get_or(v, "__arrow__", null) == null { true } else { false }
+  } else {
+    false
+  }
 
-  is_pair :: v ~> if is_obj(v) {
+  is_pair :: v ~> if type_of(v) == "obj" {
     if get_or(v, "__pair__", null) != null { true } else { false }
   } else {
     false
@@ -158,21 +162,26 @@ do {
 
   either_value :: v ~> get_or(v, "value", null)
 
-  is_meta :: v ~> if is_obj(v) {
-    if has(v, "__meta__") {
-      if len(keys(v)) == 1 { true } else { false }
-    } else {
-      false
+  is_meta :: v ~> if type_of(v) == "obj" {
+    do {
+      id :: v.__meta__
+      if id == null { false } else { id != 0 }
     }
   } else {
     false
   }
 
-  meta_id :: v ~> get_or(v, "__meta__", 0)
+  meta_id :: v ~> if type_of(v) == "obj" {
+    id :: v.__meta__
+    if id == null { 0 } else { id }
+  } else { 0 }
 
   meta_value :: id ~> set({}, "__meta__", id)
 
-  type_tag :: v ~> if is_obj(v) { get_or(v, "__tag__", "") } else { "" }
+  type_tag :: v ~> if type_of(v) == "obj" {
+    tag :: v.__tag__
+    if tag == null { "" } else { tag }
+  } else { "" }
 
   make_type :: [tag_name, payload] ~> do {
     base :: if is_obj(payload) { payload } else { set({}, "__value__", payload) }
@@ -211,21 +220,14 @@ do {
 
   metas_new :: unit ~> []
 
-  metas_solve :: [metas, id, val] ~> while { result: [], idx: 0 } {
-    [s] ~> if s.idx >= len(metas) {
-      { out: s.result }
-    } else {
-      do {
-        new_val :: if s.idx == id { val } else { at(metas, s.idx) }
-        { state: { result: [...s.result, new_val], idx: s.idx + 1 } }
-      }
-    }
+  metas_solve :: [metas, id, val] ~> if type_of(metas) != "arr" { [] } else {
+    concat(concat(take(metas, id), [val]), drop(metas, id + 1))
   }
 
-  metas_lookup :: [metas, id] ~> if id < len(metas) {
-    at(metas, id)
-  } else {
+  metas_lookup :: [metas, id] ~> if type_of(metas) != "arr" {
     null
+  } else {
+    if id < len(metas) { at(metas, id) } else { null }
   }
 
   zonk :: [self, val, metas] ~> if is_meta(val) {
@@ -276,43 +278,15 @@ do {
     meta_id(v) == target_meta_id
   } else {
     if is_obj(v) {
-      while { found: false, remaining: values(v) } {
-        [s] ~> if s.found {
-          { out: true }
-        } else {
-          if is_empty(s.remaining) {
-            { out: false }
-          } else {
-            do {
-              head_val :: first_value(s.remaining)
-              if self(self, target_meta_id, head_val) {
-                { out: true }
-              } else {
-                { state: { found: false, remaining: drop(s.remaining, 1) } }
-              }
-            }
-          }
-        }
+      match values(v) {
+        []: false,
+        [h, ...t]: if self(self, target_meta_id, h) { true } else { self(self, target_meta_id, t) }
       }
     } else {
       if type_of(v) == "arr" {
-        while { found: false, remaining: v } {
-          [s] ~> if s.found {
-            { out: true }
-          } else {
-            if is_empty(s.remaining) {
-              { out: false }
-            } else {
-              do {
-                head_val :: first_value(s.remaining)
-                if self(self, target_meta_id, head_val) {
-                  { out: true }
-                } else {
-                  { state: { found: false, remaining: drop(s.remaining, 1) } }
-                }
-              }
-            }
-          }
+        match v {
+          []: false,
+          [h, ...t]: if self(self, target_meta_id, h) { true } else { self(self, target_meta_id, t) }
         }
       } else {
         false
@@ -371,7 +345,8 @@ do {
           tag_a :: type_tag(a)
           tag_b :: type_tag(b)
           if tag_a != "" && tag_a == tag_b {
-            unify_fields(self, funcs, a, b, metas, keys(a))
+            ks :: if is_obj(a) && is_obj(b) { keys(a) } else { [] }
+            unify_fields(self, funcs, a, b, metas, ks)
           } else {
             { ok: false, metas: metas, path: null }
           }
@@ -1570,18 +1545,22 @@ do {
             [st] ~> if st.idx >= len(children) {
               { out: { current: st["current"], state: st["state"] } }
             } else {
-              do {
-                param :: get_or(st["current"], "param", null)
-                body :: get_or(st["current"], "body", null)
-                if param == null || body == null {
-                  { out: { current: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st["state"], "error", "call: callee is not a function") } }
-                } else {
-                  do {
-                    arg_idx :: at(children, st.idx)
-                    arg_check :: funcs.check_node_(funcs, st["state"], arg_idx, param)
-                    { state: { current: body, state: arg_check["state"], idx: st.idx + 1 } }
+              if is_obj(st["current"]) {
+                do {
+                  param :: get_or(st["current"], "param", null)
+                  body :: get_or(st["current"], "body", null)
+                  if param == null || body == null {
+                    { out: { current: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st["state"], "warning", "call: callee is not a function") } }
+                  } else {
+                    do {
+                      arg_idx :: at(children, st.idx)
+                      arg_check :: funcs.check_node_(funcs, st["state"], arg_idx, param)
+                      { state: { current: body, state: arg_check["state"], idx: st.idx + 1 } }
+                    }
                   }
                 }
+              } else {
+                { out: { current: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st["state"], "warning", "call: callee is not a function type") } }
               }
             }
           }
