@@ -162,7 +162,7 @@ do {
 
   either_value :: v ~> get_or(v, "value", null)
 
-  is_meta :: v ~> if type_of(v) == "obj" {
+  is_meta :: v ~> if is_obj(v) {
     do {
       id :: get_or(v, "__meta__", null)
       if type_of(id) == "num" { id != 0 } else { false }
@@ -171,7 +171,7 @@ do {
     false
   }
 
-  meta_id :: v ~> if type_of(v) == "obj" {
+  meta_id :: v ~> if is_obj(v) {
     id :: get_or(v, "__meta__", null)
     if type_of(id) == "num" { id } else { 0 }
   } else { 0 }
