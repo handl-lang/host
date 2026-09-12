@@ -37,14 +37,12 @@ use std::sync::Arc;
 use handl_platform::{Function, Module};
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 
-// `#[allow(dead_code)]`: the `array`/`seq` impls whose surface moved to
-// pure handl are kept compiled as the reference implementation; only the
-// names registered in [`collections_op_registry`] are reachable.
-#[allow(dead_code)]
 mod array;
-#[allow(dead_code)]
 mod common;
 mod error;
+// `#[allow(dead_code)]`: `hash_map.rs` still holds `Keys`/`Values`/`Entries`,
+// superseded by the pure-handl `hash_map.{keys,values,entries}` ops and no
+// longer registered (see [`HASH_MAP_OPS`]); they stay compiled but unreachable.
 #[allow(dead_code)]
 mod hash_map;
 mod hash_set;
