@@ -45,7 +45,7 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_tag::TypeRegistry;
-use handl_plugin_lib_time_native::TimeModule;
+use handl_plugin_ffi::FfiModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
@@ -187,6 +187,7 @@ impl ModuleResolver for StdlibResolver {
             "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "transform" => Some(std::sync::Arc::new(TransformModule::new())),
             "comb" => Some(std::sync::Arc::new(CombModule::new())),
+            "ffi" => Some(std::sync::Arc::new(FfiModule)),
             "fn" | "combinators" => stdlib::module("combinators").map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
@@ -246,7 +247,7 @@ fn build_test_module() -> HandlModule {
     HandlModule::new("test", TEST_HNL, TEST_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(RandModule))
-        .with_dependency_arc(std::sync::Arc::new(TimeModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("time").expect("time")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
@@ -269,7 +270,7 @@ fn build_property_module() -> HandlModule {
 fn build_benchmark_module() -> HandlModule {
     HandlModule::new("benchmark", BENCHMARK_HNL, BENCHMARK_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(TimeModule))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("time").expect("time")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
@@ -398,6 +399,8 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         if want("obj") {
             stdlib_registry.register(stdlib::module("obj").expect("obj"));
         }
+        // `ffi` — foreign-function interface host module (`ffi.bind`/`ffi.call`).
+        stdlib_registry.register(FfiModule);
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.
@@ -450,7 +453,10 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `time`/`rand` — native backends (clock reads, deterministic
         // seeded RNG for `property`/`fuzz`, ADR-0092).
         if want("time") {
-            stdlib_registry.register(TimeModule);
+            stdlib_registry.register(
+                stdlib::module_with("time", std::sync::Arc::new(StdlibResolver))
+                    .expect("time"),
+            );
         }
         if want("rand") {
             stdlib_registry.register(RandModule);

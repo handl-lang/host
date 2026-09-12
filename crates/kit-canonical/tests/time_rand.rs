@@ -1,8 +1,7 @@
 //! # time_rand.rs — `time.*`/`rand.*` native backend end-to-end smoke tests.
 //!
-//! Verifies the `time` and `rand` modules (offered by
-//! `plugin-lib-time-native`'s `TimeModule` and `plugin-lib-rand-native`'s
-//! `RandModule`, wired into the canonical kit's stdlib registry) are
+//! Verifies the `time` and `rand` modules (offered by the canonical kit's
+//! stdlib registry) are
 //! callable from handl source via the unbound-identifier → `field_access`
 //! → `ModuleLookup` path — the same resolution `tag.*` uses (ADR-0055).
 

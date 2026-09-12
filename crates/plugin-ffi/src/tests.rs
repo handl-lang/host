@@ -816,3 +816,46 @@ fn cranelift_shim_is_cached_per_signature() {
     assert_eq!(ArgClass::from(&CArg::Int(0)), ArgClass::Int);
     assert_eq!(ArgClass::from(&CArg::Float(0.0)), ArgClass::Float);
 }
+
+// -------------------------------------------------------------------------
+// out_struct descriptor (ADR-0083 §4)
+// -------------------------------------------------------------------------
+
+#[test]
+fn out_struct_clock_gettime_returns_record() {
+    // clock_gettime(CLOCK_REALTIME, &ts) — first arg is bound to 0,
+    // second is an out_struct. The result is { ret, buf } where buf is
+    // a record { tv_sec, tv_nsec }.
+    let func = FfiOpFunction::new(
+        "libc.so.6",
+        "clock_gettime",
+        vec![
+            "i32".to_string(),
+            "out_struct:{tv_sec:i64,tv_nsec:i64}".to_string(),
+        ],
+        "i32",
+        false,
+    );
+    let result = call(&func, &[json!(0)]).expect("clock_gettime should succeed");
+    let obj = result
+        .as_object()
+        .expect("clock_gettime should return a {ret, buf} record");
+    assert_eq!(obj.get("ret").and_then(|v| v.as_i64()), Some(0));
+    let buf = obj
+        .get("buf")
+        .and_then(|v| v.as_object())
+        .expect("buf should be a record");
+    let tv_sec = buf
+        .get("tv_sec")
+        .and_then(|v| v.as_i64())
+        .expect("tv_sec should be present");
+    assert!(tv_sec > 0, "tv_sec should be positive, got {tv_sec}");
+    let tv_nsec = buf
+        .get("tv_nsec")
+        .and_then(|v| v.as_i64())
+        .expect("tv_nsec should be present");
+    assert!(
+        (0..1_000_000_000).contains(&tv_nsec),
+        "tv_nsec should be in [0, 1e9), got {tv_nsec}"
+    );
+}

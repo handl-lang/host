@@ -178,6 +178,17 @@ pub(crate) struct OutBuf {
     pub len: usize,
 }
 
+/// An allocated C struct for an `out_struct:{...}` descriptor.
+///
+/// Owns the backing `Vec<u8>` so it stays valid across the C call and is
+/// available for the post-call `{ ret, buf }` record extraction.
+pub(crate) struct OutStruct {
+    /// The allocated struct memory (zero-initialized). Valid until this is dropped.
+    pub buf: Vec<u8>,
+    /// Field metadata: (name, kind, offset, size).
+    pub fields: Vec<(String, String, usize, usize)>,
+}
+
 /// The result of marshalling a whole argument list.
 ///
 /// `c_args` is the flat list of C arguments to pass (buffer descriptors
@@ -192,6 +203,8 @@ pub(crate) struct MarshalResult {
     pub byte_keep_alive: Vec<Vec<u8>>,
     /// Allocated output buffers for `out_buf:N` descriptors.
     pub out_bufs: Vec<OutBuf>,
+    /// Allocated C structs for `out_struct:{...}` descriptors.
+    pub out_structs: Vec<OutStruct>,
 }
 
 /// Decode a JSON `Bytes` value into a `Vec<u8>`.
@@ -253,6 +266,7 @@ pub(crate) fn marshal_call_args(
         keep_alive: Vec::with_capacity(descriptors.len()),
         byte_keep_alive: Vec::with_capacity(descriptors.len()),
         out_bufs: Vec::new(),
+        out_structs: Vec::new(),
     };
     let mut arg_idx = 0usize;
     for desc in descriptors {
@@ -279,6 +293,11 @@ pub(crate) fn marshal_call_args(
             res.c_args.push(CArg::Int(ptr));
             res.c_args.push(CArg::Int(len));
             res.out_bufs.push(OutBuf { buf, len: n });
+        } else if desc.starts_with("out_struct:") {
+            let out = parse_out_struct_descriptor(desc)?;
+            let ptr = out.buf.as_ptr() as i64;
+            res.c_args.push(CArg::Int(ptr));
+            res.out_structs.push(out);
         } else {
             let value = args
                 .get(arg_idx)
@@ -319,6 +338,141 @@ pub(crate) fn wrap_out_buf_return(raw_ret: &JsonValue, out_bufs: &[OutBuf]) -> J
     map.insert("ret".to_string(), raw_ret.clone());
     map.insert("buf".to_string(), buf_json);
     JsonValue::Object(map)
+}
+
+/// Parse an `out_struct:{field:desc,...}` descriptor and allocate its memory.
+///
+/// Computes a simple aligned layout for integer-typed fields (`i32`, `i64`).
+/// Fields are placed in declaration order with alignment equal to their size.
+pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalError> {
+    let inner = desc
+        .strip_prefix("out_struct:")
+        .ok_or_else(|| EvalError::TypeMismatch(format!("not an out_struct descriptor: {desc}")))?;
+    if !inner.starts_with('{') || !inner.ends_with('}') {
+        return Err(EvalError::TypeMismatch(format!(
+            "out_struct descriptor must be {{...}}, got {inner}"
+        )));
+    }
+    let content = &inner[1..inner.len() - 1];
+    if content.is_empty() {
+        return Ok(OutStruct {
+            buf: Vec::new(),
+            fields: Vec::new(),
+        });
+    }
+    let mut fields = Vec::new();
+    let mut offset = 0usize;
+    for pair in content.split(',') {
+        let pair = pair.trim();
+        if pair.is_empty() {
+            continue;
+        }
+        let mut parts = pair.splitn(2, ':');
+        let name = parts
+            .next()
+            .ok_or_else(|| EvalError::TypeMismatch(format!("invalid out_struct field: {pair}")))?
+            .trim()
+            .to_string();
+        let kind = parts
+            .next()
+            .ok_or_else(|| EvalError::TypeMismatch(format!("out_struct field missing type: {pair}")))?
+            .trim()
+            .to_string();
+        let size = match kind.as_str() {
+            "i32" => 4usize,
+            "i64" => 8usize,
+            other => {
+                return Err(EvalError::TypeMismatch(format!(
+                    "out_struct: unsupported field type {other}"
+                )))
+            }
+        };
+        let align = size;
+        let misalign = offset % align;
+        if misalign != 0 {
+            offset += align - misalign;
+        }
+        fields.push((name, kind, offset, size));
+        offset += size;
+    }
+    // Add trailing alignment to the struct's total size.
+    let max_align = fields.iter().map(|(_, _, _, size)| *size).max().unwrap_or(1);
+    let total = if offset == 0 {
+        0
+    } else {
+        let trailing = offset % max_align;
+        if trailing == 0 {
+            offset
+        } else {
+            offset + max_align - trailing
+        }
+    };
+    Ok(OutStruct {
+        buf: vec![0u8; total],
+        fields,
+    })
+}
+
+/// Read an already-called `OutStruct` back into a Handl record.
+pub(crate) fn unmarshal_out_struct(out: &OutStruct) -> Result<JsonValue, EvalError> {
+    let mut map = Map::new();
+    for (name, kind, offset, size) in &out.fields {
+        let bytes = out
+            .buf
+            .get(*offset..offset + size)
+            .ok_or_else(|| EvalError::Other("out_struct field out of bounds".to_string()))?;
+        let value = match kind.as_str() {
+            "i32" => {
+                let raw = <[u8; 4]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct i32 field read failed".to_string())
+                })?;
+                JsonValue::from(i32::from_ne_bytes(raw) as i64)
+            }
+            "i64" => {
+                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct i64 field read failed".to_string())
+                })?;
+                JsonValue::from(i64::from_ne_bytes(raw))
+            }
+            other => {
+                return Err(EvalError::TypeMismatch(format!(
+                    "out_struct: unsupported field type {other}"
+                )))
+            }
+        };
+        map.insert(name.clone(), value);
+    }
+    Ok(JsonValue::Object(map))
+}
+
+/// Wrap a raw C return as a `{ ret, buf }` record when `out_struct` was used.
+pub(crate) fn wrap_out_struct_return(raw_ret: &JsonValue, out_structs: &[OutStruct]) -> JsonValue {
+    let out = match out_structs.first() {
+        Some(out) => out,
+        None => return raw_ret.clone(),
+    };
+    let mut map = Map::new();
+    map.insert("ret".to_string(), raw_ret.clone());
+    map.insert(
+        "buf".to_string(),
+        unmarshal_out_struct(out).unwrap_or(JsonValue::Null),
+    );
+    JsonValue::Object(map)
+}
+
+/// Returns `true` for descriptors that consume one Handl argument.
+pub(crate) fn descriptor_consumes_handl_arg(desc: &str) -> bool {
+    if desc == "void" {
+        return false;
+    }
+    if let Some(n_str) = desc.strip_prefix("out_buf:") {
+        let _ = n_str;
+        return false;
+    }
+    if desc.starts_with("out_struct:") {
+        return false;
+    }
+    true
 }
 
 // ---------------------------------------------------------------------------

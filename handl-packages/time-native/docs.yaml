@@ -1,4 +1,0 @@
-category:
-  slug: lib-time-native
-  title: Time Native
-  description: Rust std::time backend for the time contract (wall-clock ms, monotonic ns, elapsed ns).

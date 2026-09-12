@@ -28,7 +28,7 @@ handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-handl = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
 handl-plugin-lib-rand-native = { workspace = true }
-handl-plugin-lib-time-native = { workspace = true }
+handl-plugin-ffi = { workspace = true }
 handl-plugin-lib-unicode-native = { workspace = true }
 handl-plugin-lib-tag = { workspace = true }
 handl-plugin-module = { workspace = true }
