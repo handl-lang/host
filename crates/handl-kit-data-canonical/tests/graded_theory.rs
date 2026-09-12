@@ -300,4 +300,64 @@ fn canonical_bracketed_graded_arrow_rejects_empty_grade() {
         "diagnostic should name the empty grade list, got: {msg}",
     );
 }
+// ---------------------------------------------------------------------------
+// Dimension specialization `f<...>` — NOT IMPLEMENTED (ADR-0106 item 4)
+// ---------------------------------------------------------------------------
+//
+// These tests pin the *current* behaviour so the gap is explicit and a future
+// implementation cannot land silently:
+//
+// - there is no angle-bracket specialization rule in the canonical grammar
+//   (`crates/handl-kit-data-canonical/data/grammar.yaml` has no dimension row;
+//   the angle-bracket parameter forms for `sort`/`op` declarations are
+//   likewise noted as absent at grammar.yaml:545 and :590);
+// - `<` is the ordinary comparison operator (`grammar.lt.infix` ->
+//   `binary.lt`), so `f<a>` parses as a *comparison*, not a specialization;
+// - consequently `(f<a>) >>> b` is a comparison flowing into `b`, which is
+//   NOT the meaning ADR-0106 §11 gives it.
+//
+// TODO(ADR-0106): implement `f<...>` dimensions. The parse strategy must
+// resolve the `f<a>` vs `f < a` ambiguity (lookahead/backtracking, or a
+// dedicated `token.lt`-adjacent postfix rule), split a maximal-munch `>>`
+// when closing nested dimensions (`f<g<x>>`), and only open a dimension when
+// the bracket actually closes as one.
+
+#[test]
+fn dimension_syntax_is_not_yet_implemented() {
+    // `f<a>` is a comparison today, not a dimension specialization.
+    let ast = parse("f<a");
+    assert_eq!(
+        root(&ast).kind,
+        "binary.lt",
+        "`f<a` parses as comparison — dimension syntax is not implemented",
+    );
+
+    // `f<a>` (closed) must not lex/parse as a dimension either: `>` is the
+    // comparison/close token, so the parser sees `f < a >` — a comparison
+    // whose right operand is `a > ...` (or an error). Pin whatever the
+    // parser does so a future dimension rule shows up as a change here.
+    let rt = full_runtime();
+    let toks = rt
+        .lex(&Source::new("f<a> >>> b"))
+        .expect("`f<a> >>> b` lexes");
+    match rt.parse(&toks) {
+        Ok(ast) => {
+            let kinds: Vec<String> = ast.nodes().iter().map(|n| n.kind.clone()).collect();
+            assert!(
+                !kinds.iter().any(|k| k.contains("dimension")),
+                "no dimension node may be produced before item 4 lands: {kinds:?}",
+            );
+        }
+        Err(e) => {
+            // A parse error is equally acceptable evidence that the form is
+            // unsupported; record it rather than pretending it parses.
+            let msg = format!("{e:?}");
+            assert!(
+                !msg.is_empty(),
+                "unsupported dimension form must error or parse without a dimension node",
+            );
+        }
+    }
+}
+
 
