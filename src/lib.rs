@@ -25,5 +25,5 @@ pub mod shared;
 
 pub use packages::{
     DEFAULT_RESOLVER, MODULES, ModuleSpec, PACKAGES, PackagePlugin, PackageResolver, PackageSpec,
-    build_module, library, module, module_ref, module_spec, module_with,
+    TableModuleLookup, build_module, library, module, module_ref, module_spec, module_with,
 };

@@ -8,6 +8,8 @@
 //! (`ops::collections`).
 
 use handl_platform::{EvalContext, EvalError, Module};
+use std::sync::Arc;
+
 use handl_plugin_lib_stdlib::module_ref;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 
@@ -62,7 +64,7 @@ fn obj(entries: &[(&str, serde_json::Value)]) -> serde_json::Value {
 }
 
 fn collections() -> CollectionsModule {
-    CollectionsModule::new(&handl_plugin_lib_stdlib::DEFAULT_RESOLVER)
+    CollectionsModule::new(Arc::new(handl_plugin_lib_stdlib::DEFAULT_RESOLVER.clone()))
 }
 
 // ---------------------------------------------------------------------------

@@ -13,12 +13,12 @@
 //! [`module`] / [`module_ref`] build a [`HandlModule`] for a module name;
 //! [`library`] builds a `Box<dyn Plugin>` for a package name.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    Module, PlatformError, Plugin, PluginContext,
+    Function, Module, ModuleLookup, PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry, parse_cap_declarations};
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
@@ -43,8 +43,10 @@ pub struct ModuleSpec {
     pub ops: &'static [&'static str],
     /// Builder for the op registry, or `None` for pure-handl modules.
     pub registry: Option<fn() -> OpRegistry>,
-    /// Names of dependency modules to register in the bridge runtime
-    /// (resolved through the ambient [`ModuleResolver`]).
+    /// **Vestigial.** Names of dependency modules. Resolution is now global
+    /// (each module reaches the whole table through the injected
+    /// [`TableModuleLookup`]), so [`build_module`] no longer consumes this
+    /// field. Retained only until a mechanical pass drops it from every row.
     pub deps: &'static [&'static str],
 }
 
@@ -437,10 +439,9 @@ pub static MODULES: &[ModuleSpec] = &[
     // `tag.tag("ok", {value: _0})` / `tag.tag("err", {value: _0})` calls,
     // so the `tag` module must resolve through the ambient
     // [`ModuleResolver`]. The default table resolver does not know
-    // `"tag"` (it stays in `plugin-lib-tag`); callers building the
-    // `result` module must pass a resolver that maps it — e.g.
-    // `module_with("result", &resolver)` with kit-canonical's
-    // `StdlibResolver`, or `PackagePlugin::with_resolver_fallback`.
+    // `"tag"` (it stays in `plugin-lib-tag`); the injected global table
+    // lookup resolves it through the resolver passed to `module_with`
+    // (e.g. kit-canonical's `StdlibResolver`).
     ModuleSpec {
         name: "result",
         hnl: include_str!("../../../handl-packages/result/result.hnl"),
@@ -731,9 +732,10 @@ fn package_module_names(spec: &PackageSpec) -> Vec<&'static str> {
 /// A [`ModuleResolver`] that resolves names through the module table, then
 /// through an optional fallback resolver (for non-table names like
 /// `"char"`/`"unicode"` provided by the embedding host).
-pub struct PackageResolver<'a> {
+#[derive(Clone)]
+pub struct PackageResolver {
     /// Fallback resolver consulted when the name is not in the table.
-    pub fallback: Option<&'a dyn ModuleResolver>,
+    pub fallback: Option<Arc<dyn ModuleResolver>>,
 }
 
 /// Normalize a path-like import spec to its module name.
@@ -756,21 +758,27 @@ fn normalize_module_name(name: &str) -> &str {
 /// the table (callers then consult their own fallback resolver).
 fn resolve_in_table(
     name: &str,
-    resolver: &dyn ModuleResolver,
+    resolver: Arc<dyn ModuleResolver>,
 ) -> Option<Arc<dyn Module + Send + Sync>> {
     let normalized = normalize_module_name(name);
     let spec = module_spec(normalized).or_else(|| module_spec(name))?;
     Some(Arc::new(build_module(spec, resolver)))
 }
 
-impl ModuleResolver for PackageResolver<'_> {
+impl ModuleResolver for PackageResolver {
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-        resolve_in_table(name, self).or_else(|| self.fallback.and_then(|f| f.resolve(name)))
+        resolve_in_table(name, Arc::new(self.clone()))
+            .or_else(|| self.fallback.as_ref().and_then(|f| f.resolve(name)))
     }
 }
 
 /// The default table resolver (no fallback).
-pub static DEFAULT_RESOLVER: PackageResolver<'static> = PackageResolver { fallback: None };
+pub static DEFAULT_RESOLVER: PackageResolver = PackageResolver { fallback: None };
+
+/// An `Arc` of the default table resolver.
+fn default_resolver_arc() -> Arc<dyn ModuleResolver> {
+    Arc::new(DEFAULT_RESOLVER.clone())
+}
 
 // ---------------------------------------------------------------------------
 // TableImportResolver -- runtime evaluation of `import`/`from` statements
@@ -784,8 +792,8 @@ pub static DEFAULT_RESOLVER: PackageResolver<'static> = PackageResolver { fallba
 /// `serde_json::Value::Object`. A handl closure cannot cross that boundary as
 /// a callable, so each binding is the *string* `"<module>.<field>"` -- exactly
 /// the callee form a qualified `mod.fn` already produces. The string is then
-/// dispatched to the importer's module registry, whose `<module>` entry is the
-/// dependency the importer registered (via `with_resolver`). This keeps
+/// dispatched to the importer's module lookup, whose `<module>` entry resolves
+/// through the dependency chain or the injected global table lookup. This keeps
 /// `from "x" import * as m` (`m.f`) working *and* enables named imports
 /// (`from "./x.hnl" import f` -> bare `f(...)`).
 ///
@@ -827,7 +835,7 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
                 "import: module `{name}` (path `{path}`) is not in the package table"
             ))
         })?;
-        let module = build_module(spec, &DEFAULT_RESOLVER);
+        let module = build_module(spec, default_resolver_arc());
         let mut obj = serde_json::Map::new();
         for (fname, _f) in module.functions() {
             obj.insert(
@@ -843,17 +851,85 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
     }
 }
 
-/// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and
-/// dependency modules through `resolver`.
-pub fn build_module(spec: &ModuleSpec, resolver: &dyn ModuleResolver) -> HandlModule {
-    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
-        .with_resolver(resolver)
-        .with_import_resolver(Arc::new(TableImportResolver::new()));
-    for dep in spec.deps {
-        if let Some(dep_module) = resolver.resolve(dep) {
-            module = module.with_dependency_arc(dep_module);
+/// A [`ModuleLookup`] that resolves a string callee `"name.field"` through
+/// the stdlib module table, building and caching the module on demand.
+///
+/// This is the *global* resolution path: a `.hnl` module's runtime consults
+/// it when a string callee is not found in the module's own dependency
+/// chain, so stdlib packages reach every table module without pre-listing
+/// `deps`. Table modules resolve through [`module_ref`] (a process-wide
+/// cache); names not in the table (e.g. `"tag"`, `"char"`) resolve through
+/// the resolver this lookup was built with, leaked once per name so `lookup`
+/// can return `&dyn Function` without holding a lock.
+pub struct TableModuleLookup {
+    resolver: Arc<dyn ModuleResolver>,
+    fallback: Mutex<HashMap<String, &'static (dyn Module + Send + Sync)>>,
+    in_progress: Mutex<HashSet<String>>,
+}
+
+impl TableModuleLookup {
+    /// Create a lookup resolving table names via [`module_ref`] and non-table
+    /// names via `resolver`.
+    pub fn new(resolver: Arc<dyn ModuleResolver>) -> Self {
+        Self {
+            resolver,
+            fallback: Mutex::new(HashMap::new()),
+            in_progress: Mutex::new(HashSet::new()),
         }
     }
+
+    /// Resolve a non-table module name, building it once and caching the
+    /// leaked `'static` reference. Cycle-protected via `in_progress`.
+    fn resolve_fallback(&self, name: &str) -> Option<&'static (dyn Module + Send + Sync)> {
+        let normalized = normalize_module_name(name);
+        if let Ok(cache) = self.fallback.lock() {
+            if let Some(module) = cache.get(normalized) {
+                return Some(*module);
+            }
+        }
+        {
+            let mut in_progress = self.in_progress.lock().ok()?;
+            if !in_progress.insert(normalized.to_string()) {
+                // Already building this module further up the stack: a cycle.
+                return None;
+            }
+        }
+        let built = self.resolver.resolve(normalized);
+        if let Ok(mut in_progress) = self.in_progress.lock() {
+            in_progress.remove(normalized);
+        }
+        let module = built?;
+        let boxed: &'static Arc<dyn Module + Send + Sync> = Box::leak(Box::new(module));
+        let leaked: &'static (dyn Module + Send + Sync) = &**boxed;
+        if let Ok(mut cache) = self.fallback.lock() {
+            cache.entry(normalized.to_string()).or_insert(leaked);
+            return cache.get(normalized).copied();
+        }
+        Some(leaked)
+    }
+}
+
+impl ModuleLookup for TableModuleLookup {
+    fn lookup(&self, qualified_name: &str) -> Option<&dyn Function> {
+        let (module_name, func_name) = qualified_name.split_once('.')?;
+        if let Some(module) = module_ref(module_name) {
+            return module.function(func_name);
+        }
+        self.resolve_fallback(module_name)?.function(func_name)
+    }
+}
+
+/// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and an
+/// injected global [`TableModuleLookup`].
+///
+/// `ModuleSpec::deps` is no longer consumed -- resolution is global, so the
+/// module reaches every other table module (and the resolver's non-table
+/// modules) through the lookup.
+pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
+    let lookup = Arc::new(TableModuleLookup::new(Arc::clone(&resolver)));
+    let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
+        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_global_lookup(lookup);
     if let Some(registry) = spec.registry {
         module = module.with_ops(spec.ops, Arc::new(registry()));
     }
@@ -861,14 +937,14 @@ pub fn build_module(spec: &ModuleSpec, resolver: &dyn ModuleResolver) -> HandlMo
 }
 
 /// Build the table module named `name` (e.g. `"bool"`, `"math"`,
-/// `"stats"`), resolving its declared deps through the table itself.
+/// `"stats"`), resolving its deps globally through the table itself.
 pub fn module(name: &str) -> Option<HandlModule> {
-    module_spec(name).map(|spec| build_module(spec, &DEFAULT_RESOLVER))
+    module_spec(name).map(|spec| build_module(spec, default_resolver_arc()))
 }
 
-/// Build the table module named `name`, resolving deps through
-/// `resolver` (for hosts that provide non-table modules).
-pub fn module_with(name: &str, resolver: &dyn ModuleResolver) -> Option<HandlModule> {
+/// Build the table module named `name`, wiring `resolver` as the global
+/// lookup's non-table fallback (for hosts that provide non-table modules).
+pub fn module_with(name: &str, resolver: Arc<dyn ModuleResolver>) -> Option<HandlModule> {
     module_spec(name).map(|spec| build_module(spec, resolver))
 }
 
@@ -943,17 +1019,19 @@ impl Plugin for PackagePlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        struct FallbackResolver<'a> {
-            inner: Option<&'a dyn ModuleResolver>,
+        #[derive(Clone)]
+        struct FallbackResolver {
+            inner: Option<Arc<dyn ModuleResolver>>,
         }
-        impl ModuleResolver for FallbackResolver<'_> {
+        impl ModuleResolver for FallbackResolver {
             fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-                resolve_in_table(name, self).or_else(|| self.inner.and_then(|f| f.resolve(name)))
+                resolve_in_table(name, Arc::new(self.clone()))
+                    .or_else(|| self.inner.as_ref().and_then(|f| f.resolve(name)))
             }
         }
-        let fallback = FallbackResolver {
-            inner: self.resolver_fallback.as_deref(),
-        };
+        let fallback: Arc<dyn ModuleResolver> = Arc::new(FallbackResolver {
+            inner: self.resolver_fallback.clone(),
+        });
         for name in package_module_names(self.spec) {
             let spec = module_spec(name).unwrap_or_else(|| {
                 panic!(
@@ -961,14 +1039,17 @@ impl Plugin for PackagePlugin {
                     self.spec.lib_name
                 )
             });
-            ctx.contribute::<ModuleRuntime>(ModuleRule::new(build_module(spec, &fallback)))?;
+            ctx.contribute::<ModuleRuntime>(ModuleRule::new(build_module(
+                spec,
+                Arc::clone(&fallback),
+            )))?;
         }
         if self.spec.lib_name == "collections" {
             // Also contribute the `collections` aggregate module so
             // `collections.vec.new`-style lookups keep working (the former
             // `CollectionsLibraryPlugin` registered only this aggregate).
             ctx.contribute::<ModuleRuntime>(ModuleRule::new(
-                ops::collections::CollectionsModule::new(&fallback),
+                ops::collections::CollectionsModule::new(Arc::clone(&fallback)),
             ))?;
         }
         Ok(())

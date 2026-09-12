@@ -12,6 +12,7 @@ use std::sync::Arc;
 use handl_platform::{EvalContext, Function, Module};
 use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_stdlib::packages::TableImportResolver;
+use handl_plugin_lib_stdlib::TableModuleLookup;
 use handl_plugin_lib_stdlib::DEFAULT_RESOLVER;
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
@@ -24,8 +25,10 @@ fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_js
 fn named_import_binds_a_bare_callable() {
     const SRC: &str = "from \"len\" import len\nexport length_of :: xs ~> len(xs)";
     let module = HandlModule::new("named_import_probe", SRC, &["length_of"])
-        .with_resolver(&DEFAULT_RESOLVER)
-        .with_import_resolver(Arc::new(TableImportResolver::new()));
+        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
+            DEFAULT_RESOLVER.clone(),
+        ))));
     let out = call(&module, "length_of", &[serde_json::json!([1, 2, 3])]);
     assert_eq!(out, serde_json::json!(3));
 }
@@ -35,8 +38,10 @@ fn named_import_binds_a_bare_callable() {
 fn qualified_import_still_binds_the_module_object() {
     const SRC: &str = "from \"len\" import * as l\nexport length_of :: xs ~> l.len(xs)";
     let module = HandlModule::new("qualified_import_probe", SRC, &["length_of"])
-        .with_resolver(&DEFAULT_RESOLVER)
-        .with_import_resolver(Arc::new(TableImportResolver::new()));
+        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
+            DEFAULT_RESOLVER.clone(),
+        ))));
     let out = call(&module, "length_of", &[serde_json::json!([1, 2, 3, 4])]);
     assert_eq!(out, serde_json::json!(4));
 }
