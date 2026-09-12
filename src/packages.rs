@@ -70,8 +70,18 @@ pub struct PackageSpec {
 // The module table
 // ---------------------------------------------------------------------------
 
+const TIME_MODULE: ModuleSpec = ModuleSpec {
+    name: "time",
+    hnl: include_str!("../../../handl-packages/time-c/time-c.hnl"),
+    funcs: &["now_ms", "instant_ns", "elapsed_ns"],
+    ops: &[],
+    registry: None,
+    deps: &["ffi"],
+};
+
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
+    TIME_MODULE,
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
         name: "bool",
