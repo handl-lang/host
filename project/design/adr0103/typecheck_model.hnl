@@ -295,7 +295,10 @@ do {
 
   unify :: [a, b, metas] ~> unify_(unify_, a, b, metas)
 
-  ast_node :: [ast, idx] ~> at(ast, idx)
+  ast_node :: [ast, idx] ~> do {
+    i :: if type_of(idx) == "arr" { at(idx, 0) } else { idx }
+    at(ast, i)
+  }
 
   node_kind :: node ~> get_or(node, "kind", "")
 
@@ -417,10 +420,12 @@ do {
     set(s, "gamma", new_gamma)
   }
 
-  tc_record_node_type :: [s, node_idx, typ] ~> while { result: s.node_types, idx: 0 } {
-    [st] ~> if st.idx >= node_idx {
-      { out: set(st.result, node_idx, typ) }
-    } else {
+  tc_record_node_type :: [s, node_idx, typ] ~> do {
+    i :: if type_of(node_idx) == "arr" { at(node_idx, 0) } else { node_idx }
+    while { result: s.node_types, idx: 0 } {
+      [st] ~> if st.idx >= i {
+        { out: set(st.result, i, typ) }
+      } else {
       do {
         new_result :: if st.idx < len(st.result) {
           st.result
@@ -431,6 +436,7 @@ do {
       }
     }
   }
+}
 
   tc_add_diagnostic :: [s, severity, message] ~> do {
     diag :: set(set({}, "severity", severity), "message", message)
@@ -510,15 +516,14 @@ do {
     is_module :: kind == "module"
     is_paren :: kind == "paren"
     is_var :: kind == "var"
-    is_string :: kind == "string"
-    is_number :: kind == "number"
-    is_literal :: is_string || is_number
-    is_canonical :: is_field_access || is_call || is_block || is_assign || is_if || is_return || is_module || is_paren || is_var || is_literal
-    op_name :: if is_module { "synth_last_child" } else { if is_paren { "synth_child" } else { if is_var { "lookup" } else { if is_literal { "literal" } else { kind } } } }
+    is_value :: kind == "value"
+    is_canonical :: is_field_access || is_call || is_block || is_assign || is_if || is_return || is_module || is_paren || is_var || is_value
+    op_name :: if is_field_access { "field_access" } else { if is_call { "call" } else { if is_block { "synth_block" } else { if is_module { "synth_last_child" } else { if is_paren { "synth_child" } else { if is_var { "lookup" } else { if is_value { "value" } else { kind } } } } } } }
     op_lit :: if is_paren { body_role } else { if is_var { get_or(payload, "name", null) } else { null } }
+    op_incoming :: if is_value { get_or(payload, "value", null) } else { null }
     if is_canonical {
       do {
-        result :: funcs.eval_judgment_(funcs, s, node_idx, op_name, [], op_lit, null)
+        result :: funcs.eval_judgment_(funcs, s, node_idx, op_name, [], op_lit, op_incoming)
         new_state :: tc_record_node_type(result.state, node_idx, result.val)
         { typ: result.val, state: new_state }
       }
@@ -1529,10 +1534,10 @@ do {
         }
       }
     },
-    "literal": do {
-      n :: ast_node(s.ast, node_idx)
-      k :: node_kind(n)
-      { val: make_type("type." + k, {}), state: s }
+    "value": do {
+      tag :: type_of(incoming)
+      name :: if tag == "str" { "type.string" } else { if tag == "num" { "type.number" } else { if tag == "bool" { "type.bool" } else { if tag == "null" { "type.null" } else { if tag == "arr" { "type.array" } else { if tag == "obj" { "type.object" } else { "type.unknown" } } } } } }
+      { val: make_type(name, {}), state: s }
     },
     "foreign_type": do {
       op_name :: lit
@@ -1541,49 +1546,43 @@ do {
     _: { val: make_type("TypeError", set({}, "message", "unknown judgment op: " + op_name)), state: s }
   }
 
-  deref_idx :: v ~> if type_of(v) == "arr" { at(v, 0) } else { v }
-
   --- Fuel wrappers: ensure the main typecheck driver and every
   --- recursive fixpoint step burns a little fuel, and return a
   --- graceful diagnostic instead of looping forever.
 
   synth_node_ :: [funcs, s, node_idx] ~> do {
     s :: tc_burn_fuel(s)
-    n :: deref_idx(node_idx)
     if tc_fuel_exhausted(s) {
       { typ: make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "typecheck fuel exhausted") }
     } else {
-      synth_node_impl_(funcs, s, n)
+      synth_node_impl_(funcs, s, node_idx)
     }
   }
 
   check_node_ :: [funcs, s, node_idx, expected] ~> do {
     s :: tc_burn_fuel(s)
-    n :: deref_idx(node_idx)
     if tc_fuel_exhausted(s) {
       { ok: false, state: tc_add_diagnostic(s, "error", "typecheck fuel exhausted") }
     } else {
-      check_node_impl_(funcs, s, n, expected)
+      check_node_impl_(funcs, s, node_idx, expected)
     }
   }
 
   eval_scheme_ :: [funcs, s, node_idx, term, incoming] ~> do {
     s :: tc_burn_fuel(s)
-    n :: deref_idx(node_idx)
     if tc_fuel_exhausted(s) {
       { val: make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "typecheck fuel exhausted") }
     } else {
-      eval_scheme_impl_(funcs, s, n, term, incoming)
+      eval_scheme_impl_(funcs, s, node_idx, term, incoming)
     }
   }
 
   eval_judgment_ :: [funcs, s, node_idx, op_name, args, lit, incoming] ~> do {
     s :: tc_burn_fuel(s)
-    n :: deref_idx(node_idx)
     if tc_fuel_exhausted(s) {
       { val: make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "typecheck fuel exhausted") }
     } else {
-      eval_judgment_impl_(funcs, s, n, op_name, args, lit, incoming)
+      eval_judgment_impl_(funcs, s, node_idx, op_name, args, lit, incoming)
     }
   }
 
