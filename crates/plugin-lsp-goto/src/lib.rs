@@ -31,6 +31,9 @@ impl GotoDefPlugin for BasicGotoDef {
 
 fn resolve(request: &GotoDefRequest) -> Option<Location> {
     let current_dir = base_dir(&request.path)?;
+    if let Some(loc) = import_spec_goto(&request.source, request.pos, &current_dir) {
+        return Some(loc);
+    }
     let (name, _span) = identifier_at_offset(&request.source, request.pos)?;
 
     // 1. Canonical named import resolution.
@@ -81,6 +84,29 @@ fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, Span)> {
     None
 }
 
+/// Goto the module file when the cursor sits on an import specifier string.
+fn import_spec_goto(source: &str, pos: usize, current_dir: &Path) -> Option<Location> {
+    let kit = Kit::new().ok()?;
+    let tokens = kit.lex_with_spans(source).ok()?;
+    let classes = TokenClasses::new(kit.language());
+    let idx = tokens
+        .iter()
+        .position(|t| t.span.start <= pos && pos < t.span.end)?;
+    let tok = &tokens[idx];
+    if !classes.is_string(&tok.kind) {
+        return None;
+    }
+    let prev = tokens.get(idx.checked_sub(1)?)?;
+    if prev.text != "import" && prev.text != "from" {
+        return None;
+    }
+    let spec = strip_quotes(&tok.text);
+    let path = resolve_import_target(spec, current_dir)?;
+    let mut loc = Location::new(0, 0);
+    loc.uri = Some(path_to_uri(&path));
+    Some(loc)
+}
+
 /// Find an in-file definition of `name` where an identifier is followed by
 /// the `::` label (a binding definition).
 fn find_definition(source: &str, name: &str) -> Option<Span> {
@@ -117,21 +143,29 @@ fn find_definition(source: &str, name: &str) -> Option<Span> {
 /// canonical module layouts `spec/spec.hnl` and `spec/mod.hnl`.
 fn resolve_import_target(spec: &str, current_dir: &Path) -> Option<PathBuf> {
     let p = current_dir.join(spec);
+    let p = p.canonicalize().ok().unwrap_or(p);
     if p.is_file() {
         return Some(p);
     }
-    let with_ext = p.with_extension("hnl");
-    if with_ext.is_file() {
-        return Some(with_ext);
+    if p.extension().is_none() {
+        let with_ext = p.with_extension("hnl");
+        let with_ext = with_ext.canonicalize().ok().unwrap_or(with_ext);
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
     }
-    if p.is_dir() {
-        if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-            let child = p.join(format!("{name}.hnl"));
+    let dir = if p.is_dir() { p.clone() } else { p.with_extension("") };
+    let dir = dir.canonicalize().ok().unwrap_or(dir);
+    if dir.is_dir() {
+        if let Some(name) = dir.file_stem().and_then(|s| s.to_str()) {
+            let child = dir.join(format!("{name}.hnl"));
+            let child = child.canonicalize().ok().unwrap_or(child);
             if child.is_file() {
                 return Some(child);
             }
         }
-        let child = p.join("mod.hnl");
+        let child = dir.join("mod.hnl");
+        let child = child.canonicalize().ok().unwrap_or(child);
         if child.is_file() {
             return Some(child);
         }
@@ -211,14 +245,14 @@ fn find_import_for_name(source: &str, name: &str, current_dir: &Path) -> Option<
     let classes = TokenClasses::new(kit.language());
     let mut i = 0;
     while i < tokens.len() {
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "from" {
+        if tokens[i].text == "from" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
                 continue;
             }
             let import_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&import_tok.kind) || import_tok.text != "import" {
+            if import_tok.text != "import" {
                 i += 1;
                 continue;
             }
@@ -244,14 +278,14 @@ fn find_import_for_name(source: &str, name: &str, current_dir: &Path) -> Option<
             return Some((path, full));
         }
 
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "import" {
+        if tokens[i].text == "import" {
             let name_tok = tokens.get(i + 1)?;
             if !classes.is_identifier(&name_tok.kind) {
                 i += 1;
                 continue;
             }
             let from_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&from_tok.kind) || from_tok.text != "from" {
+            if from_tok.text != "from" {
                 i += 1;
                 continue;
             }
@@ -285,14 +319,14 @@ fn find_module_import(source: &str, mod_name: &str, current_dir: &Path) -> Optio
     let classes = TokenClasses::new(kit.language());
     let mut i = 0;
     while i < tokens.len() {
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "from" {
+        if tokens[i].text == "from" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
                 continue;
             }
             let import_tok = tokens.get(i + 2)?;
-            if !classes.is_keyword(&import_tok.kind) || import_tok.text != "import" {
+            if import_tok.text != "import" {
                 i += 1;
                 continue;
             }
@@ -317,7 +351,7 @@ fn find_module_import(source: &str, mod_name: &str, current_dir: &Path) -> Optio
             continue;
         }
 
-        if classes.is_keyword(&tokens[i].kind) && tokens[i].text == "import" {
+        if tokens[i].text == "import" {
             let spec_tok = tokens.get(i + 1)?;
             if !classes.is_string(&spec_tok.kind) {
                 i += 1;
@@ -487,6 +521,7 @@ fn base_dir(path: &str) -> Option<PathBuf> {
             Some(p.to_path_buf())
         }
     })
+    .and_then(|p| p.canonicalize().ok().or(Some(p)))
 }
 
 fn strip_quotes(s: &str) -> &str {
