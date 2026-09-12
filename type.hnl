@@ -94,3 +94,33 @@ export Null :: { "__tag__": "null", "__registry__": "type", "kind": "primitive" 
 export Float :: { "__tag__": "float", "__registry__": "type", "kind": "primitive" }
 export Number :: { "__tag__": "number", "__registry__": "type", "kind": "primitive" }
 export Nat :: { "__tag__": "nat", "__registry__": "type", "kind": "primitive" }
+
+--- ## ADR-0106 nominal identities (sym-backed, alongside the legacy tags)
+---
+--- Nominal identities per ADR-0106 §2. `NumberN` is a root nominal
+--- (`sym()` — a fresh object with a unique nominal identity); `IntN` and
+--- `FloatN` are children parented to it (`sym(NumberN)`), so the `sym`
+--- parent graph *is* the subtyping relation: `FloatN instanceof NumberN`
+--- (runtime parent-chain walk) and `FloatN <: NumberN` (the same walk,
+--- read statically) with no parallel `Subtype<A, B>` subsystem. `NatN` is
+--- parented to `IntN` (`Nat <: Int <: Number`).
+---
+--- The legacy `__tag__`-tagged values above (Int/Str/Bool/Null/Float/
+--- Number/Nat) are NOT deleted yet: existing kind predicates and tag
+--- checks (`type.is`, `tag.tag_of`, registry equality) match on the
+--- `__tag__` string, which a `{"__sym__": ...}` nominal does not carry.
+--- Behavior compatibility is preserved by keeping both spellings until
+--- consumers migrate. Note the semantic difference: legacy tags compare
+--- by structure (two `{__tag__: "int"}` objects are equal) while nominals
+--- compare by identity (two `sym()` mints are distinct even with the same
+--- presentation name) — and `instanceof` walks the nominal parent chain,
+--- never the `__tag__` string.
+---
+--- Surface: `sym()` / `sym(parent)` need no new syntax — they parse via
+--- the existing `call` rule and resolve through the `sym` module (see
+--- `SymModule` in `handl-runtime`). `NumberN` below is literally
+--- `sym()`; `FloatN` is literally `sym(NumberN)`.
+export NumberN :: sym()
+export IntN :: sym(NumberN)
+export FloatN :: sym(NumberN)
+export NatN :: sym(IntN)
