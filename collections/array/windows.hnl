@@ -7,48 +7,17 @@
 --- `array.windows([1, 2, 3, 4], 2)`
 --- -- => [[1, 2], [2, 3], [3, 4]]
 ---
+from "./len.hnl" import * as len
+from "./take.hnl" import * as take
+from "./drop.hnl" import * as drop
+from "./reverse.hnl" import * as reverse
+
 export windows<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
   if size < 1 {
     null
   } else {
     do {
-      length :: (ys) ~> do {
-        n :: 0
-        for x in ys {
-          n = n + 1
-        }
-        n
-      }
-      rev :: (ys) ~> do {
-        r :: []
-        for x in ys {
-          r = [x, ...r]
-        }
-        r
-      }
-      take_ :: (ys, n) ~> do {
-        out :: []
-        k :: 0
-        for x in ys {
-          do {
-            if k < n { out = [x, ...out] }
-            k = k + 1
-          }
-        }
-        rev(out)
-      }
-      drop_ :: (ys, n) ~> do {
-        out :: []
-        k :: 0
-        for x in ys {
-          do {
-            if k >= n { out = [x, ...out] }
-            k = k + 1
-          }
-        }
-        rev(out)
-      }
-      l :: length(xs)
+      l :: len.len(xs)
       if size > l {
         []
       } else {
@@ -58,12 +27,12 @@ export windows<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
           for x in xs {
             do {
               if start + size <= l {
-                out = [take_(drop_(xs, start), size), ...out]
+                out = [take.take(drop.drop(xs, start), size), ...out]
               };
               start = start + 1
             }
           }
-          rev(out)
+          reverse.reverse(out)
         }
       }
     }

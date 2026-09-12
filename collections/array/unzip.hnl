@@ -7,15 +7,9 @@
 --- `array.unzip([[1, "x"], [2, "y"]])`
 --- -- => [[1, 2], ["x", "y"]]
 ---
+from "./reverse.hnl" import * as reverse
 
 export unzip<A,B>: List(Pair(A,B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
-  rev :: (ys) ~> do {
-    r :: [];
-    for h in ys {
-      r = [h, ...r]
-    };
-    r
-  };
   fs :: [];
   gs :: [];
   for x in xs {
@@ -29,5 +23,5 @@ export unzip<A,B>: List(Pair(A,B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> 
       }
     }
   };
-  [rev(fs), rev(gs)]
+  [reverse.reverse(fs), reverse.reverse(gs)]
 }

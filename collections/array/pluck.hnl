@@ -6,24 +6,17 @@
 --- `array.pluck([{ name: "a" }, { name: "b" }, 7], "name")`
 --- -- => ["a", "b", null]
 ---
-from "typeof" import * as typeof
+from "./_reflect.hnl" import * as _reflect
+from "./reverse.hnl" import * as reverse
 from "hash_map" import * as hash_map
 
 export pluck<T>: (List(T), String) ~[Total]~> List(T) := (xs, key) ~> do {
-  is_obj :: (x) ~> typeof.type_of(x) == "obj"
-  rev :: (ys) ~> do {
-    r :: []
-    for x in ys {
-      r = [x, ...r]
-    }
-    r
-  }
   out :: []
   for x in xs {
     do {
-      v :: if is_obj(x) { hash_map.get(x, key) } else { null }
+      v :: if _reflect.is_obj(x) { hash_map.get(x, key) } else { null }
       out = [v, ...out]
     }
   }
-  rev(out)
+  reverse.reverse(out)
 }

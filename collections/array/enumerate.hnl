@@ -6,14 +6,9 @@
 --- `array.enumerate(["a", "b"])`
 --- -- => [[0, "a"], [1, "b"]]
 ---
+from "./reverse.hnl" import * as reverse
+
 export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
-  rev :: (ys) ~> do {
-    r :: []
-    for x in ys {
-      r = [x, ...r]
-    }
-    r
-  }
   out :: []
   k :: 0
   for x in xs {
@@ -22,5 +17,5 @@ export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
       k = k + 1
     }
   }
-  rev(out)
+  reverse.reverse(out)
 }
