@@ -506,8 +506,8 @@ fn keyword_hover(classes: &TokenClasses, kind: &str, text: &str) -> String {
     }
 }
 
-/// Produce a granular hover for an identifier, showing its syntactic role
-/// (binding, property, parameter, function, type) and usage count.
+/// Produce a hover for an identifier, showing its name and a generalized
+/// signature if its role is one we can classify.
 fn identifier_hover(
     classes: &TokenClasses,
     tokens: &[SpannedToken],
@@ -515,16 +515,6 @@ fn identifier_hover(
     token: &SpannedToken,
 ) -> String {
     let role = classify_identifier_role(classes, tokens, index);
-    let usage_count = tokens
-        .iter()
-        .filter(|t| classes.is_identifier(&t.kind) && t.text == token.text)
-        .count();
-
-    let mut md = format!("**{}** `{}`", role.label, token.text);
-
-    if let Some(detail) = role.detail {
-        md.push_str(&format!("\n\n{}", detail));
-    }
 
     // Generalized signature fallback. Exact type/arrow signatures from the
     // typechecker are not wired to token hover yet, so we show a placeholder
@@ -536,12 +526,15 @@ fn identifier_hover(
         }
         _ => None,
     };
-    if let Some(sig) = signature {
-        md.push_str(&format!("\n\n```\n{}\n```", sig));
-    }
 
-    if usage_count > 1 {
-        md.push_str(&format!("\n\n_{} occurrences in this file_", usage_count));
+    let mut md = if let Some(sig) = signature {
+        format!("**{}** `{}`", token.text, sig)
+    } else {
+        format!("**{}**", token.text)
+    };
+
+    if let (Some(detail), None) = (role.detail, signature) {
+        md.push_str(&format!("\n\n{}", detail));
     }
 
     md
