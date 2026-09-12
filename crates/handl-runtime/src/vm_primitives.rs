@@ -640,3 +640,125 @@ impl Module for VmPrimitivesModule {
         ]
     }
 }
+
+// ---------------------------------------------------------------------------
+// SymModule — the `sym` module: ADR-0106 §2 nominal identity primitives
+// exposed to Handl surface code (Phase 3).
+// ---------------------------------------------------------------------------
+//
+// `sym()` / `sym(parent)` desugar to native arrow/object structures only:
+// a bare `sym(...)` call in surface code parses (via the existing grammar's
+// `call` rule — no lexer/parser changes) and dispatches through the module
+// registry's flat-name lookup to the Phase 2 VM primitives. `sym.instanceof`
+// is a `field-access(var("sym"), "instanceof")` host call resolving to the
+// `instance_of` primitive aliased under a surface-friendly local name.
+//
+// No new closure/capture semantics are introduced: both functions are plain
+// host functions delegating to `handl-value` via `VmPrimitivesModule`.
+
+/// Name of the module: `sym(x)` / `sym.instanceof(v, n)` in surface code.
+pub const SYM_MODULE_NAME: &str = "sym";
+
+/// A `Send + Sync` wrapper exposing the Phase 2 nominal primitives as the
+/// `sym` module: `sym` (0- or 1-arg mint) and `instanceof` (alias of
+/// `instance_of`). Delegates to a [`VmPrimitivesModule`] instance held by
+/// value (its function structs are `Send + Sync`; shared scope state is
+/// behind `Arc<Mutex<..>>`).
+pub struct SymModule {
+    inner: VmPrimitivesModule,
+}
+
+impl SymModule {
+    /// Create a fresh `sym` module (own VM primitive state).
+    pub fn new() -> Self {
+        SymModule {
+            inner: VmPrimitivesModule::new(),
+        }
+    }
+}
+
+impl Default for SymModule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Module for SymModule {
+    fn name(&self) -> &str {
+        SYM_MODULE_NAME
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        match name {
+            "sym" => self.inner.function("sym"),
+            "instanceof" => self.inner.function("instance_of"),
+            "instance_of" => self.inner.function("instance_of"),
+            _ => None,
+        }
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        let mut out = Vec::new();
+        if let Some(f) = self.inner.function("sym") {
+            out.push(("sym", f));
+        }
+        if let Some(f) = self.inner.function("instance_of") {
+            out.push(("instanceof", f));
+            out.push(("instance_of", f));
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod sym_module_tests {
+    use super::*;
+
+    fn call(module: &SymModule, name: &str, args: &[Value]) -> Result<Value, EvalError> {
+        let func = module
+            .function(name)
+            .unwrap_or_else(|| panic!("SymModule has no '{}' function", name));
+        func.call(args, &mut EvalContext::new())
+    }
+
+    #[test]
+    fn sym_module_name_is_sym() {
+        assert_eq!(SymModule::new().name(), "sym");
+    }
+
+    #[test]
+    fn sym_module_exposes_sym_and_instanceof_aliases() {
+        let m = SymModule::new();
+        assert!(m.function("sym").is_some());
+        assert!(m.function("instanceof").is_some());
+        assert!(m.function("instance_of").is_some());
+        assert!(m.function("nope").is_none());
+    }
+
+    #[test]
+    fn sym_module_sym_mints_nominal_and_instanceof_walks_chain() {
+        let m = SymModule::new();
+        let root = call(&m, "sym", &[]).expect("sym() mints");
+        assert!(root.get("__sym__").is_some());
+        let child = call(&m, "sym", &[root.clone()]).expect("sym(parent) mints");
+        assert_eq!(call(&m, "instanceof", &[child.clone(), root.clone()]), Ok(json!(true)));
+        assert_eq!(call(&m, "instance_of", &[child.clone(), child.clone()]), Ok(json!(true)));
+        assert_eq!(call(&m, "instanceof", &[root.clone(), child.clone()]), Ok(json!(false)));
+    }
+
+    #[test]
+    fn sym_module_non_nominal_parent_errors_cleanly() {
+        let m = SymModule::new();
+        let err = call(&m, "sym", &[json!(42)]).unwrap_err();
+        assert!(format!("{:?}", err).contains("parent is not a nominal object"));
+    }
+
+    #[test]
+    fn sym_module_non_nominal_nominal_arg_errors_cleanly() {
+        let m = SymModule::new();
+        let root = call(&m, "sym", &[]).expect("sym() mints");
+        let err = call(&m, "instanceof", &[root, json!(42)]).unwrap_err();
+        assert!(format!("{:?}", err).contains("must be a nominal object"));
+    }
+}
+

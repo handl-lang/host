@@ -48,6 +48,7 @@ use handl_plugin_lib_tag::TypeRegistry;
 use handl_plugin_ffi::FfiModule;
 use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
+use handl_runtime::vm_primitives::SymModule;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::cell::RefCell;
@@ -204,6 +205,12 @@ impl ModuleResolver for StdlibResolver {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
             "type" => Some(std::sync::Arc::new(build_type_module())),
+            // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
+            // surface): `sym()` / `sym(parent)` mint via the existing
+            // grammar's `call` rule (flat-name lookup), and
+            // `sym.instanceof(v, n)` is a field-access host call to the
+            // `instance_of` primitive. No lexer/parser changes.
+            "sym" => Some(std::sync::Arc::new(SymModule::new())),
             // `error` — the error-raising primitive (ADR-0092 gap (a));
             // a plain table module.
             "error" => stdlib::module("error").map(|m| {
@@ -355,6 +362,13 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
         if want("type") {
             stdlib_registry.register(build_type_module());
+        }
+        // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
+        // surface, zero lexer/parser changes): `sym()` / `sym(parent)`
+        // resolve via flat-name lookup; `sym.instanceof(v, n)` resolves
+        // via the `sym` module-name prefix.
+        if want("sym") {
+            stdlib_registry.register(SymModule::new());
         }
         // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
         // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
