@@ -2326,6 +2326,18 @@ impl TreeWalkEngine {
                     ));
                 };
                 let captured = env.capture();
+                // ADR-0106 item 2 (step 1): carry the body as explicit,
+                // serializable structure so the arrow is self-describing.
+                // `Ast::subtree` extracts a standalone arena for the body
+                // (children remapped) and `ast_value` wraps it as
+                // `{"__ast__": <Ast>}` — the same encoding used for vau-bound
+                // unevaluated expressions. Additive only: the apply path
+                // still uses `body`/`home`, and extraction failure degrades
+                // to `None` rather than failing the closure creation.
+                let body_def = ast
+                    .subtree(AstRef::new(body))
+                    .ok()
+                    .map(|sub| Rc::new(TaggedValue::from(handl_language::ast_value(&sub))));
                 let closure = TaggedValue::Arrow {
                     params: Rc::from(params),
                     rest: rest.map(Rc::from),
@@ -2333,6 +2345,7 @@ impl TreeWalkEngine {
                     env: captured,
                     home: None,
                     array_pattern,
+                    body_def,
                 };
                 Ok((closure, false))
             }
@@ -3312,6 +3325,7 @@ impl TreeWalkEngine {
                             env,
                             home,
                             array_pattern,
+                            ..
                         },
                         TaggedValue::Str(key),
                     ) => match key.as_ref() {
@@ -3895,6 +3909,7 @@ impl TreeWalkEngine {
                 env,
                 home,
                 array_pattern,
+                ..
             } => (
                 params.clone(),
                 rest.clone(),
@@ -3926,6 +3941,9 @@ impl TreeWalkEngine {
             // module chain, not the ambient engine's.
             let mut engine = self.clone();
             engine.modules = frame.modules.clone();
+            // ADR-0106 item 2 step 1: this re-wraps an existing body in the
+            // same arena, so no new definition is minted here — `body_def`
+            // stays `None` and the `home`/`body` fallback applies as before.
             let local_callee = TaggedValue::Arrow {
                 params: params.clone(),
                 rest: rest_param.clone(),
@@ -3933,6 +3951,7 @@ impl TreeWalkEngine {
                 env: captured_env.clone(),
                 home: None,
                 array_pattern,
+                body_def: None,
             };
             let mut frame_env = ScopeStack::new();
             if let Some(g) = &frame.globals {

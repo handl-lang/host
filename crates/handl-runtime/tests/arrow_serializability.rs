@@ -62,6 +62,9 @@ const DOCUMENTED_ARROW_KEYS: &[&str] = &[
     "rest",
     "__home__",
     "array_pattern",
+    // ADR-0106 item 2 step 1: the arrow's body as explicit, serializable
+    // structure (`{"__ast__": <Ast>}`), emitted only when present.
+    "body_def",
 ];
 
 /// Round-trip a JSON value through the tagged-value representation.
@@ -109,6 +112,7 @@ fn arrow_json_keys_are_a_subset_of_the_documented_universe() {
         "env": {},
         "__home__": 9,
         "array_pattern": true,
+        "body_def": { "__ast__": { "nodes": [] } },
     });
     let out = round_trip(full.clone());
     assert_eq!(out, full, "full arrow round-trips unchanged");
@@ -226,6 +230,7 @@ fn env_captured_resource_round_trips_lossily() {
         env: Rc::new(env),
         home: None,
         array_pattern: false,
+        body_def: None,
     };
 
     // Serialize: the resource becomes a debug-only pointer record, no finalizer.
@@ -338,6 +343,17 @@ fn engine_arrow_value_uses_documented_shape() {
     assert_eq!(arrow["env"], json!({}), "a minted arrow's env is empty here");
     assert!(arrow["body"].is_u64(), "arrow carries a numeric body index");
 
+    // ADR-0106 item 2 step 1: the engine also mints the body as explicit,
+    // serializable structure, so the arrow is self-describing even though the
+    // apply path still uses `body`/`home`.
+    let body_def = arrow
+        .get("body_def")
+        .expect("a minted arrow carries `body_def` (ADR-0106 item 2 step 1)");
+    assert!(
+        body_def.get("__ast__").is_some(),
+        "`body_def` is the language-level AST value `{{\"__ast__\": <Ast>}}`: {body_def}",
+    );
+
     let obj = arrow.as_object().expect("arrow encodes as a JSON object");
     for key in obj.keys() {
         assert!(
@@ -352,3 +368,90 @@ fn engine_arrow_value_uses_documented_shape() {
 
 
 
+
+
+// ---------------------------------------------------------------------------
+// 7. `body_def` (ADR-0106 item 2 step 1): additive, present-only-when-set.
+// ---------------------------------------------------------------------------
+
+/// The optional `body_def` field is emitted only when set and round-trips
+/// unchanged, so the default arrow shape (pinned by test 1) is untouched.
+#[test]
+fn body_def_round_trips_when_present_and_is_absent_otherwise() {
+    // Absent: the bare arrow emits exactly the four mandatory keys.
+    let bare = round_trip(bare_arrow_json());
+    assert!(
+        bare.get("body_def").is_none(),
+        "`body_def` must not be emitted when it is `None`: {bare}",
+    );
+
+    // Present: an opaque AST-value payload survives the round-trip unchanged.
+    let with_def = json!({
+        "__arrow__": true,
+        "params": ["x"],
+        "body": 0,
+        "env": {},
+        "body_def": {
+            "__ast__": {
+                "nodes": [{ "kind": "var", "span": null, "payload": { "name": "x" } }]
+            }
+        }
+    });
+    let out = round_trip(with_def.clone());
+    assert_eq!(out, with_def, "an arrow with `body_def` round-trips unchanged");
+    assert_eq!(out["body_def"]["__ast__"]["nodes"][0]["kind"], json!("var"));
+}
+
+/// `body_def` is **derived** data (the same body, pre-extracted), so it is not
+/// part of an arrow's identity: equality and hashing ignore it (keeping the
+/// `Hash`/`Eq` contract), while serialization still carries it when present.
+#[test]
+fn body_def_is_derived_and_ignored_by_equality() {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    fn hash_of(v: &TaggedValue) -> u64 {
+        let mut h = DefaultHasher::new();
+        v.hash(&mut h);
+        h.finish()
+    }
+
+    let none_val: TaggedValue = bare_arrow_json().into();
+    // Same arrow, built directly with `body_def: None` — equal and hashing
+    // identically with the decoded bare arrow.
+    let explicit: TaggedValue = TaggedValue::Arrow {
+        params: Rc::from(vec!["x".to_string()]),
+        rest: None,
+        body: 0,
+        env: Rc::new(FxHashMap::default()),
+        home: None,
+        array_pattern: false,
+        body_def: None,
+    };
+    assert_eq!(none_val, explicit, "`body_def: None` is the decoded default");
+    assert_eq!(hash_of(&none_val), hash_of(&explicit));
+
+    // With a definition present the *value* is still the same arrow: the field
+    // is derived, not identifying, so equality and hash must not change.
+    let with_def: TaggedValue = json!({
+        "__arrow__": true,
+        "params": ["x"],
+        "body": 0,
+        "env": {},
+        "body_def": { "__ast__": { "nodes": [] } }
+    })
+    .into();
+    assert_eq!(
+        none_val, with_def,
+        "`body_def` is derived data and must not affect arrow identity",
+    );
+    assert_eq!(
+        hash_of(&none_val),
+        hash_of(&with_def),
+        "Hash must agree with Eq: `body_def` participates in neither",
+    );
+
+    // It is still serialized when present, though — the two encodings differ.
+    assert!(tagged_to_value(&none_val).get("body_def").is_none());
+    assert!(tagged_to_value(&with_def).get("body_def").is_some());
+}

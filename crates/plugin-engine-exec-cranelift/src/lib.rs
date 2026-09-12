@@ -3847,6 +3847,9 @@ fn apply_native_v2(
                     env: Rc::new(captured),
                     home: None,
                     array_pattern,
+                    // ADR-0106 item 2 step 1: cranelift's body is an
+                    // instruction index, not an AST node (step 3).
+                    body_def: None,
                 })
             }
             Err(e) => Err(e),
