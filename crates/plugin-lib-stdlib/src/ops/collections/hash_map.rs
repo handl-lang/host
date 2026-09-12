@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 use super::common::{
-    b, num, obj as object_value, require_array, require_object, require_one_array,
+    num, obj as object_value, require_array, require_object, require_one_array,
     require_one_object,
 };
 
@@ -266,36 +266,6 @@ impl Function for ToObject {
 
 // ── inspection ────────────────────────────────────────────────────
 
-/// `collections.hash_map.len(map: hash_map) → number`
-#[derive(Clone, Copy)]
-pub struct Len;
-
-impl Function for Len {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_one_object(args)?;
-        Ok(num(input.len() as f64))
-    }
-}
-
-/// `collections.hash_map.is_empty(map: hash_map) → bool`
-#[derive(Clone, Copy)]
-pub struct IsEmpty;
-
-impl Function for IsEmpty {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_one_object(args)?;
-        Ok(b(input.is_empty()))
-    }
-}
-
 /// `collections.hash_map.size(map: hash_map) → number`
 #[derive(Clone, Copy)]
 pub struct Size;
@@ -353,22 +323,6 @@ impl Function for GetOr {
             Some(Value::Null) | None => Ok(default_arg.clone()),
             Some(v) => Ok(serde_json::Value::from(v.clone())),
         }
-    }
-}
-
-/// `collections.hash_map.has(map: hash_map, key: string) → bool`
-#[derive(Clone, Copy)]
-pub struct Has;
-
-impl Function for Has {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let input = require_object(args, 0)?;
-        let key = require_key(args, 1)?;
-        Ok(b(input.contains_key(key)))
     }
 }
 
@@ -671,21 +625,6 @@ impl Function for Invert {
             result.insert(new_key, Value::String(k.clone()));
         }
         Ok(object_value(result))
-    }
-}
-
-/// `collections.hash_map.clone_deep(value: value) → value`
-#[derive(Clone, Copy)]
-pub struct CloneDeep;
-
-impl Function for CloneDeep {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
-        let arg = require_one_arg(args)?;
-        Ok(serde_json::Value::from(arg.clone()))
     }
 }
 

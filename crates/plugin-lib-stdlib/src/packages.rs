@@ -302,10 +302,19 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "hash_map",
         hnl: include_str!("../../../handl-packages/collections/hash_map.hnl"),
-        funcs: &["keys", "values", "entries"],
+        funcs: &[
+            "keys",
+            "values",
+            "entries",
+            "len",
+            "is_empty",
+            "has",
+            "has_key",
+            "clone_deep",
+        ],
         ops: ops::collections::HASH_MAP_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["obj"],
+        deps: &["obj", "len", "contains"],
     },
     ModuleSpec {
         name: "hash_set",

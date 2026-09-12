@@ -2,12 +2,25 @@
 ---
 --- The op-backed surface (constructors, access, mutation, selection,
 --- combination, and deep operations) stays native. The field-enumeration
---- surface (`keys`, `values`, `entries`) is now pure handl over the `obj`
---- introspection primitives.
+--- surface (`keys`, `values`, `entries`) and the simple inspection/membership
+--- surface (`len`, `is_empty`, `has`, `has_key`, `clone_deep`) are now pure
+--- handl over the `obj` introspection primitives and the leaf `array`
+--- helpers (`len`, `contains`).
+---
+--- NOTE: the `array` aggregator itself depends on `hash_map`, so importing
+--- it here would form a dependency cycle; the leaf `collections/array/len`
+--- and `collections/array/contains` submodules are used instead.
 from "obj" import * as obj
+from "len" import * as len
+from "contains" import * as contains
 
 {
   keys: m ~> obj.keys(m),
   values: m ~> obj.values(m),
-  entries: m ~> obj.entries(m)
+  entries: m ~> obj.entries(m),
+  len: m ~> len.len(obj.keys(m)),
+  is_empty: m ~> len.len(obj.keys(m)) == 0,
+  has: (m, k) ~> contains.contains(obj.keys(m), k),
+  has_key: (m, k) ~> contains.contains(obj.keys(m), k),
+  clone_deep: x ~> x
 }
