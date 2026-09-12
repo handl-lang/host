@@ -11,7 +11,7 @@ use handl_language::{
     Term, TokenKindDef,
 };
 use handl_runtime::RuntimeConfig;
-use serde_json::Value;
+use serde_json::json;
 
 // ---------------------------------------------------------------------------
 // Test emitters
@@ -81,7 +81,7 @@ impl Emitter for ConstructEmitter {
         lang.eval.merge(EvalSchemeDef::new(
             self.eval_id,
             self.node_kind,
-            Term::arr_native_lit("const", vec![], Value::Null),
+            serde_json::from_value::<Term>(json!({"Arr": {"value": null}})).unwrap(),
         ))?;
         Ok(lang)
     }

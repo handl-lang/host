@@ -12,7 +12,7 @@
 //!   - A nested `mul` `Op` chain (`5 * 4 * 3 * 2 * 1`), the most direct
 //!     encoding of factorial as a static arrow — the canonical
 //!     `factorial(5) = 120` term.
-//!   - A bounded [`Term::Iter`] countdown that complements the mul-chain
+//!   - A bounded [`TermData::iter`] countdown that complements the mul-chain
 //!     by exercising bounded iteration through both models (confirming
 //!     exec/arrow parity on `Iter` itself).
 
@@ -123,7 +123,7 @@ fn factorial_mul_chain() -> Term {
     ))
 }
 
-/// Build an [`Term::Iter`] countdown term that complements the mul-chain
+/// Build an [`TermData::iter`] countdown term that complements the mul-chain
 /// factorial by exercising bounded iteration through both models.
 ///
 /// `Iter` threads a single state value, so a pair-accumulator encoding of
@@ -236,7 +236,7 @@ fn factorial_zero_is_one() {
     assert_eq!(rust, handl);
 }
 
-/// The factorial mul-chain is a `Term::Op` whose `TermData` representation
+/// The factorial mul-chain is a `TermData::op` whose `TermData` representation
 /// round-trips losslessly — the data representation that the type model
 /// will consume (ADR-0103 Phase 6).
 #[test]
