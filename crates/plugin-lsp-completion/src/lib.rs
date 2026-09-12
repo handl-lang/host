@@ -827,6 +827,7 @@ fn base_dir(path: &str) -> Option<PathBuf> {
             Some(p.to_path_buf())
         }
     })
+    .and_then(|p| p.canonicalize().ok().or(Some(p)))
 }
 
 fn token_at(tokens: &[SpannedToken], pos: usize) -> Option<usize> {
@@ -858,16 +859,20 @@ fn import_path_completions(
     if prefix.ends_with('"') {
         prefix = &prefix[..prefix.len() - 1];
     }
+    // Strip a trailing slash so that `../dir/|` completes inside `dir`,
+    // not inside a non-existent `dir/`.
+    let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
     let (dir_part, stem) = if let Some(slash) = prefix.rfind('/') {
         (&prefix[..slash], &prefix[slash + 1..])
     } else {
         ("", prefix)
     };
-    let search_dir = if dir_part.is_empty() {
+    let mut search_dir = if dir_part.is_empty() {
         base
     } else {
         base.join(dir_part)
     };
+    search_dir = search_dir.canonicalize().ok().unwrap_or(search_dir);
     let current_name = Path::new(path)
         .file_name()
         .and_then(|s| s.to_str())
@@ -904,6 +909,23 @@ fn import_path_completions(
         item.detail = Some(if is_dir { "directory".into() } else { "file".into() });
         item.insert_text = Some(full);
         items.push(item);
+        // Also suggest `dir/dir.hnl` as a file when a directory carries the
+        // canonical module-file layout.
+        if is_dir {
+            let child = entry.path().join(format!("{name}.hnl"));
+            if child.is_file() {
+                let child_full = if dir_part.is_empty() {
+                    format!("{name}.hnl")
+                } else {
+                    format!("{dir_part}/{name}.hnl")
+                };
+                let mut child_item = CompletionItem::new(format!("{name}.hnl"));
+                child_item.kind = Some(KIND_FILE);
+                child_item.detail = Some("module file".into());
+                child_item.insert_text = Some(child_full);
+                items.push(child_item);
+            }
+        }
     }
     if items.is_empty() {
         return None;
@@ -914,21 +936,29 @@ fn import_path_completions(
 
 fn resolve_import_target(base: &Path, spec: &str) -> Option<PathBuf> {
     let p = base.join(spec);
+    let p = p.canonicalize().ok().unwrap_or(p);
     if p.is_file() {
         return Some(p);
     }
-    let with_ext = p.with_extension("hnl");
-    if with_ext.is_file() {
-        return Some(with_ext);
+    if p.extension().is_none() {
+        let with_ext = p.with_extension("hnl");
+        let with_ext = with_ext.canonicalize().ok().unwrap_or(with_ext);
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
     }
-    if p.is_dir() {
-        if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-            let child = p.join(format!("{name}.hnl"));
+    let dir = if p.is_dir() { p.clone() } else { p.with_extension("") };
+    let dir = dir.canonicalize().ok().unwrap_or(dir);
+    if dir.is_dir() {
+        if let Some(name) = dir.file_stem().and_then(|s| s.to_str()) {
+            let child = dir.join(format!("{name}.hnl"));
+            let child = child.canonicalize().ok().unwrap_or(child);
             if child.is_file() {
                 return Some(child);
             }
         }
-        let child = p.join("mod.hnl");
+        let child = dir.join("mod.hnl");
+        let child = child.canonicalize().ok().unwrap_or(child);
         if child.is_file() {
             return Some(child);
         }

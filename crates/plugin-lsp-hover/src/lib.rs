@@ -38,8 +38,37 @@ fn token_hover(source: &str, pos: usize, path: &str) -> Option<String> {
         .iter()
         .enumerate()
         .find(|(_, t)| t.span.start <= pos && pos < t.span.end)?;
+    if classes.is_string(token.kind.as_str()) {
+        if let Some(md) = import_spec_hover(&tokens, index, &classes, path) {
+            return Some(md);
+        }
+    }
     classify_token(&classes, &tokens, index, token)
         .or_else(|| extract_doc_comments(source))
+}
+
+/// Hover for an import-string token: resolve the module and show its top
+/// `---` doc comments.
+fn import_spec_hover(
+    tokens: &[SpannedToken],
+    index: usize,
+    classes: &TokenClasses,
+    path: &str,
+) -> Option<String> {
+    let tok = &tokens[index];
+    let prev = tokens.get(index.checked_sub(1)?)?;
+    if !classes.is_keyword(&prev.kind) || (prev.text != "import" && prev.text != "from") {
+        return None;
+    }
+    let current_dir = base_dir(path)?;
+    let spec = strip_quotes(&tok.text);
+    let target_path = resolve_import_target(spec, &current_dir)?;
+    let target = fs::read_to_string(&target_path).ok()?;
+    let docs = leading_doc_lines(&target);
+    if docs.is_empty() {
+        return None;
+    }
+    Some(format!("**module** `{}`\n\n{}", spec, docs.join("\n")))
 }
 
 /// Extract leading `---` doc comments as markdown text.
@@ -240,7 +269,7 @@ fn export_doc_and_signature(source: &str, needle: &str) -> Option<(String, Strin
     let classes = TokenClasses::new(kit.language());
     let info = find_export(&tokens, &classes, needle)?;
     let doc = export_doc(&tokens, &classes, &info, source)?;
-    let signature = export_signature(&tokens, &classes, &info);
+    let signature = export_signature(&tokens, &classes, &info, source);
     Some((doc, signature))
 }
 
@@ -351,8 +380,18 @@ fn export_doc(
     info: &ExportInfo,
     source: &str,
 ) -> Option<String> {
-    if matches!(info.kind, ExportKind::Axiom | ExportKind::Law) {
-        if let Some(doc) = preceding_comment_lines(tokens, classes, info.decl_index, &info.full) {
+    // Axioms/laws/arrow declarations carry their per-declaration notes in
+    // the `--` comments that follow the signature.
+    if matches!(info.kind, ExportKind::Axiom | ExportKind::Law | ExportKind::Arrow) {
+        if let Some(doc) = trailing_block_doc(tokens, classes, info) {
+            return Some(doc);
+        }
+    }
+    if let Some(doc) = preceding_comment_lines(tokens, classes, info.decl_index, &info.full) {
+        return Some(doc);
+    }
+    if matches!(info.kind, ExportKind::Variable) {
+        if let Some(doc) = trailing_block_doc(tokens, classes, info) {
             return Some(doc);
         }
     }
@@ -404,19 +443,78 @@ fn fallback_doc(source: &str, name: &str) -> Option<String> {
     }
 }
 
-fn export_signature(tokens: &[SpannedToken], _classes: &TokenClasses, info: &ExportInfo) -> String {
-    if matches!(info.kind, ExportKind::Axiom | ExportKind::Law | ExportKind::Arrow) {
-        return "Type ~> Type".to_string();
+fn continues_after(prev: &SpannedToken, classes: &TokenClasses) -> bool {
+    let kind = prev.kind.as_str();
+    classes.is_operator(kind)
+        || classes.is_open_bracket(kind)
+        || matches!(
+            prev.text.as_str(),
+            ":" | "::" | "=" | "->" | "~>" | "," | "."
+        )
+}
+
+fn trailing_block_doc(
+    tokens: &[SpannedToken],
+    classes: &TokenClasses,
+    info: &ExportInfo,
+) -> Option<String> {
+    let start = tokens
+        .iter()
+        .position(|t| t.span.start >= info.span.end)
+        .unwrap_or(tokens.len());
+    let mut i = start;
+    while i < tokens.len()
+        && !classes.is_comment(tokens[i].kind.as_str())
+        && !classes.is_doc_comment(tokens[i].kind.as_str())
+    {
+        i += 1;
     }
-    for t in tokens.iter().skip(info.decl_index + 1) {
-        if t.text == "axiom" || t.text == "law" || t.text == "export" {
+    let mut lines = Vec::new();
+    while i < tokens.len()
+        && classes.is_comment(tokens[i].kind.as_str())
+        && !classes.is_doc_comment(tokens[i].kind.as_str())
+    {
+        let text = tokens[i].text.strip_prefix("--").unwrap_or(&tokens[i].text);
+        let text = text.strip_prefix(' ').unwrap_or(text);
+        lines.push(text.to_string());
+        i += 1;
+    }
+    if lines.is_empty() {
+        return None;
+    }
+    Some(lines.join("\n"))
+}
+
+fn signature_text(
+    tokens: &[SpannedToken],
+    classes: &TokenClasses,
+    info: &ExportInfo,
+    source: &str,
+) -> String {
+    let start = tokens
+        .iter()
+        .position(|t| t.span.start >= info.span.end)
+        .unwrap_or(tokens.len());
+    let mut end = info.span.end;
+    let mut prev: Option<&SpannedToken> = tokens.get(start.saturating_sub(1));
+    for t in tokens.iter().skip(start) {
+        let kind = t.kind.as_str();
+        if classes.is_comment(kind) || classes.is_doc_comment(kind) {
             break;
         }
-        if t.text == "~>" || t.text == "->" {
-            return "Type ~> Type".to_string();
+        if (classes.is_identifier(kind) || classes.is_number(kind) || classes.is_string(kind) || classes.is_keyword(kind))
+            && prev.map_or(false, |p| !continues_after(p, classes))
+        {
+            break;
         }
+        end = t.span.end;
+        prev = Some(t);
     }
-    "Type".to_string()
+    source[info.span.start..end].trim().to_string()
+}
+
+fn export_signature(tokens: &[SpannedToken], classes: &TokenClasses, info: &ExportInfo, source: &str) -> String {
+    signature_text(tokens, classes, info, source)
 }
 
 // ---------------------------------------------------------------------------
@@ -439,21 +537,29 @@ fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, Span)> {
 /// Resolve a canonical import specifier to a concrete `.hnl` file.
 fn resolve_import_target(spec: &str, current_dir: &Path) -> Option<PathBuf> {
     let p = current_dir.join(spec);
+    let p = p.canonicalize().ok().unwrap_or(p);
     if p.is_file() {
         return Some(p);
     }
-    let with_ext = p.with_extension("hnl");
-    if with_ext.is_file() {
-        return Some(with_ext);
+    if p.extension().is_none() {
+        let with_ext = p.with_extension("hnl");
+        let with_ext = with_ext.canonicalize().ok().unwrap_or(with_ext);
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
     }
-    if p.is_dir() {
-        if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-            let child = p.join(format!("{name}.hnl"));
+    let dir = if p.is_dir() { p.clone() } else { p.with_extension("") };
+    let dir = dir.canonicalize().ok().unwrap_or(dir);
+    if dir.is_dir() {
+        if let Some(name) = dir.file_stem().and_then(|s| s.to_str()) {
+            let child = dir.join(format!("{name}.hnl"));
+            let child = child.canonicalize().ok().unwrap_or(child);
             if child.is_file() {
                 return Some(child);
             }
         }
-        let child = p.join("mod.hnl");
+        let child = dir.join("mod.hnl");
+        let child = child.canonicalize().ok().unwrap_or(child);
         if child.is_file() {
             return Some(child);
         }
@@ -636,6 +742,7 @@ fn base_dir(path: &str) -> Option<PathBuf> {
             Some(p.to_path_buf())
         }
     })
+    .and_then(|p| p.canonicalize().ok().or(Some(p)))
 }
 
 fn strip_quotes(s: &str) -> &str {
