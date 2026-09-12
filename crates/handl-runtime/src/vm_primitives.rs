@@ -844,5 +844,66 @@ mod sym_module_tests {
         let err = call(&m, "instanceof", &[root, json!(42)]).unwrap_err();
         assert!(format!("{:?}", err).contains("must be a nominal object"));
     }
+
+    #[test]
+    fn sym_module_default_is_a_fresh_sym_module() {
+        // `Default` is the documented construction path for registration
+        // lists; it must produce a working module, not a panic placeholder.
+        let m = SymModule::default();
+        assert_eq!(m.name(), SYM_MODULE_NAME);
+        assert!(m.function("sym").is_some());
+        assert!(m.function("instanceof").is_some());
+    }
+
+    #[test]
+    fn sym_module_functions_lists_both_aliases() {
+        // `functions()` enumerates the module's public surface: `sym` once and
+        // `instanceof` under both its surface name and the primitive name.
+        let m = SymModule::new();
+        let mut names: Vec<&str> = m.functions().into_iter().map(|(n, _)| n).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["instance_of", "instanceof", "sym"]);
+    }
+
+    #[test]
+    fn legacy_tag_roles_maps_every_known_tag_and_rejects_others() {
+        // Every arm of the tag->roles table, nearest-first.
+        assert_eq!(legacy_tag_roles("int"), Some(&["Int", "Number"][..]));
+        assert_eq!(legacy_tag_roles("float"), Some(&["Float", "Number"][..]));
+        assert_eq!(legacy_tag_roles("nat"), Some(&["Nat", "Int", "Number"][..]));
+        assert_eq!(legacy_tag_roles("number"), Some(&["Number"][..]));
+        // Non-numeric / unknown legacy tags carry no nominal roles.
+        for tag in ["str", "bool", "nope", ""] {
+            assert_eq!(legacy_tag_roles(tag), None, "tag {tag:?}");
+        }
+    }
+
+    #[test]
+    fn legacy_tag_instance_of_unknown_tag_and_nameless_nominal_never_bridge() {
+        let named = json!({"__sym__": {"handle": 301, "name": "Int", "parent": null}});
+        // Genuine named nominal + known tag bridges.
+        assert!(legacy_tag_instance_of(&named, "int"));
+
+        // Unknown tag: no roles at all -> false (the `None => return false`
+        // arm). This is the defensive arm the `InstanceOfFn` guard normally
+        // makes unreachable, so it is exercised directly here.
+        assert!(!legacy_tag_instance_of(&named, "nope"));
+
+        // Named-less / empty-presentation-name nominals never bridge: the
+        // `_ => return false` arm (`Some(n) if !n.is_empty()` guard fails).
+        let empty_name = json!({"__sym__": {"handle": 302, "name": "", "parent": null}});
+        assert!(!legacy_tag_instance_of(&empty_name, "int"));
+
+        // A bare `__sym__` object with no `name` field is likewise rejected
+        // before consulting the roles.
+        let no_name = json!({"__sym__": {"handle": 303}});
+        assert!(!legacy_tag_instance_of(&no_name, "int"));
+
+        // `__sym__` that is not an object at all (the `as_object` hop fails;
+        // unreachable through `InstanceOfFn`, whose guard rejects non-syms
+        // first, but part of the helper's defensive contract).
+        let non_object = json!({"__sym__": 5});
+        assert!(!legacy_tag_instance_of(&non_object, "int"));
+    }
 }
 
