@@ -1,0 +1,44 @@
+--- The libc `rand` backend for random values.
+---
+--- Calls `rand` in `libc.so.6` through the generic `ffi` host
+--- capability and exposes `int`, `float`, and `bool` arrows.
+
+from "./crand" import { next_i32 }
+
+--- Generate a random integer in `[0, max]`.
+--- @param {max} - the inclusive upper bound
+--- @returns {Number - a random integer between 0 and `max` inclusive}
+--- @example
+--- ```hnl
+--- from "rand-c" import { int }
+--- int(6)
+--- ```
+export int: Number -> Number := (max) ~> do {
+  n = next_i32();
+  math.mod(n, max + 1)
+}
+
+--- Generate a random float in `[0, max)`.
+--- @param {max} - the exclusive upper bound
+--- @returns {Number - a random float in `[0, max)`}
+--- @example
+--- ```hnl
+--- from "rand-c" import { float }
+--- float(10)
+--- ```
+export float: Number -> Number := (max) ~> do {
+  n = next_i32();
+  math.div(n, 2147483648) * max
+}
+
+--- Generate a random boolean.
+--- @returns {Bool - `true` or `false`}
+--- @example
+--- ```hnl
+--- from "rand-c" import { bool }
+--- bool()
+--- ```
+export bool: () -> Bool := () ~> do {
+  n = next_i32();
+  math.mod(n, 2) == 0
+}
