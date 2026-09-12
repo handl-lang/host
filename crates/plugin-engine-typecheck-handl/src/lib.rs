@@ -115,11 +115,7 @@ impl HandlTypecheckEngine {
                 .with_dependency(TagModule)
                 .try_into_loaded()
             )
-            .map_err(|msg| {
-                LangError::engine(format!(
-                    "handl-plugin-engine-typecheck-handl: failed to load typecheck model: {msg}"
-                ))
-            })?;
+            .map_err(|_msg| LangError::NotImplemented)?;
             *cell = Some(Rc::new(loaded));
         }
         let module = cell.as_ref().unwrap().clone();
@@ -268,19 +264,11 @@ impl TypecheckEngine for HandlTypecheckEngine {
         let mut ctx = EvalContext::new();
         let result_val = match func.call(&args, &mut ctx) {
             Ok(v) => v,
-            Err(e) => {
-                // The model hit a construct it cannot evaluate. Return a
-                // graceful typecheck result with a diagnostic instead of an
-                // engine error, so callers can report it like a type error.
-                return Ok(TypecheckResult {
-                    typ: Value::Null,
-                    diagnostics: vec![TypecheckDiagnostic {
-                        severity: "error".to_string(),
-                        message: format!("typecheck model cannot handle construct: {e}"),
-                        span: None,
-                    }],
-                    node_types: HashMap::new(),
-                });
+            Err(_) => {
+                // The model hit a construct it cannot evaluate. Degrade to
+                // NotImplemented so the host can fall back to the bootstrap
+                // checker instead of reporting an engine error.
+                return Err(LangError::NotImplemented);
             }
         };
         Self::unmarshal_result(&result_val)

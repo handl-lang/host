@@ -1074,6 +1074,7 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-engine-typecheck-handl",
  "handl-plugin-engine-typecheck-nbe",
+ "handl-plugin-ext-diag",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",

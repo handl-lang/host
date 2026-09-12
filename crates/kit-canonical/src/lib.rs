@@ -32,6 +32,7 @@ use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
+use handl_plugin_ext_diag::Severity;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 use handl_plugin_lib_lang_compile::CompileModule;
@@ -1782,7 +1783,32 @@ impl Kit {
         let engine = self.handl_typecheck_engine.borrow();
         let engine = engine.as_ref().ok_or_else(|| LangError::engine("handl engine missing"))?;
         let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
-        let result = engine.typecheck(self.runtime.lang(), &req)?;
+        let result = match engine.typecheck(self.runtime.lang(), &req) {
+            Ok(r) => r,
+            Err(LangError::NotImplemented) => {
+                // The Handl model is not ready for this construct yet. Fall back
+                // to the canonical bootstrap checker so `--handl` degrades
+                // gracefully while the model matures.
+                let report = handl_plugin_engine_typecheck::check_module_with_prelude(
+                    self.runtime.lang(),
+                    input,
+                    &canonical_wire_names(),
+                )
+                .map_err(|e| LangError::engine(e.to_string()))?;
+                if report.diagnostics.iter().any(|d| d.severity == Severity::Error) {
+                    let messages = report
+                        .diagnostics
+                        .iter()
+                        .filter(|d| d.severity == Severity::Error)
+                        .map(|d| d.message.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    return Err(LangError::engine(format!("typecheck errors: {messages}")));
+                }
+                return Ok(Value::Null);
+            }
+            Err(e) => return Err(e),
+        };
         if result.diagnostics.iter().any(|d| d.severity == "error") {
             let messages = result
                 .diagnostics
