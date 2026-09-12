@@ -1,0 +1,144 @@
+# LSP surface for the canonical handl language.
+#
+# All handl-specific editor behavior is declared here. `plugin-lsp` reads this
+# fragment from `Language` and implements the LSP requests generically.
+
+lsp:
+  import:
+    # Tokens whose immediately following string token is a module path.
+    path_tokens: [token.from, token.import]
+    # Tokens after which an imported name is being entered.
+    name_tokens: [token.import]
+    # How an import spec (the string content) may map to a concrete .hnl file.
+    module_layouts:
+      - pattern: "{spec}"
+      - pattern: "{spec}.hnl"
+      - pattern: "{dir}/{dir}.hnl"
+      - pattern: "{dir}/mod.hnl"
+
+  export:
+    # Declarations that can be completed, hovered, jumped to, or outlined.
+    # Each rule is matched with the same `!Match` vocabulary as `lints.yaml`.
+    rules:
+      - id: lsp.export.axiom
+        match:
+          !Match
+          node_kind: ast.axiom
+        name:
+          role: name
+          dotted_last_segment: false
+        signature:
+          role: signature
+          # If the signature role is absent, fall back to the node's own source text.
+          fallback: source
+        docs:
+          leading_trivia: [token.docComment, token.blockComment]
+          trailing_trivia: [token.lineComment]
+
+      - id: lsp.export.law
+        match:
+          !Match
+          node_kind: ast.law
+        name:
+          role: name
+          dotted_last_segment: false
+        signature:
+          role: signature
+          fallback: source
+        docs:
+          leading_trivia: [token.docComment, token.blockComment]
+          trailing_trivia: [token.lineComment]
+
+      - id: lsp.export.assign
+        match:
+          !Match
+          node_kind: ast.assign
+        name:
+          role: target
+          dotted_last_segment: true
+        signature:
+          role: value
+          fallback: source
+        docs:
+          leading_trivia: [token.docComment, token.blockComment]
+          trailing_trivia: [token.lineComment]
+
+      - id: lsp.export.data
+        match:
+          !Match
+          node_kind: ast.data
+        name:
+          role: name
+          dotted_last_segment: false
+        docs:
+          leading_trivia: [token.docComment, token.blockComment]
+          trailing_trivia: [token.lineComment]
+
+  # Hover falls back to the shared export rules above.
+  hover:
+    from_export_rules:
+      - lsp.export.axiom
+      - lsp.export.law
+      - lsp.export.assign
+      - lsp.export.data
+    import_path:
+      # When hovering an import path string, show the target module's docs.
+      show_module_docs: true
+      module_docs:
+        leading_trivia: [token.docComment]
+
+  # Goto-definition also reuses the same export rules.
+  goto:
+    from_export_rules:
+      - lsp.export.axiom
+      - lsp.export.law
+      - lsp.export.assign
+      - lsp.export.data
+
+  completion:
+    import_names:
+      # Suggest names produced by these export rules.
+      from_export_rules:
+        - lsp.export.axiom
+        - lsp.export.law
+        - lsp.export.assign
+        - lsp.export.data
+    import_paths:
+      module_layouts:
+        - "{spec}"
+        - "{spec}.hnl"
+        - "{dir}/{dir}.hnl"
+        - "{dir}/mod.hnl"
+
+  document_symbol:
+    rules:
+      - id: lsp.symbol.axiom
+        match:
+          !Match
+          node_kind: ast.axiom
+        # LSP SymbolKind names, not magic numbers.
+        kind: Function
+        name:
+          role: name
+      - id: lsp.symbol.law
+        match:
+          !Match
+          node_kind: ast.law
+        kind: Function
+        name:
+          role: name
+      - id: lsp.symbol.data
+        match:
+          !Match
+          node_kind: ast.data
+        kind: Class
+        name:
+          role: name
+      - id: lsp.symbol.assign
+        match:
+          !Match
+          node_kind: ast.assign
+        kind: Variable
+        name:
+          role: target
+          dotted_last_segment: true
