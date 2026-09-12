@@ -788,6 +788,92 @@ do {
     _: defer_to_type_model(s, term, incoming)
   }
 
+  --- Pattern binding collection for match arms ---
+  collect_pattern_bindings :: [s, pattern_idx, expected_type] ~> do {
+    initial_task :: [pattern_idx, expected_type]
+    while { stack: [initial_task], bindings: [] } {
+      [st] ~> if is_empty(st.stack) {
+        { out: st.bindings }
+      } else {
+        do {
+          task :: first_value(st.stack)
+          rest_stack :: drop(st.stack, 1)
+          pat_idx :: first_value(task)
+          expected :: at(task, 1)
+          pat_node :: ast_node(s.ast, pat_idx)
+          pat_kind :: node_kind(pat_node)
+          pat_payload :: node_payload(pat_node)
+          if pat_kind == "var" {
+            do {
+              pattern_name :: if type_of(pat_payload) == "str" { pat_payload } else { get_or(pat_payload, "name", "") }
+              new_bindings :: if pattern_name != "" { [...st.bindings, set(set({}, "name", pattern_name), "type", expected)] } else { st.bindings }
+              { state: { stack: rest_stack, bindings: new_bindings } }
+            }
+          } else {
+            if pat_kind == "rest" {
+              do {
+                subject_idx :: child_ref(s.ast, pat_idx, 0)
+                subj_node :: ast_node(s.ast, subject_idx)
+                subj_payload :: node_payload(subj_node)
+                name :: if type_of(subj_payload) == "str" { subj_payload } else { get_or(subj_payload, "name", "") }
+                new_bindings :: if name != "" { [...st.bindings, set(set({}, "name", name), "type", expected)] } else { st.bindings }
+                { state: { stack: rest_stack, bindings: new_bindings } }
+              }
+            } else {
+              if pat_kind == "array" {
+                do {
+                  el_type :: if type_tag(expected) == "type.array" { get_or(expected, "element", make_type("type.unknown", {})) } else { make_type("type.unknown", {}) }
+                  arr_children :: node_children(pat_node)
+                  new_stack :: while { result: rest_stack, remaining: arr_children } {
+                    [inner] ~> if is_empty(inner.remaining) {
+                      { out: inner.result }
+                    } else {
+                      do {
+                        child_idx :: first_value(inner.remaining)
+                        child_node :: ast_node(s.ast, child_idx)
+                        child_type :: if node_kind(child_node) == "rest" { expected } else { el_type }
+                        { state: { result: [[child_idx, child_type], ...inner.result], remaining: drop(inner.remaining, 1) } }
+                      }
+                    }
+                  }
+                  { state: { stack: new_stack, bindings: st.bindings } }
+                }
+              } else {
+                if pat_kind == "object" {
+                  do {
+                    fields :: if type_tag(expected) == "type.record" { get_or(expected, "fields", {}) } else { {} }
+                    obj_children :: node_children(pat_node)
+                    new_stack :: while { result: rest_stack, remaining: obj_children } {
+                      [inner] ~> if is_empty(inner.remaining) {
+                        { out: inner.result }
+                      } else {
+                        do {
+                          entry_idx :: first_value(inner.remaining)
+                          entry_node :: ast_node(s.ast, entry_idx)
+                          entry_children :: node_children(entry_node)
+                          key_idx :: first_value(entry_children)
+                          value_idx :: at(entry_children, 1)
+                          key_node :: ast_node(s.ast, key_idx)
+                          key_payload :: node_payload(key_node)
+                          key :: if type_of(key_payload) == "str" { key_payload } else { get_or(key_payload, "name", get_or(key_payload, "value", "")) }
+                          field_type :: get_or(fields, key, make_type("type.unknown", {}))
+                          { state: { result: [[value_idx, field_type], ...inner.result], remaining: drop(inner.remaining, 1) } }
+                        }
+                      }
+                    }
+                    { state: { stack: new_stack, bindings: st.bindings } }
+                  }
+                } else {
+                  { state: { stack: rest_stack, bindings: st.bindings } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   eval_judgment_impl_ :: [funcs, s, node_idx, op_name, args, lit, incoming] ~> do {
     s :: tc_sanitize(s)
     kind :: node_kind(ast_node(s.ast, node_idx))
@@ -1103,32 +1189,61 @@ do {
         { val: funcs.make_type("type.unknown", {}), state: s }
       } else {
         do {
+          scrutinee_idx :: first_value(children)
+          scrutinee_result :: funcs.synth_node_(funcs, s, scrutinee_idx)
+          scrutinee_type :: scrutinee_result.typ
+          s0 :: scrutinee_result["state"]
           arms_idx :: last(children)
-          arms_node :: ast_node(s.ast, arms_idx)
+          arms_node :: ast_node(s0.ast, arms_idx)
           arms :: node_children(arms_node)
           if is_empty(arms) {
-            { val: funcs.make_type("type.unknown", {}), state: s }
+            { val: funcs.make_type("type.unknown", {}), state: s0 }
           } else {
             do {
-              arms_result :: while { state: s, result: null, failed: false, remaining: arms } {
+              arms_result :: while { state: s0, result: null, failed: false, remaining: arms } {
                 [st] ~> if is_empty(st.remaining) {
                   { out: { typ: st.result, state: st["state"] } }
                 } else {
                   do {
                     arm_idx :: first_value(st.remaining)
-                    arm_result :: funcs.synth_node_(funcs, st["state"], arm_idx)
-                    next :: if st.result == null {
-                      { result: arm_result.typ, failed: st.failed, state: arm_result["state"] }
-                    } else {
-                      if st.failed {
-                        { result: st.result, failed: st.failed, state: arm_result["state"] }
+                    arm_node :: ast_node(st["state"].ast, arm_idx)
+                    arm_children :: node_children(arm_node)
+                    pattern_idx :: first_value(arm_children)
+                    body_idx :: at(arm_children, 1)
+                    mark :: tc_mark(st["state"])
+                    bindings :: collect_pattern_bindings(st["state"], pattern_idx, scrutinee_type)
+                    extended :: while { state: st["state"], remaining: bindings } {
+                      [est] ~> if is_empty(est.remaining) {
+                        { out: est["state"] }
                       } else {
                         do {
-                          u :: unify(funcs, st.result, arm_result.typ, arm_result["state"].metas)
-                          if u.ok {
-                            { result: st.result, failed: st.failed, state: set(arm_result["state"], "metas", u.metas) }
-                          } else {
-                            { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(set(arm_result["state"], "metas", u.metas), "warning", "match arm type mismatch") }
+                          entry :: first_value(est.remaining)
+                          next_state :: tc_extend(est["state"], get_or(entry, "name", ""), get_or(entry, "type", funcs.make_type("type.unknown", {})))
+                          { state: { state: next_state, remaining: drop(est.remaining, 1) } }
+                        }
+                      }
+                    }
+                    body_result :: funcs.synth_node_(funcs, extended, body_idx)
+                    restored :: tc_restore(body_result["state"], mark)
+                    pat_node :: ast_node(st["state"].ast, pattern_idx)
+                    pat_kind :: node_kind(pat_node)
+                    is_catchall :: pat_kind == "var"
+                    next :: if is_catchall {
+                      { result: body_result.typ, failed: true, state: restored }
+                    } else {
+                      if st.result == null {
+                        { result: body_result.typ, failed: st.failed, state: restored }
+                      } else {
+                        if st.failed {
+                          { result: st.result, failed: st.failed, state: restored }
+                        } else {
+                          do {
+                            u :: unify(funcs, st.result, body_result.typ, restored.metas)
+                            if u.ok {
+                              { result: st.result, failed: st.failed, state: set(restored, "metas", u.metas) }
+                            } else {
+                              { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(set(restored, "metas", u.metas), "warning", "match arm type mismatch") }
+                            }
                           }
                         }
                       }
