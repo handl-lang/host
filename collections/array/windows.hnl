@@ -7,7 +7,7 @@
 --- `array.windows([1, 2, 3, 4], 2)`
 --- -- => [[1, 2], [2, 3], [3, 4]]
 ---
-export windows :: (xs, size) ~> do {
+export windows<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
   if size < 1 {
     null
   } else {

@@ -6,7 +6,7 @@
 --- `array.dedupe([1, 1, 2, 2, 2, 3])`
 --- -- => [1, 2, 3]
 ---
-export dedupe :: (xs) ~> do {
+export dedupe<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   rev :: (ys) ~> do {
     r :: []
     for x in ys {

@@ -6,7 +6,7 @@
 --- `array.enumerate(["a", "b"])`
 --- -- => [[0, "a"], [1, "b"]]
 ---
-export enumerate :: (xs) ~> do {
+export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
   rev :: (ys) ~> do {
     r :: []
     for x in ys {

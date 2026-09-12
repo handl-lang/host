@@ -9,7 +9,7 @@
 ---
 from "typeof" import * as typeof
 
-export intercalate :: (xs, sep) ~> do {
+export intercalate<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
   is_arr :: (x) ~> typeof.type_of(x) == "arr"
   cat :: (a, b) ~> do {
     r :: []

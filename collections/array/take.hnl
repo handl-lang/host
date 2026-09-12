@@ -6,7 +6,7 @@
 --- `array.take([1, 2, 3, 4], 2)`
 --- -- => [1, 2]
 ---
-export take :: (xs, n) ~> do {
+export take<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
   if n < 0 {
     null
   } else {

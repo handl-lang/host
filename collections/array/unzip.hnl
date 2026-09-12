@@ -8,7 +8,7 @@
 --- -- => [[1, 2], ["x", "y"]]
 ---
 
-export unzip :: (xs) ~> do {
+export unzip<A,B>: List(Pair(A,B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
   rev :: (ys) ~> do {
     r :: [];
     for h in ys {
