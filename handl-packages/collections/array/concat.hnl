@@ -6,7 +6,7 @@
 --- `array.concat([1, 2], [3, 4])`
 --- -- => [1, 2, 3, 4]
 ---
-export concat :: (a, b) ~> do {
+export concat<T>: (List(T), List(T)) ~[Total]~> List(T) := (a, b) ~> do {
   rev :: (ys) ~> do {
     r :: []
     for x in ys {

@@ -7,7 +7,7 @@
 --- `array.intersperse(["a", "b", "c"], ",")`
 --- -- => ["a", ",", "b", ",", "c"]
 ---
-export intersperse :: (xs, sep) ~> do {
+export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
   rev :: (ys) ~> do {
     r :: []
     for x in ys {

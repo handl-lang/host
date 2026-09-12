@@ -6,7 +6,7 @@
 --- `array.slice([1, 2, 3, 4, 5], 1, 3)`
 --- -- => [2, 3]
 ---
-export slice :: (xs, s, e) ~> do {
+export slice<T>: (List(T), Nat, Nat) ~[Total]~> List(T) := (xs, s, e) ~> do {
   if s < 0 {
     null
   } else {

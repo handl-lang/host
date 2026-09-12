@@ -6,4 +6,4 @@
 --- `array.prepend([1, 2], 0)`
 --- -- => [0, 1, 2]
 ---
-export prepend :: (xs, v) ~> [v, ...xs]
+export prepend<T>: (List(T), T) ~[Total]~> List(T) := (xs, v) ~> [v, ...xs]

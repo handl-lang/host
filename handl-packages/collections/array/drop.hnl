@@ -6,7 +6,7 @@
 --- `array.drop([1, 2, 3, 4], 2)`
 --- -- => [3, 4]
 ---
-export drop :: (xs, n) ~> do {
+export drop<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
   if n < 0 {
     null
   } else {

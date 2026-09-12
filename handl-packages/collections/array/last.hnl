@@ -6,7 +6,7 @@
 --- `array.last([1, 2, 3])`
 --- -- => 3
 ---
-export last :: (xs) ~> do {
+export last<T>: List(T) ~[Total]~> T := (xs) ~> do {
   r :: []
   for x in xs {
     r = [x, ...r]

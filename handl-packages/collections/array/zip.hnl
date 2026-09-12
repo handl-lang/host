@@ -6,7 +6,7 @@
 --- `array.zip([1, 2], ["x", "y", "z"])`
 --- -- => [[1, "x"], [2, "y"]]
 ---
-export zip :: (a, b) ~> do {
+export zip<A,B>: (List(A), List(B)) ~[Total]~> List(Pair(A,B)) := (a, b) ~> do {
   length :: (ys) ~> do {
     n :: 0
     for x in ys {

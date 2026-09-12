@@ -9,7 +9,7 @@
 ---
 from "typeof" import * as typeof
 
-export transpose :: (xs) ~> do {
+export transpose<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   is_arr :: (x) ~> typeof.type_of(x) == "arr"
   length :: (ys) ~> do {
     n :: 0

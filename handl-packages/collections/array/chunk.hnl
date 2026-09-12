@@ -6,7 +6,7 @@
 --- `array.chunk([1, 2, 3, 4, 5], 2)`
 --- -- => [[1, 2], [3, 4], [5]]
 ---
-export chunk :: (xs, size) ~> do {
+export chunk<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
   if size <= 0 {
     null
   } else {

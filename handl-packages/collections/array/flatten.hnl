@@ -9,7 +9,7 @@
 ---
 from "typeof" import * as typeof
 
-export flatten :: (xs) ~> do {
+export flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   is_arr :: (x) ~> typeof.type_of(x) == "arr"
   cat :: (a, b) ~> do {
     r :: []

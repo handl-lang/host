@@ -9,7 +9,7 @@
 from "typeof" import * as typeof
 from "hash_map" import * as hash_map
 
-export pluck :: (xs, key) ~> do {
+export pluck<T>: (List(T), String) ~[Total]~> List(T) := (xs, key) ~> do {
   is_obj :: (x) ~> typeof.type_of(x) == "obj"
   rev :: (ys) ~> do {
     r :: []

@@ -7,7 +7,7 @@
 --- `array.remove_at([1, 2, 3], 1)`
 --- -- => [1, 3]
 ---
-export remove_at :: (xs, i) ~> do {
+export remove_at<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, i) ~> do {
   length :: (ys) ~> do {
     n :: 0
     for x in ys {

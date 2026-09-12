@@ -4,7 +4,7 @@
 --- `array.compact([1, null, 2, null, 3])`
 --- -- => [1, 2, 3]
 ---
-export compact :: (xs) ~> do {
+export compact<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   rev :: (ys) ~> do {
     r :: []
     for x in ys {

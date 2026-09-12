@@ -6,7 +6,7 @@
 --- `array.at([1, 2, 3], 2)`
 --- -- => 3
 ---
-export at :: (xs, i) ~> do {
+export at<T>: (List(T), Nat) ~[Total]~> T := (xs, i) ~> do {
   if i < 0 {
     null
   } else {
