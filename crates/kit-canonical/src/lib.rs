@@ -452,10 +452,15 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         }
         // `time`/`rand` — native backends (clock reads, deterministic
         // seeded RNG for `property`/`fuzz`, ADR-0092).
+        // `time-c` imports `clock_gettime` from the package table, and
+        // `clock_gettime` needs the host `ffi` module; route it through a
+        // `PackageResolver` that falls back to `StdlibResolver`.
         if want("time") {
+            let time_resolver = std::sync::Arc::new(stdlib::PackageResolver {
+                fallback: Some(std::sync::Arc::new(StdlibResolver)),
+            });
             stdlib_registry.register(
-                stdlib::module_with("time", std::sync::Arc::new(StdlibResolver))
-                    .expect("time"),
+                stdlib::module_with("time", time_resolver).expect("time"),
             );
         }
         if want("rand") {

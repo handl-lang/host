@@ -73,9 +73,18 @@ const TIME_MODULE: ModuleSpec = ModuleSpec {
     registry: None,
 };
 
+const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
+    name: "clock_gettime",
+    hnl: include_str!("../../../handl-packages/time-c/clock_gettime.hnl"),
+    funcs: &["read_ns"],
+    ops: &[],
+    registry: None,
+};
+
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
     TIME_MODULE,
+    CLOCK_GETTIME_MODULE,
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
         name: "bool",
@@ -770,13 +779,22 @@ fn default_resolver_arc() -> Arc<dyn ModuleResolver> {
 /// module never re-evaluate its source.
 pub struct TableImportResolver {
     cache: Mutex<HashMap<String, Arc<serde_json::Value>>>,
+    resolver: Arc<dyn ModuleResolver>,
 }
 
 impl TableImportResolver {
-    /// Create an empty resolver with a fresh module-binding cache.
+    /// Create an empty resolver with a fresh module-binding cache,
+    /// using the default table resolver.
     pub fn new() -> Self {
+        Self::with_resolver(default_resolver_arc())
+    }
+
+    /// Create a resolver that builds imported table modules with `resolver`,
+    /// so the imports inherit the parent resolver (e.g. for `ffi`).
+    pub fn with_resolver(resolver: Arc<dyn ModuleResolver>) -> Self {
         Self {
             cache: Mutex::new(HashMap::new()),
+            resolver,
         }
     }
 }
@@ -803,7 +821,7 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
                 "import: module `{name}` (path `{path}`) is not in the package table"
             ))
         })?;
-        let module = build_module(spec, default_resolver_arc());
+        let module = build_module(spec, Arc::clone(&self.resolver));
         let mut obj = serde_json::Map::new();
         for (fname, _f) in module.functions() {
             obj.insert(
@@ -880,10 +898,14 @@ impl TableModuleLookup {
 impl ModuleLookup for TableModuleLookup {
     fn lookup(&self, qualified_name: &str) -> Option<&dyn Function> {
         let (module_name, func_name) = qualified_name.split_once('.')?;
-        if let Some(module) = module_ref(module_name) {
+        // Prefer the resolver this lookup was built with so table modules
+        // that import non-table names (e.g. `clock_gettime` -> `ffi`) are
+        // built with the parent resolver.  Fall back to the process-wide
+        // `module_ref` cache for pure-table names.
+        if let Some(module) = self.resolve_fallback(module_name) {
             return module.function(func_name);
         }
-        self.resolve_fallback(module_name)?.function(func_name)
+        module_ref(module_name)?.function(func_name)
     }
 }
 
@@ -894,7 +916,9 @@ impl ModuleLookup for TableModuleLookup {
 pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
     let lookup = Arc::new(TableModuleLookup::new(Arc::clone(&resolver)));
     let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
-        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_import_resolver(Arc::new(TableImportResolver::with_resolver(Arc::clone(
+            &resolver,
+        ))))
         .with_global_lookup(lookup);
     if let Some(registry) = spec.registry {
         module = module.with_ops(spec.ops, Arc::new(registry()));
