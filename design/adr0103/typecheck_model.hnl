@@ -480,7 +480,8 @@ do {
         } else {
           concat(st.result, [null])
         }
-        { state: { result: new_result, idx: st.idx + 1 } }
+        new_idx :: st.idx + 1
+        { state: { result: new_result, idx: new_idx } }
       }
     }
   }
@@ -735,7 +736,7 @@ do {
   }
 
   eval_judgment_impl_ :: [funcs, s, node_idx, op_name, args, lit, incoming] ~> do {
-    kind :: node_kind(s.ast, node_idx)
+    kind :: node_kind(ast_node(s.ast, node_idx))
     match op_name {
     "synth_child": do {
       idx :: lit
