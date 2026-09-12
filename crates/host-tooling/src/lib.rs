@@ -55,6 +55,7 @@ pub struct ToolingHost<K: Plugin> {
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
     semantic_tokens: Option<Box<dyn SemanticTokensPlugin>>,
+    hover: Option<Box<dyn HoverPlugin>>,
 }
 
 impl<K: Plugin> ToolingHost<K> {
@@ -67,6 +68,7 @@ impl<K: Plugin> ToolingHost<K> {
             document_symbols: None,
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
             semantic_tokens: None,
+            hover: None,
         }
     }
 
@@ -97,6 +99,12 @@ impl<K: Plugin> ToolingHost<K> {
     /// Registers a semantic-tokens plugin.
     pub fn with_semantic_tokens_plugin(mut self, plugin: Box<dyn SemanticTokensPlugin>) -> Self {
         self.semantic_tokens = Some(plugin);
+        self
+    }
+
+    /// Registers a hover plugin.
+    pub fn with_hover_plugin(mut self, plugin: Box<dyn HoverPlugin>) -> Self {
+        self.hover = Some(plugin);
         self
     }
 
@@ -290,8 +298,12 @@ impl<K: Plugin> ToolingHost<K> {
         }
     }
 
-    /// Hover placeholder: returns the formatted expression for the whole source.
-    pub fn hover(&self, _source: &str, _pos: usize) -> Option<String> {
-        None
+    /// Returns a markdown hover string for the token at `request.pos` in
+    /// `request.source`.
+    pub fn hover(&self, request: &HoverRequest) -> Result<HoverResponse, PlatformError> {
+        match &self.hover {
+            Some(plugin) => plugin.run(request),
+            None => Ok(HoverResponse(None)),
+        }
     }
 }

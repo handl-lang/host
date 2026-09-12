@@ -157,6 +157,7 @@ use handl_host_tooling::{
 };
 use handl_plugin_lsp_completion::BasicCompletion;
 use handl_plugin_lsp_goto::BasicGotoDef;
+use handl_plugin_lsp_hover::BasicHover;
 use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 
 use document::DocumentStore;
@@ -221,7 +222,8 @@ fn main() {
     let host = ToolingHost::new(noop_kit::NoopKit::new())
         .with_completion_plugin(Box::new(BasicCompletion::new()))
         .with_goto_def_plugin(Box::new(BasicGotoDef::new()))
-        .with_document_symbols_plugin(Box::new(BasicDocumentSymbols::new()));
+        .with_document_symbols_plugin(Box::new(BasicDocumentSymbols::new()))
+        .with_hover_plugin(Box::new(BasicHover::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 
@@ -258,7 +260,7 @@ fn main() {
                 handle_semantic_tokens_range(&mut writer, id, &msg, &tokens_provider, &store);
             }
             "textDocument/hover" => {
-                handle_hover(&mut writer, id, &msg, &store, &refinement_engine);
+                handle_hover(&mut writer, id, &msg, &store, &host, &refinement_engine);
             }
             "textDocument/completion" => {
                 handle_completion(&mut writer, id, &msg, &store, &host);

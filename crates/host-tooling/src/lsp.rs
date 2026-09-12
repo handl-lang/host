@@ -189,3 +189,24 @@ impl IncrementalSyncPlugin for BasicIncrementalSync {
         Ok(IncrementalSyncResponse(out))
     }
 }
+
+/// Request for `textDocument/hover`.
+#[derive(Debug, Clone)]
+pub struct HoverRequest {
+    /// Source text of the document.
+    pub source: String,
+    /// Cursor byte offset.
+    pub pos: usize,
+    /// Filesystem path of the document (without the `file://` URI prefix).
+    pub path: String,
+}
+
+/// Response for `textDocument/hover`.
+#[derive(Debug, Clone)]
+pub struct HoverResponse(pub Option<String>);
+
+/// Plugin contract for `textDocument/hover`.
+pub trait HoverPlugin: Send + Sync {
+    /// Return a markdown hover string, or `None` if no hover is available.
+    fn run(&self, request: &HoverRequest) -> Result<HoverResponse, PlatformError>;
+}

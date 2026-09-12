@@ -1,7 +1,8 @@
 use serde_json::{Value, json};
 
 use handl_host_tooling::{
-    GotoDefRequest, SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest, ToolingHost,
+    GotoDefRequest, HoverRequest, HoverResponse, SemanticTokenLegend, SemanticTokensPlugin,
+    SemanticTokensRequest, ToolingHost,
 };
 
 use crate::call_hierarchy;
@@ -19,7 +20,6 @@ use crate::execute_command;
 use crate::file_watcher;
 use crate::folding_ranges;
 use crate::formatting;
-use crate::hover;
 use crate::implementation;
 use crate::inlay_hint_resolve;
 use crate::inlay_hints;
@@ -173,6 +173,7 @@ pub fn handle_hover(
     id: serde_json::Value,
     msg: &Message,
     store: &DocumentStore,
+    host: &ToolingHost<NoopKit>,
     refinement: &RefinementEngine,
 ) {
     let source = resolve_document_text(store, &msg.params);
@@ -185,51 +186,9 @@ pub fn handle_hover(
         .unwrap_or("");
     let file_path = uri.strip_prefix("file://").map(|s| s.to_string());
     let (line, character) = position_line_char(&msg);
-
-    // Prefer refinement hover for arrow files: the inferred contract is far
-    // more useful than per-token classification for arrow-graph source.
-    // But first, check if we're hovering over a property access (e.g.
-    // `state.acc`) — if so, show per-property refinement info.
     let offset = document::position_to_offset(&source, line, character);
 
-    // Check if this is a property access by looking at the token before the
-    // cursor — if it's preceded by `.`, it's a property.
-    if let Some(property_name) = hover::property_at_offset(&source, offset) {
-        if let Some(md) =
-            refinement.property_hover_markdown(&source, file_path.as_deref(), &property_name)
-        {
-            send_response(
-                writer,
-                id,
-                json!({
-                    "contents": { "kind": "markdown", "value": md },
-                    "range": {
-                        "start": { "line": line, "character": character },
-                        "end": { "line": line, "character": character },
-                    }
-                }),
-            );
-            return;
-        }
-    }
-
-    // Check if the cursor is on an identifier that references another arrow
-    // file. If so, show that arrow's doc comments + inferred contract.
-    if let Some(md) = hover::cross_arrow_hover(&source, offset, file_path.as_deref(), refinement) {
-        send_response(
-            writer,
-            id,
-            json!({
-                "contents": { "kind": "markdown", "value": md },
-                "range": {
-                    "start": { "line": line, "character": character },
-                    "end": { "line": line, "character": character },
-                }
-            }),
-        );
-        return;
-    }
-
+    // Prefer refinement hover for arrow files.
     if let Some(md) = refinement.hover_markdown(&source, file_path.as_deref()) {
         send_response(
             writer,
@@ -245,11 +204,22 @@ pub fn handle_hover(
         return;
     }
 
-    // Fall back to token-level hover for non-arrow .hnl files.
-    // Pass the file path so cross-file doc comment hover can work.
-    match hover::hover_at_with_path(&source, offset, file_path.as_deref()) {
-        Some(value) => send_response(writer, id, value),
-        None => send_response(writer, id, json!(null)),
+    // Fall back to token-level hover via the tooling host.
+    let request = HoverRequest {
+        source: source.clone(),
+        pos: offset,
+        path: file_path.unwrap_or_default(),
+    };
+    match host.hover(&request) {
+        Ok(HoverResponse(Some(md))) => send_response(
+            writer,
+            id,
+            json!({
+                "contents": { "kind": "markdown", "value": md }
+            }),
+        ),
+        Ok(HoverResponse(None)) => send_response(writer, id, json!(null)),
+        Err(e) => send_error(writer, id, -32603, &e.to_string()),
     }
 }
 
