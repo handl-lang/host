@@ -859,9 +859,6 @@ fn import_path_completions(
     if prefix.ends_with('"') {
         prefix = &prefix[..prefix.len() - 1];
     }
-    // Strip a trailing slash so that `../dir/|` completes inside `dir`,
-    // not inside a non-existent `dir/`.
-    let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
     let (dir_part, stem) = if let Some(slash) = prefix.rfind('/') {
         (&prefix[..slash], &prefix[slash + 1..])
     } else {
@@ -1044,13 +1041,9 @@ fn import_export_completions(
     kit: &Kit,
 ) -> Option<Vec<CompletionItem>> {
     let idx = preceding_index(tokens, pos)?;
-    let import_idx = if classes.is_keyword(&tokens[idx].kind) && tokens[idx].text == "import" {
+    let import_idx = if tokens[idx].text == "import" {
         Some(idx)
-    } else if classes.is_identifier(&tokens[idx].kind)
-        && idx > 0
-        && classes.is_keyword(&tokens[idx - 1].kind)
-        && tokens[idx - 1].text == "import"
-    {
+    } else if idx > 0 && tokens[idx - 1].text == "import" {
         Some(idx - 1)
     } else {
         None
