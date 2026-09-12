@@ -4,8 +4,4 @@
 --- `list.push([2, 3], 1)`
 --- -- => [1, 2, 3]
 ---
-cap "list.push"
-op "list.push" : (List(T), T) ~[Total]~> List(T)
-  guarantee: true
-
-export push :: [c, v] ~> [v, ...c]
+export push<T>: (List(T), T) ~[Total]~> List(T) := [c, v] ~> [v, ...c]

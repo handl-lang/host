@@ -247,9 +247,9 @@ mod bootstrap {
                     entries.push(entry);
                 }
                 let rest = &trimmed["export ".len()..];
-                // Find the binding separator (`::`, or legacy `=`).
+                // Find the binding separator (`::`, `:=`, or legacy `=`).
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                    let name = rest[..sep_pos].trim().to_string();
+                    let name = strip_export_name(&rest[..sep_pos]);
                     let expr_start = rest[sep_pos + sep_len..].trim();
                     let mut expr_lines = Vec::new();
                     if !expr_start.is_empty() {
@@ -257,7 +257,7 @@ mod bootstrap {
                     }
                     current = Some((name, expr_lines));
                 }
-                // If no `=` found, skip (not a valid export binding).
+                // If no separator found, skip (not a valid export binding).
             } else if let Some((_, ref mut lines)) = current {
                 // Accumulate indented continuation lines (part of the export
                 // expression body). Stop at blank lines only if the next
@@ -291,10 +291,10 @@ mod bootstrap {
     }
 
     /// Find the position and length of the binding separator in `s`: the `::`
-    /// bind token (canonical) or a legacy `=` (skipping `==`, `>=`, `<=`, `!=`,
-    /// `=>`). `::` takes precedence — a lone `:` (type annotations, object
-    /// fields, `match` arms) is not a separator. Returns `None` if no binding
-    /// separator is found.
+    /// bind token (canonical), the `:=` graded-bind token, or a legacy `=`
+    /// (skipping `==`, `>=`, `<=`, `!=`, `=>`). `::` and `:=` take precedence
+    /// and return immediately; the first bare `=` is remembered but the scan
+    /// continues. Returns `None` if no binding separator is found.
     pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
         let bytes = s.as_bytes();
         let mut i = 0;
@@ -307,7 +307,10 @@ mod bootstrap {
                 b')' | b']' | b'}' => depth -= 1,
                 b':' if depth == 0 => {
                     if i + 1 < bytes.len() && bytes[i + 1] == b':' {
-                        return Some((i, 2));
+                        return Some((i, 2)); // ::
+                    }
+                    if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
+                        return Some((i, 2)); // :=  graded bind
                     }
                 }
                 b'=' if depth == 0 => {
@@ -330,6 +333,31 @@ mod bootstrap {
             i += 1;
         }
         first_eq.map(|pos| (pos, 1))
+    }
+
+    /// Strip generics `<...>` and type annotation `: Type` from an export
+    /// name portion, returning the bare identifier.
+    ///
+    /// e.g. `len<T>: List(T) ~[Total]~> Nat ` -> `len`
+    /// e.g. `push<T>: (List(T), T) ~[Total]~> List(T)` -> `push`
+    /// e.g. `is_empty` -> `is_empty`
+    fn strip_export_name(s: &str) -> String {
+        let bytes = s.as_bytes();
+        let mut i = 0;
+        let mut depth: i32 = 0;
+        while i < bytes.len() {
+            let c = bytes[i];
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b'<' | b':' if depth == 0 => {
+                    return s[..i].trim().to_string();
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        s.trim().to_string()
     }
 
     /// Returns true if the line is an import declaration (`import ...` or
