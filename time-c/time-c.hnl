@@ -1,32 +1,19 @@
-from "clock_gettime" import read_ns
-
---- time-c — the libc `clock_gettime` backend for the `time` contract.
----
+--- The libc `clock_gettime` backend for the `time` contract.
 --- Uses `read_ns` to call `clock_gettime` in `libc.so.6`.
----   now_ms     -> CLOCK_REALTIME (0) converted to milliseconds
----   instant_ns -> CLOCK_MONOTONIC (1) as nanoseconds
----   elapsed_ns -> saturating `instant_ns() - input`
+from "clock_gettime" import { read_ns }
 
-cap "now_ms"
-cap "instant_ns"
-cap "elapsed_ns"
-
-op "now_ms" : () -> Int
-  guarantee: Le(0, output)
-op "instant_ns" : () -> Int
-  guarantee: Le(0, output)
-op "elapsed_ns" : Int -> Int
-  guarantee: Le(0, output)
-
-export now_ms: () ~[Effect]~> Int := () ~> do {
+--- now_ms     -> CLOCK_REALTIME (0) converted to milliseconds
+export now_ms := () ~> do {
   read_ns(0) / 1000000
 }
 
-export instant_ns: () ~[Effect]~> Int := () ~> do {
+--- instant_ns -> CLOCK_MONOTONIC (1) as nanoseconds
+export instant_ns := () ~> do {
   read_ns(1)
 }
 
-export elapsed_ns: Int ~[Effect]~> Int := (start) ~> do {
+--- elapsed_ns -> saturating `instant_ns() - input`
+export elapsed_ns := (start) ~> do {
   now = read_ns(1)
   if now >= start { now - start } else { 0 }
 }
