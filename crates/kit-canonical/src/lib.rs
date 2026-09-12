@@ -317,71 +317,139 @@ fn build_str_handl_module() -> HandlModule {
 /// eval-time lookup chain, and [`canonical_wire_names`] enumerates it for
 /// `hnl typecheck`'s unbound-wire scope. Keep the two in sync by adding new
 /// host modules here, not in `build_kit`.
-fn build_stdlib_registry() -> ModuleRegistry {
+fn build_stdlib_registry(
+    modules: Option<&std::collections::HashSet<String>>,
+) -> ModuleRegistry {
     // Built-in `.hnl` modules are prepared with the bootstrap transforms;
     // routing them through the process-wide self-hosted loader would recurse
     // into loader construction and make repeated `Kit::new()` calls hang.
     handl_plugin_lib_handl::with_loader_disabled(|| {
+        let want = |name: &str| -> bool { modules.map(|s| s.contains(name)).unwrap_or(true) };
+
         let mut stdlib_registry = ModuleRegistry::new();
-        stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
-        stdlib_registry.register(stdlib::module("math").expect("math"));
+        if want("combinators") {
+            stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
+        }
+        if want("math") {
+            stdlib_registry.register(stdlib::module("math").expect("math"));
+        }
         // `str-handl` is the pure-handl `str` impl over the `char` floor;
         // it satisfies the `str` contract. Registered under `"str"` in
         // place of the former all-FFI `StrModule`, so `str.*` lookups and
         // `from "str" import` callers resolve to the handl impl.
-        stdlib_registry.register(build_str_handl_module());
-        stdlib_registry.register(CharModule);
-        stdlib_registry.register(UnicodeModule);
-        stdlib_registry.register(stdlib::module("bool").expect("bool"));
+        if want("str") {
+            stdlib_registry.register(build_str_handl_module());
+        }
+        if want("char") {
+            stdlib_registry.register(CharModule);
+        }
+        if want("unicode") {
+            stdlib_registry.register(UnicodeModule);
+        }
+        if want("bool") {
+            stdlib_registry.register(stdlib::module("bool").expect("bool"));
+        }
         // `type` — the canonical runtime-introspection module: the
         // `type-handl` record (predicates/guards) over the native
         // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
-        stdlib_registry.register(build_type_module());
+        if want("type") {
+            stdlib_registry.register(build_type_module());
+        }
         // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
         // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
-        stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
-        stdlib_registry.register(stdlib::module("option").expect("option"));
+        if want("typeof") {
+            stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
+        }
+        if want("option") {
+            stdlib_registry.register(stdlib::module("option").expect("option"));
+        }
         // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
-        stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
-        stdlib_registry.register(stdlib::module("mood").expect("mood"));
-        stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
-        stdlib_registry.register(stdlib::module("parse").expect("parse"));
-        stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+        if want("result") {
+            stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
+        }
+        if want("mood") {
+            stdlib_registry.register(stdlib::module("mood").expect("mood"));
+        }
+        if want("encoding") {
+            stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
+        }
+        if want("parse") {
+            stdlib_registry.register(stdlib::module("parse").expect("parse"));
+        }
+        if want("serialize") {
+            stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+        }
         // `error` — the error-raising primitive (`error.raise`,
         // ADR-0092 gap (a)); ops-only table module, callable as
         // `error.raise(msg)` from any .hnl source or eval expression.
-        stdlib_registry.register(stdlib::module("error").expect("error"));
+        if want("error") {
+            stdlib_registry.register(stdlib::module("error").expect("error"));
+        }
         // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
         // `obj.entries`); ops-only table module.
-        stdlib_registry.register(stdlib::module("obj").expect("obj"));
+        if want("obj") {
+            stdlib_registry.register(stdlib::module("obj").expect("obj"));
+        }
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.
-        stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
-        stdlib_registry.register(TagModule);
-        stdlib_registry.register(build_dedent_module());
+        if want("collections") {
+            stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
+        }
+        if want("tag") {
+            stdlib_registry.register(TagModule);
+        }
+        if want("dedent") {
+            stdlib_registry.register(build_dedent_module());
+        }
         // `test` framework modules — pure handl over tag/json/rand/time/
         // combinators (ADR-0092).
-        stdlib_registry.register(build_test_module());
-        stdlib_registry.register(build_property_module());
-        stdlib_registry.register(build_benchmark_module());
-        stdlib_registry.register(build_fuzz_module());
-        stdlib_registry.register(build_snapshot_module());
-        stdlib_registry.register(build_assert_module());
-        stdlib_registry.register(TransformModule::new());
-        stdlib_registry.register(CombModule::new());
+        if want("test") {
+            stdlib_registry.register(build_test_module());
+        }
+        if want("property") {
+            stdlib_registry.register(build_property_module());
+        }
+        if want("benchmark") {
+            stdlib_registry.register(build_benchmark_module());
+        }
+        if want("fuzz") {
+            stdlib_registry.register(build_fuzz_module());
+        }
+        if want("snapshot") {
+            stdlib_registry.register(build_snapshot_module());
+        }
+        if want("assert") {
+            stdlib_registry.register(build_assert_module());
+        }
+        if want("transform") {
+            stdlib_registry.register(TransformModule::new());
+        }
+        if want("comb") {
+            stdlib_registry.register(CombModule::new());
+        }
         // `prim` — the atom layer: all four functions are pure handl
         // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
-        stdlib_registry.register(stdlib::module("prim").expect("prim"));
+        if want("prim") {
+            stdlib_registry.register(stdlib::module("prim").expect("prim"));
+        }
         // `cmp` — ordering and sorting (gap #4).
-        stdlib_registry.register(stdlib::module("cmp").expect("cmp"));
+        if want("cmp") {
+            stdlib_registry.register(stdlib::module("cmp").expect("cmp"));
+        }
         // `time`/`rand` — native backends (clock reads, deterministic
         // seeded RNG for `property`/`fuzz`, ADR-0092).
-        stdlib_registry.register(TimeModule);
-        stdlib_registry.register(RandModule);
-        stdlib_registry.register(stdlib::ops::ip::IpModule);
+        if want("time") {
+            stdlib_registry.register(TimeModule);
+        }
+        if want("rand") {
+            stdlib_registry.register(RandModule);
+        }
+        if want("ip") {
+            stdlib_registry.register(stdlib::ops::ip::IpModule);
+        }
         stdlib_registry
     })
 }
@@ -422,7 +490,7 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
         }
     }
 
-    let registry = build_stdlib_registry();
+    let registry = build_stdlib_registry(None);
     let mut names = std::collections::HashSet::new();
     // Module names (qualified `mod.fn` wires) and their local function
     // names (flat wires via `ModuleRegistry::lookup`'s all-module search).
@@ -1235,7 +1303,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
-        Self::build_kit(lang, config, None, HashMap::new())
+        Self::build_kit(lang, config, None, HashMap::new(), None)
     }
 
     /// Build the canonical kit with a specific eval engine name
@@ -1250,7 +1318,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_eval(eval_name).with_typecheck("handl");
-        Self::build_kit(lang, config, None, HashMap::new())
+        Self::build_kit(lang, config, None, HashMap::new(), None)
     }
 
     /// Build the canonical kit with a `module_root` directory for resolving
@@ -1265,7 +1333,7 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
-        Self::build_kit(lang, config, Some(module_root), HashMap::new())
+        Self::build_kit(lang, config, Some(module_root), HashMap::new(), None)
     }
 
     /// Build the canonical kit for a project directory: reads
@@ -1288,7 +1356,7 @@ impl Kit {
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
         let deps = load_project_dependencies(&project_root)?;
-        Self::build_kit(lang, config, Some(project_root), deps)
+        Self::build_kit(lang, config, Some(project_root), deps, None)
     }
 
     /// Build the canonical kit for a project, discovering its `.handl.toml`
@@ -1322,13 +1390,6 @@ impl Kit {
     }
 
     fn discover_inner(start: &Path, eval_name: Option<&str>) -> Result<Self, LangError> {
-        let kit = handl_kit_data_canonical::assemble()?;
-        let lang = kit.lang().clone();
-        let mut config = kit.runtime_config().clone().with_typecheck("handl");
-        if let Some(name) = eval_name {
-            config = config.with_eval(name);
-        }
-
         // Normalize `start` to a directory: a file path contributes its
         // parent directory.
         let start_dir = if start.is_file() {
@@ -1345,12 +1406,22 @@ impl Kit {
             .find(|dir| dir.join(".handl.toml").is_file())
             .map(Path::to_path_buf);
 
+        // Assemble the canonical data kit. Custom kit selection via
+        // `.handl.toml` is temporarily disabled until `DataKit` is re-exported
+        // for caller assembly (ADR-0103 follow-up).
+        let data_kit = handl_kit_data_canonical::assemble()?;
+        let lang = data_kit.lang().clone();
+        let mut config = data_kit.runtime_config().clone().with_typecheck("handl");
+        if let Some(name) = eval_name {
+            config = config.with_eval(name);
+        }
+
         match manifest_dir {
             Some(root) => {
                 let deps = load_project_dependencies(&root)?;
-                Self::build_kit(lang, config, Some(root), deps)
+                Self::build_kit(lang, config, Some(root), deps, None)
             }
-            None => Self::build_kit(lang, config, Some(start_dir), HashMap::new()),
+            None => Self::build_kit(lang, config, Some(start_dir), HashMap::new(), None),
         }
     }
 
@@ -1370,6 +1441,7 @@ impl Kit {
         config: RuntimeConfig,
         module_root: Option<PathBuf>,
         dependencies: HashMap<String, PathBuf>,
+        modules: Option<Vec<String>>,
     ) -> Result<Self, LangError> {
         // Build the engine registry with all available engine impls
         // (ADR-0047 §2). The host (this crate) registers the engines;
@@ -1438,7 +1510,10 @@ impl Kit {
         // construction through the self-hosted loader is much slower than the
         // Rust bootstrap transforms. Runtime-loaded `.hnl` modules still get
         // the loader pipeline.
-        let stdlib_registry = build_stdlib_registry();
+        let module_set = modules.map(|v| {
+            v.into_iter().collect::<std::collections::HashSet<String>>()
+        });
+        let stdlib_registry = build_stdlib_registry(module_set.as_ref());
 
         let _ = handl_plugin_lib_handl::install_loader(
             handl_plugin_lib_handl::with_loader_disabled(|| {
@@ -1608,7 +1683,7 @@ impl Kit {
         if path.is_dir() {
             let config = handl_kit_data_canonical::manifest().runtime.clone();
             match handl_kit_data_canonical::language_from_yaml() {
-                Ok(lang) => return Self::build_kit(lang, config, None, HashMap::new()),
+                Ok(lang) => return Self::build_kit(lang, config, None, HashMap::new(), None),
                 Err(e) => {
                     eprintln!(
                         "kit-canonical: from_path: failed to load canonical language: {}; \
