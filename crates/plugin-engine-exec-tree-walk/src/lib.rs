@@ -3252,7 +3252,13 @@ impl TreeWalkEngine {
             // which `apply_app` dispatches to the module registry).
             "field_access" => {
                 let target = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let field = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+                let field = current_node
+                    .payload
+                    .get("field")
+                    .and_then(|v| v.as_str())
+                    .map(|s| TaggedValue::Str(Rc::from(s)))
+                    .or_else(|| args.get(1).cloned())
+                    .unwrap_or(TaggedValue::Null);
                 match (target, field) {
                     (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
                         let v = map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null);
@@ -5786,11 +5792,13 @@ fn bin_add(args: &[TaggedValue]) -> Result<(TaggedValue, bool), LangError> {
         (TaggedValue::Str(s1), TaggedValue::Str(s2)) => {
             Ok((TaggedValue::Str(Rc::from(format!("{}{}", s1, s2))), false))
         }
-        (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => Err(LangError::engine(format!(
-            "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
-            tagged_to_value(a),
-            tagged_to_value(b)
-        ))),
+        (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => {
+            Err(LangError::engine(format!(
+                "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
+                tagged_to_value(a),
+                tagged_to_value(b)
+            )))
+        }
         _ => bin_num(args, |x, y| x + y),
     }
 }
