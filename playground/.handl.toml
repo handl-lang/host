@@ -1,2 +1,2 @@
-[[kit]]
-include = "canonical"
+[language]
+kit = "handl-kit-data-canonical"

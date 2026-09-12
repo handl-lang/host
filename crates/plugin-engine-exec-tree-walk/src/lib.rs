@@ -4266,13 +4266,52 @@ impl TreeWalkEngine {
         //   `alias`.
         // - `from "path" import name [as alias]`: project `name` out of the
         //   module's exports and bind it under `alias` (or `name`).
-        let names = current_node
-            .payload
-            .get("names")
-            .and_then(|v| v.as_str())
-            .filter(|n| *n != "*");
+        // - `from "path" import { a, b as x }`: project each named export and
+        //   bind it under the local name (with optional `as` alias).
+        let names_val = current_node.payload.get("names");
         let alias = current_node.payload.get("alias").and_then(|v| v.as_str());
-        if let Some(imported) = names {
+        if let Some(arr) = names_val.and_then(|v| v.as_array()) {
+            for item in arr {
+                let (imported, local) = match item {
+                    Value::String(s) => (s.as_str(), s.as_str()),
+                    Value::Object(obj) => {
+                        let n = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+                            LangError::engine_node(
+                                "import: missing 'name' in braced import entry".to_string(),
+                                current_node,
+                            )
+                        })?;
+                        let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
+                        (n, a)
+                    }
+                    _ => {
+                        return Err(LangError::engine_node(
+                            "import: invalid braced import entry".to_string(),
+                            current_node,
+                        ))
+                    }
+                };
+                if imported == "*" {
+                    return Err(LangError::engine_node(
+                        "import: cannot use '*' inside a braced import list".to_string(),
+                        current_node,
+                    ));
+                }
+                let exported = match &bindings {
+                    Value::Object(map) => map.get(imported).cloned(),
+                    _ => None,
+                };
+                let value = exported.ok_or_else(|| {
+                    LangError::engine_node(
+                        format!("import \"{}\": module has no export `{}`", path, imported),
+                        current_node,
+                    )
+                })?;
+                env.define(local, TaggedValue::from(value));
+            }
+        } else if let Some(imported) =
+            names_val.and_then(|v| v.as_str()).filter(|n| *n != "*")
+        {
             let exported = match &bindings {
                 Value::Object(map) => map.get(imported).cloned(),
                 _ => None,

@@ -1,9 +1,8 @@
-//! # time_rand.rs — `time.*`/`rand.*` native backend end-to-end smoke tests.
+//! # time_rand.rs — `time.*`/`rand.*` end-to-end smoke tests.
 //!
-//! Verifies the `time` and `rand` modules (offered by the canonical kit's
-//! stdlib registry) are
-//! callable from handl source via the unbound-identifier → `field_access`
-//! → `ModuleLookup` path — the same resolution `tag.*` uses (ADR-0055).
+//! `time` is no longer a pre-loaded host module; the time tests load the
+//! `time-c` implementation directly from `handl-packages/time-c`.
+//! `rand` remains a host module.
 
 use handl_kit_canonical::Kit;
 
@@ -12,20 +11,29 @@ fn eval(input: &str) -> serde_json::Value {
     kit.eval(input).expect("eval must succeed")
 }
 
+fn eval_time(input: &str) -> serde_json::Value {
+    let kit = Kit::new().expect("kit must build");
+    let src = format!(
+        "from \"../../handl-packages/time-c\" import {{ now_ms, instant_ns, elapsed_ns }}\n{}",
+        input
+    );
+    kit.eval(&src).expect("eval must succeed")
+}
+
 // ---------------------------------------------------------------------------
-// time.* — clock reads
+// time.* — clock reads (loaded from file)
 // ---------------------------------------------------------------------------
 
 #[test]
 fn time_now_ms_is_plausible_epoch_millis() {
-    let v = eval("time.now_ms()").as_f64().expect("now_ms is a number");
+    let v = eval_time("now_ms()").as_f64().expect("now_ms is a number");
     assert!(v > 1_577_836_800_000.0, "now_ms too small: {v}");
 }
 
 #[test]
 fn time_instant_ns_is_monotonic() {
-    let a = eval("time.instant_ns()").as_f64().unwrap();
-    let b = eval("time.instant_ns()").as_f64().unwrap();
+    let a = eval_time("instant_ns()").as_f64().unwrap();
+    let b = eval_time("instant_ns()").as_f64().unwrap();
     assert!(a >= 0.0 && b >= a, "instant_ns must be non-decreasing");
 }
 
@@ -33,7 +41,7 @@ fn time_instant_ns_is_monotonic() {
 fn time_elapsed_ns_since_reading() {
     // Elapsed since a fresh reading: nested call evaluates the inner
     // `instant_ns` first, then `elapsed_ns` measures the (tiny) delta.
-    let v = eval("time.elapsed_ns(time.instant_ns())");
+    let v = eval_time("elapsed_ns(instant_ns())");
     let ns = v.as_f64().expect("elapsed_ns is a number");
     assert!(ns >= 0.0);
 }

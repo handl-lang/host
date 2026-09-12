@@ -247,7 +247,6 @@ fn build_test_module() -> HandlModule {
     HandlModule::new("test", TEST_HNL, TEST_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(RandModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("time").expect("time")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
@@ -270,7 +269,6 @@ fn build_property_module() -> HandlModule {
 fn build_benchmark_module() -> HandlModule {
     HandlModule::new("benchmark", BENCHMARK_HNL, BENCHMARK_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("time").expect("time")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
@@ -450,19 +448,7 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         if want("cmp") {
             stdlib_registry.register(stdlib::module("cmp").expect("cmp"));
         }
-        // `time`/`rand` — native backends (clock reads, deterministic
-        // seeded RNG for `property`/`fuzz`, ADR-0092).
-        // `time-c` imports `clock_gettime` from the package table, and
-        // `clock_gettime` needs the host `ffi` module; route it through a
-        // `PackageResolver` that falls back to `StdlibResolver`.
-        if want("time") {
-            let time_resolver = std::sync::Arc::new(stdlib::PackageResolver {
-                fallback: Some(std::sync::Arc::new(StdlibResolver)),
-            });
-            stdlib_registry.register(
-                stdlib::module_with("time", time_resolver).expect("time"),
-            );
-        }
+        // `rand` — deterministic seeded RNG for `property`/`fuzz` (ADR-0092).
         if want("rand") {
             stdlib_registry.register(RandModule);
         }

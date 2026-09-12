@@ -20,6 +20,7 @@
 //! (ADR-0091) — no local variant types are defined here.
 
 use handl_language::{Ast, AstNode, AstRef, Language};
+use serde_json::Value;
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -406,19 +407,33 @@ fn stmt_import_bound_names(ast: &Ast, root: &AstNode) -> Vec<String> {
         }
     }
     let alias = root.payload.get("alias").and_then(|v| v.as_str());
-    let names = root.payload.get("names").and_then(|v| v.as_str());
+    let names_val = root.payload.get("names");
     let path = root.payload.get("path").and_then(|v| v.as_str());
     if let Some(a) = alias {
         if !a.is_empty() {
             bound.push(a.to_string());
         }
-    } else {
-        match names {
-            Some(n) if n != "*" => bound.push(n.to_string()),
+    } else if let Some(arr) = names_val.and_then(|v| v.as_array()) {
+        for item in arr {
+            match item {
+                Value::String(s) => bound.push(s.clone()),
+                Value::Object(obj) => {
+                    if let Some(a) = obj.get("as").and_then(|v| v.as_str()) {
+                        bound.push(a.to_string());
+                    } else if let Some(n) = obj.get("name").and_then(|v| v.as_str()) {
+                        bound.push(n.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+    } else if let Some(n) = names_val.and_then(|v| v.as_str()) {
+        match n {
+            n if n != "*" => bound.push(n.to_string()),
             // `from "str" import *` — bare module-name spec: the module
             // name is usable qualified (`str.trim`) via the host module
             // chain.
-            Some("*") => {
+            "*" => {
                 if let Some(p) = path {
                     if is_bare_module_name(p) {
                         bound.push(p.to_string());

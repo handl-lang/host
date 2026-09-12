@@ -2265,13 +2265,56 @@ fn prim_v2_import(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
     // Binding semantics mirror the tree-walk `prim_import` (ADR-0096):
     // `names` (non-"*") projects a single export, `alias` alone binds the
     // whole module object, otherwise each export is spliced into scope.
-    let names = node
-        .payload
-        .get("names")
-        .and_then(|v| v.as_str())
-        .filter(|n| *n != "*");
+    // A `names` array supports braced import lists such as
+    // `from "p" import { a, b as x }`.
+    let names_val = node.payload.get("names");
     let alias = node.payload.get("alias").and_then(|v| v.as_str());
-    if let Some(imported) = names {
+    if let Some(arr) = names_val.and_then(|v| v.as_array()) {
+        for item in arr {
+            let (imported, local) = match item {
+                Value::String(s) => (s.as_str(), s.as_str()),
+                Value::Object(obj) => {
+                    let n = match obj.get("name").and_then(|v| v.as_str()) {
+                        Some(s) => s,
+                        None => {
+                            return ctx.set_error(LangError::engine_node(
+                                "import: missing 'name' in braced import entry".to_string(),
+                                &node,
+                            ));
+                        }
+                    };
+                    let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
+                    (n, a)
+                }
+                _ => {
+                    return ctx.set_error(LangError::engine_node(
+                        "import: invalid braced import entry".to_string(),
+                        &node,
+                    ));
+                }
+            };
+            if imported == "*" {
+                return ctx.set_error(LangError::engine_node(
+                    "import: cannot use '*' inside a braced import list".to_string(),
+                    &node,
+                ));
+            }
+            let exported = bindings
+                .as_object()
+                .and_then(|map| map.get(imported).cloned());
+            match exported {
+                Some(value) => ctx.env.define(local, value),
+                None => {
+                    return ctx.set_error(LangError::engine_node(
+                        format!("import \"{}\": module has no export `{}`", path, imported),
+                        &node,
+                    ));
+                }
+            }
+        }
+    } else if let Some(imported) =
+        names_val.and_then(|v| v.as_str()).filter(|n| *n != "*")
+    {
         let exported = bindings
             .as_object()
             .and_then(|map| map.get(imported).cloned());

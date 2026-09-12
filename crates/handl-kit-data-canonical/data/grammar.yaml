@@ -303,13 +303,13 @@
 # `from "path" import <names> [as <alias>]` — the path is a child
 # expression and the `import ...` tail is a sequence of trailing tokens
 # (`AstShapeRef::trailing_tokens`, ADR-0053): `import` is required, then
-# either `*` (whole module) or a single exported name — captured into
-# `payload.names` — then an optional `as <alias>` (identifier or string)
-# captured into `payload.alias`. This covers `from "p" import *`,
-# `from "p" import * as m`, `from "p" import name`, and
-# `from "p" import name as local`. The path string is lifted out of the
-# child into `payload.path` via a required `payload_extract` step — a
-# non-string path child is a parse error.
+# either `*` (whole module), a single exported name, or a braced list of
+# names — captured into `payload.names` — then an optional `as <alias>`
+# (identifier or string) captured into `payload.alias`. This covers
+# `from "p" import *`, `from "p" import * as m`, `from "p" import name`,
+# `from "p" import name as local`, and `from "p" import { a, b as x }`.
+# The path string is lifted out of the child into `payload.path` via a
+# required `payload_extract` step — a non-string path child is a parse error.
 - id: grammar.stmt-from.prefix
   token: token.keyword.from
   position: Prefix
@@ -329,7 +329,18 @@
       - kinds:
           - token.star
           - token.identifier
+          - token.lbrace
         field: names
+        delimited:
+          open: token.lbrace
+          close: token.rbrace
+          separator: token.comma
+          container_kind: import.names
+          flatten: true
+          open_is_operator_token: true
+          pair:
+            separator: token.keyword.as
+            node_kind: import.alias
       - kinds:
           - token.keyword.as
         optional: true

@@ -459,7 +459,7 @@ impl PrattEngine {
             // consumed in order after all children — e.g. `from`'s required
             // `import * as <alias>` tail, with the alias text captured into
             // `payload.alias`.
-            Self::consume_trailing_tokens(cursor, shape, &mut payload_fields)?;
+            self.consume_trailing_tokens(lang, cursor, shape, &mut payload_fields)?;
             // Build payload: start with extracted fields, then add children.
             // Payload-extraction steps (`AstShapeRef::payload_extract`) lift
             // a name-like string out of a fixed child's payload into this
@@ -657,7 +657,7 @@ impl PrattEngine {
             // Trailing token steps (`AstShapeRef::trailing_tokens`) apply to
             // infix rows too — consumed in order after all children.
             let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
-            Self::consume_trailing_tokens(cursor, shape, &mut payload_fields)?;
+            self.consume_trailing_tokens(lang, cursor, shape, &mut payload_fields)?;
             // Payload-extraction steps (`AstShapeRef::payload_extract`) apply
             // to infix rows too — lift a name-like string out of a child into
             // this node's payload.
@@ -685,7 +685,14 @@ impl PrattEngine {
     /// tail — and serves any future multi-keyword suffix form (e.g.
     /// `try ... catch ... finally`-style tails where the tail carries no
     /// children).
+    ///
+    /// A step may also declare a `delimited` block: the matched token is the
+    /// opener, and the block's elements are converted into a JSON payload
+    /// value under `step.field`. This captures braced import lists such as
+    /// `from "m" import { a, b as x }` as `names: ["a", {"name":"b","as":"x"}]`.
     fn consume_trailing_tokens(
+        &self,
+        lang: &Language,
         cursor: &mut Cursor<'_>,
         shape: &AstShapeRef,
         payload_fields: &mut serde_json::Map<String, Value>,
@@ -730,7 +737,109 @@ impl PrattEngine {
             }
             let tok = cursor.advance()?;
             prev_matched = true;
-            if let Some(field) = &step.field {
+            if let Some(delim) = &step.delimited {
+                if tok.kind != delim.open {
+                    // The matched token is not the opener; treat the step as
+                    // a plain token capture.
+                    if let Some(field) = &step.field {
+                        payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
+                    }
+                    continue;
+                }
+                let mut d = delim.clone();
+                // The matched token itself was the opening delimiter, so the
+                // block parser should not consume it a second time.
+                d.open_is_operator_token = true;
+                let result = self.parse_delimited_block(lang, cursor, &d)?;
+                let elements = match result {
+                    DelimitedResult::Elements(indices) => indices,
+                    DelimitedResult::Container(idx) => {
+                        let ast = self.ast.borrow();
+                        let node = ast.get(AstRef::new(idx)).ok_or_else(|| {
+                            LangError::engine_at(
+                                "trailing delimited block: container node missing".to_string(),
+                                cursor.last_span(),
+                                None::<&str>,
+                            )
+                        })?;
+                        node.payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| v.as_u64().map(|i| i as usize))
+                                    .collect::<Vec<_>>()
+                            })
+                            .ok_or_else(|| {
+                                LangError::engine_at(
+                                    "trailing delimited block: missing children".to_string(),
+                                    cursor.last_span(),
+                                    None::<&str>,
+                                )
+                            })?
+                    }
+                };
+                let mut collected = Vec::with_capacity(elements.len());
+                for &idx in &elements {
+                    if let Some(name) = self.extract_child_name(lang, AstRef::new(idx)) {
+                        collected.push(Value::String(name));
+                    } else {
+                        let ast = self.ast.borrow();
+                        let node = ast.get(AstRef::new(idx)).ok_or_else(|| {
+                            LangError::engine_at(
+                                "trailing delimited block: element missing".to_string(),
+                                cursor.last_span(),
+                                None::<&str>,
+                            )
+                        })?;
+                        let child_indices = node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::engine_at(
+                                    "trailing delimited block: element has no children".to_string(),
+                                    cursor.last_span(),
+                                    None::<&str>,
+                                )
+                            })?;
+                        if child_indices.len() == 2 {
+                            let name = child_indices
+                                .first()
+                                .and_then(|v| v.as_u64())
+                                .and_then(|i| self.extract_child_name(lang, AstRef::new(i as usize)))
+                                .ok_or_else(|| {
+                                    LangError::engine_at(
+                                        "trailing delimited block: missing import name".to_string(),
+                                        cursor.last_span(),
+                                        None::<&str>,
+                                    )
+                                })?;
+                            let alias = child_indices
+                                .get(1)
+                                .and_then(|v| v.as_u64())
+                                .and_then(|i| self.extract_child_name(lang, AstRef::new(i as usize)))
+                                .ok_or_else(|| {
+                                    LangError::engine_at(
+                                        "trailing delimited block: missing import alias".to_string(),
+                                        cursor.last_span(),
+                                        None::<&str>,
+                                    )
+                                })?;
+                            collected.push(serde_json::json!({ "name": name, "as": alias }));
+                        } else {
+                            return Err(LangError::engine_at(
+                                "trailing delimited block: expected name [as alias]".to_string(),
+                                cursor.last_span(),
+                                None::<&str>,
+                            ));
+                        }
+                    }
+                }
+                if let Some(field) = &step.field {
+                    payload_fields.insert(field.clone(), Value::Array(collected));
+                }
+            } else if let Some(field) = &step.field {
                 payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
             }
         }

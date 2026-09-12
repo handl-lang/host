@@ -1373,6 +1373,13 @@ impl ModuleLoader {
     /// 2. **Relative path.** Otherwise `path` resolves against the directory
     ///    of the module currently being loaded (nested imports), falling
     ///    back to `module_root`, then to the process working directory.
+    /// 3. **Directory package.** If the resolved path is a directory, the
+    ///    loader reads `<dir>/index.hnl` instead (so `from "../time"` loads
+    ///    `handl-packages/time/index.hnl`).
+    /// 4. **Bare name.** If the path has no `.hnl` extension, the loader
+    ///    first tries `<path>.hnl` (so `from "./clock_gettime"` loads
+    ///    `clock_gettime.hnl`) before falling through to host-module
+    ///    resolution.
     fn resolve_path(&self, path: &str) -> Result<String, LangError> {
         let (first, rest) = match path.split_once('/') {
             Some((f, r)) => (f, Some(r)),
@@ -1394,11 +1401,37 @@ impl ModuleLoader {
                 .unwrap_or_else(|| PathBuf::from("."));
             base.join(path)
         };
+        let candidate = if joined.is_dir() {
+            let index = joined.join("index.hnl");
+            if index.is_file() {
+                index
+            } else if let Some(name) = joined.file_name().and_then(|s| s.to_str()) {
+                let main = joined.join(format!("{}.hnl", name));
+                if main.is_file() {
+                    main
+                } else if !path.ends_with(".hnl") {
+                    let with_ext = joined.with_extension("hnl");
+                    if with_ext.is_file() { with_ext } else { joined }
+                } else {
+                    joined
+                }
+            } else if !path.ends_with(".hnl") {
+                let with_ext = joined.with_extension("hnl");
+                if with_ext.is_file() { with_ext } else { joined }
+            } else {
+                joined
+            }
+        } else if !path.ends_with(".hnl") {
+            let with_ext = joined.with_extension("hnl");
+            if with_ext.is_file() { with_ext } else { joined }
+        } else {
+            joined
+        };
         // `canonicalize` fails if the file does not exist; in that case use
-        // the joined path so the subsequent read error is clear.
-        let resolved = std::fs::canonicalize(&joined)
+        // the candidate path so the subsequent read error is clear.
+        let resolved = std::fs::canonicalize(&candidate)
             .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| joined.to_string_lossy().into_owned());
+            .unwrap_or_else(|_| candidate.to_string_lossy().into_owned());
         Ok(resolved)
     }
 
@@ -1565,33 +1598,73 @@ impl ModuleLoader {
     /// resolves inside the package directory; otherwise the directory of
     /// the module being loaded (`resolved`'s parent), then the module
     /// root, then the process working directory.
+    ///
+    /// A directory is considered to resolve to a file when it contains an
+    /// `index.hnl`; a bare path with no `.hnl` extension resolves to a file
+    /// when `<path>.hnl` exists.
     fn spec_resolves_to_file(&self, spec: &str, resolved: &str) -> bool {
+        self.resolve_spec_to_file(spec, resolved).is_some()
+    }
+
+    /// Resolve `spec` against the same bases as [`ModuleLoader::resolve_path`]
+    /// and return the first matching file path (a file, a directory's
+    /// `index.hnl`, or a `<path>.hnl` for a bare name). Returns `None` when
+    /// the spec names a host module rather than a file.
+    fn resolve_spec_to_file(&self, spec: &str, resolved: &str) -> Option<PathBuf> {
         let spec_path = Path::new(spec);
         if spec_path.is_absolute() {
-            return spec_path.is_file();
+            return Self::file_candidate(spec_path, spec);
         }
         let (first, rest) = match spec.split_once('/') {
             Some((f, r)) => (f, Some(r)),
             None => (spec, None),
         };
         if let Some(dep_dir) = self.dependencies.get(first) {
-            return match rest {
-                Some(r) if !r.is_empty() => dep_dir.join(r).is_file(),
-                _ => dep_dir.is_file(),
+            let joined = match rest {
+                Some(r) if !r.is_empty() => dep_dir.join(r),
+                _ => dep_dir.clone(),
             };
+            return Self::file_candidate(&joined, spec);
         }
-        Path::new(resolved)
-            .parent()
-            .map(|dir| dir.join(spec).is_file())
-            .unwrap_or(false)
-            || self
-                .module_root
-                .as_ref()
-                .map(|root| root.join(spec).is_file())
-                .unwrap_or(false)
-            || std::env::current_dir()
-                .map(|cwd| cwd.join(spec).is_file())
-                .unwrap_or(false)
+        let bases: Vec<Option<PathBuf>> = vec![
+            Path::new(resolved).parent().map(Path::to_path_buf),
+            self.module_root.clone(),
+            std::env::current_dir().ok(),
+        ];
+        for base in bases.into_iter().flatten() {
+            if let Some(cand) = Self::file_candidate(&base.join(spec), spec) {
+                return Some(cand);
+            }
+        }
+        None
+    }
+
+    /// Return a concrete file path for a joined import candidate: a
+    /// directory's `index.hnl`, a `<path>.hnl` for a bare name, or the
+    /// joined path itself if it is already a file.
+    fn file_candidate(joined: &Path, spec: &str) -> Option<PathBuf> {
+        if joined.is_dir() {
+            let index = joined.join("index.hnl");
+            if index.is_file() {
+                return Some(index);
+            } else if let Some(name) = joined.file_name().and_then(|s| s.to_str()) {
+                let main = joined.join(format!("{}.hnl", name));
+                if main.is_file() {
+                    return Some(main);
+                }
+            }
+        }
+        if !spec.ends_with(".hnl") {
+            let with_ext = joined.with_extension("hnl");
+            if with_ext.is_file() {
+                return Some(with_ext);
+            }
+        }
+        if joined.is_file() {
+            Some(joined.to_path_buf())
+        } else {
+            None
+        }
     }
 }
 
@@ -1643,6 +1716,14 @@ fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
         let mut map = Map::new();
         map.insert(name, value);
         return Value::Object(map);
+    }
+    // Object-returning modules (e.g. `do { ...; { a: 1, b: 2 } }`) are their
+    // own export table, supporting braced named imports like
+    // `from "m" import { a, b }`.
+    if let Value::Object(map) = value {
+        if !map.is_empty() {
+            return Value::Object(map);
+        }
     }
     Value::Object(Map::new())
 }
