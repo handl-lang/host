@@ -282,7 +282,7 @@ do {
         if entry_name == name {
           { out: get_or(entry, "type", null) }
         } else {
-          { state: { found: s.found, remaining: drop(s.remaining, 1) } }
+          { state: { found: s.found, remaining: take(s.remaining, len(s.remaining) - 1) } }
         }
       }
     }
@@ -899,7 +899,7 @@ do {
               { state: { stack: rest_stack, bindings: new_bindings } }
             }
           } else {
-            if pat_kind == "rest" {
+            if pat_kind == "rest" || pat_kind == "optional" {
               do {
                 subject_idx :: child_ref(s.ast, pat_idx, 0)
                 subj_node :: ast_node(s.ast, subject_idx)
@@ -920,7 +920,7 @@ do {
                       do {
                         child_idx :: first_value(inner.remaining)
                         child_node :: ast_node(s.ast, child_idx)
-                        child_type :: if node_kind(child_node) == "rest" { expected } else { el_type }
+                        child_type :: if node_kind(child_node) == "rest" || node_kind(child_node) == "optional" { expected } else { el_type }
                         { state: { result: [[child_idx, child_type], ...inner.result], remaining: drop(inner.remaining, 1) } }
                       }
                     }
@@ -939,14 +939,23 @@ do {
                         do {
                           entry_idx :: first_value(inner.remaining)
                           entry_node :: ast_node(s.ast, entry_idx)
-                          entry_children :: node_children(entry_node)
-                          key_idx :: first_value(entry_children)
-                          value_idx :: at(entry_children, 1)
-                          key_node :: ast_node(s.ast, key_idx)
-                          key_payload :: node_payload(key_node)
-                          key :: if type_of(key_payload) == "str" { key_payload } else { get_or(key_payload, "name", get_or(key_payload, "value", "")) }
-                          field_type :: get_or(fields, key, make_type("type.unknown", {}))
-                          { state: { result: [[value_idx, field_type], ...inner.result], remaining: drop(inner.remaining, 1) } }
+                          entry_kind :: node_kind(entry_node)
+                          is_rest :: entry_kind == "rest" || entry_kind == "optional"
+                          new_task :: if is_rest {
+                            [entry_idx, expected]
+                          } else {
+                            do {
+                              entry_children :: node_children(entry_node)
+                              key_idx :: first_value(entry_children)
+                              value_idx :: at(entry_children, 1)
+                              key_node :: ast_node(s.ast, key_idx)
+                              key_payload :: node_payload(key_node)
+                              key :: if type_of(key_payload) == "str" { key_payload } else { get_or(key_payload, "name", get_or(key_payload, "value", "")) }
+                              field_type :: get_or(fields, key, make_type("type.unknown", {}))
+                              [value_idx, field_type]
+                            }
+                          }
+                          { state: { result: [new_task, ...inner.result], remaining: drop(inner.remaining, 1) } }
                         }
                       }
                     }
