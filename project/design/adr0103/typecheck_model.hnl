@@ -494,7 +494,7 @@ do {
     }
   }
 
-  tc_new :: [ast, type_index, ast_index] ~> ({
+  tc_new :: [ast, type_index, ast_index, prelude] ~> ({
     ast: ast,
     type_index: type_index,
     ast_index: ast_index,
@@ -504,8 +504,20 @@ do {
     node_types: [],
     diagnostics: [],
     fuel: 50000,
-    exhausted: false
+    exhausted: false,
+    prelude: if prelude == null { [] } else { prelude }
   })
+
+  prelude_contains :: [prelude, name] ~> while { found: false, idx: 0 } {
+    [st] ~> if st["found"] || st["idx"] >= len(prelude) {
+      { out: st["found"] }
+    } else {
+      do {
+        new_found :: if at(prelude, st["idx"]) == name { true } else { st["found"] }
+        { state: { found: new_found, idx: st["idx"] + 1 } }
+      }
+    }
+  }
 
   tc_burn_fuel :: s ~> if s.fuel > 0 {
     set(s, "fuel", s.fuel - 1)
@@ -633,6 +645,7 @@ do {
       raw_diagnostics :: get_or(s, "diagnostics", [])
       raw_fuel :: get_or(s, "fuel", 50000)
       raw_exhausted :: get_or(s, "exhausted", false)
+      raw_prelude :: get_or(s, "prelude", [])
       ast :: if type_of(raw_ast) == "arr" { raw_ast } else { [] }
       type_index :: if is_obj(raw_type_index) { raw_type_index } else { {} }
       ast_index :: if is_obj(raw_ast_index) { raw_ast_index } else { {} }
@@ -643,11 +656,12 @@ do {
       diagnostics :: if type_of(raw_diagnostics) == "arr" { raw_diagnostics } else { [] }
       fuel :: if type_of(raw_fuel) == "num" { raw_fuel } else { 50000 }
       exhausted :: if type_of(raw_exhausted) == "bool" { raw_exhausted } else { false }
-      set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted)
+      prelude :: if type_of(raw_prelude) == "arr" { raw_prelude } else { [] }
+      set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude)
     }
   } else {
     do {
-      fallback :: { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false }
+      fallback :: { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [] }
       if s == null {
         fallback
       } else {
@@ -1068,14 +1082,22 @@ do {
       { val: incoming, state: tc_extend(s, name, typ) }
     },
     "lookup": do {
-      name :: if lit != null { lit } else { incoming }
+      raw_name :: if lit != null { lit } else { incoming }
+      name :: if type_of(raw_name) == "str" { raw_name } else { get_or(raw_name, "name", "") }
       typ :: tc_lookup(s, name)
       if typ != null {
         { val: typ, state: s }
       } else {
         do {
-          meta :: tc_fresh_meta(s)
-          { val: meta_value(meta.id), state: meta["state"] }
+          in_prelude :: prelude_contains(s.prelude, name)
+          if in_prelude {
+            { val: funcs.make_type("type.unknown", {}), state: s }
+          } else {
+            do {
+              meta :: tc_fresh_meta(s)
+              { val: meta_value(meta.id), state: tc_add_diagnostic(meta["state"], "error", "unbound variable: " + name) }
+            }
+          }
         }
       }
     },
@@ -1215,7 +1237,7 @@ do {
       } else {
         do {
           last_idx :: last(children)
-          block_result :: while { state: s, remaining: drop(children, 1) } {
+          block_result :: while { state: s, remaining: take(children, len(children) - 1) } {
             [st] ~> if is_empty(st.remaining) {
               { out: st["state"] }
             } else {
@@ -1240,7 +1262,7 @@ do {
         do {
           expected :: if is_empty(args) { incoming } else { eval_first_arg(funcs, s, node_idx, args, incoming).val }
           last_idx :: last(children)
-          block_state :: while { state: s, remaining: drop(children, 1) } {
+          block_state :: while { state: s, remaining: take(children, len(children) - 1) } {
             [st] ~> if is_empty(st.remaining) {
               { out: st["state"] }
             } else {
@@ -1405,7 +1427,15 @@ do {
         do {
           expr_idx :: first_value(children)
           expr_result :: funcs.synth_node_(funcs, s, expr_idx)
-          { val: expr_result.typ, state: expr_result["state"] }
+          annot_idx :: at(children, 1)
+          annot_node :: ast_node(s.ast, annot_idx)
+          annot_kind :: node_kind(annot_node)
+          annot_payload :: node_payload(annot_node)
+          field_name :: if annot_kind == "field-access" { get_or(annot_payload, "field", "") } else { "" }
+          expr_tag :: type_tag(expr_result.typ)
+          mismatch :: if field_name != "" && expr_tag != "" { ("type." + field_name) != expr_tag } else { false }
+          state :: if mismatch { tc_add_diagnostic(expr_result["state"], "error", "type annotation mismatch: expected " + field_name + ", got " + expr_tag) } else { expr_result["state"] }
+          { val: expr_result.typ, state: state }
         }
       }
     },
@@ -1988,7 +2018,7 @@ do {
 
   eval_scheme :: [s, node_idx, term, incoming] ~> funcs.eval_scheme_(funcs, s, node_idx, term, incoming)
 
-  typecheck_ :: [self, lang, ast] ~> if is_empty(ast) {
+  typecheck_ :: [self, lang, ast, prelude] ~> if is_empty(ast) {
     { typ: null, diagnostics: [], node_types: [] }
   } else {
     do {
@@ -1997,7 +2027,7 @@ do {
       ast_arr :: get_or(lang, "ast", [])
       type_index :: index_type_rules(types_arr)
       ast_index :: index_type_rules(ast_arr)
-      s :: tc_new(ast, type_index, ast_index)
+      s :: tc_new(ast, type_index, ast_index, prelude)
       result :: funcs.synth_node_(funcs, s, root_idx)
       zonked :: zonk(zonk, result.typ, result["state"].metas)
       final_state :: if zonked == null { funcs.add_diagnostic(result["state"], "warning", "typecheck result was null; defaulting to type.unknown") } else { result["state"] }
@@ -2006,7 +2036,7 @@ do {
     }
   }
 
-  typecheck :: [lang, ast] ~> typecheck_(typecheck_, lang, ast)
+  typecheck :: [lang, ast, prelude] ~> typecheck_(typecheck_, lang, ast, prelude)
 
   --- Public record. `eval_scheme` drives a scheme term through the same
   --- dispatch the typechecker uses (`eval_scheme_` -> `eval_scheme_impl_` ->

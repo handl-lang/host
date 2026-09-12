@@ -1500,9 +1500,12 @@ impl Kit {
         );
         registry.register_typecheck(
             "handl",
-            Box::new(HandlTypecheckEngine::new(Box::new(
-                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-            ))),
+            Box::new(
+                HandlTypecheckEngine::new(Box::new(
+                    handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+                ))
+                .with_prelude(canonical_wire_names()),
+            ),
         );
         let registry = Rc::new(registry);
 
@@ -1706,7 +1709,10 @@ impl Kit {
 
         // Real directory -> load YAML files.
         if path.is_dir() {
-            let config = handl_kit_data_canonical::manifest().runtime.clone();
+            let config = handl_kit_data_canonical::manifest()
+                .runtime
+                .clone()
+                .with_typecheck("handl");
             match handl_kit_data_canonical::language_from_yaml() {
                 Ok(lang) => return Self::build_kit(lang, config, None, HashMap::new(), None),
                 Err(e) => {
@@ -1842,6 +1848,13 @@ impl Kit {
     pub fn typecheck(&self, input: &str) -> Result<Value, LangError> {
         let ast = self.parse(input)?;
         let result = self.runtime.typecheck(&ast)?;
+        if let Some(err) = result
+            .diagnostics
+            .iter()
+            .find(|d| d.severity.eq_ignore_ascii_case("error"))
+        {
+            return Err(LangError::engine(format!("typecheck error: {}", err.message)));
+        }
         Ok(result.typ)
     }
 
@@ -1868,9 +1881,12 @@ impl Kit {
         {
             let mut cell = self.handl_typecheck_engine.borrow_mut();
             if cell.is_none() {
-                *cell = Some(HandlTypecheckEngine::new(Box::new(
-                    handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-                )));
+                *cell = Some(
+                    HandlTypecheckEngine::new(Box::new(
+                        handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+                    ))
+                    .with_prelude(canonical_wire_names()),
+                );
             }
         }
         let engine = self.handl_typecheck_engine.borrow();
@@ -2025,7 +2041,10 @@ impl Default for Kit {
 ///
 /// Returns [`LangError`] if engine binding fails.
 pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangError> {
-    let config = handl_kit_data_canonical::manifest().runtime.clone();
+    let config = handl_kit_data_canonical::manifest()
+        .runtime
+        .clone()
+        .with_typecheck("handl");
 
     // Build the engine registry with all available engine impls
     // (ADR-0047 §2).
@@ -2057,9 +2076,12 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
     );
     registry.register_typecheck(
         "handl",
-        Box::new(HandlTypecheckEngine::new(Box::new(
-            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-        ))),
+        Box::new(
+            HandlTypecheckEngine::new(Box::new(
+                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+            ))
+            .with_prelude(canonical_wire_names()),
+        ),
     );
     let registry = Rc::new(registry);
 

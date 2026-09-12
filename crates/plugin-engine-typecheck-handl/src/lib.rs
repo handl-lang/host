@@ -67,6 +67,11 @@ pub struct HandlTypecheckEngine {
     /// Cached marshaled `Language` value, keyed by `Language` pointer, so
     /// the canonical `Language` is serialized at most once per engine.
     cached_lang: Rc<RefCell<Option<(usize, Value)>>>,
+    /// Host-supplied wire names (prelude) that resolve at eval time even
+    /// when not bound in the local gamma. Passed to the model as a third
+    /// argument so `var` lookup for module/global names does not emit a
+    /// false unbound error (ADR-0096).
+    prelude: Value,
 }
 
 impl HandlTypecheckEngine {
@@ -83,11 +88,18 @@ impl HandlTypecheckEngine {
             modules: None,
             globals: HashMap::new(),
             cached_lang: Rc::new(RefCell::new(None)),
+            prelude: Value::Null,
         };
         if let Err(e) = this.ensure_model() {
             eprintln!("handl-plugin-engine-typecheck-handl: model load at construction: {e}");
         }
         this
+    }
+
+    /// Configure the host-supplied wire-name prelude.
+    pub fn with_prelude(mut self, names: std::collections::HashSet<String>) -> Self {
+        self.prelude = Value::Array(names.into_iter().map(Value::String).collect());
+        self
     }
 
     /// Load the embedded `.hnl` typecheck model on first use.
@@ -284,7 +296,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
         let func = model
             .function("typecheck")
             .ok_or_else(|| LangError::engine("typecheck-handl: model has no 'typecheck' export"))?;
-        let args = vec![lang_val, ast_val];
+        let args = vec![lang_val, ast_val, self.prelude.clone()];
         let mut ctx = EvalContext::new();
         let result_val = match func.call(&args, &mut ctx) {
             Ok(v) => v,
@@ -305,6 +317,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             modules: self.modules.clone(),
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
+            prelude: self.prelude.clone(),
         })
     }
 
@@ -318,6 +331,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             modules: Some(modules),
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
+            prelude: self.prelude.clone(),
         })
     }
 
@@ -330,6 +344,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             modules: self.modules.clone(),
             globals,
             cached_lang: self.cached_lang.clone(),
+            prelude: self.prelude.clone(),
         })
     }
 }
@@ -342,6 +357,7 @@ impl Clone for HandlTypecheckEngine {
             modules: self.modules.clone(),
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
+            prelude: self.prelude.clone(),
         }
     }
 }

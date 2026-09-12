@@ -936,7 +936,16 @@ impl Runtime {
         // defensive measure. Warnings/info do not block eval.
         if let Some(engine) = self.typecheck_engine.as_ref() {
             let req = TypecheckRequest::new(ast.clone());
-            let result = engine.typecheck(&self.lang, &req)?;
+            let result = match engine.typecheck(&self.lang, &req) {
+                Ok(r) => r,
+                Err(LangError::NotImplemented) => {
+                    // The bound typecheck engine cannot handle this source yet
+                    // (e.g. the maturing Handl model). Degrade to plain eval
+                    // rather than surfacing NotImplemented to the caller.
+                    return self.eval(&ast);
+                }
+                Err(e) => return Err(e),
+            };
             if let Some(err) = result
                 .diagnostics
                 .iter()
@@ -950,11 +959,11 @@ impl Runtime {
             // `runtime_assert` diagnostics (Blocked predicates), rewrite
             // `type-annot` nodes into `runtime-assert` nodes so the eval
             // engine emits an actual `assert T(e)` at runtime.
-            } else if result
-                .diagnostics
-                .iter()
-                .any(|d| d.severity == "runtime_assert")
-            {
+            } else {
+                // ADR-0068 graduated guarantees: rewrite every `type-annot`
+                // into a `runtime-assert` node so predicate annotations are
+                // checked at runtime. Non-closure predicates pass through
+                // unchanged, so this is safe for all type-annot sites.
                 runtime_assert_pass::apply_runtime_asserts(&self.lang, &mut ast);
             }
             // ADR-0032: proof erasure. Replace nodes whose inferred type is
