@@ -1,0 +1,22 @@
+--- time-stub — a deterministic, fixed-value backend for the `time` contract.
+---
+--- This backend is designed for tests and other contexts that need
+--- reproducible clock readings. Every call returns the same fixed value,
+--- so elapsed-time calculations are always deterministic.
+
+--- The implementation is registered in `plugin-lib-stdlib::ops::time_stub`.
+
+cap "time.now_ms"
+cap "time.instant_ns"
+cap "time.elapsed_ns"
+
+op "time.now_ms" : () -> Int
+  guarantee: Le(0, output)
+op "time.instant_ns" : () -> Int
+  guarantee: Le(0, output)
+op "time.elapsed_ns" : Int -> Int
+  guarantee: Le(0, output)
+
+handl "time.now_ms" = stub_now_ms
+handl "time.instant_ns" = stub_instant_ns
+handl "time.elapsed_ns" = stub_elapsed_ns

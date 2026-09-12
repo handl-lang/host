@@ -1,4 +1,0 @@
-category:
-  slug: lib-time
-  title: Time
-  description: Time library abstraction contract (axioms and laws) — wall-clock and monotonic clock reads.

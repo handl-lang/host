@@ -1,2 +1,0 @@
-from "../handl-packages/time" import now_ms
-now_ms()
