@@ -3280,18 +3280,68 @@ impl TreeWalkEngine {
                             )
                         })
                     }
+                    (TaggedValue::Pair(p), TaggedValue::Str(key)) => match key.as_ref() {
+                        "first" => Ok((p.0.clone(), false)),
+                        "second" => Ok((p.1.clone(), false)),
+                        "_tag" => Ok((TaggedValue::Str(Rc::from("Pair")), false)),
+                        _ => Ok((TaggedValue::Null, false)),
+                    },
+                    (TaggedValue::EitherLeft(v), TaggedValue::Str(key)) => match key.as_ref() {
+                        "_tag" => Ok((TaggedValue::Str(Rc::from("left")), false)),
+                        "tag" => Ok((TaggedValue::Str(Rc::from("left")), false)),
+                        "value" => Ok((v.as_ref().clone(), false)),
+                        _ => Ok((TaggedValue::Null, false)),
+                    },
+                    (TaggedValue::EitherRight(v), TaggedValue::Str(key)) => match key.as_ref() {
+                        "_tag" => Ok((TaggedValue::Str(Rc::from("right")), false)),
+                        "tag" => Ok((TaggedValue::Str(Rc::from("right")), false)),
+                        "value" => Ok((v.as_ref().clone(), false)),
+                        _ => Ok((TaggedValue::Null, false)),
+                    },
+                    (
+                        TaggedValue::Arrow {
+                            params,
+                            rest,
+                            body,
+                            env,
+                            home,
+                            array_pattern,
+                        },
+                        TaggedValue::Str(key),
+                    ) => match key.as_ref() {
+                        "__arrow__" => Ok((TaggedValue::Bool(true), false)),
+                        "params" => {
+                            let arr: Vec<TaggedValue> =
+                                params.iter().map(|p| TaggedValue::Str(Rc::from(p.as_str()))).collect();
+                            Ok((TaggedValue::Arr(Rc::from(arr)), false))
+                        }
+                        "rest" => match rest {
+                            Some(r) => Ok((TaggedValue::Str(r), false)),
+                            None => Ok((TaggedValue::Null, false)),
+                        },
+                        "body" => Ok((TaggedValue::Int(body as i64), false)),
+                        "env" => Ok((TaggedValue::Obj(Rc::clone(&env)), false)),
+                        "home" => match home {
+                            Some(id) => Ok((TaggedValue::Int(id as i64), false)),
+                            None => Ok((TaggedValue::Null, false)),
+                        },
+                        "array_pattern" => Ok((TaggedValue::Bool(array_pattern), false)),
+                        _ => Ok((TaggedValue::Null, false)),
+                    },
                     (TaggedValue::Str(s), TaggedValue::Str(key)) => {
                         let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
                         Ok((TaggedValue::Str(joined), false))
                     }
-                    (target, field) => Err(LangError::engine_node(
-                        format!(
-                            "field_access: target must be object/array, field must be string/number; got {} and {}",
-                            type_tag(&target),
-                            type_tag(&field),
-                        ),
-                        current_node,
-                    )),
+                    (target, field) => {
+                        Err(LangError::engine_node(
+                            format!(
+                                "field_access: target must be object/array, field must be string/number; got {} and {}",
+                                type_tag(&target),
+                                type_tag(&field),
+                            ),
+                            current_node,
+                        ))
+                    }
                 }
             }
             // `arrow_field` — extract `inputs`/`grade`/`output` from an arrow value.
