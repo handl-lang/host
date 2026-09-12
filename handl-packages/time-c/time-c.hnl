@@ -1,19 +1,52 @@
---- The libc `clock_gettime` backend for the `time` contract.
---- Uses `read_ns` to call `clock_gettime` in `libc.so.6`.
-from "clock_gettime" import { read_ns }
+--- The libc `clock_gettime` backend for `time`.
+--- @details
+--- Calls `clock_gettime` in `libc.so.6` through the generic `ffi` host
+--- capability and exposes the three `time` arrows: `now_ms`, `instant_ns`,
+--- and `elapsed_ns`.
 
---- now_ms     -> CLOCK_REALTIME (0) converted to milliseconds
-export now_ms := () ~> do {
+from "./clock_gettime" import { read_ns }
+from "../time" import { NowMs, InstantNs, ElapsedNs }
+
+--- Wall-clock milliseconds since the Unix epoch.
+--- @details
+--- This is a wall-clock read; it may go backwards due to NTP slew,
+--- leap seconds, or manual clock changes. Use `instant_ns` for monotonic
+--- elapsed-time measurement.
+--- @returns {Nat - milliseconds since 1970-01-01 00:00:00 UTC}
+--- @example
+--- ```hnl
+--- from "time" import { now_ms }
+--- now_ms()
+--- -- 1789238129361
+--- ```
+export now_ms: NowMs := () ~> do {
   read_ns(0) / 1000000
 }
 
---- instant_ns -> CLOCK_MONOTONIC (1) as nanoseconds
-export instant_ns := () ~> do {
+--- Nanoseconds on a monotonic clock.
+--- @returns {Nat - nanoseconds from a backend-chosen, unspecified epoch}
+--- @example
+--- ```hnl
+--- from "time" import { instant_ns }
+--- instant_ns()
+--- ```
+export instant_ns: InstantNs := () ~> do {
   read_ns(1)
 }
 
---- elapsed_ns -> saturating `instant_ns() - input`
-export elapsed_ns := (start) ~> do {
+--- Nanoseconds elapsed since a previous `instant_ns` reading.
+--- @details
+--- The result is saturated at 0, so bogus or future `start` values do
+--- not produce negative elapsed times.
+--- @param {start} - a previous `instant_ns` reading
+--- @returns {Nat - nanoseconds elapsed since `start`, saturated at 0}
+--- @example
+--- ```hnl
+--- from "time" import { instant_ns, elapsed_ns }
+--- start = instant_ns()
+--- elapsed_ns(start)
+--- ```
+export elapsed_ns: ElapsedNs := (start) ~> do {
   now = read_ns(1)
   if now >= start { now - start } else { 0 }
 }

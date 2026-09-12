@@ -1,22 +1,41 @@
---- time-stub — a deterministic, fixed-value backend for the `time` contract.
----
---- This backend is designed for tests and other contexts that need
---- reproducible clock readings. Every call returns the same fixed value,
---- so elapsed-time calculations are always deterministic.
+--- Deterministic, pure-Handl backend for `time`.
+--- @details
+--- Returns fixed, reproducible values so tests and benchmarks stay
+--- deterministic. This is a no-effect backend; it does not read any clock.
 
---- The implementation is registered in `plugin-lib-stdlib::ops::time_stub`.
+from "../time" import { NowMs, InstantNs, ElapsedNs }
 
-cap "time.now_ms"
-cap "time.instant_ns"
-cap "time.elapsed_ns"
+--- Always returns 0.
+--- @returns {Nat - always 0}
+--- @example
+--- ```hnl
+--- from "time" import { now_ms }
+--- now_ms()
+--- -- 0
+--- ```
+export now_ms: NowMs := () ~> 0
 
-op "time.now_ms" : () -> Int
-  guarantee: Le(0, output)
-op "time.instant_ns" : () -> Int
-  guarantee: Le(0, output)
-op "time.elapsed_ns" : Int -> Int
-  guarantee: Le(0, output)
+--- Always returns 0.
+--- @returns {Nat - always 0}
+--- @example
+--- ```hnl
+--- from "time" import { instant_ns }
+--- instant_ns()
+--- -- 0
+--- ```
+export instant_ns: InstantNs := () ~> 0
 
-handl "time.now_ms" = stub_now_ms
-handl "time.instant_ns" = stub_instant_ns
-handl "time.elapsed_ns" = stub_elapsed_ns
+--- Always returns 0.
+--- @details
+--- The `start` parameter is ignored; it exists only for contract
+--- compatibility.
+--- @param {start} - ignored; present for contract compatibility
+--- @returns {Nat - always 0}
+--- @example
+--- ```hnl
+--- from "time" import { instant_ns, elapsed_ns }
+--- start = instant_ns()
+--- elapsed_ns(start)
+--- -- 0
+--- ```
+export elapsed_ns: ElapsedNs := (start) ~> 0
