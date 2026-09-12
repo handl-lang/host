@@ -701,7 +701,18 @@ impl PrattEngine {
             }
             let matches = cursor
                 .peek()
-                .map(|t| step.kinds.iter().any(|k| k == &t.kind))
+                .map(|t| {
+                    step.kinds.iter().any(|k| {
+                        k == &t.kind
+                            // Import tails (`from "p" import <name> [as <alias>]`)
+                            // name modules/fields whose identifiers may collide
+                            // with keywords (e.g. the `first`/`sort`/`type`
+                            // keyword tokens double as module names, as in
+                            // `from "first" import * as first`). A keyword
+                            // token therefore satisfies an `identifier` step.
+                            || (k == "token.identifier" && t.kind.starts_with("token.keyword."))
+                    })
+                })
                 .unwrap_or(false);
             if !matches {
                 prev_matched = false;

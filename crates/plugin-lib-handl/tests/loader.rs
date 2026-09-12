@@ -47,11 +47,28 @@ mod bootstrap {
                         }
                     }
                 }
-                if is_import_line(trimmed) {
-                    return false;
-                }
+                // NOTE: `import`/`from` lines are kept (hoisted by
+                // `transform_export_to_object`).
                 true
             })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn is_top_import_line(line: &str) -> bool {
+        !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
+    }
+
+    fn collect_import_lines(src: &str) -> Vec<String> {
+        src.lines()
+            .filter(|line| is_top_import_line(line))
+            .map(|line| line.to_string())
+            .collect()
+    }
+
+    fn drop_import_lines(src: &str) -> String {
+        src.lines()
+            .filter(|line| !is_top_import_line(line))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -80,6 +97,9 @@ mod bootstrap {
         let mut current: Option<(String, Vec<String>)> = None;
         for line in src.lines() {
             let trimmed = line.trim_start();
+            if is_top_import_line(line) {
+                continue;
+            }
             if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
                 if let Some(entry) = current.take() {
                     entries.push(entry);
@@ -103,20 +123,33 @@ mod bootstrap {
         if let Some(entry) = current.take() {
             entries.push(entry);
         }
-        if entries.is_empty() {
-            return src.to_string();
-        }
-        let mut out = String::from("{ ");
-        for (i, (name, expr_lines)) in entries.iter().enumerate() {
-            if i > 0 {
-                out.push_str(", ");
+
+        let imports = collect_import_lines(src);
+
+        let body = if entries.is_empty() {
+            if imports.is_empty() {
+                return src.to_string();
             }
-            out.push_str(name);
-            out.push_str(": ");
-            out.push_str(expr_lines.join("\n").trim());
+            drop_import_lines(src)
+        } else {
+            let mut out = String::from("{ ");
+            for (i, (name, expr_lines)) in entries.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                out.push_str(name);
+                out.push_str(": ");
+                out.push_str(expr_lines.join("\n").trim());
+            }
+            out.push_str(" }");
+            out
+        };
+
+        if imports.is_empty() {
+            body
+        } else {
+            format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
         }
-        out.push_str(" }");
-        out
     }
 
     fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
@@ -183,20 +216,41 @@ mod bootstrap {
         }
         let (path, after_path) = extract_quoted(rest)?;
         let import_kw = after_path.trim().strip_prefix("import")?.trim();
-        let star = import_kw.strip_prefix("*")?.trim();
-        let as_kw = star.strip_prefix("as")?.trim();
-        if as_kw.is_empty() {
+        if import_kw.is_empty() {
             return None;
         }
-        let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
-            extract_quoted(as_kw)?.0
+        let basename = path.rsplit('/').next().unwrap_or(&path).to_string();
+        fn parse_as(tail: &str) -> Option<Option<String>> {
+            let t = tail.trim();
+            if t.is_empty() {
+                Some(None)
+            } else if let Some(as_part) = t.strip_prefix("as") {
+                let a = as_part.trim();
+                if a.is_empty() {
+                    return None;
+                }
+                if a.starts_with('"') || a.starts_with('\'') {
+                    Some(Some(extract_quoted(a)?.0))
+                } else {
+                    Some(Some(a.split_whitespace().next()?.to_string()))
+                }
+            } else {
+                None
+            }
+        }
+        if let Some(tail) = import_kw.strip_prefix('*') {
+            let alias = parse_as(tail)?.unwrap_or(basename);
+            Some((path, alias))
         } else {
-            as_kw.split_whitespace().next()?.to_string()
-        };
-        if alias.is_empty() {
-            return None;
+            let mut parts = import_kw.splitn(2, char::is_whitespace);
+            let name = parts.next().unwrap_or("").to_string();
+            if name.is_empty() {
+                return None;
+            }
+            let tail = parts.next().unwrap_or("");
+            let alias = parse_as(tail)?.unwrap_or_else(|| name.clone());
+            Some((path, alias))
         }
-        Some((path, alias))
     }
 
     fn parse_legacy_import_line(line: &str) -> Option<(String, String)> {
@@ -355,6 +409,8 @@ const CORPUS: &[&str] = &[
     "cap \"fs.read\"\ncap 'fs.write'\nop \"fs.read\" : Path -> Bytes\n  guarantee: True\n  requires: x\nhandl \"fs.impl\" = y ~> y\n  termination: total\n{ f: x ~> x }",
     // import forms.
     "from \"char\" import * as char\nfrom 'str' import * as 'str'\nimport \"math\" as m\nimport \"a/b/c\"\nimport bad\n{ f: x ~> x }",
+    // named imports (bare name and `as` alias) plus star-without-as.
+    "from \"len\" import len\nfrom \"reverse\" import reverse as rev\nexport a :: x ~> len(x)",
     // export bindings (::, legacy =, multi-line bodies, skipped bad export).
     "export a :: x ~> x\nexport b = [1, 2]\nexport c :: x ~> do {\n  y :: x + 1\n  y\n}\nexport d\n{ f: 1 }",
     // tag declarations.

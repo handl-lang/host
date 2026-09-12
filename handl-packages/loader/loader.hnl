@@ -159,14 +159,23 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- strip_decls — drop `cap`/`op`/`handl`/`import`/`from` declaration
-  -- lines and indented `guarantee:`/`requires:`/`termination:`
-  -- continuation lines
+  -- strip_decls — drop `cap`/`op`/`handl` declaration lines and indented
+  -- `guarantee:`/`requires:`/`termination:` continuation lines.
+  --
+  -- NOTE: `import`/`from` lines are deliberately KEPT (byte-for-byte):
+  -- the runtime is responsible for evaluating import statements via the
+  -- kit grammar (`grammar.stmt-from.prefix` + `prim_import`), so the
+  -- loader must not delete them.  `is_import_line` is still defined and
+  -- used by `transform_export_to_object` to hoist those lines into the
+  -- emitted `do { ... }` block.
   -- ---------------------------------------------------------------------
 
   is_import_line :: t ~> do {
     kw_match(t, "import", [dq, sq]) || kw_match(t, "from", [])
   }
+
+  -- A top-level (non-indented) import statement line.
+  is_top_import_line :: line ~> !indented(line) && is_import_line(trim_start(line))
 
   is_decl_line :: [line, t] ~> do {
     if indented(line) &&
@@ -177,8 +186,7 @@ do {
     } else {
       if kw_match(t, "cap", [dq]) ||
          kw_match(t, "op", [dq]) ||
-         kw_match(t, "handl", [dq]) ||
-         is_import_line(t) {
+         kw_match(t, "handl", [dq]) {
         true
       } else {
         false
@@ -306,8 +314,43 @@ do {
     }
   }
 
+  -- Collect top-level import statements, in original order.
+  collect_import_lines :: s ~> do {
+    while { xs: str.lines(s), acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: rev(acc) },
+        [h, ...t]: if is_top_import_line(h) {
+          { state: { xs: t, acc: [h, ...acc] } }
+        } else {
+          { state: { xs: t, acc: acc } }
+        }
+      }
+    }
+  }
+
+  -- `s` with top-level import statements removed (all other lines kept).
+  drop_import_lines :: s ~> do {
+    kept :: while { xs: str.lines(s), acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: rev(acc) },
+        [h, ...t]: if is_top_import_line(h) {
+          { state: { xs: t, acc: acc } }
+        } else {
+          { state: { xs: t, acc: [h, ...acc] } }
+        }
+      }
+    }
+    str.join(kept, nl)
+  }
+
   -- Scan lines, collecting `{name, expr}` entries.  `cur` is null or the
   -- current `{name, lines}` record under construction (lines reversed).
+  --
+  -- When the source contains top-level import statements they are hoisted,
+  -- in original order, ahead of the record literal inside a `do { ... }`
+  -- block so the runtime can evaluate them (`prim_import`) and bind their
+  -- names for the record.  With no imports the bare object literal (or the
+  -- untouched source) is returned, exactly as before.
   transform_export_to_object :: s ~> do {
     scan :: while { xs: str.lines(s), entries: [], cur: null } {
       [xs, entries, cur] ~> match xs {
@@ -315,38 +358,53 @@ do {
           null: { out: entries },
           c: { out: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries] }
         },
-        [h, ...t]: if is_export_line(h) {
-          rest :: sdrop(trim_start(h), 7)
-          sep :: find_binding_sep(rest)
-          entries2 :: match cur {
-            null: entries,
-            c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries]
-          }
-          if sep == null {
-            { state: { xs: t, entries: entries2, cur: null } }
-          } else {
-            expr0 :: trim(sdrop(rest, sep.pos + sep.len))
-            { state: { xs: t, entries: entries2,
-                       cur: { name: trim(strip_export_name(stake(rest, sep.pos))),
-                              lines: if slen(expr0) == 0 { [] } else { [expr0] } } } }
-          }
+        [h, ...t]: if is_top_import_line(h) {
+          { state: { xs: t, entries: entries, cur: cur } }
         } else {
-          match cur {
-            null: { state: { xs: t, entries: entries, cur: cur } },
-            c: if blank(h) {
-              { state: { xs: t, entries: entries, cur: cur } }
+          if is_export_line(h) {
+            rest :: sdrop(trim_start(h), 7)
+            sep :: find_binding_sep(rest)
+            entries2 :: match cur {
+              null: entries,
+              c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries]
+            }
+            if sep == null {
+              { state: { xs: t, entries: entries2, cur: null } }
             } else {
-              { state: { xs: t, entries: entries,
-                         cur: { name: c.name, lines: [h, ...c.lines] } } }
+              expr0 :: trim(sdrop(rest, sep.pos + sep.len))
+              { state: { xs: t, entries: entries2,
+                         cur: { name: trim(strip_export_name(stake(rest, sep.pos))),
+                                lines: if slen(expr0) == 0 { [] } else { [expr0] } } } }
+            }
+          } else {
+            match cur {
+              null: { state: { xs: t, entries: entries, cur: cur } },
+              c: if blank(h) {
+                { state: { xs: t, entries: entries, cur: cur } }
+              } else {
+                { state: { xs: t, entries: entries,
+                           cur: { name: c.name, lines: [h, ...c.lines] } } }
+              }
             }
           }
         }
       }
     }
-    if list_len(scan) == 0 {
-      s
+    entries :: rev(scan)
+    imports :: collect_import_lines(s)
+    if list_len(imports) == 0 {
+      if list_len(entries) == 0 {
+        s
+      } else {
+        emit_object(entries)
+      }
     } else {
-      emit_object(rev(scan))
+      body :: if list_len(entries) == 0 {
+        drop_import_lines(s)
+      } else {
+        emit_object(entries)
+      }
+      "do {" + nl + str.join(imports, nl) + nl + body + nl + "}"
     }
   }
 
@@ -388,20 +446,40 @@ do {
             ik :: trim_start(p.rest)
             if str.starts_with(ik, "import") {
               st :: trim_start(sdrop(ik, 6))
-              if str.starts_with(st, "*") {
-                ak :: trim_start(sdrop(st, 1))
-                if str.starts_with(ak, "as") {
-                  al :: parse_alias(sdrop(ak, 2))
-                  if al == null {
-                    null
+              base :: last(str.split(p.text, "/"))
+              if slen(st) == 0 {
+                null
+              } else {
+                if atc(st, 0) == "*" {
+                  ak :: trim_start(sdrop(st, 1))
+                  if str.starts_with(ak, "as") {
+                    al :: parse_alias(sdrop(ak, 2))
+                    if al == null {
+                      null
+                    } else {
+                      { path: p.text, alias: al }
+                    }
                   } else {
-                    { path: p.text, alias: al }
+                    { path: p.text, alias: base }
                   }
                 } else {
-                  null
+                  nm :: first_word(st)
+                  if slen(nm) == 0 {
+                    null
+                  } else {
+                    rest2 :: trim_start(sdrop(st, slen(nm)))
+                    if str.starts_with(rest2, "as") {
+                      al :: parse_alias(sdrop(rest2, 2))
+                      if al == null {
+                        null
+                      } else {
+                        { path: p.text, alias: al }
+                      }
+                    } else {
+                      { path: p.text, alias: nm }
+                    }
+                  }
                 }
-              } else {
-                null
               }
             } else {
               null

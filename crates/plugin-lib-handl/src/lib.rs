@@ -86,6 +86,11 @@ pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 
+/// Re-export of the engine's [`ImportResolver`] trait so `.hnl` library
+/// builders (e.g. `plugin-lib-stdlib`) can supply an import resolver
+/// without taking a direct `plugin-engine-exec` dependency.
+pub use handl_plugin_engine_exec::ImportResolver;
+
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -125,6 +130,84 @@ pub struct ImportDecl {
     pub path: String,
     /// The local alias for the imported module (e.g. `"str"`).
     pub alias: String,
+}
+
+/// Normalize a path-like import spec to its module basename
+/// (`./reverse.hnl` -> `reverse`; `a/b/c.hnl` -> `c`; `len` -> `len`).
+///
+/// Mirrors `handl-plugin-lib-stdlib`'s `normalize_module_name` so a module
+/// declared as a dependency under its basename is found regardless of the
+/// import path spelling.
+fn normalize_import_name(path: &str) -> &str {
+    let p = path.strip_prefix("./").unwrap_or(path);
+    let p = p.strip_suffix(".hnl").unwrap_or(p);
+    p.rsplit('/').next().unwrap_or(p)
+}
+
+/// The default [`ImportResolver`] used by a [`HandlModule`] runtime.
+///
+/// A `.hnl` import statement is evaluated by the runtime (`prim_import`),
+/// which asks the resolver for the target module's bindings as a
+/// [`handl_language::Value::Object`]. A handl closure cannot cross that
+/// `serde_json` boundary as a callable, so -- to stay *exactly* compatible
+/// with how `mod.fn` already resolves today (a **string** callee
+/// `"mod.fn"` is dispatched to the importer's module registry) -- every
+/// binding is the string `"<module>.<field>"`.
+///
+/// Applying such a binding (`m.f(x)`, or a bare named import `f(x)`)
+/// therefore routes through the importer's [`ModuleLookup`] registry, whose
+/// `<module>` entry is the very dependency the importer registered via
+/// [`HandlModule::with_resolver`].
+pub struct DependencyImportResolver {
+    modules: Vec<Arc<dyn Module + Send + Sync>>,
+}
+
+impl DependencyImportResolver {
+    /// Wrap the resolved dependency modules of a [`HandlModule`].
+    pub fn new(modules: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
+        Self { modules }
+    }
+}
+
+impl ImportResolver for DependencyImportResolver {
+    fn resolve_import(
+        &self,
+        path: &str,
+    ) -> Result<handl_language::Value, handl_language::LangError> {
+        let name = normalize_import_name(path);
+        let module = self
+            .modules
+            .iter()
+            .find(|m| m.name() == name || m.name() == path)
+            .ok_or_else(|| {
+                handl_language::LangError::engine(format!(
+                    "import: no dependency module `{name}` (path `{path}`) is registered"
+                ))
+            })?;
+        let mut obj = serde_json::Map::new();
+        for (fname, _f) in module.functions() {
+            obj.insert(
+                fname.to_string(),
+                handl_language::Value::String(format!("{}.{}", module.name(), fname)),
+            );
+        }
+        Ok(handl_language::Value::Object(obj))
+    }
+}
+
+/// Adapts a `Send + Sync` import resolver into the `Rc`-based
+/// [`ImportResolver`] handle a `Runtime` expects. The `Runtime` is
+/// single-threaded, but the `HandlModule` builder closure is shared across
+/// threads (each thread builds its own `Runtime`).
+struct SharedImportResolver(Arc<dyn ImportResolver + Send + Sync>);
+
+impl ImportResolver for SharedImportResolver {
+    fn resolve_import(
+        &self,
+        path: &str,
+    ) -> Result<handl_language::Value, handl_language::LangError> {
+        self.0.resolve_import(path)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -209,12 +292,33 @@ mod bootstrap {
                         }
                     }
                 }
-                // Strip `import ...` and `from ... import ...` lines.
-                if is_import_line(trimmed) {
-                    return false;
-                }
+                // NOTE: `import`/`from` lines are deliberately KEPT here --
+                // the runtime evaluates them (`grammar.stmt-from.prefix` +
+                // `prim_import`); `transform_export_to_object` hoists them
+                // into the emitted `do { ... }` block.
                 true
             })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// A top-level (non-indented) import statement line.
+    fn is_top_import_line(line: &str) -> bool {
+        !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
+    }
+
+    /// Top-level import statements of `src`, in original order.
+    fn collect_import_lines(src: &str) -> Vec<String> {
+        src.lines()
+            .filter(|line| is_top_import_line(line))
+            .map(|line| line.to_string())
+            .collect()
+    }
+
+    /// `src` with top-level import statements removed (all other lines kept).
+    fn drop_import_lines(src: &str) -> String {
+        src.lines()
+            .filter(|line| !is_top_import_line(line))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -231,8 +335,15 @@ mod bootstrap {
     /// { name1: expr1, name2: expr2, ... }
     /// ```
     ///
-    /// If no `export` lines are found, the source is returned unchanged (the
-    /// existing object-literal form is preserved).
+    /// When the source contains top-level `import`/`from` statements they are
+    /// hoisted -- in original order -- ahead of the record literal inside a
+    /// `do { ... }` block, so the runtime can evaluate them (`prim_import`)
+    /// and bind their names for the record. This is required because the
+    /// `(source).func(args)` applied form needs a *single* expression; a bare
+    /// import statement followed by a record is not one.
+    ///
+    /// If no `export` lines are found and there are no imports, the source is
+    /// returned unchanged (the existing object-literal form is preserved).
     pub(super) fn transform_export_to_object(src: &str) -> String {
         // Collect (name, expr_lines) pairs from top-level export lines.
         let mut entries: Vec<(String, Vec<String>)> = Vec::new();
@@ -240,6 +351,11 @@ mod bootstrap {
 
         for line in src.lines() {
             let trimmed = line.trim_start();
+            // Import lines are hoisted separately; never treat them as part
+            // of an export body.
+            if is_top_import_line(line) {
+                continue;
+            }
             // A top-level export line starts at column 0 with `export `.
             if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
                 // Flush the previous entry.
@@ -271,23 +387,34 @@ mod bootstrap {
             entries.push(entry);
         }
 
-        if entries.is_empty() {
-            return src.to_string();
-        }
+        let imports = collect_import_lines(src);
 
-        // Build the object literal.
-        let mut out = String::from("{ ");
-        for (i, (name, expr_lines)) in entries.iter().enumerate() {
-            if i > 0 {
-                out.push_str(", ");
+        let body = if entries.is_empty() {
+            if imports.is_empty() {
+                return src.to_string();
             }
-            out.push_str(name);
-            out.push_str(": ");
-            let expr = expr_lines.join("\n");
-            out.push_str(expr.trim());
+            drop_import_lines(src)
+        } else {
+            // Build the object literal.
+            let mut out = String::from("{ ");
+            for (i, (name, expr_lines)) in entries.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                out.push_str(name);
+                out.push_str(": ");
+                let expr = expr_lines.join("\n");
+                out.push_str(expr.trim());
+            }
+            out.push_str(" }");
+            out
+        };
+
+        if imports.is_empty() {
+            body
+        } else {
+            format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
         }
-        out.push_str(" }");
-        out
     }
 
     /// Find the position and length of the binding separator in `s`: the `::`
@@ -396,6 +523,13 @@ mod bootstrap {
             .collect()
     }
 
+    /// Parse a `from "path" import ...` line.
+    ///
+    /// Accepts the whole-module form (`import *`, optionally `as alias`) and
+    /// the named form (`import name`, optionally `as alias`). Dependency
+    /// wiring only needs the module *path*; the returned `alias` is the
+    /// explicit `as` name, else the single imported name, else the path
+    /// basename.
     fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
         let rest = line.strip_prefix("from")?.trim();
         if rest.is_empty() {
@@ -403,20 +537,42 @@ mod bootstrap {
         }
         let (path, after_path) = extract_quoted(rest)?;
         let import_kw = after_path.trim().strip_prefix("import")?.trim();
-        let star = import_kw.strip_prefix("*")?.trim();
-        let as_kw = star.strip_prefix("as")?.trim();
-        if as_kw.is_empty() {
+        if import_kw.is_empty() {
             return None;
         }
-        let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
-            extract_quoted(as_kw)?.0
+        let basename = path.rsplit('/').next().unwrap_or(&path).to_string();
+        // Parse an optional trailing `as <alias>` (quoted or bare word).
+        fn parse_as(tail: &str) -> Option<Option<String>> {
+            let t = tail.trim();
+            if t.is_empty() {
+                Some(None)
+            } else if let Some(as_part) = t.strip_prefix("as") {
+                let a = as_part.trim();
+                if a.is_empty() {
+                    return None;
+                }
+                if a.starts_with('"') || a.starts_with('\'') {
+                    Some(Some(extract_quoted(a)?.0))
+                } else {
+                    Some(Some(a.split_whitespace().next()?.to_string()))
+                }
+            } else {
+                None
+            }
+        }
+        if let Some(tail) = import_kw.strip_prefix('*') {
+            let alias = parse_as(tail)?.unwrap_or(basename);
+            Some(ImportDecl { path, alias })
         } else {
-            as_kw.split_whitespace().next()?.to_string()
-        };
-        if alias.is_empty() {
-            return None;
+            let mut parts = import_kw.splitn(2, char::is_whitespace);
+            let name = parts.next().unwrap_or("").to_string();
+            if name.is_empty() {
+                return None;
+            }
+            let tail = parts.next().unwrap_or("");
+            let alias = parse_as(tail)?.unwrap_or_else(|| name.clone());
+            Some(ImportDecl { path, alias })
         }
-        Some(ImportDecl { path, alias })
     }
 
     fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
@@ -980,6 +1136,7 @@ fn allocate_module_id() -> usize {
 fn build_runtime(
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
     eval_name: &str,
+    import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
 ) -> Result<Runtime, handl_language::LangError> {
     let kit = handl_kit_data_canonical::assemble()?;
     let lang = kit.lang().clone();
@@ -1006,6 +1163,21 @@ fn build_runtime(
     // Always wire the canonical FpHostFunctions (for field_access support
     // used by the `(source).func(args)` applied expression form). If
     // dependency modules are present, layer them underneath.
+    // Resolve the import resolver: an explicit one wins; otherwise derive
+    // one from the registered dependencies (before they are moved into the
+    // registry) so `import`/`from` statements can be evaluated. The derived
+    // resolver is sufficient whenever every import path names a registered
+    // dependency -- the case wired by `HandlModule::with_resolver`.
+    let derived_resolver = if import_resolver.is_none() && !dependencies.is_empty() {
+        Some(DependencyImportResolver::new(dependencies.clone()))
+    } else {
+        None
+    };
+    let resolver: Option<Rc<dyn ImportResolver>> = match import_resolver {
+        Some(r) => Some(Rc::new(SharedImportResolver(r)) as Rc<dyn ImportResolver>),
+        None => derived_resolver.map(|r| Rc::new(r) as Rc<dyn ImportResolver>),
+    };
+
     let module_chain: Option<Rc<dyn ModuleLookup>> = if dependencies.is_empty() {
         None
     } else {
@@ -1016,8 +1188,9 @@ fn build_runtime(
         Some(Rc::new(modules) as Rc<dyn ModuleLookup>)
     };
     let globals = handl_runtime::fp::canonical_fp_host_functions(module_chain);
-    let runtime =
-        Runtime::from_registry_with_globals(lang, &registry, &config, Some(globals), None)?;
+    let runtime = Runtime::from_registry_with_resolver(
+        lang, &registry, &config, Some(globals), None, resolver, None,
+    )?;
     Ok(runtime)
 }
 
@@ -1217,6 +1390,10 @@ pub struct HandlModule {
     /// the change data-driven: the name resolves through the same
     /// [`EngineRegistry`] the tree-walk uses.
     eval_name: &'static str,
+    /// Optional explicit [`ImportResolver`] for `import`/`from` statements
+    /// in the source. When `None`, `build_runtime` derives a
+    /// [`DependencyImportResolver`] from the resolved dependencies.
+    import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
 }
 
 impl HandlModule {
@@ -1241,7 +1418,7 @@ impl HandlModule {
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None));
 
         let functions = func_names
             .iter()
@@ -1264,6 +1441,7 @@ impl HandlModule {
             dependencies: Vec::new(),
             imports,
             eval_name,
+            import_resolver: None,
         }
     }
 
@@ -1280,7 +1458,7 @@ impl HandlModule {
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None));
 
         let functions = func_names
             .iter()
@@ -1303,6 +1481,7 @@ impl HandlModule {
             dependencies: Vec::new(),
             imports: Vec::new(),
             eval_name,
+            import_resolver: None,
         }
     }
 
@@ -1338,6 +1517,29 @@ impl HandlModule {
                 self.dependencies.push(module);
             }
         }
+        self.rebuild_functions();
+        self
+    }
+
+    /// Attach the [`ImportResolver`] used to evaluate `import`/`from`
+    /// statements found in the (prepared) `.hnl` source.
+    ///
+    /// The runtime calls this resolver through `prim_import` to obtain a
+    /// module's bindings; see [`DependencyImportResolver`] for the binding
+    /// shape (string callees that dispatch through the module registry,
+    /// identical to how `mod.fn` resolves today).
+    ///
+    /// When not set, `build_runtime` derives a [`DependencyImportResolver`]
+    /// from the module's resolved dependencies -- sufficient whenever every
+    /// import path names a registered dependency (the common `with_resolver`
+    /// case). This explicit hook is for resolvers that *build* modules from a
+    /// table rather than reuse the dependency list (e.g. `plugin-lib-stdlib`'s
+    /// `TableImportResolver`).
+    pub fn with_import_resolver(
+        mut self,
+        resolver: Arc<dyn ImportResolver + Send + Sync>,
+    ) -> Self {
+        self.import_resolver = Some(resolver);
         self.rebuild_functions();
         self
     }
@@ -1398,7 +1600,10 @@ impl HandlModule {
     fn rebuild_functions(&mut self) {
         let deps = self.dependencies.clone();
         let eval_name = self.eval_name;
-        let builder: RuntimeBuilder = Arc::new(move || build_runtime(deps.clone(), eval_name));
+        let import_resolver = self.import_resolver.clone();
+        let builder: RuntimeBuilder = Arc::new(move || {
+            build_runtime(deps.clone(), eval_name, import_resolver.clone())
+        });
         let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
             func.builder = Arc::clone(&builder);
