@@ -6,7 +6,7 @@
 --- `array.drop([1, 2, 3, 4], 2)`
 --- -- => [3, 4]
 ---
-from "./reverse.hnl" import * as reverse
+from "./reverse.hnl" import reverse
 
 export drop<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
   if n < 0 {
@@ -21,7 +21,7 @@ export drop<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
           k = k + 1
         }
       }
-      reverse.reverse(out)
+      reverse(out)
     }
   }
 }

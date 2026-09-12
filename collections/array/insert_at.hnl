@@ -7,18 +7,18 @@
 --- `array.insert_at([1, 2, 3], 1, 99)`
 --- -- => [1, 99, 2, 3]
 ---
-from "./len.hnl" import * as len
-from "./take.hnl" import * as take
-from "./drop.hnl" import * as drop
-from "./concat.hnl" import * as concat
+from "./len.hnl" import len
+from "./take.hnl" import take
+from "./drop.hnl" import drop
+from "./concat.hnl" import concat
 
 export insert_at<T>: (List(T), Nat, T) ~[Total]~> List(T) := (xs, i, v) ~> do {
   if i < 0 {
     null
   } else {
     do {
-      idx :: if i > len.len(xs) { len.len(xs) } else { i }
-      concat.concat(take.take(xs, idx), [v, ...drop.drop(xs, idx)])
+      idx :: if i > len(xs) { len(xs) } else { i }
+      concat(take(xs, idx), [v, ...drop(xs, idx)])
     }
   }
 }

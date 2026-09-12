@@ -6,17 +6,17 @@
 --- `array.zip([1, 2], ["x", "y", "z"])`
 --- -- => [[1, "x"], [2, "y"]]
 ---
-from "./len.hnl" import * as len
-from "./at.hnl" import * as at
-from "./reverse.hnl" import * as reverse
+from "./len.hnl" import len
+from "./at.hnl" import at
+from "./reverse.hnl" import reverse
 
 export zip<A,B>: (List(A), List(B)) ~[Total]~> List(Pair(A,B)) := (a, b) ~> do {
-  blen :: len.len(b)
+  blen :: len(b)
   out :: []
   k :: 0
   for x in a {
-    if k < blen { out = [[x, at.at(b, k)], ...out] };
+    if k < blen { out = [[x, at(b, k)], ...out] };
     k = k + 1
   }
-  reverse.reverse(out)
+  reverse(out)
 }
