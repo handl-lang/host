@@ -1,0 +1,15 @@
+--- Re-export wall-clock time from the `time-c` backend.
+---
+--- @details
+--- `os` time is the same as the platform wall-clock time, so this module
+--- delegates directly to `handl-packages/time-c`.
+
+from "../time-c" import { now_ms }
+
+--- Current wall-clock time as epoch milliseconds.
+--- @returns {Number - milliseconds since the Unix epoch}
+export now: () ~[Effect]~> Number := () ~> now_ms()
+
+--- Current wall-clock time as epoch seconds.
+--- @returns {Number - seconds since the Unix epoch}
+export epoch: () ~[Effect]~> Number := () ~> now_ms() / 1000
