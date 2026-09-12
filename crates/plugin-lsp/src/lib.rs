@@ -55,27 +55,32 @@ impl<'l> LspEngine<'l> {
             let Some(rule) = def.rules.get(rule_id) else {
                 continue;
             };
-            if rule.kind != "export" {
-                continue;
-            }
-            if let Some(m) = providers::run_export(self.lang, &module, request.pos, rule) {
-                let mut md = String::new();
-                if let Some(docs) = m.docs {
-                    md.push_str(&docs);
-                }
-                if let Some(signature) = m.signature {
-                    if !md.is_empty() {
-                        md.push_str("\n\n");
+            if rule.kind == "export" {
+                if let Some(m) = providers::run_export(self.lang, &module, request.pos, rule) {
+                    let mut md = String::new();
+                    if let Some(docs) = m.docs {
+                        md.push_str(&docs);
                     }
-                    md.push_str("```\n");
-                    md.push_str(&signature);
-                    md.push('\n');
-                    md.push_str("```");
+                    if let Some(signature) = m.signature {
+                        if !md.is_empty() {
+                            md.push_str("\n\n");
+                        }
+                        md.push_str("```\n");
+                        md.push_str(&signature);
+                        md.push('\n');
+                        md.push_str("```");
+                    }
+                    if md.is_empty() {
+                        return HoverResponse(None);
+                    }
+                    return HoverResponse(Some(md));
                 }
-                if md.is_empty() {
-                    return HoverResponse(None);
+            } else if rule.kind == "import_hover" {
+                if let Some(md) =
+                    providers::run_import_hover(self.lang, &module, request.pos, &request.path, rule)
+                {
+                    return HoverResponse(Some(md));
                 }
-                return HoverResponse(Some(md));
             }
         }
 
@@ -112,8 +117,29 @@ impl<'l> LspEngine<'l> {
     }
 
     /// Evaluate `textDocument/documentSymbol` against the language's rules.
-    pub fn document_symbols(&self, _request: &DocumentSymbolsRequest) -> DocumentSymbolsResponse {
-        // TODO: dispatch `kind` handlers from `Language::lsp` rules.
-        DocumentSymbolsResponse(Vec::new())
+    pub fn document_symbols(&self, request: &DocumentSymbolsRequest) -> DocumentSymbolsResponse {
+        let Some(def) = self.def else {
+            return DocumentSymbolsResponse(Vec::new());
+        };
+        let Some(rule_ids) = def.lsp.get("textDocument/documentSymbol") else {
+            return DocumentSymbolsResponse(Vec::new());
+        };
+
+        let module = match providers::parse_module(self.lang, &request.0) {
+            Ok(m) => m,
+            Err(_) => return DocumentSymbolsResponse(Vec::new()),
+        };
+
+        let mut out = Vec::new();
+        for rule_id in rule_ids {
+            let Some(rule) = def.rules.get(rule_id) else {
+                continue;
+            };
+            if rule.kind == "symbol" {
+                out.extend(providers::run_symbol(self.lang, &module, rule));
+            }
+        }
+
+        DocumentSymbolsResponse(out)
     }
 }

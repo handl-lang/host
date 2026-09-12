@@ -4,9 +4,12 @@
 //! language-agnostic data (`ExportMatch`, etc.) that `LspEngine` formats into
 //! host LSP responses.
 
+use handl_host_tooling::lsp::DocumentSymbol;
 use handl_language::{
     Ast, AstNode, AstRef, LangError, Language, LspMatch, LspRule, Span, Token, Tokens, Value,
 };
+use std::fs;
+use std::path::{Path, PathBuf};
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -377,4 +380,273 @@ fn clean_token_text(lang: &Language, token: &Token) -> String {
 /// Slice the source text for a span.
 fn source_text<'a>(module: &ParsedModule<'a>, span: Span) -> &'a str {
     &module.src[span.start..span.end]
+}
+
+/// Evaluate a single `kind: symbol` rule against `module`.
+pub(crate) fn run_symbol(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    rule: &LspRule,
+) -> Vec<DocumentSymbol> {
+    let (node_kind, when) = match rule.match_condition.as_ref() {
+        Some(LspMatch::Match { node_kind, when }) => (node_kind, when.as_ref()),
+        _ => return Vec::new(),
+    };
+
+    let target_kind = resolve_node_kind(lang, node_kind);
+
+    let name_cfg = rule.config.get("name").and_then(Value::as_object);
+    let dotted = name_cfg
+        .and_then(|c| c.get("dotted_last_segment"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    let kind = rule
+        .config
+        .get("symbol_kind")
+        .and_then(Value::as_str)
+        .and_then(symbol_kind_number)
+        .or_else(|| {
+            rule.config
+                .get("symbol_kind")
+                .and_then(Value::as_u64)
+                .map(|n| n as u32)
+        })
+        .unwrap_or(13);
+
+    let mut out = Vec::new();
+    for stmt in &module.statements {
+        let Some(node) = stmt.ast.nodes().last() else {
+            continue;
+        };
+        if node.kind != target_kind {
+            continue;
+        }
+        if let Some(cond) = when {
+            if !matches_condition(lang, &stmt.ast, node, cond) {
+                continue;
+            }
+        }
+        let Some(node_span) = node.span else {
+            continue;
+        };
+
+        let (name, name_span) = match &name_cfg {
+            Some(cfg) if cfg.get("payload").and_then(Value::as_str).is_some() => {
+                let path = cfg.get("payload").and_then(Value::as_str).unwrap();
+                let n = match payload_at(&node.payload, path).and_then(Value::as_str) {
+                    Some(s) => s.to_string(),
+                    None => continue,
+                };
+                let span = token_span_for_name(module, &n, &node_span).unwrap_or(node_span);
+                (n, span)
+            }
+            Some(cfg) if cfg.get("role").and_then(Value::as_str).is_some() => {
+                let role = cfg.get("role").and_then(Value::as_str).unwrap();
+                let child = match child_node(lang, &stmt.ast, node, role) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let span = child.span.unwrap_or(node_span);
+                let n = source_text(module, span).to_string();
+                (n, span)
+            }
+            _ => continue,
+        };
+
+        if name.is_empty() {
+            continue;
+        }
+
+        let display_name = if dotted {
+            name.rsplit_once('.')
+                .map(|(_, l)| l)
+                .unwrap_or(name.as_str())
+                .to_string()
+        } else {
+            name
+        };
+
+        out.push(DocumentSymbol {
+            name: display_name,
+            detail: None,
+            kind,
+            range_start: node_span.start,
+            range_end: node_span.end,
+            selection_start: name_span.start,
+            selection_end: name_span.end,
+        });
+    }
+    out
+}
+
+/// Convert an LSP `SymbolKind` name (or numeric string) to its numeric value.
+fn symbol_kind_number(s: &str) -> Option<u32> {
+    let n = match s {
+        "File" => 1,
+        "Module" => 2,
+        "Namespace" => 3,
+        "Package" => 4,
+        "Class" => 5,
+        "Method" => 6,
+        "Property" => 7,
+        "Field" => 8,
+        "Constructor" => 9,
+        "Enum" => 10,
+        "Interface" => 11,
+        "Function" => 12,
+        "Variable" => 13,
+        "Constant" => 14,
+        "String" => 15,
+        "Number" => 16,
+        "Boolean" => 17,
+        "Array" => 18,
+        "Object" => 19,
+        "Key" => 20,
+        "Null" => 21,
+        "EnumMember" => 22,
+        "Struct" => 23,
+        "Event" => 24,
+        "Operator" => 25,
+        "TypeParameter" => 26,
+        _ => s.parse::<u32>().ok()?,
+    };
+    Some(n)
+}
+
+/// Evaluate a single `kind: import_hover` rule against `module` at `pos`.
+pub(crate) fn run_import_hover(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    pos: usize,
+    path: &str,
+    rule: &LspRule,
+) -> Option<String> {
+    let (idx, token) = module
+        .tokens
+        .iter()
+        .enumerate()
+        .find(|(_, t)| t.start <= pos && pos < t.end)?;
+    if !is_string_token(token) {
+        return None;
+    }
+
+    let preceding = rule
+        .config
+        .get("preceding_tokens")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| vec!["token.keyword.from".into(), "token.keyword.import".into()]);
+
+    let prev = module.tokens.get(idx.saturating_sub(1))?;
+    if !preceding.iter().any(|k| k == &prev.kind) {
+        return None;
+    }
+
+    let spec = token
+        .text
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(&token.text);
+
+    let layouts = rule
+        .config
+        .get("module_layouts")
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_default();
+    let layouts = if layouts.is_empty() {
+        vec![
+            "{spec}".into(),
+            "{spec}.hnl".into(),
+            "{dir}/{dir}.hnl".into(),
+            "{dir}/mod.hnl".into(),
+        ]
+    } else {
+        layouts
+    };
+
+    let base = base_dir(path)?;
+    let target = resolve_module_path(spec, &base, &layouts)?;
+    let target_src = fs::read_to_string(&target).ok()?;
+    let target_module = parse_module(lang, &target_src).ok()?;
+
+    let docs = module_leading_docs(lang, &target_module, rule)?;
+    Some(format!("**module** `{}`\n\n{}", spec, docs))
+}
+
+/// Resolve an import `spec` to an existing `.hnl` file using the configured
+/// module layout patterns.
+fn resolve_module_path(spec: &str, base: &Path, layouts: &[String]) -> Option<PathBuf> {
+    for pat in layouts {
+        let candidate = match pat.as_str() {
+            "{spec}" => base.join(spec),
+            "{spec}.hnl" => base.join(spec).with_extension("hnl"),
+            "{dir}/{dir}.hnl" => {
+                let dir = base.join(Path::new(spec).with_extension(""));
+                let name = dir.file_stem().and_then(|s| s.to_str())?;
+                dir.join(format!("{name}.hnl"))
+            }
+            "{dir}/mod.hnl" => {
+                let dir = base.join(Path::new(spec).with_extension(""));
+                dir.join("mod.hnl")
+            }
+            _ => continue,
+        };
+        let resolved = candidate.canonicalize().ok().unwrap_or_else(|| candidate.clone());
+        if resolved.is_file() {
+            return Some(resolved);
+        }
+    }
+    None
+}
+
+/// Extract leading trivia from the start of `module` as markdown.
+fn module_leading_docs(lang: &Language, module: &ParsedModule<'_>, rule: &LspRule) -> Option<String> {
+    let leading_kinds = rule
+        .config
+        .get("module_docs")
+        .and_then(Value::as_object)
+        .and_then(|o| o.get("leading_trivia"))
+        .and_then(Value::as_array)
+        .map(|arr| as_string_list(arr))
+        .unwrap_or_else(|| vec!["token.doc_comment".into()]);
+
+    let mut docs = Vec::new();
+    for t in &module.tokens {
+        if leading_kinds.iter().any(|k| k == &t.kind) {
+            docs.push(clean_token_text(lang, t));
+        } else {
+            break;
+        }
+    }
+    if docs.is_empty() {
+        None
+    } else {
+        Some(docs.join("\n"))
+    }
+}
+
+/// Whether a token's text is a double-quoted string literal.
+fn is_string_token(token: &Token) -> bool {
+    token.text.starts_with('"') && token.text.ends_with('"') && token.text.len() >= 2
+}
+
+/// Extract a list of strings from a JSON array value.
+fn as_string_list(values: &[Value]) -> Vec<String> {
+    values.iter().filter_map(Value::as_str).map(String::from).collect()
+}
+
+/// Directory portion of an absolute or workspace-relative file path.
+fn base_dir(path: &str) -> Option<PathBuf> {
+    Path::new(path)
+        .parent()
+        .and_then(|p| {
+            if p.as_os_str().is_empty() {
+                std::env::current_dir().ok()
+            } else {
+                Some(p.to_path_buf())
+            }
+        })
+        .and_then(|p| p.canonicalize().ok().or(Some(p)))
 }

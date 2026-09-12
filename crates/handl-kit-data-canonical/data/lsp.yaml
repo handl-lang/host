@@ -90,6 +90,12 @@
     # Hover an import path string to show the target module's leading docs.
     lsp.hover.import:
       kind: import_hover
+      preceding_tokens: [token.keyword.from, token.keyword.import]
+      module_layouts:
+        - pattern: "{spec}"
+        - pattern: "{spec}.hnl"
+        - pattern: "{dir}/{dir}.hnl"
+        - pattern: "{dir}/mod.hnl"
       module_docs:
         leading_trivia: [token.doc_comment]
 
