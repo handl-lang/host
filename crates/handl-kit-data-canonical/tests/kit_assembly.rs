@@ -19,10 +19,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `token.keyword.{sort,grade,grades,op,handler,rewrite}`.
     // +1 `token.keyword.handle` for the `handle` expression keyword.
     // +1 `token.tilde` for the graded arrow `~EXPR~>` syntax.
-    assert_eq!(lang.tokens.len(), 101);
+    assert_eq!(lang.tokens.len(), 102);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords.
-    assert_eq!(lang.lexer_rules.len(), 99);
+    assert_eq!(lang.lexer_rules.len(), 100);
 
     // Grammar rows: 67 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -88,7 +88,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 101);
+    assert_eq!(rt.lang().tokens.len(), 102);
     assert_eq!(rt.lang().grammar.len(), 89);
 }
 

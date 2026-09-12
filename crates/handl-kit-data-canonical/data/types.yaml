@@ -2149,6 +2149,16 @@
     args: []
     source: Judgment
 
+# `arm` — an arm of a `match`. Children are [pattern, body].
+# `synth_child` on child 1 (body) gives the arm's type.
+- id: type.arm
+  node_kind: arm
+  synth: !Op
+    name: synth_child
+    args: []
+    source: Judgment
+    lit: 1
+
 # `flow` — like `pipe`. `flow` has children [input(0), function(1)].
 # Eval is `App(callee=child[1], args=[child[0]])` — i.e., apply child 1
 # (function) to child 0 (input). Synth child 1 (the function)

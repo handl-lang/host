@@ -218,6 +218,20 @@ fn merge_fragments(
         lang.lsp.merge(frag)?;
     }
 
+    // ADR-0100: LSP surface validation runs at Language build.
+    let lsp_diags = handl_plugin_engine_transform::validate::validate_lsp(&lang);
+    let lsp_errors: Vec<String> = lsp_diags
+        .iter()
+        .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)
+        .map(|d| d.message.clone())
+        .collect();
+    if !lsp_errors.is_empty() {
+        return Err(LangError::engine(format!(
+            "lsp rule validation failed: {}",
+            lsp_errors.join("; ")
+        )));
+    }
+
     // ADR-0094 "Production readiness": transform-rule validation runs at
     // `Language` build. Error-severity diagnostics (duplicate identity keys,
     // out-of-bounds `Keep`/`KeepRole`/`KeepPath`/`KeepRest`/`Apply` steps,
@@ -488,7 +502,7 @@ mod tests {
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
         // +13 Term frontier type rules + 1 transport rule.
-        assert_eq!(lang.types.len(), 91);
+        assert_eq!(lang.types.len(), 92);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

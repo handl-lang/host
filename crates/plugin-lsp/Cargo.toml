@@ -9,6 +9,7 @@ handl-language.workspace = true
 handl-platform.workspace = true
 handl-plugin-engine-lex-pattern.workspace = true
 handl-plugin-engine-parse.workspace = true
+handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
 handl-plugin-engine-parse-pratt.workspace = true
 handl-plugin-engine-transform-rewrite.workspace = true
 handl-plugin-ext-diag.workspace = true

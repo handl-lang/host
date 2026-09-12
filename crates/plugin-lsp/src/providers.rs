@@ -194,7 +194,7 @@ pub(crate) fn run_export(
 ///
 /// If the string is an `AstShapeDef` `id` (e.g. `ast.law`), return the
 /// corresponding `node_kind`. Otherwise return the string unchanged.
-fn resolve_node_kind<'a>(lang: &'a Language, requested: &'a str) -> &'a str {
+pub(crate) fn resolve_node_kind<'a>(lang: &'a Language, requested: &'a str) -> &'a str {
     if let Some(shape) = lang.ast.iter().find(|s| s.id == requested) {
         return &shape.node_kind;
     }
@@ -482,7 +482,7 @@ pub(crate) fn run_symbol(
 }
 
 /// Convert an LSP `SymbolKind` name (or numeric string) to its numeric value.
-fn symbol_kind_number(s: &str) -> Option<u32> {
+pub(crate) fn symbol_kind_number(s: &str) -> Option<u32> {
     let n = match s {
         "File" => 1,
         "Module" => 2,

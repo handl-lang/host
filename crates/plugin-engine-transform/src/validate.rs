@@ -3,9 +3,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use handl_language::{
-    AstShapeDef, Fragment, Language, RewriteStep, TransformCondition, TransformRule,
+    AstShapeDef, Fragment, Language, LspMatch, LspRule, RewriteStep, TransformCondition,
+    TransformRule, Value,
 };
 use handl_plugin_ext_diag::{Diagnostic, Severity, Span};
+use serde_json::Map;
 
 const RULE: &str = "transform.validate";
 
@@ -370,4 +372,361 @@ fn validate_condition(
             validate_condition(c, _lang, shape, rule_id, diags);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// LSP surface validation (ADR-0100)
+// ---------------------------------------------------------------------------
+
+const KNOWN_LSP_KINDS: &[&str] = &[
+    "export",
+    "import_hover",
+    "import_path",
+    "import_name",
+    "export_name",
+    "symbol",
+];
+
+/// Validate all LSP surface definitions in `lang`.
+///
+/// Returns a vector of [`Diagnostic`]s. Error-severity diagnostics should fail
+/// the `Language` assembly; warnings should not.
+pub fn validate_lsp(lang: &Language) -> Vec<Diagnostic> {
+    let mut diags = Vec::new();
+    let mut all_rule_ids = BTreeSet::new();
+
+    for def in lang.lsp.iter() {
+        for rule_id in def.rules.keys() {
+            all_rule_ids.insert(rule_id.as_str());
+        }
+    }
+
+    for def in lang.lsp.iter() {
+        for (rule_id, rule) in &def.rules {
+            validate_lsp_rule(rule, rule_id, &def.id, lang, &all_rule_ids, &mut diags);
+        }
+
+        for (method, rule_ids) in &def.lsp {
+            for rule_id in rule_ids {
+                if !all_rule_ids.contains(rule_id.as_str()) {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "lsp method '{}' in fragment '{}' references unknown rule id '{}'",
+                            method, def.id, rule_id
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
+    diags
+}
+
+fn validate_lsp_rule(
+    rule: &LspRule,
+    rule_id: &str,
+    def_id: &str,
+    lang: &Language,
+    all_rule_ids: &BTreeSet<&str>,
+    diags: &mut Vec<Diagnostic>,
+) {
+    if !KNOWN_LSP_KINDS.contains(&rule.kind.as_str()) {
+        diags.push(Diagnostic::new(
+            RULE,
+            Severity::Warning,
+            Span::default(),
+            format!(
+                "rule '{}' in fragment '{}' has unknown kind '{}'",
+                rule_id, def_id, rule.kind
+            ),
+        ));
+    }
+
+    let matched_shape = match &rule.match_condition {
+        Some(LspMatch::Match { node_kind, when }) => {
+            let shape = find_lsp_shape(lang, node_kind);
+            if shape.is_none() {
+                diags.push(Diagnostic::new(
+                    RULE,
+                    Severity::Error,
+                    Span::default(),
+                    format!(
+                        "rule '{}' in fragment '{}' references unknown node kind '{}'",
+                        rule_id, def_id, node_kind
+                    ),
+                ));
+            }
+            if let Some(cond) = when {
+                validate_condition(cond, lang, shape, rule_id, diags);
+            }
+            shape
+        }
+        Some(LspMatch::Token { preceding, .. }) => {
+            for tok in preceding {
+                if lang.tokens.get_by_id(tok).is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' references unknown token kind '{}' in preceding_tokens",
+                            rule_id, def_id, tok
+                        ),
+                    ));
+                }
+            }
+            None
+        }
+        Some(LspMatch::Native(_)) | None => None,
+    };
+
+    validate_lsp_rule_config(rule, rule_id, def_id, lang, all_rule_ids, matched_shape, diags);
+}
+
+fn find_lsp_shape<'a>(lang: &'a Language, requested: &'a str) -> Option<&'a AstShapeDef> {
+    if let Some(shape) = lang.ast.iter().find(|s| s.id == requested) {
+        return Some(shape);
+    }
+    lang.ast.iter().find(|s| s.node_kind == requested)
+}
+
+fn validate_lsp_rule_config(
+    rule: &LspRule,
+    rule_id: &str,
+    def_id: &str,
+    lang: &Language,
+    all_rule_ids: &BTreeSet<&str>,
+    shape: Option<&AstShapeDef>,
+    diags: &mut Vec<Diagnostic>,
+) {
+    validate_lsp_token_array(rule, rule_id, def_id, lang, "preceding_tokens", diags);
+    validate_lsp_token_array(rule, rule_id, def_id, lang, "name_tokens", diags);
+
+    if let Some(docs) = rule.config.get("docs").and_then(Value::as_object) {
+        validate_lsp_trivia_list(docs, rule_id, def_id, lang, "leading_trivia", diags);
+        validate_lsp_trivia_list(docs, rule_id, def_id, lang, "trailing_trivia", diags);
+    }
+    if let Some(docs) = rule.config.get("module_docs").and_then(Value::as_object) {
+        validate_lsp_trivia_list(docs, rule_id, def_id, lang, "leading_trivia", diags);
+        validate_lsp_trivia_list(docs, rule_id, def_id, lang, "trailing_trivia", diags);
+    }
+
+    if let Some(name_cfg) = rule.config.get("name").and_then(Value::as_object) {
+        if let Some(role) = name_cfg.get("role").and_then(Value::as_str) {
+            if let Some(s) = shape {
+                if s.role_index(role).is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' uses unknown role '{}' for shape '{}'",
+                            rule_id, def_id, role, s.node_kind
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
+    if let Some(sig_cfg) = rule.config.get("signature").and_then(Value::as_object) {
+        if let Some(role) = sig_cfg.get("role").and_then(Value::as_str) {
+            if let Some(s) = shape {
+                if s.role_index(role).is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' uses unknown role '{}' for shape '{}'",
+                            rule_id, def_id, role, s.node_kind
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
+    if let Some(sk) = rule.config.get("symbol_kind") {
+        match sk {
+            Value::String(s) => {
+                if lsp_symbol_kind_number(s).is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' has unknown symbol_kind '{}'",
+                            rule_id, def_id, s
+                        ),
+                    ));
+                }
+            }
+            Value::Number(_) => {
+                if sk.as_u64().is_none() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' has invalid symbol_kind number",
+                            rule_id, def_id
+                        ),
+                    ));
+                }
+            }
+            _ => {
+                diags.push(Diagnostic::new(
+                    RULE,
+                    Severity::Error,
+                    Span::default(),
+                    format!(
+                        "rule '{}' in fragment '{}' has invalid symbol_kind (must be a SymbolKind name or number)",
+                        rule_id, def_id
+                    ),
+                ));
+            }
+        }
+    }
+
+    if let Some(arr) = rule.config.get("export_rules").and_then(Value::as_array) {
+        for v in arr {
+            if let Some(id) = v.as_str() {
+                if !all_rule_ids.contains(id) {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule '{}' in fragment '{}' references unknown export rule '{}'",
+                            rule_id, def_id, id
+                        ),
+                    ));
+                }
+            } else {
+                diags.push(Diagnostic::new(
+                    RULE,
+                    Severity::Error,
+                    Span::default(),
+                    format!(
+                        "rule '{}' in fragment '{}' has non-string export rule id",
+                        rule_id, def_id
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+fn validate_lsp_token_array(
+    rule: &LspRule,
+    rule_id: &str,
+    def_id: &str,
+    lang: &Language,
+    key: &str,
+    diags: &mut Vec<Diagnostic>,
+) {
+    let Some(arr) = rule.config.get(key).and_then(Value::as_array) else {
+        return;
+    };
+    for v in arr {
+        if let Some(tok) = v.as_str() {
+            if lang.tokens.get_by_id(tok).is_none() {
+                diags.push(Diagnostic::new(
+                    RULE,
+                    Severity::Error,
+                    Span::default(),
+                    format!(
+                        "rule '{}' in fragment '{}' references unknown token kind '{}' in '{}'",
+                        rule_id, def_id, tok, key
+                    ),
+                ));
+            }
+        } else {
+            diags.push(Diagnostic::new(
+                RULE,
+                Severity::Error,
+                Span::default(),
+                format!(
+                    "rule '{}' in fragment '{}' has non-string token id in '{}'",
+                    rule_id, def_id, key
+                ),
+            ));
+        }
+    }
+}
+
+fn validate_lsp_trivia_list(
+    obj: &Map<String, Value>,
+    rule_id: &str,
+    def_id: &str,
+    lang: &Language,
+    key: &str,
+    diags: &mut Vec<Diagnostic>,
+) {
+    let Some(arr) = obj.get(key).and_then(Value::as_array) else {
+        return;
+    };
+    for v in arr {
+        if let Some(tok) = v.as_str() {
+            if lang.tokens.get_by_id(tok).is_none() {
+                diags.push(Diagnostic::new(
+                    RULE,
+                    Severity::Error,
+                    Span::default(),
+                    format!(
+                        "rule '{}' in fragment '{}' references unknown token kind '{}' in '{}'",
+                        rule_id, def_id, tok, key
+                    ),
+                ));
+            }
+        } else {
+            diags.push(Diagnostic::new(
+                RULE,
+                Severity::Error,
+                Span::default(),
+                format!(
+                    "rule '{}' in fragment '{}' has non-string token id in '{}'",
+                    rule_id, def_id, key
+                ),
+            ));
+        }
+    }
+}
+
+fn lsp_symbol_kind_number(s: &str) -> Option<u32> {
+    let n = match s {
+        "File" => 1,
+        "Module" => 2,
+        "Namespace" => 3,
+        "Package" => 4,
+        "Class" => 5,
+        "Method" => 6,
+        "Property" => 7,
+        "Field" => 8,
+        "Constructor" => 9,
+        "Enum" => 10,
+        "Interface" => 11,
+        "Function" => 12,
+        "Variable" => 13,
+        "Constant" => 14,
+        "String" => 15,
+        "Number" => 16,
+        "Boolean" => 17,
+        "Array" => 18,
+        "Object" => 19,
+        "Key" => 20,
+        "Null" => 21,
+        "EnumMember" => 22,
+        "Struct" => 23,
+        "Event" => 24,
+        "Operator" => 25,
+        "TypeParameter" => 26,
+        _ => s.parse::<u32>().ok()?,
+    };
+    Some(n)
 }

@@ -11,6 +11,9 @@ use handl_host_tooling::lsp::{
 use handl_language::{Language, LspDef};
 
 mod providers;
+pub mod validate;
+
+pub use validate::validate_lsp;
 
 /// Generic LSP engine bound to a `Language`.
 pub struct LspEngine<'l> {
