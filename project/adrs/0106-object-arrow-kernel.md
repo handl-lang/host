@@ -454,3 +454,149 @@ identities.
 
 
 
+
+## Phase 5 conformance note (no closures / serializable arrows)
+
+This note records the state of the §6/§8 invariant — *arrows are objects with
+no closures, no lexical environments, and no hidden captured state* — as
+verified against the current tree (branch `design/object-arrow-kernel`). **The
+invariant does not hold yet.** Arrows remain closures over a captured
+environment and an AST index whose meaning is process-local. This section is
+factual: it lists the hidden state and what must change. It does **not** claim
+conformance.
+
+### Audit — every place an arrow/function value carries hidden captured state
+
+Value layer (`crates/handl-value/src/lib.rs`):
+
+- `TaggedValue::Arrow` — `lib.rs:345-357`. Fields: `params: Rc<[String]>`,
+  `rest: Option<Rc<str>>`, `body: usize`, `env: Rc<FxHashMap<Rc<str>,
+  TaggedValue>>`, `home: Option<u64>`, `array_pattern: bool`.
+  - `env` (`:353`) is the captured lexical environment — the load-bearing
+    hidden state. It **is** JSON-serialized (as `"env"`), but its *contents*
+    can be non-serializable (see `Resource` below), and it exists only to
+    support closure capture, which §3 forbids.
+  - `body` (`:352`) is an **AST index** (`AstRef`). It serializes as a bare
+    integer, which is not sufficient to reconstruct the arrow: the AST it
+    indexes is not in the value.
+  - `home` (`:354`) is stamped when an arrow crosses a runtime boundary. It
+    serializes as `"__home__"` (`:750-752`), but the *frame it names* lives in
+    a process-local table (below).
+- JSON encoders (`lib.rs:729-757`): always emit `__arrow__`, `params`,
+  `body`, `env`; emit `rest`, `__home__`, `array_pattern` only when set. The
+  shape itself is serializable data.
+- JSON decoders (`lib.rs:576-610`): reconstruct the `Arrow` variant; `home`
+  from `"__home__"` (`:597`).
+- `TaggedValue::Resource` (`lib.rs:358-365`): JSON encoding
+  `{"__resource__": {"ptr": <addr>}}` (`:758-764`) is **debug-only** — the
+  finalizer (a function pointer) is dropped, and decoding yields
+  `finalizer = None` (`:611-623`). A `Resource` captured in an arrow's `env`
+  therefore round-trips **lossily** (pointer preserved, finalizer lost). Not
+  serializable as-is.
+
+Tree-walk engine (`crates/plugin-engine-exec-tree-walk/src/lib.rs`):
+
+- Thread-local eval state: `CURRENT_AST`, `CURRENT_LANG`, `CURRENT_MODULES`,
+  `CURRENT_GLOBALS` and `HOME_FRAMES` (`:120-134`). `HOME_FRAMES` is a
+  `HashMap<u64, EvalFrame>` — the process-local home-frame registry.
+- `EvalFrame { ast: Rc<Ast>, lang: Rc<Language>, modules: Option<Rc<dyn
+  ModuleLookup>>, globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>> }`
+  (`:152-162`). This is the state a `__home__` id resolves to; it is **not**
+  serializable and **not** part of the arrow value. `home_frame` /
+  `register_frame_at` (`:189-200`).
+- `ScopeStack { scopes: Vec<FxHashMap<Rc<str>, TaggedValue>>, captured:
+  Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>, globals: Rc<FxHashMap<...>> }`
+  (`:291-302`), with `lookup` (`:338`), `define` (`:352`), `assign` (`:373`),
+  `push_scope` (`:394`), `pop_scope` (`:399`), `capture` (`:417`). This is the
+  mutable scope stack the closure substrate runs on.
+- Closure mint (`:2328-2336`): `TaggedValue::Arrow { …, env: captured,
+  home: None, … }`. Application threads `captured_env` back in
+  (`apply_app`, `:3834-3975`; `:4007-4016`).
+
+
+Bytecode engine (`crates/plugin-engine-exec-bytecode/src/vm.rs`):
+
+- `ScopeStack` mirror (`:133-160`): `captured_root:
+  Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>` (`:143`), `globals`
+  (`:148`), `lookup` (`:180`), `push_scope` (`:232`), `pop_scope` (`:239`),
+  `capture` (`:256`). Verbatim scope-stack + captured-env state.
+
+Cranelift engine (`crates/plugin-engine-exec-cranelift/src/lib.rs`):
+
+- `ScopeStack { scopes: Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>, … }`
+  (`:613-637`), with `lookup` (`:643`), `push_scope` (`:695`), `pop_scope`
+  (`:700`). Same captured-scope state.
+
+Runtime VM primitives (`crates/handl-runtime/src/vm_primitives.rs`):
+
+- `VmState { scopes: Vec<HashMap<String, Value>>, context }` behind
+  `Arc<Mutex<..>>` (`:45-53`) — a host-side scope stack.
+- `PushScopeFn` (`:72-78`); `MakeClosureFn` (`:141-156`) mints a
+  `{"__closure__": true, "params", "body", "env"}` record — hidden capture as
+  a JSON record; `CallFn` (`:165-204`) dispatches arrow values via
+  `ctx.try_call_value`.
+
+Boundary helpers:
+
+- `crates/handl-language/src/lib.rs:303-319` reserves `__arrow__` and
+  `__home__` as value keys (the hidden-state encodings leak into the value
+  namespace).
+- `crates/plugin-lib-handl/src/lib.rs:884-893` (`contains_unhomed_arrow`):
+  arrows crossing a `serde_json` boundary are stamped with `__home__` so the
+  receiving engine can route application back — evidence that the arrow value
+  alone is insufficient to apply it.
+
+### What is currently true (fenced by tests)
+
+`crates/handl-runtime/tests/arrow_serializability.rs` (8 tests, all green)
+pins the parts that *are* checkable through public APIs:
+
+- the arrow JSON key universe is exactly `__arrow__`, `params`, `body`,
+  `env`, `rest`, `__home__`, `array_pattern`; the bare arrow emits exactly
+  `__arrow__`, `params`, `body`, `env` (silent additions fail loudly);
+- an empty-`env` arrow round-trips JSON -> value -> JSON unchanged
+  (idempotent);
+- an `env`-captured nested arrow carrying a `home` id round-trips
+  **exactly** at the value level (the id is data) — but the frame it names is
+  not serialized;
+- an `env`-captured `Resource` round-trips **lossily** (pointer kept,
+  finalizer dropped; the decoded resource never finalizes);
+- a composed arrow, represented as the `Seq` term
+  (`{"__tag__": "Seq", "fst", "snd"}`), carries only its two components;
+- the arrow the tree-walk engine mints for `x ~> x` uses only documented keys.
+
+### TODO(ADR-0106) — what must change for §6/§8 to hold
+
+1. **Drop `env` from the arrow value.** `TaggedValue::Arrow.env`
+   (`handl-value/src/lib.rs:353`) and its encoder/decoder (`:729-757`,
+   `:576-610`) must go; arrow inputs/outputs become explicit object fields.
+   Consumers: tree-walk closure mint/apply
+   (`plugin-engine-exec-tree-walk/src/lib.rs:2328-2336`, `:3834-3975`,
+   `:4007-4016`), bytecode scope stack
+   (`plugin-engine-exec-bytecode/src/vm.rs:133-256`), cranelift scope stack
+   (`plugin-engine-exec-cranelift/src/lib.rs:613-700`), and the runtime VM
+   primitives (`handl-runtime/src/vm_primitives.rs:45-78`, `:141-204`).
+2. **Replace the `body` AST index with a serializable arrow graph.** Remove
+   the process-local home-frame table
+   (`plugin-engine-exec-tree-walk/src/lib.rs:120-134`, `:152-162`,
+   `:189-200`) and the `home`/`__home__` mechanism
+   (`handl-value/src/lib.rs:354`, `:750-752`;
+   `handl-language/src/lib.rs:318-319`;
+   `plugin-lib-handl/src/lib.rs:884-893`), so an arrow's body is data that
+   survives a round-trip.
+3. **Eliminate the scope stacks.** `push_scope`/`pop_scope`/`bind`/`lookup`/
+   `capture` in all three engines (tree-walk `:291-403`; bytecode
+   `vm.rs:133-256`; cranelift `lib.rs:613-700`) must be deleted in favour of
+   explicit arrow-graph substitution, as must the
+   `MakeClosureFn`/`CallFn` host primitives
+   (`handl-runtime/src/vm_primitives.rs:141-204`).
+4. **Close the `Resource`-in-`env` leak.** Either make arrow `env` incapable
+   of holding non-serializable values (encode-time error) or carry opaque
+   handles out-of-band; today they serialize as a finalizer-less pointer
+   (`handl-value/src/lib.rs:758-764`) and leak on round-trip.
+5. **Make `>>>` compose.** Surface `>>>` is currently *application*, not
+   composition (`handl-kit-data-canonical/data/types.yaml:2158-2166`); the
+   ADR-0106 §3 composed-arrow value does not exist yet, so "a composed arrow
+   has no hidden state beyond its components" is only fenced for the `Seq`
+   term. TODO: lower `>>>` to composition and add composed-arrow tests.
+

@@ -29,3 +29,4 @@ handl-plugin-lib-handl = {path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = {path = "../plugin-lib-stdlib" }
 handl-plugin-lib-tag = {path = "../plugin-lib-tag" }
 plugin-engine = {path = "../plugin-engine" }
+rustc-hash = "2"
