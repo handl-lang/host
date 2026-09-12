@@ -1,15 +1,9 @@
-//! # time_rand.rs — `time.*`/`rand.*` end-to-end smoke tests.
+//! # time_c.rs — `time-c` end-to-end smoke tests.
 //!
 //! `time` is no longer a pre-loaded host module; the time tests load the
 //! `time-c` implementation directly from `handl-packages/time-c`.
-//! `rand` remains a host module.
 
 use handl_kit_canonical::Kit;
-
-fn eval(input: &str) -> serde_json::Value {
-    let kit = Kit::new().expect("kit must build");
-    kit.eval(input).expect("eval must succeed")
-}
 
 fn eval_time(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
@@ -46,22 +40,4 @@ fn time_elapsed_ns_since_reading() {
     assert!(ns >= 0.0);
 }
 
-// ---------------------------------------------------------------------------
-// rand.seeded_* — deterministic RNG (ADR-0092 `property`/`fuzz` primitive)
-// ---------------------------------------------------------------------------
 
-#[test]
-fn rand_seeded_int_is_deterministic_and_bounded() {
-    let a = eval("rand.seeded_int(42, 0, 10)").as_f64().unwrap();
-    let b = eval("rand.seeded_int(42, 0, 10)").as_f64().unwrap();
-    assert_eq!(a, b, "same seed + args must produce the same output");
-    assert!((0.0..=10.0).contains(&a), "seeded_int out of range: {a}");
-}
-
-#[test]
-fn rand_seeded_bool_is_deterministic() {
-    let a = eval("rand.seeded_bool(7)");
-    let b = eval("rand.seeded_bool(7)");
-    assert!(a.is_boolean());
-    assert_eq!(a, b, "same seed must produce the same output");
-}

@@ -1,0 +1,3 @@
+from "../handl-packages/rand-c" import { int }
+
+int(6)

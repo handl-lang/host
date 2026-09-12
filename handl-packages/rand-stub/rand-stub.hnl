@@ -1,0 +1,36 @@
+--- Deterministic, pure-Handl backend for random values.
+---
+--- Returns fixed, reproducible values so tests and benchmarks stay
+--- deterministic. This is a no-effect backend; it does not call `libc`.
+
+--- Always returns 4.
+--- @param {max} - ignored; present for contract compatibility
+--- @returns {Number - always 4}
+--- @example
+--- ```hnl
+--- from "rand-stub" import { int }
+--- int(6)
+--- -- 4
+--- ```
+export int := (_max) ~> 4
+
+--- Always returns 0.5.
+--- @param {max} - ignored; present for contract compatibility
+--- @returns {Number - always 0.5}
+--- @example
+--- ```hnl
+--- from "rand-stub" import { float }
+--- float(10)
+--- -- 0.5
+--- ```
+export float := (_max) ~> 0.5
+
+--- Always returns `true`.
+--- @returns {Bool - always `true`}
+--- @example
+--- ```hnl
+--- from "rand-stub" import { bool }
+--- bool()
+--- -- true
+--- ```
+export bool := () ~> true
