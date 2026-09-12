@@ -65,14 +65,6 @@ pub struct PackageSpec {
 // The module table
 // ---------------------------------------------------------------------------
 
-const TIME_MODULE: ModuleSpec = ModuleSpec {
-    name: "time",
-    hnl: include_str!("../../../handl-packages/time-c/time-c.hnl"),
-    funcs: &["now_ms", "instant_ns", "elapsed_ns"],
-    ops: &[],
-    registry: None,
-};
-
 const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     name: "clock_gettime",
     hnl: include_str!("../../../handl-packages/time-c/clock_gettime.hnl"),
@@ -83,7 +75,6 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
 
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
-    TIME_MODULE,
     CLOCK_GETTIME_MODULE,
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
