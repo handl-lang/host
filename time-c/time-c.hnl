@@ -1,0 +1,45 @@
+--- time-c — the libc `clock_gettime` backend for the `time` contract.
+---
+--- Uses the `ffi` module to call `clock_gettime` in `libc.so.6`.
+---   time.now_ms     -> CLOCK_REALTIME (0) converted to milliseconds
+---   time.instant_ns -> CLOCK_MONOTONIC (1) as nanoseconds
+---   time.elapsed_ns -> saturating `instant_ns() - input`
+
+cap "time.now_ms"
+cap "time.instant_ns"
+cap "time.elapsed_ns"
+
+op "time.now_ms" : () -> Int
+  guarantee: Le(0, output)
+op "time.instant_ns" : () -> Int
+  guarantee: Le(0, output)
+op "time.elapsed_ns" : Int -> Int
+  guarantee: Le(0, output)
+
+do {
+  time_now_ms = () ~> do {
+    r = ffi.call("libc.so.6", "clock_gettime", [0], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false)
+    r.buf.tv_sec * 1000 + r.buf.tv_nsec / 1000000
+  }
+
+  time_instant_ns = () ~> do {
+    r = ffi.call("libc.so.6", "clock_gettime", [1], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false)
+    r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
+  }
+
+  time_elapsed_ns = (t) ~> do {
+    r = ffi.call("libc.so.6", "clock_gettime", [1], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false)
+    now = r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
+    if now >= t { now - t } else { 0 }
+  }
+
+  {
+    now_ms: time_now_ms,
+    instant_ns: time_instant_ns,
+    elapsed_ns: time_elapsed_ns,
+  }
+}
+
+handl "time.now_ms" = time_now_ms
+handl "time.instant_ns" = time_instant_ns
+handl "time.elapsed_ns" = time_elapsed_ns
