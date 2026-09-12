@@ -3,9 +3,7 @@ mod code_action_resolve;
 mod code_actions;
 mod code_lens_resolve;
 mod color_provider;
-mod completion;
 mod completion_resolve;
-mod cross_file_def;
 mod cross_file_rename;
 mod diagnostics;
 mod document;
@@ -88,10 +86,7 @@ mod code_lens_resolve_tests;
 mod color_provider_tests;
 #[cfg(test)]
 mod completion_resolve_tests;
-#[cfg(test)]
-mod completion_tests;
-#[cfg(test)]
-mod cross_file_def_tests;
+
 #[cfg(test)]
 mod cross_file_rename_tests;
 #[cfg(test)]
@@ -114,8 +109,6 @@ mod folding_ranges_tests;
 mod formatting_tests;
 #[cfg(test)]
 mod handlers_tests;
-#[cfg(test)]
-mod hover_tests;
 #[cfg(test)]
 mod implementation_tests;
 #[cfg(test)]
@@ -140,8 +133,6 @@ mod refinement_tests;
 mod selection_ranges_tests;
 #[cfg(test)]
 mod signature_help_tests;
-#[cfg(test)]
-mod symbols_tests;
 #[cfg(test)]
 mod type_definition_tests;
 #[cfg(test)]
