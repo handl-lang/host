@@ -1,0 +1,10 @@
+--- clock_gettime — low-level libc clock reader for the `time-c` backend.
+---
+--- Reads the given `clock_id` (`0` for `CLOCK_REALTIME`, `1` for
+  --- `CLOCK_MONOTONIC`) through `libc` `clock_gettime` and returns the
+--- time as an integer.
+
+export read_ns: Int ~[Effect]~> Int := (clock_id) ~> do {
+  r = ffi.call("libc.so.6", "clock_gettime", [clock_id], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false);
+  r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
+}

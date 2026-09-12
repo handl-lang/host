@@ -79,6 +79,9 @@ const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 const DEDENT_FUNCS: &[&str] = &["dedent"];
 
+const CLOCK_GETTIME_HNL: &str = include_str!("../../../handl-packages/time-c/clock_gettime.hnl");
+const CLOCK_GETTIME_FUNCS: &[&str] = &["read_ns"];
+
 // ---------------------------------------------------------------------------
 // test framework modules (pure Handl — ADR-0092)
 // ---------------------------------------------------------------------------
@@ -228,6 +231,7 @@ impl ModuleResolver for StdlibResolver {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
             "ip" => Some(std::sync::Arc::new(stdlib::ops::ip::IpModule)),
+            "clock_gettime" => Some(std::sync::Arc::new(build_clock_gettime_module())),
             _ => None,
         }
     }
@@ -237,6 +241,12 @@ fn build_dedent_module() -> HandlModule {
     HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_global_lookup(std::sync::Arc::new(
         stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
     ))
+}
+
+fn build_clock_gettime_module() -> HandlModule {
+    HandlModule::new("clock_gettime", CLOCK_GETTIME_HNL, CLOCK_GETTIME_FUNCS).with_global_lookup(
+        std::sync::Arc::new(stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver))),
+    )
 }
 
 // ---------------------------------------------------------------------------
