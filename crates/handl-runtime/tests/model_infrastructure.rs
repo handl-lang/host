@@ -236,82 +236,75 @@ fn composite_refine_matches_rust() {
 // TermData round-trip for key variants
 // -------------------------------------------------------------------------
 
-/// `TermData::from_term` / `to_term` round-trips for `Arr`.
+/// `TermData` round-trips for `Arr`.
 #[test]
 fn termdata_roundtrip_arr() {
-    let term = Term::Arr { value: json!(5) };
-    let data = TermData::from_term(&term);
+    let data = TermData::arr(json!(5));
     assert_eq!(data.tag(), "Arr");
     assert_eq!(data.get("value"), Some(&json!(5)));
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 /// `TermData` round-trips for `Seq`.
 #[test]
 fn termdata_roundtrip_seq() {
-    let term = Term::Seq {
-        fst: Box::new(Term::Arr { value: json!(1) }),
-        snd: Box::new(Term::Arr { value: json!(2) }),
-    };
-    let data = TermData::from_term(&term);
+    let data = TermData::seq(TermData::arr(json!(1)), TermData::arr(json!(2)));
     assert_eq!(data.tag(), "Seq");
     assert_eq!(data.get_term("fst").unwrap().tag(), "Arr");
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 /// `TermData` round-trips for `Op` (native, with args).
 #[test]
 fn termdata_roundtrip_op() {
-    let term = Term::op_native(
+    let data = TermData::op(
         "add",
-        vec![Term::Arr { value: json!(1) }, Term::Arr { value: json!(2) }],
+        vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
+        &ArrSource::Native,
+        None,
     );
-    let data = TermData::from_term(&term);
     assert_eq!(data.tag(), "Op");
     assert_eq!(data.get_str("name"), Some("add"));
     assert_eq!(data.get_term_list("args").len(), 2);
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 /// `TermData` round-trips for `Iter`.
 #[test]
 fn termdata_roundtrip_iter() {
-    let term = Term::Iter {
-        fuel: Box::new(Term::Arr { value: json!(10) }),
-        predicate: Box::new(Term::op_native("is_pos", vec![])),
-        step: Box::new(Term::op_native("dec", vec![])),
-        initial: Box::new(Term::Arr { value: json!(5) }),
-    };
-    let data = TermData::from_term(&term);
+    let data = TermData::iter(
+        TermData::arr(json!(10)),
+        TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        TermData::op("dec", vec![], &ArrSource::Native, None),
+        TermData::arr(json!(5)),
+    );
     assert_eq!(data.tag(), "Iter");
     assert_eq!(data.get_term("fuel").unwrap().tag(), "Arr");
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 /// `TermData` round-trips for `Path` (HoTT tag).
 #[test]
 fn termdata_roundtrip_path() {
-    let term = Term::Path {
-        endpoints: (Box::new(Term::Arr { value: json!(1) }), Box::new(Term::Arr { value: json!(2) })),
-        witness: None,
-    };
-    let data = TermData::from_term(&term);
+    let data = TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None);
     assert_eq!(data.tag(), "Path");
     assert_eq!(data.get_term("from").unwrap().get("value"), Some(&json!(1)));
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 /// `TermData` round-trips for `Tag`.
 #[test]
 fn termdata_roundtrip_tag() {
-    let term = Term::Tag {
-        tag: "ok".to_string(),
-        value: Box::new(Term::Arr { value: json!(42) }),
-    };
-    let data = TermData::from_term(&term);
+    let data = TermData::tag_value("ok", TermData::arr(json!(42)));
     assert_eq!(data.tag(), "Tag");
     assert_eq!(data.get_str("tag"), Some("ok"));
-    assert_eq!(data.to_term(), Ok(term));
+    let round = data.to_term().unwrap();
+    assert_eq!(TermData::from_term(&round), data);
 }
 
 // -------------------------------------------------------------------------
