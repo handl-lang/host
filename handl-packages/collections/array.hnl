@@ -23,7 +23,7 @@ from "concat" import * as concat
 from "contains" import * as contains
 from "index_of" import * as index_of
 from "slice" import * as slice
-from "first" import * as first_value
+from "first" import * as first
 from "last" import * as last
 from "at" import * as at
 from "pop" import * as pop
@@ -56,7 +56,7 @@ from "pluck" import * as pluck
   contains: contains.contains,
   index_of: index_of.index_of,
   slice: slice.slice,
-  first: first_value.first_value,
+  first: first.first,
   last: last.last,
   at: at.at,
   pop: pop.pop,
