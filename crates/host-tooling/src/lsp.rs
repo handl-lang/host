@@ -22,16 +22,18 @@ impl CompletionItem {
     }
 }
 
-/// A source location as a half-open byte range.
+/// A source location as a half-open byte range, optionally in another file.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Location {
     pub start: usize,
     pub end: usize,
+    /// File URI for cross-file locations; `None` means the current document.
+    pub uri: Option<String>,
 }
 
 impl Location {
     pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+        Self { start, end, uri: None }
     }
 }
 
@@ -113,6 +115,8 @@ pub struct CompletionResponse(pub Vec<CompletionItem>);
 pub struct GotoDefRequest {
     pub source: String,
     pub pos: usize,
+    /// Filesystem path of the current document (without the `file://` URI prefix).
+    pub path: String,
 }
 
 #[derive(Debug, Clone)]

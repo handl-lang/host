@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 
 use handl_host_tooling::{
-    SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest, ToolingHost,
+    GotoDefRequest, SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest, ToolingHost,
 };
 
 use crate::call_hierarchy;
@@ -9,7 +9,6 @@ use crate::code_actions;
 use crate::color_provider;
 use crate::completion_resolve;
 use crate::noop_kit::NoopKit;
-use crate::cross_file_def;
 use crate::cross_file_rename;
 use crate::diagnostics::parse_diagnostics;
 use crate::document::{self, DocumentStore, resolve_document_text};
@@ -862,6 +861,7 @@ pub fn handle_definition(
     id: serde_json::Value,
     msg: &Message,
     store: &DocumentStore,
+    host: &ToolingHost<NoopKit>,
 ) {
     let source = resolve_document_text(store, &msg.params);
     let offset = position_offset_from_msg(&msg, &source);
@@ -872,26 +872,37 @@ pub fn handle_definition(
         .and_then(|td| td.get("uri"))
         .and_then(|u| u.as_str())
         .unwrap_or("");
+    let file_path = uri.strip_prefix("file://").unwrap_or(uri);
 
-    // Try cross-file definition first (handles arrow file references like
-    // `insert` in `sort.hnl` → `insert.hnl`), then fall back to in-file.
-    if let Some(loc) = cross_file_def::resolve_definition(&source, offset, uri) {
-        send_response(writer, id, json!([loc]));
-        return;
-    }
+    let request = GotoDefRequest {
+        source,
+        pos: offset,
+        path: file_path.to_string(),
+    };
 
-    // In-file definition (existing behavior)
-    match symbols::identifier_at_offset(&source, offset)
-        .and_then(|(name, _)| symbols::find_definition(&source, &name))
-    {
-        Some(span) => {
-            let locations = json!([{
-                "uri": uri,
-                "range": symbols::span_to_range(&source, span),
-            }]);
-            send_response(writer, id, locations);
+    match host.goto_def(&request) {
+        Ok(Some(loc)) => {
+            let lines = LineMap::new(&request.source);
+            let (start_line, start_char) = lines.position(loc.start);
+            let (end_line, end_char) = lines.position(loc.end);
+            let range = json!({
+                "start": { "line": start_line, "character": start_char },
+                "end": { "line": end_line, "character": end_char },
+            });
+            let target_uri = if let Some(uri) = &loc.uri {
+                uri.clone()
+            } else {
+                uri.to_string()
+            };
+            send_response(writer, id, json!([{ "uri": target_uri, "range": range }]));
         }
-        None => send_response(writer, id, json!(null)),
+        Ok(None) => {
+            send_response(writer, id, json!(null));
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            send_error(writer, id, -32603, &msg);
+        }
     }
 }
 

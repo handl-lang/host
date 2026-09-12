@@ -1,4 +1,4 @@
-use handl_host_tooling::{Location, TextContentChange, ToolingHost};
+use handl_host_tooling::{GotoDefRequest, Location, TextContentChange, ToolingHost};
 use handl_kit_canonical::Kit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
@@ -67,8 +67,13 @@ fn complete_offers_keyword() {
 fn goto_def_finds_let_binding() {
     let h = host();
     let src = "a = 1; a";
+    let req = GotoDefRequest {
+        source: src.to_string(),
+        pos: 7,
+        path: "".to_string(),
+    };
     let loc = h
-        .goto_def(src, 7)
+        .goto_def(&req)
         .unwrap()
         .expect("goto_def should return a location");
     assert_eq!(loc, Location::new(4, 5));

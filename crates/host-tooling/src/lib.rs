@@ -131,13 +131,10 @@ impl<K: Plugin> ToolingHost<K> {
     }
 
     /// Returns the source span of the definition for the identifier at `pos`.
-    pub fn goto_def(&self, source: &str, pos: usize) -> Result<Option<Location>, PlatformError> {
+    pub fn goto_def(&self, request: &GotoDefRequest) -> Result<Option<Location>, PlatformError> {
         match &self.goto_def {
             Some(plugin) => {
-                let resp = plugin.run(&GotoDefRequest {
-                    source: source.to_string(),
-                    pos,
-                })?;
+                let resp = plugin.run(request)?;
                 Ok(resp.0)
             }
             None => Ok(None),
