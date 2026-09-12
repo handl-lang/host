@@ -606,3 +606,160 @@ pins the parts that *are* checkable through public APIs:
    has no hidden state beyond its components" is only fenced for the `Seq`
    term. TODO: lower `>>>` to composition and add composed-arrow tests.
 
+
+## Design: serializable arrow representation (item 2)
+
+This section specifies the concrete representation that makes an arrow
+**self-contained and serializable** — closing the gap the Phase 5 note
+documents — and the migration order to get there. It is written against the
+current tree and cites `file:line`. Only step 1 has been implemented so far
+(see the "current truth" note at the end).
+
+### Problem, precisely
+
+An arrow today is `TaggedValue::Arrow { params, rest, body: usize, env:
+Rc<FxHashMap<..>>, home: Option<u64>, array_pattern }`
+(`crates/handl-value/src/lib.rs:345-357`). Two of its fields are meaningless
+outside the process that minted it:
+
+- `body: usize` is an `AstRef` index (`crates/handl-language/src/ast.rs:68`)
+  into the producing engine's arena. The arena is never serialized with the
+  arrow, so a decoded arrow's `body` has no target.
+- `home: Option<u64>` names a frame in `HOME_FRAMES`, a process-local table
+  (`crates/plugin-engine-exec-tree-walk/src/lib.rs:134`, `:152-162`). The
+  frame (AST + `Language` + module chain) is not in the value.
+
+`env` is the third piece of hidden state, but it is a *semantic* problem
+(ADR-0106 §3/§4 forbid closures) rather than a *serializability* one, so the
+design below replaces only the body representation first and leaves `env`
+elimination to the larger migration (TODO items 1/3).
+
+### The representation
+
+Add one optional field to the arrow variant:
+
+```rust
+Arrow {
+    params: Rc<[String]>,
+    rest: Option<Rc<str>>,
+    body: usize,                       // fallback: ambient/home AST index
+    env: Rc<FxHashMap<Rc<str>, TaggedValue>>, // fallback (unchanged)
+    home: Option<u64>,                 // fallback (unchanged)
+    array_pattern: bool,
+    body_def: Option<Rc<TaggedValue>>, // NEW: the body as explicit data
+}
+```
+
+`body_def` carries the arrow's body as **explicit, serializable structure that
+lives in the value**. It holds the *existing* language-level AST-value
+encoding — a `TaggedValue::Obj` `{"__ast__": <serialized handl_language::Ast>}`
+— the same shape `handl_language::ast_value` / `as_ast` already define for
+vau-bound unevaluated expressions (`crates/handl-language/src/lib.rs:196-226`,
+`crates/handl-language/src/lib.rs:208-211`). The AST fragment is produced with
+the existing `Ast::subtree(root)` extractor
+(`crates/handl-language/src/ast.rs:168-181`), which copies the body node plus
+its transitively-referenced children into a fresh standalone arena.
+
+Why this shape and not a new type in `handl-value`:
+
+- `handl-value` is a low-level data crate with no dependency on
+  `handl-language`; `body_def` is therefore typed as an *opaque*
+  `TaggedValue`, not as an `Ast`. The `__ast__` convention is interpreted only
+  by the engines (which do depend on `handl-language`), keeping the layering.
+- `{"__ast__": <Ast>}` is already the serializable form of an expression the
+  platform trusts and round-trips (`handl-language/src/lib.rs:196-226`), so no
+  new serializer is introduced.
+- `Option` keeps the change additive: an arrow with `body_def: None` behaves
+  exactly as today (the `body`/`env`/`home` fallback).
+- `body_def` is **derived data** (the same body, pre-extracted into a
+  standalone arena), so it is not part of the value's *identity*: `eq` and
+  `Hash` (`crates/handl-value/src/lib.rs:456-481`) both ignore it. Two arrows
+  whose `params`/`rest`/`body`/`env`/`home`/`array_pattern` agree compare equal
+  and hash identically whether or not either carries a definition — which also
+  keeps the `Hash`/`Eq` contract intact.
+
+### JSON shape
+
+The `__arrow__` object gains exactly one optional key, emitted only when
+`body_def` is `Some`:
+
+```json
+{
+  "__arrow__": true,
+  "params": ["x"],
+  "body": 0,
+  "env": {},
+  "body_def": { "__ast__": { "nodes": [ { "kind": "…", "span": null, "payload": { … } } ] } }
+}
+```
+
+- Encoder: `crates/handl-value/src/lib.rs:741-756` (add a `body_def` branch
+  after `array_pattern`).
+- Decoder: `crates/handl-value/src/lib.rs:576-610` (`o.get("body_def")`).
+- The existing key universe is documented in the fence test
+  (`crates/handl-runtime/tests/arrow_serializability.rs:57-65`) and must gain
+  `body_def`.
+
+### Call sites
+
+**Mint** (arrow-value construction):
+
+- tree-walk `crates/plugin-engine-exec-tree-walk/src/lib.rs:2329-2336`
+  (`eval_inner_td`, `"closure"` arm) — the canonical mint. Here `ast` and the
+  body index are in scope, so this site populates `body_def` via
+  `ast.subtree(AstRef::new(body))` + `ast_value`.
+- tree-walk `:3891-3905` / `:3929-3936` (`apply_app` re-entry),
+  `:6117`/`:6122`: `body_def: None` (they re-wrap an existing body in the same
+  arena — no new definition).
+- tree-walk `:3308`, `:3390` (builtin arrow values): `body_def: None`.
+- bytecode `crates/plugin-engine-exec-bytecode/src/vm.rs:1096`, `:1319`,
+  `:3030`, `:3066`, `:752`, `:793`: `body_def: None` for now (the body there
+  is an instruction index, not an AST node — a later step).
+- cranelift `crates/plugin-engine-exec-cranelift/src/lib.rs:3843`, `:1949`,
+  `:2542`: `body_def: None` for now (same reason).
+- test/helper literals: `handl-value/src/lib.rs:1157,1165`,
+  `handl-runtime/tests/arrow_serializability.rs:222`.
+
+**Apply** (arrow-value consumption):
+
+- tree-walk `apply_app` (`crates/plugin-engine-exec-tree-walk/src/lib.rs:3881`)
+  and `apply_arrow_body` (`:4058`). The apply path currently derives
+  `(ast, body_idx)` from the ambient arena or from `HOME_FRAMES[home]`
+  (`:3912-3944`). A later step makes it **prefer** `body_def` when present:
+  deserialize via `handl_language::as_ast`, then call `apply_arrow_body` with
+  the standalone arena and root `AstRef::new(len-1)` (the Pratt post-order
+  convention, `handl-language/src/ast.rs:156-181`).
+- bytecode `vm.rs:1828`, `:2259` and cranelift `lib.rs:2857`, `:4623` consume
+  arrows for `Choice`/predicate dispatch only; unaffected by step 1.
+
+### Migration order
+
+1. **(this item, done)** Value-layer field + encoder/decoder + fence tests;
+   populate `body_def` at the tree-walk `"closure"` mint; apply path
+   **unchanged** (still uses `body`/`env`/`home`). Nothing regresses.
+2. Teach tree-walk `apply_app` to prefer `body_def` when present, falling back
+   to `body`/`home`. This requires **(2a)** first: extend `Ast::subtree`
+   (`crates/handl-language/src/ast.rs:168`) to remap *every* arena reference
+   in a payload, not only the `children` array — today it remaps `children`
+   only (`:197-201`), so nested absolute refs (a nested `closure` node's
+   `payload["body"]`, an `extend_env` node's `arena_idx`) still point into the
+   original arena. Until (2a) lands, `body_def` is a faithful copy for
+   leaf-only bodies but not a complete standalone arena for every body, so it
+   must **not** drive application.
+3. Populate `body_def` at the bytecode and cranelift mint sites (requires an
+   AST-level body representation there; the instruction index is not one).
+4. Drop `env` and `home`/`__home__` (TODO items 1/2/3 of the Phase 5 note),
+   leaving `body_def` (plus a serialized `Language` reference) as the arrow's
+   whole definitional content.
+
+### Known limitation recorded for step 2
+
+`Ast::subtree` (`crates/handl-language/src/ast.rs:184-210`) remaps only
+`payload["children"]`. Any payload field that carries an arena index under
+another name (nested closure `body`; `extend_env` `arena_idx`) is copied
+verbatim, so the extracted arena's such refs still denote the *original*
+arena. That is acceptable for the meta `eval` use case the extractor was
+written for, but it means step 1's `body_def` is a **structurally faithful,
+self-contained body for bodies with no nested arena refs** and a partial graph
+otherwise. Closing this is step (2a).
+
