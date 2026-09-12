@@ -1,12 +1,14 @@
 use serde_json::{Value, json};
 
-use handl_host_tooling::{SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest};
+use handl_host_tooling::{
+    SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest, ToolingHost,
+};
 
 use crate::call_hierarchy;
 use crate::code_actions;
 use crate::color_provider;
-use crate::completion;
 use crate::completion_resolve;
+use crate::noop_kit::NoopKit;
 use crate::cross_file_def;
 use crate::cross_file_rename;
 use crate::diagnostics::parse_diagnostics;
@@ -543,11 +545,39 @@ pub fn handle_completion(
     id: serde_json::Value,
     msg: &Message,
     store: &DocumentStore,
+    host: &ToolingHost<NoopKit>,
 ) {
     let source = resolve_document_text(store, &msg.params);
     let offset = position_offset_from_msg(&msg, &source);
-    let result = completion::completion(&source, offset);
-    send_response(writer, id, result);
+    match host.complete(&source, offset) {
+        Ok(items) => {
+            let result: Vec<Value> = items
+                .into_iter()
+                .map(|item| {
+                    let mut map = serde_json::Map::new();
+                    map.insert("label".to_string(), json!(item.label));
+                    if let Some(kind) = item.kind {
+                        map.insert("kind".to_string(), json!(kind));
+                    }
+                    if let Some(detail) = item.detail {
+                        map.insert("detail".to_string(), json!(detail));
+                    }
+                    if let Some(text) = item.insert_text {
+                        map.insert("insertText".to_string(), json!(text));
+                    }
+                    if let Some(fmt) = item.insert_text_format {
+                        map.insert("insertTextFormat".to_string(), json!(fmt));
+                    }
+                    Value::Object(map)
+                })
+                .collect();
+            send_response(writer, id, Value::Array(result));
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            send_error(writer, id, -32603, &msg);
+        }
+    }
 }
 
 pub fn handle_signature_help(

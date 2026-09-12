@@ -4,12 +4,20 @@ use handl_platform::PlatformError;
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompletionItem {
     pub label: String,
+    pub detail: Option<String>,
+    pub kind: Option<i64>,
+    pub insert_text: Option<String>,
+    pub insert_text_format: Option<i64>,
 }
 
 impl CompletionItem {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
+            detail: None,
+            kind: None,
+            insert_text: None,
+            insert_text_format: None,
         }
     }
 }

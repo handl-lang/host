@@ -36,6 +36,44 @@ mod type_definition;
 mod type_hierarchy;
 mod workspace_symbols;
 
+mod noop_kit {
+    use handl_platform::{
+        CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError,
+        Plugin, PluginContext,
+    };
+
+    #[derive(Debug, Clone, Default)]
+    pub struct NoopKit;
+
+    impl NoopKit {
+        pub fn new() -> Self {
+            Self
+        }
+    }
+
+    impl Plugin for NoopKit {
+        fn name(&self) -> &str {
+            "noop-kit"
+        }
+
+        fn capabilities(&self) -> &[CapabilityId] {
+            &[]
+        }
+
+        fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+            None
+        }
+
+        fn run(
+            &self,
+            _req: &CapabilityRequest,
+            _ctx: &mut PluginContext,
+        ) -> Result<CapabilityResponse, PlatformError> {
+            Err(PlatformError::NotImplemented)
+        }
+    }
+}
+
 #[cfg(test)]
 mod call_hierarchy_tests;
 #[cfg(test)]
@@ -114,7 +152,10 @@ mod workspace_symbols_tests;
 use std::collections::HashSet;
 use std::io::{self, BufRead};
 
-use handl_host_tooling::{SemanticTokensPlugin, TextContentChange, canonical_semantic_tokens};
+use handl_host_tooling::{
+    SemanticTokensPlugin, TextContentChange, ToolingHost, canonical_semantic_tokens,
+};
+use handl_plugin_lsp_completion::BasicCompletion;
 
 use document::DocumentStore;
 use handlers::{
@@ -175,6 +216,8 @@ fn main() {
     let mut writer = stdout.lock();
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
+    let host = ToolingHost::new(noop_kit::NoopKit::new())
+        .with_completion_plugin(Box::new(BasicCompletion::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 
@@ -214,7 +257,7 @@ fn main() {
                 handle_hover(&mut writer, id, &msg, &store, &refinement_engine);
             }
             "textDocument/completion" => {
-                handle_completion(&mut writer, id, &msg, &store);
+                handle_completion(&mut writer, id, &msg, &store, &host);
             }
             "textDocument/signatureHelp" => {
                 handle_signature_help(&mut writer, id, &msg, &store);
