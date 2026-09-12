@@ -23,48 +23,50 @@ and a thin handl adapter.
 1. **`LspDef` fragment** (`handl-language::fragments::lsp`), merged into a new
    `Language::lsp: FragmentSet<LspDef>` (added with `serde(default)` so
    pre-ADR-0100 serialized languages still load). The canonical data lives in
-   `crates/handl-kit-data-canonical/data/lsp.yaml`.
+   `crates/handl-kit-data-canonical/data/lsp.yaml` as a list of fragments.
 
-   `lsp.yaml` declares:
+   An `LspDef` has:
 
-   - `import` — tokens that introduce an import path or name, and the
-     filesystem layouts used to resolve a module spec.
-   - `export` — `!Match { node_kind }` rules for declarations that can be
-     completed, hovered, jumped to, or outlined; each rule names the `role`
-     that yields the exported name, an optional `signature` role, and which
-     trivia tokens provide documentation.
-   - `hover`, `goto`, `completion` — feature sections that *reference* the
-     shared `export` rules by id instead of duplicating them.
-   - `document_symbol` — `!Match` rules mapping AST nodes to LSP `SymbolKind`
-     names and a name role.
+   - `rules` — a registry of named rule *recipes* (`id -> LspRule`).
+   - `lsp` — a map from LSP method id (e.g. `textDocument/documentSymbol`)
+     to an ordered list of rule ids.
+
+   Each `LspRule` has:
+
+   - `kind` — the `plugin-lsp` provider that evaluates it.
+   - `match` — an optional `LspMatch` condition (AST `!Match`, token `!Token`,
+     or engine `!Native`).
+   - `config` — provider-specific data captured as a free `serde_json::Map`.
+     No `Language` schema change is needed to add a new `kind`.
+
+   This makes the LSP surface *method-keyed*, not section-keyed. A language can
+   enable only the LSP methods it wants, in any combination, with whatever rule
+   recipe mix it needs. Missing methods return empty or `null` responses.
 
 2. **Two new crates** replace the four `plugin-lsp-*` crates:
 
-   - `crates/plugin-lsp` — the generic LSP engine. It implements
-     `textDocument/completion`, `textDocument/hover`,
-     `textDocument/definition`, and `textDocument/documentSymbol` by reading
-     `Language::lsp`. It contains modules `completion.rs`, `hover.rs`,
-     `goto.rs`, `document_symbol.rs`, and shared helpers (`import.rs`,
-     `export.rs`, `docs.rs`). It is not handl-specific.
+   - `crates/plugin-lsp` — the generic LSP engine. It receives an LSP method
+     string, looks up the method's rule list in `Language::lsp`, and evaluates
+     each rule by dispatching on its `kind`. It is not handl-specific.
    - `crates/plugin-lsp-std` — the canonical handl adapter. It registers the
-     `handl-kit-data-canonical` `Language` (which now includes `lsp.yaml`) with
-     `plugin-lsp` and provides the `LspPlugin` wiring that `host-lsp` loads.
+     `handl-kit-data-canonical` `Language` with `plugin-lsp` and provides the
+     `LspPlugin` wiring that `host-lsp` loads.
 
    The old `plugin-lsp-completion`, `plugin-lsp-goto`, `plugin-lsp-hover`, and
    `plugin-lsp-symbol` crates are deleted and removed from the workspace.
 
-3. **Validation and resilience.** `merge_fragments` will be extended to
-   load `lsp.yaml` and merge it into a new `Language::lsp` field. A new
-   `validate_lsp` pass (analogous to `validate_transforms` for lint rules)
-   will check token kinds, AST shapes, roles, payload paths, and
-   `TransformCondition` references at `Language` build time. Missing or unknown
-   roles, tokens, node kinds, or export-rule ids are caught when the
-   `Language` is assembled, not at LSP request time.
+3. **Validation and resilience.** `merge_fragments` loads `lsp.yaml` and merges
+   it into `Language::lsp`. A new `validate_lsp` pass (analogous to
+   `validate_transforms` for lint rules) will check rule ids, token ids, AST
+   kinds, roles, payload paths, `TransformCondition` references, and method
+   `kind` handlers at `Language` build time. Missing or unknown roles, tokens,
+   node kinds, or rule references are caught when the `Language` is assembled,
+   not at LSP request time.
 
-4. **Fallbacks and robustness.** Each export rule declares `fallback: source`
-   for signatures (use the node's own source text when a dedicated signature
-   role is absent) and `dotted_last_segment: true`/`false` for names. The
-   engine silently skips a rule if the matched node does not provide the
+4. **Fallbacks and robustness.** Each export rule can declare `fallback:
+   source` for signatures (use the node's own source text when a dedicated
+   signature role is absent) and `dotted_last_segment: true`/`false` for names.
+   The engine silently skips a rule if the matched node does not provide the
    required role, so one malformed construct does not break the whole outline
    or completion list.
 
@@ -74,13 +76,13 @@ and a thin handl adapter.
    profiling shows it is necessary, but the initial implementation does not.
 
 6. **Everything is optional.** The `lsp` fragment itself is optional; a
-   `Language` without one returns empty or `null` LSP responses. Each
-   top-level section (`import`, `export`, `hover`, `goto`, `completion`,
-   `document_symbol`) is optional; a language with no imports, no comments, or
-   no outline simply omits the corresponding section. Inside an export rule,
-   `signature`, `docs`, `dotted_last_segment`, and `fallback` are optional.
-   `plugin-lsp` ignores missing data and never assumes a construct exists
-   unless the language declares it.
+   `Language` without one returns empty or `null` LSP responses. Each LSP
+   method is optional; `textDocument/hover` can be omitted while
+   `textDocument/completion` is kept. Inside a rule, `match`, `docs`,
+   `signature`, and `dotted_last_segment` are all optional. A language with no
+   comments can omit `docs`; one with no imports can omit `import_path` and
+   `import_name` rules. `plugin-lsp` ignores missing data and never assumes a
+   construct exists unless the language declares it.
 
 ## Consequences
 
@@ -94,16 +96,16 @@ and a thin handl adapter.
 - `!Match` is shared vocabulary with `lints.yaml` and `transforms.yaml`, so
   validation, condition evaluation, and third-party fragment authoring are
   consistent.
-- A third-party kit can contribute only the LSP features it wants (e.g. only
-  `document_symbol` or only `completion`) by including just those sections in
-  its own `lsp.yaml`; the generic engine treats missing sections as disabled.
+- A third-party kit can contribute only the LSP methods it wants by including
+  only those keys in its `lsp` map. It can add new `kind` values once
+  `plugin-lsp` learns them, without changing the `Language` schema.
 - The generic engine is larger and more abstract than the current hand-coded
   plugins. It must be tested with a minimal `Language` and `lsp.yaml` in
   `plugin-lsp/tests`.
 - `plugin-lsp-std` should eventually contain no logic: it is only a
-   registration crate. Any handl-specific code that cannot be expressed in
-   `lsp.yaml` is a defect in the data model, not a reason to add Rust to
-   `plugin-lsp-std`.
+  registration crate. Any handl-specific code that cannot be expressed in
+  `lsp.yaml` is a defect in the data model, not a reason to add Rust to
+  `plugin-lsp-std`.
 
 ## Related work
 
@@ -115,9 +117,10 @@ and a thin handl adapter.
   ADR-0097 (lint rules as data). The `lsp.yaml` fragment uses the same
   `!Match` vocabulary and the same `Language` fragment mechanics.
 - Does not replace ADR-0096 (runtime module resolution). The `lsp.yaml`
-  `import.module_layouts` are editor-side path completion patterns only; the
-  runtime resolver is unchanged. A future ADR may unify the two if the editor
-  and runtime can share a single module-resolution data fragment.
+  `import_path.module_layouts` and `import_name.module_layouts` are editor-side
+  path completion patterns only; the runtime resolver is unchanged. A future
+  ADR may unify the two if the editor and runtime can share a single
+  module-resolution data fragment.
 
 ## Status
 

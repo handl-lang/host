@@ -3,125 +3,142 @@
 # This is *one* concrete `lsp.yaml` instance for handl. `plugin-lsp` reads the
 # `lsp` fragment from `Language` and implements the LSP requests generically.
 #
-# No section, field, or rule here is mandatory. A language without comments can
-# omit `docs`; one without imports can omit `import`; one without an outline can
-# omit `document_symbol`. `plugin-lsp` simply ignores any absent section and
-# returns `null`/`[]` for that LSP request.
+# The top level is a list of `LspDef` fragments. Each fragment has a `rules`
+# registry and an `lsp` method map. The method map is keyed by LSP method id
+# and contains an ordered list of rule ids. `plugin-lsp` evaluates each method's
+# rules in order, dispatching each rule by its `kind`. Missing methods, missing
+# rules, and missing `kind` handlers all produce empty/null responses rather
+# than hard failures.
+#
+# No section, field, or rule is mandatory. A language without comments can omit
+# `docs` configuration in rules; a language without imports can omit
+# `import_path` and `import_name` rules; a language without an outline can omit
+# `textDocument/documentSymbol`.
 
-lsp:
-  import:
-    # Tokens whose immediately following string token is a module path.
-    # These are token ids from `tokens.yaml` (e.g. `token.keyword.from`),
-    # not hard-coded text.
-    path_tokens: [token.keyword.from, token.keyword.import]
-    # Tokens after which an imported name is being entered.
-    name_tokens: [token.keyword.import]
-    # Editor-side module resolution. Each pattern is tried in order.
-    # Runtime module resolution (ADR-0096) is separate; this is the
-    # filesystem search the editor uses for completions/goto/hover.
-    module_layouts:
-      - pattern: "{spec}"
-      - pattern: "{spec}.hnl"
-      - pattern: "{dir}/{dir}.hnl"
-      - pattern: "{dir}/mod.hnl"
+- id: canonical.lsp
+  rules:
+    # Shared export recipe for ast.law (axiom/law surface forms).
+    lsp.export.law:
+      kind: export
+      match:
+        !Match
+        node_kind: ast.law
+      name:
+        payload: name
+        dotted_last_segment: false
+      docs:
+        leading_trivia: [token.doc_comment, token.block_comment]
+        trailing_trivia: [token.comment]
+      signature:
+        fallback: source
 
-  export:
-    # Declarations that can be completed, hovered, jumped to, or outlined.
-    # Each rule is matched with the same `!Match` vocabulary as `lints.yaml`.
-    rules:
-      # `axiom` and `law` surface forms both parse to `ast.law`.
-      - id: lsp.export.law
-        match:
-          !Match
-          node_kind: ast.law
-        name:
-          # The `name` payload is lifted by the grammar row for `law`/`axiom`.
-          payload: name
-          dotted_last_segment: false
-        signature:
-          # `ast.law` has no single `signature` child; use the node's source text.
-          fallback: source
-        docs:
-          leading_trivia: [token.doc_comment, token.block_comment]
-          trailing_trivia: [token.comment]
+    lsp.export.assign:
+      kind: export
+      match:
+        !Match
+        node_kind: ast.assign
+      name:
+        role: target
+        dotted_last_segment: true
+      docs:
+        leading_trivia: [token.doc_comment, token.block_comment]
+        trailing_trivia: [token.comment]
+      signature:
+        fallback: source
 
-      - id: lsp.export.assign
-        match:
-          !Match
-          node_kind: ast.assign
-        name:
-          role: target
-          dotted_last_segment: true
-        # Top-level bindings have no declared signature; show the full source.
-        signature:
-          fallback: source
-        docs:
-          leading_trivia: [token.doc_comment, token.block_comment]
-          trailing_trivia: [token.comment]
+    lsp.export.data:
+      kind: export
+      match:
+        !Match
+        node_kind: ast.data
+      name:
+        payload: name
+        dotted_last_segment: false
+      docs:
+        leading_trivia: [token.doc_comment, token.block_comment]
+        trailing_trivia: [token.comment]
 
-      - id: lsp.export.data
-        match:
-          !Match
-          node_kind: ast.data
-        name:
-          # `ast.data` carries the type name in `payload.name`.
-          payload: name
-          dotted_last_segment: false
-        docs:
-          leading_trivia: [token.doc_comment, token.block_comment]
-          trailing_trivia: [token.comment]
+    # Document-symbol recipes (one per exportable shape).
+    lsp.symbol.law:
+      kind: symbol
+      match:
+        !Match
+        node_kind: ast.law
+      symbol_kind: Function
+      name:
+        payload: name
 
-  # Hover falls back to the shared export rules above.
-  hover:
-    from_export_rules:
-      - lsp.export.law
-      - lsp.export.assign
-      - lsp.export.data
-    import_path:
-      # When hovering an import path string, show the target module's docs.
-      show_module_docs: true
+    lsp.symbol.data:
+      kind: symbol
+      match:
+        !Match
+        node_kind: ast.data
+      symbol_kind: Class
+      name:
+        payload: name
+
+    lsp.symbol.assign:
+      kind: symbol
+      match:
+        !Match
+        node_kind: ast.assign
+      symbol_kind: Variable
+      name:
+        role: target
+        dotted_last_segment: true
+
+    # Hover an import path string to show the target module's leading docs.
+    lsp.hover.import:
+      kind: import_hover
       module_docs:
         leading_trivia: [token.doc_comment]
 
-  # Goto-definition also reuses the same export rules.
-  goto:
-    from_export_rules:
+    # Completion: import path string (after `from` or `import`).
+    lsp.completion.import_path:
+      kind: import_path
+      preceding_tokens: [token.keyword.from, token.keyword.import]
+      module_layouts:
+        - pattern: "{spec}"
+        - pattern: "{spec}.hnl"
+        - pattern: "{dir}/{dir}.hnl"
+        - pattern: "{dir}/mod.hnl"
+
+    # Completion: imported name (after `import`).
+    lsp.completion.import_name:
+      kind: import_name
+      name_tokens: [token.keyword.import]
+      module_layouts:
+        - pattern: "{spec}"
+        - pattern: "{spec}.hnl"
+        - pattern: "{dir}/{dir}.hnl"
+        - pattern: "{dir}/mod.hnl"
+
+    # Completion: any other position, suggest exported names.
+    lsp.completion.exported_name:
+      kind: export_name
+      export_rules:
+        - lsp.export.law
+        - lsp.export.assign
+        - lsp.export.data
+
+  lsp:
+    textDocument/documentSymbol:
+      - lsp.symbol.law
+      - lsp.symbol.data
+      - lsp.symbol.assign
+
+    textDocument/hover:
+      - lsp.export.law
+      - lsp.export.assign
+      - lsp.export.data
+      - lsp.hover.import
+
+    textDocument/definition:
       - lsp.export.law
       - lsp.export.assign
       - lsp.export.data
 
-  completion:
-    import_names:
-      # Suggest names produced by these export rules.
-      from_export_rules:
-        - lsp.export.law
-        - lsp.export.assign
-        - lsp.export.data
-    # Import path completion is enabled; patterns come from `lsp.import.module_layouts`.
-    import_paths: true
-
-  document_symbol:
-    rules:
-      - id: lsp.symbol.law
-        match:
-          !Match
-          node_kind: ast.law
-        # LSP SymbolKind names, not magic numbers.
-        kind: Function
-        name:
-          payload: name
-      - id: lsp.symbol.data
-        match:
-          !Match
-          node_kind: ast.data
-        kind: Class
-        name:
-          payload: name
-      - id: lsp.symbol.assign
-        match:
-          !Match
-          node_kind: ast.assign
-        kind: Variable
-        name:
-          role: target
-          dotted_last_segment: true
+    textDocument/completion:
+      - lsp.completion.import_path
+      - lsp.completion.import_name
+      - lsp.completion.exported_name

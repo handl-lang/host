@@ -47,7 +47,7 @@ use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry};
 use handl_language::{
     AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
-    LintRuleDef, OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
+    LintRuleDef, LspDef, OptionSchema, TokenKindDef, TransformDef, TypeRuleDef,
 };
 
 /// The kit name under which this kit registers itself (for `extends`
@@ -85,8 +85,9 @@ const OPTIONS_YAML: &str = include_str!("../data/options.yaml");
 const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
 const TRANSFORMS_YAML: &str = include_str!("../data/transforms.yaml");
 const LINTS_YAML: &str = include_str!("../data/lints.yaml");
+const LSP_YAML: &str = include_str!("../data/lsp.yaml");
 
-/// Build a [`Language`] from the 9 embedded YAML data files.
+/// Build a [`Language`] from the 10 embedded YAML data files.
 ///
 /// Each file contains a YAML list of fragments of one type. The fragments are
 /// deserialized and merged into a single [`Language`]. `eval.yaml` holds the
@@ -108,10 +109,11 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         LEXER_RULES_YAML,
         TRANSFORMS_YAML,
         LINTS_YAML,
+        LSP_YAML,
     )
 }
 
-/// Merge the nine YAML fragment strings into a single [`Language`].
+/// Merge the ten YAML fragment strings into a single [`Language`].
 ///
 /// Each argument is the raw YAML text for one fragment type. The fragments are
 /// deserialized and merged in the same order as [`language_from_yaml`].
@@ -130,6 +132,7 @@ fn merge_fragments(
     lexer_rules_yaml: &str,
     transforms_yaml: &str,
     lints_yaml: &str,
+    lsp_yaml: &str,
 ) -> Result<Language, LangError> {
     let mut lang = Language::new();
 
@@ -208,6 +211,13 @@ fn merge_fragments(
         lang.lints.merge(frag)?;
     }
 
+    // LSP surface (ADR-0100 — non-union, pre-resolved).
+    let lsp_frags: Vec<LspDef> = serde_yaml::from_str(lsp_yaml)
+        .map_err(|e| LangError::engine(format!("lsp.yaml: {}", e)))?;
+    for frag in lsp_frags {
+        lang.lsp.merge(frag)?;
+    }
+
     // ADR-0094 "Production readiness": transform-rule validation runs at
     // `Language` build. Error-severity diagnostics (duplicate identity keys,
     // out-of-bounds `Keep`/`KeepRole`/`KeepPath`/`KeepRest`/`Apply` steps,
@@ -231,14 +241,15 @@ fn merge_fragments(
     Ok(lang)
 }
 
-/// Build a [`Language`] from the nine YAML data files in a directory.
+/// Build a [`Language`] from the ten YAML data files in a directory.
 ///
 /// Reads `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`,
-/// `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml`, and
-/// (optionally — absent means no first-class rules) `transforms.yaml` from `dir`
-/// and merges them the same way [`language_from_yaml`] merges the embedded
-/// files. This is the per-file kit loading path (ADR 0003): a host resolves a
-/// kit data directory and assembles a [`Language`] from its authored YAML.
+/// `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml`,
+/// (optionally) `transforms.yaml`, (optionally) `lints.yaml`, and (optionally)
+/// `lsp.yaml` from `dir` and merges them the same way [`language_from_yaml`]
+/// merges the embedded files. This is the per-file kit loading path (ADR 0003):
+/// a host resolves a kit data directory and assembles a [`Language`] from its
+/// authored YAML.
 ///
 /// # Errors
 ///
@@ -282,6 +293,14 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         Err(e) => return Err(LangError::engine(format!("lints.yaml: {}", e))),
     };
 
+    // `lsp.yaml` is optional: fragment directories written before ADR-0100
+    // do not carry one.
+    let lsp_yaml = match std::fs::read_to_string(dir.join("lsp.yaml")) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "[]".to_string(),
+        Err(e) => return Err(LangError::engine(format!("lsp.yaml: {}", e))),
+    };
+
     merge_fragments(
         &tokens_yaml,
         &grammar_yaml,
@@ -293,6 +312,7 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         &lexer_rules_yaml,
         &transforms_yaml,
         &lints_yaml,
+        &lsp_yaml,
     )
 }
 
@@ -563,7 +583,7 @@ mod tests {
       - !Keep 1
 "#;
         let lang = merge_fragments(
-            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]",
+            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]", "[]",
         )
         .unwrap();
         let rules = lang.transforms_for("desugar", "sugared");
@@ -602,7 +622,7 @@ mod tests {
       - !Keep 7
 "#;
         let err = merge_fragments(
-            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]",
+            "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]", "[]", "[]",
         )
         .unwrap_err();
         assert!(

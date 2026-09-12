@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lsp"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-host-tooling.workspace = true
+handl-language.workspace = true
+handl-platform.workspace = true
+serde_json.workspace = true
