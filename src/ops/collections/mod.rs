@@ -2,10 +2,10 @@
 //!
 //! Ported verbatim from the deleted `plugin-lib-collections` crate:
 //! - [`seq`] — the shared sequential-container ops (`new`/`from`/
-//!   `to_array`/`len`/`is_empty` plus the end-parameterized
-//!   `push`/`pop`/`peek` used by `vec`, `list`, `queue`, `stack`, and
-//!   `deque`). All members except `new`/`from`/`to_array` are now pure
-//!   handl (see `handl-packages/collections/{vec,list,queue,stack,deque}.hnl`);
+//!   `to_array`). The `len`/`is_empty`/`push`/`pop`/`peek` surface and the
+//!   end-parameterized members used by `vec`, `list`, `queue`, `stack`, and
+//!   `deque` are now pure handl
+//!   (see `handl-packages/collections/{vec,list,queue,stack,deque}.hnl`);
 //!   the `pop`/`peek`/`dequeue`/`pop_*`/`peek_*` contract requires raising
 //!   `collection is empty` on an empty structure, which is now expressible
 //!   via the `error.raise` primitive (`handl-packages/error/error.hnl`).
@@ -18,9 +18,9 @@
 //!   `EvalContext::eval_expr` natively. The arrow-free `array.*` surface
 //!   lives in `handl-packages/collections/array/index.hnl` as pure handl.
 //! - [`hash_map`] — the `hash_map.*` object ops. Native because handl has
-//!   no object-key-iteration primitive (`keys`/`values`/`entries`/
-//!   `merge`/`pick`/`omit`/`invert` need to enumerate a record's fields)
-//!   and several members take arrow arguments.
+//!   no object-key-iteration primitive (`merge`/`pick`/`omit`/`invert` need
+//!   to enumerate a record's fields) and several members take arrow
+//!   arguments.
 //! - [`hash_set`] — the `hash_set.*` set ops. Native because membership is
 //!   keyed on a *serialized* value (`value_key`), which distinguishes
 //!   `1` from `1.0` and differs from handl `==` (cross-numeric equality);
@@ -40,10 +40,6 @@ use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
 mod array;
 mod common;
 mod error;
-// `#[allow(dead_code)]`: `hash_map.rs` still holds `Keys`/`Values`/`Entries`,
-// superseded by the pure-handl `hash_map.{keys,values,entries}` ops and no
-// longer registered (see [`HASH_MAP_OPS`]); they stay compiled but unreachable.
-#[allow(dead_code)]
 mod hash_map;
 mod hash_set;
 mod seq;
@@ -152,61 +148,33 @@ pub const ARRAY_OPS: &[&str] = &[
 /// Build the [`OpRegistry`] for collections, registering all Rust handls
 /// under their full op names (the former `build_registry`).
 pub fn collections_op_registry() -> OpRegistry {
-    use seq::{End, From, IsEmpty, Len, New, Peek, Pop, Push, ToArray};
+    use seq::{From, New, ToArray};
     let mut r = OpRegistry::new();
 
-    // vec (back-ended dynamic array)
+    // vec (back-ended dynamic array) — non-nullary surface is pure handl.
     r.register("vec.new", Arc::new(New));
     r.register("vec.from", Arc::new(From));
     r.register("vec.to_array", Arc::new(ToArray));
-    r.register("vec.len", Arc::new(Len));
-    r.register("vec.is_empty", Arc::new(IsEmpty));
-    r.register("vec.push", Arc::new(Push { end: End::Back }));
-    r.register("vec.pop", Arc::new(Pop { end: End::Back }));
-    r.register("vec.peek", Arc::new(Peek { end: End::Back }));
 
-    // list (front-ended list)
+    // list (front-ended list) — non-nullary surface is pure handl.
     r.register("list.new", Arc::new(New));
     r.register("list.from", Arc::new(From));
     r.register("list.to_array", Arc::new(ToArray));
-    r.register("list.len", Arc::new(Len));
-    r.register("list.is_empty", Arc::new(IsEmpty));
-    r.register("list.push", Arc::new(Push { end: End::Front }));
-    r.register("list.pop", Arc::new(Pop { end: End::Front }));
-    r.register("list.peek", Arc::new(Peek { end: End::Front }));
 
-    // queue (FIFO)
+    // queue (FIFO) — non-nullary surface is pure handl.
     r.register("queue.new", Arc::new(New));
     r.register("queue.from", Arc::new(From));
     r.register("queue.to_array", Arc::new(ToArray));
-    r.register("queue.len", Arc::new(Len));
-    r.register("queue.is_empty", Arc::new(IsEmpty));
-    r.register("queue.enqueue", Arc::new(Push { end: End::Back }));
-    r.register("queue.dequeue", Arc::new(Pop { end: End::Front }));
-    r.register("queue.peek", Arc::new(Peek { end: End::Front }));
 
-    // stack (LIFO)
+    // stack (LIFO) — non-nullary surface is pure handl.
     r.register("stack.new", Arc::new(New));
     r.register("stack.from", Arc::new(From));
     r.register("stack.to_array", Arc::new(ToArray));
-    r.register("stack.len", Arc::new(Len));
-    r.register("stack.is_empty", Arc::new(IsEmpty));
-    r.register("stack.push", Arc::new(Push { end: End::Back }));
-    r.register("stack.pop", Arc::new(Pop { end: End::Back }));
-    r.register("stack.peek", Arc::new(Peek { end: End::Back }));
 
-    // deque (double-ended)
+    // deque (double-ended) — non-nullary surface is pure handl.
     r.register("deque.new", Arc::new(New));
     r.register("deque.from", Arc::new(From));
     r.register("deque.to_array", Arc::new(ToArray));
-    r.register("deque.len", Arc::new(Len));
-    r.register("deque.is_empty", Arc::new(IsEmpty));
-    r.register("deque.push_back", Arc::new(Push { end: End::Back }));
-    r.register("deque.push_front", Arc::new(Push { end: End::Front }));
-    r.register("deque.pop_back", Arc::new(Pop { end: End::Back }));
-    r.register("deque.pop_front", Arc::new(Pop { end: End::Front }));
-    r.register("deque.peek_back", Arc::new(Peek { end: End::Back }));
-    r.register("deque.peek_front", Arc::new(Peek { end: End::Front }));
 
     // hash_map
     use hash_map as hm;
