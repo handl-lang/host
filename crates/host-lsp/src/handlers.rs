@@ -15,7 +15,7 @@ use crate::diagnostics::parse_diagnostics;
 use crate::document::{self, DocumentStore, resolve_document_text};
 use crate::document_highlight;
 use crate::document_link;
-use crate::document_symbols;
+use crate::line_map::LineMap;
 use crate::execute_command;
 use crate::file_watcher;
 use crate::folding_ranges;
@@ -599,10 +599,41 @@ pub fn handle_document_symbols(
     id: serde_json::Value,
     msg: &Message,
     store: &DocumentStore,
+    host: &ToolingHost<NoopKit>,
 ) {
     let source = resolve_document_text(store, &msg.params);
-    let symbols = document_symbols::document_symbols(&source);
-    send_response(writer, id, json!(symbols));
+    let lines = LineMap::new(&source);
+    match host.document_symbols(&source) {
+        Ok(symbols) => {
+            let to_position = |offset: usize| {
+                let (l, c) = lines.position(offset);
+                json!({ "line": l, "character": c })
+            };
+            let to_range = |start: usize, end: usize| {
+                json!({
+                    "start": to_position(start),
+                    "end": to_position(end),
+                })
+            };
+            let result: Vec<Value> = symbols
+                .into_iter()
+                .map(|s| {
+                    json!({
+                        "name": s.name,
+                        "kind": s.kind,
+                        "detail": s.detail,
+                        "range": to_range(s.range_start, s.range_end),
+                        "selectionRange": to_range(s.selection_start, s.selection_end),
+                    })
+                })
+                .collect();
+            send_response(writer, id, Value::Array(result));
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            send_error(writer, id, -32603, &msg);
+        }
+    }
 }
 
 pub fn handle_formatting(

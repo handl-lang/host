@@ -156,6 +156,7 @@ use handl_host_tooling::{
     SemanticTokensPlugin, TextContentChange, ToolingHost, canonical_semantic_tokens,
 };
 use handl_plugin_lsp_completion::BasicCompletion;
+use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 
 use document::DocumentStore;
 use handlers::{
@@ -217,7 +218,8 @@ fn main() {
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
     let host = ToolingHost::new(noop_kit::NoopKit::new())
-        .with_completion_plugin(Box::new(BasicCompletion::new()));
+        .with_completion_plugin(Box::new(BasicCompletion::new()))
+        .with_document_symbols_plugin(Box::new(BasicDocumentSymbols::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 
@@ -266,7 +268,7 @@ fn main() {
                 handle_code_lens(&mut writer, id, &msg, &store, &refinement_engine);
             }
             "textDocument/documentSymbol" => {
-                handle_document_symbols(&mut writer, id, &msg, &store);
+                handle_document_symbols(&mut writer, id, &msg, &store, &host);
             }
             "textDocument/formatting" => {
                 handle_formatting(&mut writer, id, &msg, &store);

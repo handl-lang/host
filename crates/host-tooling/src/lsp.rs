@@ -39,16 +39,24 @@ impl Location {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DocumentSymbol {
     pub name: String,
-    pub start: usize,
-    pub end: usize,
+    pub detail: Option<String>,
+    pub kind: u32,
+    pub range_start: usize,
+    pub range_end: usize,
+    pub selection_start: usize,
+    pub selection_end: usize,
 }
 
 impl DocumentSymbol {
     pub fn new(name: impl Into<String>, start: usize, end: usize) -> Self {
         Self {
             name: name.into(),
-            start,
-            end,
+            detail: None,
+            kind: 13, // SymbolKind::Variable
+            range_start: start,
+            range_end: end,
+            selection_start: start,
+            selection_end: end,
         }
     }
 }

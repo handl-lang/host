@@ -17,6 +17,7 @@ handl-host-tooling.workspace = true
 handl-plugin-ext-diag.workspace = true
 handl-plugin-ext-lint.workspace = true
 handl-plugin-lsp-completion.workspace = true
+handl-plugin-lsp-symbol.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
