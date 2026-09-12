@@ -412,12 +412,24 @@ rule.
   empty list (`A ~[]~> B`) is rejected. Grade/sort declarations carry the
   algebra as before (ADR-0098/0100, ADR-0102; `graded_theory.rs`,
   `graded_e2e.rs`). ADR notation and implementation now agree.
-- **Dimensions.** `f<...>` specialization parses through the existing generic
-  call rules (ADR-0060) and is not yet restricted to "anything" (values,
-  arrows, proofs, grades, algebras) — the accepted dimension payloads are the
-  ones the generic call dispatcher understands today. TODO(ADR-0106): widen
-  dimension payloads and add explicit tests for `f<(a >>> b)>` versus
-  `(f<a>) >>> b`.
+- **Dimensions — NOT IMPLEMENTED.** The `f<...>` specialization surface does
+  not exist in the language today: the canonical grammar has no dimension row
+  (`crates/handl-kit-data-canonical/data/grammar.yaml`; the angle-bracket
+  parameter forms for `sort`/`op` are likewise noted as absent at
+  `grammar.yaml:545` and `:590`), and `<` is the ordinary comparison operator
+  (`grammar.lt.infix` → `binary.lt`). So `f<a>` currently parses as a
+  *comparison*, and `(f<a>) >>> b` is a comparison flowing into `b` — not the
+  meaning §11 gives it. This behaviour is pinned by
+  `dimension_syntax_is_not_yet_implemented` in
+  `crates/handl-kit-data-canonical/tests/graded_theory.rs` so a future
+  implementation shows up as a deliberate test change.
+  TODO(ADR-0106): implement dimensions. The parse strategy must (a) resolve
+  the `f<a>` vs `f < a` ambiguity — lookahead/backtracking or a dedicated
+  postfix rule adjacent to `token.lt` — (b) split a maximal-munch `>>` when
+  closing nested dimensions (`f<g<x>>`), (c) only open a dimension when the
+  bracket actually closes as one, and (d) then widen the accepted payloads
+  beyond the current generic-call dispatch, with explicit tests for
+  `f<(a >>> b)>` versus `(f<a>) >>> b`.
 
 Nominal subtyping itself (this ADR's §14) is implemented in the Handl-authored
 typecheck model, `project/design/adr0103/typecheck_model.hnl` (crate
