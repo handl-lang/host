@@ -10,17 +10,19 @@
 --- NOTE: the `array` aggregator itself depends on `hash_map`, so importing
 --- it here would form a dependency cycle; the leaf `collections/array/len`
 --- and `collections/array/contains` submodules are used instead.
-from "obj" import * as obj
-from "len" import * as len
-from "contains" import * as contains
+from "obj" import keys
+from "obj" import values
+from "obj" import entries
+from "len" import len
+from "contains" import contains
 
 {
-  keys: m ~> obj.keys(m),
-  values: m ~> obj.values(m),
-  entries: m ~> obj.entries(m),
-  len: m ~> len.len(obj.keys(m)),
-  is_empty: m ~> len.len(obj.keys(m)) == 0,
-  has: (m, k) ~> contains.contains(obj.keys(m), k),
-  has_key: (m, k) ~> contains.contains(obj.keys(m), k),
+  keys: m ~> keys(m),
+  values: m ~> values(m),
+  entries: m ~> entries(m),
+  len: m ~> len(keys(m)),
+  is_empty: m ~> len(keys(m)) == 0,
+  has: (m, k) ~> contains(keys(m), k),
+  has_key: (m, k) ~> contains(keys(m), k),
   clone_deep: x ~> x
 }

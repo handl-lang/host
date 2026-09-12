@@ -35,16 +35,16 @@
 --- `list.peek([1, 2, 3])`  -- => 1
 --- `list.pop([1, 2, 3])`   -- => [2, 3]
 
-from "list_len" import * as list_len
-from "list_is_empty" import * as list_is_empty
-from "list_push" import * as list_push
-from "list_peek" import * as list_peek
-from "list_pop" import * as list_pop
+from "list_len" import len
+from "list_is_empty" import is_empty
+from "list_push" import push
+from "list_peek" import peek
+from "list_pop" import pop
 
 {
-  len: list_len.len,
-  is_empty: list_is_empty.is_empty,
-  push: list_push.push,
-  peek: list_peek.peek,
-  pop: list_pop.pop
+  len: len,
+  is_empty: is_empty,
+  push: push,
+  peek: peek,
+  pop: pop
 }

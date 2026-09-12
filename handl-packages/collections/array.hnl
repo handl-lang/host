@@ -16,68 +16,68 @@
 --- - `at`/`first`/`last` return `null` out-of-bounds / on empty;
 ---   `pop`/`shift` return `[]` on empty.
 ---
-from "len" import * as len
-from "is_empty" import * as is_empty
-from "reverse" import * as reverse
-from "concat" import * as concat
-from "contains" import * as contains
-from "index_of" import * as index_of
-from "slice" import * as slice
-from "first" import * as first
-from "last" import * as last
-from "at" import * as at
-from "pop" import * as pop
-from "shift" import * as shift
-from "fill" import * as fill
-from "flatten" import * as flatten
-from "deep_flatten" import * as deep_flatten
-from "take" import * as take
-from "drop" import * as drop
-from "enumerate" import * as enumerate
-from "unzip" import * as unzip
-from "intersperse" import * as intersperse
-from "intercalate" import * as intercalate
-from "dedupe" import * as dedupe
-from "prepend" import * as prepend
-from "windows" import * as windows
-from "transpose" import * as transpose
-from "insert_at" import * as insert_at
-from "remove_at" import * as remove_at
-from "zip" import * as zip
-from "chunk" import * as chunk
-from "compact" import * as compact
-from "pluck" import * as pluck
+from "len" import len
+from "is_empty" import is_empty
+from "reverse" import reverse
+from "concat" import concat
+from "contains" import contains
+from "index_of" import index_of
+from "slice" import slice
+from "first" import first as first_v
+from "last" import last
+from "at" import at
+from "pop" import pop
+from "shift" import shift
+from "fill" import fill
+from "flatten" import flatten
+from "deep_flatten" import deep_flatten
+from "take" import take
+from "drop" import drop
+from "enumerate" import enumerate
+from "unzip" import unzip
+from "intersperse" import intersperse
+from "intercalate" import intercalate
+from "dedupe" import dedupe
+from "prepend" import prepend
+from "windows" import windows
+from "transpose" import transpose
+from "insert_at" import insert_at
+from "remove_at" import remove_at
+from "zip" import zip
+from "chunk" import chunk
+from "compact" import compact
+from "pluck" import pluck
 
 {
-  len: len.len,
-  is_empty: is_empty.is_empty,
-  reverse: reverse.reverse,
-  concat: concat.concat,
-  contains: contains.contains,
-  index_of: index_of.index_of,
-  slice: slice.slice,
-  first: first.first,
-  last: last.last,
-  at: at.at,
-  pop: pop.pop,
-  shift: shift.shift,
-  fill: fill.fill,
-  flatten: flatten.flatten,
-  deep_flatten: deep_flatten.deep_flatten,
-  take: take.take,
-  drop: drop.drop,
-  enumerate: enumerate.enumerate,
-  unzip: unzip.unzip,
-  intersperse: intersperse.intersperse,
-  intercalate: intercalate.intercalate,
-  dedupe: dedupe.dedupe,
-  prepend: prepend.prepend,
-  windows: windows.windows,
-  transpose: transpose.transpose,
-  insert_at: insert_at.insert_at,
-  remove_at: remove_at.remove_at,
-  zip: zip.zip,
-  chunk: chunk.chunk,
-  compact: compact.compact,
-  pluck: pluck.pluck,
+  len: len,
+  is_empty: is_empty,
+  reverse: reverse,
+  concat: concat,
+  contains: contains,
+  index_of: index_of,
+  slice: slice,
+  first: first_v,
+  last: last,
+  at: at,
+  pop: pop,
+  shift: shift,
+  fill: fill,
+  flatten: flatten,
+  deep_flatten: deep_flatten,
+  take: take,
+  drop: drop,
+  enumerate: enumerate,
+  unzip: unzip,
+  intersperse: intersperse,
+  intercalate: intercalate,
+  dedupe: dedupe,
+  prepend: prepend,
+  windows: windows,
+  transpose: transpose,
+  insert_at: insert_at,
+  remove_at: remove_at,
+  zip: zip,
+  chunk: chunk,
+  compact: compact,
+  pluck: pluck,
 }
