@@ -4,7 +4,7 @@ export function registerLanguageConfiguration(ctx: vscode.ExtensionContext): voi
   const config: vscode.LanguageConfiguration = {
     comments: {
       lineComment: "--",
-      blockComment: ["---", "---"],
+      blockComment: ["/--", "--/"],
     },
     brackets: [
       ["{", "}"],

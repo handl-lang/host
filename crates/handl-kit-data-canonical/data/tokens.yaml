@@ -49,6 +49,10 @@
   label: doc_comment
   trivia: true
   category: doc-comment
+- id: token.block_comment
+  label: block_comment
+  trivia: true
+  category: comment
 - id: token.dot
   label: .
   category: punctuation

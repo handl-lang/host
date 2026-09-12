@@ -61,6 +61,15 @@
   pattern: !Literal
     text: ","
   priority: 30
+- id: lex.block_comment
+  token_kind: token.block_comment
+  pattern: !Delimited
+    open: "/--"
+    close: "--/"
+    escape: false
+    interpolation: false
+    close_at_eof: true
+  priority: 2
 - id: lex.comment
   token_kind: token.comment
   pattern: !Delimited
