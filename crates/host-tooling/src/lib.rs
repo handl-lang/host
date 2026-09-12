@@ -123,13 +123,19 @@ impl<K: Plugin> ToolingHost<K> {
         Err(PlatformError::NotImplemented)
     }
 
-    /// Returns completion candidates at `pos` in `source`.
-    pub fn complete(&self, source: &str, pos: usize) -> Result<Vec<CompletionItem>, PlatformError> {
+    /// Returns completion candidates at `pos` in `source` for the file at `path`.
+    pub fn complete(
+        &self,
+        source: &str,
+        pos: usize,
+        path: &str,
+    ) -> Result<Vec<CompletionItem>, PlatformError> {
         match &self.completion {
             Some(plugin) => {
                 let resp = plugin.run(&CompletionRequest {
                     source: source.to_string(),
                     pos,
+                    path: path.to_string(),
                 })?;
                 Ok(resp.0)
             }

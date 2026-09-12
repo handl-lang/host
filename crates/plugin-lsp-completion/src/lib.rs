@@ -1,6 +1,8 @@
 //! LSP completion plugin (ADR 0002 / completion decoupling).
 
 use std::collections::{BTreeMap, HashSet};
+use std::fs::{read_dir, read_to_string};
+use std::path::{Path, PathBuf};
 
 use handl_host_tooling::lsp::{
     CompletionItem, CompletionPlugin, CompletionRequest, CompletionResponse,
@@ -17,6 +19,7 @@ const KIND_CLASS: i64 = 7;
 const KIND_PROPERTY: i64 = 8;
 const KIND_PARAMETER: i64 = 6;
 const KIND_CONSTANT: i64 = 21;
+const KIND_FILE: i64 = 17;
 
 /// A keyword entry: `(text, label, snippet_body)`.
 ///
@@ -816,6 +819,252 @@ pub fn completion(source: &str, offset: usize) -> Vec<CompletionItem> {
     items
 }
 
+fn base_dir(path: &str) -> Option<PathBuf> {
+    Path::new(path).parent().and_then(|p| {
+        if p.as_os_str().is_empty() {
+            std::env::current_dir().ok()
+        } else {
+            Some(p.to_path_buf())
+        }
+    })
+}
+
+fn token_at(tokens: &[SpannedToken], pos: usize) -> Option<usize> {
+    tokens
+        .iter()
+        .position(|t| t.span.start <= pos && pos <= t.span.end)
+}
+
+fn import_path_completions(
+    tokens: &[SpannedToken],
+    source: &str,
+    pos: usize,
+    path: &str,
+    classes: &TokenClasses,
+) -> Option<Vec<CompletionItem>> {
+    let idx = token_at(tokens, pos)?;
+    let tok = &tokens[idx];
+    if !classes.is_string(&tok.kind) {
+        return None;
+    }
+    let prev = tokens.get(idx.checked_sub(1)?)?;
+    if !classes.is_keyword(&prev.kind) || (prev.text != "import" && prev.text != "from") {
+        return None;
+    }
+    let base = base_dir(path)?;
+    let start = tok.span.start + 1;
+    let end = pos.min(tok.span.end);
+    let mut prefix = &source[start..end];
+    if prefix.ends_with('"') {
+        prefix = &prefix[..prefix.len() - 1];
+    }
+    let (dir_part, stem) = if let Some(slash) = prefix.rfind('/') {
+        (&prefix[..slash], &prefix[slash + 1..])
+    } else {
+        ("", prefix)
+    };
+    let search_dir = if dir_part.is_empty() {
+        base
+    } else {
+        base.join(dir_part)
+    };
+    let current_name = Path::new(path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let mut items = Vec::new();
+    for entry in read_dir(&search_dir).ok()? {
+        let entry = entry.ok()?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with(stem) {
+            continue;
+        }
+        if dir_part.is_empty() && name == current_name {
+            continue;
+        }
+        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let full = if is_dir {
+            if dir_part.is_empty() {
+                format!("{name}/")
+            } else {
+                format!("{dir_part}/{name}/")
+            }
+        } else if dir_part.is_empty() {
+            name.clone()
+        } else {
+            format!("{dir_part}/{name}")
+        };
+        let label = if is_dir {
+            format!("{name}/")
+        } else {
+            name.clone()
+        };
+        let mut item = CompletionItem::new(label);
+        item.kind = Some(KIND_FILE);
+        item.detail = Some(if is_dir { "directory".into() } else { "file".into() });
+        item.insert_text = Some(full);
+        items.push(item);
+    }
+    if items.is_empty() {
+        return None;
+    }
+    items.sort_by(|a, b| a.label.cmp(&b.label));
+    Some(items)
+}
+
+fn resolve_import_target(base: &Path, spec: &str) -> Option<PathBuf> {
+    let p = base.join(spec);
+    if p.is_file() {
+        return Some(p);
+    }
+    let with_ext = p.with_extension("hnl");
+    if with_ext.is_file() {
+        return Some(with_ext);
+    }
+    if p.is_dir() {
+        if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+            let child = p.join(format!("{name}.hnl"));
+            if child.is_file() {
+                return Some(child);
+            }
+        }
+        let child = p.join("mod.hnl");
+        if child.is_file() {
+            return Some(child);
+        }
+    }
+    None
+}
+
+fn exported_names(source: &str, kit: &Kit) -> Vec<String> {
+    let Ok(tokens) = kit.lex_with_spans(source) else {
+        return Vec::new();
+    };
+    let classes = TokenClasses::new(kit.language());
+    let mut names: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut depth: i32 = 0;
+    let mut i = 0;
+    while i < tokens.len() {
+        let kind = tokens[i].kind.as_str();
+        if classes.is_open_bracket(kind) {
+            depth += 1;
+        } else if classes.is_close_bracket(kind) {
+            depth -= 1;
+        }
+        if depth != 0 {
+            i += 1;
+            continue;
+        }
+        if classes.is_keyword(kind) && (tokens[i].text == "axiom" || tokens[i].text == "law") {
+            let mut j = i + 1;
+            let mut parts = Vec::new();
+            let mut expect_ident = true;
+            while j < tokens.len() {
+                if expect_ident {
+                    if classes.is_identifier(&tokens[j].kind) {
+                        parts.push(tokens[j].text.clone());
+                        expect_ident = false;
+                        j += 1;
+                    } else {
+                        break;
+                    }
+                } else if classes.is_label(&tokens[j].kind, ".") {
+                    expect_ident = true;
+                    j += 1;
+                } else {
+                    break;
+                }
+            }
+            if !parts.is_empty() {
+                let full = parts.join(".");
+                if seen.insert(full.clone()) {
+                    names.push(full);
+                }
+                if parts.len() > 1 {
+                    if let Some(last) = parts.last() {
+                        if seen.insert(last.clone()) {
+                            names.push(last.clone());
+                        }
+                    }
+                }
+            }
+            i = j;
+            continue;
+        }
+        if classes.is_identifier(kind) {
+            if let Some(next) = tokens.get(i + 1) {
+                if classes.is_label(&next.kind, "=") || classes.is_label(&next.kind, "::") {
+                    if seen.insert(tokens[i].text.clone()) {
+                        names.push(tokens[i].text.clone());
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    names
+}
+
+fn import_export_completions(
+    tokens: &[SpannedToken],
+    pos: usize,
+    path: &str,
+    classes: &TokenClasses,
+    kit: &Kit,
+) -> Option<Vec<CompletionItem>> {
+    let idx = preceding_index(tokens, pos)?;
+    let import_idx = if classes.is_keyword(&tokens[idx].kind) && tokens[idx].text == "import" {
+        Some(idx)
+    } else if classes.is_identifier(&tokens[idx].kind)
+        && idx > 0
+        && classes.is_keyword(&tokens[idx - 1].kind)
+        && tokens[idx - 1].text == "import"
+    {
+        Some(idx - 1)
+    } else {
+        None
+    }?;
+    let spec = tokens.get(import_idx.checked_sub(1)?)?;
+    if !classes.is_string(&spec.kind) {
+        return None;
+    }
+    let base = base_dir(path)?;
+    let raw = spec
+        .text
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(&spec.text);
+    let target = resolve_import_target(&base, raw)?;
+    let src = read_to_string(&target).ok()?;
+    let names = exported_names(&src, kit);
+    if names.is_empty() {
+        return None;
+    }
+    let mut items = Vec::new();
+    for name in names {
+        let mut item = CompletionItem::new(name.clone());
+        item.kind = Some(KIND_VARIABLE);
+        item.detail = Some("exported name".into());
+        item.insert_text = Some(name);
+        items.push(item);
+    }
+    Some(items)
+}
+
+fn import_completions(source: &str, pos: usize, path: &str) -> Option<Vec<CompletionItem>> {
+    let kit = Kit::new().ok()?;
+    let tokens = kit.lex_with_spans(source).ok()?;
+    let classes = TokenClasses::new(kit.language());
+    if let Some(items) = import_path_completions(&tokens, source, pos, path, &classes) {
+        return Some(items);
+    }
+    if let Some(items) = import_export_completions(&tokens, pos, path, &classes, &kit) {
+        return Some(items);
+    }
+    None
+}
+
 /// A minimal completion plugin.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BasicCompletion;
@@ -828,6 +1077,9 @@ impl BasicCompletion {
 
 impl CompletionPlugin for BasicCompletion {
     fn run(&self, request: &CompletionRequest) -> Result<CompletionResponse, PlatformError> {
+        if let Some(items) = import_completions(&request.source, request.pos, &request.path) {
+            return Ok(CompletionResponse(items));
+        }
         Ok(CompletionResponse(completion(&request.source, request.pos)))
     }
 }

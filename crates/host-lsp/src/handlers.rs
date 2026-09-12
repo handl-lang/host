@@ -518,7 +518,15 @@ pub fn handle_completion(
 ) {
     let source = resolve_document_text(store, &msg.params);
     let offset = position_offset_from_msg(&msg, &source);
-    match host.complete(&source, offset) {
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"))
+        .unwrap_or("");
+    match host.complete(&source, offset, file_path) {
         Ok(items) => {
             let result: Vec<Value> = items
                 .into_iter()

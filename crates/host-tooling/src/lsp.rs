@@ -106,6 +106,8 @@ impl TextContentChange {
 pub struct CompletionRequest {
     pub source: String,
     pub pos: usize,
+    /// Filesystem path of the current document (without the `file://` URI prefix).
+    pub path: String,
 }
 
 #[derive(Debug, Clone)]
