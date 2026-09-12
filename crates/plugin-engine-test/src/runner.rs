@@ -51,7 +51,7 @@ use handl_language::{
     TokenKindDef, TransformDef, Value, as_tag, language_value, tag_value,
 };
 
-use handl_kit_canonical::handl_module::{HandlModule, ModuleResolver};
+use handl_kit_canonical::handl_module::HandlModule;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup};
 use handl_plugin_engine_exec_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
@@ -884,25 +884,14 @@ const PRED_FUNCS: &[&str] = &[
     "matches",
 ];
 
-/// Resolver for `pred.hnl`'s `from "char" import` — maps `char` onto the
-/// canonical native `char` backend (the same floor `str-handl` builds on).
-struct PredResolver;
-
-impl ModuleResolver for PredResolver {
-    fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-        match name {
-            "char" => Some(Arc::new(CharModule)),
-            _ => None,
-        }
-    }
-}
-
 static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// The shared `pred` [`HandlModule`], built lazily on first use.
 fn pred_module() -> &'static HandlModule {
     PRED_MODULE
-        .get_or_init(|| HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_resolver(&PredResolver))
+        .get_or_init(|| {
+            HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
+        })
 }
 
 /// A compiled case-selection filter — the host-side handle for the `pred`

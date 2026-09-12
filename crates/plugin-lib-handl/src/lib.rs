@@ -111,9 +111,8 @@ use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 
 /// Resolves module names (e.g. `"str"`, `"fn"`) to [`Module`] implementations.
 ///
-/// Used by [`HandlModule::with_resolver`] to auto-wire dependencies declared
-/// in `.hnl` source via `from 'str' import * as 'str'` lines, replacing
-/// hardcoded `.with_dependency(...)` calls in Rust.
+/// Used to map a module name to its [`Module`] impl when building and
+/// resolving stdlib packages (see `plugin-lib-stdlib`'s table resolver).
 pub trait ModuleResolver: Send + Sync {
     /// Resolve a module name to a shared [`Module`] impl, or `None` if unknown.
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>>;
@@ -123,14 +122,6 @@ pub trait ModuleResolver: Send + Sync {
 // Helpers (generalized from the stats/hello bridges)
 // ---------------------------------------------------------------------------
 
-/// A parsed import declaration from a `.hnl` source file.
-#[derive(Debug, Clone)]
-pub struct ImportDecl {
-    /// The module path being imported from (e.g. `"str"`, `"fn"`).
-    pub path: String,
-    /// The local alias for the imported module (e.g. `"str"`).
-    pub alias: String,
-}
 
 /// Normalize a path-like import spec to its module basename
 /// (`./reverse.hnl` -> `reverse`; `a/b/c.hnl` -> `c`; `len` -> `len`).
@@ -156,8 +147,8 @@ fn normalize_import_name(path: &str) -> &str {
 ///
 /// Applying such a binding (`m.f(x)`, or a bare named import `f(x)`)
 /// therefore routes through the importer's [`ModuleLookup`] registry, whose
-/// `<module>` entry is the very dependency the importer registered via
-/// [`HandlModule::with_resolver`].
+/// `<module>` entry is resolved from the module's dependency chain or, failing
+/// that, the injected global module lookup.
 pub struct DependencyImportResolver {
     modules: Vec<Arc<dyn Module + Send + Sync>>,
 }
@@ -222,7 +213,6 @@ impl ImportResolver for SharedImportResolver {
 // public functions below delegate to the handl implementations and these
 // remain only as the bootstrap path and correctness fallback.
 mod bootstrap {
-    use super::ImportDecl;
     /// Strip `--` comment lines from a `.hnl` source so the embedded source
     /// parses as a bare expression.
     ///
@@ -508,106 +498,6 @@ mod bootstrap {
         false
     }
 
-    /// Parse import declarations from a `.hnl` source string.
-    ///
-    /// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
-    pub(super) fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
-        src.lines()
-            .filter_map(|line| {
-                let trimmed = line.trim_start();
-                if trimmed.starts_with("--") {
-                    return None;
-                }
-                parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
-            })
-            .collect()
-    }
-
-    /// Parse a `from "path" import ...` line.
-    ///
-    /// Accepts the whole-module form (`import *`, optionally `as alias`) and
-    /// the named form (`import name`, optionally `as alias`). Dependency
-    /// wiring only needs the module *path*; the returned `alias` is the
-    /// explicit `as` name, else the single imported name, else the path
-    /// basename.
-    fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
-        let rest = line.strip_prefix("from")?.trim();
-        if rest.is_empty() {
-            return None;
-        }
-        let (path, after_path) = extract_quoted(rest)?;
-        let import_kw = after_path.trim().strip_prefix("import")?.trim();
-        if import_kw.is_empty() {
-            return None;
-        }
-        let basename = path.rsplit('/').next().unwrap_or(&path).to_string();
-        // Parse an optional trailing `as <alias>` (quoted or bare word).
-        fn parse_as(tail: &str) -> Option<Option<String>> {
-            let t = tail.trim();
-            if t.is_empty() {
-                Some(None)
-            } else if let Some(as_part) = t.strip_prefix("as") {
-                let a = as_part.trim();
-                if a.is_empty() {
-                    return None;
-                }
-                if a.starts_with('"') || a.starts_with('\'') {
-                    Some(Some(extract_quoted(a)?.0))
-                } else {
-                    Some(Some(a.split_whitespace().next()?.to_string()))
-                }
-            } else {
-                None
-            }
-        }
-        if let Some(tail) = import_kw.strip_prefix('*') {
-            let alias = parse_as(tail)?.unwrap_or(basename);
-            Some(ImportDecl { path, alias })
-        } else {
-            let mut parts = import_kw.splitn(2, char::is_whitespace);
-            let name = parts.next().unwrap_or("").to_string();
-            if name.is_empty() {
-                return None;
-            }
-            let tail = parts.next().unwrap_or("");
-            let alias = parse_as(tail)?.unwrap_or_else(|| name.clone());
-            Some(ImportDecl { path, alias })
-        }
-    }
-
-    fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
-        let rest = line.strip_prefix("import")?.trim();
-        if rest.is_empty() {
-            return None;
-        }
-        let (path, after) = extract_quoted(rest)?;
-        let after = after.trim();
-        let alias = if let Some(as_part) = after.strip_prefix("as") {
-            let a = as_part.trim();
-            if a.is_empty() {
-                return None;
-            }
-            if a.starts_with('"') || a.starts_with('\'') {
-                extract_quoted(a)?.0
-            } else {
-                a.split_whitespace().next()?.to_string()
-            }
-        } else {
-            path.rsplit('/').next().unwrap_or(&path).to_string()
-        };
-        Some(ImportDecl { path, alias })
-    }
-
-    fn extract_quoted(s: &str) -> Option<(String, &str)> {
-        let s = s.trim_start();
-        let quote = s.chars().next()?;
-        if quote != '"' && quote != '\'' {
-            return None;
-        }
-        let rest = &s[quote.len_utf8()..];
-        let end = rest.find(quote)?;
-        Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
-    }
 
     /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
     ///
@@ -852,17 +742,6 @@ pub fn strip_declaration_lines(src: &str) -> String {
     loader_string("strip_decls", src).unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
 }
 
-/// Parse `from 'path' import * as 'alias'` / `import "path" as alias`
-/// declarations.  Delegates to `loader.parse_imports` when a [`HandlLoader`]
-/// is installed; otherwise uses the bootstrap implementation.
-pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
-    if let Some(v) = loader_call("parse_imports", src) {
-        if let Some(imports) = imports_from_json(&v) {
-            return imports;
-        }
-    }
-    bootstrap::parse_import_declarations(src)
-}
 
 /// Parse `cap "name"` declarations (ADR-0077 Phase 5).  Delegates to
 /// `loader.parse_caps` when a [`HandlLoader`] is installed; otherwise uses
@@ -913,19 +792,8 @@ pub fn transform_export_to_object(src: &str) -> String {
 /// the evaluatable source plus the declaration scans the host needs.
 struct SourceAnalysis {
     prepared: String,
-    imports: Vec<ImportDecl>,
 }
 
-fn imports_from_json(v: &serde_json::Value) -> Option<Vec<ImportDecl>> {
-    let arr = v.as_array()?;
-    let mut out = Vec::with_capacity(arr.len());
-    for item in arr {
-        let path = item.get("path")?.as_str()?.to_string();
-        let alias = item.get("alias")?.as_str()?.to_string();
-        out.push(ImportDecl { path, alias });
-    }
-    Some(out)
-}
 
 fn caps_from_json(v: &serde_json::Value) -> Option<Vec<String>> {
     let arr = v.as_array()?;
@@ -975,13 +843,12 @@ pub fn with_loader_disabled<R>(f: impl FnOnce() -> R) -> R {
 fn analyze_source(src: &str) -> SourceAnalysis {
     if !SKIP_LOADER.with(|s| s.get()) {
         if let Some(v) = loader_call("analyze", src) {
-            if let (Some(prepared), Some(imports)) = (
-                v.get("source")
-                    .and_then(|s| s.as_str())
-                    .map(|s| s.to_string()),
-                v.get("imports").and_then(imports_from_json),
-            ) {
-                return SourceAnalysis { prepared, imports };
+            if let Some(prepared) = v
+                .get("source")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string())
+            {
+                return SourceAnalysis { prepared };
             }
         }
     }
@@ -989,7 +856,6 @@ fn analyze_source(src: &str) -> SourceAnalysis {
     let exported = bootstrap::transform_export_to_object(&stripped);
     SourceAnalysis {
         prepared: bootstrap::expand_tag_declarations(&exported),
-        imports: bootstrap::parse_import_declarations(src),
     }
 }
 
@@ -1137,6 +1003,7 @@ fn build_runtime(
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
     eval_name: &str,
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
+    global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
 ) -> Result<Runtime, handl_language::LangError> {
     let kit = handl_kit_data_canonical::assemble()?;
     let lang = kit.lang().clone();
@@ -1167,7 +1034,7 @@ fn build_runtime(
     // one from the registered dependencies (before they are moved into the
     // registry) so `import`/`from` statements can be evaluated. The derived
     // resolver is sufficient whenever every import path names a registered
-    // dependency -- the case wired by `HandlModule::with_resolver`.
+    // dependency -- the case wired by `HandlModule::with_dependency`.
     let derived_resolver = if import_resolver.is_none() && !dependencies.is_empty() {
         Some(DependencyImportResolver::new(dependencies.clone()))
     } else {
@@ -1178,20 +1045,49 @@ fn build_runtime(
         None => derived_resolver.map(|r| Rc::new(r) as Rc<dyn ImportResolver>),
     };
 
-    let module_chain: Option<Rc<dyn ModuleLookup>> = if dependencies.is_empty() {
+    let dep_registry = if dependencies.is_empty() {
         None
     } else {
         let mut modules = handl_plugin_module::ModuleRegistry::new();
         for dep in dependencies {
             modules.register_arc(dep);
         }
-        Some(Rc::new(modules) as Rc<dyn ModuleLookup>)
+        Some(modules)
     };
+    let module_chain: Option<Rc<dyn ModuleLookup>> =
+        if dep_registry.is_none() && global_lookup.is_none() {
+            None
+        } else {
+            Some(Rc::new(LayeredLookup {
+                registry: dep_registry,
+                global: global_lookup,
+            }) as Rc<dyn ModuleLookup>)
+        };
     let globals = handl_runtime::fp::canonical_fp_host_functions(module_chain);
     let runtime = Runtime::from_registry_with_resolver(
         lang, &registry, &config, Some(globals), None, resolver, None,
     )?;
     Ok(runtime)
+}
+
+/// A [`ModuleLookup`] that tries the module's registered dependency registry
+/// first, then falls back to an injected global lookup (e.g. the stdlib
+/// package table). This is how a string callee `"mod.fn"` resolves when the
+/// module did not pre-list `mod` in its `deps`.
+struct LayeredLookup {
+    registry: Option<handl_plugin_module::ModuleRegistry>,
+    global: Option<Arc<dyn ModuleLookup + Send + Sync>>,
+}
+
+impl ModuleLookup for LayeredLookup {
+    fn lookup(&self, name: &str) -> Option<&dyn Function> {
+        if let Some(registry) = &self.registry {
+            if let Some(f) = registry.lookup(name) {
+                return Some(f);
+            }
+        }
+        self.global.as_deref().and_then(|g| g.lookup(name))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1367,8 +1263,7 @@ impl Function for HandlFunction {
 ///
 /// const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 ///
-/// let module = HandlModule::new("stats", STATS_HNL, &["sum", "avg", "stddev"])
-///     .with_resolver(&stdlib::DEFAULT_RESOLVER);
+/// let module = HandlModule::new("stats", STATS_HNL, &["sum", "avg", "stddev"]);
 /// ```
 pub struct HandlModule {
     /// The module name (namespace prefix for qualified calls).
@@ -1380,9 +1275,11 @@ pub struct HandlModule {
     op_functions: HashMap<String, OpFunction>,
     /// Dependency modules registered in the bridge runtime.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
-    /// Import declarations parsed from the source during [`analyze_source`]
-    /// (used by [`with_resolver`](Self::with_resolver) for dep wiring).
-    imports: Vec<ImportDecl>,
+    /// Optional global [`ModuleLookup`] layered *under* the dependency
+    /// registry, so a string callee `"mod.fn"` that is not a registered
+    /// dependency resolves through it (e.g. `plugin-lib-stdlib`'s table
+    /// lookup reaches every stdlib module without pre-listing `deps`).
+    global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
     /// The eval engine name this module's bridge runtime binds
     /// (`"tree-walk"` default; `"bytecode"` selects the bytecode VM —
     /// much faster on eval-heavy module bodies such as the loader's
@@ -1412,13 +1309,12 @@ impl HandlModule {
         // the bootstrap transforms run.
         let analysis = analyze_source(hnl_source);
         let source = analysis.prepared;
-        let imports = analysis.imports;
         let module_id = allocate_module_id();
         let eval_name = "tree-walk";
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None, None));
 
         let functions = func_names
             .iter()
@@ -1439,7 +1335,7 @@ impl HandlModule {
             functions,
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
-            imports,
+            global_lookup: None,
             eval_name,
             import_resolver: None,
         }
@@ -1458,7 +1354,7 @@ impl HandlModule {
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None));
+        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None, None));
 
         let functions = func_names
             .iter()
@@ -1479,7 +1375,7 @@ impl HandlModule {
             functions,
             op_functions: HashMap::new(),
             dependencies: Vec::new(),
-            imports: Vec::new(),
+            global_lookup: None,
             eval_name,
             import_resolver: None,
         }
@@ -1504,19 +1400,15 @@ impl HandlModule {
         self
     }
 
-    /// Auto-wire dependencies from `from 'path' import * as 'alias'`
-    /// declarations in the `.hnl` source, using a [`ModuleResolver`] to
-    /// map module names to [`Module`] impls.
+    /// Attach a global [`ModuleLookup`] layered under the dependency
+    /// registry.
     ///
-    /// This replaces hardcoded `.with_dependency(...)` calls: the `.hnl`
-    /// source declares its own dependencies, and the resolver maps names
-    /// to concrete module implementations.
-    pub fn with_resolver(mut self, resolver: &dyn ModuleResolver) -> Self {
-        for decl in &self.imports {
-            if let Some(module) = resolver.resolve(&decl.path) {
-                self.dependencies.push(module);
-            }
-        }
+    /// When a string callee `"mod.fn"` is not found among the registered
+    /// dependencies, it is resolved through this lookup. This is how stdlib
+    /// packages reach the whole module table without pre-listing `deps`
+    /// (see `plugin-lib-stdlib`'s table lookup).
+    pub fn with_global_lookup(mut self, lookup: Arc<dyn ModuleLookup + Send + Sync>) -> Self {
+        self.global_lookup = Some(lookup);
         self.rebuild_functions();
         self
     }
@@ -1531,10 +1423,9 @@ impl HandlModule {
     ///
     /// When not set, `build_runtime` derives a [`DependencyImportResolver`]
     /// from the module's resolved dependencies -- sufficient whenever every
-    /// import path names a registered dependency (the common `with_resolver`
-    /// case). This explicit hook is for resolvers that *build* modules from a
-    /// table rather than reuse the dependency list (e.g. `plugin-lib-stdlib`'s
-    /// `TableImportResolver`).
+    /// import path names a registered dependency. This explicit hook is for
+    /// resolvers that *build* modules from a table rather than reuse the
+    /// dependency list (e.g. `plugin-lib-stdlib`'s `TableImportResolver`).
     pub fn with_import_resolver(
         mut self,
         resolver: Arc<dyn ImportResolver + Send + Sync>,
@@ -1601,8 +1492,14 @@ impl HandlModule {
         let deps = self.dependencies.clone();
         let eval_name = self.eval_name;
         let import_resolver = self.import_resolver.clone();
+        let global_lookup = self.global_lookup.clone();
         let builder: RuntimeBuilder = Arc::new(move || {
-            build_runtime(deps.clone(), eval_name, import_resolver.clone())
+            build_runtime(
+                deps.clone(),
+                eval_name,
+                import_resolver.clone(),
+                global_lookup.clone(),
+            )
         });
         let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
@@ -1662,7 +1559,6 @@ pub const LOADER_FUNCS: &[&str] = &[
     "strip_decls",
     "transform_export_to_object",
     "find_binding_sep",
-    "parse_imports",
     "parse_caps",
     "parse_tags",
     "expand_tags",
@@ -1805,9 +1701,14 @@ pub const STR_HANDL_FUNCS: &[&str] = &[
 /// The source imports `char`, so the supplied resolver must map `"char"` to
 /// a `char` backend (typically [`CharModule`](handl_plugin_lib_char_native::CharModule)).
 pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
-        .with_resolver(resolver)
-        .with_eval_engine("bytecode")
+    let mut module =
+        HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_eval_engine("bytecode");
+    // `str-handl.hnl` is a bootstrap module (not a stdlib table row); its
+    // source calls `char.*`, so eagerly wire the resolved `char` backend.
+    if let Some(char_module) = resolver.resolve("char") {
+        module = module.with_dependency_arc(char_module);
+    }
+    module
 }
 
 // ---------------------------------------------------------------------------

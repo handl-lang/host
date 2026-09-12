@@ -11,8 +11,8 @@ use handl_platform::Module;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
     HandlLoader, ModuleResolver, build_str_handl_module, expand_tag_declarations, install_loader,
-    parse_cap_declarations, parse_import_declarations, parse_tag_declarations, strip_comment_lines,
-    strip_declaration_lines, transform_export_to_object,
+    parse_cap_declarations, parse_tag_declarations, strip_comment_lines, strip_declaration_lines,
+    transform_export_to_object,
 };
 
 /// Bootstrap implementations, re-exposed for parity checking.
@@ -186,18 +186,6 @@ mod bootstrap {
         first_eq.map(|pos| (pos, 1))
     }
 
-    pub fn parse_import_declarations(src: &str) -> Vec<(String, String)> {
-        src.lines()
-            .filter_map(|line| {
-                let trimmed = line.trim_start();
-                if trimmed.starts_with("--") {
-                    return None;
-                }
-                parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
-            })
-            .collect()
-    }
-
     fn extract_quoted(s: &str) -> Option<(String, &str)> {
         let s = s.trim_start();
         let quote = s.chars().next()?;
@@ -207,73 +195,6 @@ mod bootstrap {
         let rest = &s[quote.len_utf8()..];
         let end = rest.find(quote)?;
         Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
-    }
-
-    fn parse_from_import_line(line: &str) -> Option<(String, String)> {
-        let rest = line.strip_prefix("from")?.trim();
-        if rest.is_empty() {
-            return None;
-        }
-        let (path, after_path) = extract_quoted(rest)?;
-        let import_kw = after_path.trim().strip_prefix("import")?.trim();
-        if import_kw.is_empty() {
-            return None;
-        }
-        let basename = path.rsplit('/').next().unwrap_or(&path).to_string();
-        fn parse_as(tail: &str) -> Option<Option<String>> {
-            let t = tail.trim();
-            if t.is_empty() {
-                Some(None)
-            } else if let Some(as_part) = t.strip_prefix("as") {
-                let a = as_part.trim();
-                if a.is_empty() {
-                    return None;
-                }
-                if a.starts_with('"') || a.starts_with('\'') {
-                    Some(Some(extract_quoted(a)?.0))
-                } else {
-                    Some(Some(a.split_whitespace().next()?.to_string()))
-                }
-            } else {
-                None
-            }
-        }
-        if let Some(tail) = import_kw.strip_prefix('*') {
-            let alias = parse_as(tail)?.unwrap_or(basename);
-            Some((path, alias))
-        } else {
-            let mut parts = import_kw.splitn(2, char::is_whitespace);
-            let name = parts.next().unwrap_or("").to_string();
-            if name.is_empty() {
-                return None;
-            }
-            let tail = parts.next().unwrap_or("");
-            let alias = parse_as(tail)?.unwrap_or_else(|| name.clone());
-            Some((path, alias))
-        }
-    }
-
-    fn parse_legacy_import_line(line: &str) -> Option<(String, String)> {
-        let rest = line.strip_prefix("import")?.trim();
-        if rest.is_empty() {
-            return None;
-        }
-        let (path, after) = extract_quoted(rest)?;
-        let after = after.trim();
-        let alias = if let Some(as_part) = after.strip_prefix("as") {
-            let a = as_part.trim();
-            if a.is_empty() {
-                return None;
-            }
-            if a.starts_with('"') || a.starts_with('\'') {
-                extract_quoted(a)?.0
-            } else {
-                a.split_whitespace().next()?.to_string()
-            }
-        } else {
-            path.rsplit('/').next().unwrap_or(&path).to_string()
-        };
-        Some((path, alias))
     }
 
     pub fn parse_cap_declarations(src: &str) -> Vec<String> {
@@ -446,15 +367,6 @@ fn loader_parity() {
             transform_export_to_object(src),
             bootstrap::transform_export_to_object(src),
             "transform_export_to_object corpus[{i}]"
-        );
-        let got: Vec<(String, String)> = parse_import_declarations(src)
-            .iter()
-            .map(|d| (d.path.clone(), d.alias.clone()))
-            .collect();
-        assert_eq!(
-            got,
-            bootstrap::parse_import_declarations(src),
-            "parse_imports corpus[{i}]"
         );
         assert_eq!(
             parse_cap_declarations(src),

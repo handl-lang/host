@@ -220,7 +220,7 @@ impl ModuleResolver for StdlibResolver {
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
             "tag" => Some(std::sync::Arc::new(TagModule)),
-            "result" => stdlib::module_with("result", &StdlibResolver).map(|m| {
+            "result" => stdlib::module_with("result", std::sync::Arc::new(StdlibResolver)).map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
             "cmp" => stdlib::module("cmp").map(|m| {
@@ -233,7 +233,9 @@ impl ModuleResolver for StdlibResolver {
 }
 
 fn build_dedent_module() -> HandlModule {
-    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_resolver(&StdlibResolver)
+    HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_global_lookup(std::sync::Arc::new(
+        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +308,9 @@ fn build_assert_module() -> HandlModule {
 /// resolve through [`StdlibResolver`] to the registered `char` backend
 /// (`char-native` by default).
 fn build_str_handl_module() -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_resolver(&StdlibResolver)
+    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_global_lookup(std::sync::Arc::new(
+        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
+    ))
 }
 
 /// Build the stdlib [`ModuleRegistry`] the canonical kit wires into every
@@ -317,9 +321,7 @@ fn build_str_handl_module() -> HandlModule {
 /// eval-time lookup chain, and [`canonical_wire_names`] enumerates it for
 /// `hnl typecheck`'s unbound-wire scope. Keep the two in sync by adding new
 /// host modules here, not in `build_kit`.
-fn build_stdlib_registry(
-    modules: Option<&std::collections::HashSet<String>>,
-) -> ModuleRegistry {
+fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) -> ModuleRegistry {
     // Built-in `.hnl` modules are prepared with the bootstrap transforms;
     // routing them through the process-wide self-hosted loader would recurse
     // into loader construction and make repeated `Kit::new()` calls hang.
@@ -367,7 +369,11 @@ fn build_stdlib_registry(
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
         if want("result") {
-            stdlib_registry.register(stdlib::module_with("result", &StdlibResolver).expect("result"));
+            stdlib_registry
+                .register(
+                    stdlib::module_with("result", std::sync::Arc::new(StdlibResolver))
+                        .expect("result"),
+                );
         }
         if want("mood") {
             stdlib_registry.register(stdlib::module("mood").expect("mood"));
@@ -396,7 +402,9 @@ fn build_stdlib_registry(
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.
         if want("collections") {
-            stdlib_registry.register(CollectionsModule::new(&stdlib::DEFAULT_RESOLVER));
+            stdlib_registry.register(CollectionsModule::new(std::sync::Arc::new(
+                stdlib::DEFAULT_RESOLVER.clone(),
+            )));
         }
         if want("tag") {
             stdlib_registry.register(TagModule);
@@ -522,7 +530,10 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
         if let Ok(parent) = path.parent().ok_or(()) {
             let _ = fs::create_dir_all(parent);
             let arr: Vec<&str> = names.iter().map(String::as_str).collect();
-            let _ = fs::write(&path, serde_json::to_string_pretty(&arr).unwrap_or_default());
+            let _ = fs::write(
+                &path,
+                serde_json::to_string_pretty(&arr).unwrap_or_default(),
+            );
         }
     }
 
@@ -1317,7 +1328,11 @@ impl Kit {
     pub fn with_eval(eval_name: &str) -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone().with_eval(eval_name).with_typecheck("handl");
+        let config = kit
+            .runtime_config()
+            .clone()
+            .with_eval(eval_name)
+            .with_typecheck("handl");
         Self::build_kit(lang, config, None, HashMap::new(), None)
     }
 
@@ -1510,9 +1525,8 @@ impl Kit {
         // construction through the self-hosted loader is much slower than the
         // Rust bootstrap transforms. Runtime-loaded `.hnl` modules still get
         // the loader pipeline.
-        let module_set = modules.map(|v| {
-            v.into_iter().collect::<std::collections::HashSet<String>>()
-        });
+        let module_set =
+            modules.map(|v| v.into_iter().collect::<std::collections::HashSet<String>>());
         let stdlib_registry = build_stdlib_registry(module_set.as_ref());
 
         let _ = handl_plugin_lib_handl::install_loader(
@@ -1849,7 +1863,9 @@ impl Kit {
             }
         }
         let engine = self.handl_typecheck_engine.borrow();
-        let engine = engine.as_ref().ok_or_else(|| LangError::engine("handl engine missing"))?;
+        let engine = engine
+            .as_ref()
+            .ok_or_else(|| LangError::engine("handl engine missing"))?;
         let req = handl_plugin_engine_typecheck::TypecheckRequest::new(ast);
         let result = match engine.typecheck(self.runtime.lang(), &req) {
             Ok(r) => r,
@@ -1863,7 +1879,11 @@ impl Kit {
                     &canonical_wire_names(),
                 )
                 .map_err(|e| LangError::engine(e.to_string()))?;
-                if report.diagnostics.iter().any(|d| d.severity == Severity::Error) {
+                if report
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.severity == Severity::Error)
+                {
                     let messages = report
                         .diagnostics
                         .iter()

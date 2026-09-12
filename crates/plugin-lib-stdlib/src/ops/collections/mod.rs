@@ -262,14 +262,14 @@ pub struct CollectionsModule {
 }
 
 impl CollectionsModule {
-    /// Build the aggregate from the eight sub-module specs, resolving
-    /// declared deps through `resolver`.
-    pub fn new(resolver: &dyn ModuleResolver) -> Self {
+    /// Build the aggregate from the eight sub-module specs, wiring
+    /// `resolver` as the global lookup's non-table fallback.
+    pub fn new(resolver: std::sync::Arc<dyn ModuleResolver>) -> Self {
         use crate::packages::{build_module, module_spec};
         let build = |name: &str| {
             build_module(
                 module_spec(name).unwrap_or_else(|| panic!("unknown module '{name}'")),
-                resolver,
+                std::sync::Arc::clone(&resolver),
             )
         };
         Self {
