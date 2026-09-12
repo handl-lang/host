@@ -21,3 +21,21 @@ state.
 
 For the full design, read [ADR-0106: The object/arrow kernel](../project/adrs/0106-object-arrow-kernel.md).
 
+## Core forms
+
+The kernel is described by a small set of forms; everything else derives from them (ADR-0106).
+
+| Form       | Meaning                                                            |
+| ---------- | ------------------------------------------------------------------ |
+| `Obj`      | the world                                                          |
+| `sym()`    | fresh nominal identity                                            |
+| `sym(A)`   | fresh nominal identity with parent `A`                            |
+| `A ~> B`   | arrow — the only computational primitive                          |
+| `A ~G~> B` | graded arrow (`G` is a grade object)                              |
+| `f<...>`   | dimension specialization (types, values, proofs, grades, algebras) |
+| `a >>> b`  | composition                                                       |
+| `f(x)`     | application                                                       |
+| `(A, B)`   | product                                                           |
+
+`Float := sym(Number)` makes `Float` a nominal child of `Number`, and the same parent graph decides runtime `instanceof`, static subtyping `<:`, and expected-type checks. Dimensions `f<...>` are the single specialization form for generics, dependent types, and refinements. ADR-0106 writes the graded arrow as `A -[R]~> B`; the canonical surface grammar currently parses it as `A ~G~> B` (see the ADR's Phase 4 conformance note).
+

@@ -4,9 +4,11 @@
 
 ## Computational model
 
-**Arrow calculus, not lambda calculus.** The kernel (ADR-0052) is six arrow-calculus primitives: `arr`/`>>>`/`first`/`choice`/`loop`/`app`. No lambda, no lambda application. `proc` desugars to arrow combinators; calling a `proc` is `app` (dynamic arrow invocation).
+**Arrow calculus, not lambda calculus.** The kernel (ADR-0052), grounded by [ADR-0106](project/adrs/0106-object-arrow-kernel.md), is six arrow-calculus primitives: `arr`/`>>>`/`first`/`choice`/`loop`/`app`. No lambda, no lambda application. `proc` desugars to arrow combinators; calling a `proc` is `app` (dynamic arrow invocation).
 
-**Declarative, not imperative.** No mutation primitive — reassignment was deleted from the kernel. Binding (`x = y`) is immutable `Seq` + env extension. State goes through `loop` (feedback), not variable mutation.
+**One object world.** Everything is an object (`Obj : sym()`); the arrow `A ~> B` is the only computational primitive. `sym()` / `sym(A)` mint nominal identity, and the same `sym` parent graph powers `instanceof`, `<:`, and polymorphism — there is no separate type, function, effect, or proof universe.
+
+**Declarative, not imperative.** No mutation primitive — reassignment was deleted from the kernel. Binding (`x = y`) is immutable `Seq` with no lexical environment to extend (see ADR-0106). State goes through `loop` (feedback) or explicit threading (`State ~> (State, Result)`), not variable mutation.
 
 **Descriptions, not execution.** `>>>` composes descriptions without running them. Handlers interpret the same description differently: runtime runs it, compiler lowers it, analyzer inspects it.
 

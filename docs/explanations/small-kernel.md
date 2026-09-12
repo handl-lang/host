@@ -94,6 +94,10 @@ The field name `functions` is just a regular name — not a reserved keyword. Us
 - **Cross-machine resumability** — `eval_resumable` + serializable `Continuation` + `CacheHost` for server→client migration
 - **Platform services** — `fs.read`, `env.get`, `http.get`, `cmd.run` via `Module` + `ModuleHost` composition
 
+## Relation to the object/arrow kernel
+
+This page describes the _field_ kernel — the schema/expression surface a host evaluates. The normative semantic kernel is the object/arrow kernel ([ADR-0106](../../project/adrs/0106-object-arrow-kernel.md)): one world of objects, where `sym()`/`sym(A)` mint nominal identity and arrows (`A ~> B`) are the only computational form. Under that design the `apply`-binds-arguments model shown here — a function value with a `body` string and bound parameters — is superseded by product projections (`(x, y) ~> x`) with no captured environment.
+
 ## The principle
 
 The kernel stays small. The library of patterns grows. Users can invent their own field conventions without touching the compiler. The language is its own metalanguage — it describes its own extensions using its own field declaration syntax. Control flow, async I/O, cross-machine resumability, and platform services all emerge from the host + kernel split.

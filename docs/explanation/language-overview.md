@@ -2,6 +2,8 @@
 
 This page describes the building blocks of handl: values, expressions, functions, and modules.
 
+> **Stale relative to ADR-0106.** This page describes the field/expression surface as the runtime currently evaluates it, including `(x) -> ...` function forms and name-binding scope. The normative kernel design ([ADR-0106: the object/arrow kernel](../../project/adrs/0106-object-arrow-kernel.md)) removes lambda-style closures, lexical environments, and mutable binding: the surface is being aligned so that functions are arrows (`A ~> B`), parameter lists are product projections, and types carry nominal identity via `sym()` rather than being predicates.
+
 ## Values
 
 handl has six value types, identical to JSON:

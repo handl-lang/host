@@ -243,4 +243,4 @@ The graded-theory frame explains several design choices:
 - J. Brachthäuser et al., *Effects as Capabilities: Effect Handlers and Lightweight Effect Polymorphism* (Effekt, 2020).
 - J. Hughes, *Generalising Monads to Arrows* (2000).
 
-See also ADR-0098 for the architecture decision and ADR-0052 for the arrow-calculus kernel.
+See also ADR-0098 for the architecture decision and ADR-0052 for the arrow-calculus kernel. [ADR-0106](../../project/adrs/0106-object-arrow-kernel.md) grounds the grades of this theory as ordinary objects in the one object/arrow world.

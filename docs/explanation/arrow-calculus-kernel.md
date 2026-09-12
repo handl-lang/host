@@ -57,3 +57,7 @@ The set is closed, not frozen. A seventh combinator is justified only when a fea
 ## Relation to the handl language kernel
 
 The handl _language_ kernel (the six field primitives described in [Why the language kernel is small](../explanations/small-kernel)) follows the same principle at a different layer: expressive power comes from composition, not from adding keywords. The arrow calculus kernel is the layer below — the calculus the language compiles _to_. Both layers are closed by design, and for the same reason: a small, fixed core keeps every consumer honest.
+
+## Relation to ADR-0106
+
+[ADR-0106: the object/arrow kernel](../../project/adrs/0106-object-arrow-kernel.md) grounds this calculus. It keeps the closed six-combinator set as the computational substrate and folds it into a single object world: arrows are objects, `sym()`/`sym(A)` provide nominal identity, and `f<...>` is the one dimension specialization form. The six combinators are unchanged — they are the arrow fragment of ADR-0106's conceptual kernel.
