@@ -43,11 +43,6 @@ pub struct ModuleSpec {
     pub ops: &'static [&'static str],
     /// Builder for the op registry, or `None` for pure-handl modules.
     pub registry: Option<fn() -> OpRegistry>,
-    /// **Vestigial.** Names of dependency modules. Resolution is now global
-    /// (each module reaches the whole table through the injected
-    /// [`TableModuleLookup`]), so [`build_module`] no longer consumes this
-    /// field. Retained only until a mechanical pass drops it from every row.
-    pub deps: &'static [&'static str],
 }
 
 /// One row of the package table: a named library contributing one or more
@@ -76,7 +71,6 @@ const TIME_MODULE: ModuleSpec = ModuleSpec {
     funcs: &["now_ms", "instant_ns", "elapsed_ns"],
     ops: &[],
     registry: None,
-    deps: &["ffi"],
 };
 
 /// All table-built modules, keyed by module name.
@@ -89,7 +83,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["and", "or", "not", "xor", "nand", "nor", "implies", "eq"],
         ops: &[],
         registry: None,
-        deps: &[],
     },
     ModuleSpec {
         name: "math",
@@ -97,7 +90,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::math::MATH_OPS,
         registry: Some(ops::math::math_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "str",
@@ -105,7 +97,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::strs::STR_OPS,
         registry: Some(ops::strs::str_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "combinators",
@@ -113,7 +104,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::combinators::COMBINATORS_OPS,
         registry: Some(ops::combinators::combinators_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "transform",
@@ -121,7 +111,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::combinators::TRANSFORM_OPS,
         registry: Some(ops::combinators::transform_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "typeof",
@@ -129,7 +118,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::type_ops::TYPE_OPS,
         registry: Some(ops::type_ops::type_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "option",
@@ -137,7 +125,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::option::OPTION_OPS,
         registry: Some(ops::option::option_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "mood",
@@ -145,7 +132,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::mood::MOOD_OPS,
         registry: Some(ops::mood::mood_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "encoding",
@@ -153,7 +139,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::encoding::ENCODING_OPS,
         registry: Some(ops::encoding::encoding_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "parse",
@@ -161,7 +146,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::parse::PARSE_OPS,
         registry: Some(ops::parse::parse_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "serialize",
@@ -169,7 +153,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::serialize::SERIALIZE_OPS,
         registry: Some(ops::serialize::serialize_op_registry),
-        deps: &[],
     },
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
@@ -178,7 +161,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::base64::BASE64_OPS,
         registry: Some(ops::base64::base64_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "hex",
@@ -186,7 +168,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::hex::HEX_OPS,
         registry: Some(ops::hex::hex_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "json",
@@ -194,7 +175,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::json::JSON_OPS,
         registry: Some(ops::json::json_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "toml",
@@ -202,7 +182,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::toml::TOML_OPS,
         registry: Some(ops::toml::toml_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "yaml",
@@ -210,7 +189,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::yaml::YAML_OPS,
         registry: Some(ops::yaml::yaml_op_registry),
-        deps: &[],
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
@@ -219,7 +197,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::url_rfc::URL_RFC_OPS,
         registry: Some(ops::url_rfc::url_rfc_op_registry),
-        deps: &[],
     },
     ModuleSpec {
         name: "url_whatwg",
@@ -227,7 +204,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::url_whatwg::URL_WHATWG_OPS,
         registry: Some(ops::url_whatwg::url_whatwg_op_registry),
-        deps: &[],
     },
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
     ModuleSpec {
@@ -236,7 +212,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::cmp::CMP_OPS,
         registry: Some(ops::cmp::cmp_op_registry),
-        deps: &[],
     },
     // ── collections (former plugin-lib-collections) ────────────────────
     // Sequential containers: the whole non-nullary surface is pure handl
@@ -250,7 +225,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["error"],
     },
     ModuleSpec {
         name: "list",
@@ -258,7 +232,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["error"],
     },
     // `list` per-arrow modules (`collections/list/<name>.hnl`), mirroring
     // `array`'s per-arrow split. IMPORTANT: unlike `array`, each arrow is
@@ -270,18 +243,17 @@ pub static MODULES: &[ModuleSpec] = &[
     // imports from these prefixed names and re-exports under the bare
     // `list.*` fields, e.g. `from "list_len" import * as list_len` then
     // `len: list_len.len`, and so on.
-    ModuleSpec { name: "list_len", hnl: include_str!("../../../handl-packages/collections/list/len.hnl"), funcs: &["len"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "list_is_empty", hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "list_push", hnl: include_str!("../../../handl-packages/collections/list/push.hnl"), funcs: &["push"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "list_peek", hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"), funcs: &["peek"], ops: &[], registry: None, deps: &["error"] },
-    ModuleSpec { name: "list_pop", hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"), funcs: &["pop"], ops: &[], registry: None, deps: &["error"] },
+    ModuleSpec { name: "list_len", hnl: include_str!("../../../handl-packages/collections/list/len.hnl"), funcs: &["len"], ops: &[], registry: None },
+    ModuleSpec { name: "list_is_empty", hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None },
+    ModuleSpec { name: "list_push", hnl: include_str!("../../../handl-packages/collections/list/push.hnl"), funcs: &["push"], ops: &[], registry: None },
+    ModuleSpec { name: "list_peek", hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"), funcs: &["peek"], ops: &[], registry: None },
+    ModuleSpec { name: "list_pop", hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"), funcs: &["pop"], ops: &[], registry: None },
     ModuleSpec {
         name: "queue",
         hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
         funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["error"],
     },
     ModuleSpec {
         name: "stack",
@@ -289,7 +261,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["error"],
     },
     ModuleSpec {
         name: "deque",
@@ -306,7 +277,6 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: ops::collections::DEQUE_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["error"],
     },
     // `hash_map`/`hash_set` stay mostly native (see the module .hnl docs);
     // the field-enumeration surface (`keys`/`values`/`entries`) is now
@@ -326,7 +296,6 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: ops::collections::HASH_MAP_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["obj", "len", "contains"],
     },
     ModuleSpec {
         name: "hash_set",
@@ -334,7 +303,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &[],
     },
     // `array` — the arrow-free surface is pure handl; the arrow-taking
     // members (`take_while`/`drop_while`/`scan`/`foldr`/`find_*`) are ops.
@@ -376,46 +344,45 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: ops::collections::ARRAY_OPS,
         registry: Some(ops::collections::collections_op_registry),
-        deps: &["typeof", "hash_map"],
     },
     // `array` per-arrow modules (`collections/array/<name>.hnl`). Each
     // arrow lives in its own file (`export <name> = ...`, its own doc
     // comment); `array.hnl` (the aggregator) imports them all via
     // `from "collections/array/<name>" import * as <name>`.
-    ModuleSpec { name: "len", hnl: include_str!("../../../handl-packages/collections/array/len.hnl"), funcs: &["len"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "is_empty", hnl: include_str!("../../../handl-packages/collections/array/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "reverse", hnl: include_str!("../../../handl-packages/collections/array/reverse.hnl"), funcs: &["reverse"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "concat", hnl: include_str!("../../../handl-packages/collections/array/concat.hnl"), funcs: &["concat"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "contains", hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"), funcs: &["contains"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "index_of", hnl: include_str!("../../../handl-packages/collections/array/index_of.hnl"), funcs: &["index_of"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "slice", hnl: include_str!("../../../handl-packages/collections/array/slice.hnl"), funcs: &["slice"], ops: &[], registry: None, deps: &["len", "take", "drop"] },
-    ModuleSpec { name: "first", hnl: include_str!("../../../handl-packages/collections/array/first.hnl"), funcs: &["first"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "last", hnl: include_str!("../../../handl-packages/collections/array/last.hnl"), funcs: &["last"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "at", hnl: include_str!("../../../handl-packages/collections/array/at.hnl"), funcs: &["at"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "pop", hnl: include_str!("../../../handl-packages/collections/array/pop.hnl"), funcs: &["pop"], ops: &[], registry: None, deps: &["len", "take"] },
-    ModuleSpec { name: "shift", hnl: include_str!("../../../handl-packages/collections/array/shift.hnl"), funcs: &["shift"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "fill", hnl: include_str!("../../../handl-packages/collections/array/fill.hnl"), funcs: &["fill"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "flatten", hnl: include_str!("../../../handl-packages/collections/array/flatten.hnl"), funcs: &["flatten"], ops: &[], registry: None, deps: &["_reflect", "concat"] },
-    ModuleSpec { name: "deep_flatten", hnl: include_str!("../../../handl-packages/collections/array/deep_flatten.hnl"), funcs: &["deep_flatten"], ops: &[], registry: None, deps: &["_reflect", "concat"] },
-    ModuleSpec { name: "take", hnl: include_str!("../../../handl-packages/collections/array/take.hnl"), funcs: &["take"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "drop", hnl: include_str!("../../../handl-packages/collections/array/drop.hnl"), funcs: &["drop"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "enumerate", hnl: include_str!("../../../handl-packages/collections/array/enumerate.hnl"), funcs: &["enumerate"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "unzip", hnl: include_str!("../../../handl-packages/collections/array/unzip.hnl"), funcs: &["unzip"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "intersperse", hnl: include_str!("../../../handl-packages/collections/array/intersperse.hnl"), funcs: &["intersperse"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "intercalate", hnl: include_str!("../../../handl-packages/collections/array/intercalate.hnl"), funcs: &["intercalate"], ops: &[], registry: None, deps: &["_reflect", "concat"] },
-    ModuleSpec { name: "dedupe", hnl: include_str!("../../../handl-packages/collections/array/dedupe.hnl"), funcs: &["dedupe"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "prepend", hnl: include_str!("../../../handl-packages/collections/array/prepend.hnl"), funcs: &["prepend"], ops: &[], registry: None, deps: &[] },
-    ModuleSpec { name: "windows", hnl: include_str!("../../../handl-packages/collections/array/windows.hnl"), funcs: &["windows"], ops: &[], registry: None, deps: &["len", "take", "drop", "reverse"] },
-    ModuleSpec { name: "transpose", hnl: include_str!("../../../handl-packages/collections/array/transpose.hnl"), funcs: &["transpose"], ops: &[], registry: None, deps: &["_reflect", "len", "at", "reverse"] },
-    ModuleSpec { name: "insert_at", hnl: include_str!("../../../handl-packages/collections/array/insert_at.hnl"), funcs: &["insert_at"], ops: &[], registry: None, deps: &["len", "take", "drop", "concat"] },
-    ModuleSpec { name: "remove_at", hnl: include_str!("../../../handl-packages/collections/array/remove_at.hnl"), funcs: &["remove_at"], ops: &[], registry: None, deps: &["len", "take", "drop", "concat"] },
-    ModuleSpec { name: "zip", hnl: include_str!("../../../handl-packages/collections/array/zip.hnl"), funcs: &["zip"], ops: &[], registry: None, deps: &["len", "at", "reverse"] },
-    ModuleSpec { name: "chunk", hnl: include_str!("../../../handl-packages/collections/array/chunk.hnl"), funcs: &["chunk"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "compact", hnl: include_str!("../../../handl-packages/collections/array/compact.hnl"), funcs: &["compact"], ops: &[], registry: None, deps: &["reverse"] },
-    ModuleSpec { name: "pluck", hnl: include_str!("../../../handl-packages/collections/array/pluck.hnl"), funcs: &["pluck"], ops: &[], registry: None, deps: &["_reflect", "reverse", "hash_map"] },
+    ModuleSpec { name: "len", hnl: include_str!("../../../handl-packages/collections/array/len.hnl"), funcs: &["len"], ops: &[], registry: None },
+    ModuleSpec { name: "is_empty", hnl: include_str!("../../../handl-packages/collections/array/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None },
+    ModuleSpec { name: "reverse", hnl: include_str!("../../../handl-packages/collections/array/reverse.hnl"), funcs: &["reverse"], ops: &[], registry: None },
+    ModuleSpec { name: "concat", hnl: include_str!("../../../handl-packages/collections/array/concat.hnl"), funcs: &["concat"], ops: &[], registry: None },
+    ModuleSpec { name: "contains", hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"), funcs: &["contains"], ops: &[], registry: None },
+    ModuleSpec { name: "index_of", hnl: include_str!("../../../handl-packages/collections/array/index_of.hnl"), funcs: &["index_of"], ops: &[], registry: None },
+    ModuleSpec { name: "slice", hnl: include_str!("../../../handl-packages/collections/array/slice.hnl"), funcs: &["slice"], ops: &[], registry: None },
+    ModuleSpec { name: "first", hnl: include_str!("../../../handl-packages/collections/array/first.hnl"), funcs: &["first"], ops: &[], registry: None },
+    ModuleSpec { name: "last", hnl: include_str!("../../../handl-packages/collections/array/last.hnl"), funcs: &["last"], ops: &[], registry: None },
+    ModuleSpec { name: "at", hnl: include_str!("../../../handl-packages/collections/array/at.hnl"), funcs: &["at"], ops: &[], registry: None },
+    ModuleSpec { name: "pop", hnl: include_str!("../../../handl-packages/collections/array/pop.hnl"), funcs: &["pop"], ops: &[], registry: None },
+    ModuleSpec { name: "shift", hnl: include_str!("../../../handl-packages/collections/array/shift.hnl"), funcs: &["shift"], ops: &[], registry: None },
+    ModuleSpec { name: "fill", hnl: include_str!("../../../handl-packages/collections/array/fill.hnl"), funcs: &["fill"], ops: &[], registry: None },
+    ModuleSpec { name: "flatten", hnl: include_str!("../../../handl-packages/collections/array/flatten.hnl"), funcs: &["flatten"], ops: &[], registry: None },
+    ModuleSpec { name: "deep_flatten", hnl: include_str!("../../../handl-packages/collections/array/deep_flatten.hnl"), funcs: &["deep_flatten"], ops: &[], registry: None },
+    ModuleSpec { name: "take", hnl: include_str!("../../../handl-packages/collections/array/take.hnl"), funcs: &["take"], ops: &[], registry: None },
+    ModuleSpec { name: "drop", hnl: include_str!("../../../handl-packages/collections/array/drop.hnl"), funcs: &["drop"], ops: &[], registry: None },
+    ModuleSpec { name: "enumerate", hnl: include_str!("../../../handl-packages/collections/array/enumerate.hnl"), funcs: &["enumerate"], ops: &[], registry: None },
+    ModuleSpec { name: "unzip", hnl: include_str!("../../../handl-packages/collections/array/unzip.hnl"), funcs: &["unzip"], ops: &[], registry: None },
+    ModuleSpec { name: "intersperse", hnl: include_str!("../../../handl-packages/collections/array/intersperse.hnl"), funcs: &["intersperse"], ops: &[], registry: None },
+    ModuleSpec { name: "intercalate", hnl: include_str!("../../../handl-packages/collections/array/intercalate.hnl"), funcs: &["intercalate"], ops: &[], registry: None },
+    ModuleSpec { name: "dedupe", hnl: include_str!("../../../handl-packages/collections/array/dedupe.hnl"), funcs: &["dedupe"], ops: &[], registry: None },
+    ModuleSpec { name: "prepend", hnl: include_str!("../../../handl-packages/collections/array/prepend.hnl"), funcs: &["prepend"], ops: &[], registry: None },
+    ModuleSpec { name: "windows", hnl: include_str!("../../../handl-packages/collections/array/windows.hnl"), funcs: &["windows"], ops: &[], registry: None },
+    ModuleSpec { name: "transpose", hnl: include_str!("../../../handl-packages/collections/array/transpose.hnl"), funcs: &["transpose"], ops: &[], registry: None },
+    ModuleSpec { name: "insert_at", hnl: include_str!("../../../handl-packages/collections/array/insert_at.hnl"), funcs: &["insert_at"], ops: &[], registry: None },
+    ModuleSpec { name: "remove_at", hnl: include_str!("../../../handl-packages/collections/array/remove_at.hnl"), funcs: &["remove_at"], ops: &[], registry: None },
+    ModuleSpec { name: "zip", hnl: include_str!("../../../handl-packages/collections/array/zip.hnl"), funcs: &["zip"], ops: &[], registry: None },
+    ModuleSpec { name: "chunk", hnl: include_str!("../../../handl-packages/collections/array/chunk.hnl"), funcs: &["chunk"], ops: &[], registry: None },
+    ModuleSpec { name: "compact", hnl: include_str!("../../../handl-packages/collections/array/compact.hnl"), funcs: &["compact"], ops: &[], registry: None },
+    ModuleSpec { name: "pluck", hnl: include_str!("../../../handl-packages/collections/array/pluck.hnl"), funcs: &["pluck"], ops: &[], registry: None },
     // `_reflect` — private reflection helpers shared by the array arrows
     // (`is_arr`/`is_obj`); not part of the advertised package surface.
-    ModuleSpec { name: "_reflect", hnl: include_str!("../../../handl-packages/collections/array/_reflect.hnl"), funcs: &["is_arr", "is_obj"], ops: &[], registry: None, deps: &["typeof"] },
+    ModuleSpec { name: "_reflect", hnl: include_str!("../../../handl-packages/collections/array/_reflect.hnl"), funcs: &["is_arr", "is_obj"], ops: &[], registry: None },
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
     ModuleSpec {
         name: "stats",
@@ -423,7 +390,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["sum", "avg", "product", "min", "max", "median", "stddev"],
         ops: &[],
         registry: None,
-        deps: &["math", "typeof"],
     },
     // ── hello (former plugin-lib-hello) — pure handl demo greeting ────
     // `greet.hnl` is a bare arrow (`name ~> "Hello, " + name + "!"`), not
@@ -441,7 +407,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["greet"],
         ops: &[],
         registry: None,
-        deps: &[],
     },
     // ── result (former plugin-lib-result) — pure handl over `tag.*` ───
     // `result.ok`/`result.err` are `tag` constructor arrows: the
@@ -458,7 +423,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["ok", "err"],
         ops: &[],
         registry: None,
-        deps: &["tag"],
     },
     // ── obj (record introspection) ────────────────────────────────────
     // `obj.keys`/`obj.values`/`obj.entries` are the object-field
@@ -470,13 +434,12 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::obj::OBJ_OPS,
         registry: Some(ops::obj::obj_op_registry),
-        deps: &[],
     },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
     // `error.raise` is an irreducible atom: aborting evaluation cannot be
     // expressed over the eval vocabulary, so the module is ops-only. Any
-    // `.hnl` module that needs to fail loudly declares `deps: &["error"]`
-    // (or registers the module in its ambient chain) and calls
+    // `.hnl` module that needs to fail loudly resolves `error` through the
+    // global lookup (or registers the module in its ambient chain) and calls
     // `error.raise(msg)`.
     ModuleSpec {
         name: "error",
@@ -484,7 +447,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::error::ERROR_OPS,
         registry: Some(ops::error::error_op_registry),
-        deps: &[],
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
@@ -497,7 +459,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: &[],
         registry: None,
-        deps: &[],
     },
     // ── prim (former plugin-lib-prim) ──────────────────────────────────
     // Pure-handl record: `add`/`alloc`/`or` over builtins/`math`,
@@ -508,7 +469,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["add", "alloc", "or", "compare"],
         ops: &[],
         registry: None,
-        deps: &["math", "cmp"],
     },
     // ── archive / archive_tar (former plugin-lib-archive, plugin-lib-archive-tar)
     // The `archive` module is caps-only (no callable ops — it's a trait
@@ -520,7 +480,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: &[],
         registry: None,
-        deps: &[],
     },
     ModuleSpec {
         name: "tar",
@@ -528,7 +487,6 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::tar::TAR_OPS,
         registry: Some(ops::tar::tar_op_registry),
-        deps: &[],
     },
 ];
 
@@ -930,11 +888,9 @@ impl ModuleLookup for TableModuleLookup {
 }
 
 /// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and an
-/// injected global [`TableModuleLookup`].
-///
-/// `ModuleSpec::deps` is no longer consumed -- resolution is global, so the
-/// module reaches every other table module (and the resolver's non-table
-/// modules) through the lookup.
+/// injected global [`TableModuleLookup`]. Resolution is global, so the module
+/// reaches every other table module (and the resolver's non-table modules)
+/// through the lookup.
 pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
     let lookup = Arc::new(TableModuleLookup::new(Arc::clone(&resolver)));
     let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
