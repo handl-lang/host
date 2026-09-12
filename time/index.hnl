@@ -1,0 +1,28 @@
+--- Wall-clock and monotonic clock reads.
+--- @details
+--- The `time` contract abstracts three clock readings that every backend
+--- (e.g. `time-c` for libc, `time-stub` for tests) must satisfy.
+--- Backends are selected by platform configuration.
+
+from "../math" import { Nat }
+
+--- Wall-clock milliseconds since the Unix epoch.
+--- @returns {Nat - milliseconds since 1970-01-01 00:00:00 UTC}
+export NowMs: () -> Nat
+
+--- Nanoseconds on a monotonic clock.
+--- @returns {Nat - nanoseconds from a backend-chosen, unspecified epoch}
+export InstantNs: () -> Nat
+
+--- Nanoseconds elapsed since a previous `InstantNs` reading.
+--- @param {start} - a previous `InstantNs` reading
+--- @returns {Nat - `instant_ns() - start`, saturated at 0}
+export ElapsedNs: Nat -> Nat
+
+from "../grade" import { Grade }
+--- @template Clock
+--- Grade for effectful clock reads.
+--- @details
+--- `Clock` tags arrows that observe a real-time clock. Backends such as
+--- `time-c` combine it with `Effect` to grade effectful reads.
+export Clock<T>: Grade

@@ -1,10 +1,31 @@
---- clock_gettime — low-level libc clock reader for the `time-c` backend.
----
---- Reads the given `clock_id` (`0` for `CLOCK_REALTIME`, `1` for
-  --- `CLOCK_MONOTONIC`) through `libc` `clock_gettime` and returns the
---- time as an integer.
+--- Low-level libc `clock_gettime` reader.
+--- @details
+--- Reads the given `clock_id` through `libc` `clock_gettime` and returns
+--- the raw time as an integer number of nanoseconds. Used only by the
+--- `time-c` backend.
 
-export read_ns: Int ~[Effect]~> Int := (clock_id) ~> do {
-  r = ffi.call("libc.so.6", "clock_gettime", [clock_id], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false);
+from "../math" import { Nat }
+from "../time" import { Clock }
+from "../grade" import { Effect }
+
+--- Read a clock as nanoseconds.
+--- @details
+--- `clock_id` 0 maps to `CLOCK_REALTIME`; 1 maps to `CLOCK_MONOTONIC`.
+--- @param {clock_id} - `0` for `CLOCK_REALTIME`, `1` for `CLOCK_MONOTONIC`
+--- @returns {Nat - the clock reading in nanoseconds}
+--- @example
+--- ```hnl
+--- from "clock_gettime" import { read_ns }
+--- read_ns(1)
+--- ```
+export read_ns: Nat ~[(Clock, Effect)]~> Nat := (clock_id) ~> do {
+  r = ffi.call(
+    "libc.so.6",
+    "clock_gettime",
+    [clock_id],
+    ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"],
+    "i32",
+    false
+  );
   r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
 }
