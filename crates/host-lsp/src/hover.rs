@@ -526,6 +526,20 @@ fn identifier_hover(
         md.push_str(&format!("\n\n{}", detail));
     }
 
+    // Generalized signature fallback. Exact type/arrow signatures from the
+    // typechecker are not wired to token hover yet, so we show a placeholder
+    // role signature: arrows/callables get `Type ~> Type`, values get `Type`.
+    let signature = match role.label {
+        "function" | "function (qualified)" | "method" | "arrow" => Some("Type ~> Type"),
+        "variable" | "binding" | "parameter" | "property" | "type" | "type reference" => {
+            Some("Type")
+        }
+        _ => None,
+    };
+    if let Some(sig) = signature {
+        md.push_str(&format!("\n\n```\n{}\n```", sig));
+    }
+
     if usage_count > 1 {
         md.push_str(&format!("\n\n_{} occurrences in this file_", usage_count));
     }
