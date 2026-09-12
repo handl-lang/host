@@ -6,9 +6,9 @@
 --- `array.slice([1, 2, 3, 4, 5], 1, 3)`
 --- -- => [2, 3]
 ---
-from "./len.hnl" import * as len
-from "./take.hnl" import * as take
-from "./drop.hnl" import * as drop
+from "./len.hnl" import len
+from "./take.hnl" import take
+from "./drop.hnl" import drop
 
 export slice<T>: (List(T), Nat, Nat) ~[Total]~> List(T) := (xs, s, e) ~> do {
   if s < 0 {
@@ -18,10 +18,10 @@ export slice<T>: (List(T), Nat, Nat) ~[Total]~> List(T) := (xs, s, e) ~> do {
       null
     } else {
       do {
-        l :: len.len(xs)
+        l :: len(xs)
         m :: if e > l { l } else { e }
         k :: if s > m { m } else { s }
-        take.take(drop.drop(xs, k), m - k)
+        take(drop(xs, k), m - k)
       }
     }
   }

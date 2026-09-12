@@ -7,7 +7,7 @@
 --- `array.intersperse(["a", "b", "c"], ",")`
 --- -- => ["a", ",", "b", ",", "c"]
 ---
-from "./reverse.hnl" import * as reverse
+from "./reverse.hnl" import reverse
 
 export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
   out :: []
@@ -22,5 +22,5 @@ export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
       out = [x, ...out]
     }
   }
-  reverse.reverse(out)
+  reverse(out)
 }

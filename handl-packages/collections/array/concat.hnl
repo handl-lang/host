@@ -6,7 +6,7 @@
 --- `array.concat([1, 2], [3, 4])`
 --- -- => [1, 2, 3, 4]
 ---
-from "./reverse.hnl" import * as reverse
+from "./reverse.hnl" import reverse
 
 export concat<T>: (List(T), List(T)) ~[Total]~> List(T) := (a, b) ~> do {
   r :: []
@@ -16,5 +16,5 @@ export concat<T>: (List(T), List(T)) ~[Total]~> List(T) := (a, b) ~> do {
   for y in b {
     r = [y, ...r]
   }
-  reverse.reverse(r)
+  reverse(r)
 }

@@ -6,7 +6,7 @@
 --- `array.chunk([1, 2, 3, 4, 5], 2)`
 --- -- => [[1, 2], [3, 4], [5]]
 ---
-from "./reverse.hnl" import * as reverse
+from "./reverse.hnl" import reverse
 
 export chunk<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
   if size <= 0 {
@@ -21,14 +21,14 @@ export chunk<T>: (List(T), Nat) ~[Total]~> List(List(T)) := (xs, size) ~> do {
           cur = [x, ...cur]
           k = k + 1
           if k == size {
-            out = [reverse.reverse(cur), ...out]
+            out = [reverse(cur), ...out]
             cur = []
             k = 0
           }
         }
       }
-      if k > 0 { out = [reverse.reverse(cur), ...out] }
-      reverse.reverse(out)
+      if k > 0 { out = [reverse(cur), ...out] }
+      reverse(out)
     }
   }
 }

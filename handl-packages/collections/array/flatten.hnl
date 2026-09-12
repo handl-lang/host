@@ -7,16 +7,16 @@
 --- `array.flatten([[1, 2], 3, [4]])`
 --- -- => [1, 2, 3, 4]
 ---
-from "./_reflect.hnl" import * as _reflect
-from "./concat.hnl" import * as concat
+from "./_reflect.hnl" import is_arr
+from "./concat.hnl" import concat
 
 export flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   out :: []
   for x in xs {
-    if _reflect.is_arr(x) {
-      out = concat.concat(out, x)
+    if is_arr(x) {
+      out = concat(out, x)
     } else {
-      out = concat.concat(out, [x])
+      out = concat(out, [x])
     }
   }
   out

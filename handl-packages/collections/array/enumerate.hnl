@@ -6,7 +6,7 @@
 --- `array.enumerate(["a", "b"])`
 --- -- => [[0, "a"], [1, "b"]]
 ---
-from "./reverse.hnl" import * as reverse
+from "./reverse.hnl" import reverse
 
 export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
   out :: []
@@ -17,5 +17,5 @@ export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
       k = k + 1
     }
   }
-  reverse.reverse(out)
+  reverse(out)
 }

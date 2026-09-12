@@ -6,12 +6,12 @@
 --- `array.pop([1, 2, 3])`
 --- -- => [1, 2]
 ---
-from "./len.hnl" import * as len
-from "./take.hnl" import * as take
+from "./len.hnl" import len
+from "./take.hnl" import take
 
 export pop<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   match xs {
     []: [],
-    [h, ...t]: take.take(xs, len.len(xs) - 1)
+    [h, ...t]: take(xs, len(xs) - 1)
   }
 }
