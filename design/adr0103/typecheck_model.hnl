@@ -277,21 +277,7 @@ do {
   occurs_in :: [self, target_meta_id, v] ~> if is_meta(v) {
     meta_id(v) == target_meta_id
   } else {
-    if is_obj(v) {
-      match values(v) {
-        []: false,
-        [h, ...t]: if self(self, target_meta_id, h) { true } else { self(self, target_meta_id, t) }
-      }
-    } else {
-      if type_of(v) == "arr" {
-        match v {
-          []: false,
-          [h, ...t]: if self(self, target_meta_id, h) { true } else { self(self, target_meta_id, t) }
-        }
-      } else {
-        false
-      }
-    }
+    false
   }
 
   unify_fields :: [self, funcs, a, b, metas, keys] ~> if is_empty(keys) {
