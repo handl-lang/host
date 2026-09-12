@@ -242,12 +242,27 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list",
-        hnl: include_str!("../../../handl-packages/collections/list.hnl"),
+        hnl: include_str!("../../../handl-packages/collections/list/index.hnl"),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         registry: Some(ops::collections::collections_op_registry),
         deps: &["error"],
     },
+    // `list` per-arrow modules (`collections/list/<name>.hnl`), mirroring
+    // `array`'s per-arrow split. IMPORTANT: unlike `array`, each arrow is
+    // registered under a `list_`-prefixed module name (e.g. `list_len`,
+    // `list_pop`) because `array` already owns the bare names `len` /
+    // `is_empty` / `pop` in this flat table — the global module name space
+    // cannot hold both. Qualified references bind to the dependency's
+    // registered module name (not an arbitrary alias), so `list/index.hnl`
+    // imports from these prefixed names and re-exports under the bare
+    // `list.*` fields, e.g. `from "list_len" import * as list_len` then
+    // `len: list_len.len`, and so on.
+    ModuleSpec { name: "list_len", hnl: include_str!("../../../handl-packages/collections/list/len.hnl"), funcs: &["len"], ops: &[], registry: None, deps: &[] },
+    ModuleSpec { name: "list_is_empty", hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None, deps: &[] },
+    ModuleSpec { name: "list_push", hnl: include_str!("../../../handl-packages/collections/list/push.hnl"), funcs: &["push"], ops: &[], registry: None, deps: &[] },
+    ModuleSpec { name: "list_peek", hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"), funcs: &["peek"], ops: &[], registry: None, deps: &["error"] },
+    ModuleSpec { name: "list_pop", hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"), funcs: &["pop"], ops: &[], registry: None, deps: &["error"] },
     ModuleSpec {
         name: "queue",
         hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
