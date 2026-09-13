@@ -42,3 +42,9 @@ cov-xml = "llvm-cov --workspace --cobertura --output-path coverage/cobertura.xml
 
 # Remove stale profraw / instrumented build artifacts.
 cov-clean = "llvm-cov clean --workspace"
+
+[env]
+# Several integration tests build and run the full canonical `Kit`, which
+# recurses deeply enough to overflow the default 2 MiB test thread stack.
+# libtest honors `RUST_MIN_STACK` for its per-test threads.
+RUST_MIN_STACK = "16777216"
