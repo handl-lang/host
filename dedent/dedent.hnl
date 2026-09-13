@@ -1,41 +1,40 @@
 from "../str-handl" import * as str
-from "../transform" import { map, reduce }
+from "../transform" import { map, filter, reduce }
 
 -- Removes the largest common leading whitespace prefix shared by all
 -- non-blank lines in `text`, preserving relative indentation.
 export dedent := (text: String) ~> do {
-  indent_of := (line: String) ~> do {
-    str.length(line) - str.length(str.trim_start(line))
-  }
-  is_blank := (line: String) ~> do {
-    str.is_empty(str.trim(line))
-  }
-  prefix_of := (line: String) ~> do {
-    str.slice(line, 0, indent_of(line))
-  }
-
-  shrink := (p: String, line: String) ~> do {
-    result := p
-    i := str.length(p)
-
-    while !str.starts_with(line, result) && i > 0 {
-      result = str.slice(result, 0, str.length(result) - 1);
-      i = i - 1
-    }
-
-    result
-  }
-
-  update_common := (acc, line) ~> do {
-    if is_blank(line) {
-      acc
-    } else {
-      if !acc.seen {
-        { common: prefix_of(line), seen: true }
-      } else {
-        { common: shrink(acc.common, line), seen: true }
+  build_prefixes := (s: String) ~> do {
+    n := str.length(s)
+    reduce([str.split(s, ""), { i: 0, p: "", ps: [] }, [state, part] ~> do {
+      p := state.p + part
+      ps := state.ps
+      if state.i <= n {
+        ps := [p, ...ps]
       }
-    }
+      i := state.i + 1
+      { i: i, p: p, ps: ps }
+    }]).ps
+  }
+
+  is_blank := (line: String) ~> str.is_empty(str.trim(line))
+
+  common_prefix := (a: String, b: String) ~> do {
+    reduce([build_prefixes(a), "", [result, p] ~> do {
+      if result == "" && str.starts_with(b, p) {
+        result := p
+      }
+      result
+    }])
+  }
+
+  prefix_of := (line: String) ~> do {
+    reduce([build_prefixes(line), "", [result, p] ~> do {
+      if result == "" && is_blank(p) {
+        result := p
+      }
+      result
+    }])
   }
 
   normalized := str.replace(
@@ -50,14 +49,21 @@ export dedent := (text: String) ~> do {
   }
 
   lines := str.lines(trimmed)
-  state := reduce([lines, { common: "", seen: false }, update_common])
-  common := state.common
+  non_blank := filter(lines, line ~> !is_blank(line))
+
+  common_full := reduce([non_blank, "", [acc, line] ~> do {
+    result := line
+    if acc != "" {
+      result := common_prefix(acc, line)
+    }
+    result
+  }])
+  common := prefix_of(common_full)
 
   strip_line := (line: String) ~> do {
     if is_blank(line) {
       return ""
     }
-
     str.strip_prefix(line, common)
   }
 
