@@ -101,6 +101,12 @@ do {
     gauss: (mean, _stddev) ~> mean,
 
     -- Always returns `0.0`.
-    exponential: (_lambda) ~> 0.0
+    exponential: (_lambda) ~> 0.0,
+
+    -- Always returns 0.
+    poisson: (_lambda) ~> 0,
+
+    -- Always returns 0.
+    binomial: (_n, _p) ~> 0
   }
 }

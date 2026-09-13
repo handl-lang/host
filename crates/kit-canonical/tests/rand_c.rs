@@ -9,7 +9,7 @@ use handl_kit_canonical::Kit;
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,7 +18,7 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -184,4 +184,33 @@ fn rand_stub_gauss_is_mean() {
 #[test]
 fn rand_stub_exponential_is_zero() {
     assert_eq!(eval_rand_stub("exponential(1)"), serde_json::json!(0.0));
+}
+
+#[test]
+fn rand_c_poisson_is_non_negative() {
+    let v = eval_rand_c("poisson(5)")
+        .as_f64()
+        .expect("poisson must return a number");
+    assert!(v >= 0.0, "rand-c poisson must be non-negative: {v}");
+}
+
+#[test]
+fn rand_c_binomial_is_bounded() {
+    let v = eval_rand_c("binomial(10, 0.5)")
+        .as_f64()
+        .expect("binomial must return a number");
+    assert!(
+        (0.0..=10.0).contains(&v),
+        "rand-c binomial must be in [0, 10]: {v}"
+    );
+}
+
+#[test]
+fn rand_stub_poisson_is_zero() {
+    assert_eq!(eval_rand_stub("poisson(5)"), serde_json::json!(0));
+}
+
+#[test]
+fn rand_stub_binomial_is_zero() {
+    assert_eq!(eval_rand_stub("binomial(10, 0.5)"), serde_json::json!(0));
 }
