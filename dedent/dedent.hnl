@@ -1,20 +1,20 @@
 from "../str-handl" import * as str
 from "../transform" import { map, reduce }
 
-export dedent :: (text: String) ~> do {
-  indent_of :: (line: String) ~> do {
+export dedent := (text: String) ~> do {
+  indent_of := (line: String) ~> do {
     str.length(line) - str.length(str.trim_start(line))
   }
-  is_blank :: (line: String) ~> do {
+  is_blank := (line: String) ~> do {
     str.is_empty(str.trim(line))
   }
-  prefix_of :: (line: String) ~> do {
+  prefix_of := (line: String) ~> do {
     str.slice(line, 0, indent_of(line))
   }
 
-  shrink :: (p: String, line: String) ~> do {
-    result :: p
-    i :: str.length(p)
+  shrink := (p: String, line: String) ~> do {
+    result := p
+    i := str.length(p)
 
     while !str.starts_with(line, result) && i > 0 {
       result = str.slice(result, 0, str.length(result) - 1);
@@ -24,7 +24,7 @@ export dedent :: (text: String) ~> do {
     result
   }
 
-  update_common :: (acc, line) ~> do {
+  update_common := (acc, line) ~> do {
     if is_blank(line) {
       acc
     } else {
@@ -36,23 +36,22 @@ export dedent :: (text: String) ~> do {
     }
   }
 
-  normalized :: str.replace(
+  normalized := str.replace(
     str.replace(text, "\r\n", "\n"),
     "\r",
     "\n"
   )
-  trimmed :: str.trim_matches(normalized, "\n")
+  trimmed := str.trim_matches(normalized, "\n")
 
   if str.is_empty(str.trim(trimmed)) {
     return ""
   }
 
-  lines :: str.lines(trimmed)
+  lines := str.lines(trimmed)
+  state := reduce([lines, { common: "", seen: false }, update_common])
+  common := state.common
 
-  state :: reduce([lines, { common: "", seen: false }, update_common])
-  common :: state.common
-
-  strip_line :: (line: String) ~> do {
+  strip_line := (line: String) ~> do {
     if is_blank(line) {
       return ""
     }
