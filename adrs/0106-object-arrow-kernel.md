@@ -823,7 +823,10 @@ tree-walk arrows, environments are not explicit yet.
 environment capture when the body contains no `var` node (i.e. "cannot read a
 binding") was implemented and then reverted. In the course of checking it,
 `handl-kit-canonical`'s `fp_integration::fanout_eager_pair_from_source` was
-found to **stack-overflow**, and a bisect confirmed this is **pre-existing**:
+found to **stack-overflow** (`fanout_eager_pair_from_source`, and the same
+class of abort in `fanout_with_expressions` — the whole `&&&` fanout path
+recurses without a depth bound), and a bisect confirmed this is
+**pre-existing**:
 it aborts identically on clean `main` (`4dc13554`) in a detached worktree, with
 none of this work applied. So the overflow is a real, unfixed bug in the
 `fanout` evaluation path, and it also means the `handl-kit-canonical` suite is
