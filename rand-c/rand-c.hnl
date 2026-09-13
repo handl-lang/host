@@ -204,6 +204,35 @@ do {
     exponential: (lambda) ~> do {
       u = math.div(math.add(next_u32(), 1), 4294967296);
       math.div(math.sub(0, math.log(u)), lambda)
+    },
+
+    -- Generate a Poisson-distributed non-negative integer with `lambda`.
+    poisson: (lambda) ~> do {
+      threshold = math.exp(math.sub(0, lambda));
+      while { p: 1.0, k: 0 } {
+        [p, k] ~> if p <= threshold {
+          { out: k }
+        } else {
+          u = math.div(next_u32(), 4294967296);
+          { state: { p: math.mul(p, u), k: k + 1 } }
+        }
+      }
+    },
+
+    -- Generate a binomial-distributed integer in `[0, n]` with `n` trials and success probability `p`.
+    binomial: (n, p) ~> do {
+      while { i: 0, successes: 0 } {
+        [i, successes] ~> if i >= n {
+          { out: successes }
+        } else {
+          u = math.div(next_u32(), 4294967296);
+          if u < p {
+            { state: { i: i + 1, successes: successes + 1 } }
+          } else {
+            { state: { i: i + 1, successes: successes } }
+          }
+        }
+      }
     }
   }
 }
