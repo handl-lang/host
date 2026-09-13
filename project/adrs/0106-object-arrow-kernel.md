@@ -819,6 +819,30 @@ Arrows minted by the bytecode/cranelift engines currently carry
 (step 4). So §6 is *partially* satisfied today: bodies are explicit for
 tree-walk arrows, environments are not explicit yet.
 
+**Attempted, reverted, and the pre-existing bug behind it.** Skipping the
+environment capture when the body contains no `var` node (i.e. "cannot read a
+binding") was implemented and then reverted. In the course of checking it,
+`handl-kit-canonical`'s `fp_integration::fanout_eager_pair_from_source` was
+found to **stack-overflow**, and a bisect confirmed this is **pre-existing**:
+it aborts identically on clean `main` (`4dc13554`) in a detached worktree, with
+none of this work applied. So the overflow is a real, unfixed bug in the
+`fanout` evaluation path, and it also means the `handl-kit-canonical` suite is
+**already red on main** (the abort kills the test binary), which made it a poor
+oracle for judging the capture reduction.
+
+The reduction itself is therefore **unproven, not disproven**: the risk is that
+engine-generated or desugared bodies read bindings through scheme ops
+(`proj_env`, `lookup`, `extend_env`) that leave no `var` node for a kind-based
+test to find. Landing it safely requires binding-reads derived from the **eval
+schemes** (or an explicit free-variable pass over the lowered body) plus a green
+`fanout` path to serve as an oracle. Current behaviour is pinned by
+`arrow_capture_is_currently_unconditional` in
+`crates/handl-runtime/tests/arrow_serializability.rs`, so the unconditional
+capture cannot change silently.
+
+TODOs: (1) fix the `fanout` stack overflow; (2) implement the scheme-derived
+binding-read analysis and drop `env` for arrows that provably read nothing.
+
 **Cost of step 2 (resolved).** Preferring `body_def` initially deserialized
 the standalone arena on *every* application (`tagged_to_value` + `as_ast`),
 which allocates per call. `plugin-engine-exec-tree-walk` now memoizes the

@@ -572,3 +572,65 @@ fn as_number(v: &Value) -> f64 {
     }
     panic!("value is not numeric: {v:?}");
 }
+
+// ---------------------------------------------------------------------------
+// 9. Arrow capture today: every arrow mints with the enclosing scope captured
+//    (ADR-0106 §6 — a known, pinned limitation).
+// ---------------------------------------------------------------------------
+//
+// A reduction was attempted and **reverted as unsound**: skipping the capture
+// when the body contains no `var` node. It broke
+// `fp_integration::fanout_eager_pair_from_source` with a stack overflow, because
+// engine-generated / desugared bodies read bindings through scheme ops
+// (`proj_env`, `lookup`, `extend_env`) that have no `var` node to detect — so
+// "no `var` ⇒ reads nothing" is false. Doing this safely needs
+// binding-reads derived from the eval schemes (or an explicit
+// free-variable pass), not from node kinds.
+//
+// These tests pin the *current* behaviour so the reduction cannot land
+// silently and cannot regress the soundness evidence when it does.
+
+/// Every arrow mints with the enclosing scope captured, whether or not its
+/// body reads a binding. This is the state ADR-0106 §6 objects to; the tests
+/// above/below show it is still correct, just not yet minimal.
+#[test]
+fn arrow_capture_is_currently_unconditional() {
+    let rt = canonical_runtime();
+    let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
+
+    // Body `1` reads nothing, yet the enclosing binding is captured today.
+    let no_refs = eval_in(&rt, "do { y :: 5; x ~> 1 }", &empty);
+    assert_eq!(no_refs["__arrow__"], json!(true), "an arrow is returned");
+    assert_eq!(
+        no_refs["env"],
+        json!({ "y": 5 }),
+        "pin: the capture is currently unconditional (ADR-0106 §6 TODO): {no_refs}",
+    );
+
+    // A body that *does* read the binding also captures it — and works.
+    let with_ref = eval_in(&rt, "do { y :: 5; x ~> y }", &empty);
+    assert!(
+        with_ref["env"].as_object().expect("env").contains_key("y"),
+        "an arrow that reads a binding captures it: {with_ref}",
+    );
+}
+
+/// Soundness evidence for any future capture reduction: arrows still apply
+/// correctly in both the captured and uncaptured-in-principle shapes.
+#[test]
+fn arrow_application_is_correct_for_both_body_shapes() {
+    let rt = canonical_runtime();
+    let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
+    assert_eq!(
+        as_number(&eval_in(&rt, "do { y :: 5; f :: x ~> 1; f(9) }", &empty)),
+        1.0,
+    );
+    assert_eq!(
+        as_number(&eval_in(&rt, "do { y :: 5; f :: x ~> y; f(9) }", &empty)),
+        5.0,
+    );
+    assert_eq!(
+        as_number(&eval_in(&rt, "do { f :: x ~> x + 1; f(41) }", &empty)),
+        42.0,
+    );
+}
