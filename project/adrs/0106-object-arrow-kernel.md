@@ -482,10 +482,15 @@ lives in the model, not in any `*-nbe` crate.
 
 This note records the state of the §6/§8 invariant — *arrows are objects with
 no closures, no lexical environments, and no hidden captured state* — as
-verified against the current tree (branch `design/object-arrow-kernel`). **The
-invariant does not hold yet.** Arrows remain closures over a captured
-environment and an AST index whose meaning is process-local. This section is
-factual: it lists the hidden state and what must change. It does **not** claim
+verified against the tree. **The invariant is partially satisfied.** As of the
+"serializable arrow representation (item 2)" work, an arrow minted by the
+tree-walk engine carries its body as explicit, serializable structure
+(`body_def`) and is applicable after a JSON round-trip without its minting
+frame (proven end-to-end by `round_tripped_arrow_is_applicable_without_its_frame`).
+What remains non-conformant: `env` is still a captured lexical environment,
+and the bytecode/cranelift engines mint arrows whose body is an instruction
+index rather than an explicit definition. This section is factual: it lists
+the remaining hidden state and what must change. It does **not** claim full
 conformance.
 
 ### Audit — every place an arrow/function value carries hidden captured state
@@ -629,8 +634,8 @@ pins the parts that *are* checkable through public APIs:
 This section specifies the concrete representation that makes an arrow
 **self-contained and serializable** — closing the gap the Phase 5 note
 documents — and the migration order to get there. It is written against the
-current tree and cites `file:line`. Only step 1 has been implemented so far
-(see the "current truth" note at the end).
+current tree and cites `file:line`. Steps 1, 2a and 2 are implemented (see
+the "current truth" note at the end); steps 3 and 4 remain.
 
 ### Problem, precisely
 
@@ -751,32 +756,48 @@ The `__arrow__` object gains exactly one optional key, emitted only when
 
 ### Migration order
 
-1. **(this item, done)** Value-layer field + encoder/decoder + fence tests;
-   populate `body_def` at the tree-walk `"closure"` mint; apply path
-   **unchanged** (still uses `body`/`env`/`home`). Nothing regresses.
-2. Teach tree-walk `apply_app` to prefer `body_def` when present, falling back
-   to `body`/`home`. This requires **(2a)** first: extend `Ast::subtree`
-   (`crates/handl-language/src/ast.rs:168`) to remap *every* arena reference
-   in a payload, not only the `children` array — today it remaps `children`
-   only (`:197-201`), so nested absolute refs (a nested `closure` node's
-   `payload["body"]`, an `extend_env` node's `arena_idx`) still point into the
-   original arena. Until (2a) lands, `body_def` is a faithful copy for
-   leaf-only bodies but not a complete standalone arena for every body, so it
-   must **not** drive application.
-3. Populate `body_def` at the bytecode and cranelift mint sites (requires an
-   AST-level body representation there; the instruction index is not one).
-4. Drop `env` and `home`/`__home__` (TODO items 1/2/3 of the Phase 5 note),
-   leaving `body_def` (plus a serialized `Language` reference) as the arrow's
-   whole definitional content.
+1. **(done)** Value-layer field + encoder/decoder + fence tests; populate
+   `body_def` at the tree-walk `"closure"` mint.
+2. **(done, with 2a)** `apply_app` now **prefers** `body_def` when the callee
+   carries one: the standalone arena is deserialized with
+   `handl_language::as_ast` and applied at its root (`len`-1, the post-order
+   convention), with `home` treated as absent. `body`/`home` remain the
+   fallback when there is no definition (bytecode/cranelift arrows,
+   hand-built values) or when the definition fails to deserialize.
+   **(2a) done**: `Ast::subtree` now remaps *named* arena references as well
+   as positional children, driven by the audited list
+   [`ARENA_REF_PAYLOAD_KEYS`] (`crates/handl-language/src/ast.rs`), which
+   currently contains `body`. Only in-range integer values are treated as
+   references, so non-arena payload numbers are never rewritten and
+   out-of-range values are left untouched. This makes the extracted arena
+   genuinely standalone for any body.
+3. **Remaining.** Populate `body_def` at the bytecode and cranelift mint sites
+   (their body is an instruction index, not an AST node, so this needs an
+   AST-level body representation there).
+4. **Remaining.** Drop `env` and `home`/`__home__`, leaving `body_def` (plus a
+   serialized `Language` reference) as the arrow's whole definitional content.
 
-### Known limitation recorded for step 2
+### Current truth after steps 1 / 2a / 2
 
-`Ast::subtree` (`crates/handl-language/src/ast.rs:184-210`) remaps only
-`payload["children"]`. Any payload field that carries an arena index under
-another name (nested closure `body`; `extend_env` `arena_idx`) is copied
-verbatim, so the extracted arena's such refs still denote the *original*
-arena. That is acceptable for the meta `eval` use case the extractor was
-written for, but it means step 1's `body_def` is a **structurally faithful,
-self-contained body for bodies with no nested arena refs** and a partial graph
-otherwise. Closing this is step (2a).
+An arrow minted by the tree-walk engine is **self-describing and applicable
+without its minting frame**: `round_tripped_arrow_is_applicable_without_its_frame`
+(`crates/handl-runtime/tests/arrow_serializability.rs`) mints `x ~> x + 1` in
+one runtime, transports the value as JSON, and applies it in a *second*
+runtime whose arena never contained that body — result `42`, identical to a
+directly-minted arrow. The same test strips `body_def` as a control: the
+transported value then cannot reproduce the result, which shows the behaviour
+comes from the explicit definition rather than the ambient arena.
+
+Arrows minted by the bytecode/cranelift engines currently carry
+`body_def: None` (step 3); `env` is still a captured lexical environment
+(step 4). So §6 is *partially* satisfied today: bodies are explicit for
+tree-walk arrows, environments are not explicit yet.
+
+**Cost of step 2 (TODO).** Preferring `body_def` means every application of a
+self-describing arrow deserializes its standalone arena (`tagged_to_value` +
+`as_ast`) before evaluating. That is correct but allocates per call, which is
+a real risk for hot/recursive arrows. TODO(ADR-0106): cache the deserialized
+arena per arrow value (keyed on a stable identity, not a bare `Rc` address),
+or make the definition arena reachable without re-deserializing on every
+application.
 

@@ -455,3 +455,120 @@ fn body_def_is_derived_and_ignored_by_equality() {
     assert!(tagged_to_value(&none_val).get("body_def").is_none());
     assert!(tagged_to_value(&with_def).get("body_def").is_some());
 }
+
+// ---------------------------------------------------------------------------
+// 8. A round-tripped arrow is applicable without its minting frame (item 2
+//    step 2: the apply path prefers `body_def`).
+// ---------------------------------------------------------------------------
+
+/// Build a canonical runtime with lex + Pratt parse + tree-walk eval.
+fn canonical_runtime() -> handl_runtime::Runtime {
+    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_runtime::{EngineRegistry, Runtime};
+
+    let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");
+    let mut reg = EngineRegistry::new();
+    reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let registry = Rc::new(reg);
+    let mut config = kit.runtime_config().clone();
+    config.typecheck.clear();
+    Runtime::from_registry(kit.lang().clone(), &registry, &config).expect("runtime binds engines")
+}
+
+/// Evaluate `src` in `rt` with `globals` injected.
+fn eval_in(
+    rt: &handl_runtime::Runtime,
+    src: &str,
+    globals: &std::collections::HashMap<String, Value>,
+) -> Value {
+    use handl_language::Source;
+    let toks = rt.lex(&Source::new(src)).expect("lex");
+    let ast = rt.parse(&toks).expect("parse");
+    rt.eval_with_globals(&ast, globals).expect("eval")
+}
+
+/// An arrow that crossed a JSON boundary is still applicable: its body is
+/// carried by the value (`body_def`), not by the engine that minted it.
+///
+/// The control case is the point of the test: with `body_def` stripped the
+/// same transported value can no longer be applied, which proves the
+/// behaviour comes from the explicit definition rather than from the
+/// ambient arena (the two runtimes are separate instances with different
+/// arenas, and the minting arrow carries `home: None`).
+#[test]
+fn round_tripped_arrow_is_applicable_without_its_frame() {
+    use std::collections::HashMap;
+
+    // 1. Mint in runtime A and "transport" the value as JSON.
+    let a = canonical_runtime();
+    let empty: HashMap<String, Value> = HashMap::new();
+    let minted = eval_in(&a, "x ~> x + 1", &empty);
+    assert_eq!(minted["__arrow__"], json!(true), "minted an arrow value");
+    assert!(
+        minted.get("body_def").is_some(),
+        "the minted arrow carries its explicit body definition",
+    );
+    let transported: Value =
+        serde_json::from_str(&minted.to_string()).expect("arrow JSON re-parses");
+
+    // 2. Apply it in runtime B — a *fresh* runtime whose AST arena and home
+    //    frames know nothing about the minting one.
+    let b = canonical_runtime();
+    let mut globals = HashMap::new();
+    globals.insert("f".to_string(), transported.clone());
+    let applied = eval_in(&b, "f(41)", &globals);
+    assert_eq!(
+        as_number(&applied),
+        42.0,
+        "the transported arrow must apply to 41 and yield 42 (got {applied:?})",
+    );
+    // Equivalence with a directly-minted arrow in the *same* runtime, so the
+    // transported value cannot be passing for an unrelated reason.
+    let direct = eval_in(&b, "(x ~> x + 1)(41)", &empty);
+    assert_eq!(
+        as_number(&applied),
+        as_number(&direct),
+        "transported application must agree with direct application",
+    );
+
+    // 3. Control: without `body_def` the very same value is not applicable,
+    //    because its `body` index refers to an arena that no longer exists.
+    let mut stripped = transported.clone();
+    stripped
+        .as_object_mut()
+        .expect("arrow is an object")
+        .remove("body_def");
+    let mut globals_stripped = HashMap::new();
+    globals_stripped.insert("f".to_string(), stripped);
+    let stripped_result = {
+        use handl_language::Source;
+        let toks = b.lex(&Source::new("f(41)")).expect("lex");
+        let ast = b.parse(&toks).expect("parse");
+        b.eval_with_globals(&ast, &globals_stripped)
+    };
+    match stripped_result {
+        Err(_) => {}
+        Ok(v) => assert_ne!(
+            v,
+            json!(42),
+            "without `body_def` the stale `body` index must not evaluate \
+             to the correct result — otherwise this test proves nothing",
+        ),
+    }
+}
+
+/// Read a numeric value out of either representation a runtime may produce
+/// for a number: a bare JSON number, or a tagged `{"value": N}` record.
+fn as_number(v: &Value) -> f64 {
+    if let Some(n) = v.as_f64() {
+        return n;
+    }
+    if let Some(n) = v.get("value").and_then(|inner| inner.as_f64()) {
+        return n;
+    }
+    panic!("value is not numeric: {v:?}");
+}

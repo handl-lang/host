@@ -3901,7 +3901,7 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
-        let (params, rest_param, body_idx, captured_env, home, array_pattern) = match callee {
+        let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) = match callee {
             TaggedValue::Arrow {
                 params,
                 rest,
@@ -3909,7 +3909,7 @@ impl TreeWalkEngine {
                 env,
                 home,
                 array_pattern,
-                ..
+                body_def,
             } => (
                 params.clone(),
                 rest.clone(),
@@ -3917,12 +3917,30 @@ impl TreeWalkEngine {
                 Rc::clone(env),
                 *home,
                 *array_pattern,
+                body_def.clone(),
             ),
             _ => {
                 return Err(LangError::engine(
                     "callee is not an arrow-value".to_string(),
                 ));
             }
+        };
+        // ADR-0106 item 2 step 2: prefer the arrow's **explicit body
+        // definition** when it carries one. `body_def` holds the body as a
+        // standalone arena (`{"__ast__": <Ast>}`, minted via
+        // `Ast::subtree` + `ast_value`), so an arrow that crossed a JSON
+        // round-trip — whose minting frame and AST are gone — is still
+        // applicable. The ambient `body` index and the `home` frame remain
+        // the fallback for arrows minted without a definition (bytecode,
+        // cranelift, hand-built values).
+        let def_arena: Option<Ast> = body_def
+            .as_deref()
+            .and_then(|d| handl_language::as_ast(&tagged_to_value(d)))
+            .filter(|a| !a.is_empty());
+        let (ast, body_idx, home): (&Ast, usize, Option<u64>) = match &def_arena {
+            // The extracted arena is post-order, so the body root is last.
+            Some(a) => (a, a.len() - 1, None),
+            None => (ast, body_idx, home),
         };
         if let Some(frame_id) = home {
             // The arrow was minted by a *different* eval frame (it crossed
