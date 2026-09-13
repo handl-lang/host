@@ -1,0 +1,48 @@
+--- The rand-c backed v4 UUID generator.
+--- @details
+--- Draws 16 random bytes from `rand-c` and formats them as a lowercase v4
+--- UUID, setting the version and variant bits in pure Handl.
+
+from "../rand-c" import { bytes }
+
+do {
+  HEX = "0123456789abcdef"
+
+  nibble_to_hex = (n) ~> char.at(HEX, n)
+
+  byte_to_hex = (b) ~> do {
+    hi = math.floor(b / 16)
+    lo = math.mod(b, 16)
+    nibble_to_hex(hi) + nibble_to_hex(lo)
+  }
+
+  format_uuid = (bs) ~> do {
+    while { i: 0, hex: "" } {
+      [i, hex] ~> if i >= 16 {
+        { out: hex }
+      } else {
+        b = if i == 6 {
+          math.mod(bs[i], 16) + 64
+        } else if i == 8 {
+          math.mod(bs[i], 64) + 128
+        } else {
+          bs[i]
+        }
+        { state: { i: i + 1, hex: hex + byte_to_hex(b) } }
+      }
+    }
+  }
+
+  add_hyphens = (hex) ~>
+    char.slice(hex, 0, 8) + "-" +
+    char.slice(hex, 8, 12) + "-" +
+    char.slice(hex, 12, 16) + "-" +
+    char.slice(hex, 16, 20) + "-" +
+    char.slice(hex, 20, 32)
+
+  {
+    v4: () ~> do {
+      add_hyphens(format_uuid(bytes(16)))
+    }
+  }
+}
