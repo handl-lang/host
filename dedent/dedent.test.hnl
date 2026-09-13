@@ -1,4 +1,4 @@
-from "./dedent" import * as dedent
+from "./dedent" import { dedent }
 
 -- Core behavior
 test_dedent_empty := assert dedent("") = ""

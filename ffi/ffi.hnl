@@ -5,7 +5,7 @@
 --- import.
 
 from "../grade" import { Grade }
-from "type" import { Number, Obj }
+from "../type" import { Obj, Int }
 
 --- Grade for foreign-function calls.
 --- @details
@@ -13,11 +13,11 @@ from "type" import { Number, Obj }
 --- making the foreign effect visible to the type system.
 export FFI := Grade
 
---- C `errno` value as a Handl number.
+--- C `errno` value as a Handl Int.
 --- @details
 --- This is the integer `errno` read from the current thread immediately
 --- after a failing C call.
-export Errno := Number
+export Errno := Int
 
 --- Opaque foreign handle (file descriptor, socket, pointer, etc.).
 export Handle := Obj

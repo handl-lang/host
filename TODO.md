@@ -1,0 +1,3 @@
+- toml.parse, toml.stringify
+- yaml.parse, yaml.stringify
+- json.parse, json.stringify

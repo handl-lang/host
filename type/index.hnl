@@ -1,0 +1,87 @@
+--- type — runtime type introspection interface for the handl platform.
+---
+--- This .hnl declares the capability surface for the `type` library. The
+--- runtime `type` module is implemented in
+--- `handl-packages/type-handl/type-handl.hnl` (pure-handl predicates and
+  --- kind guards) over a small set of native `op` atoms, and is registered
+--- under `"type"` by `kit-canonical`. `type` is a keyword in handl v0.1
+--- (ADR-0074) but parses as a `var` atom, so `type.of(v)` in source
+--- evaluates as `field-access(var("type"), "of")` → host call `"type.of"`.
+---
+--- ## Runtime type introspection (type module)
+---
+--- type.of — NATIVE op: return the kind tag of a value ("null", "bool",
+  --- "number", "string", "array", "object", "arrow", "bytes", "resource" —
+  --- the tree-walk engine's `type_tag` vocabulary).
+--- type.tag / type.name / type.type_of / type.typeof — pure-handl aliases
+--- of `type.of`.
+--- type.is_null / is_bool / is_number / is_string / is_array / is_object /
+--- is_arrow / is_function / is_bytes / is_resource — pure-handl predicates
+--- over `type.of`.
+--- type.is — test whether a value matches a kind spelling (canonical tags,
+  --- short aliases "num"/"str"/"arr"/"obj", and `type.`-prefixed forms).
+--- type.must — assert a kind ({ok: v} or {err: msg}).
+--- type.may — project a kind (value or null).
+--- type.not — kind complement (value or null).
+--- type.when — kind guard with a default.
+--- type.to_bool — pure-handl truthiness.
+--- type.to_string / type.to_number — NATIVE ops: value coercion has no
+--- eval-vocabulary primitive.
+--- type.coalesce — NATIVE op: variadic; handl arrows have fixed arity.
+--- type.identity / type.default — pure-handl.
+---
+--- Field-key kinds (`field.x`, variant-tag complements) are NOT part of
+--- the `type` module — there is no object-key enumeration primitive. The
+--- legacy `typeof` module (`plugin-lib-utils`' `TypeModule`) still provides
+--- them plus the old short-tag vocabulary ("num"/"str"/"arr"/"obj").
+---
+--- ## Typecheck engine (Rust)
+---
+--- The compile-time typecheck engine (NbE-based type synthesis) lives in
+--- `handl-plugin-engine-typecheck-nbe`, behind the
+--- `handl-plugin-engine-typecheck` abstraction (`check_module`); it is
+--- not declared as `op`/`handl` here because it operates at the
+--- inference layer, not the eval-time dispatch layer.
+
+--- ## Type values (type-as-values)
+---
+--- Runtime type values: tagged values representing types. Import these
+--- in type signatures and type-level handl code.
+
+export Int := { "__tag__": "int", "__registry__": "type", "kind": "primitive" }
+export Str := { "__tag__": "str", "__registry__": "type", "kind": "primitive" }
+export Bool := { "__tag__": "bool", "__registry__": "type", "kind": "primitive" }
+export Null := { "__tag__": "null", "__registry__": "type", "kind": "primitive" }
+export Float := { "__tag__": "float", "__registry__": "type", "kind": "primitive" }
+export Number := { "__tag__": "number", "__registry__": "type", "kind": "primitive" }
+export Nat := { "__tag__": "nat", "__registry__": "type", "kind": "primitive" }
+
+--- ## ADR-0106 nominal identities (sym-backed, alongside the legacy tags)
+---
+--- Nominal identities per ADR-0106 §2. `NumberN` is a root nominal
+--- (`sym()` — a fresh object with a unique nominal identity); `IntN` and
+--- `FloatN` are children parented to it (`sym(NumberN)`), so the `sym`
+--- parent graph *is* the subtyping relation: `FloatN instanceof NumberN`
+--- (runtime parent-chain walk) and `FloatN <: NumberN` (the same walk,
+  --- read statically) with no parallel `Subtype<A, B>` subsystem. `NatN` is
+--- parented to `IntN` (`Nat <: Int <: Number`).
+---
+--- The legacy `__tag__`-tagged values above (Int/Str/Bool/Null/Float/
+  --- Number/Nat) are NOT deleted yet: existing kind predicates and tag
+--- checks (`type.is`, `tag.tag_of`, registry equality) match on the
+--- `__tag__` string, which a `{"__sym__": ...}` nominal does not carry.
+--- Behavior compatibility is preserved by keeping both spellings until
+--- consumers migrate. Note the semantic difference: legacy tags compare
+--- by structure (two `{__tag__: "int"}` objects are equal) while nominals
+--- compare by identity (two `sym()` mints are distinct even with the same
+  --- presentation name) — and `instanceof` walks the nominal parent chain,
+--- never the `__tag__` string.
+---
+--- Surface: `sym()` / `sym(parent)` need no new syntax — they parse via
+--- the existing `call` rule and resolve through the `sym` module (see
+  --- `SymModule` in `handl-runtime`). `NumberN` below is literally
+--- `sym()`; `FloatN` is literally `sym(NumberN)`.
+export NumberN := sym()
+export IntN := sym(NumberN)
+export FloatN := sym(NumberN)
+export NatN := sym(IntN)
