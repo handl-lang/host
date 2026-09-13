@@ -111,6 +111,14 @@
   pattern: !Literal
     text: =
   priority: 20
+- id: lex.colon_equal
+  # `:=` is the canonical assignment/binding operator (alias of `::` and `=`).
+  # Priority 20 (< lex.colon's 30) so the two-character `:=` wins over the
+  # single `:` (longest match within priority).
+  token_kind: token.bind
+  pattern: !Literal
+    text: ":="
+  priority: 20
 - id: lex.bind
   # `::` is the binding token (was `=`). Priority 20 (< lex.colon's 30) so the
   # two-character `::` win over the single `:` (longest match within priority).
