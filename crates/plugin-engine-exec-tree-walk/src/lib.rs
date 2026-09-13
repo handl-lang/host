@@ -207,7 +207,7 @@ impl EvalFrame {
             CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
         let prev_import_resolver = CURRENT_IMPORT_RESOLVER
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.import_resolver.clone()));
-        eprintln!("[EvalFrame::enter] has_resolver={:?}", self.import_resolver.is_some());
+
         let out = f();
         CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
@@ -617,9 +617,6 @@ impl TreeWalkEngine {
     /// to load the referenced module and bind its top-level bindings into
     /// the current scope.
     pub fn with_import_resolver(mut self, resolver: Rc<dyn ImportResolver>) -> Self {
-        let self_ptr = &self as *const Self as usize;
-        let res_ptr = Rc::as_ptr(&resolver) as *const () as usize;
-        eprintln!("[TW {self_ptr:#x} with_import_resolver] resolver={res_ptr:#x}");
         self.import_resolver = Some(resolver);
         self
     }
@@ -4365,9 +4362,6 @@ impl TreeWalkEngine {
                     current_node,
                 )
             })?;
-        let self_ptr = self as *const Self as usize;
-        let res_ptr = self.import_resolver.as_ref().map(|r| Rc::as_ptr(r) as *const () as usize);
-        eprintln!("[TW {self_ptr:#x} prim_import] path={path} resolver={res_ptr:?}");
         let resolver = self.import_resolver.as_ref().ok_or_else(|| {
             LangError::engine_node(
                 "import: no import resolver configured".to_string(),
@@ -5051,7 +5045,7 @@ impl TreeWalkEngine {
         let lang_rc = Rc::new(lang.clone());
         let modules_rc = self.modules.clone();
         let import_resolver_rc = self.import_resolver.clone();
-        eprintln!("[TW eval_ast_rc] has_resolver={}", import_resolver_rc.is_some());
+
         let prev_ast =
             CURRENT_AST.with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&ast_rc))));
         let prev_lang = CURRENT_LANG
@@ -5131,8 +5125,7 @@ impl EvalEngine for TreeWalkEngine {
         // remains meaningful in the importer's scope: `apply_app` /
         // `call_value` route `__home__`-stamped arrows back to this frame
         // (its AST, `Language`, module chain, and globals).
-        let has_resolver = self.import_resolver.is_some();
-        eprintln!("[TW seal_module_value] has_resolver={has_resolver}");
+
         let frame_id = register_home_frame(
             Rc::new(ast.clone()),
             Rc::new(lang.clone()),
@@ -5798,7 +5791,7 @@ impl TreeWalkCallable {
         // a runtime boundary, e.g. the test runner applying a `.hnl` arrow).
         let mut engine = engine;
         engine.import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
-        eprintln!("[TW call_value_in_frame] resolver={:?}", engine.import_resolver.is_some());
+
         // Curried application, matching `apply_app`: surplus args apply
         // the body's result (another arrow) to the remainder — `f(1, 5)`
         // on `x ~> y ~> body` is `(f 1) 5`. The recursion goes through

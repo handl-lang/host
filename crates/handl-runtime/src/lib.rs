@@ -1557,9 +1557,6 @@ impl ModuleLoader {
         // Evaluate the module. Clone the eval engine out of the RefCell
         // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
         // imports) can independently borrow the cell without panic.
-        // Evaluate the module. Clone the eval engine out of the RefCell
-        // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
-        // imports) can independently borrow the cell without panic.
         let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
             LangError::engine(format!(
                 "import \"{}\" ({}): module loader has no eval engine configured",
