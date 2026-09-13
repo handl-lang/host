@@ -6,6 +6,8 @@
 --- is treated as a failure and its payload is serialized into the
 --- `error` field.
 
+from "serialize" import { serialize }
+
 cap "test.run"
 
 op "test.run" : Array -> Value
@@ -19,7 +21,7 @@ do {
     args :: if c.args == null { [] } else { c.args }
     result :: combinators.apply(body, args)
     pass :: tag.tag_of(result) != "err"
-    error :: if pass { null } else { json.stringify(tag.untag(result).value) }
+    error :: if pass { null } else { serialize(tag.untag(result).value, "json") }
     new_results :: [...results, { name: name, pass: pass, error: error }]
     new_passed :: if pass { passed + 1 } else { passed }
     new_failed :: if pass { failed } else { failed + 1 }

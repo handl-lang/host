@@ -139,6 +139,7 @@ do {
     Int: { "__tag__": "int", "__registry__": "type", "kind": "primitive" },
     Number: { "__tag__": "number", "__registry__": "type", "kind": "primitive" },
     Float: { "__tag__": "float", "__registry__": "type", "kind": "primitive" },
+    Nat: { "__tag__": "nat", "__registry__": "type", "kind": "primitive" },
     Str: { "__tag__": "str", "__registry__": "type", "kind": "primitive" },
     String: { "__tag__": "str", "__registry__": "type", "kind": "primitive" },
     Bool: { "__tag__": "bool", "__registry__": "type", "kind": "primitive" },

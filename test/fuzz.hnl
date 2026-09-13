@@ -4,6 +4,8 @@
 --- Functions should return an `err`-tagged result on failure; the
 --- report counts `err` results and records the first failure payload.
 
+from "serialize" import { serialize }
+
 cap "fuzz.run"
 
 op "fuzz.run" : (Function, Number, Number) -> Value
@@ -37,7 +39,7 @@ do {
             is_err :: tag.tag_of(r) == "err"
             new_failures :: if is_err { failures + 1 } else { failures }
             new_first :: if is_err {
-              if first_error == null { json.stringify(tag.untag(r).value) } else { first_error }
+              if first_error == null { serialize(tag.untag(r).value, "json") } else { first_error }
             } else {
               first_error
             }

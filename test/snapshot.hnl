@@ -4,6 +4,8 @@
 --- compares an actual value to an expected snapshot and returns an
 --- `ok` result on a match or an `err` result describing the mismatch.
 
+from "serialize" import { serialize }
+
 cap "snapshot.format"
 cap "snapshot.match"
 
@@ -15,7 +17,7 @@ handl "snapshot.format" = format
 handl "snapshot.match" = match
 
 {
-  format: [v] ~> json.stringify(v),
+  format: [v] ~> serialize(v, "json"),
 
   match: [name, actual, expected] ~> if actual == expected {
     tag.tag("ok", { value: true })
@@ -23,8 +25,8 @@ handl "snapshot.match" = match
     tag.tag("err", { value: {
       message: "snapshot " + name + " mismatch",
       assertion: "snapshot",
-      expected: json.stringify(expected),
-      actual: json.stringify(actual)
+      expected: serialize(expected, "json"),
+      actual: serialize(actual, "json")
     }})
   }
 }
