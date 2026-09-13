@@ -1,0 +1,9 @@
+from "../transform" import { reduce }
+
+test_reduce_record := assert reduce([["a", "b", "c"], { p: "", result: "" }, [state, c]~> do {
+  p := state.p + c
+  if state.result == "" {
+    state := { p: p, result: p }
+  }
+  state
+}]).result = "abc"

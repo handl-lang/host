@@ -1,0 +1,3 @@
+from "../str-handl" import * as str
+
+test_mstrip3 := assert str.strip_prefix("Hello!", false) = "Hello!"

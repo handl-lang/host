@@ -1,0 +1,11 @@
+from "../transform" import { reduce }
+
+export common_full := reduce([["a", "b"], "", [acc, line]~> do {
+  result := line
+  if acc != "" {
+    result := acc
+  }
+  result
+}])
+
+test_common_full := assert common_full = "b"

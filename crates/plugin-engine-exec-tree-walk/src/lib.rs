@@ -6182,10 +6182,11 @@ fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize
     Some(arena as usize)
 }
 
-/// Whether `node` is a binding (assign-like) node: its shape declares a
-/// `target` role. Falls back to the legacy kind check for role-less shapes.
+/// Whether `node` is a binding (assign-like) node: its shape declares both
+/// `target` and `value` roles. Falls back to the legacy kind check for
+/// role-less shapes.
 fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
-    role_declared(lang, &node.kind, "target")
+    role_declared(lang, &node.kind, "target") && role_declared(lang, &node.kind, "value")
 }
 
 /// Resolve the bound name of a binding's `target` child: a bare `var`-like
