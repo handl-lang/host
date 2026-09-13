@@ -9,7 +9,7 @@ use handl_kit_canonical::Kit;
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,7 +18,7 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -107,6 +107,21 @@ fn rand_c_string_length_and_charset() {
     }
 }
 
+#[test]
+fn rand_c_weighted_pick_rejects_length_mismatch() {
+    let v = eval_rand_c("weighted_pick([1, 2], [\"a\"])");
+    assert!(v.is_null(), "rand-c weighted_pick must reject length mismatch: {v}");
+}
+
+#[test]
+fn rand_c_weighted_pick_is_from_input() {
+    let v = eval_rand_c("weighted_pick([1, 2, 3], [\"a\", \"b\", \"c\"])");
+    assert!(
+        ["a", "b", "c"].iter().any(|s| *s == v.as_str().unwrap_or("")),
+        "rand-c weighted_pick must be from items: {v}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // rand-stub.* — deterministic, no-effect backend
 // ---------------------------------------------------------------------------
@@ -124,6 +139,14 @@ fn rand_stub_is_deterministic() {
 #[test]
 fn rand_stub_pick_is_first() {
     assert_eq!(eval_rand_stub("pick([\"x\", \"y\", \"z\"])"), serde_json::json!("x"));
+}
+
+#[test]
+fn rand_stub_weighted_pick_is_first() {
+    assert_eq!(
+        eval_rand_stub("weighted_pick([2, 1, 1], [\"x\", \"y\", \"z\"])"),
+        serde_json::json!("x")
+    );
 }
 
 #[test]

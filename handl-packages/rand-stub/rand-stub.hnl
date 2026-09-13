@@ -54,6 +54,9 @@ do {
     -- Always returns the first element.
     pick: (xs) ~> xs[0],
 
+    -- Always returns the first weighted element.
+    weighted_pick: (_weights, items) ~> items[0],
+
     -- Cycles through `count` elements, wrapping around the input.
     choice: (xs, count) ~> do {
       while { n: count, acc: [] } {
