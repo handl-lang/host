@@ -18,7 +18,6 @@ handl-plugin-lib-ws-rfc-memory = { workspace = true }
 handl-plugin-lib-ws-whatwg-native = { workspace = true }
 
 handl-plugin-lib-compress-gzip = { workspace = true }
-handl-plugin-lib-rand-native = { workspace = true }
 handl-plugin-lib-http-client-std = { workspace = true }
 handl-plugin-lib-otlp-std = { workspace = true }
 serde_json = { workspace = true }

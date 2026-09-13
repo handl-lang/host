@@ -40,7 +40,6 @@ use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
-use handl_plugin_lib_rand_native::RandModule;
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_tag::TagModule;
@@ -95,6 +94,35 @@ const BENCHMARK_FUNCS: &[&str] = &["run"];
 
 const FUZZ_HNL: &str = include_str!("../../../handl-packages/test/fuzz.hnl");
 const FUZZ_FUNCS: &[&str] = &["run"];
+
+// rand-stub — the deterministic, no-effect `rand` backend used by the
+// test framework (`test`/`property`/`fuzz` modules need `rand.*`).
+const RAND_STUB_HNL: &str = include_str!("../../../handl-packages/rand-stub/rand-stub.hnl");
+const RAND_STUB_FUNCS: &[&str] = &[
+    "int",
+    "float",
+    "bool",
+    "pick",
+    "weighted_pick",
+    "choice",
+    "sample",
+    "shuffle",
+    "bytes",
+    "string",
+    "gauss",
+    "exponential",
+    "poisson",
+    "binomial",
+    "seeded_int",
+    "seeded_float",
+    "seeded_bool",
+    "seeded_pick",
+    "seeded_choice",
+    "seeded_sample",
+    "seeded_shuffle",
+    "seeded_string",
+    "seeded_gauss",
+];
 
 const SNAPSHOT_HNL: &str = include_str!("../../../handl-packages/test/snapshot.hnl");
 const SNAPSHOT_FUNCS: &[&str] = &["format", "match"];
@@ -253,7 +281,7 @@ fn build_dedent_module() -> HandlModule {
 fn build_test_module() -> HandlModule {
     HandlModule::new("test", TEST_HNL, TEST_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
@@ -265,7 +293,7 @@ fn build_test_module() -> HandlModule {
 fn build_property_module() -> HandlModule {
     HandlModule::new("property", PROPERTY_HNL, PROPERTY_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
@@ -285,7 +313,7 @@ fn build_benchmark_module() -> HandlModule {
 fn build_fuzz_module() -> HandlModule {
     HandlModule::new("fuzz", FUZZ_HNL, FUZZ_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(RandModule))
+        .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
@@ -315,6 +343,13 @@ fn build_assert_module() -> HandlModule {
 /// (`char-native` by default).
 fn build_str_handl_module() -> HandlModule {
     HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_global_lookup(std::sync::Arc::new(
+        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
+    ))
+}
+
+/// Build the deterministic, pure-Handl `rand` backend from `rand-stub`.
+fn build_rand_stub_module() -> HandlModule {
+    HandlModule::new("rand", RAND_STUB_HNL, RAND_STUB_FUNCS).with_global_lookup(std::sync::Arc::new(
         stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
     ))
 }
@@ -413,6 +448,14 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         }
         // `ffi` — foreign-function interface host module (`ffi.bind`/`ffi.call`).
         stdlib_registry.register(FfiModule);
+        // `entropy` — the libsodium-backed `next_u32` surface that `rand-c`
+        // is built on. Built with the stdlib resolver so `ffi`/`math` resolve.
+        if want("entropy") {
+            stdlib_registry.register(
+                stdlib::module_with("entropy", std::sync::Arc::new(StdlibResolver))
+                    .expect("entropy"),
+            );
+        }
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.
@@ -464,7 +507,7 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         }
         // `rand` — deterministic seeded RNG for `property`/`fuzz` (ADR-0092).
         if want("rand") {
-            stdlib_registry.register(RandModule);
+            stdlib_registry.register(build_rand_stub_module());
         }
         if want("ip") {
             stdlib_registry.register(stdlib::ops::ip::IpModule);

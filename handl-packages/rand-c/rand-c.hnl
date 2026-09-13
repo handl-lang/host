@@ -7,9 +7,6 @@
 --- `shuffle`. Distributions, `bytes`, `string`, `uuid`, and `seeded_*`
 --- are in later phases (see `project/adrs/0107-rand-ffi.md`).
 
-from "entropy" import { next_u32 }
-from "char" import { chars }
-
 do {
   -- -----------------------------------------------------------------------
   -- Internal list helpers
@@ -82,6 +79,37 @@ do {
   -- Pure-Handl seeded PRNG
   hash :: (seed, salt) ~> math.mod(math.add(math.mul(seed, 12345), math.mul(salt, 6789)), 2147483647)
 
+  -- Core selection primitives shared by other arrows.
+  pick :: (xs) ~> do {
+    i = math.mod(entropy.next_u32(), arr_len(xs))
+    xs[i]
+  }
+
+  sample :: (xs, count) ~> do {
+    while { xs: xs, n: count, acc: [] } {
+      [xs, n, acc] ~> if n <= 0 || arr_len(xs) == 0 {
+        { out: arr_rev(acc) }
+      } else {
+        i = math.mod(entropy.next_u32(), arr_len(xs))
+        x = xs[i]
+        { state: { xs: arr_remove_at(xs, i), n: n - 1, acc: [x, ...acc] } }
+      }
+    }
+  }
+
+  seeded_sample :: (seed, xs, count) ~> do {
+    while { xs: xs, n: count, k: 0, acc: [] } {
+      [xs, n, k, acc] ~> if n <= 0 || arr_len(xs) == 0 {
+        { out: arr_rev(acc) }
+      } else {
+        r = hash(seed, k)
+        i = math.mod(r, arr_len(xs))
+        x = xs[i]
+        { state: { xs: arr_remove_at(xs, i), n: n - 1, k: k + 1, acc: [x, ...acc] } }
+      }
+    }
+  }
+
   -- -----------------------------------------------------------------------
   -- Exports
   -- -----------------------------------------------------------------------
@@ -89,47 +117,44 @@ do {
   {
     -- Generate a random integer in `[0, max]`.
     int: (max) ~> do {
-      u = next_u32();
+      u = entropy.next_u32()
       math.mod(u, max + 1)
     },
 
     -- Generate a random float in `[0, max)`.
     float: (max) ~> do {
-      u = next_u32();
+      u = entropy.next_u32()
       math.mul(math.div(u, 4294967296), max)
     },
 
     -- Generate a random boolean.
     bool: () ~> do {
-      u = next_u32();
+      u = entropy.next_u32()
       math.mod(u, 2) == 0
     },
 
     -- Pick one random element from a non-empty array.
-    pick: (xs) ~> do {
-      i = math.mod(next_u32(), arr_len(xs));
-      xs[i]
-    },
+    pick: pick,
 
     -- Pick one random element from weighted arrays.
     weighted_pick: (weights, items) ~> do {
-      n = arr_len(weights);
+      n = arr_len(weights)
       if n == 0 || n != arr_len(items) {
         null
       } else {
         do {
-          total = arr_sum(weights);
+          total = arr_sum(weights)
           if total <= 0 {
             null
           } else {
             do {
-              r = math.mod(next_u32(), total);
+              r = math.mod(entropy.next_u32(), total)
               while { i: 0, cum: 0 } {
                 [i, cum] ~> if i >= n {
                   { out: null }
                 } else {
-                  w = weights[i];
-                  c = cum + w;
+                  w = weights[i]
+                  c = cum + w
                   if r < c {
                     { out: items[i] }
                   } else {
@@ -155,17 +180,7 @@ do {
     },
 
     -- Sample `count` elements from an array without replacement.
-    sample: (xs, count) ~> do {
-      while { xs: xs, n: count, acc: [] } {
-        [xs, n, acc] ~> if n <= 0 || arr_len(xs) == 0 {
-          { out: arr_rev(acc) }
-        } else {
-          i = math.mod(next_u32(), arr_len(xs));
-          x = xs[i];
-          { state: { xs: arr_remove_at(xs, i), n: n - 1, acc: [x, ...acc] } }
-        }
-      }
-    },
+    sample: sample,
 
     -- Shuffle an array in random order.
     shuffle: (xs) ~> sample(xs, arr_len(xs)),
@@ -176,14 +191,14 @@ do {
         [n, acc] ~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
-          { state: { n: n - 1, acc: [math.mod(next_u32(), 256), ...acc] } }
+          { state: { n: n - 1, acc: [math.mod(entropy.next_u32(), 256), ...acc] } }
         }
       }
     },
 
     -- Generate a random string of `len` characters from `charset`.
     string: (len, charset) ~> do {
-      cs = chars(charset);
+      cs = char.chars(charset)
       while { n: len, acc: "" } {
         [n, acc] ~> if n <= 0 {
           { out: acc }
@@ -195,28 +210,28 @@ do {
 
     -- Generate a normally distributed number with `mean` and `stddev`.
     gauss: (mean, stddev) ~> do {
-      u1 = math.div(math.add(next_u32(), 1), 4294967296);
-      u2 = math.div(math.add(next_u32(), 1), 4294967296);
-      r = math.sqrt(math.sub(0, math.mul(2, math.log(u1))));
-      theta = math.mul(math.mul(2, math.pi()), u2);
-      z = math.mul(r, math.cos(theta));
+      u1 = math.div(math.add(entropy.next_u32(), 1), 4294967296)
+      u2 = math.div(math.add(entropy.next_u32(), 1), 4294967296)
+      r = math.sqrt(math.sub(0, math.mul(2, math.log(u1))))
+      theta = math.mul(math.mul(2, math.pi()), u2)
+      z = math.mul(r, math.cos(theta))
       math.add(mean, math.mul(stddev, z))
     },
 
     -- Generate an exponentially distributed non-negative number with `lambda`.
     exponential: (lambda) ~> do {
-      u = math.div(math.add(next_u32(), 1), 4294967296);
+      u = math.div(math.add(entropy.next_u32(), 1), 4294967296)
       math.div(math.sub(0, math.log(u)), lambda)
     },
 
     -- Generate a Poisson-distributed non-negative integer with `lambda`.
     poisson: (lambda) ~> do {
-      threshold = math.exp(math.sub(0, lambda));
+      threshold = math.exp(math.sub(0, lambda))
       while { p: 1.0, k: 0 } {
         [p, k] ~> if p <= threshold {
           { out: k }
         } else {
-          u = math.div(next_u32(), 4294967296);
+          u = math.div(entropy.next_u32(), 4294967296)
           { state: { p: math.mul(p, u), k: k + 1 } }
         }
       }
@@ -228,7 +243,7 @@ do {
         [i, successes] ~> if i >= n {
           { out: successes }
         } else {
-          u = math.div(next_u32(), 4294967296);
+          u = math.div(entropy.next_u32(), 4294967296)
           if u < p {
             { state: { i: i + 1, successes: successes + 1 } }
           } else {
@@ -269,23 +284,12 @@ do {
       }
     },
 
-    seeded_sample: (seed, xs, count) ~> do {
-      while { xs: xs, n: count, k: 0, acc: [] } {
-        [xs, n, k, acc] ~> if n <= 0 || arr_len(xs) == 0 {
-          { out: arr_rev(acc) }
-        } else {
-          r = hash(seed, k)
-          i = math.mod(r, arr_len(xs))
-          x = xs[i]
-          { state: { xs: arr_remove_at(xs, i), n: n - 1, k: k + 1, acc: [x, ...acc] } }
-        }
-      }
-    },
+    seeded_sample: seeded_sample,
 
     seeded_shuffle: (seed, xs) ~> seeded_sample(seed, xs, arr_len(xs)),
 
     seeded_string: (seed, len, charset) ~> do {
-      cs = chars(charset)
+      cs = char.chars(charset)
       m = arr_len(cs)
       if m == 0 {
         ""

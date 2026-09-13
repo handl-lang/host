@@ -5,8 +5,6 @@
 --- deterministic. This is a no-effect backend; it does not call any
 --- FFI library.
 
-from "char" import { at }
-
 do {
   -- Internal list helpers
 
@@ -87,7 +85,7 @@ do {
 
     -- Always returns a string of `len` copies of `charset[0]`.
     string: (len, charset) ~> do {
-      c = at(charset, 0);
+      c = char.at(charset, 0)
       while { n: len, acc: "" } {
         [n, acc] ~> if n <= 0 {
           { out: acc }
@@ -133,7 +131,7 @@ do {
     seeded_shuffle: (seed, xs) ~> arr_rev(xs),
 
     seeded_string: (seed, len, charset) ~> do {
-      c = at(charset, 0);
+      c = char.at(charset, 0)
       while { n: len, acc: "" } {
         [n, acc] ~> if n <= 0 {
           { out: acc }
