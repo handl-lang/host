@@ -32,7 +32,7 @@ The kernel is described by a small set of forms; everything else derives from th
 | `sym(A)`   | fresh nominal identity with parent `A`                            |
 | `A ~> B`   | arrow — the only computational primitive                          |
 | `A ~[R]~> B` | graded arrow (`R` is the grade / grade list)                       |
-| `f<...>`   | dimension specialization — types, values, proofs, grades, algebras (parses to a `dimension` node; no specialization semantics yet) |
+| `f<...>`   | dimension specialization — lowers to application `f(X)` (ADR-0106 §11/§12); true specialization semantics remain |
 | `a >>> b`  | composition                                                       |
 | `f(x)`     | application                                                       |
 | `(A, B)`   | product                                                           |

@@ -522,8 +522,10 @@ mod tests {
         use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
         // 3 baseline rules (call, entry, lower.entry) + 6 desugar rules
-        // (do_while, nullish, opt-chain, while, while.state, for).
-        assert_eq!(lang.transforms.len(), 9);
+        // (do_while, nullish, opt-chain, while, while.state, for)
+        // + 1 `desugar.dimension` (ADR-0106 §11/§12: `f<X>` lowers to the
+        // application `f(X)` by re-tagging the node as a `call`).
+        assert_eq!(lang.transforms.len(), 10);
         assert_eq!(
             lang.transforms_for("desugar", "do-while")[0].id,
             "transform.desugar.do_while"

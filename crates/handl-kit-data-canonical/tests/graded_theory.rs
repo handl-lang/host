@@ -316,14 +316,20 @@ fn canonical_bracketed_graded_arrow_rejects_empty_grade() {
 // These run through the real lexer, so the *byte-span adjacency* rule is
 // exercised end to end (hand-built token streams cannot prove that).
 
-/// `f<a>` is a dimension node: children are [target, arg].
+/// `f<a>` parses to a `dimension` node (covered raw in `plugin-engine-parse-pratt`)
+/// and the desugar pass lowers it to the application `f(a)`: the returned AST
+/// is post-desugar, so the node is a `call` with the same children.
 #[test]
-fn dimension_bracket_parses_through_real_lexer() {
+fn dimension_bracket_lowers_to_call_through_real_lexer() {
     let ast = parse("f<a>");
     let r = root(&ast);
-    assert_eq!(r.kind, "dimension");
+    assert_eq!(
+        r.kind, "call",
+        "`f<a>` lowers to the application `f(a)` (ADR-0106 §11/§12)",
+    );
     let cs = children(&ast, r);
     assert_eq!(cs.len(), 2, "[target, arg]");
+    assert_eq!(cs[0].payload, serde_json::json!("f"));
     assert_eq!(cs[1].payload, serde_json::json!("a"));
 }
 
@@ -352,7 +358,7 @@ fn dimension_payload_composition_vs_trailing_flow() {
     // `f<(a >>> b)>` — composition inside the dimension.
     let inside = parse("f<(a >>> b)>");
     let r = root(&inside);
-    assert_eq!(r.kind, "dimension");
+    assert_eq!(r.kind, "call", "the dimension lowers to an application");
     let cs = children(&inside, r);
     assert_eq!(cs.len(), 2);
     assert_eq!(cs[1].kind, "paren", "the payload is the parenthesized flow");
@@ -365,8 +371,8 @@ fn dimension_payload_composition_vs_trailing_flow() {
     assert_eq!(flow_children[0].kind, "paren");
     let inner = children(&after, flow_children[0]);
     assert_eq!(
-        inner[0].kind, "dimension",
-        "the dimension is the left operand of the flow",
+        inner[0].kind, "call",
+        "the lowered dimension is the left operand of the flow",
     );
 }
 
@@ -375,8 +381,50 @@ fn dimension_payload_composition_vs_trailing_flow() {
 fn dimension_bracket_takes_multiple_arguments_through_real_lexer() {
     let ast = parse("map<T, U>");
     let r = root(&ast);
-    assert_eq!(r.kind, "dimension");
+    assert_eq!(r.kind, "call", "`map<T, U>` lowers to `map(T, U)`");
     assert_eq!(children(&ast, r).len(), 3, "[target, T, U]");
+}
+
+/// A dimension *evaluates as application*: `f<X>` means `f(X)` (ADR-0106
+/// §11/§12). Here `inc<41>` applies the arrow `inc` to `41`.
+#[test]
+fn dimension_evaluates_as_application() {
+    let rt = full_runtime();
+    let src = "do { inc :: x ~> x + 1\n  inc<41> }";
+    let toks = rt.lex(&Source::new(src)).expect("lex succeeds");
+    let ast = rt.parse(&toks).expect("parse succeeds");
+    assert!(
+        ast.nodes().iter().any(|n| n.kind == "call"),
+        "the dimension must have lowered to an application",
+    );
+    let v = rt.eval(&ast).expect("eval succeeds");
+    // The runtime may represent the number bare or tagged; accept either.
+    let as_f64 = if let Some(n) = v.as_f64() {
+        n
+    } else {
+        v.get("value")
+            .and_then(|inner| inner.as_f64())
+            .unwrap_or_else(|| panic!("result is not numeric: {v:?}"))
+    };
+    assert_eq!(as_f64, 42.0, "`inc<41>` must apply `inc` to 41");
+}
+
+/// `f<X>` evaluates exactly like `f(X)` — the strongest form of the
+/// lowering claim, checked against the same runtime for both spellings.
+#[test]
+fn dimension_evaluates_identically_to_the_call_form() {
+    let rt = full_runtime();
+    let eval = |src: &str| {
+        let toks = rt.lex(&Source::new(src)).expect("lex");
+        let ast = rt.parse(&toks).expect("parse");
+        rt.eval(&ast).expect("eval")
+    };
+    let call = eval("do { inc :: x ~> x + 1; inc(41) }");
+    let dim = eval("do { inc :: x ~> x + 1; inc<41> }");
+    assert_eq!(dim, call, "`inc<41>` must evaluate exactly like `inc(41)`");
+    let multi_call = eval("do { add :: (a, b) ~> a + b; add(1, 2) }");
+    let multi_dim = eval("do { add :: (a, b) ~> a + b; add<1, 2> }");
+    assert_eq!(multi_dim, multi_call, "multi-argument form agrees too");
 }
 
 /// An empty bracket is a parse error, not a grade-less dimension.
@@ -390,4 +438,5 @@ fn empty_dimension_bracket_rejected_through_real_lexer() {
         "diagnostic should name the empty bracket: {err:?}",
     );
 }
+
 

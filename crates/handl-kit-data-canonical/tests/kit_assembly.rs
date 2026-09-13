@@ -39,7 +39,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     assert_eq!(lang.grammar.len(), 89);
 
     // +13 Term frontier eval rules + 1 transport rule.
-    assert_eq!(lang.eval.len(), 90);
+    // +1 `eval.dimension` for the dimension specialization `f<...>`
+    // (ADR-0106 §11/§12 — evaluates as application of the target to the
+    // dimension arguments, mirroring `eval.call`).
+    assert_eq!(lang.eval.len(), 91);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator

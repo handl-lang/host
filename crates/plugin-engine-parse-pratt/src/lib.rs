@@ -163,8 +163,11 @@ impl PrattEngine {
 
     /// Node kinds that may be specialized with a dimension bracket
     /// `f<...>` (ADR-0106 §11): identifier and name-like call/field forms.
+    /// `field-access` is the canonical spelling (`grammar.field-access.postfix`
+    /// → `field-access`, e.g. `hash_map.get_or<...>`); the underscore variant
+    /// is accepted for hand-built test languages.
     const DIMENSION_TARGET_KINDS: &'static [&'static str] =
-        &["var", "field_access", "call", "dimension"];
+        &["var", "field-access", "field_access", "call", "dimension"];
 
     /// Whether the `<` at the cursor opens a **dimension bracket** rather
     /// than a comparison (ADR-0106 §11).

@@ -23,6 +23,23 @@
 # `json` node that carries all original children. The `json` eval scheme
 # then evaluates the args and performs $0/$1/… placeholder substitution
 # into the template string (carried by child 0's payload).
+# `dimension` — `f<X, Y>` lowers to the application `f(X, Y)` (ADR-0106
+# §11/§12). A dimension node's children are already `[target, args...]`,
+# exactly a `call`'s, so the rewrite is a re-tagging: the proven `call`
+# eval machinery then performs the application. Without this rule the
+# desugar pass has no rewrite for the kind and the node is dropped from its
+# parent's child list (it becomes unreachable), which is how the original
+# `f<41>` silently evaluated to `41`.
+- id: transform.desugar.dimension
+  pass: desugar
+  node_kind: dimension
+  rule: !Declarative
+    target_kind: call
+    children:
+      - !Keep 0
+      - !KeepRest 1
+
+
 - id: transform.desugar.call
   pass: desugar
   node_kind: call

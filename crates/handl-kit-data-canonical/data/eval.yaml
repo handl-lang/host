@@ -318,7 +318,51 @@
             name: proj_rest
             args: []
             source: Native
+#
+# A dimension evaluates as **application of its target to the dimension
+# arguments**: `f<X>` means `f(X)`, with the children laid out exactly like a
+# `call` ([target, args...]). This is the reading ADR-0106 §12 gives the
+# generic form (`List<T> := T ~> sym()` — a generic entity is an arrow over
+# its dimension), and it keeps the node honest at runtime: the scheme is the
+# same as `eval.call`, so a `dimension` node dispatches host functions and
+# applies arrow values like any other application, instead of falling through
+# to the "no scheme" payload default.
+- id: eval.dimension
+  node_kind: dimension
+  scheme: !Seq
+    fst: !Seq
+      fst: !Op
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+      snd: !Op
+        name: route_on_type
+        args: []
+        source: Native
+        lit: string
+    snd: !Choice
+      l: !Op
+        name: call_host
+        args:
+          - !Op
+            name: proj_rest
+            args: []
+            source: Native
+        source: DynamicForeign
+      r: !App
+        callee: !Op
+          name: id
+          args: []
+          source: Native
+        args:
+          - !Op
+            name: proj_rest
+            args: []
+            source: Native
+
 - id: eval.choice
+
   node_kind: choice
   scheme: !Choice
     l: !Op
