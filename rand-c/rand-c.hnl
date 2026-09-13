@@ -70,6 +70,15 @@ do {
 
   arr_remove_at :: (xs, i) ~> arr_concat(arr_take(xs, i), arr_drop(xs, i + 1))
 
+  arr_sum :: (xs) ~> do {
+    while { xs: xs, acc: 0 } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: acc + h } }
+      }
+    }
+  }
+
   -- -----------------------------------------------------------------------
   -- Exports
   -- -----------------------------------------------------------------------
@@ -97,6 +106,38 @@ do {
     pick: (xs) ~> do {
       i = math.mod(next_u32(), arr_len(xs));
       xs[i]
+    },
+
+    -- Pick one random element from weighted arrays.
+    weighted_pick: (weights, items) ~> do {
+      n = arr_len(weights);
+      if n == 0 || n != arr_len(items) {
+        null
+      } else {
+        do {
+          total = arr_sum(weights);
+          if total <= 0 {
+            null
+          } else {
+            do {
+              r = math.mod(next_u32(), total);
+              while { i: 0, cum: 0 } {
+                [i, cum] ~> if i >= n {
+                  { out: null }
+                } else {
+                  w = weights[i];
+                  c = cum + w;
+                  if r < c {
+                    { out: items[i] }
+                  } else {
+                    { state: { i: i + 1, cum: c } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
 
     -- Choose `count` elements from an array with replacement.
