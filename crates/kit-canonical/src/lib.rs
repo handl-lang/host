@@ -80,6 +80,13 @@ const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl
 const DEDENT_FUNCS: &[&str] = &["dedent"];
 
 // ---------------------------------------------------------------------------
+// perlin module (pure Handl — ADR-0109)
+// ---------------------------------------------------------------------------
+
+const PERLIN_HNL: &str = include_str!("../../../handl-packages/perlin/perlin.hnl");
+const PERLIN_FUNCS: &[&str] = &["perlin_1d", "perlin_2d", "perlin_3d"];
+
+// ---------------------------------------------------------------------------
 // test framework modules (pure Handl — ADR-0092)
 // ---------------------------------------------------------------------------
 
@@ -270,6 +277,12 @@ impl ModuleResolver for StdlibResolver {
 
 fn build_dedent_module() -> HandlModule {
     HandlModule::new("dedent", DEDENT_HNL, DEDENT_FUNCS).with_global_lookup(std::sync::Arc::new(
+        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
+    ))
+}
+
+fn build_perlin_module() -> HandlModule {
+    HandlModule::new("perlin", PERLIN_HNL, PERLIN_FUNCS).with_global_lookup(std::sync::Arc::new(
         stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
     ))
 }
@@ -469,6 +482,9 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         }
         if want("dedent") {
             stdlib_registry.register(build_dedent_module());
+        }
+        if want("perlin") {
+            stdlib_registry.register(build_perlin_module());
         }
         // `test` framework modules — pure handl over tag/json/rand/time/
         // combinators (ADR-0092).
