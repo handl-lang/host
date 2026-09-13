@@ -1,3 +1,6 @@
+from "../str-handl" import * as str
+from "../transform" import { map, reduce }
+
 export dedent :: (text: String) ~> do {
   indent_of :: (line: String) ~> do {
     str.length(line) - str.length(str.trim_start(line))
@@ -46,7 +49,7 @@ export dedent :: (text: String) ~> do {
 
   lines :: str.lines(trimmed)
 
-  state :: transform.reduce([lines, { common: "", seen: false }, update_common])
+  state :: reduce([lines, { common: "", seen: false }, update_common])
   common :: state.common
 
   strip_line :: (line: String) ~> do {
@@ -57,5 +60,5 @@ export dedent :: (text: String) ~> do {
     str.strip_prefix(line, common)
   }
 
-  str.join(transform.map(lines, strip_line), "\n")
+  str.join(map(lines, strip_line), "\n")
 }
