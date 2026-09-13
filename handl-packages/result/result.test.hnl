@@ -1,0 +1,6 @@
+from "./index" import * as result
+
+test_result_ok_tag := assert tag.tag_of(result.ok(42)) = "ok"
+test_result_ok_value := assert tag.untag(result.ok(42)).value = 42
+test_result_err_tag := assert tag.tag_of(result.err("bad")) = "err"
+test_result_err_value := assert tag.untag(result.err("bad")).value = "bad"
