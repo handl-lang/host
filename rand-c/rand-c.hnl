@@ -8,6 +8,7 @@
 --- are in later phases (see `project/adrs/0107-rand-ffi.md`).
 
 from "entropy" import { next_u32 }
+from "char" import { chars }
 
 do {
   -- -----------------------------------------------------------------------
@@ -123,6 +124,29 @@ do {
     },
 
     -- Shuffle an array in random order.
-    shuffle: (xs) ~> sample(xs, arr_len(xs))
+    shuffle: (xs) ~> sample(xs, arr_len(xs)),
+
+    -- Generate `n` random bytes in `[0, 255]`.
+    bytes: (n) ~> do {
+      while { n: n, acc: [] } {
+        [n, acc] ~> if n <= 0 {
+          { out: arr_rev(acc) }
+        } else {
+          { state: { n: n - 1, acc: [math.mod(next_u32(), 256), ...acc] } }
+        }
+      }
+    },
+
+    -- Generate a random string of `len` characters from `charset`.
+    string: (len, charset) ~> do {
+      cs = chars(charset);
+      while { n: len, acc: "" } {
+        [n, acc] ~> if n <= 0 {
+          { out: acc }
+        } else {
+          { state: { n: n - 1, acc: acc + pick(cs) } }
+        }
+      }
+    }
   }
 }

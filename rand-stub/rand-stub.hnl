@@ -5,6 +5,8 @@
 --- deterministic. This is a no-effect backend; it does not call any
 --- FFI library.
 
+from "char" import { at }
+
 do {
   -- Internal list helpers
 
@@ -67,6 +69,29 @@ do {
     sample: (xs, count) ~> arr_take(xs, count),
 
     -- Always returns the reverse as a deterministic permutation.
-    shuffle: (xs) ~> arr_rev(xs)
+    shuffle: (xs) ~> arr_rev(xs),
+
+    -- Always returns `n` bytes of value `4`.
+    bytes: (n) ~> do {
+      while { n: n, acc: [] } {
+        [n, acc] ~> if n <= 0 {
+          { out: arr_rev(acc) }
+        } else {
+          { state: { n: n - 1, acc: [4, ...acc] } }
+        }
+      }
+    },
+
+    -- Always returns a string of `len` copies of `charset[0]`.
+    string: (len, charset) ~> do {
+      c = at(charset, 0);
+      while { n: len, acc: "" } {
+        [n, acc] ~> if n <= 0 {
+          { out: acc }
+        } else {
+          { state: { n: n - 1, acc: acc + c } }
+        }
+      }
+    }
   }
 }
