@@ -301,63 +301,93 @@ fn canonical_bracketed_graded_arrow_rejects_empty_grade() {
     );
 }
 // ---------------------------------------------------------------------------
-// Dimension specialization `f<...>` — NOT IMPLEMENTED (ADR-0106 item 4)
+// Dimension specialization `f<...>` (ADR-0106 §11)
 // ---------------------------------------------------------------------------
 //
-// These tests pin the *current* behaviour so the gap is explicit and a future
-// implementation cannot land silently:
+// The canonical spelling writes the bracket adjacent to a name-like target,
+// which is what separates it from the comparison operator `<`:
 //
-// - there is no angle-bracket specialization rule in the canonical grammar
-//   (`crates/handl-kit-data-canonical/data/grammar.yaml` has no dimension row;
-//   the angle-bracket parameter forms for `sort`/`op` declarations are
-//   likewise noted as absent at grammar.yaml:545 and :590);
-// - `<` is the ordinary comparison operator (`grammar.lt.infix` ->
-//   `binary.lt`), so `f<a>` parses as a *comparison*, not a specialization;
-// - consequently `(f<a>) >>> b` is a comparison flowing into `b`, which is
-//   NOT the meaning ADR-0106 §11 gives it.
+//   f<a>            dimension specialization
+//   f < a           comparison
+//   f<a             comparison (the bracket never closes)
+//   f<(a >>> b)>    dimension whose payload is a parenthesized composition
+//   (f<a>) >>> b    flow whose left operand is the dimension
 //
-// TODO(ADR-0106): implement `f<...>` dimensions. The parse strategy must
-// resolve the `f<a>` vs `f < a` ambiguity (lookahead/backtracking, or a
-// dedicated `token.lt`-adjacent postfix rule), split a maximal-munch `>>`
-// when closing nested dimensions (`f<g<x>>`), and only open a dimension when
-// the bracket actually closes as one.
+// These run through the real lexer, so the *byte-span adjacency* rule is
+// exercised end to end (hand-built token streams cannot prove that).
 
+/// `f<a>` is a dimension node: children are [target, arg].
 #[test]
-fn dimension_syntax_is_not_yet_implemented() {
-    // `f<a>` is a comparison today, not a dimension specialization.
-    let ast = parse("f<a");
+fn dimension_bracket_parses_through_real_lexer() {
+    let ast = parse("f<a>");
+    let r = root(&ast);
+    assert_eq!(r.kind, "dimension");
+    let cs = children(&ast, r);
+    assert_eq!(cs.len(), 2, "[target, arg]");
+    assert_eq!(cs[1].payload, serde_json::json!("a"));
+}
+
+/// The bracket must be adjacent: `f < a` stays a comparison.
+#[test]
+fn spaced_angle_bracket_is_a_comparison_through_real_lexer() {
+    let ast = parse("f < a");
     assert_eq!(
         root(&ast).kind,
         "binary.lt",
-        "`f<a` parses as comparison — dimension syntax is not implemented",
+        "`f < a` (spaced) is a comparison, not a dimension",
     );
-
-    // `f<a>` (closed) must not lex/parse as a dimension either: `>` is the
-    // comparison/close token, so the parser sees `f < a >` — a comparison
-    // whose right operand is `a > ...` (or an error). Pin whatever the
-    // parser does so a future dimension rule shows up as a change here.
-    let rt = full_runtime();
-    let toks = rt
-        .lex(&Source::new("f<a> >>> b"))
-        .expect("`f<a> >>> b` lexes");
-    match rt.parse(&toks) {
-        Ok(ast) => {
-            let kinds: Vec<String> = ast.nodes().iter().map(|n| n.kind.clone()).collect();
-            assert!(
-                !kinds.iter().any(|k| k.contains("dimension")),
-                "no dimension node may be produced before item 4 lands: {kinds:?}",
-            );
-        }
-        Err(e) => {
-            // A parse error is equally acceptable evidence that the form is
-            // unsupported; record it rather than pretending it parses.
-            let msg = format!("{e:?}");
-            assert!(
-                !msg.is_empty(),
-                "unsupported dimension form must error or parse without a dimension node",
-            );
-        }
-    }
 }
 
+/// An unclosed bracket stays a comparison.
+#[test]
+fn unclosed_angle_bracket_is_a_comparison_through_real_lexer() {
+    let ast = parse("f<a");
+    assert_eq!(root(&ast).kind, "binary.lt");
+}
+
+/// A parenthesized composition *inside* the bracket is a dimension whose
+/// payload is the composition; the trailing-flow form is a different tree.
+#[test]
+fn dimension_payload_composition_vs_trailing_flow() {
+    // `f<(a >>> b)>` — composition inside the dimension.
+    let inside = parse("f<(a >>> b)>");
+    let r = root(&inside);
+    assert_eq!(r.kind, "dimension");
+    let cs = children(&inside, r);
+    assert_eq!(cs.len(), 2);
+    assert_eq!(cs[1].kind, "paren", "the payload is the parenthesized flow");
+
+    // `(f<a>) >>> b` — the dimension is the *left operand* of a flow.
+    let after = parse("(f<a>) >>> b");
+    let root_after = root(&after);
+    assert_eq!(root_after.kind, "flow");
+    let flow_children = children(&after, root_after);
+    assert_eq!(flow_children[0].kind, "paren");
+    let inner = children(&after, flow_children[0]);
+    assert_eq!(
+        inner[0].kind, "dimension",
+        "the dimension is the left operand of the flow",
+    );
+}
+
+/// Multiple dimension arguments parse.
+#[test]
+fn dimension_bracket_takes_multiple_arguments_through_real_lexer() {
+    let ast = parse("map<T, U>");
+    let r = root(&ast);
+    assert_eq!(r.kind, "dimension");
+    assert_eq!(children(&ast, r).len(), 3, "[target, T, U]");
+}
+
+/// An empty bracket is a parse error, not a grade-less dimension.
+#[test]
+fn empty_dimension_bracket_rejected_through_real_lexer() {
+    let rt = full_runtime();
+    let toks = rt.lex(&Source::new("f<>")).expect("lex succeeds");
+    let err = rt.parse(&toks).expect_err("`f<>` must not parse");
+    assert!(
+        format!("{err:?}").contains("empty bracket"),
+        "diagnostic should name the empty bracket: {err:?}",
+    );
+}
 

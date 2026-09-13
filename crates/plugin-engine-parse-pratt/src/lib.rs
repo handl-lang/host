@@ -160,6 +160,156 @@ impl PrattEngine {
             (None, None) => None,
         }
     }
+
+    /// Node kinds that may be specialized with a dimension bracket
+    /// `f<...>` (ADR-0106 §11): identifier and name-like call/field forms.
+    const DIMENSION_TARGET_KINDS: &'static [&'static str] =
+        &["var", "field_access", "call", "dimension"];
+
+    /// Whether the `<` at the cursor opens a **dimension bracket** rather
+    /// than a comparison (ADR-0106 §11).
+    ///
+    /// `f<a>` and `f < a` are different productions, so the decision is
+    /// deliberately conservative — all three must hold:
+    ///
+    /// 1. the bracket is written **adjacent** to the previous token
+    ///    (`f<a>` / `f<(a >>> b)>`, never `f < a`) — the same unspaced
+    ///    convention Rust uses to separate generics from comparison;
+    /// 2. the left operand is a name-like target
+    ///    ([`Self::DIMENSION_TARGET_KINDS`]);
+    /// 3. a `>` closes the bracket at balanced depth
+    ///    ([`Self::dimension_closes`]).
+    ///
+    /// Anything else is left to the comparison rule.
+    fn dimension_applies(&self, cursor: &Cursor<'_>, left: AstRef) -> bool {
+        let lt = match cursor.peek() {
+            Some(t) => t,
+            None => return false,
+        };
+        // (1) adjacency: no whitespace between the previous token and `<`.
+        let adjacent = cursor
+            .pos
+            .checked_sub(1)
+            .and_then(|p| cursor.tokens.get(p))
+            .map(|prev| prev.end == lt.start)
+            .unwrap_or(false);
+        if !adjacent {
+            return false;
+        }
+        // (2) name-like target.
+        let kind = {
+            let ast = self.ast.borrow();
+            ast.get(left).map(|n| n.kind.clone())
+        };
+        match kind.as_deref() {
+            Some(k) if Self::DIMENSION_TARGET_KINDS.contains(&k) => {}
+            _ => return false,
+        }
+        // (3) the bracket actually closes.
+        Self::dimension_closes(cursor.tokens, cursor.pos)
+    }
+
+    /// Whether a `>` closes the dimension opened by the `<` at `pos`, at
+    /// balanced depth.
+    ///
+    /// Depth tracks nested brackets (`<`, `(`, `[`, `{`). A flow operator
+    /// (`>>>`) or an unmatched closer at depth 0 means the `<` was the
+    /// comparison operator, so the bracket does not close.
+    fn dimension_closes(tokens: &[Token], pos: usize) -> bool {
+        let mut depth: i64 = 0;
+        for t in tokens.iter().skip(pos + 1) {
+            match t.kind.as_str() {
+                "token.lt" | "token.lparen" | "token.lbracket" | "token.lbrace" => depth += 1,
+                "token.gt" => {
+                    if depth == 0 {
+                        return true;
+                    }
+                    depth -= 1;
+                }
+                "token.rparen" | "token.rbracket" | "token.rbrace" => {
+                    if depth == 0 {
+                        return false;
+                    }
+                    depth -= 1;
+                }
+                // `a >>> b` at the top level is the flow operator, not a
+                // dimension payload.
+                "token.flow" if depth == 0 => return false,
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// Parse the dimension bracket at the cursor into a `dimension` node
+    /// (ADR-0106 §11): children are the target expression followed by one or
+    /// more dimension arguments.
+    ///
+    /// Arguments are parsed at a binding power above the comparison operators
+    /// so the closing `>` is never consumed as `binary.gt`, and an empty
+    /// bracket (`f<>`) is rejected.
+    fn parse_dimension(
+        &self,
+        lang: &Language,
+        cursor: &mut Cursor<'_>,
+        left: AstRef,
+    ) -> Result<AstRef, LangError> {
+        let lt = cursor.advance()?; // `token.lt`
+        let arg_rbp = Self::lookup_row(lang, "token.gt", GrammarPosition::Infix)
+            .and_then(|r| r.binding_power.map(|(l, _)| l.saturating_add(1)))
+            .unwrap_or(51);
+        let mut children: Vec<usize> = vec![left.index()];
+        loop {
+            match cursor.peek().map(|t| t.kind.as_str()) {
+                Some("token.gt") => {
+                    if children.len() == 1 {
+                        return Err(LangError::engine_at(
+                            "dimension: empty bracket (`f<>`) — expected at least one argument"
+                                .to_string(),
+                            cursor.current_span().or(lt.span()),
+                            Some("token".to_string()),
+                        ));
+                    }
+                    break;
+                }
+                None => {
+                    return Err(LangError::engine_at(
+                        "dimension: expected `>` to close the bracket".to_string(),
+                        cursor.last_span(),
+                        Some("token".to_string()),
+                    ));
+                }
+                _ => {}
+            }
+            let arg = self.expression_inner(lang, cursor, arg_rbp)?;
+            children.push(arg.index());
+            match cursor.peek().map(|t| t.kind.as_str()) {
+                Some("token.comma") => {
+                    cursor.advance()?;
+                }
+                Some("token.gt") => break,
+                other => {
+                    return Err(LangError::engine_at(
+                        format!(
+                            "dimension: expected `,` or `>` after a dimension argument, got {}",
+                            other.unwrap_or("<end of input>")
+                        ),
+                        cursor.current_span(),
+                        Some("token".to_string()),
+                    ));
+                }
+            }
+        }
+        let _gt = cursor.advance()?; // `token.gt`
+        let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
+        payload_fields.insert(
+            "children".to_string(),
+            Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
+        );
+        let start = self.child_span(left);
+        let span = Self::span_union(start, cursor.last_span());
+        Ok(self.push_spanned("dimension", Value::Object(payload_fields), span))
+    }
 }
 
 impl Default for PrattEngine {
@@ -480,6 +630,22 @@ impl PrattEngine {
         // 3. Infix (left-denotation) loop.
         let mut left = left;
         while let Some(next) = cursor.peek() {
+            // Dimension specialization `f<...>` (ADR-0106 §11) is a special
+            // production, not a declarative row: check it before the infix
+            // row lookup so it does not depend on a `<` grammar row, and
+            // before the binding-power gate so the bracket binds tighter
+            // than any operator.
+            //
+            // `<` is the ordinary comparison operator, so this only fires on
+            // the unambiguous spelling (see `dimension_applies`): the bracket
+            // must be written *adjacent* to a name-like target and must close
+            // at balanced depth before the expression ends. Anything else
+            // falls through to the comparison rule below.
+            if next.kind == "token.lt" && self.dimension_applies(cursor, left) {
+                left = self.parse_dimension(lang, cursor, left)?;
+                continue;
+            }
+
             let infix_row = match Self::lookup_row(lang, &next.kind, GrammarPosition::Infix) {
                 Some(row) => row,
                 None => break,
@@ -2094,6 +2260,11 @@ mod tests {
             "token.tilde",
             "token.plus",
             "token.ellipsis",
+            // Comparison + flow tokens (dimension-specialization tests need
+            // the same `<`/`>`/`>>>` spellings the canonical language has).
+            "token.lt",
+            "token.gt",
+            "token.flow",
             // Option B frontier tokens.
             "token.keyword.id2",
             "token.cell_vcomp",
@@ -2246,6 +2417,22 @@ mod tests {
                 .with_binding_power(10, 9),
             )
             .unwrap();
+        // Comparison + flow infix rows: the dimension tests need `f < a` to
+        // stop being a dimension and parse as a comparison, so the test
+        // language mirrors the canonical `binary.lt` / `binary.gt` / flow
+        // binding powers.
+        for (id, token, kind, lbp, rbp) in [
+            ("g.lt", "token.lt", "binary.lt", 50u8, 51u8),
+            ("g.gt", "token.gt", "binary.gt", 50, 51),
+            ("g.flow", "token.flow", "flow", 25, 26),
+        ] {
+            lang.grammar
+                .merge(
+                    GrammarRow::new(id, token, GrammarPosition::Infix, AstShapeRef::new(kind, 2))
+                        .with_binding_power(lbp, rbp),
+                )
+                .unwrap();
+        }
         lang.grammar
             .merge(
                 GrammarRow::new(
@@ -2841,6 +3028,160 @@ mod tests {
             end,
             ..Default::default()
         }
+    }
+    // --- Dimension specialization `f<...>` (ADR-0106 §11) --------------------
+
+    /// `f<a>` (adjacent bracket, name-like target, closes) is a dimension.
+    #[test]
+    fn dimension_bracket_parses() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "f"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "a"),
+            tok("token.gt", ">"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "dimension");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2, "[target, arg]");
+        assert_eq!(
+            ast.nodes()[children[0].as_u64().unwrap() as usize].payload,
+            json!("f")
+        );
+        assert_eq!(
+            ast.nodes()[children[1].as_u64().unwrap() as usize].payload,
+            json!("a")
+        );
+    }
+
+    /// Multiple dimension arguments (`map<T, U>`).
+    #[test]
+    fn dimension_bracket_takes_multiple_arguments() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "map"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "T"),
+            tok("token.comma", ","),
+            tok("token.identifier", "U"),
+            tok("token.gt", ">"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "dimension");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 3, "[target, T, U]");
+        assert_eq!(
+            ast.nodes()[children[2].as_u64().unwrap() as usize].payload,
+            json!("U"),
+        );
+    }
+
+    /// A spaced `f < a` stays a comparison: the bracket must be adjacent.
+    #[test]
+    fn spaced_angle_bracket_is_a_comparison() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            spanned_tok("token.identifier", "f", 0, 1),
+            spanned_tok("token.lt", "<", 2, 3), // space before `<`
+            spanned_tok("token.identifier", "a", 4, 5),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(
+            ast.nodes().last().unwrap().kind,
+            "binary.lt",
+            "`f < a` is a comparison, not a dimension",
+        );
+    }
+
+    /// An unclosed `f<a` stays a comparison (no `>` to close the bracket).
+    #[test]
+    fn unclosed_angle_bracket_is_a_comparison() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "f"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "a"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        assert_eq!(ast.nodes().last().unwrap().kind, "binary.lt");
+    }
+
+    /// Nested dimensions `f<g<x>>` (two adjacent `>` tokens).
+    #[test]
+    fn nested_dimensions_parse() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "f"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "g"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "x"),
+            tok("token.gt", ">"),
+            tok("token.gt", ">"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "dimension");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let inner = &ast.nodes()[children[1].as_u64().unwrap() as usize];
+        assert_eq!(inner.kind, "dimension", "the argument is itself a dimension");
+    }
+
+    /// An empty bracket is rejected.
+    #[test]
+    fn empty_dimension_bracket_errors() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.identifier", "f"),
+            tok("token.lt", "<"),
+            tok("token.gt", ">"),
+        ]));
+        let err = engine.parse(&lang, &req).expect_err("`f<>` must not parse");
+        assert!(
+            format!("{err:?}").contains("empty bracket"),
+            "diagnostic should name the empty bracket: {err:?}",
+        );
+    }
+
+    /// `(f<a>) >>> b` (composition *after* the dimension) is a flow whose
+    /// left operand is a dimension — not a dimension itself. The inside-bracket
+    /// counterpart `f<(a >>> b)>` is covered at kit level (real language) in
+    /// `crates/handl-kit-data-canonical/tests/graded_theory.rs`.
+    #[test]
+    fn paren_dimension_then_flow_is_not_a_dimension() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let after = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("),
+            tok("token.identifier", "f"),
+            tok("token.lt", "<"),
+            tok("token.identifier", "a"),
+            tok("token.gt", ">"),
+            tok("token.rparen", ")"),
+            tok("token.flow", ">>>"),
+            tok("token.identifier", "b"),
+        ]));
+        let b = engine.parse(&lang, &after).unwrap();
+        let root = b.nodes().last().unwrap();
+        assert_eq!(root.kind, "flow", "`(f<a>) >>> b` is a flow");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let left = &b.nodes()[children[0].as_u64().unwrap() as usize];
+        assert_eq!(left.kind, "paren");
+        let inner = left.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(
+            b.nodes()[inner[0].as_u64().unwrap() as usize].kind,
+            "dimension",
+            "the dimension is the left operand of the flow",
+        );
     }
 
     #[test]

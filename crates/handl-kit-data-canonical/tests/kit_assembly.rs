@@ -51,7 +51,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +2 `ast.{with,handle}` for the surface syntax.
     // +1 `ast.graded_arrow` for `~EXPR~>`.
     // +13 Term frontier shapes + 1 transport shape.
-    assert_eq!(lang.ast.len(), 90);
+    // +1 `ast.dimension` for the dimension specialization `f<...>`
+    // (ADR-0106 §11 — the bracketed spelling adjacent to a name-like
+    // target, distinguishable from the `<` comparison operator).
+    assert_eq!(lang.ast.len(), 91);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);

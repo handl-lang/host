@@ -318,6 +318,31 @@
   # ADR-0060 Layer 1: json{...}(args) is syntactic sugar — see
   # `transform.desugar.call` in transforms.yaml, which rewrites a `call`
   # whose callee is a `json` node into that `json` node.
+# `dimension` — dimension specialization `f<...>` (ADR-0106 §11).
+#
+# The canonical surface writes the specialization brackets adjacent to a
+# name-like target (`f<a>`, `f<(a >>> b)>`) so they are distinguishable from
+# the ordinary comparison operator `<` (`f < a`); see the Pratt engine's
+# `dimension_applies`. Child roles: the `target` expression, then one or more
+# `args` (the dimension payloads — a type, value, arrow, proof, grade,
+# algebra, or composition; the parser accepts any expression).
+- id: ast.dimension
+  node_kind: dimension
+  children:
+    - role: target
+    - role: args
+      variadic: true
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+
 - id: ast.export
   node_kind: export
   payload_schema:
