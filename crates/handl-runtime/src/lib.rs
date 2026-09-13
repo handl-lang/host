@@ -1322,6 +1322,10 @@ pub struct ModuleLoader {
     cache: RefCell<HashMap<String, Value>>,
     /// Paths currently being loaded (cycle detection).
     loading: RefCell<HashSet<String>>,
+    /// Weak back-reference to the `Rc<ModuleLoader>` this loader lives in,
+    /// so nested module evaluation can pass an `Rc<dyn ImportResolver>`
+    /// pointing back at this loader when wiring the eval engine.
+    self_rc: RefCell<Option<std::rc::Weak<ModuleLoader>>>,
 }
 
 impl ModuleLoader {
@@ -1346,6 +1350,7 @@ impl ModuleLoader {
             dir_stack: RefCell::new(Vec::new()),
             cache: RefCell::new(HashMap::new()),
             loading: RefCell::new(HashSet::new()),
+            self_rc: RefCell::new(None),
         }
     }
 
@@ -1367,6 +1372,7 @@ impl ModuleLoader {
             "ModuleLoader::set_eval_engine called twice"
         );
         *self.eval_engine.borrow_mut() = Some(Rc::from(engine));
+        *self.self_rc.borrow_mut() = Some(Rc::downgrade(self));
     }
 
     /// Resolve an import path to a canonical absolute path string, used as
@@ -1510,15 +1516,30 @@ impl ModuleLoader {
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
-            self.lex_engine.lex(&self.lang, &req)?
+            self.lex_engine
+                .lex(&self.lang, &req)
+                .map_err(|e| LangError::engine(format!(
+                    "import \"{}\" ({}): lex error: {}",
+                    display_path, resolved, e
+                )))?
         };
         let ast = {
             let req = ParserRequest::new(toks);
-            self.parse_engine.parse_dyn(&self.lang, &req)?
+            self.parse_engine
+                .parse_dyn(&self.lang, &req)
+                .map_err(|e| LangError::engine(format!(
+                    "import \"{}\" ({}): parse error: {}",
+                    display_path, resolved, e
+                )))?
         };
         // Apply the same desugar pass the runtime applies at parse time
         // (ADR-0082), so imported modules see the same AST shape.
-        let ast = desugar_pass::apply_desugar(&self.lang, &ast)?;
+        let ast = desugar_pass::apply_desugar(&self.lang, &ast).map_err(|e| {
+            LangError::engine(format!(
+                "import \"{}\" ({}): desugar error: {}",
+                display_path, resolved, e
+            ))
+        })?;
 
         // While this module is being evaluated, its own directory becomes
         // the base for resolving nested relative imports. The guard pops
@@ -1537,12 +1558,30 @@ impl ModuleLoader {
         // Evaluate the module. Clone the eval engine out of the RefCell
         // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
         // imports) can independently borrow the cell without panic.
+        // Re-wire the engine's import resolver to this loader so the
+        // module's own `from`/`import` statements resolve through the same
+        // cache and relative-path base.
         let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
-            LangError::engine("import: module loader has no eval engine configured")
+            LangError::engine(format!(
+                "import \"{}\" ({}): module loader has no eval engine configured",
+                display_path, resolved
+            ))
         })?;
+        let loader_rc = self
+            .self_rc
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .ok_or_else(|| LangError::engine("module loader self-reference missing".to_string()))?;
+        let engine_rc = engine_rc.with_import_resolver(loader_rc);
         let value = {
             let req = EvalRequest::new(ast.clone());
-            engine_rc.eval(&self.lang, &req)?
+            engine_rc
+                .eval(&self.lang, &req)
+                .map_err(|e| LangError::engine(format!(
+                    "import \"{}\" ({}): eval error: {}",
+                    display_path, resolved, e
+                )))?
         };
 
         // Collect the module's top-level bindings into a Value::Object.
@@ -1553,7 +1592,12 @@ impl ModuleLoader {
         // *this* AST, so the engine stamps them with a home frame (see
         // `EvalEngine::seal_module_value`; identity for engines whose
         // values carry no ambient-eval references).
-        engine_rc.seal_module_value(&ast, &self.lang, bindings)
+        engine_rc
+            .seal_module_value(&ast, &self.lang, bindings)
+            .map_err(|e| LangError::engine(format!(
+                "import \"{}\" ({}): seal error: {}",
+                display_path, resolved, e
+            )))
     }
 
     /// Remove module-declaration header lines that name a *host module*

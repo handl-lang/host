@@ -1,3 +1,3 @@
-export Grade: Obj
+export Grade := Obj
 
-export Effect: Grade
+export Effect := Grade

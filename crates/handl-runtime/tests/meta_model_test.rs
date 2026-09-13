@@ -481,6 +481,7 @@ impl Function for MockParseFn {
                 Rc::new(runtime.lang().clone()),
                 runtime.modules().cloned(),
                 None,
+                runtime.import_resolver().cloned(),
             );
             let mut result = result;
             stamp_home(&mut result, frame_id);

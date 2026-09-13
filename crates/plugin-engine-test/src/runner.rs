@@ -815,18 +815,29 @@ fn build_test_runtime() -> Result<Runtime, String> {
     });
 
     // Build the eval engine with the test module chain + `self` global +
-    // the keyword-assertion failure handler.
+    // the keyword-assertion failure handler, and wire the kit's import
+    // resolver so `from ... import` and `import` declarations resolve.
     let self_val = language_value(&lang);
-    let eval_engine = TreeWalkEngine::new()
+    let import_resolver = kit.runtime().import_resolver().cloned();
+    let mut eval_engine = TreeWalkEngine::new()
         .with_modules(test_modules)
         .with_global("self", self_val)
         .with_assert_handler(Rc::new(TestAssertHandler));
+    if let Some(resolver) = &import_resolver {
+        eval_engine = eval_engine.with_import_resolver(Rc::clone(resolver));
+    }
 
     // Build the runtime with lex, parse, and eval engines.
-    let runtime = Runtime::new(lang)
+    let mut runtime = Runtime::new(lang)
         .with_lex_engine(Box::new(DataLexerEngine::new()))
         .with_parse_engine(PrattEngine::new())
         .with_eval_engine(Box::new(eval_engine));
+    if let Some(resolver) = import_resolver {
+        runtime = runtime.with_import_resolver(resolver);
+    }
+    if let Some(root) = kit.module_root() {
+        runtime = runtime.with_module_root(root.to_path_buf());
+    }
 
     Ok(runtime)
 }

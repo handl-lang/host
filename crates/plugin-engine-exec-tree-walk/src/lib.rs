@@ -125,6 +125,11 @@ thread_local! {
     // `TreeWalkCallable` path (host functions calling arrow-values) can
     // re-attach them to a fresh `ScopeStack` without a deep clone.
     static CURRENT_GLOBALS: RefCell<Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>> = RefCell::new(None);
+    // Import resolver for `import` native ops inside arrows that are called
+    // across runtime boundaries (e.g. a `.hnl` module arrow invoked by the
+    // test runner needs the module loader's resolver to re-resolve its home
+    // AST's imports).
+    static CURRENT_IMPORT_RESOLVER: RefCell<Option<Rc<dyn ImportResolver>>> = RefCell::new(None);
     // Registry of "home" eval frames — the `Rc`s a minted arrow needs for
     // its `body` index to remain meaningful after the arrow has crossed a
     // runtime boundary (a `.hnl` module function receiving or returning a
@@ -181,6 +186,8 @@ pub struct EvalFrame {
     pub modules: Option<Rc<dyn ModuleLookup>>,
     /// The host-provided globals visible to the body.
     pub globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+    /// The import resolver for `import` native ops inside the body.
+    pub import_resolver: Option<Rc<dyn ImportResolver>>,
 }
 
 impl EvalFrame {
@@ -198,11 +205,15 @@ impl EvalFrame {
             CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.modules.clone()));
         let prev_globals =
             CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
+        let prev_import_resolver = CURRENT_IMPORT_RESOLVER
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.import_resolver.clone()));
+        eprintln!("[EvalFrame::enter] has_resolver={:?}", self.import_resolver.is_some());
         let out = f();
         CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
+        CURRENT_IMPORT_RESOLVER.with(|c| *c.borrow_mut() = prev_import_resolver);
         out
     }
 }
@@ -280,6 +291,7 @@ pub fn current_home_frame() -> Option<u64> {
     let lang = CURRENT_LANG.with(|c| c.borrow().clone())?;
     let modules = CURRENT_MODULES.with(|c| c.borrow().clone());
     let globals = CURRENT_GLOBALS.with(|c| c.borrow().clone());
+    let import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
     Some(register_frame_at(
         id,
         EvalFrame {
@@ -287,6 +299,7 @@ pub fn current_home_frame() -> Option<u64> {
             lang,
             modules,
             globals,
+            import_resolver,
         },
     ))
 }
@@ -308,6 +321,7 @@ pub fn register_home_frame(
     lang: Rc<Language>,
     modules: Option<Rc<dyn ModuleLookup>>,
     globals: Option<HashMap<String, Value>>,
+    import_resolver: Option<Rc<dyn ImportResolver>>,
 ) -> u64 {
     let globals = globals.map(|g| {
         Rc::new(
@@ -324,6 +338,7 @@ pub fn register_home_frame(
             lang,
             modules,
             globals,
+            import_resolver,
         },
     )
 }
@@ -602,6 +617,9 @@ impl TreeWalkEngine {
     /// to load the referenced module and bind its top-level bindings into
     /// the current scope.
     pub fn with_import_resolver(mut self, resolver: Rc<dyn ImportResolver>) -> Self {
+        let self_ptr = &self as *const Self as usize;
+        let res_ptr = Rc::as_ptr(&resolver) as *const () as usize;
+        eprintln!("[TW {self_ptr:#x} with_import_resolver] resolver={res_ptr:#x}");
         self.import_resolver = Some(resolver);
         self
     }
@@ -4020,6 +4038,7 @@ impl TreeWalkEngine {
             // module chain, not the ambient engine's.
             let mut engine = self.clone();
             engine.modules = frame.modules.clone();
+            engine.import_resolver = frame.import_resolver.clone();
             // ADR-0106 item 2 step 1: this re-wraps an existing body in the
             // same arena, so no new definition is minted here — `body_def`
             // stays `None` and the `home`/`body` fallback applies as before.
@@ -4346,6 +4365,9 @@ impl TreeWalkEngine {
                     current_node,
                 )
             })?;
+        let self_ptr = self as *const Self as usize;
+        let res_ptr = self.import_resolver.as_ref().map(|r| Rc::as_ptr(r) as *const () as usize);
+        eprintln!("[TW {self_ptr:#x} prim_import] path={path} resolver={res_ptr:?}");
         let resolver = self.import_resolver.as_ref().ok_or_else(|| {
             LangError::engine_node(
                 "import: no import resolver configured".to_string(),
@@ -5028,12 +5050,16 @@ impl TreeWalkEngine {
         // return instead of clobbering the outer runtime's state.
         let lang_rc = Rc::new(lang.clone());
         let modules_rc = self.modules.clone();
+        let import_resolver_rc = self.import_resolver.clone();
+        eprintln!("[TW eval_ast_rc] has_resolver={}", import_resolver_rc.is_some());
         let prev_ast =
             CURRENT_AST.with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&ast_rc))));
         let prev_lang = CURRENT_LANG
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&lang_rc))));
         let prev_modules =
             CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules_rc));
+        let prev_import_resolver = CURRENT_IMPORT_RESOLVER
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver_rc));
         let mut env = ScopeStack::new();
         // Inject host-provided globals (e.g. `self` → language value) into
         // the env's `globals` field (an `Rc<HashMap>`) rather than the root
@@ -5059,6 +5085,7 @@ impl TreeWalkEngine {
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
+        CURRENT_IMPORT_RESOLVER.with(|c| *c.borrow_mut() = prev_import_resolver);
         result
     }
 }
@@ -5104,6 +5131,8 @@ impl EvalEngine for TreeWalkEngine {
         // remains meaningful in the importer's scope: `apply_app` /
         // `call_value` route `__home__`-stamped arrows back to this frame
         // (its AST, `Language`, module chain, and globals).
+        let has_resolver = self.import_resolver.is_some();
+        eprintln!("[TW seal_module_value] has_resolver={has_resolver}");
         let frame_id = register_home_frame(
             Rc::new(ast.clone()),
             Rc::new(lang.clone()),
@@ -5113,6 +5142,7 @@ impl EvalEngine for TreeWalkEngine {
             } else {
                 Some(self.globals.clone())
             },
+            self.import_resolver.clone(),
         );
         let mut value = value;
         stamp_home(&mut value, frame_id);
@@ -5764,6 +5794,11 @@ impl TreeWalkCallable {
         } else {
             engine
         };
+        // Set import resolver if available (home frame may have crossed
+        // a runtime boundary, e.g. the test runner applying a `.hnl` arrow).
+        let mut engine = engine;
+        engine.import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
+        eprintln!("[TW call_value_in_frame] resolver={:?}", engine.import_resolver.is_some());
         // Curried application, matching `apply_app`: surplus args apply
         // the body's result (another arrow) to the remainder — `f(1, 5)`
         // on `x ~> y ~> body` is `(f 1) 5`. The recursion goes through

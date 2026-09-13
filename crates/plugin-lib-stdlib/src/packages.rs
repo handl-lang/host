@@ -178,27 +178,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: ops::hex::HEX_OPS,
         registry: Some(ops::hex::hex_op_registry),
     },
-    ModuleSpec {
-        name: "json",
-        hnl: include_str!("../../../handl-packages/json/json.hnl"),
-        funcs: &[],
-        ops: ops::json::JSON_OPS,
-        registry: Some(ops::json::json_op_registry),
-    },
-    ModuleSpec {
-        name: "toml",
-        hnl: include_str!("../../../handl-packages/toml/toml.hnl"),
-        funcs: &[],
-        ops: ops::toml::TOML_OPS,
-        registry: Some(ops::toml::toml_op_registry),
-    },
-    ModuleSpec {
-        name: "yaml",
-        hnl: include_str!("../../../handl-packages/yaml/yaml.hnl"),
-        funcs: &[],
-        ops: ops::yaml::YAML_OPS,
-        registry: Some(ops::yaml::yaml_op_registry),
-    },
+
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
@@ -429,7 +409,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "result",
         hnl: include_str!("../../../handl-packages/result/index.hnl"),
-        funcs: &["ok", "err"],
+        funcs: &["Result", "ok", "err"],
         ops: &[],
         registry: None,
     },
@@ -515,9 +495,6 @@ const UTILS_MODULES: &[&str] = &[
     "serialize",
     "base64",
     "hex",
-    "json",
-    "toml",
-    "yaml",
     "url_rfc",
     "url_whatwg",
     "error",
@@ -555,27 +532,8 @@ pub static PACKAGES: &[PackageSpec] = &[
         hnl: include_str!("../../../handl-packages/cmp/cmp.hnl"),
         modules: &[],
     },
-    PackageSpec {
-        lib_name: "json",
-        plugin_id: "lib.json",
-        plugin_name: "lib-json",
-        hnl: include_str!("../../../handl-packages/json/json.hnl"),
-        modules: &[],
-    },
-    PackageSpec {
-        lib_name: "toml",
-        plugin_id: "lib.toml",
-        plugin_name: "lib-toml",
-        hnl: include_str!("../../../handl-packages/toml/toml.hnl"),
-        modules: &[],
-    },
-    PackageSpec {
-        lib_name: "yaml",
-        plugin_id: "lib.yaml",
-        plugin_name: "lib-yaml",
-        hnl: include_str!("../../../handl-packages/yaml/yaml.hnl"),
-        modules: &[],
-    },
+
+
     PackageSpec {
         lib_name: "collections",
         plugin_id: "lib.collections",
