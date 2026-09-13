@@ -71,6 +71,11 @@
 - id: token.bind
   label: "::"
   category: operator
+- id: token.colon_equal
+  # `:=` is the canonical binding/definition operator. Distinct from `::`
+  # (which still lexes to `token.bind`) so the formatter can surface `:=`.
+  label: ":="
+  category: operator
 - id: token.equal
   label: =
   category: operator

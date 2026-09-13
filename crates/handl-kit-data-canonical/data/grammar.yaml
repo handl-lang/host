@@ -131,6 +131,17 @@
   child_shape:
     node_kind: assign
     arity: 2
+- id: grammar.colon_equal.infix
+  # `:=` is the canonical binding/definition operator. Produces an `assign`
+  # node: `x := expr`.
+  token: token.colon_equal
+  position: Infix
+  binding_power:
+    - 5
+    - 6
+  child_shape:
+    node_kind: assign
+    arity: 2
 - id: grammar.fanout.infix
   token: token.fanout
   position: Infix
