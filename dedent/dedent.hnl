@@ -1,8 +1,21 @@
+--- Dedent multi-line text by removing a shared leading whitespace prefix.
+---
+--- @details
+--- The `dedent` package provides a single arrow that normalizes line
+--- endings, strips surrounding blank lines, finds the largest leading
+--- whitespace prefix common to all non-blank lines, and removes it while
+--- keeping relative indentation intact.
+
 from "../str-handl" import * as str
 from "../transform" import { map, filter, reduce }
 
--- Removes the largest common leading whitespace prefix shared by all
--- non-blank lines in `text`, preserving relative indentation.
+--- Remove the largest common leading whitespace prefix from `text`.
+---
+--- @param {text} - the multi-line string to dedent
+--- @returns {String - the dedented text, or the empty string for blank input}
+--- @details
+--- Blank and whitespace-only lines are ignored when computing the shared
+--- prefix. They are output as empty lines so no trailing whitespace remains.
 export dedent := (text: String) ~> do {
   build_prefixes := (s: String) ~> do {
     n := str.length(s)
