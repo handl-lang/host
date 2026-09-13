@@ -243,7 +243,11 @@ impl ModuleResolver for StdlibResolver {
             "bool" => stdlib::module("bool").map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
-            "option" => stdlib::module("option").map(|m| {
+            // `option` is a table module whose `tag` dep is not in the
+            // table (`tag` stays native in `plugin-lib-tag`), so it is
+            // built via `module_with` to resolve `"tag"` through this
+            // resolver.
+            "option" => stdlib::module_with("option", std::sync::Arc::new(StdlibResolver)).map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
             "type" => Some(std::sync::Arc::new(build_type_module())),
@@ -436,8 +440,15 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         if want("typeof") {
             stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
         }
+        // `option` — pure-handl `some`/`none` constructors over the `tag.*`
+        // atoms; built via `module_with` so its `tag` dep resolves to
+        // `TagModule` through `StdlibResolver`.
         if want("option") {
-            stdlib_registry.register(stdlib::module("option").expect("option"));
+            stdlib_registry
+                .register(
+                    stdlib::module_with("option", std::sync::Arc::new(StdlibResolver))
+                        .expect("option"),
+                );
         }
         // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
