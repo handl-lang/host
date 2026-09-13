@@ -9,7 +9,7 @@
 --- -- => 3
 ---
 export len<T>: List(T) ~[Total]~> Nat := xs ~> while { ys: xs, n: 0 } {
-  [ys, n] ~> match ys {
+  [ys, n]~> match ys {
     []: { out: n },
     [h, ...t]: { state: { ys: t, n: n + 1 } }
   }

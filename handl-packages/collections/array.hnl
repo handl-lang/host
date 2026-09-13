@@ -1,8 +1,8 @@
---- array — pure-handl implementation of the `array` functional ops.
+--- array -- pure-handl implementation of the `array` functional ops.
 ---
 --- This file is now an **aggregator**: each arrow lives in its own
 --- `collections/array/<name>.hnl` file (one arrow per file, `export
---- <name> = ...`, with its own doc comment). This file imports them and
+--- <name> := ...`, with its own doc comment). This file imports them and
 --- assembles the `array.*` record that the runtime exposes.
 ---
 --- The arrow-taking members (`take_while`, `drop_while`, `scan`, `foldr`,

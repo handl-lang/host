@@ -5,9 +5,9 @@
 --- -- => 3
 ---
 export len<T>: List(T) ~[Total]~> Nat := (xs) ~> do {
-  n :: 0
+  n := 0
   for x in xs {
-    n = n + 1
+    n := n + 1
   }
   n
 }

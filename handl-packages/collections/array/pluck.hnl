@@ -1,3 +1,7 @@
+from "./_reflect.hnl" import is_obj
+from "./reverse.hnl" import reverse
+from "hash_map" import get
+
 --- Pick the value at `key` from each object element of `xs`.
 ---
 --- For each element, returns `null` if it is not an object or lacks `key`.
@@ -6,16 +10,12 @@
 --- `array.pluck([{ name: "a" }, { name: "b" }, 7], "name")`
 --- -- => ["a", "b", null]
 ---
-from "./_reflect.hnl" import is_obj
-from "./reverse.hnl" import reverse
-from "hash_map" import get
-
 export pluck<T>: (List(T), String) ~[Total]~> List(T) := (xs, key) ~> do {
-  out :: []
+  out := []
   for x in xs {
     do {
-      v :: if is_obj(x) { get(x, key) } else { null }
-      out = [v, ...out]
+      v := if is_obj(x) { get(x, key) } else { null }
+      out := [v, ...out]
     }
   }
   reverse(out)

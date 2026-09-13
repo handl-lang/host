@@ -1,3 +1,8 @@
+from "./_reflect.hnl" import is_arr
+from "./len.hnl" import len
+from "./at.hnl" import at
+from "./reverse.hnl" import reverse
+
 --- Transpose a matrix (array of rows) into columns.
 ---
 --- Rows may be shorter than others; missing cells become absent. Returns `[]`
@@ -7,32 +12,27 @@
 --- `array.transpose([[1, 2, 3], [4, 5, 6]])`
 --- -- => [[1, 4], [2, 5], [3, 6]]
 ---
-from "./_reflect.hnl" import is_arr
-from "./len.hnl" import len
-from "./at.hnl" import at
-from "./reverse.hnl" import reverse
-
 export transpose<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   if len(xs) == 0 {
     []
   } else {
     do {
-      rows :: do {
-        r :: []
+      rows := do {
+        r := []
         for h in xs {
           do {
-            row :: if is_arr(h) { h } else { [h] }
-            r = [row, ...r]
+            row := if is_arr(h) { h } else { [h] }
+            r := [row, ...r]
           }
         }
         reverse(r)
       }
-      max_cols :: do {
-        m :: 0
+      max_cols := do {
+        m := 0
         for row in rows {
           do {
-            rl :: len(row);
-            if rl > m { m = rl }
+            rl := len(row);
+            if rl > m { m := rl }
           }
         }
         m
@@ -41,26 +41,26 @@ export transpose<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
         []
       } else {
         do {
-          driver :: do {
-            pick :: []
+          driver := do {
+            pick := []
             for row in rows {
-              if len(row) == max_cols { pick = row }
+              if len(row) == max_cols { pick := row }
             }
             pick
           }
-          cols :: []
-          c :: 0
+          cols:= []
+          c   := 0
           for pad in driver {
             do {
-              col :: do {
-                out :: []
+              col := do {
+                out := []
                 for h in rows {
-                  if c < len(h) { out = [at(h, c), ...out] }
+                  if c < len(h) { out := [at(h, c), ...out] }
                 }
                 reverse(out)
               }
-              cols = [col, ...cols]
-              c = c + 1
+              cols := [col, ...cols]
+              c := c + 1
             }
           }
           reverse(cols)

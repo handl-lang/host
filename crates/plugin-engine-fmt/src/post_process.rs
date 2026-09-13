@@ -143,7 +143,144 @@ impl PostProcessRule for SingleTrailingNewlineRule {
     }
 }
 
-/// Apply a sequence of post-processing rules in order.
+/// Canonicalize operator spellings that the token-stream formatter cannot
+/// combine on its own.
+///
+/// 1. Collapses a split `: =` into a single `:=` binding operator.
+/// 2. Removes spaces inside type-parameter brackets: `at < T >` → `at<T>`.
+/// 3. Removes spaces around graded-arrow grade brackets:
+///    `~ [Total] ~>` → `~[Total]~>`.
+#[derive(Debug, Clone, Copy)]
+pub struct CanonicalizeOperatorsRule;
+
+impl PostProcessRule for CanonicalizeOperatorsRule {
+    fn name(&self) -> &str {
+        "canonicalize-operators"
+    }
+
+    fn apply(&self, text: &str) -> String {
+        let mut out_lines = Vec::new();
+        for line in text.lines() {
+            let line = fix_colon_eq(line);
+            let line = fix_graded_arrow(&line);
+            let line = fix_type_params(&line);
+            out_lines.push(line);
+        }
+        out_lines.join("\n")
+    }
+}
+
+/// Replace `: =` (the token formatter's rendering of a split `:=`) with the
+/// canonical `:=` operator and one space on each side.
+fn fix_colon_eq(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        // Look for ':' followed by optional spaces and '='.
+        if bytes[i] == b':' {
+            let mut j = i + 1;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j < bytes.len() && bytes[j] == b'=' {
+                // Ensure one space before := if there is a preceding non-space char.
+                if !out.is_empty() && !out.ends_with(' ') {
+                    out.push(' ');
+                }
+                out.push_str(":=");
+                // Skip past the '='.
+                i = j + 1;
+                // Ensure one space after := if the next char is non-space.
+                if i < bytes.len() && !bytes[i].is_ascii_whitespace() {
+                    out.push(' ');
+                }
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+/// Collapse spaces around graded-arrow brackets: `~ [G] ~>` → `~[G]~>`.
+fn fix_graded_arrow(line: &str) -> String {
+    line.replace("~ [", "~[").replace("] ~>", "]~>")
+}
+
+/// Collapse spaces inside type-parameter brackets when they follow an
+/// identifier and contain only type-parameter characters.
+///
+/// Examples:
+///   `at < T >`     → `at<T>`
+///   `zip < A, B >` → `zip<A, B>`
+fn fix_type_params(line: &str) -> String {
+    // Find ` < ` where the preceding char is a word char, then find the
+    // matching ` > ` and collapse the inner spaces.
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    let bytes = line.as_bytes();
+    while i < bytes.len() {
+        // Look for ` < ` preceded by a word char.
+        if i + 3 <= bytes.len()
+            && bytes[i] == b' '
+            && bytes[i + 1] == b'<'
+            && bytes[i + 2] == b' '
+            && i > 0
+            && is_word_char(bytes[i - 1] as char)
+        {
+            // Find the closing ` > `.
+            if let Some(end) = find_type_param_close(&line[i + 3..]) {
+                let close_start = i + 3 + end; // position of the space before `>`
+                let content = &line[i + 3..close_start];
+                // Trim the leading/trailing spaces that the formatter inserts.
+                let content = content.trim();
+                out.push('<');
+                out.push_str(content);
+                out.push('>');
+                i = close_start + 2; // skip ` >`
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+/// Find the first occurrence of ` >` in `s` where the `>` is followed by a
+/// non-word character (so it is the closing bracket of a type-parameter list)
+/// and the content up to that point looks like a type-parameter list.
+/// Returns the byte offset of the leading space of ` >`, or `None`.
+fn find_type_param_close(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i + 2 <= bytes.len() {
+        if bytes[i] == b' ' && bytes[i + 1] == b'>' {
+            // Ensure the `>` is not part of a `>>=` / `>>` / `>=` operator.
+            let after = bytes.get(i + 2).copied().map(|b| b as char);
+            if after.map_or(true, |c| !is_word_char(c)) {
+                // Validate the content before this ` >`.
+                let content = &s[..i];
+                if content.trim().chars().all(is_type_param_char) {
+                    return Some(i);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn is_type_param_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == ',' || c == ' '
+}
+
 pub fn post_process_pipeline(text: &str, rules: &[&dyn PostProcessRule]) -> String {
     let mut out = text.to_string();
     for rule in rules {
@@ -160,6 +297,7 @@ pub fn canonical_post_process(text: &str) -> String {
             &TrailingWhitespaceRule,
             &CollapseBlankLinesRule,
             &BlankLineBetweenDeclGroupsRule,
+            &CanonicalizeOperatorsRule,
             &SingleTrailingNewlineRule,
         ],
     )
@@ -195,9 +333,10 @@ fn decl_type(line: &str) -> Option<DeclType> {
     {
         return Some(DeclType::Export);
     }
-    // Binding: `identifier ::` at the start of the line (indent 0).
+    // Binding: `identifier ::` or `identifier :=` at the start of the line (indent 0).
     if !line.starts_with(' ') && !line.starts_with('\t') {
-        if let Some(bind_pos) = trimmed.find("::") {
+        let bind_pos = trimmed.find("::").or_else(|| trimmed.find(":="));
+        if let Some(bind_pos) = bind_pos {
             let name = trimmed[..bind_pos].trim();
             // The name must be a simple identifier (all word chars).
             if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {

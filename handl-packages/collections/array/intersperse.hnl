@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Spread `sep` between the elements of `xs`.
 ---
 --- Places `sep` between each consecutive pair of elements, not before the
@@ -7,19 +9,17 @@
 --- `array.intersperse(["a", "b", "c"], ",")`
 --- -- => ["a", ",", "b", ",", "c"]
 ---
-from "./reverse.hnl" import reverse
-
 export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
-  out :: []
-  is_first :: true
+  out := []
+  is_first := true
   for x in xs {
     do {
       if is_first {
-        is_first = false
+        is_first := false
       } else {
-        out = [sep, ...out]
+        out := [sep, ...out]
       };
-      out = [x, ...out]
+      out := [x, ...out]
     }
   }
   reverse(out)

@@ -1,4 +1,4 @@
---- vec — pure-handl implementation of the `vec` container ops.
+--- vec -- pure-handl implementation of the `vec` container ops.
 ---
 --- A vec is a plain array; `len`/`is_empty`/`push`/`pop`/`peek` are
 --- expressible directly over array values. `pop`/`peek` raise
@@ -7,18 +7,18 @@
 --- `to_array` stay native (see `ops/collections/seq.rs`): `new` is
 --- nullary and `from` is a reserved word (cannot be a record field).
 do {
-  len_ :: xs ~> {
+  len_ := xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
     }
   }
 
-  rev_ :: xs ~> {
+  rev_ := xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -31,7 +31,7 @@ do {
       []: true,
       [h, ...t]: false
     },
-    push: [c, v] ~> [...c, v],
+    push: [c, v]~> [...c, v],
     pop: c ~> match c {
       []: error.raise("collection is empty"),
       [h, ...t]: match rev_(c) {

@@ -11,12 +11,12 @@ from "./_reflect.hnl" import is_arr
 from "./concat.hnl" import concat
 
 export flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  out :: []
+  out := []
   for x in xs {
     if is_arr(x) {
-      out = concat(out, x)
+      out := concat(out, x)
     } else {
-      out = concat(out, [x])
+      out := concat(out, [x])
     }
   }
   out

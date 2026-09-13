@@ -854,6 +854,10 @@ fn post_process_individual_rules() {
     let newline = SingleTrailingNewlineRule;
     assert_eq!(newline.apply("x\n\n"), "x\n");
     assert_eq!(newline.apply(""), "");
+    let canon_ops = CanonicalizeOperatorsRule;
+    assert_eq!(canon_ops.apply("x : = y"), "x := y");
+    assert_eq!(canon_ops.apply("export at < T >: T ~ [Total] ~> T"), "export at<T>: T ~[Total]~> T");
+    assert_eq!(canon_ops.apply("export zip < A, B >: T ~ [Total] ~> T"), "export zip<A, B>: T ~[Total]~> T");
 }
 
 #[test]

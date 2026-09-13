@@ -1,3 +1,6 @@
+from "./len.hnl" import len
+from "./take.hnl" import take
+
 --- Return a copy of `xs` without its last element.
 ---
 --- Returns `[]` if `xs` is empty.
@@ -6,9 +9,6 @@
 --- `array.pop([1, 2, 3])`
 --- -- => [1, 2]
 ---
-from "./len.hnl" import len
-from "./take.hnl" import take
-
 export pop<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
   match xs {
     []: [],

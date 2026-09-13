@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Remove consecutive duplicate elements of `xs`.
 ---
 --- Only adjacent equal elements are collapsed into one.
@@ -6,22 +8,20 @@
 --- `array.dedupe([1, 1, 2, 2, 2, 3])`
 --- -- => [1, 2, 3]
 ---
-from "./reverse.hnl" import reverse
-
 export dedupe<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  out :: []
-  last :: null
-  seen :: false
+  out := []
+  last := null
+  seen := false
   for x in xs {
     if seen {
       if x != last {
-        out = [x, ...out]
-        last = x
+        out := [x, ...out]
+        last := x
       }
     } else {
-      out = [x, ...out]
-      last = x
-      seen = true
+      out := [x, ...out]
+      last := x
+      seen := true
     }
   }
   reverse(out)

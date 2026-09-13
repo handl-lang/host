@@ -7,12 +7,12 @@
 --- -- => 2
 ---
 export index_of<T>: (List(T), T) ~[Total]~> Nat := (xs, needle) ~> do {
-  found :: -1
-  k :: 0
+  found := -1
+  k := 0
   for x in xs {
     do {
-      if found == -1 { if x == needle { found = k } }
-      k = k + 1
+      if found == -1 { if x == needle { found := k } }
+      k := k + 1
     }
   }
   found

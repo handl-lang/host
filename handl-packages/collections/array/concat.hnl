@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Concatenate two arrays into one.
 ---
 --- Returns `[...a, ...b]`. The original arrays are unchanged.
@@ -6,15 +8,13 @@
 --- `array.concat([1, 2], [3, 4])`
 --- -- => [1, 2, 3, 4]
 ---
-from "./reverse.hnl" import reverse
-
 export concat<T>: (List(T), List(T)) ~[Total]~> List(T) := (a, b) ~> do {
-  r :: []
+  r := []
   for x in a {
-    r = [x, ...r]
+    r := [x, ...r]
   }
   for y in b {
-    r = [y, ...r]
+    r := [y, ...r]
   }
   reverse(r)
 }

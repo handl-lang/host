@@ -1,4 +1,4 @@
---- hash_map — the `hash_map` module contract.
+--- hash_map -- the `hash_map` module contract.
 ---
 --- The op-backed surface (constructors, access, mutation, selection,
 --- combination, and deep operations) stays native. The field-enumeration

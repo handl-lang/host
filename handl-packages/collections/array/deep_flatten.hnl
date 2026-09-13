@@ -1,3 +1,6 @@
+from "./_reflect.hnl" import is_arr
+from "./concat.hnl" import concat
+
 --- Flatten all levels of nesting in `xs`.
 ---
 --- Recursively flattens nested arrays into a single flat array.
@@ -6,17 +9,14 @@
 --- `array.deep_flatten([[1, [2]], 3, [[[4]]]])`
 --- -- => [1, 2, 3, 4]
 ---
-from "./_reflect.hnl" import is_arr
-from "./concat.hnl" import concat
-
 export deep_flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  go :: (self, ys) ~> do {
-    out :: []
+  go := (self, ys) ~> do {
+    out := []
     for x in ys {
       if is_arr(x) {
-        out = concat(out, self(self, x))
+        out := concat(out, self(self, x))
       } else {
-        out = concat(out, [x])
+        out := concat(out, [x])
       }
     }
     out

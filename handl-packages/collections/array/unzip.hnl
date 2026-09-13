@@ -9,15 +9,15 @@
 ---
 from "./reverse.hnl" import reverse
 
-export unzip<A,B>: List(Pair(A,B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
-  fs :: [];
-  gs :: [];
+export unzip<A, B>: List(Pair(A, B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
+  fs := [];
+  gs := [];
   for x in xs {
     do {
       match x {
         [f, s, ...rest]: do {
-          fs = [f, ...fs];
-          gs = [s, ...gs]
+          fs := [f, ...fs];
+          gs := [s, ...gs]
         },
         _: null
       }

@@ -1,3 +1,6 @@
+from "./_reflect.hnl" import is_arr
+from "./concat.hnl" import concat
+
 --- Join the elements of `xs` with `sep`.
 ---
 --- Each element that is an array is spread as-is; `sep` is spread between
@@ -7,21 +10,18 @@
 --- `array.intercalate(["a", "b", "c"], "-")`
 --- -- => ["a", "-", "b", "-", "c"]
 ---
-from "./_reflect.hnl" import is_arr
-from "./concat.hnl" import concat
-
 export intercalate<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
-  out :: []
-  is_first :: true
+  out     := []
+  is_first:= true
   for x in xs {
     do {
-      hv :: if is_arr(x) { x } else { [x] }
+      hv := if is_arr(x) { x } else { [x] }
       if is_first {
-        is_first = false
+        is_first := false
       } else {
-        out = concat(out, sep)
+        out := concat(out, sep)
       };
-      out = concat(out, hv)
+      out := concat(out, hv)
     }
   }
   out

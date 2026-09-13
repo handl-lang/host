@@ -1,4 +1,4 @@
---- hash_set — the `hash_set` module contract.
+--- hash_set -- the `hash_set` module contract.
 ---
 --- All ops stay native (see `ops/collections/hash_set.rs`): membership is
 --- keyed on a *serialized* value (`value_key`), which distinguishes `1`
