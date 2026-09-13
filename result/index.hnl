@@ -1,0 +1,22 @@
+--- result — Result type and constructors.
+--- @details
+--- The `result` contract declares the `Result<T, E>` type and the `ok`
+--- / `err` constructors. Backends implement these pure, total arrows.
+
+--- @template T - the success value type
+--- @template E - the error value type
+--- The `Result<T, E>` type.
+--- @details
+--- A `Result<T, E>` is either a success carrying a value of type `T` or
+--- an error carrying a value of type `E`.
+export Result < T, E >: Type
+
+--- Construct an Ok result wrapping a success value.
+--- @param {value} - the success value of type T
+--- @returns {Result<T, E>}
+export ok < T, E >: T ~ [Total] ~> Result < T, E >
+
+--- Construct an Err result wrapping an error value.
+--- @param {error} - the error value of type E
+--- @returns {Result<T, E>}
+export err < T, E >: E ~ [Total] ~> Result < T, E >
