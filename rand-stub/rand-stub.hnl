@@ -107,6 +107,42 @@ do {
     poisson: (_lambda) ~> 0,
 
     -- Always returns 0.
-    binomial: (_n, _p) ~> 0
+    binomial: (_n, _p) ~> 0,
+
+    -- Seeded variants (deterministic, identical to non-seeded for the stub)
+    seeded_int: (seed, _max) ~> 4,
+
+    seeded_float: (seed, _max) ~> 0.5,
+
+    seeded_bool: (seed) ~> true,
+
+    seeded_pick: (seed, xs) ~> xs[0],
+
+    seeded_choice: (seed, xs, count) ~> do {
+      while { n: count, acc: [] } {
+        [n, acc] ~> if n <= 0 {
+          { out: arr_rev(acc) }
+        } else {
+          { state: { n: n - 1, acc: [xs[math.mod(n - 1, arr_len(xs))], ...acc] } }
+        }
+      }
+    },
+
+    seeded_sample: (seed, xs, count) ~> arr_take(xs, count),
+
+    seeded_shuffle: (seed, xs) ~> arr_rev(xs),
+
+    seeded_string: (seed, len, charset) ~> do {
+      c = at(charset, 0);
+      while { n: len, acc: "" } {
+        [n, acc] ~> if n <= 0 {
+          { out: acc }
+        } else {
+          { state: { n: n - 1, acc: acc + c } }
+        }
+      }
+    },
+
+    seeded_gauss: (seed, mean, _stddev) ~> mean
   }
 }

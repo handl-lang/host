@@ -79,6 +79,9 @@ do {
     }
   }
 
+  -- Pure-Handl seeded PRNG
+  hash :: (seed, salt) ~> math.mod(math.add(math.mul(seed, 12345), math.mul(salt, 6789)), 2147483647)
+
   -- -----------------------------------------------------------------------
   -- Exports
   -- -----------------------------------------------------------------------
@@ -233,6 +236,83 @@ do {
           }
         }
       }
+    },
+
+    -- Seeded variants (pure-Handl, no FFI)
+    seeded_int: (seed, max) ~> math.mod(hash(seed, 0), max + 1),
+
+    seeded_float: (seed, max) ~> math.mul(math.div(hash(seed, 0), 2147483647), max),
+
+    seeded_bool: (seed) ~> math.mod(hash(seed, 0), 2) == 0,
+
+    seeded_pick: (seed, xs) ~> do {
+      i = math.mod(hash(seed, 0), arr_len(xs))
+      xs[i]
+    },
+
+    seeded_choice: (seed, xs, count) ~> do {
+      n = arr_len(xs)
+      if n == 0 {
+        []
+      } else {
+        do {
+          while { m: count, k: 0, acc: [] } {
+            [m, k, acc] ~> if m <= 0 {
+              { out: arr_rev(acc) }
+            } else {
+              r = hash(seed, k)
+              i = math.mod(r, n)
+              { state: { m: m - 1, k: k + 1, acc: [xs[i], ...acc] } }
+            }
+          }
+        }
+      }
+    },
+
+    seeded_sample: (seed, xs, count) ~> do {
+      while { xs: xs, n: count, k: 0, acc: [] } {
+        [xs, n, k, acc] ~> if n <= 0 || arr_len(xs) == 0 {
+          { out: arr_rev(acc) }
+        } else {
+          r = hash(seed, k)
+          i = math.mod(r, arr_len(xs))
+          x = xs[i]
+          { state: { xs: arr_remove_at(xs, i), n: n - 1, k: k + 1, acc: [x, ...acc] } }
+        }
+      }
+    },
+
+    seeded_shuffle: (seed, xs) ~> seeded_sample(seed, xs, arr_len(xs)),
+
+    seeded_string: (seed, len, charset) ~> do {
+      cs = chars(charset)
+      m = arr_len(cs)
+      if m == 0 {
+        ""
+      } else {
+        do {
+          while { n: len, k: 0, acc: "" } {
+            [n, k, acc] ~> if n <= 0 {
+              { out: acc }
+            } else {
+              r = hash(seed, k)
+              i = math.mod(r, m)
+              { state: { n: n - 1, k: k + 1, acc: acc + cs[i] } }
+            }
+          }
+        }
+      }
+    },
+
+    seeded_gauss: (seed, mean, stddev) ~> do {
+      s1 = hash(seed, 0)
+      s2 = hash(seed, 1)
+      u1 = math.div(math.add(s1, 1), 2147483647)
+      u2 = math.div(math.add(s2, 1), 2147483647)
+      r = math.sqrt(math.sub(0, math.mul(2, math.log(u1))))
+      theta = math.mul(math.mul(2, math.pi()), u2)
+      z = math.mul(r, math.cos(theta))
+      math.add(mean, math.mul(stddev, z))
     }
   }
 }
