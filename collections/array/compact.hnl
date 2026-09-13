@@ -1,15 +1,15 @@
+from "./reverse.hnl" import reverse
+
 --- Remove all `null` elements from `xs`.
 ---
 --- @example
 --- `array.compact([1, null, 2, null, 3])`
 --- -- => [1, 2, 3]
 ---
-from "./reverse.hnl" import reverse
-
 export compact<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  out :: []
+  out := []
   for x in xs {
-    if x != null { out = [x, ...out] }
+    if x != null { out := [x, ...out] }
   }
   reverse(out)
 }

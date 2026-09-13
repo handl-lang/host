@@ -11,12 +11,12 @@ export at<T>: (List(T), Nat) ~[Total]~> T := (xs, i) ~> do {
     null
   } else {
     do {
-      out :: null
-      k :: 0
+      out := null
+      k := 0
       for x in xs {
         do {
-          if k == i { out = x };
-          k = k + 1
+          if k == i { out := x };
+          k := k + 1
         }
       }
       out

@@ -1,0 +1,74 @@
+--- array -- the pure-handl `array` package.
+---
+--- This file is an **aggregator**: each arrow lives in its own
+--- `collections/array/<name>.hnl` file. This file imports them by
+--- relative path and assembles the `array.*` record the runtime exposes.
+---
+--- Import as `from "../collections/array" import * as array` and call
+--- `array.at([1, 2, 3], 1)`, `array.zip([1], ["a"])`, etc.
+
+from "./at.hnl" import at
+from "./chunk.hnl" import chunk
+from "./compact.hnl" import compact
+from "./concat.hnl" import concat
+from "./contains.hnl" import contains
+from "./dedupe.hnl" import dedupe
+from "./deep_flatten.hnl" import deep_flatten
+from "./drop.hnl" import drop
+from "./enumerate.hnl" import enumerate
+from "./fill.hnl" import fill
+from "./first.hnl" import first
+from "./flatten.hnl" import flatten
+from "./index_of.hnl" import index_of
+from "./insert_at.hnl" import insert_at
+from "./intercalate.hnl" import intercalate
+from "./intersperse.hnl" import intersperse
+from "./is_empty.hnl" import is_empty
+from "./last.hnl" import last
+from "./len.hnl" import len
+from "./pluck.hnl" import pluck
+from "./pop.hnl" import pop
+from "./prepend.hnl" import prepend
+from "./remove_at.hnl" import remove_at
+from "./reverse.hnl" import reverse
+from "./shift.hnl" import shift
+from "./slice.hnl" import slice
+from "./take.hnl" import take
+from "./transpose.hnl" import transpose
+from "./unzip.hnl" import unzip
+from "./windows.hnl" import windows
+from "./zip.hnl" import zip
+
+{
+  at: at,
+  chunk: chunk,
+  compact: compact,
+  concat: concat,
+  contains: contains,
+  dedupe: dedupe,
+  deep_flatten: deep_flatten,
+  drop: drop,
+  enumerate: enumerate,
+  fill: fill,
+  first: first,
+  flatten: flatten,
+  index_of: index_of,
+  insert_at: insert_at,
+  intercalate: intercalate,
+  intersperse: intersperse,
+  is_empty: is_empty,
+  last: last,
+  len: len,
+  pluck: pluck,
+  pop: pop,
+  prepend: prepend,
+  remove_at: remove_at,
+  reverse: reverse,
+  shift: shift,
+  slice: slice,
+  take: take,
+  transpose: transpose,
+  unzip: unzip,
+  windows: windows,
+  zip: zip
+}

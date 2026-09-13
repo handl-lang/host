@@ -1,3 +1,7 @@
+from "./len.hnl" import len
+from "./take.hnl" import take
+from "./drop.hnl" import drop
+
 --- Return the sub-array of `xs` from index `s` up to (not including) `e`.
 ---
 --- Returns `null` if `s` or `e` is negative. Clamps bounds to the array length.
@@ -6,10 +10,6 @@
 --- `array.slice([1, 2, 3, 4, 5], 1, 3)`
 --- -- => [2, 3]
 ---
-from "./len.hnl" import len
-from "./take.hnl" import take
-from "./drop.hnl" import drop
-
 export slice<T>: (List(T), Nat, Nat) ~[Total]~> List(T) := (xs, s, e) ~> do {
   if s < 0 {
     null
@@ -18,9 +18,9 @@ export slice<T>: (List(T), Nat, Nat) ~[Total]~> List(T) := (xs, s, e) ~> do {
       null
     } else {
       do {
-        l :: len(xs)
-        m :: if e > l { l } else { e }
-        k :: if s > m { m } else { s }
+        l := len(xs)
+        m := if e > l { l } else { e }
+        k := if s > m { m } else { s }
         take(drop(xs, k), m - k)
       }
     }

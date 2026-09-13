@@ -5,9 +5,9 @@
 --- -- => [3, 2, 1]
 ---
 export reverse<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
-  r :: []
+  r := []
   for x in xs {
-    r = [x, ...r]
+    r := [x, ...r]
   }
   r
 }

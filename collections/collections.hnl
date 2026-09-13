@@ -1,4 +1,4 @@
---- collections — collection types for the handl runtime.
+--- collections -- collection types for the handl runtime.
 ---
 --- This is an aggregate package: it bundles many collection modules
 --- (vec, list, queue, stack, deque, hash_map, hash_set, array, btree_map,
@@ -14,160 +14,160 @@
 --- reserved for future implementation.
 ---
 --- ## vec module
---- vec.new — create a new empty vec (back-ended dynamic array).
---- vec.from — create a vec from an existing array.
---- vec.to_array — return the vec as a plain array.
---- vec.len — return the number of elements in a vec.
---- vec.is_empty — test whether a vec is empty.
---- vec.push — push a value onto the back of a vec.
---- vec.pop — remove and return the value at the back of a vec.
---- vec.peek — return the value at the back of a vec without removing it.
+--- vec.new -- create a new empty vec (back-ended dynamic array).
+--- vec.from -- create a vec from an existing array.
+--- vec.to_array -- return the vec as a plain array.
+--- vec.len -- return the number of elements in a vec.
+--- vec.is_empty -- test whether a vec is empty.
+--- vec.push -- push a value onto the back of a vec.
+--- vec.pop -- remove and return the value at the back of a vec.
+--- vec.peek -- return the value at the back of a vec without removing it.
 ---
 --- ## list module
---- list.new — create a new empty list (front-ended list).
---- list.from — create a list from an existing array.
---- list.to_array — return the list as a plain array.
---- list.len — return the number of elements in a list.
---- list.is_empty — test whether a list is empty.
---- list.push — push a value onto the front of a list.
---- list.pop — remove and return the value at the front of a list.
---- list.peek — return the value at the front of a list without removing it.
+--- list.new -- create a new empty list (front-ended list).
+--- list.from -- create a list from an existing array.
+--- list.to_array -- return the list as a plain array.
+--- list.len -- return the number of elements in a list.
+--- list.is_empty -- test whether a list is empty.
+--- list.push -- push a value onto the front of a list.
+--- list.pop -- remove and return the value at the front of a list.
+--- list.peek -- return the value at the front of a list without removing it.
 ---
 --- ## queue module
---- queue.new — create a new empty FIFO queue.
---- queue.from — create a queue from an existing array.
---- queue.to_array — return the queue as a plain array.
---- queue.len — return the number of elements in a queue.
---- queue.is_empty — test whether a queue is empty.
---- queue.enqueue — add a value to the back of a queue.
---- queue.dequeue — remove and return the value at the front of a queue.
---- queue.peek — return the value at the front of a queue without removing it.
+--- queue.new -- create a new empty FIFO queue.
+--- queue.from -- create a queue from an existing array.
+--- queue.to_array -- return the queue as a plain array.
+--- queue.len -- return the number of elements in a queue.
+--- queue.is_empty -- test whether a queue is empty.
+--- queue.enqueue -- add a value to the back of a queue.
+--- queue.dequeue -- remove and return the value at the front of a queue.
+--- queue.peek -- return the value at the front of a queue without removing it.
 ---
 --- ## stack module
---- stack.new — create a new empty LIFO stack.
---- stack.from — create a stack from an existing array.
---- stack.to_array — return the stack as a plain array.
---- stack.len — return the number of elements in a stack.
---- stack.is_empty — test whether a stack is empty.
---- stack.push — push a value onto the top (back) of a stack.
---- stack.pop — remove and return the value at the top (back) of a stack.
---- stack.peek — return the value at the top (back) of a stack without removing it.
+--- stack.new -- create a new empty LIFO stack.
+--- stack.from -- create a stack from an existing array.
+--- stack.to_array -- return the stack as a plain array.
+--- stack.len -- return the number of elements in a stack.
+--- stack.is_empty -- test whether a stack is empty.
+--- stack.push -- push a value onto the top (back) of a stack.
+--- stack.pop -- remove and return the value at the top (back) of a stack.
+--- stack.peek -- return the value at the top (back) of a stack without removing it.
 ---
 --- ## deque module
---- deque.new — create a new empty double-ended queue.
---- deque.from — create a deque from an existing array.
---- deque.to_array — return the deque as a plain array.
---- deque.len — return the number of elements in a deque.
---- deque.is_empty — test whether a deque is empty.
---- deque.push_back — push a value onto the back of a deque.
---- deque.push_front — push a value onto the front of a deque.
---- deque.pop_back — remove and return the value at the back of a deque.
---- deque.pop_front — remove and return the value at the front of a deque.
---- deque.peek_back — return the value at the back of a deque without removing it.
---- deque.peek_front — return the value at the front of a deque without removing it.
+--- deque.new -- create a new empty double-ended queue.
+--- deque.from -- create a deque from an existing array.
+--- deque.to_array -- return the deque as a plain array.
+--- deque.len -- return the number of elements in a deque.
+--- deque.is_empty -- test whether a deque is empty.
+--- deque.push_back -- push a value onto the back of a deque.
+--- deque.push_front -- push a value onto the front of a deque.
+--- deque.pop_back -- remove and return the value at the back of a deque.
+--- deque.pop_front -- remove and return the value at the front of a deque.
+--- deque.peek_back -- return the value at the back of a deque without removing it.
+--- deque.peek_front -- return the value at the front of a deque without removing it.
 ---
 --- ## hash_map module
---- hash_map.new — create a new empty hash map (key/value dictionary).
---- hash_map.from — create a hash map from an existing object.
---- hash_map.to_object — return the hash map as a plain object.
---- hash_map.len — return the number of entries in a hash map.
---- hash_map.is_empty — test whether a hash map is empty.
---- hash_map.get — get the value for a key, with an optional default.
---- hash_map.set — set a key/value pair in a hash map, returning a new map.
---- hash_map.remove — remove a key from a hash map, returning a new map.
---- hash_map.has — test whether a hash map contains a key.
---- hash_map.keys — return the keys of a hash map as an array.
---- hash_map.values — return the values of a hash map as an array.
---- hash_map.entries — return the entries of a hash map as an array of [key, value] pairs.
---- hash_map.size — return the number of entries in a hash map (alias of len).
---- hash_map.get_or — get the value for a key, returning a default if null or missing.
---- hash_map.deep_get — get a value at a dot-separated path in a nested object.
---- hash_map.path_or — get a value at a dot-separated path, returning a default if not found.
---- hash_map.update — update a key's value via a function, returning a new map.
---- hash_map.set_path — set a value at a dot-separated path, returning a new object.
---- hash_map.update_path — update a value at a dot-separated path via a function.
---- hash_map.map_values — transform each value in a hash map via a function.
---- hash_map.map_keys — transform each key in a hash map via a function.
---- hash_map.filter_keys — filter a hash map by a predicate on keys.
---- hash_map.filter_values — filter a hash map by a predicate on values.
---- hash_map.invert — swap keys and values in a hash map.
---- hash_map.clone_deep — deep-clone a value.
---- hash_map.pick — select a subset of keys from a hash map.
---- hash_map.omit — exclude a subset of keys from a hash map.
---- hash_map.merge — merge two hash maps (second overwrites first).
---- hash_map.deep_merge — recursively merge two hash maps.
---- hash_map.from_entries — construct a hash map from an array of [key, value] pairs.
---- hash_map.has_key — test whether a hash map contains a key (alias of has).
+--- hash_map.new -- create a new empty hash map (key/value dictionary).
+--- hash_map.from -- create a hash map from an existing object.
+--- hash_map.to_object -- return the hash map as a plain object.
+--- hash_map.len -- return the number of entries in a hash map.
+--- hash_map.is_empty -- test whether a hash map is empty.
+--- hash_map.get -- get the value for a key, with an optional default.
+--- hash_map.set -- set a key/value pair in a hash map, returning a new map.
+--- hash_map.remove -- remove a key from a hash map, returning a new map.
+--- hash_map.has -- test whether a hash map contains a key.
+--- hash_map.keys -- return the keys of a hash map as an array.
+--- hash_map.values -- return the values of a hash map as an array.
+--- hash_map.entries -- return the entries of a hash map as an array of [key, value] pairs.
+--- hash_map.size -- return the number of entries in a hash map (alias of len).
+--- hash_map.get_or -- get the value for a key, returning a default if null or missing.
+--- hash_map.deep_get -- get a value at a dot-separated path in a nested object.
+--- hash_map.path_or -- get a value at a dot-separated path, returning a default if not found.
+--- hash_map.update -- update a key's value via a function, returning a new map.
+--- hash_map.set_path -- set a value at a dot-separated path, returning a new object.
+--- hash_map.update_path -- update a value at a dot-separated path via a function.
+--- hash_map.map_values -- transform each value in a hash map via a function.
+--- hash_map.map_keys -- transform each key in a hash map via a function.
+--- hash_map.filter_keys -- filter a hash map by a predicate on keys.
+--- hash_map.filter_values -- filter a hash map by a predicate on values.
+--- hash_map.invert -- swap keys and values in a hash map.
+--- hash_map.clone_deep -- deep-clone a value.
+--- hash_map.pick -- select a subset of keys from a hash map.
+--- hash_map.omit -- exclude a subset of keys from a hash map.
+--- hash_map.merge -- merge two hash maps (second overwrites first).
+--- hash_map.deep_merge -- recursively merge two hash maps.
+--- hash_map.from_entries -- construct a hash map from an array of [key, value] pairs.
+--- hash_map.has_key -- test whether a hash map contains a key (alias of has).
 ---
 --- ## hash_set module
---- hash_set.new — create a new empty hash set (unordered set of unique values).
---- hash_set.from — create a hash set from an existing array (deduplicated).
---- hash_set.to_array — return the hash set as a plain array.
---- hash_set.len — return the number of values in a hash set.
---- hash_set.is_empty — test whether a hash set is empty.
---- hash_set.add — add a value to a hash set, returning a new set.
---- hash_set.remove — remove a value from a hash set, returning a new set.
---- hash_set.has — test whether a hash set contains a value.
---- hash_set.union — return the union of two sets.
---- hash_set.intersection — return the intersection of two sets.
---- hash_set.difference — return the difference of two sets (a minus b).
---- hash_set.unique — deduplicate an array, preserving first-occurrence order.
---- hash_set.symmetric_difference — return elements in exactly one of two sets.
---- hash_set.without — remove specified values from an array (deduplicated).
---- hash_set.unique_by — deduplicate an array by a key function.
+--- hash_set.new -- create a new empty hash set (unordered set of unique values).
+--- hash_set.from -- create a hash set from an existing array (deduplicated).
+--- hash_set.to_array -- return the hash set as a plain array.
+--- hash_set.len -- return the number of values in a hash set.
+--- hash_set.is_empty -- test whether a hash set is empty.
+--- hash_set.add -- add a value to a hash set, returning a new set.
+--- hash_set.remove -- remove a value from a hash set, returning a new set.
+--- hash_set.has -- test whether a hash set contains a value.
+--- hash_set.union -- return the union of two sets.
+--- hash_set.intersection -- return the intersection of two sets.
+--- hash_set.difference -- return the difference of two sets (a minus b).
+--- hash_set.unique -- deduplicate an array, preserving first-occurrence order.
+--- hash_set.symmetric_difference -- return elements in exactly one of two sets.
+--- hash_set.without -- remove specified values from an array (deduplicated).
+--- hash_set.unique_by -- deduplicate an array by a key function.
 ---
 --- ## array module
---- array.len — return the length of an array.
---- array.reverse — reverse the elements of an array.
---- array.concat — concatenate two arrays.
---- array.contains — test whether an array contains a value.
---- array.index_of — return the index of the first occurrence of a value, or -1.
---- array.slice — slice an array by start and end indices.
---- array.first — return the first element of an array, or null if empty.
---- array.last — return the last element of an array, or null if empty.
---- array.at — return the element at a given index, or null if out of bounds.
---- array.push — append one or more values to the end of an array.
---- array.pop — remove the last element from an array.
---- array.shift — remove the first element from an array.
---- array.fill — create an array of n copies of a value.
---- array.flatten — flatten one level of nesting in an array.
---- array.deep_flatten — recursively flatten all nesting in an array.
---- array.take — take the first n elements of an array.
---- array.drop — drop the first n elements of an array.
---- array.enumerate — pair each element with its index as [index, value].
---- array.unzip — split an array of pairs into two arrays.
---- array.intersperse — insert a separator between each element of an array.
---- array.intercalate — insert a separator array between each sub-array of an array.
---- array.dedupe — remove consecutive duplicate elements from an array.
---- array.prepend — prepend a value to the beginning of an array.
---- array.take_while — take elements while a predicate holds.
---- array.drop_while — drop elements while a predicate holds.
---- array.scan — leftward scan with a function and initial accumulator.
---- array.foldr — rightward fold with a function and initial accumulator.
---- array.find_index — return the index of the first element matching a predicate, or -1.
---- array.find_last — return the last element matching a predicate, or null.
---- array.find_last_index — return the index of the last element matching a predicate, or -1.
---- array.windows — return sliding windows of a given size over an array.
---- array.transpose — transpose rows to columns in a 2D array.
---- array.insert_at — insert a value at a given index in an array.
---- array.remove_at — remove the element at a given index from an array.
---- array.range — generate a range of numbers from start to end with an optional step.
---- array.zip — zip two arrays into an array of pairs.
---- array.chunk — split an array into chunks of a given size.
---- array.compact — remove null values from an array.
---- array.pluck — extract a named key from each object in an array.
+--- array.len -- return the length of an array.
+--- array.reverse -- reverse the elements of an array.
+--- array.concat -- concatenate two arrays.
+--- array.contains -- test whether an array contains a value.
+--- array.index_of -- return the index of the first occurrence of a value, or -1.
+--- array.slice -- slice an array by start and end indices.
+--- array.first -- return the first element of an array, or null if empty.
+--- array.last -- return the last element of an array, or null if empty.
+--- array.at -- return the element at a given index, or null if out of bounds.
+--- array.push -- append one or more values to the end of an array.
+--- array.pop -- remove the last element from an array.
+--- array.shift -- remove the first element from an array.
+--- array.fill -- create an array of n copies of a value.
+--- array.flatten -- flatten one level of nesting in an array.
+--- array.deep_flatten -- recursively flatten all nesting in an array.
+--- array.take -- take the first n elements of an array.
+--- array.drop -- drop the first n elements of an array.
+--- array.enumerate -- pair each element with its index as [index, value].
+--- array.unzip -- split an array of pairs into two arrays.
+--- array.intersperse -- insert a separator between each element of an array.
+--- array.intercalate -- insert a separator array between each sub-array of an array.
+--- array.dedupe -- remove consecutive duplicate elements from an array.
+--- array.prepend -- prepend a value to the beginning of an array.
+--- array.take_while -- take elements while a predicate holds.
+--- array.drop_while -- drop elements while a predicate holds.
+--- array.scan -- leftward scan with a function and initial accumulator.
+--- array.foldr -- rightward fold with a function and initial accumulator.
+--- array.find_index -- return the index of the first element matching a predicate, or -1.
+--- array.find_last -- return the last element matching a predicate, or null.
+--- array.find_last_index -- return the index of the last element matching a predicate, or -1.
+--- array.windows -- return sliding windows of a given size over an array.
+--- array.transpose -- transpose rows to columns in a 2D array.
+--- array.insert_at -- insert a value at a given index in an array.
+--- array.remove_at -- remove the element at a given index from an array.
+--- array.range -- generate a range of numbers from start to end with an optional step.
+--- array.zip -- zip two arrays into an array of pairs.
+--- array.chunk -- split an array into chunks of a given size.
+--- array.compact -- remove null values from an array.
+--- array.pluck -- extract a named key from each object in an array.
 ---
 --- ## btree_map module (reserved)
---- btree_map — ordered key/value dictionary backed by a B-tree (reserved for future implementation).
+--- btree_map -- ordered key/value dictionary backed by a B-tree (reserved for future implementation).
 ---
 --- ## btree_set module (reserved)
---- btree_set — ordered set of unique values (reserved for future implementation).
+--- btree_set -- ordered set of unique values (reserved for future implementation).
 ---
 --- ## priority_queue module (reserved)
---- priority_queue — priority queue / heap (reserved for future implementation).
+--- priority_queue -- priority queue / heap (reserved for future implementation).
 ---
 --- ## bit_set module (reserved)
---- bit_set — compact set of non-negative integers stored as bits (reserved for future implementation).
+--- bit_set -- compact set of non-negative integers stored as bits (reserved for future implementation).
 cap "vec.new"
 cap "vec.from"
 cap "vec.to_array"

@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Return `xs` without its first `n` elements.
 ---
 --- Returns `null` if `n` is negative.
@@ -6,19 +8,17 @@
 --- `array.drop([1, 2, 3, 4], 2)`
 --- -- => [3, 4]
 ---
-from "./reverse.hnl" import reverse
-
 export drop<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
   if n < 0 {
     null
   } else {
     do {
-      out :: []
-      k :: 0
+      out := []
+      k := 0
       for x in xs {
         do {
-          if k >= n { out = [x, ...out] }
-          k = k + 1
+          if k >= n { out := [x, ...out] }
+          k := k + 1
         }
       }
       reverse(out)

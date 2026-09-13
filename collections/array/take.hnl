@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Return the first `n` elements of `xs`.
 ---
 --- Returns `null` if `n` is negative.
@@ -6,18 +8,16 @@
 --- `array.take([1, 2, 3, 4], 2)`
 --- -- => [1, 2]
 ---
-from "./reverse.hnl" import reverse
-
 export take<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
   if n < 0 {
     null
   } else {
     do {
-      out :: []
-      k :: 0
+      out := []
+      k := 0
       for x in xs {
-        if k < n { out = [x, ...out] };
-        k = k + 1
+        if k < n { out := [x, ...out] };
+        k := k + 1
       }
       reverse(out)
     }

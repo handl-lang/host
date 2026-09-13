@@ -1,4 +1,4 @@
---- queue — pure-handl implementation of the `queue` container ops.
+--- queue -- pure-handl implementation of the `queue` container ops.
 ---
 --- A FIFO queue is a plain array; `enqueue` appends to the back and
 --- `dequeue`/`peek` operate on the front. `dequeue`/`peek` raise
@@ -7,9 +7,9 @@
 --- `to_array` stay native (see `ops/collections/seq.rs`): `new` is
 --- nullary and `from` is a reserved word (cannot be a record field).
 do {
-  len_ :: xs ~> {
+  len_ := xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -22,7 +22,7 @@ do {
       []: true,
       [h, ...t]: false
     },
-    enqueue: [c, v] ~> [...c, v],
+    enqueue: [c, v]~> [...c, v],
     dequeue: c ~> match c {
       []: error.raise("collection is empty"),
       [h, ...t]: t
