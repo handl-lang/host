@@ -1,36 +1,72 @@
 --- Deterministic, pure-Handl backend for random values.
 ---
+--- @details
 --- Returns fixed, reproducible values so tests and benchmarks stay
---- deterministic. This is a no-effect backend; it does not call `libc`.
+--- deterministic. This is a no-effect backend; it does not call any
+--- FFI library.
 
---- Always returns 4.
---- @param {max} - ignored; present for contract compatibility
---- @returns {Number - always 4}
---- @example
---- ```hnl
---- from "rand-stub" import { int }
---- int(6)
---- -- 4
---- ```
-export int := (_max) ~> 4
+do {
+  -- Internal list helpers
 
---- Always returns 0.5.
---- @param {max} - ignored; present for contract compatibility
---- @returns {Number - always 0.5}
---- @example
---- ```hnl
---- from "rand-stub" import { float }
---- float(10)
---- -- 0.5
---- ```
-export float := (_max) ~> 0.5
+  arr_len :: (xs) ~> do {
+    while { xs: xs, n: 0 } {
+      [xs, n] ~> match xs {
+        []: { out: n },
+        [_, ...t]: { state: { xs: t, n: n + 1 } }
+      }
+    }
+  }
 
---- Always returns `true`.
---- @returns {Bool - always `true`}
---- @example
---- ```hnl
---- from "rand-stub" import { bool }
---- bool()
---- -- true
---- ```
-export bool := () ~> true
+  arr_rev :: (xs) ~> do {
+    while { xs: xs, acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+      }
+    }
+  }
+
+  arr_take :: (xs, n) ~> do {
+    while { xs: xs, n: n, acc: [] } {
+      [xs, n, acc] ~> if n <= 0 {
+        { out: arr_rev(acc) }
+      } else {
+        match xs {
+          []: { out: arr_rev(acc) },
+          [h, ...t]: { state: { xs: t, n: n - 1, acc: [h, ...acc] } }
+        }
+      }
+    }
+  }
+
+  {
+    -- Always returns 4.
+    int: (_max) ~> 4,
+
+    -- Always returns 0.5.
+    float: (_max) ~> 0.5,
+
+    -- Always returns `true`.
+    bool: () ~> true,
+
+    -- Always returns the first element.
+    pick: (xs) ~> xs[0],
+
+    -- Cycles through `count` elements, wrapping around the input.
+    choice: (xs, count) ~> do {
+      while { n: count, acc: [] } {
+        [n, acc] ~> if n <= 0 {
+          { out: arr_rev(acc) }
+        } else {
+          { state: { n: n - 1, acc: [xs[math.mod(n - 1, arr_len(xs))], ...acc] } }
+        }
+      }
+    },
+
+    -- Always returns the first `count` elements.
+    sample: (xs, count) ~> arr_take(xs, count),
+
+    -- Always returns the reverse as a deterministic permutation.
+    shuffle: (xs) ~> arr_rev(xs)
+  }
+}

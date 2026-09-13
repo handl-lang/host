@@ -1,15 +1,15 @@
-//! # rand_c.rs — libc-backed and stub `rand` backend smoke tests.
+//! # rand_c.rs — libsodium-backed and stub `rand` backend smoke tests.
 //!
 //! `rand-c` loads directly from `handl-packages/rand-c` and uses
-//! `ffi.call` to `libc.so.6` `rand`. `rand-stub` is the deterministic,
-//! no-effect backend.
+//! `ffi.call` to `libsodium.so` `randombytes_random`. `rand-stub` is the
+//! deterministic, no-effect backend.
 
 use handl_kit_canonical::Kit;
 
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, choice, sample, shuffle }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,14 +18,14 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, choice, sample, shuffle }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
 }
 
 // ---------------------------------------------------------------------------
-// rand-c.* — libc-backed random values (loaded from file)
+// rand-c.* — libsodium-backed random values (loaded from file)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -48,6 +48,44 @@ fn rand_c_bool_is_boolean() {
     assert!(v.is_boolean(), "rand-c bool must be a boolean");
 }
 
+#[test]
+fn rand_c_pick_is_from_input() {
+    let v = eval_rand_c("pick([\"a\", \"b\", \"c\"])");
+    assert!(
+        ["a", "b", "c"].iter().any(|s| *s == v.as_str().unwrap_or("")),
+        "rand-c pick must be an element: {v}"
+    );
+}
+
+#[test]
+fn rand_c_choice_length() {
+    let v = eval_rand_c("choice([\"a\", \"b\"], 4)");
+    let arr = v.as_array().expect("choice returns an array");
+    assert_eq!(arr.len(), 4, "rand-c choice length must match count");
+}
+
+#[test]
+fn rand_c_sample_is_subset() {
+    let v = eval_rand_c("sample([\"a\", \"b\", \"c\"], 2)");
+    let arr = v.as_array().expect("sample returns an array");
+    assert_eq!(arr.len(), 2, "rand-c sample length must match count");
+    for item in arr {
+        let s = item.as_str().unwrap_or("");
+        assert!(["a", "b", "c"].contains(&s), "rand-c sample must be from input: {item}");
+    }
+}
+
+#[test]
+fn rand_c_shuffle_is_permutation() {
+    let v = eval_rand_c("shuffle([\"a\", \"b\", \"c\"])");
+    let arr = v.as_array().expect("shuffle returns an array");
+    assert_eq!(arr.len(), 3, "rand-c shuffle length must match input");
+    for item in arr {
+        let s = item.as_str().unwrap_or("");
+        assert!(["a", "b", "c"].contains(&s), "rand-c shuffle must be a permutation: {item}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // rand-stub.* — deterministic, no-effect backend
 // ---------------------------------------------------------------------------
@@ -60,4 +98,16 @@ fn rand_stub_is_deterministic() {
     assert_eq!(i, 4.0, "rand-stub int is fixed");
     assert_eq!(f, 0.5, "rand-stub float is fixed");
     assert_eq!(b, serde_json::json!(true), "rand-stub bool is fixed");
+}
+
+#[test]
+fn rand_stub_pick_is_first() {
+    assert_eq!(eval_rand_stub("pick([\"x\", \"y\", \"z\"])"), serde_json::json!("x"));
+}
+
+#[test]
+fn rand_stub_choice_sample_shuffle_are_deterministic() {
+    assert_eq!(eval_rand_stub("choice([\"a\", \"b\"], 3)"), serde_json::json!(["a", "b", "a"]));
+    assert_eq!(eval_rand_stub("sample([\"a\", \"b\", \"c\"], 2)"), serde_json::json!(["a", "b"]));
+    assert_eq!(eval_rand_stub("shuffle([\"a\", \"b\", \"c\"])"), serde_json::json!(["c", "b", "a"]));
 }
