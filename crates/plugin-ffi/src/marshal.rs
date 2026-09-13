@@ -342,7 +342,8 @@ pub(crate) fn wrap_out_buf_return(raw_ret: &JsonValue, out_bufs: &[OutBuf]) -> J
 
 /// Parse an `out_struct:{field:desc,...}` descriptor and allocate its memory.
 ///
-/// Computes a simple aligned layout for integer-typed fields (`i32`, `i64`).
+/// Computes a simple aligned layout for integer-typed fields (`i8`, `i16`, `i32`,
+/// `i64`, `u8`, `u16`, `u32`, `u64`, `isize`, `usize`).
 /// Fields are placed in declaration order with alignment equal to their size.
 pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalError> {
     let inner = desc
@@ -379,8 +380,10 @@ pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalE
             .trim()
             .to_string();
         let size = match kind.as_str() {
-            "i32" => 4usize,
-            "i64" => 8usize,
+            "i8" | "u8" => 1usize,
+            "i16" | "u16" => 2usize,
+            "i32" | "u32" => 4usize,
+            "i64" | "u64" | "isize" | "usize" => 8usize,
             other => {
                 return Err(EvalError::TypeMismatch(format!(
                     "out_struct: unsupported field type {other}"
@@ -422,17 +425,55 @@ pub(crate) fn unmarshal_out_struct(out: &OutStruct) -> Result<JsonValue, EvalErr
             .get(*offset..offset + size)
             .ok_or_else(|| EvalError::Other("out_struct field out of bounds".to_string()))?;
         let value = match kind.as_str() {
+            "i8" => JsonValue::from(i8::from_ne_bytes([bytes[0]]) as i64),
+            "u8" => JsonValue::from(u8::from_ne_bytes([bytes[0]]) as i64),
+            "i16" => {
+                let raw = <[u8; 2]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct i16 field read failed".to_string())
+                })?;
+                JsonValue::from(i16::from_ne_bytes(raw) as i64)
+            }
+            "u16" => {
+                let raw = <[u8; 2]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct u16 field read failed".to_string())
+                })?;
+                JsonValue::from(u16::from_ne_bytes(raw) as i64)
+            }
             "i32" => {
                 let raw = <[u8; 4]>::try_from(bytes).map_err(|_| {
                     EvalError::Other("out_struct i32 field read failed".to_string())
                 })?;
                 JsonValue::from(i32::from_ne_bytes(raw) as i64)
             }
+            "u32" => {
+                let raw = <[u8; 4]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct u32 field read failed".to_string())
+                })?;
+                JsonValue::from(u32::from_ne_bytes(raw) as i64)
+            }
             "i64" => {
                 let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
                     EvalError::Other("out_struct i64 field read failed".to_string())
                 })?;
                 JsonValue::from(i64::from_ne_bytes(raw))
+            }
+            "u64" => {
+                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct u64 field read failed".to_string())
+                })?;
+                JsonValue::from(u64::from_ne_bytes(raw) as i64)
+            }
+            "isize" => {
+                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct isize field read failed".to_string())
+                })?;
+                JsonValue::from(isize::from_ne_bytes(raw) as i64)
+            }
+            "usize" => {
+                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
+                    EvalError::Other("out_struct usize field read failed".to_string())
+                })?;
+                JsonValue::from(usize::from_ne_bytes(raw) as i64)
             }
             other => {
                 return Err(EvalError::TypeMismatch(format!(

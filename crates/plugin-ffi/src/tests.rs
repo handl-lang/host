@@ -11,7 +11,10 @@ use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Value, json};
 
 use crate::FfiOpFunction;
-use crate::marshal::{CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, unmarshal_return};
+use crate::marshal::{
+    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, parse_out_struct_descriptor,
+    unmarshal_out_struct, unmarshal_return,
+};
 
 /// Call an [`FfiOpFunction`] with a fresh [`EvalContext`].
 fn call(func: &FfiOpFunction, args: &[Value]) -> Result<Value, EvalError> {
@@ -858,4 +861,36 @@ fn out_struct_clock_gettime_returns_record() {
         (0..1_000_000_000).contains(&tv_nsec),
         "tv_nsec should be in [0, 1e9), got {tv_nsec}"
     );
+}
+
+#[test]
+fn out_struct_descriptor_accepts_all_integer_field_types() {
+    let out = parse_out_struct_descriptor(
+        "out_struct:{a:i8,b:i16,c:i32,d:i64,e:u8,f:u16,g:u32,h:u64,i:isize,j:usize}",
+    )
+    .expect("parse out_struct");
+    assert_eq!(out.fields.len(), 10);
+    let kinds: Vec<&str> = out.fields.iter().map(|(_, k, _, _)| k.as_str()).collect();
+    assert_eq!(
+        kinds,
+        vec!["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"]
+    );
+    let sizes: Vec<usize> = out.fields.iter().map(|(_, _, _, s)| *s).collect();
+    assert_eq!(sizes, vec![1, 2, 4, 8, 1, 2, 4, 8, 8, 8]);
+}
+
+#[test]
+fn out_struct_unmarshal_u32_i16_fields() {
+    let mut out = parse_out_struct_descriptor("out_struct:{x:u32,y:i16}")
+        .expect("parse out_struct");
+    out.buf = vec![0u8; out.buf.len()];
+    out.buf[0..4].copy_from_slice(&0xDEADBEEFu32.to_ne_bytes());
+    out.buf[4..6].copy_from_slice(&(-12345i16).to_ne_bytes());
+    let rec = unmarshal_out_struct(&out).expect("unmarshal");
+    let obj = rec.as_object().expect("record");
+    assert_eq!(
+        obj.get("x").and_then(|v| v.as_i64()),
+        Some(0xDEADBEEFu32 as i64)
+    );
+    assert_eq!(obj.get("y").and_then(|v| v.as_i64()), Some(-12345));
 }
