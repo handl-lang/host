@@ -1,0 +1,4 @@
+from "../str-handl" import * as str
+from "../transform" import { reduce }
+
+test_split := assert reduce([str.split("abc", ""), "", [acc, c]~> if true { acc + c } else { acc }]) = "abc"

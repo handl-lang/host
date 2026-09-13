@@ -1,0 +1,10 @@
+from "../transform" import { reduce }
+from "../str-handl" import * as str
+
+test_reduce_string := assert reduce([["a", "b", "c"], "", [acc, c]~> do {
+  result := acc
+  if result == "" && str.starts_with("abc", acc + c) {
+    result := acc + c
+  }
+  result
+}]) = "abc"
