@@ -1,10 +1,35 @@
 --- array -- the pure-handl `array` package.
 ---
---- Aggregated in parts to keep each `do` block small.
 --- Import as `from "../collections/array" import * as array`.
 
-from "./part1" import * as p1
-from "./part2" import * as p2
-from "./part3" import * as p3
-from "./part4" import * as p4
-{ ...p1, ...p2, ...p3, ...p4 }
+from "./at" export at
+from "./chunk" export chunk
+from "./compact" export compact
+from "./concat" export concat
+from "./contains" export contains
+from "./dedupe" export dedupe
+from "./deep_flatten" export deep_flatten
+from "./drop" export drop
+from "./enumerate" export enumerate
+from "./fill" export fill
+from "./first" export first
+from "./flatten" export flatten
+from "./index_of" export index_of
+from "./insert_at" export insert_at
+from "./intercalate" export intercalate
+from "./intersperse" export intersperse
+from "./is_empty" export is_empty
+from "./last" export last
+from "./len" export len
+from "./pluck" export pluck
+from "./pop" export pop
+from "./prepend" export prepend
+from "./remove_at" export remove_at
+from "./reverse" export reverse
+from "./shift" export shift
+from "./slice" export slice
+from "./take" export take
+from "./transpose" export transpose
+from "./unzip" export unzip
+from "./windows" export windows
+from "./zip" export zip
