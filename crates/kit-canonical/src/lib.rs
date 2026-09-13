@@ -44,7 +44,7 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_tag::TypeRegistry;
-use handl_plugin_ffi::FfiModule;
+use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno};
 use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::vm_primitives::SymModule;
@@ -230,7 +230,7 @@ impl ModuleResolver for StdlibResolver {
             "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
             "transform" => Some(std::sync::Arc::new(TransformModule::new())),
             "comb" => Some(std::sync::Arc::new(CombModule::new())),
-            "ffi" => Some(std::sync::Arc::new(FfiModule)),
+            "ffi" => Some(std::sync::Arc::new(build_ffi_module())),
             "fn" | "combinators" => stdlib::module("combinators").map(|m| {
                 std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
             }),
@@ -472,8 +472,8 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         if want("obj") {
             stdlib_registry.register(stdlib::module("obj").expect("obj"));
         }
-        // `ffi` — foreign-function interface host module (`ffi.bind`/`ffi.call`).
-        stdlib_registry.register(FfiModule);
+        // `ffi` — partial `ffi.hnl` package with native `call`/`bind`/`errno` ops.
+        stdlib_registry.register(build_ffi_module());
         // `entropy` — the libsodium-backed `next_u32` surface that `rand-c`
         // is built on. Built with the stdlib resolver so `ffi`/`math` resolve.
         if want("entropy") {
@@ -684,6 +684,12 @@ const TYPE_HANDL_FUNCS: &[&str] = &[
     "identity",
     "default",
     "to_bool",
+    "Number",
+    "Obj",
+    "String",
+    "Array",
+    "Bool",
+    "Value",
 ];
 
 /// The `type` op names that remain native — each maps to a Rust
@@ -775,6 +781,42 @@ fn build_type_module() -> HandlModule {
     HandlModule::new("type", TYPE_HANDL_HNL, TYPE_HANDL_FUNCS)
         .with_dependency(type_ops_module())
         .with_ops(TYPE_OPS, std::sync::Arc::new(type_op_registry()))
+}
+
+// ---------------------------------------------------------------------------
+// grade — grade values used by the `ffi` and `os` packages
+// ---------------------------------------------------------------------------
+
+const GRADE_HNL: &str = include_str!("../../../handl-packages/grade/index.hnl");
+const GRADE_FUNCS: &[&str] = &["Grade", "Effect"];
+
+fn build_grade_module() -> HandlModule {
+    HandlModule::new("grade", GRADE_HNL, GRADE_FUNCS)
+}
+
+// ---------------------------------------------------------------------------
+// ffi — foreign-function interface package (`ffi.hnl` + native ops)
+// ---------------------------------------------------------------------------
+
+const FFI_HNL: &str = include_str!("../../../handl-packages/ffi/ffi.hnl");
+const FFI_FUNCS: &[&str] = &["FFI", "Errno", "Handle", "call", "bind", "errno"];
+const FFI_OPS: &[&str] = &["ffi.call", "ffi.bind", "ffi.errno"];
+
+fn ffi_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("ffi.call", std::sync::Arc::new(FfiCall));
+    registry.register("ffi.bind", std::sync::Arc::new(FfiBind));
+    registry.register("ffi.errno", std::sync::Arc::new(FfiErrno));
+    registry
+}
+
+/// Build the partial [`HandlModule`] for `ffi`: the authored `ffi.hnl`
+/// surface with `call`, `bind`, and `errno` injected as native ops.
+fn build_ffi_module() -> HandlModule {
+    HandlModule::new("ffi", FFI_HNL, FFI_FUNCS)
+        .with_dependency(build_grade_module())
+        .with_dependency(build_type_module())
+        .with_ops(FFI_OPS, std::sync::Arc::new(ffi_op_registry()))
 }
 
 // ---------------------------------------------------------------------------

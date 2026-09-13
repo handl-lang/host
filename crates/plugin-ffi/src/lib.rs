@@ -464,10 +464,26 @@ impl Function for FfiBind {
     }
 }
 
+/// `ffi.errno() -> Number`
+///
+/// Return the current C `errno` value for this thread. This must be called
+/// immediately after the failing C call whose error is being checked.
+pub struct FfiErrno;
+
+impl Function for FfiErrno {
+    fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if !args.is_empty() {
+            return Err(EvalError::TypeMismatch("ffi.errno()".to_string()));
+        }
+        Ok(json!(last_errno()))
+    }
+}
+
 static FFI_BIND: FfiBind = FfiBind;
 static FFI_CALL: FfiCall = FfiCall;
+static FFI_ERRNO: FfiErrno = FfiErrno;
 
-/// The host `ffi` module, exposing `ffi.bind` and `ffi.call`.
+/// The host `ffi` module, exposing `ffi.bind`, `ffi.call`, and `ffi.errno`.
 #[derive(Clone, Copy)]
 pub struct FfiModule;
 
@@ -480,11 +496,16 @@ impl Module for FfiModule {
         match name {
             "bind" => Some(&FFI_BIND),
             "call" => Some(&FFI_CALL),
+            "errno" => Some(&FFI_ERRNO),
             _ => None,
         }
     }
 
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
-        vec![("bind", &FFI_BIND as &dyn Function), ("call", &FFI_CALL as &dyn Function)]
+        vec![
+            ("bind", &FFI_BIND as &dyn Function),
+            ("call", &FFI_CALL as &dyn Function),
+            ("errno", &FFI_ERRNO as &dyn Function),
+        ]
     }
 }
