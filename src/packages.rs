@@ -130,10 +130,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "option",
-        hnl: include_str!("../../../handl-packages/utils/option.hnl"),
-        funcs: &[],
-        ops: ops::option::OPTION_OPS,
-        registry: Some(ops::option::option_op_registry),
+        hnl: include_str!("../../../handl-packages/option/index.hnl"),
+        funcs: &["some", "none"],
+        ops: &[],
+        registry: None,
     },
     ModuleSpec {
         name: "mood",
@@ -428,7 +428,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // (e.g. kit-canonical's `StdlibResolver`).
     ModuleSpec {
         name: "result",
-        hnl: include_str!("../../../handl-packages/result/result.hnl"),
+        hnl: include_str!("../../../handl-packages/result/index.hnl"),
         funcs: &["ok", "err"],
         ops: &[],
         registry: None,
@@ -636,7 +636,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "result",
         plugin_id: "lib.result",
         plugin_name: "lib-result",
-        hnl: include_str!("../../../handl-packages/result/result.hnl"),
+        hnl: include_str!("../../../handl-packages/result/index.hnl"),
         modules: &[],
     },
     PackageSpec {
