@@ -18,7 +18,7 @@ do {
 
   format_uuid = (bs) ~> do {
     while { i: 0, hex: "" } {
-      [i, hex] ~> if i >= 16 {
+      [i, hex]~> if i >= 16 {
         { out: hex }
       } else {
         b = if i == 6 {

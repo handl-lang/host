@@ -1,4 +1,4 @@
---- kv — key-value store abstraction for the handl runtime.
+--- kv -- key-value store abstraction for the handl runtime.
 ---
 --- This is a trait-abstraction library: the KeyValueStore trait lives in
 --- Rust (plugin-lib-kv) and is implemented by concrete backend crates
@@ -8,12 +8,12 @@
 --- capability surface for the plugin system.
 ---
 --- ## Capability declarations (ADR-0077 Phase 1)
---- kv.get — retrieve a value by key.
---- kv.set — set a key-value pair.
---- kv.remove — remove a key.
---- kv.clear — clear all entries.
---- kv.has — check if a key exists.
---- kv.size — return the number of entries.
+--- kv.get -- retrieve a value by key.
+--- kv.set -- set a key-value pair.
+--- kv.remove -- remove a key.
+--- kv.clear -- clear all entries.
+--- kv.has -- check if a key exists.
+--- kv.size -- return the number of entries.
 cap "kv.get"
 cap "kv.set"
 cap "kv.remove"

@@ -1,4 +1,4 @@
---- typeof — type coercion, predicates, and utility functions for the handl runtime.
+--- typeof -- type coercion, predicates, and utility functions for the handl runtime.
 ---
 --- Single source of truth for the `typeof` stdlib interface: 13 functions
 --- and 12 type-tag constants covering coercion, type predicates, and
@@ -19,31 +19,31 @@
 --- impls in `ops.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- typeof.string — the type.string tag constant.
---- typeof.str — the type.str tag constant.
---- typeof.number — the type.number tag constant.
---- typeof.num — the type.num tag constant.
---- typeof.bool — the type.bool tag constant.
---- typeof.null — the type.null tag constant.
---- typeof.array — the type.array tag constant.
---- typeof.arr — the type.arr tag constant.
---- typeof.object — the type.object tag constant.
---- typeof.obj — the type.obj tag constant.
---- typeof.any — the type.any tag constant.
---- typeof.unknown — the type.unknown tag constant.
---- typeof.is — test whether a value matches a kind.
---- typeof.must — strict projection: wrap the result in an ok/err record.
---- typeof.may — potential extraction: extract the matching component or null.
---- typeof.not — complement: extract the non-matching component or null.
---- typeof.when — conditional: extract the matching component or return a default.
---- typeof.to_string — coerce a value to a string.
---- typeof.to_number — coerce a value to a number.
---- typeof.to_bool — coerce a value to a boolean.
---- typeof.type_of — get the type name of a value.
---- typeof.typeof — alias for type_of.
---- typeof.identity — return the value unchanged.
---- typeof.default — return the value if non-null, otherwise a fallback.
---- typeof.coalesce — return the first non-null value from a list of arguments.
+--- typeof.string -- the type.string tag constant.
+--- typeof.str -- the type.str tag constant.
+--- typeof.number -- the type.number tag constant.
+--- typeof.num -- the type.num tag constant.
+--- typeof.bool -- the type.bool tag constant.
+--- typeof.null -- the type.null tag constant.
+--- typeof.array -- the type.array tag constant.
+--- typeof.arr -- the type.arr tag constant.
+--- typeof.object -- the type.object tag constant.
+--- typeof.obj -- the type.obj tag constant.
+--- typeof.any -- the type.any tag constant.
+--- typeof.unknown -- the type.unknown tag constant.
+--- typeof.is -- test whether a value matches a kind.
+--- typeof.must -- strict projection: wrap the result in an ok/err record.
+--- typeof.may -- potential extraction: extract the matching component or null.
+--- typeof.not -- complement: extract the non-matching component or null.
+--- typeof.when -- conditional: extract the matching component or return a default.
+--- typeof.to_string -- coerce a value to a string.
+--- typeof.to_number -- coerce a value to a number.
+--- typeof.to_bool -- coerce a value to a boolean.
+--- typeof.type_of -- get the type name of a value.
+--- typeof.typeof -- alias for type_of.
+--- typeof.identity -- return the value unchanged.
+--- typeof.default -- return the value if non-null, otherwise a fallback.
+--- typeof.coalesce -- return the first non-null value from a list of arguments.
 cap "typeof.string"
 cap "typeof.str"
 cap "typeof.number"

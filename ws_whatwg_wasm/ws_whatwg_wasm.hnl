@@ -1,15 +1,15 @@
---- ws_whatwg_wasm — WASM WHATWG-style WebSocket client (browser WebSocket backend).
+--- ws_whatwg_wasm -- WASM WHATWG-style WebSocket client (browser WebSocket backend).
 ---
 --- This is the WASM implementation of the WHATWG WebSocket API,
 --- backed by the browser's native WebSocket API via wasm-bindgen.
 --- On non-wasm targets, a stub module with no functions is provided.
 ---
 --- ## connection API
---- ws_whatwg_wasm.ws_whatwg_wasm — return the module name and type.
---- ws_whatwg_wasm.connect — connect to a WebSocket URL, returning a connection handle.
---- ws_whatwg_wasm.send — send a message on a connection.
---- ws_whatwg_wasm.recv — receive the next message on a connection, or null if empty.
---- ws_whatwg_wasm.close — close a connection.
+--- ws_whatwg_wasm.ws_whatwg_wasm -- return the module name and type.
+--- ws_whatwg_wasm.connect -- connect to a WebSocket URL, returning a connection handle.
+--- ws_whatwg_wasm.send -- send a message on a connection.
+--- ws_whatwg_wasm.recv -- receive the next message on a connection, or null if empty.
+--- ws_whatwg_wasm.close -- close a connection.
 cap "ws_whatwg_wasm.ws_whatwg_wasm"
 cap "ws_whatwg_wasm.connect"
 cap "ws_whatwg_wasm.send"

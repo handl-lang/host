@@ -1,4 +1,4 @@
---- encoding — generic encoding to/from string forms for the handl runtime.
+--- encoding -- generic encoding to/from string forms for the handl runtime.
 ---
 --- Single source of truth for the `encoding` stdlib interface: 2 functions
 --- covering encoding of a `serde_json::Value` to a string form (e.g. base64,
@@ -16,8 +16,8 @@
 --- logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- encoding.encode — encode a value into a string form using a named codec.
---- encoding.decode — decode a value into a value using a named codec.
+--- encoding.encode -- encode a value into a string form using a named codec.
+--- encoding.decode -- decode a value into a value using a named codec.
 cap "encoding.encode"
 cap "encoding.decode"
 op "encoding.encode" : (Value * Value) -> String

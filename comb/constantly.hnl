@@ -3,7 +3,7 @@
 --- @details
 --- `constantly` lifts a plain value into arrow position, which is
 --- useful wherever the comb API expects a function but the result
---- should not depend on the input — e.g. a default branch for
+--- should not depend on the input -- e.g. a default branch for
 --- `comb.choice`, or a constant member of `comb.fanout`.
 ---
 --- @example

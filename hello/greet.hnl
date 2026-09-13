@@ -1,4 +1,4 @@
---- hello.greet — the canonical handl greeting.
+--- hello.greet -- the canonical handl greeting.
 ---
 --- Single source of truth for the `hello.greet(name)` logic. The Rust bridge
 --- in `kit-canonical` (and `plugin-lib-hello`) loads this file via
@@ -6,6 +6,6 @@
 --- to the caller's argument. Handl's `+` operator natively concatenates
 --- strings (`prim.add` / `bin_add`), so no module registry is required.
 ---
---- Contract: IsGreeting(output) — output matches "Hello, <input>!"
+--- Contract: IsGreeting(output) -- output matches "Hello, <input>!"
 cap "hello.greet"
 name ~> "Hello, " + name + "!"

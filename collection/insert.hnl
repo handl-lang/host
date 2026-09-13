@@ -1,14 +1,14 @@
 --- insert: insert an element into a sorted list, maintaining sorted order.
 ---
 --- Written as an arrow graph over prim.compare + list primitives.
---- Contract: Sorted(output) — INFERRED by the refinement engine.
+--- Contract: Sorted(output) -- INFERRED by the refinement engine.
 ---
 --- Graph structure:
 ---   loop (compare_step >>> (cons_before ||| cons_after_and_recurse))
 ---
 --- The loop feeds (element, list) through the body:
 ---   - compare element with head of list
----   - if element ≤ head: cons element before head → done
+---   - if element ≤ head: cons element before head -> done
 ---   - if element > head:  cons head, recurse on tail
 
 export insert

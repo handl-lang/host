@@ -1,49 +1,49 @@
---- datetime.from_unix — convert a Unix timestamp (seconds since epoch) to an ISO 8601 datetime string.
---- datetime.to_unix — convert an ISO 8601 datetime string to a Unix timestamp.
---- datetime.from_components — construct a datetime from year, month, day, hour, minute, second components.
---- datetime.format — format a datetime string using a format specifier.
---- datetime.parse — parse a datetime string using a format specifier.
---- datetime.to_timezone — convert a datetime to a given timezone offset.
---- datetime.to_utc — convert a datetime to UTC.
---- datetime.year — extract the year component of a datetime.
---- datetime.month — extract the month component (1-12) of a datetime.
---- datetime.day — extract the day component (1-31) of a datetime.
---- datetime.hour — extract the hour component (0-23) of a datetime.
---- datetime.minute — extract the minute component (0-59) of a datetime.
---- datetime.second — extract the second component (0-59) of a datetime.
---- datetime.weekday — return the weekday as a number (1=Monday, 7=Sunday).
---- datetime.day_of_year — return the day of year (1-366) of a datetime.
---- datetime.week_of_year — return the ISO week number (1-53) of a datetime.
---- datetime.quarter — return the quarter (1-4) of a datetime.
---- datetime.is_leap_year — test whether the year of a datetime is a leap year.
---- datetime.is_weekend — test whether a datetime falls on a weekend.
---- datetime.add_seconds — add a number of seconds to a datetime.
---- datetime.add_minutes — add a number of minutes to a datetime.
---- datetime.add_hours — add a number of hours to a datetime.
---- datetime.add_days — add a number of days to a datetime.
---- datetime.add_weeks — add a number of weeks to a datetime.
---- datetime.add_months — add a number of months to a datetime.
---- datetime.add_years — add a number of years to a datetime.
---- datetime.compare — compare two datetimes, returning -1, 0, or 1.
---- datetime.is_before — test whether the first datetime is before the second.
---- datetime.is_after — test whether the first datetime is after the second.
---- datetime.is_equal — test whether two datetimes are equal.
---- datetime.is_between — test whether a datetime is strictly between two bounds.
---- datetime.is_between_inclusive — test whether a datetime is between two bounds (inclusive).
---- datetime.duration_between — compute the duration in seconds between two datetimes.
---- datetime.duration_seconds — compute the duration in seconds between two datetimes.
---- datetime.duration_minutes — compute the duration in minutes between two datetimes.
---- datetime.duration_hours — compute the duration in hours between two datetimes.
---- datetime.duration_days — compute the duration in days between two datetimes.
---- datetime.start_of_day — return the start of the day (00:00:00) for a datetime.
---- datetime.end_of_day — return the end of the day (23:59:59) for a datetime.
---- datetime.start_of_hour — return the start of the hour for a datetime.
---- datetime.end_of_hour — return the end of the hour for a datetime.
---- datetime.start_of_month — return the start of the month for a datetime.
---- datetime.end_of_month — return the end of the month for a datetime.
---- datetime.start_of_year — return the start of the year for a datetime.
---- datetime.end_of_year — return the end of the year for a datetime.
---- datetime.is_valid — test whether a datetime string is a valid ISO 8601 datetime.
+--- datetime.from_unix -- convert a Unix timestamp (seconds since epoch) to an ISO 8601 datetime string.
+--- datetime.to_unix -- convert an ISO 8601 datetime string to a Unix timestamp.
+--- datetime.from_components -- construct a datetime from year, month, day, hour, minute, second components.
+--- datetime.format -- format a datetime string using a format specifier.
+--- datetime.parse -- parse a datetime string using a format specifier.
+--- datetime.to_timezone -- convert a datetime to a given timezone offset.
+--- datetime.to_utc -- convert a datetime to UTC.
+--- datetime.year -- extract the year component of a datetime.
+--- datetime.month -- extract the month component (1-12) of a datetime.
+--- datetime.day -- extract the day component (1-31) of a datetime.
+--- datetime.hour -- extract the hour component (0-23) of a datetime.
+--- datetime.minute -- extract the minute component (0-59) of a datetime.
+--- datetime.second -- extract the second component (0-59) of a datetime.
+--- datetime.weekday -- return the weekday as a number (1=Monday, 7=Sunday).
+--- datetime.day_of_year -- return the day of year (1-366) of a datetime.
+--- datetime.week_of_year -- return the ISO week number (1-53) of a datetime.
+--- datetime.quarter -- return the quarter (1-4) of a datetime.
+--- datetime.is_leap_year -- test whether the year of a datetime is a leap year.
+--- datetime.is_weekend -- test whether a datetime falls on a weekend.
+--- datetime.add_seconds -- add a number of seconds to a datetime.
+--- datetime.add_minutes -- add a number of minutes to a datetime.
+--- datetime.add_hours -- add a number of hours to a datetime.
+--- datetime.add_days -- add a number of days to a datetime.
+--- datetime.add_weeks -- add a number of weeks to a datetime.
+--- datetime.add_months -- add a number of months to a datetime.
+--- datetime.add_years -- add a number of years to a datetime.
+--- datetime.compare -- compare two datetimes, returning -1, 0, or 1.
+--- datetime.is_before -- test whether the first datetime is before the second.
+--- datetime.is_after -- test whether the first datetime is after the second.
+--- datetime.is_equal -- test whether two datetimes are equal.
+--- datetime.is_between -- test whether a datetime is strictly between two bounds.
+--- datetime.is_between_inclusive -- test whether a datetime is between two bounds (inclusive).
+--- datetime.duration_between -- compute the duration in seconds between two datetimes.
+--- datetime.duration_seconds -- compute the duration in seconds between two datetimes.
+--- datetime.duration_minutes -- compute the duration in minutes between two datetimes.
+--- datetime.duration_hours -- compute the duration in hours between two datetimes.
+--- datetime.duration_days -- compute the duration in days between two datetimes.
+--- datetime.start_of_day -- return the start of the day (00:00:00) for a datetime.
+--- datetime.end_of_day -- return the end of the day (23:59:59) for a datetime.
+--- datetime.start_of_hour -- return the start of the hour for a datetime.
+--- datetime.end_of_hour -- return the end of the hour for a datetime.
+--- datetime.start_of_month -- return the start of the month for a datetime.
+--- datetime.end_of_month -- return the end of the month for a datetime.
+--- datetime.start_of_year -- return the start of the year for a datetime.
+--- datetime.end_of_year -- return the end of the year for a datetime.
+--- datetime.is_valid -- test whether a datetime string is a valid ISO 8601 datetime.
 cap "datetime.from_unix"
 cap "datetime.to_unix"
 cap "datetime.from_components"

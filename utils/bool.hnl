@@ -1,4 +1,4 @@
---- bool — boolean utility functions for the handl runtime.
+--- bool -- boolean utility functions for the handl runtime.
 ---
 --- Single source of truth for the `bool` stdlib logic: `and`, `or`, `not`,
 --- `xor`, `nand`, `nor`, `implies`, `eq`. The Rust bridge in
@@ -14,14 +14,14 @@
 --- non-generic `Module`/`Function` traits).
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- bool.and — logical conjunction of two booleans.
---- bool.or — logical disjunction of two booleans.
---- bool.not — logical negation of a boolean.
---- bool.xor — exclusive-or of two booleans.
---- bool.nand — negated conjunction (not-and) of two booleans.
---- bool.nor — negated disjunction (not-or) of two booleans.
---- bool.implies — logical implication (a implies b).
---- bool.eq — test whether two booleans are equal.
+--- bool.and -- logical conjunction of two booleans.
+--- bool.or -- logical disjunction of two booleans.
+--- bool.not -- logical negation of a boolean.
+--- bool.xor -- exclusive-or of two booleans.
+--- bool.nand -- negated conjunction (not-and) of two booleans.
+--- bool.nor -- negated disjunction (not-or) of two booleans.
+--- bool.implies -- logical implication (a implies b).
+--- bool.eq -- test whether two booleans are equal.
 cap "bool.and"
 cap "bool.or"
 cap "bool.not"

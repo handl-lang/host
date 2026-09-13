@@ -1,4 +1,4 @@
---- str — string utility functions for the handl runtime.
+--- str -- string utility functions for the handl runtime.
 ---
 --- Single source of truth for the `str` stdlib interface: 45 functions
 --- covering basic transforms, case conversion, search, and string
@@ -14,51 +14,51 @@
 --- `Function` impls in `ops.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- str.upper — convert a string to uppercase.
---- str.lower — convert a string to lowercase.
---- str.trim — strip leading and trailing whitespace.
---- str.trim_start — strip leading whitespace.
---- str.trim_end — strip trailing whitespace.
---- str.trim_matches — strip leading/trailing characters matching a set.
---- str.reverse — reverse the characters of a string.
---- str.length — count the characters in a string.
---- str.concat — concatenate two or more strings.
---- str.is_empty — test whether a string is empty.
---- str.equals — test whether two strings are equal.
---- str.is_alpha — test whether a string contains only alphabetic characters.
---- str.is_numeric — test whether a string contains only numeric characters.
---- str.is_alphanumeric — test whether a string contains only alphanumeric characters.
---- str.capitalize — capitalize the first character of a string.
---- str.title_case — capitalize the first character of each word.
---- str.snake_case — convert a string to snake_case.
---- str.camel_case — convert a string to camelCase.
---- str.pascal_case — convert a string to PascalCase.
---- str.kebab_case — convert a string to kebab-case.
---- str.contains — test whether a string contains a substring.
---- str.starts_with — test whether a string starts with a prefix.
---- str.ends_with — test whether a string ends with a suffix.
---- str.count — count non-overlapping occurrences of a substring.
---- str.find — find the char index of the first occurrence of a substring.
---- str.rfind — find the char index of the last occurrence of a substring.
---- str.levenshtein — compute the Levenshtein edit distance between two strings.
---- str.similarity — compute a normalized similarity ratio between two strings.
---- str.split — split a string by a separator into a list.
---- str.join — join a list of strings with a separator.
---- str.replace — replace all occurrences of a substring.
---- str.replace_first — replace the first occurrence of a substring.
---- str.repeat — repeat a string a given number of times.
---- str.char_at — get the character at a given index.
---- str.slice — extract a substring by char-index range.
---- str.pad_left — pad a string on the left to a target length.
---- str.pad_right — pad a string on the right to a target length.
---- str.strip_prefix — remove a leading prefix if present.
---- str.strip_suffix — remove a trailing suffix if present.
---- str.lines — split a string into a list of lines.
---- str.split_at — split a string at a char index into two parts.
---- str.split_whitespace — split a string on whitespace into a list.
---- str.truncate — truncate a string to a max length with an optional suffix.
---- str.slugify — convert a string to a URL-safe slug.
---- str.word_wrap — wrap text to a given line width.
+--- str.upper -- convert a string to uppercase.
+--- str.lower -- convert a string to lowercase.
+--- str.trim -- strip leading and trailing whitespace.
+--- str.trim_start -- strip leading whitespace.
+--- str.trim_end -- strip trailing whitespace.
+--- str.trim_matches -- strip leading/trailing characters matching a set.
+--- str.reverse -- reverse the characters of a string.
+--- str.length -- count the characters in a string.
+--- str.concat -- concatenate two or more strings.
+--- str.is_empty -- test whether a string is empty.
+--- str.equals -- test whether two strings are equal.
+--- str.is_alpha -- test whether a string contains only alphabetic characters.
+--- str.is_numeric -- test whether a string contains only numeric characters.
+--- str.is_alphanumeric -- test whether a string contains only alphanumeric characters.
+--- str.capitalize -- capitalize the first character of a string.
+--- str.title_case -- capitalize the first character of each word.
+--- str.snake_case -- convert a string to snake_case.
+--- str.camel_case -- convert a string to camelCase.
+--- str.pascal_case -- convert a string to PascalCase.
+--- str.kebab_case -- convert a string to kebab-case.
+--- str.contains -- test whether a string contains a substring.
+--- str.starts_with -- test whether a string starts with a prefix.
+--- str.ends_with -- test whether a string ends with a suffix.
+--- str.count -- count non-overlapping occurrences of a substring.
+--- str.find -- find the char index of the first occurrence of a substring.
+--- str.rfind -- find the char index of the last occurrence of a substring.
+--- str.levenshtein -- compute the Levenshtein edit distance between two strings.
+--- str.similarity -- compute a normalized similarity ratio between two strings.
+--- str.split -- split a string by a separator into a list.
+--- str.join -- join a list of strings with a separator.
+--- str.replace -- replace all occurrences of a substring.
+--- str.replace_first -- replace the first occurrence of a substring.
+--- str.repeat -- repeat a string a given number of times.
+--- str.char_at -- get the character at a given index.
+--- str.slice -- extract a substring by char-index range.
+--- str.pad_left -- pad a string on the left to a target length.
+--- str.pad_right -- pad a string on the right to a target length.
+--- str.strip_prefix -- remove a leading prefix if present.
+--- str.strip_suffix -- remove a trailing suffix if present.
+--- str.lines -- split a string into a list of lines.
+--- str.split_at -- split a string at a char index into two parts.
+--- str.split_whitespace -- split a string on whitespace into a list.
+--- str.truncate -- truncate a string to a max length with an optional suffix.
+--- str.slugify -- convert a string to a URL-safe slug.
+--- str.word_wrap -- wrap text to a given line width.
 cap "str.upper"
 cap "str.lower"
 cap "str.trim"

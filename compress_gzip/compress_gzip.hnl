@@ -1,5 +1,5 @@
---- gzip.compress — compress a string to a base64-encoded gzip string.
---- gzip.decompress — decompress a base64-encoded gzip string back to the original.
+--- gzip.compress -- compress a string to a base64-encoded gzip string.
+--- gzip.decompress -- decompress a base64-encoded gzip string back to the original.
 cap "gzip.compress"
 cap "gzip.decompress"
 op "gzip.compress" : String -> String

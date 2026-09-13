@@ -1,52 +1,52 @@
---- pred — the pure-handl predicate/filter combinator library.
+--- pred -- the pure-handl predicate/filter combinator library.
 ---
 --- Replaces the deleted `plugin-lib-predicate` Rust crate (ADR-0089
---- §"Filtering as a predicate model"). A predicate is a handl **arrow**
---- over a *record projection* of the item under test — for the test
+  --- ÃÂÃÂÃÂ(section)"Filtering as a predicate model"). A predicate is a handl **arrow**
+--- over a *record projection* of the item under test -- for the test
 --- runner, the projection is `{ name, path, tags }` (path is the module
---- file's display string; kind/status are reserved projection fields
---- that evaluate to `null` until `TestCase` carries them).
+  --- file's display string; kind/status are reserved projection fields
+  --- that evaluate to `null` until `TestCase` carries them).
 ---
 --- Combinator vocabulary (all pure handl):
 ---
----   always / never            — constant predicates (arrows `c ~> _`)
----   and(p, q) / or(p, q)      — boolean composition of case predicates
----   not(p)                    — negation
----   field(name, m)            — apply value-matcher `m` to `c.<name>`
----   exact(v)                  — value matcher: `x == v`
----   glob(pat)                 — value matcher: `match_glob(pat, x)`
----   contains(pat)             — value matcher: substring match
----   match_glob(pat, s)        — `*`/`?` glob over `char` lists
+---   always / never            -- constant predicates (arrows `c ~> _`)
+---   and(p, q) / or(p, q)      -- boolean composition of case predicates
+---   not(p)                    -- negation
+---   field(name, m)            -- apply value-matcher `m` to `c.<name>`
+---   exact(v)                  -- value matcher: `x == v`
+---   glob(pat)                 -- value matcher: `match_glob(pat, x)`
+---   contains(pat)             -- value matcher: substring match
+---   match_glob(pat, s)        -- `*`/`?` glob over `char` lists
 ---
 --- Host-facing entry points (the `plugin-engine-test` filter path):
 --- the CLI `--filter`/`--tag` surface compiles to a plain-data spec
 --- record `{ names: [patterns], tags: [exprs] }` built host-side;
 --- `build(spec)` turns the spec into the case predicate arrow and
---- `matches(spec, case)` applies it — both stay inside one evaluation
+--- `matches(spec, case)` applies it -- both stay inside one evaluation
 --- because arrow values cannot round-trip through the `HandlFunction`
 --- argument boundary (`__arrow__` keys are rejected in arg literals).
 ---
 --- Semantics notes (parity with the former Rust impl):
 ---   - `match_glob`: `*` = any char sequence, `?` = exactly one char,
 ---     everything else literal. `**` collapses to `*` (flat matching;
----     no path-segment awareness). No escape character.
+  ---     no path-segment awareness). No escape character.
 ---   - A name pattern containing `*` or `?` is a glob on `c.name`;
 ---     otherwise it is a substring match on `c.name`.
----   - A tag expression is `term ("," term)*` — commas OR, a leading
+---   - A tag expression is `term ("," term)*` -- commas OR, a leading
 ---     `!` negates, terms are trimmed, empty terms are dropped, and an
 ---     expression with no terms selects all. Multiple tag expressions
 ---     (repeated `--tag`) AND together.
 ---   - `and`/`or` here are binary (the Rust `Vec` n-ary forms were
----     internal flattening only; the public surface was binary).
+  ---     internal flattening only; the public surface was binary).
 ---
 --- Authoring constraints observed in this file (language quirks):
 ---   - a `::` binding cannot be immediately followed by a `while`
 ---     statement (the annotation swallows it), so loops after a binding
 ---     are written `name :: while ...` or wrapped in `do { while ... }`;
----   - `while` state records need >= 2 fields for the `[a, b] ~>` step
+---   - `while` state records need >= 2 fields for the `[a, b]~>` step
 ---     destructure to bind (a 1-field state fails to match);
 ---   - a `while`-step arrow body cannot be a bare `{ ... }` record
----     literal — start the body with `match`/`if`/`do`.
+---     literal -- start the body with `match`/`if`/`do`.
 
 from "char" import * as char
 
@@ -57,7 +57,7 @@ do {
 
   rev :: xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -65,9 +65,9 @@ do {
   }
 
   -- is `x` an element of `xs`?
-  member :: [xs, x] ~> {
+  member :: [xs, x]~> {
     while { xs: xs, x: x } {
-      [xs, x] ~> match xs {
+      [xs, x]~> match xs {
         []: { out: false },
         [h, ...t]: if h == x {
           { out: true }
@@ -79,9 +79,9 @@ do {
   }
 
   -- does char-list `xs` start with char-list `ps`?
-  prefix_match :: [xs, ps] ~> {
+  prefix_match :: [xs, ps]~> {
     while { xs: xs, ps: ps } {
-      [xs, ps] ~> match ps {
+      [xs, ps]~> match ps {
         []: { out: true },
         [ph, ...pt]: match xs {
           []: { out: false },
@@ -96,11 +96,11 @@ do {
   }
 
   -- substring search over char lists (Rust `str::contains` semantics;
-  -- an empty needle matches)
-  s_contains :: [s, pat] ~> {
+    -- an empty needle matches)
+  s_contains :: [s, pat]~> {
     do {
       while { xs: char.chars(s), ps: char.chars(pat) } {
-        [xs, ps] ~> if prefix_match(xs, ps) {
+        [xs, ps]~> if prefix_match(xs, ps) {
           { out: true }
         } else {
           match xs {
@@ -124,7 +124,7 @@ do {
   -- trim leading whitespace off a char list
   triml_cs :: cs ~> {
     while { xs: cs, go: true } {
-      [xs, go] ~> match xs {
+      [xs, go]~> match xs {
         []: { out: [] },
         [h, ...t]: if char.is_whitespace(h) {
           { state: { xs: t, go: go } }
@@ -141,10 +141,10 @@ do {
   }
 
   -- split a char list on a single separator char (Rust `str::split`
-  -- semantics: empty segments are kept)
-  split_cs :: [cs, sep] ~> {
+    -- semantics: empty segments are kept)
+  split_cs :: [cs, sep]~> {
     parts :: while { xs: cs, cur: [], acc: [] } {
-      [xs, cur, acc] ~> match xs {
+      [xs, cur, acc]~> match xs {
         []: { out: rev([rev(cur), ...acc]) },
         [h, ...t]: if h == sep {
           { state: { xs: t, cur: [], acc: [rev(cur), ...acc] } }
@@ -160,7 +160,7 @@ do {
   -- (Rust `str::replace("**", "*")`: non-overlapping, left-to-right)
   collapse_stars :: pcs ~> {
     while { xs: pcs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         ["*", "*", ...t]: { state: { xs: t, acc: ["*", ...acc] } },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
@@ -170,7 +170,7 @@ do {
 
   -- glob backtrack step: resume at the last `*` with one more char
   -- consumed. Returns a `while`-step result (`{ out: _ }`/`{ state: _ }`).
-  glob_bt :: [sp, sv, has_star] ~> {
+  glob_bt :: [sp, sv, has_star]~> {
     if has_star {
       match sv {
         []: { out: false },
@@ -183,10 +183,10 @@ do {
 
   -- iterative glob match over char lists with single-star backtracking
   -- (equivalent to the former recursive `glob_matches_segment`: on
-  -- mismatch, the most recent `*` retries with one more char consumed)
-  glob_seg :: [p0, v0] ~> {
+    -- mismatch, the most recent `*` retries with one more char consumed)
+  glob_seg :: [p0, v0]~> {
     while { p: p0, v: v0, sp: [], sv: [], has_star: false } {
-      [p, v, sp, sv, has_star] ~> match p {
+      [p, v, sp, sv, has_star]~> match p {
         []: if v == [] {
           { out: true }
         } else {
@@ -228,9 +228,9 @@ do {
   -- parse a tag expression into `{ name, negated }` term records.
   -- `expr := term ("," term)*`, `term := "!"? name`; empty terms drop.
   parse_terms :: expr ~> {
-    raw :: split_cs(char.chars(expr), ",")
-    terms :: while { xs: raw, acc: [] } {
-      [xs, acc] ~> match xs {
+    raw  : : split_cs(char.chars(expr), ",")
+    terms: : while { xs: raw, acc: [] } {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: do {
           s :: char.from_chars(trim_cs(h))
@@ -253,7 +253,7 @@ do {
   -- does one parsed term hold for tag list `tags`?
   -- An empty name (`"!"` alone) maps to `tag_predicate("")` = `always`
   -- in the old impl, so `hit` is `true` before negation applies.
-  term_matches :: [term, tags] ~> {
+  term_matches :: [term, tags]~> {
     hit :: if term.name == "" {
       true
     } else {
@@ -268,11 +268,11 @@ do {
 
   -- does a whole tag expression hold for tag list `tags`?
   -- An expression with no terms selects all (`Predicate::True` parity).
-  expr_matches :: [expr, tags] ~> {
+  expr_matches :: [expr, tags]~> {
     terms :: parse_terms(expr)
     do {
       while { ts: terms, saw: false } {
-        [ts, saw] ~> match ts {
+        [ts, saw]~> match ts {
           []: if saw { { out: false } } else { { out: true } },
           [t, ...rest]: if term_matches(t, tags) {
             { out: true }
@@ -285,9 +285,9 @@ do {
   }
 
   -- AND-fold a list of tag expressions over `tags` (repeated `--tag`).
-  all_exprs :: [exprs, tags] ~> {
+  all_exprs :: [exprs, tags]~> {
     while { es: exprs, go: true } {
-      [es, go] ~> match es {
+      [es, go]~> match es {
         []: { out: true },
         [e, ...t]: if expr_matches(e, tags) {
           { state: { es: t, go: go } }
@@ -299,7 +299,7 @@ do {
   }
 
   -- one name pattern: glob if it contains `*`/`?`, else substring.
-  name_match :: [pat, name] ~> {
+  name_match :: [pat, name]~> {
     if is_glob_pat(pat) {
       glob_seg(collapse_stars(char.chars(pat)), char.chars(name))
     } else {
@@ -308,9 +308,9 @@ do {
   }
 
   -- AND-fold a list of name patterns over `c.name`.
-  all_names :: [pats, name] ~> {
+  all_names :: [pats, name]~> {
     while { ps: pats, go: true } {
-      [ps, go] ~> match ps {
+      [ps, go]~> match ps {
         []: { out: true },
         [p, ...t]: if name_match(p, name) {
           { state: { ps: t, go: go } }
@@ -322,7 +322,7 @@ do {
   }
 
   -- project a named field out of the case record
-  get_field :: [c, fname] ~> {
+  get_field :: [c, fname]~> {
     match fname {
       "name": c.name,
       "path": c.path,
@@ -340,41 +340,41 @@ do {
   {
     -- constant predicates (arrows, not nullary combinators)
     always: c ~> true,
-    never: c ~> false,
+    never : c ~> false,
 
     -- boolean composition of case predicates
-    and: [p, q] ~> (c ~> if p(c) { q(c) } else { false }),
-    or: [p, q] ~> (c ~> if p(c) { true } else { q(c) }),
+    and: [p, q]~> (c ~> if p(c) { q(c) } else { false }),
+    or : [p, q]~> (c ~> if p(c) { true } else { q(c) }),
     not: p ~> (c ~> if p(c) { false } else { true }),
 
     -- apply a value-matcher `m` to `c.<fname>` (projection fields:
-    -- "name" | "path" | "tags" | "kind" | "status"; unknown → null)
-    field: [fname, m] ~> (c ~> m(get_field(c, fname))),
+      -- "name" | "path" | "tags" | "kind" | "status"; unknown -> null)
+    field: [fname, m]~> (c ~> m(get_field(c, fname))),
 
     -- value matchers
-    exact: v ~> (x ~> x == v),
-    glob: pat ~> (x ~> glob_seg(collapse_stars(char.chars(pat)), char.chars(x))),
+    exact   : v ~> (x ~> x == v),
+    glob    : pat ~> (x ~> glob_seg(collapse_stars(char.chars(pat)), char.chars(x))),
     contains: pat ~> (x ~> s_contains(x, pat)),
 
     -- `*`/`?` glob match (flat: `**` collapses to `*`, no escapes)
-    match_glob: [pat, s] ~> glob_seg(collapse_stars(char.chars(pat)), char.chars(s)),
+    match_glob: [pat, s]~> glob_seg(collapse_stars(char.chars(pat)), char.chars(s)),
 
     -- compile a `{ names: [..], tags: [..] }` spec record into the
     -- case predicate arrow (the composition the CLI filter surface
-    -- denotes: every name pattern AND every tag expression must hold)
+      -- denotes: every name pattern AND every tag expression must hold)
     build: spec ~> (c ~> {
-      name_ok :: all_names(spec.names, c.name)
-      if name_ok {
-        all_exprs(spec.tags, c.tags)
-      } else {
-        false
-      }
-    }),
+        name_ok :: all_names(spec.names, c.name)
+        if name_ok {
+          all_exprs(spec.tags, c.tags)
+        } else {
+          false
+        }
+      }),
 
-    -- `matches(spec, c)` — the host entry point: the same composition
+    -- `matches(spec, c)` -- the host entry point: the same composition
     -- `build` denotes, inlined (record fields cannot reference sibling
-    -- fields by bare name inside the record literal)
-    matches: [spec, c] ~> {
+      -- fields by bare name inside the record literal)
+    matches: [spec, c]~> {
       name_ok :: all_names(spec.names, c.name)
       if name_ok {
         all_exprs(spec.tags, c.tags)

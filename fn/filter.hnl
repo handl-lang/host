@@ -1,7 +1,7 @@
 -- filter: keep only elements satisfying a predicate.
 --
 -- Written as an arrow graph over list primitives.
--- Contract: AllSatisfy(output, p) ∧ LengthLe(output, input) — INFERRED.
+-- Contract: AllSatisfy(output, p) ∧ LengthLe(output, input) -- INFERRED.
 --
 -- Graph structure:
 --   loop (filter_step >>> id)

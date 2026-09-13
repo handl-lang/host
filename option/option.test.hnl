@@ -1,5 +1,7 @@
 from "./index" import * as option
 
 test_option_some_tag := assert tag.tag_of(option.some(1)) = "Some"
+
 test_option_some_payload := assert tag.untag(option.some(1)).value = 1
+
 test_option_none_tag := assert tag.tag_of(option.none()) = "None"

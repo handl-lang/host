@@ -1,28 +1,28 @@
---- ws_whatwg_native — native WHATWG-style WebSocket client (tokio-tungstenite backend).
+--- ws_whatwg_native -- native WHATWG-style WebSocket client (tokio-tungstenite backend).
 ---
 --- This is the native implementation of the WHATWG WebSocket API,
 --- backed by tokio-tungstenite for real TCP/TLS WebSocket connections.
 ---
 --- ## connection API
---- ws_whatwg_native.ws_whatwg_native — return the module name and type.
---- ws_whatwg_native.connect — connect to a WebSocket URL, returning a connection handle.
---- ws_whatwg_native.send — send a message on a connection.
---- ws_whatwg_native.recv — receive the next message on a connection, or null if empty.
---- ws_whatwg_native.close — close a connection.
+--- ws_whatwg_native.ws_whatwg_native -- return the module name and type.
+--- ws_whatwg_native.connect -- connect to a WebSocket URL, returning a connection handle.
+--- ws_whatwg_native.send -- send a message on a connection.
+--- ws_whatwg_native.recv -- receive the next message on a connection, or null if empty.
+--- ws_whatwg_native.close -- close a connection.
 cap "ws_whatwg_native.ws_whatwg_native"
 cap "ws_whatwg_native.connect"
 cap "ws_whatwg_native.send"
 cap "ws_whatwg_native.recv"
 cap "ws_whatwg_native.close"
-op "ws_whatwg_native.ws_whatwg_native" : -> Value
+op "ws_whatwg_native.ws_whatwg_native": - > Value
   guarantee: True
-op "ws_whatwg_native.connect" : String -> Value
+op "ws_whatwg_native.connect": String - > Value
   guarantee: True
-op "ws_whatwg_native.send" : (Value, Value) -> Value
+op "ws_whatwg_native.send": (Value, Value) - > Value
   guarantee: True
-op "ws_whatwg_native.recv" : Value -> Value
+op "ws_whatwg_native.recv": Value - > Value
   guarantee: True
-op "ws_whatwg_native.close" : Value -> Value
+op "ws_whatwg_native.close": Value - > Value
   guarantee: True
 handl "ws_whatwg_native.ws_whatwg_native" = rust_ws_whatwg_native_name
 handl "ws_whatwg_native.connect" = rust_ws_whatwg_native_connect

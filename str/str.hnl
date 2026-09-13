@@ -4,8 +4,8 @@
 --- every implementation (the FFI `str` in `utils/str.hnl`, the pure-handl
   --- `str-handl/str-handl.hnl`, or any future backend) must satisfy. It carries
 --- real semantic content so the inference engine can derive non-trivial
---- guarantees — length preservation, length bounds, idempotence, monotonicity
---- — rather than just `True`.
+--- guarantees -- length preservation, length bounds, idempotence, monotonicity
+--- -- rather than just `True`.
 ---
 --- Types are symbolic: `String` and `Float` are treated as type variables by
 --- the contract parser (only `Int`, `Bool`, and `List T` are base types).
@@ -22,7 +22,7 @@
 --- The ideal str-specific predicates (IsUpper, IsTrimmed, IsEmpty, IsPrefix,
   --- NoOccurrence, IsSlug, IsReversed, EditDistance, Similarity, CountEq,
   --- CharEq, LengthGe) are documented inline as the intended laws but cannot be
---- expressed yet — they require extending `Pred` in `plugin-ext-refinement`.
+--- expressed yet -- they require extending `Pred` in `plugin-ext-refinement`.
 --- Each such law is written as a `-- LAW:` comment; the `guarantee:` line
 --- states the strongest *parseable* approximation.
 

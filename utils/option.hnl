@@ -1,4 +1,4 @@
---- option — Option type constructors and operations for the handl runtime.
+--- option -- Option type constructors and operations for the handl runtime.
 ---
 --- Single source of truth for the `option` stdlib interface: 15 functions
 --- covering constructors, predicates, unwrapping, transformation, and
@@ -18,22 +18,22 @@
 --- in `ops.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- option.some — wrap a value in a Some option.
---- option.none — construct a None option.
---- option.is_some — test whether an option is Some.
---- option.is_none — test whether an option is None.
---- option.unwrap — extract the value from a Some option, error on None.
---- option.unwrap_or — extract the value or return a default.
---- option.unwrap_or_else — extract the value or call a function for a default.
---- option.map — apply a function to the value inside a Some option.
---- option.flat_map — apply a function that returns an option to a Some option.
---- option.and_then — alias for flat_map.
---- option.filter — keep a Some option only if a predicate holds.
---- option.map_or — apply a function to a Some option or return a default.
---- option.or — return the first option if Some, otherwise the second.
---- option.or_else — return the first option if Some, otherwise call a function.
---- option.and — return the second option if the first is Some, otherwise None.
---- option.xor — return the Some option if exactly one of two options is Some.
+--- option.some -- wrap a value in a Some option.
+--- option.none -- construct a None option.
+--- option.is_some -- test whether an option is Some.
+--- option.is_none -- test whether an option is None.
+--- option.unwrap -- extract the value from a Some option, error on None.
+--- option.unwrap_or -- extract the value or return a default.
+--- option.unwrap_or_else -- extract the value or call a function for a default.
+--- option.map -- apply a function to the value inside a Some option.
+--- option.flat_map -- apply a function that returns an option to a Some option.
+--- option.and_then -- alias for flat_map.
+--- option.filter -- keep a Some option only if a predicate holds.
+--- option.map_or -- apply a function to a Some option or return a default.
+--- option.or -- return the first option if Some, otherwise the second.
+--- option.or_else -- return the first option if Some, otherwise call a function.
+--- option.and -- return the second option if the first is Some, otherwise None.
+--- option.xor -- return the Some option if exactly one of two options is Some.
 cap "option.some"
 cap "option.none"
 cap "option.is_some"

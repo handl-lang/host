@@ -9,7 +9,7 @@
 --- `[4, x ~> x % 2 == 0, x ~> x * 10] >>> comb.unless`
 --- -- => 4
 ---
-export unless :: [value, pred, fn] ~> {
+export unless :: [value, pred, fn]~> {
   if pred(value) {
     value
   } else {

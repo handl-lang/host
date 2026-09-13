@@ -1,4 +1,4 @@
---- char-native — the Rust `std::char` backend for the `char` contract.
+--- char-native -- the Rust `std::char` backend for the `char` contract.
 ---
 --- Implements every `char.*` axiom in `handl-packages/char/char.hnl` using
 --- Rust's standard-library character facilities (`char::is_whitespace`,

@@ -14,7 +14,7 @@ do {
 
   arr_len :: (xs) ~> do {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [_, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -23,7 +23,7 @@ do {
 
   arr_rev :: (xs) ~> do {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -32,7 +32,7 @@ do {
 
   arr_take :: (xs, n) ~> do {
     while { xs: xs, n: n, acc: [] } {
-      [xs, n, acc] ~> if n <= 0 {
+      [xs, n, acc]~> if n <= 0 {
         { out: arr_rev(acc) }
       } else {
         match xs {
@@ -45,7 +45,7 @@ do {
 
   arr_drop :: (xs, n) ~> do {
     while { xs: xs, n: n } {
-      [xs, n] ~> if n <= 0 {
+      [xs, n]~> if n <= 0 {
         { out: xs }
       } else {
         match xs {
@@ -58,7 +58,7 @@ do {
 
   arr_concat :: (a, b) ~> do {
     while { xs: arr_rev(a), acc: b } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -69,7 +69,7 @@ do {
 
   arr_sum :: (xs) ~> do {
     while { xs: xs, acc: 0 } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: acc + h } }
       }
@@ -87,7 +87,7 @@ do {
 
   sample :: (xs, count) ~> do {
     while { xs: xs, n: count, acc: [] } {
-      [xs, n, acc] ~> if n <= 0 || arr_len(xs) == 0 {
+      [xs, n, acc]~> if n <= 0 || arr_len(xs) == 0 {
         { out: arr_rev(acc) }
       } else {
         i = math.mod(entropy.next_u32(), arr_len(xs))
@@ -99,7 +99,7 @@ do {
 
   seeded_sample :: (seed, xs, count) ~> do {
     while { xs: xs, n: count, k: 0, acc: [] } {
-      [xs, n, k, acc] ~> if n <= 0 || arr_len(xs) == 0 {
+      [xs, n, k, acc]~> if n <= 0 || arr_len(xs) == 0 {
         { out: arr_rev(acc) }
       } else {
         r = hash(seed, k)
@@ -150,7 +150,7 @@ do {
             do {
               r = math.mod(entropy.next_u32(), total)
               while { i: 0, cum: 0 } {
-                [i, cum] ~> if i >= n {
+                [i, cum]~> if i >= n {
                   { out: null }
                 } else {
                   w = weights[i]
@@ -171,7 +171,7 @@ do {
     -- Choose `count` elements from an array with replacement.
     choice: (xs, count) ~> do {
       while { n: count, acc: [] } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
           { state: { n: n - 1, acc: [pick(xs), ...acc] } }
@@ -188,7 +188,7 @@ do {
     -- Generate `n` random bytes in `[0, 255]`.
     bytes: (n) ~> do {
       while { n: n, acc: [] } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
           { state: { n: n - 1, acc: [math.mod(entropy.next_u32(), 256), ...acc] } }
@@ -200,7 +200,7 @@ do {
     string: (len, charset) ~> do {
       cs = char.chars(charset)
       while { n: len, acc: "" } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: acc }
         } else {
           { state: { n: n - 1, acc: acc + pick(cs) } }
@@ -228,7 +228,7 @@ do {
     poisson: (lambda) ~> do {
       threshold = math.exp(math.sub(0, lambda))
       while { p: 1.0, k: 0 } {
-        [p, k] ~> if p <= threshold {
+        [p, k]~> if p <= threshold {
           { out: k }
         } else {
           u = math.div(entropy.next_u32(), 4294967296)
@@ -240,7 +240,7 @@ do {
     -- Generate a binomial-distributed integer in `[0, n]` with `n` trials and success probability `p`.
     binomial: (n, p) ~> do {
       while { i: 0, successes: 0 } {
-        [i, successes] ~> if i >= n {
+        [i, successes]~> if i >= n {
           { out: successes }
         } else {
           u = math.div(entropy.next_u32(), 4294967296)
@@ -272,7 +272,7 @@ do {
       } else {
         do {
           while { m: count, k: 0, acc: [] } {
-            [m, k, acc] ~> if m <= 0 {
+            [m, k, acc]~> if m <= 0 {
               { out: arr_rev(acc) }
             } else {
               r = hash(seed, k)
@@ -296,7 +296,7 @@ do {
       } else {
         do {
           while { n: len, k: 0, acc: "" } {
-            [n, k, acc] ~> if n <= 0 {
+            [n, k, acc]~> if n <= 0 {
               { out: acc }
             } else {
               r = hash(seed, k)

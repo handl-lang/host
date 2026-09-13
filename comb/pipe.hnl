@@ -14,7 +14,7 @@
 export pipe :: args ~> match args {
   [value, ...fs]: {
     while { xs: fs, acc: value } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: h(acc) } }
       }

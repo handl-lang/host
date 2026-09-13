@@ -1,5 +1,5 @@
---- base64.encode — encode a string to base64.
---- base64.decode — decode a base64 string.
+--- base64.encode -- encode a string to base64.
+--- base64.decode -- decode a base64 string.
 cap "base64.encode"
 cap "base64.decode"
 op "base64.encode" : String -> String

@@ -1,4 +1,4 @@
---- archive — archive format abstractions for the handl runtime.
+--- archive -- archive format abstractions for the handl runtime.
 ---
 --- This is a trait-abstraction library: the Archive trait and ArchiveEntry
 --- live in Rust (plugin-lib-archive) and are implemented by concrete
@@ -7,7 +7,7 @@
 --- the plugin system.
 ---
 --- ## Capability declarations (ADR-0077 Phase 1)
---- archive.pack — pack entries into an archive.
---- archive.unpack — unpack an archive into entries.
+--- archive.pack -- pack entries into an archive.
+--- archive.unpack -- unpack an archive into entries.
 cap "archive.pack"
 cap "archive.unpack"

@@ -1,4 +1,4 @@
---- serialize — generic serialization to/from strings for the handl runtime.
+--- serialize -- generic serialization to/from strings for the handl runtime.
 ---
 --- Single source of truth for the `serialize` stdlib interface: 2 functions
 --- covering serialization of `serde_json::Value` to a string (json/yaml/toml)
@@ -16,8 +16,8 @@
 --- logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- serialize.serialize — serialize a value into a string using a named format.
---- serialize.deserialize — deserialize a string into a value using a named format.
+--- serialize.serialize -- serialize a value into a string using a named format.
+--- serialize.deserialize -- deserialize a string into a value using a named format.
 cap "serialize.serialize"
 cap "serialize.deserialize"
 op "serialize.serialize" : (Value * Value) -> String

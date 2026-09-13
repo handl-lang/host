@@ -1,23 +1,23 @@
---- cmp.eq — test whether two values are deeply equal.
---- cmp.ne — test whether two values are not equal.
---- cmp.lt — test whether the first value is less than the second.
---- cmp.le — test whether the first value is less than or equal to the second.
---- cmp.gt — test whether the first value is greater than the second.
---- cmp.ge — test whether the first value is greater than or equal to the second.
---- cmp.compare — compare two values, returning -1, 0, or 1.
---- cmp.min — return the minimum of all arguments.
---- cmp.max — return the maximum of all arguments.
---- cmp.clamp — clamp a value between a lower and upper bound.
---- cmp.between — test whether a value is between two bounds (exclusive).
---- cmp.in_range — test whether a value is within a range (alias of between).
---- cmp.is_sorted — test whether an array is sorted in ascending order.
---- cmp.is_sorted_desc — test whether an array is sorted in descending order.
---- cmp.sort — sort an array in ascending order.
---- cmp.sort_desc — sort an array in descending order.
---- cmp.sort_by — sort an array by a key function in ascending order.
---- cmp.sort_by_desc — sort an array by a key function in descending order.
---- cmp.min_by — find the minimum element by a key function.
---- cmp.max_by — find the maximum element by a key function.
+--- cmp.eq -- test whether two values are deeply equal.
+--- cmp.ne -- test whether two values are not equal.
+--- cmp.lt -- test whether the first value is less than the second.
+--- cmp.le -- test whether the first value is less than or equal to the second.
+--- cmp.gt -- test whether the first value is greater than the second.
+--- cmp.ge -- test whether the first value is greater than or equal to the second.
+--- cmp.compare -- compare two values, returning -1, 0, or 1.
+--- cmp.min -- return the minimum of all arguments.
+--- cmp.max -- return the maximum of all arguments.
+--- cmp.clamp -- clamp a value between a lower and upper bound.
+--- cmp.between -- test whether a value is between two bounds (exclusive).
+--- cmp.in_range -- test whether a value is within a range (alias of between).
+--- cmp.is_sorted -- test whether an array is sorted in ascending order.
+--- cmp.is_sorted_desc -- test whether an array is sorted in descending order.
+--- cmp.sort -- sort an array in ascending order.
+--- cmp.sort_desc -- sort an array in descending order.
+--- cmp.sort_by -- sort an array by a key function in ascending order.
+--- cmp.sort_by_desc -- sort an array by a key function in descending order.
+--- cmp.min_by -- find the minimum element by a key function.
+--- cmp.max_by -- find the maximum element by a key function.
 cap "cmp.eq"
 cap "cmp.ne"
 cap "cmp.lt"

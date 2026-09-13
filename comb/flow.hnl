@@ -2,7 +2,7 @@
 ---
 --- @details
 --- `flow` takes a list `fs` and returns an arrow equivalent to
---- `x ~> fn(...f2(f1(x)))` — functions run in list order, reading like
+--- `x ~> fn(...f2(f1(x)))` -- functions run in list order, reading like
 --- a pipeline. For mathematical right-to-left ordering use
 --- `comb.compose`; to feed an initial value in directly use `comb.pipe`.
 ---
@@ -16,7 +16,7 @@
 --- -- => 8
 ---
 export flow :: fs ~> x ~> while { xs: fs, acc: x } {
-  [xs, acc] ~> match xs {
+  [xs, acc]~> match xs {
     []: { out: acc },
     [h, ...t]: { state: { xs: t, acc: h(acc) } }
   }

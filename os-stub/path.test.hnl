@@ -1,6 +1,9 @@
 from "./path" import * as path
 
 test_stub_path_join :: assert path.join(["a", "b"]) = "a/b"
+
 test_stub_path_basename :: assert path.basename("/x/y") = "y"
+
 test_stub_path_dirname :: assert path.dirname("/x/y") = "/x"
+
 test_stub_path_extname :: assert path.extname("x.txt") = ".txt"

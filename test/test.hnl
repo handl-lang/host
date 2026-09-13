@@ -1,4 +1,4 @@
---- Test framework — suite execution (ADR-0092).
+--- Test framework -- suite execution (ADR-0092).
 ---
 --- `test.run` executes an array of test cases and returns a report.
 --- Each case is `{ name, body, args? }`; the body is a function value

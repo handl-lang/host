@@ -1,4 +1,4 @@
---- transform — list transform ops for the handl runtime.
+--- transform -- list transform ops for the handl runtime.
 ---
 --- Single source of truth for the `transform` interface: list-to-list and
 --- fold operations (`map`, `filter`, `reduce`). The canonical pure-handl
@@ -9,9 +9,9 @@
 --- below instead.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- transform.map — map a function over a list.
---- transform.filter — filter a list by a predicate.
---- transform.reduce — fold a list with a function and an initial value.
+--- transform.map -- map a function over a list.
+--- transform.filter -- filter a list by a predicate.
+--- transform.reduce -- fold a list with a function and an initial value.
 cap "transform.map"
 cap "transform.filter"
 cap "transform.reduce"

@@ -10,7 +10,7 @@
 -- The state.dec atom has requires: Le(0, input) and guarantee: Le(0, output),
 -- so the fixpoint discovers Le(0, count) (Count ≥ 0) as the invariant.
 --
--- Invariant: Le(0, count) — INFERRED (Count ≥ 0, discovered by fixpoint).
+-- Invariant: Le(0, count) -- INFERRED (Count ≥ 0, discovered by fixpoint).
 -- Termination: Constant (side-channel; event stream passes through).
 
 rec { (arr("state.inc") ||| arr("state.dec")) >>> first(id) }

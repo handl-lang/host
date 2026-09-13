@@ -1,4 +1,4 @@
---- kv_hashmap — in-memory HashMap-backed KeyValueStore implementation.
+--- kv_hashmap -- in-memory HashMap-backed KeyValueStore implementation.
 ---
 --- This is an impl crate: the HashKeyValueStore implements the
 --- KeyValueStore trait from plugin-lib-kv. The kv.* ops are declared

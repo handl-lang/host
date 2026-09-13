@@ -1,4 +1,4 @@
---- arrow_iter — derived iteration patterns over Loop + Choice (ADR-0052).
+--- arrow_iter -- derived iteration patterns over Loop + Choice (ADR-0052).
 ---
 --- This library provides the while/for/fix derived forms as Rust builder
 --- functions (while_loop, for_loop, fix_loop) that construct Scheme::Loop

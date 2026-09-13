@@ -1,4 +1,5 @@
 from "./time" import * as time
 
 test_time_now_positive :: assert time.now() > 0 = true
+
 test_time_epoch_rough :: assert time.now() / 1000 - time.epoch() < 1 = true
