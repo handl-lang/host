@@ -1,0 +1,8 @@
+from "../collections/array" import * as array
+
+{
+  at: array.at([1, 2, 3], 1),
+  first: array.first([10, 20, 30]),
+  last: array.last([10, 20, 30]),
+  len: array.len([10, 20, 30])
+}
