@@ -9,7 +9,7 @@ use handl_kit_canonical::Kit;
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, choice, sample, shuffle }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,7 +18,7 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, choice, sample, shuffle }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -86,6 +86,27 @@ fn rand_c_shuffle_is_permutation() {
     }
 }
 
+#[test]
+fn rand_c_bytes_length_and_range() {
+    let v = eval_rand_c("bytes(8)");
+    let arr = v.as_array().expect("bytes returns an array");
+    assert_eq!(arr.len(), 8, "rand-c bytes length must match n");
+    for item in arr {
+        let b = item.as_f64().unwrap_or(-1.0);
+        assert!((0.0..=255.0).contains(&b), "rand-c byte out of range: {item}");
+    }
+}
+
+#[test]
+fn rand_c_string_length_and_charset() {
+    let v = eval_rand_c("string(6, \"abc\")");
+    let s = v.as_str().expect("string returns a string");
+    assert_eq!(s.len(), 6, "rand-c string length must match len");
+    for c in s.chars() {
+        assert!("abc".contains(c), "rand-c string char not in charset: {c}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // rand-stub.* — deterministic, no-effect backend
 // ---------------------------------------------------------------------------
@@ -110,4 +131,10 @@ fn rand_stub_choice_sample_shuffle_are_deterministic() {
     assert_eq!(eval_rand_stub("choice([\"a\", \"b\"], 3)"), serde_json::json!(["a", "b", "a"]));
     assert_eq!(eval_rand_stub("sample([\"a\", \"b\", \"c\"], 2)"), serde_json::json!(["a", "b"]));
     assert_eq!(eval_rand_stub("shuffle([\"a\", \"b\", \"c\"])"), serde_json::json!(["c", "b", "a"]));
+}
+
+#[test]
+fn rand_stub_bytes_and_string_are_deterministic() {
+    assert_eq!(eval_rand_stub("bytes(3)"), serde_json::json!([4, 4, 4]));
+    assert_eq!(eval_rand_stub("string(4, \"abc\")"), serde_json::json!("aaaa"));
 }
