@@ -132,7 +132,29 @@ thread_local! {
     // as the entry exists (the entry holds an `Rc::clone` of `ast`), so a
     // pointer value can never be recycled while its frame is registered.
     static HOME_FRAMES: RefCell<HashMap<u64, EvalFrame>> = RefCell::new(HashMap::new());
+    // Memo of deserialized `body_def` arenas (ADR-0106 item 2, the "Cost of
+    // step 2" TODO). Applying a self-describing arrow otherwise re-runs
+    // `tagged_to_value` + `as_ast` on *every* call, which allocates per call
+    // in hot/recursive loops.
+    //
+    // Keyed by the `Rc<TaggedValue>` pointer of the definition — the same
+    // trick (and the same safety argument) as `HOME_FRAMES`: each entry holds
+    // an `Rc::clone` of the definition, so the address cannot be recycled
+    // while the entry is registered, and a re-used address can never hit a
+    // stale entry. Structurally identical but distinct arrows have distinct
+    // addresses and therefore distinct entries.
+    //
+    // Growth is bounded by `ARROW_ARENA_CACHE_CAP`: the table is cleared when
+    // it reaches the cap, which costs at most one re-deserialization per live
+    // arrow afterwards.
+    static ARROW_ARENA_CACHE: RefCell<HashMap<usize, (Rc<TaggedValue>, Rc<Ast>)>> =
+        RefCell::new(HashMap::new());
 }
+
+/// Maximum number of deserialized arrow-body arenas memoized per thread.
+/// Small by design: applications cycle through a handful of hot arrows, and
+/// the table is cleared (not evicted one-by-one) when it fills.
+const ARROW_ARENA_CACHE_CAP: usize = 64;
 
 // ---------------------------------------------------------------------------
 // EvalFrame — arrow-value provenance across runtime boundaries
@@ -197,6 +219,44 @@ fn register_frame_at(id: u64, frame: EvalFrame) -> u64 {
         map.entry(id).or_insert(frame);
     });
     id
+}
+
+/// The standalone arena carried by a `body_def`, deserialized at most once
+/// per definition value (ADR-0106 item 2, "Cost of step 2").
+///
+/// `def` is the arrow's `body_def`: a `{"__ast__": <Ast>}` value produced by
+/// `Ast::subtree` + `ast_value`. Applying a self-describing arrow needs that
+/// arena; deserializing it on every application allocates per call, so this
+/// memoizes it per thread:
+///
+/// - **Key**: the `Rc<TaggedValue>` pointer of `def`. Safe because the cache
+///   entry stores an `Rc::clone` of `def`, so the allocation cannot be freed
+///   (and the address reused for a different value) while the entry lives —
+///   the same argument as `HOME_FRAMES`. Two structurally identical but
+///   distinct definitions have different addresses and different entries.
+/// - **Bound**: the table is cleared once it reaches
+///   [`ARROW_ARENA_CACHE_CAP`] entries, so memory stays bounded; the cost of
+///   clearing is at most one re-deserialization per live arrow.
+///
+/// Returns `None` when the definition is not a well-formed `__ast__` value or
+/// the arena is empty — the caller then falls back to `body`/`home`.
+fn cached_def_arena(def: &Rc<TaggedValue>) -> Option<Rc<Ast>> {
+    let key = Rc::as_ptr(def) as usize;
+    ARROW_ARENA_CACHE.with(|cache| {
+        if let Some((_, ast)) = cache.borrow().get(&key) {
+            return Some(Rc::clone(ast));
+        }
+        // Miss: deserialize once, then memoize (with a keep-alive `Rc` of the
+        // definition so the key cannot dangle).
+        let ast = handl_language::as_ast(&tagged_to_value(def)).filter(|a| !a.is_empty())?;
+        let ast = Rc::new(ast);
+        let mut map = cache.borrow_mut();
+        if map.len() >= ARROW_ARENA_CACHE_CAP {
+            map.clear();
+        }
+        map.insert(key, (Rc::clone(def), Rc::clone(&ast)));
+        Some(ast)
+    })
 }
 
 /// Capture the ambient eval frame — the `CURRENT_AST` / `CURRENT_LANG` /
@@ -3933,13 +3993,14 @@ impl TreeWalkEngine {
         // applicable. The ambient `body` index and the `home` frame remain
         // the fallback for arrows minted without a definition (bytecode,
         // cranelift, hand-built values).
-        let def_arena: Option<Ast> = body_def
-            .as_deref()
-            .and_then(|d| handl_language::as_ast(&tagged_to_value(d)))
-            .filter(|a| !a.is_empty());
+        //
+        // The definition is deserialized through `cached_def_arena`, which
+        // memoizes the arena per definition value: applying the same
+        // self-describing arrow N times deserializes once, not N times.
+        let def_arena: Option<Rc<Ast>> = body_def.as_ref().and_then(cached_def_arena);
         let (ast, body_idx, home): (&Ast, usize, Option<u64>) = match &def_arena {
             // The extracted arena is post-order, so the body root is last.
-            Some(a) => (a, a.len() - 1, None),
+            Some(a) => (a.as_ref(), a.len() - 1, None),
             None => (ast, body_idx, home),
         };
         if let Some(frame_id) = home {
@@ -9315,3 +9376,101 @@ mod tests {
         assert_eq!(result, json!(7));
     }
 }
+// ---------------------------------------------------------------------------
+// ADR-0106 item 2 — `body_def` arena memo (`cached_def_arena`)
+// ---------------------------------------------------------------------------
+//
+// These live outside the main test module so they can exercise the memo
+// directly. They are the evidence that the per-application
+// deserialization cost is actually gone: with the cache removed,
+// `cached_def_arena_memoizes_per_definition` fails because every call would
+// build a fresh `Rc`.
+
+#[cfg(test)]
+mod arrow_arena_cache_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Build a well-formed `body_def` for a single-node arena.
+    fn def_with_body(kind: &str) -> Rc<TaggedValue> {
+        let mut ast = Ast::new();
+        ast.push(AstNode::new(kind));
+        Rc::new(TaggedValue::from(handl_language::ast_value(&ast)))
+    }
+
+    /// The memo returns the *same* arena allocation on the second lookup —
+    /// i.e. it does not re-deserialize per application.
+    #[test]
+    fn cached_def_arena_memoizes_per_definition() {
+        let def = def_with_body("lit");
+        let first = cached_def_arena(&def).expect("well-formed definition");
+        let second = cached_def_arena(&def).expect("well-formed definition");
+        assert!(
+            Rc::ptr_eq(&first, &second),
+            "second lookup must reuse the memoized arena, not deserialize again",
+        );
+        assert_eq!(second.len(), 1);
+        assert_eq!(second.nodes()[0].kind, "lit");
+    }
+
+    /// Equal-but-distinct definitions get distinct entries, and neither is
+    /// contaminated by the other (the key is the value, not its shape).
+    #[test]
+    fn cached_def_arena_distinguishes_equal_definitions() {
+        let a = def_with_body("lit");
+        let b = def_with_body("lit");
+        assert_ne!(
+            Rc::as_ptr(&a) as usize,
+            Rc::as_ptr(&b) as usize,
+            "test premise: two separate definitions",
+        );
+        let ast_a = cached_def_arena(&a).expect("a");
+        let ast_b = cached_def_arena(&b).expect("b");
+        assert!(
+            !Rc::ptr_eq(&ast_a, &ast_b),
+            "distinct definitions must not share one cached arena",
+        );
+        // Both are correct, and each stays stable.
+        assert_eq!(ast_a.nodes()[0].kind, "lit");
+        assert_eq!(ast_b.nodes()[0].kind, "lit");
+        assert!(Rc::ptr_eq(&ast_a, &cached_def_arena(&a).unwrap()));
+    }
+
+    /// Malformed definitions are rejected (so the caller falls back), and a
+    /// rejection is not memoized as if it were an arena.
+    #[test]
+    fn cached_def_arena_rejects_malformed_and_empty() {
+        let not_ast = Rc::new(TaggedValue::from(json!({ "nope": 1 })));
+        assert!(cached_def_arena(&not_ast).is_none());
+
+        let empty_ast = Rc::new(TaggedValue::from(handl_language::ast_value(&Ast::new())));
+        assert!(
+            cached_def_arena(&empty_ast).is_none(),
+            "an empty arena is not usable as a body definition",
+        );
+    }
+
+    /// The memo is bounded: it never holds more than the cap, and clearing it
+    /// costs only a re-deserialization, never correctness.
+    #[test]
+    fn cached_def_arena_stays_bounded_and_stays_correct() {
+        // Keep the definitions alive so their addresses stay distinct.
+        let defs: Vec<Rc<TaggedValue>> = (0..ARROW_ARENA_CACHE_CAP + 8)
+            .map(|_| def_with_body("lit"))
+            .collect();
+        for d in &defs {
+            assert!(cached_def_arena(d).is_some());
+        }
+        let size = ARROW_ARENA_CACHE.with(|c| c.borrow().len());
+        assert!(
+            size <= ARROW_ARENA_CACHE_CAP,
+            "memo must stay within its cap, got {size}",
+        );
+        // Everything still resolves after the clear.
+        for d in &defs {
+            let ast = cached_def_arena(d).expect("still resolvable after a clear");
+            assert_eq!(ast.len(), 1);
+        }
+    }
+}
+

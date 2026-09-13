@@ -813,11 +813,21 @@ Arrows minted by the bytecode/cranelift engines currently carry
 (step 4). So §6 is *partially* satisfied today: bodies are explicit for
 tree-walk arrows, environments are not explicit yet.
 
-**Cost of step 2 (TODO).** Preferring `body_def` means every application of a
-self-describing arrow deserializes its standalone arena (`tagged_to_value` +
-`as_ast`) before evaluating. That is correct but allocates per call, which is
-a real risk for hot/recursive arrows. TODO(ADR-0106): cache the deserialized
-arena per arrow value (keyed on a stable identity, not a bare `Rc` address),
-or make the definition arena reachable without re-deserializing on every
-application.
+**Cost of step 2 (resolved).** Preferring `body_def` initially deserialized
+the standalone arena on *every* application (`tagged_to_value` + `as_ast`),
+which allocates per call. `plugin-engine-exec-tree-walk` now memoizes the
+arena per definition value (`cached_def_arena`): the table is keyed by the
+`Rc<TaggedValue>` pointer of the `body_def`, and each entry holds an
+`Rc::clone` of that definition, so the address cannot be recycled while the
+entry — and a reused address can never hit a stale entry (the same argument
+`HOME_FRAMES` relies on). Two structurally identical but distinct definitions
+therefore have distinct entries. Growth is bounded by clearing the table at
+`ARROW_ARENA_CACHE_CAP` (64) entries, at a cost of at most one
+re-deserialization per live arrow afterwards. Evidence:
+`arrow_arena_cache_tests` in `crates/plugin-engine-exec-tree-walk/src/lib.rs`
+asserts that a second lookup returns the *same* allocation
+(`Rc::ptr_eq`) — a test that fails if the memo is removed — that equal-but-
+distinct definitions do not collide, that malformed/empty definitions are
+rejected (falling back to `body`/`home`), and that the table stays within its
+cap while remaining correct after a clear.
 
