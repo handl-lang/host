@@ -1,101 +1,61 @@
-from "str" import * as str
-from "transform" import * as transform
-
---- Dedents a multi-line string by removing its common leading-whitespace
---- prefix.
----
---- @details
---- Line endings are normalized: `\r\n` and lone `\r` become `\n`. Leading
---- and trailing newlines are removed. If the input contains no
---- non-whitespace content, the result is `""`.
----
---- The common indentation is the longest leading-whitespace string shared
---- by every non-blank line. Blank (whitespace-only) lines do not
---- contribute to the common indentation and are emitted as empty lines.
----
---- Whitespace is any character `str.trim`/`str.trim_start` treats as
---- whitespace — spaces, tabs, and Unicode whitespace such as U+00A0.
---- Indentation is compared as a string prefix, not by visual columns:
---- tabs and spaces are not interchangeable, so `"\t"` and `"    "` share
---- no common indent. Mixing them reduces the common prefix to whatever
---- leading characters literally match.
----
---- The relative indentation between non-blank lines is preserved.
----
---- @example
---- `
----     Hello
----     World
---- ` >>> dedent
---- -- => `
---- Hello
---- World
---- `
----
---- @example
---- `
----         Hello
----
----         World
---- ` >>> dedent
---- -- => `
---- Hello
----
---- World
---- `
----
---- @example
---- dedent("    Hello\r\n    World")
---- -- => "Hello\nWorld"
----
-export dedent :: (text: String) ~> {
-  indent_of :: (line: String) ~> {
+export dedent :: (text: String) ~> do {
+  indent_of :: (line: String) ~> do {
     str.length(line) - str.length(str.trim_start(line))
   }
+  is_blank :: (line: String) ~> do {
+    str.is_empty(str.trim(line))
+  }
+  prefix_of :: (line: String) ~> do {
+    str.slice(line, 0, indent_of(line))
+  }
 
-  is_blank :: (line: String) ~> str.is_empty(str.trim(line))
+  shrink :: (p: String, line: String) ~> do {
+    result :: p
+    i :: str.length(p)
 
-  prefix_of :: (line: String) ~> str.slice(line, 0, indent_of(line))
+    while !str.starts_with(line, result) && i > 0 {
+      result = str.slice(result, 0, str.length(result) - 1);
+      i = i - 1
+    }
 
-  -- Shrink `p` until it is a prefix of `line` (always terminates: "" is a
-    -- prefix of every string).
-  shrink :: (p: String, line: String) ~> {
-    while { p: p, line: line } {
-      [p, line] ~> if str.starts_with(line, p) {
-        { out: p }
+    result
+  }
+
+  update_common :: (acc, line) ~> do {
+    if is_blank(line) {
+      acc
+    } else {
+      if !acc.seen {
+        { common: prefix_of(line), seen: true }
       } else {
-        { state: { p: str.slice(p, 0, str.length(p) - 1), line: line } }
+        { common: shrink(acc.common, line), seen: true }
       }
     }
   }
 
-  normalized :: str.replace(str.replace(text, "\r\n", "\n"), "\r", "\n")
+  normalized :: str.replace(
+    str.replace(text, "\r\n", "\n"),
+    "\r",
+    "\n"
+  )
   trimmed :: str.trim_matches(normalized, "\n")
 
   if str.is_empty(str.trim(trimmed)) {
-    ""
-  } else {
-    lines :: str.lines(trimmed);
-
-    common :: while { lines: lines, p: "", seen: false } {
-      [lines, p, seen] ~> match lines {
-        []: { out: p },
-        [h, ...t]: if is_blank(h) {
-          { state: { lines: t, p: p, seen } }
-        } else {
-          { state: { lines: t, p: if seen { shrink(p, h) } else { prefix_of(h) }, seen: true } }
-        }
-      }
-    };
-
-    strip_line :: (line: String) ~> {
-      if is_blank(line) {
-        ""
-      } else {
-        str.strip_prefix(line, common)
-      }
-    };
-
-    str.join(transform.map(lines, strip_line), "\n")
+    return ""
   }
+
+  lines :: str.lines(trimmed)
+
+  state :: transform.reduce([lines, { common: "", seen: false }, update_common])
+  common :: state.common
+
+  strip_line :: (line: String) ~> do {
+    if is_blank(line) {
+      return ""
+    }
+
+    str.strip_prefix(line, common)
+  }
+
+  str.join(transform.map(lines, strip_line), "\n")
 }
