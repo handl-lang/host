@@ -2,7 +2,25 @@
 
 ## Status
 
-Proposed.
+Accepted. The kernel design (one object world, `sym()`/`sym(A)` nominal
+identity, native arrow calculus, products, `>>>`, `~[R]~>`, `f<...>`) is the
+normative design. Implementation status is tracked in the conformance notes
+below, and is **partial** — each note states precisely what holds and what
+remains:
+
+- `sym()`/`sym(A)` and `instanceof`: implemented, with nominal `<:` decided by
+  the parent chain (Phase 4); the legacy `__tag__` bridge remains until
+  `type.hnl` finishes migrating.
+- Serializable arrows: partially implemented — tree-walk arrows carry an
+  explicit `body_def` and apply after transport; `env` removal and
+  bytecode/cranelift minting remain (Phase 5 note + "Design: serializable
+  arrow representation (item 2)").
+- Graded arrows `A ~[R]~> B`: implemented (canonical spelling; legacy
+  `~R~>` accepted).
+- Dimensions `f<...>`: syntax implemented; specialization semantics remain.
+
+Accepted as the design of record; the open TODOs are implementation work, not
+unresolved design questions.
 
 ## Context
 
