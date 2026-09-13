@@ -127,12 +127,7 @@ impl Function for Deserialize {
 pub const SERIALIZE_OPS: &[&str] = &["serialize.serialize", "serialize.deserialize"];
 
 pub fn serialize_op_registry() -> OpRegistry {
-    let registry = Arc::new(
-        SerializerRegistry::new()
-            .with("json", crate::ops::json::Json)
-            .with("yaml", crate::ops::yaml::Yaml)
-            .with("toml", crate::ops::toml::Toml),
-    );
+    let registry = Arc::new(SerializerRegistry::new().with("json", crate::ops::json::Json));
     let mut registry_ops = OpRegistry::new();
     registry_ops.register(
         "serialize.serialize",
