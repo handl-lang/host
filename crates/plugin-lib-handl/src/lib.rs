@@ -25,11 +25,12 @@
 //! called later from an outer runtime. Therefore the `Runtime` is cached
 //! per-thread (via [`thread_local!`]), and the applied expression
 //! `(source).func(__arg_N)` — whose text is argument-independent (arguments
-//! cross the boundary as `__arg_N` globals) — is lexed/parsed **once** per
-//! (module, function, arity) into a per-thread `AST_CACHE`
-//! `Rc<Ast>` and re-evaluated per call through
-//! [`Runtime::eval_shared_with_globals`], which installs the cached arena
-//! without a deep clone. Caching the *evaluated* record is not possible
+//! cross the boundary as values bound directly on the call frame) — is
+//! lexed/parsed **once** per (module, function, arity) into a per-thread
+//! `AST_CACHE` `Rc<Ast>` and re-evaluated per call through
+//! [`Runtime::eval_shared_with_call_args`], which binds args directly into
+//! the `ScopeStack` globals map without cloning the engine. Caching the
+//! *evaluated* record is not possible
 //! across the `serde_json::Value` boundary: arrows capture earlier
 //! `do`-block bindings, and materializing each arrow's `env` expands
 //! recursively (exponential on ~100-binding modules like `str-handl`).
@@ -973,9 +974,9 @@ thread_local! {
     /// [`HandlFunction::call`] evaluates the applied expression
     /// `(source).func(__arg_0, ..., __arg_{n-1})`; that source text is a
     /// pure function of `(module id, function name, arity)` — call
-    /// arguments cross the boundary as `__arg_N` globals, never as source
-    /// text — so the lexed/parsed/desugared [`handl_language::Ast`] can be
-    /// parsed once and reused across calls. This removes the per-call
+    /// arguments bind directly on the call frame as `__arg_N` values,
+    /// never as source text — so the lexed/parsed/desugared [`handl_language::Ast`]
+    /// can be parsed once and reused across calls. This removes the per-call
     /// re-parse of the full module source that made the interpreted
     /// `loader.hnl` transforms pathologically slow (every nested `str.*`
     /// call re-parsed the ~740-line `str-handl` bridge source).
@@ -1111,10 +1112,12 @@ impl ModuleLookup for LayeredLookup {
 /// A callable [`Function`] backed by a `.hnl` source field.
 ///
 /// Each call evaluates `(source).func_name(__arg_N)` via a cached per-thread
-/// `Runtime`. The `Runtime` is built lazily on first use and reused for
-/// subsequent calls on the same thread; the applied form's parsed `Ast` is
-/// likewise cached per (module, function, arity) in `AST_CACHE`, so only the
-/// eval stage runs per call.
+/// `Runtime`. Arguments are bound directly on the call frame via
+/// [Runtime::eval_shared_with_call_args] (not injected as per-call engine
+/// globals), so no engine cloning occurs per call. The `Runtime` is built
+/// lazily on first use and reused for subsequent calls on the same thread;
+/// the applied form's parsed `Ast` is likewise cached per (module,
+/// function, arity) in `AST_CACHE`, so only the eval stage runs per call.
 ///
 /// This type is created by [`HandlModule`]; you do not typically construct
 /// it directly.
@@ -1156,7 +1159,7 @@ impl Function for HandlFunction {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        // Arguments are bound as per-call globals (`__arg_N`) — never
+        // Arguments are bound directly on the call frame (`__arg_N`) — never
         // serialized into the applied source text. Source literals cannot
         // express closures (`__arrow__` — the object constructor rejects
         // the reserved key, and a closure's `body` index only has meaning
@@ -1181,7 +1184,15 @@ impl Function for HandlFunction {
         } else {
             None
         };
-        let mut globals: HashMap<String, serde_json::Value> = HashMap::with_capacity(args.len());
+        // Build the call args as `(name, value)` pairs. The names (`__arg_N`)
+        // match the cached applied-form AST `(source).func_name(__arg_0, …)`,
+        // so the parse cache stays valid. Args are bound directly on the call
+        // frame via `Runtime::eval_shared_with_call_args` — NOT injected as
+        // per-call engine globals via `eval_shared_with_globals`, which would
+        // clone the eval engine once per argument. The tree-walk engine merges
+        // them into the `ScopeStack`'s globals map (excluded from `capture()`,
+        // so no env capture, ADR-0106).
+        let mut call_args: Vec<(String, serde_json::Value)> = Vec::with_capacity(args.len());
         let mut arg_names: Vec<String> = Vec::with_capacity(args.len());
         for (i, arg) in args.iter().enumerate() {
             let name = format!("__arg_{i}");
@@ -1189,7 +1200,7 @@ impl Function for HandlFunction {
             if let Some(frame_id) = caller_frame {
                 stamp_home(&mut v, frame_id);
             }
-            globals.insert(name.clone(), v);
+            call_args.push((name.clone(), v));
             arg_names.push(name);
         }
         let module_id = self.module_id;
@@ -1211,11 +1222,13 @@ impl Function for HandlFunction {
         };
         // Parse the applied form `(source).func(__arg_0, ...)` once per
         // (module, function, arity) and reuse the `Ast` across calls — the
-        // source text cannot vary with the arguments (they are `__arg_N`
-        // globals). The `Rc<Ast>` is cloned out of the thread-local cache
+        // source text is a pure function of `(module id, function name,
+        // arity)`. Arguments bind directly on the call frame (not as source
+        // text), so the same parsed `Ast` is valid for every call with the
+        // same arity. The `Rc<Ast>` is cloned out of the thread-local cache
         // and the `RefCell` borrow released *before* eval so re-entrant
-        // nested calls never hold the borrow; eval only reads the AST
-        // (`EvalRequest` takes a clone), so sharing is sound.
+        // nested calls never hold the borrow; eval only reads the AST, so
+        // sharing is sound.
         let ast_key = (module_id, func_name.clone(), args.len());
         let ast = AST_CACHE.with(|cache| cache.borrow().get(&ast_key).cloned());
         let ast = match ast {
@@ -1237,7 +1250,7 @@ impl Function for HandlFunction {
         // indices refer to it — register it as a home frame so the caller
         // can apply them.
         let result = runtime
-            .eval_shared_with_globals(&ast, &globals)
+            .eval_shared_with_call_args(&ast, &call_args)
             .map_err(errf)?;
         if contains_unhomed_arrow(&result) {
             let frame_id = handl_plugin_engine_exec_tree_walk::register_home_frame(

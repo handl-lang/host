@@ -896,6 +896,37 @@ impl Runtime {
         engine.eval_shared(&self.lang, ast)
     }
 
+    /// Evaluate an [`Ast`] held behind an `Rc`, binding `args` directly into
+    /// the call frame's scope rather than via per-call `with_global` engine
+    /// cloning.
+    ///
+    /// This is the per-call seam for hosts that cache a parsed AST and
+    /// re-evaluate it many times with different arguments (e.g.
+    /// `plugin-lib-handl`'s `HandlFunction` bridge). The argument names are
+    /// expected to match identifiers referenced inside `ast` (typically
+    /// `__arg_0`, `__arg_1`, … from a cached applied-form AST).
+    ///
+    /// Unlike [`eval_shared_with_globals`](Self::eval_shared_with_globals),
+    /// which clones the eval engine once per argument via `with_global`, this
+    /// method delegates to `EvalEngine::eval_shared_with_call_args`, which the
+    /// tree-walk engine overrides to bind args directly on the call frame's
+    /// scope stack — **zero engine clones per call**. Engines that do not
+    /// override the default fall back to the clone-and-inject path, preserving
+    /// existing behavior.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
+    /// propagates the engine's error.
+    pub fn eval_shared_with_call_args(
+        &self,
+        ast: &Rc<Ast>,
+        args: &[(String, Value)],
+    ) -> Result<Value, LangError> {
+        let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
+        engine.eval_shared_with_call_args(&self.lang, ast, args)
+    }
+
     /// Convenience: `eval(parse(lex(src)?)?)`.
     ///
     /// Composes all three stages. If any stage's engine is missing, returns

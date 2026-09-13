@@ -5033,6 +5033,32 @@ impl TreeWalkEngine {
     /// install `ast_rc`/`lang_rc`/modules in the thread-locals (saving the
     /// previous values for nested evals), then evaluate the arena root.
     fn eval_ast_rc(&self, lang: &Language, ast_rc: Rc<Ast>) -> Result<Value, LangError> {
+        self.eval_ast_rc_with_args(lang, ast_rc, &[])
+    }
+
+    /// Like [`eval_ast_rc`](Self::eval_ast_rc), but merges `call_args`
+    /// directly into the call frame's `ScopeStack` globals map — **without**
+    /// cloning the engine via [`with_global`](Self::with_global).
+    ///
+    /// The call args are bound into the same `globals` field that
+    /// host-provided globals (e.g. `self`) use, so they are:
+    ///
+    /// - resolvable via [`ScopeStack::lookup`] (globals fallback),
+    /// - **excluded from `capture()`** — they are never deep-cloned into
+    ///   closures ("no env capture", ADR-0106), and
+    /// - not stored on the engine struct, so no `box_clone` is needed.
+    ///
+    /// This is the tree-walk override of
+    /// [`EvalEngine::eval_shared_with_call_args`], used by
+    /// `plugin-lib-handl`'s `HandlFunction::call` to bind `__arg_0`..
+    /// `__arg_{n-1}` directly on the call frame instead of injecting them as
+    /// per-call engine globals.
+    fn eval_ast_rc_with_args(
+        &self,
+        lang: &Language,
+        ast_rc: Rc<Ast>,
+        call_args: &[(String, Value)],
+    ) -> Result<Value, LangError> {
         if ast_rc.is_empty() {
             return Ok(Value::Null);
         }
@@ -5055,19 +5081,26 @@ impl TreeWalkEngine {
         let prev_import_resolver = CURRENT_IMPORT_RESOLVER
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver_rc));
         let mut env = ScopeStack::new();
-        // Inject host-provided globals (e.g. `self` → language value) into
-        // the env's `globals` field (an `Rc<HashMap>`) rather than the root
-        // scope. ADR-0041 Phase 3: `self` is an ambient variable, not a
-        // function call. Keeping globals out of `scopes[0]` means they are
-        // never captured into closures (see `ScopeStack::capture`), avoiding
-        // a deep clone of the (potentially massive) language value on every
-        // closure creation and call.
-        let globals_rc: Rc<FxHashMap<Rc<str>, TaggedValue>> = Rc::new(
-            self.globals
+        // Build the merged globals map: host-provided globals (e.g. `self`)
+        // plus the per-call argument bindings (`__arg_0`, …). Both live in the
+        // `globals` field of the `ScopeStack` — accessible via `lookup()` but
+        // excluded from `capture()`, so arguments are never deep-cloned into
+        // closures (ADR-0106 "no env capture").
+        //
+        // This replaces the old `with_global`-per-arg path: instead of cloning
+        // the engine N times (once per `__arg_N`), we merge all args into a
+        // single `Rc` map and install it once — zero engine clones per call.
+        let globals_rc: Rc<FxHashMap<Rc<str>, TaggedValue>> = Rc::new({
+            let mut map: FxHashMap<Rc<str>, TaggedValue> = self
+                .globals
                 .iter()
                 .map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone())))
-                .collect(),
-        );
+                .collect();
+            for (name, val) in call_args {
+                map.insert(Rc::from(name.as_str()), TaggedValue::from(val.clone()));
+            }
+            map
+        });
         env.set_globals(Rc::clone(&globals_rc));
         let prev_globals = CURRENT_GLOBALS
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&globals_rc))));
@@ -5094,6 +5127,24 @@ impl EvalEngine for TreeWalkEngine {
     /// `CURRENT_AST`, avoiding the per-call arena deep clone entirely.
     fn eval_shared(&self, lang: &Language, ast: &Rc<Ast>) -> Result<Value, LangError> {
         self.eval_ast_rc(lang, Rc::clone(ast))
+    }
+
+    /// Tree-walk override: bind `args` directly into the call frame's
+    /// `ScopeStack` globals (alongside host-provided globals like `self`)
+    /// without cloning the engine. This is the zero-clone path used by
+    /// `HandlFunction::call` — args cross the boundary as values, not via
+    /// per-call `with_global` engine clones.
+    ///
+    /// The args are merged into the same `Rc<FxHashMap>` that the engine's
+    /// host globals occupy, so they are resolvable via `lookup()` but
+    /// excluded from `capture()` (no env capture, ADR-0106).
+    fn eval_shared_with_call_args(
+        &self,
+        lang: &Language,
+        ast: &Rc<Ast>,
+        args: &[(String, Value)],
+    ) -> Result<Value, LangError> {
+        self.eval_ast_rc_with_args(lang, Rc::clone(ast), args)
     }
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {
