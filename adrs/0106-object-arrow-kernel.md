@@ -846,6 +846,36 @@ capture cannot change silently.
 TODOs: (1) fix the `fanout` stack overflow; (2) implement the scheme-derived
 binding-read analysis and drop `env` for arrows that provably read nothing.
 
+**Fanout diagnosis recorded (follow-up).** A focused investigation of the
+overflow (branch `doc/adr0106-fanout-diagnosis`-sibling work, since dropped)
+established the following evidence:
+
+- **It is a stack-threshold + huge-evaluation problem, not an infinite loop.**
+  With the default 8 MiB thread stack the test binary aborts; with
+  `RUST_MIN_STACK ≈ 128 MiB` it *passes* in ~20 s and returns the correct
+  `[1, 2]`. An instrumentation of every `eval_node_inner` visit showed the
+  program terminating at the `fanout` node.
+- **The cost is disproportionate.** The trivial source `1 &&& 2` drives on the
+  order of **4 million AST-node visits** and recurses ~10⁵ frames deep — far
+  beyond what two operands should require.
+- **The host is wired correctly.** `fn.fanout_fn` is registered via
+  `canonical_fp_host_functions` (`crates/kit-canonical/src/lib.rs`), and
+  `&&&` has `eval.fanout` → `fn.fanout_fn(proj_child 0, proj_child 1)` with no
+  desugar rule — so the blowup is *inside* the eval path, not a rewrite miss.
+- **Open question — loader vs evaluator.** The `kit()` build installs the
+  self-hosted `HandlLoader` (which runs stdlib transforms on the **bytecode**
+  engine), and the instrumented node mix (`match`/`if`/`index`/`binary.eq`)
+  does not match a bare `1 &&& 2`, so it is not yet clear whether the depth is
+  the tree-walk eval of the `&&&` lowering or the loader's bootstrap work.
+  Next step: run `1 &&& 2` through a **loader-free minimal kit** to isolate
+  which engine/path is responsible, then either bound the recursion with a
+  clean `LangError` or fix the algorithmic re-evaluation.
+
+Until that isolation is done, the fix is deliberately **not** shipped: the
+overflow is genuine and pre-existing, and a speculative depth guard was not
+validated against a clean oracle (`fp_integration` is red because of exactly
+this bug).
+
 **Cost of step 2 (resolved).** Preferring `body_def` initially deserialized
 the standalone arena on *every* application (`tagged_to_value` + `as_ast`),
 which allocates per call. `plugin-engine-exec-tree-walk` now memoizes the
