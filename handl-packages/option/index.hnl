@@ -1,4 +1,4 @@
---- option — Option type and constructors.
+--- Option type and constructors.
 --- @details
 --- The `option` contract declares the `Option<T>` type and the `some`
 --- / `none` constructors. Backends implement these pure, total arrows.
@@ -7,13 +7,17 @@
 --- The `Option<T>` type.
 --- @details
 --- An `Option<T>` is either `None` or `Some(value: T)`.
-export Option < T >: Type
+export Option<T> := Type
 
 --- Construct a Some option wrapping a value.
 --- @param {value} - the value of type T
 --- @returns {Option<T>}
-export some < T >: T ~ [Total] ~> Option < T >
+export some<T>: T ~[Total]~> Option<T> := (value: T) ~> do {
+  { "__tag__": "Some", "__registry__": "option", "value": value }
+}
 
 --- Construct a None option.
 --- @returns {Option<T>}
-export none < T >: () ~ [Total] ~> Option < T >
+export none<T>: () ~[Total]~> Option<T> := () ~> do {
+  { "__tag__": "None", "__registry__": "option" }
+}
