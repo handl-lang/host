@@ -9,7 +9,7 @@ use handl_kit_canonical::Kit;
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,7 +18,7 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -160,4 +160,28 @@ fn rand_stub_choice_sample_shuffle_are_deterministic() {
 fn rand_stub_bytes_and_string_are_deterministic() {
     assert_eq!(eval_rand_stub("bytes(3)"), serde_json::json!([4, 4, 4]));
     assert_eq!(eval_rand_stub("string(4, \"abc\")"), serde_json::json!("aaaa"));
+}
+
+#[test]
+fn rand_c_gauss_is_number() {
+    let v = eval_rand_c("gauss(5, 2)");
+    assert!(v.is_number(), "rand-c gauss must return a number: {v}");
+}
+
+#[test]
+fn rand_c_exponential_is_non_negative() {
+    let v = eval_rand_c("exponential(1.5)")
+        .as_f64()
+        .expect("exponential must return a number");
+    assert!(v >= 0.0, "rand-c exponential must be non-negative: {v}");
+}
+
+#[test]
+fn rand_stub_gauss_is_mean() {
+    assert_eq!(eval_rand_stub("gauss(5, 2)"), serde_json::json!(5));
+}
+
+#[test]
+fn rand_stub_exponential_is_zero() {
+    assert_eq!(eval_rand_stub("exponential(1)"), serde_json::json!(0.0));
 }

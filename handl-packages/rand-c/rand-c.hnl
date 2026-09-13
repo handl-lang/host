@@ -188,6 +188,22 @@ do {
           { state: { n: n - 1, acc: acc + pick(cs) } }
         }
       }
+    },
+
+    -- Generate a normally distributed number with `mean` and `stddev`.
+    gauss: (mean, stddev) ~> do {
+      u1 = math.div(math.add(next_u32(), 1), 4294967296);
+      u2 = math.div(math.add(next_u32(), 1), 4294967296);
+      r = math.sqrt(math.sub(0, math.mul(2, math.log(u1))));
+      theta = math.mul(math.mul(2, math.pi()), u2);
+      z = math.mul(r, math.cos(theta));
+      math.add(mean, math.mul(stddev, z))
+    },
+
+    -- Generate an exponentially distributed non-negative number with `lambda`.
+    exponential: (lambda) ~> do {
+      u = math.div(math.add(next_u32(), 1), 4294967296);
+      math.div(math.sub(0, math.log(u)), lambda)
     }
   }
 }
