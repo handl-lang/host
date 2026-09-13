@@ -1,21 +1,26 @@
---- The libc `rand` backend for random values.
+--- The libc `getrandom` backend for random values.
 ---
---- Calls `rand` in `libc.so.6` through the generic `ffi` host
---- capability and exposes `int`, `float`, and `bool` arrows.
+--- @details
+--- All values are derived from `entropy.next_u32` so the package is
+--- built on a small, cryptographically secure surface. `int`, `float`,
+--- and `bool` are the phase-1 exports; `pick`, `choice`, `sample`,
+--- `shuffle`, `bytes`, `string`, `uuid`, and distributions are added
+--- in later phases (see `project/adrs/0107-rand-ffi.md`).
 
-from "./crand" import { next_i32 }
+from "../grade" import { Effect }
+from "./entropy" import { next_u32 }
 
 --- Generate a random integer in `[0, max]`.
 --- @param {max} - the inclusive upper bound
---- @returns {Number - a random integer between 0 and `max` inclusive}
+--- @returns {Number - a random integer between `0` and `max` inclusive}
 --- @example
 --- ```hnl
 --- from "rand-c" import { int }
 --- int(6)
 --- ```
-export int: Number -> Number := (max) ~> do {
-  n = next_i32();
-  math.mod(n, max + 1)
+export int: Number ~[Effect]~> Number := (max) ~> do {
+  u = next_u32();
+  math.mod(u, max + 1)
 }
 
 --- Generate a random float in `[0, max)`.
@@ -26,9 +31,9 @@ export int: Number -> Number := (max) ~> do {
 --- from "rand-c" import { float }
 --- float(10)
 --- ```
-export float: Number -> Number := (max) ~> do {
-  n = next_i32();
-  math.div(n, 2147483648) * max
+export float: Number ~[Effect]~> Number := (max) ~> do {
+  u = next_u32();
+  math.mul(math.div(u, 4294967296), max)
 }
 
 --- Generate a random boolean.
@@ -38,7 +43,7 @@ export float: Number -> Number := (max) ~> do {
 --- from "rand-c" import { bool }
 --- bool()
 --- ```
-export bool: () -> Bool := () ~> do {
-  n = next_i32();
-  math.mod(n, 2) == 0
+export bool: () ~[Effect]~> Bool := () ~> do {
+  u = next_u32();
+  math.mod(u, 2) == 0
 }

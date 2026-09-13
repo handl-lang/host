@@ -1,0 +1,32 @@
+--- Low-level cryptographically secure entropy from libsodium.
+---
+--- @details
+--- This is the only effectful `ffi` surface in `rand-c`. It initializes
+--- libsodium once per call (`sodium_init` is idempotent) and draws a
+--- 32-bit value via `randombytes_random`. All other `rand-c` operations
+--- are built on top of `next_u32` so the trusted C surface stays tiny.
+
+from "../grade" import { Effect }
+
+--- Draw a single 32-bit random value from libsodium.
+--- @returns {Number - a value in `[0, 4294967295]`}
+--- @example
+--- ```hnl
+--- from "entropy" import { next_u32 }
+--- next_u32()
+--- ```
+export next_u32: () ~[Effect]~> Number := () ~> do {
+  -- `sodium_init` is idempotent; subsequent calls return 1 (already inited).
+  ffi.call("libsodium.so", "sodium_init", [], [], "i32", false);
+  raw = ffi.call(
+    "libsodium.so",
+    "randombytes_random",
+    [],
+    [],
+    "i32",
+    false
+  );
+  -- `i32` sign-extends a `uint32_t`; convert negative values back to
+  -- unsigned by adding 2^32.
+  if raw < 0 { raw + 4294967296 } else { raw }
+}
