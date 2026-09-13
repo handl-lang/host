@@ -3,6 +3,8 @@
 --- `benchmark.run` runs the function `iterations` times and reports
 --- elapsed wall-clock time in milliseconds.
 
+from "serialize" import { serialize }
+
 cap "benchmark.run"
 
 op "benchmark.run" : (Function, Number, Array) -> Value
@@ -28,7 +30,7 @@ handl "benchmark.run" = run
       if tag.tag_of(last) == "err" {
         tag.tag("err", { value: {
           message: "benchmark function failed",
-          cause: json.stringify(tag.untag(last).value)
+          cause: serialize(tag.untag(last).value, "json")
         }})
       } else {
         {

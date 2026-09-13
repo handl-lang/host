@@ -4,6 +4,8 @@
 --- deterministic seeded floats.  The predicate must return `true` to
 --- pass and an `err`-tagged result to fail.
 
+from "serialize" import { serialize }
+
 cap "property.for_all"
 
 op "property.for_all" : (Function, Number, Number) -> Value
@@ -41,7 +43,7 @@ do {
               { out: tag.tag("err", { value: {
                 message: "property failed",
                 counterexample: inputs,
-                cause: json.stringify(tag.untag(r).value)
+                cause: serialize(tag.untag(r).value, "json")
               }})}
             } else if r != true {
               { out: tag.tag("err", { value: {

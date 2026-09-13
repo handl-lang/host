@@ -312,7 +312,7 @@ fn build_test_module() -> HandlModule {
     HandlModule::new("test", TEST_HNL, TEST_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
@@ -324,7 +324,7 @@ fn build_property_module() -> HandlModule {
     HandlModule::new("property", PROPERTY_HNL, PROPERTY_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
@@ -334,7 +334,7 @@ fn build_property_module() -> HandlModule {
 fn build_benchmark_module() -> HandlModule {
     HandlModule::new("benchmark", BENCHMARK_HNL, BENCHMARK_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
         ))
@@ -344,7 +344,7 @@ fn build_fuzz_module() -> HandlModule {
     HandlModule::new("fuzz", FUZZ_HNL, FUZZ_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
@@ -354,13 +354,13 @@ fn build_fuzz_module() -> HandlModule {
 fn build_snapshot_module() -> HandlModule {
     HandlModule::new("snapshot", SNAPSHOT_HNL, SNAPSHOT_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
 }
 
 fn build_assert_module() -> HandlModule {
     HandlModule::new("assert", ASSERT_HNL, ASSERT_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("json").expect("json")))
+        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
         .with_dependency_arc(std::sync::Arc::new(stdlib::module("array").expect("array")))
 }
 
@@ -697,6 +697,7 @@ const TYPE_HANDL_FUNCS: &[&str] = &[
     "to_bool",
     "Int",
     "Number",
+    "Nat",
     "Obj",
     "String",
     "Array",

@@ -3,6 +3,8 @@
 --- All helpers build `ok`/`err` result values directly; they do not use
 --- the engine's `assert` keyword and never raise.
 
+from "serialize" import { serialize }
+
 cap "assert.equal"
 cap "assert.not_equal"
 cap "assert.true"
@@ -24,10 +26,10 @@ op "assert.contains" : (Array, Value) -> Value
     tag.tag("ok", { value: b })
   } else {
     tag.tag("err", { value: {
-      message: "assertion failed: " + json.stringify(a) + " != " + json.stringify(b),
+      message: "assertion failed: " + serialize(a, "json") + " != " + serialize(b, "json"),
       assertion: "equal",
-      expected: json.stringify(b),
-      actual: json.stringify(a)
+      expected: serialize(b, "json"),
+      actual: serialize(a, "json")
     }})
   },
 
@@ -35,10 +37,10 @@ op "assert.contains" : (Array, Value) -> Value
     tag.tag("ok", { value: b })
   } else {
     tag.tag("err", { value: {
-      message: "assertion failed: " + json.stringify(a) + " == " + json.stringify(b),
+      message: "assertion failed: " + serialize(a, "json") + " == " + serialize(b, "json"),
       assertion: "not_equal",
       expected: "values to differ",
-      actual: json.stringify(a)
+      actual: serialize(a, "json")
     }})
   },
 
@@ -48,7 +50,7 @@ op "assert.contains" : (Array, Value) -> Value
     tag.tag("err", { value: {
       message: "assertion failed: expected true",
       assertion: "true",
-      actual: json.stringify(x)
+      actual: serialize(x, "json")
     }})
   },
 
@@ -58,7 +60,7 @@ op "assert.contains" : (Array, Value) -> Value
     tag.tag("err", { value: {
       message: "assertion failed: expected false",
       assertion: "false",
-      actual: json.stringify(x)
+      actual: serialize(x, "json")
     }})
   },
 
@@ -66,10 +68,10 @@ op "assert.contains" : (Array, Value) -> Value
     tag.tag("ok", { value: x })
   } else {
     tag.tag("err", { value: {
-      message: "assertion failed: " + json.stringify(x) + " not in " + json.stringify(xs),
+      message: "assertion failed: " + serialize(x, "json") + " not in " + serialize(xs, "json"),
       assertion: "contains",
-      expected: json.stringify(x),
-      actual: json.stringify(xs)
+      expected: serialize(x, "json"),
+      actual: serialize(xs, "json")
     }})
   }
 }
