@@ -1,0 +1,11 @@
+--- Deterministic, pure-Handl backend for `uuid`.
+--- @details
+--- Returns a fixed, reproducible v4 UUID so tests and benchmarks stay
+--- deterministic. This is a no-effect backend; it does not call any
+--- FFI library.
+
+do {
+  {
+    v4: () ~> "00000000-0000-4000-8000-000000000000"
+  }
+}
