@@ -1,6 +1,8 @@
 from "../str-handl" import * as str
 from "../transform" import { map, reduce }
 
+-- Removes the largest common leading whitespace prefix shared by all
+-- non-blank lines in `text`, preserving relative indentation.
 export dedent := (text: String) ~> do {
   indent_of := (line: String) ~> do {
     str.length(line) - str.length(str.trim_start(line))
