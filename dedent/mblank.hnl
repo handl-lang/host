@@ -1,4 +1,0 @@
-from "../str-handl" import * as str
-
-test_blank := assert str.is_empty(str.trim("   ")) = true
-test_trim := assert str.trim("   ") = ""

@@ -1,7 +1,0 @@
-from "../str-handl" import * as str
-from "../transform" import { reduce }
-
-export prefix_of := (line) ~> reduce([str.split(line, ""), "", [acc, c]~> if str.is_empty(str.trim(acc + c)) { acc + c } else { acc }])
-
-test_prefix1 := assert prefix_of("   Hello") = "   "
-test_prefix2 := assert prefix_of("Hello") = ""

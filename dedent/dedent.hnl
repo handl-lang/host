@@ -8,6 +8,7 @@
 
 from "../str-handl" import * as str
 from "../transform" import { map, filter, reduce }
+from "../char" import * as char
 
 --- Remove the largest common leading whitespace prefix from `text`.
 ---
@@ -17,30 +18,84 @@ from "../transform" import { map, filter, reduce }
 --- Blank and whitespace-only lines are ignored when computing the shared
 --- prefix. They are output as empty lines so no trailing whitespace remains.
 export dedent := (text) ~> do {
-  is_blank := (line) ~> str.is_empty(str.trim(line))
+  is_blank := (line) ~> str.is_empty(line) || reduce([char.chars(line), true, [acc, c] ~> do {
+    result := acc;
+    if c != "" {
+      if !char.is_whitespace(c) && char.code_point(c) != 160 {
+        result := false;
+      };
+    };
+    result
+  }]);
 
-  common_prefix := [a, b] ~> reduce([str.split(a, ""), "", [acc, c]~> if str.starts_with(b, acc + c) { acc + c } else { acc }])
+  common_prefix := [a, b] ~> {
+    n := if char.length(a) < char.length(b) { char.length(a) } else { char.length(b) };
+    while { i: 0, prefix: "", a: a, b: b, n: n } {
+      [state] ~> if state.i < state.n {
+        if char.at(state.a, state.i) == char.at(state.b, state.i) {
+          { state: { i: state.i + 1, prefix: state.prefix + char.at(state.a, state.i), a: state.a, b: state.b, n: state.n } }
+        } else {
+          { out: state.prefix }
+        }
+      } else {
+        { out: state.prefix }
+      }
+    }
+  };
 
-  prefix_of := (line) ~> reduce([str.split(line, ""), "", [acc, c]~> if is_blank(acc + c) { acc + c } else { acc }])
+  prefix_of := (line) ~> do {
+    state := reduce([char.chars(line), { prefix: "", done: false }, [state, c] ~> do {
+      result := state;
+      if c != "" {
+        if !state.done && (char.is_whitespace(c) || char.code_point(c) == 160) {
+          result := { prefix: state.prefix + c, done: false };
+        };
+        if !state.done && !char.is_whitespace(c) && char.code_point(c) != 160 {
+          result := { prefix: state.prefix, done: true };
+        };
+      };
+      result
+    }]);
+    state.prefix
+  };
 
   normalized := str.replace(
     str.replace(text, "\r\n", "\n"),
     "\r",
     "\n"
-  )
-  trimmed := str.trim_matches(normalized, "\n")
+  );
+  trimmed := str.trim_matches(normalized, "\n");
+
+  result := do {
+    lines := str.lines(trimmed);
+    non_blank := filter(lines, line ~> !is_blank(line));
+
+    prefixes := map(non_blank, prefix_of);
+    common_full := "";
+    if prefixes != [] {
+      common_full := reduce([prefixes, prefixes[0], [acc, p] ~> common_prefix(acc, p)]);
+    };
+
+    line_count := reduce([non_blank, 0, [acc, _] ~> acc + 1]);
+    common := common_full;
+    if line_count <= 1 {
+      common := prefix_of(common_full);
+    };
+
+    strip_line := (line) ~> do {
+      line_result := str.strip_prefix(line, common);
+      if is_blank(line) {
+        line_result := "";
+      };
+      line_result
+    };
+
+    str.join(map(lines, strip_line), "\n")
+  };
 
   if str.is_empty(str.trim(trimmed)) {
-    ""
-  } else { do {
-        lines    := str.lines(trimmed)
-  non_blank:= filter(lines, line ~> !is_blank(line))
+    result := "";
+  };
 
-  common_full := reduce([non_blank, "", [acc, line]~> if acc == "" { line } else { common_prefix(acc, line) }])
-  common := prefix_of(common_full)
-
-  strip_line := (line) ~> if is_blank(line) { "" } else { str.strip_prefix(line, common) }
-
-  str.join(map(lines, strip_line), "\n")
-  }}
+  result
 }
