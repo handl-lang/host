@@ -131,7 +131,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "option",
         hnl: include_str!("../../../handl-packages/option/index.hnl"),
-        funcs: &["some", "none"],
+        funcs: &["Option", "some", "none"],
         ops: &[],
         registry: None,
     },

@@ -695,6 +695,7 @@ const TYPE_HANDL_FUNCS: &[&str] = &[
     "identity",
     "default",
     "to_bool",
+    "Int",
     "Number",
     "Obj",
     "String",

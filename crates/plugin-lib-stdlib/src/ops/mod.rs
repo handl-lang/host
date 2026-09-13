@@ -18,7 +18,6 @@ pub mod json;
 pub mod math;
 pub mod mood;
 pub mod obj;
-pub mod option;
 pub mod parse;
 pub mod serialize;
 pub mod strs;

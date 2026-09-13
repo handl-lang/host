@@ -1322,10 +1322,6 @@ pub struct ModuleLoader {
     cache: RefCell<HashMap<String, Value>>,
     /// Paths currently being loaded (cycle detection).
     loading: RefCell<HashSet<String>>,
-    /// Weak back-reference to the `Rc<ModuleLoader>` this loader lives in,
-    /// so nested module evaluation can pass an `Rc<dyn ImportResolver>`
-    /// pointing back at this loader when wiring the eval engine.
-    self_rc: RefCell<Option<std::rc::Weak<ModuleLoader>>>,
 }
 
 impl ModuleLoader {
@@ -1350,7 +1346,6 @@ impl ModuleLoader {
             dir_stack: RefCell::new(Vec::new()),
             cache: RefCell::new(HashMap::new()),
             loading: RefCell::new(HashSet::new()),
-            self_rc: RefCell::new(None),
         }
     }
 
@@ -1371,8 +1366,12 @@ impl ModuleLoader {
             self.eval_engine.borrow().is_none(),
             "ModuleLoader::set_eval_engine called twice"
         );
+        // Re-wire the engine's import resolver to this loader so that
+        // `import`/`from` statements inside loaded modules resolve through
+        // the same cache and relative-path base.
+        let resolver = Rc::clone(self) as Rc<dyn ImportResolver>;
+        let engine = engine.with_import_resolver(resolver);
         *self.eval_engine.borrow_mut() = Some(Rc::from(engine));
-        *self.self_rc.borrow_mut() = Some(Rc::downgrade(self));
     }
 
     /// Resolve an import path to a canonical absolute path string, used as
@@ -1558,22 +1557,15 @@ impl ModuleLoader {
         // Evaluate the module. Clone the eval engine out of the RefCell
         // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
         // imports) can independently borrow the cell without panic.
-        // Re-wire the engine's import resolver to this loader so the
-        // module's own `from`/`import` statements resolve through the same
-        // cache and relative-path base.
+        // Evaluate the module. Clone the eval engine out of the RefCell
+        // (cheap `Rc` clone) so re-entrant `load_module` calls (nested
+        // imports) can independently borrow the cell without panic.
         let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
             LangError::engine(format!(
                 "import \"{}\" ({}): module loader has no eval engine configured",
                 display_path, resolved
             ))
         })?;
-        let loader_rc = self
-            .self_rc
-            .borrow()
-            .as_ref()
-            .and_then(|w| w.upgrade())
-            .ok_or_else(|| LangError::engine("module loader self-reference missing".to_string()))?;
-        let engine_rc = engine_rc.with_import_resolver(loader_rc);
         let value = {
             let req = EvalRequest::new(ast.clone());
             engine_rc
