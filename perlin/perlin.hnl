@@ -1,0 +1,134 @@
+--- Pure-Handl deterministic Perlin noise.
+---
+--- Perlin value noise in 1, 2 and 3 dimensions.  Outputs are bounded in
+--- [-1, 1] and coordinate-stable.
+
+export perlin_1d :: (x: Number) ~> do {
+  hash = (i) ~> math.abs(math.mod(math.mul(i, 374761393), 2147483647))
+
+  grad = (i) ~> if math.mod(hash(i), 2) == 0 { 1 } else { -1 }
+
+  smoothstep = (t) ~> math.mul(t, math.mul(t, math.sub(3, math.mul(2, t))))
+
+  lerp = (a, b, t) ~> math.add(a, math.mul(t, math.sub(b, a)))
+
+  i = math.floor(x)
+  f = math.sub(x, i)
+  s = smoothstep(f)
+  n0 = math.mul(grad(i), f)
+  n1 = math.mul(grad(math.add(i, 1)), math.sub(f, 1))
+  math.clamp(lerp(n0, n1, s), -1, 1)
+}
+
+export perlin_2d :: (x: Number, y: Number) ~> do {
+  hash = (i, j) ~> do {
+    h = math.add(
+      math.add(math.mul(i, 374761393), math.mul(j, 668265295)),
+      1000003
+    )
+    math.abs(math.mod(h, 2147483647))
+  }
+
+  grads = [
+    {x: 1, y: 1},
+    {x: 1, y: -1},
+    {x: -1, y: 1},
+    {x: -1, y: -1},
+    {x: 1, y: 0},
+    {x: -1, y: 0},
+    {x: 0, y: 1},
+    {x: 0, y: -1}
+  ]
+
+  grad = (i, j) ~> grads[math.mod(hash(i, j), 8)]
+
+  smoothstep = (t) ~> math.mul(t, math.mul(t, math.sub(3, math.mul(2, t))))
+
+  lerp = (a, b, t) ~> math.add(a, math.mul(t, math.sub(b, a)))
+
+  dot = (g, u, v) ~> math.add(math.mul(g.x, u), math.mul(g.y, v))
+
+  i = math.floor(x)
+  j = math.floor(y)
+  u = math.sub(x, i)
+  v = math.sub(y, j)
+  sx = smoothstep(u)
+  sy = smoothstep(v)
+
+  n00 = dot(grad(i, j), u, v)
+  n10 = dot(grad(math.add(i, 1), j), math.sub(u, 1), v)
+  n01 = dot(grad(i, math.add(j, 1)), u, math.sub(v, 1))
+  n11 = dot(grad(math.add(i, 1), math.add(j, 1)), math.sub(u, 1), math.sub(v, 1))
+
+  x0 = lerp(n00, n10, sx)
+  x1 = lerp(n01, n11, sx)
+  math.clamp(lerp(x0, x1, sy), -1, 1)
+}
+
+export perlin_3d :: (x: Number, y: Number, z: Number) ~> do {
+  hash = (i, j, k) ~> do {
+    h = math.add(
+      math.add(
+        math.add(math.mul(i, 374761393), math.mul(j, 668265295)),
+        math.mul(k, 1207296579)
+      ),
+      1000003
+    )
+    math.abs(math.mod(h, 2147483647))
+  }
+
+  grads = [
+    {x: 1, y: 1, z: 0},
+    {x: 1, y: -1, z: 0},
+    {x: -1, y: 1, z: 0},
+    {x: -1, y: -1, z: 0},
+    {x: 1, y: 0, z: 1},
+    {x: 1, y: 0, z: -1},
+    {x: -1, y: 0, z: 1},
+    {x: -1, y: 0, z: -1},
+    {x: 0, y: 1, z: 1},
+    {x: 0, y: 1, z: -1},
+    {x: 0, y: -1, z: 1},
+    {x: 0, y: -1, z: -1}
+  ]
+
+  grad = (i, j, k) ~> grads[math.mod(hash(i, j, k), 12)]
+
+  smoothstep = (t) ~> math.mul(t, math.mul(t, math.sub(3, math.mul(2, t))))
+
+  lerp = (a, b, t) ~> math.add(a, math.mul(t, math.sub(b, a)))
+
+  dot = (g, u, v, w) ~> math.add(
+    math.add(math.mul(g.x, u), math.mul(g.y, v)),
+    math.mul(g.z, w)
+  )
+
+  i = math.floor(x)
+  j = math.floor(y)
+  k = math.floor(z)
+  u = math.sub(x, i)
+  v = math.sub(y, j)
+  w = math.sub(z, k)
+  sx = smoothstep(u)
+  sy = smoothstep(v)
+  sz = smoothstep(w)
+
+  n000 = dot(grad(i, j, k), u, v, w)
+  n100 = dot(grad(math.add(i, 1), j, k), math.sub(u, 1), v, w)
+  n010 = dot(grad(i, math.add(j, 1), k), u, math.sub(v, 1), w)
+  n110 = dot(grad(math.add(i, 1), math.add(j, 1), k), math.sub(u, 1), math.sub(v, 1), w)
+  n001 = dot(grad(i, j, math.add(k, 1)), u, v, math.sub(w, 1))
+  n101 = dot(grad(math.add(i, 1), j, math.add(k, 1)), math.sub(u, 1), v, math.sub(w, 1))
+  n011 = dot(grad(i, math.add(j, 1), math.add(k, 1)), u, math.sub(v, 1), math.sub(w, 1))
+  n111 = dot(grad(math.add(i, 1), math.add(j, 1), math.add(k, 1)), math.sub(u, 1), math.sub(v, 1), math.sub(w, 1))
+
+  x00 = lerp(n000, n100, sx)
+  x10 = lerp(n010, n110, sx)
+  x01 = lerp(n001, n101, sx)
+  x11 = lerp(n011, n111, sx)
+
+  y0 = lerp(x00, x10, sy)
+  y1 = lerp(x01, x11, sy)
+
+  math.clamp(lerp(y0, y1, sz), -1, 1)
+}
