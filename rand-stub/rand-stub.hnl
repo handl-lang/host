@@ -95,6 +95,12 @@ do {
           { state: { n: n - 1, acc: acc + c } }
         }
       }
-    }
+    },
+
+    -- Always returns `mean`.
+    gauss: (mean, _stddev) ~> mean,
+
+    -- Always returns `0.0`.
+    exponential: (_lambda) ~> 0.0
   }
 }
