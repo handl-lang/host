@@ -9,7 +9,7 @@ use handl_kit_canonical::Kit;
 fn eval_rand_c(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-c\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial, seeded_int, seeded_float, seeded_bool, seeded_pick, seeded_choice, seeded_sample, seeded_shuffle, seeded_string, seeded_gauss }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -18,7 +18,7 @@ fn eval_rand_c(input: &str) -> serde_json::Value {
 fn eval_rand_stub(input: &str) -> serde_json::Value {
     let kit = Kit::new().expect("kit must build");
     let src = format!(
-        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial }};\n  {}\n}}",
+        "do {{\n  from \"../../handl-packages/rand-stub\" import {{ int, float, bool, pick, weighted_pick, choice, sample, shuffle, bytes, string, gauss, exponential, poisson, binomial, seeded_int, seeded_float, seeded_bool, seeded_pick, seeded_choice, seeded_sample, seeded_shuffle, seeded_string, seeded_gauss }};\n  {}\n}}",
         input
     );
     kit.eval(&src).expect("eval must succeed")
@@ -213,4 +213,45 @@ fn rand_stub_poisson_is_zero() {
 #[test]
 fn rand_stub_binomial_is_zero() {
     assert_eq!(eval_rand_stub("binomial(10, 0.5)"), serde_json::json!(0));
+}
+
+#[test]
+fn rand_c_seeded_int_is_reproducible() {
+    let a = eval_rand_c("seeded_int(42, 10)");
+    let b = eval_rand_c("seeded_int(42, 10)");
+    assert_eq!(a, b, "seeded_int must be reproducible");
+}
+
+#[test]
+fn rand_c_seeded_float_is_reproducible() {
+    let a = eval_rand_c("seeded_float(42, 10)");
+    let b = eval_rand_c("seeded_float(42, 10)");
+    assert_eq!(a, b, "seeded_float must be reproducible");
+}
+
+#[test]
+fn rand_c_seeded_sample_is_reproducible() {
+    let a = eval_rand_c("seeded_sample(42, [1, 2, 3], 2)");
+    let b = eval_rand_c("seeded_sample(42, [1, 2, 3], 2)");
+    assert_eq!(a, b, "seeded_sample must be reproducible");
+}
+
+#[test]
+fn rand_c_seeded_shuffle_is_reproducible() {
+    let a = eval_rand_c("seeded_shuffle(42, [1, 2, 3])");
+    let b = eval_rand_c("seeded_shuffle(42, [1, 2, 3])");
+    assert_eq!(a, b, "seeded_shuffle must be reproducible");
+}
+
+#[test]
+fn rand_stub_seeded_are_deterministic() {
+    assert_eq!(eval_rand_stub("seeded_int(6, 10)"), serde_json::json!(4));
+    assert_eq!(eval_rand_stub("seeded_float(6, 10)"), serde_json::json!(0.5));
+    assert_eq!(eval_rand_stub("seeded_bool(6)"), serde_json::json!(true));
+    assert_eq!(eval_rand_stub("seeded_pick(6, [1, 2, 3])"), serde_json::json!(1));
+    assert_eq!(eval_rand_stub("seeded_choice(6, [1, 2], 3)"), serde_json::json!([1, 2, 1]));
+    assert_eq!(eval_rand_stub("seeded_sample(6, [1, 2, 3], 2)"), serde_json::json!([1, 2]));
+    assert_eq!(eval_rand_stub("seeded_shuffle(6, [1, 2, 3])"), serde_json::json!([3, 2, 1]));
+    assert_eq!(eval_rand_stub("seeded_string(6, 4, \"abc\")"), serde_json::json!("aaaa"));
+    assert_eq!(eval_rand_stub("seeded_gauss(6, 5, 2)"), serde_json::json!(5));
 }
