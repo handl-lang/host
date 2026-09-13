@@ -1,0 +1,209 @@
+--- Pure-Handl deterministic simplex noise.
+---
+--- Simplex noise in 2 and 3 dimensions.  Outputs are bounded in
+--- [-1, 1] and coordinate-stable.
+
+export simplex_2d :: (x: Number, y: Number) ~> do {
+  F2 = 0.3660254037844386
+  G2 = 0.21132486540518713
+
+  hash = (i, j) ~> do {
+    h = math.add(
+      math.add(math.mul(i, 374761393), math.mul(j, 668265295)),
+      1000003
+    )
+    math.abs(math.mod(h, 2147483647))
+  }
+
+  grads = [
+    {x: 1, y: 1},
+    {x: 1, y: -1},
+    {x: -1, y: 1},
+    {x: -1, y: -1},
+    {x: 1, y: 0},
+    {x: -1, y: 0},
+    {x: 0, y: 1},
+    {x: 0, y: -1}
+  ]
+
+  grad = (i, j) ~> grads[math.mod(hash(i, j), 8)]
+
+  dot = (g, u, v) ~> math.add(math.mul(g.x, u), math.mul(g.y, v))
+
+  contrib = (g, u, v) ~> do {
+    t = math.sub(0.5, math.add(math.mul(u, u), math.mul(v, v)))
+    if t < 0 {
+      0
+    } else {
+      t2 = math.mul(t, t)
+      t4 = math.mul(t2, t2)
+      math.mul(t4, dot(g, u, v))
+    }
+  }
+
+  s = math.mul(math.add(x, y), F2)
+  i = math.floor(math.add(x, s))
+  j = math.floor(math.add(y, s))
+  t = math.mul(math.add(i, j), G2)
+  X0 = math.sub(i, t)
+  Y0 = math.sub(j, t)
+  x0 = math.sub(x, X0)
+  y0 = math.sub(y, Y0)
+
+  off1 = if x0 > y0 {
+    {i1: 1, j1: 0}
+  } else {
+    {i1: 0, j1: 1}
+  }
+
+  x1 = math.add(math.sub(x0, off1.i1), G2)
+  y1 = math.add(math.sub(y0, off1.j1), G2)
+  x2 = math.add(math.sub(x0, 1), math.mul(2, G2))
+  y2 = math.add(math.sub(y0, 1), math.mul(2, G2))
+
+  n0 = contrib(grad(i, j), x0, y0)
+  n1 = contrib(
+    grad(math.add(i, off1.i1), math.add(j, off1.j1)),
+    x1,
+    y1
+  )
+  n2 = contrib(grad(math.add(i, 1), math.add(j, 1)), x2, y2)
+
+  math.clamp(math.add(math.add(n0, n1), n2), -1, 1)
+}
+
+export simplex_3d :: (x: Number, y: Number, z: Number) ~> do {
+  F3 = 0.3333333333333333
+  G3 = 0.16666666666666666
+
+  hash = (i, j, k) ~> do {
+    h = math.add(
+      math.add(
+        math.add(math.mul(i, 374761393), math.mul(j, 668265295)),
+        math.mul(k, 1207296579)
+      ),
+      1000003
+    )
+    math.abs(math.mod(h, 2147483647))
+  }
+
+  grads = [
+    {x: 1, y: 1, z: 0},
+    {x: 1, y: -1, z: 0},
+    {x: -1, y: 1, z: 0},
+    {x: -1, y: -1, z: 0},
+    {x: 1, y: 0, z: 1},
+    {x: 1, y: 0, z: -1},
+    {x: -1, y: 0, z: 1},
+    {x: -1, y: 0, z: -1},
+    {x: 0, y: 1, z: 1},
+    {x: 0, y: 1, z: -1},
+    {x: 0, y: -1, z: 1},
+    {x: 0, y: -1, z: -1}
+  ]
+
+  grad = (i, j, k) ~> grads[math.mod(hash(i, j, k), 12)]
+
+  dot = (g, u, v, w) ~> math.add(
+    math.add(math.mul(g.x, u), math.mul(g.y, v)),
+    math.mul(g.z, w)
+  )
+
+  contrib = (g, u, v, w) ~> do {
+    t = math.sub(
+      0.5,
+      math.add(
+        math.add(math.mul(u, u), math.mul(v, v)),
+        math.mul(w, w)
+      )
+    )
+    if t < 0 {
+      0
+    } else {
+      t2 = math.mul(t, t)
+      t4 = math.mul(t2, t2)
+      math.mul(t4, dot(g, u, v, w))
+    }
+  }
+
+  s = math.mul(math.add(math.add(x, y), z), F3)
+  i = math.floor(math.add(x, s))
+  j = math.floor(math.add(y, s))
+  k = math.floor(math.add(z, s))
+  t = math.mul(math.add(math.add(i, j), k), G3)
+  X0 = math.sub(i, t)
+  Y0 = math.sub(j, t)
+  Z0 = math.sub(k, t)
+  x0 = math.sub(x, X0)
+  y0 = math.sub(y, Y0)
+  z0 = math.sub(z, Z0)
+
+  order = if x0 >= y0 {
+    if y0 >= z0 {
+      {i1: 1, j1: 0, k1: 0, i2: 1, j2: 1, k2: 0}
+    } else {
+      if x0 >= z0 {
+        {i1: 1, j1: 0, k1: 0, i2: 1, j2: 0, k2: 1}
+      } else {
+        {i1: 0, j1: 0, k1: 1, i2: 1, j2: 0, k2: 1}
+      }
+    }
+  } else {
+    if y0 < z0 {
+      {i1: 0, j1: 0, k1: 1, i2: 0, j2: 1, k2: 1}
+    } else {
+      if x0 < z0 {
+        {i1: 0, j1: 1, k1: 0, i2: 0, j2: 1, k2: 1}
+      } else {
+        {i1: 0, j1: 1, k1: 0, i2: 1, j2: 1, k2: 0}
+      }
+    }
+  }
+
+  x1 = math.add(math.sub(x0, order.i1), G3)
+  y1 = math.add(math.sub(y0, order.j1), G3)
+  z1 = math.add(math.sub(z0, order.k1), G3)
+  x2 = math.add(math.sub(x0, order.i2), math.mul(2, G3))
+  y2 = math.add(math.sub(y0, order.j2), math.mul(2, G3))
+  z2 = math.add(math.sub(z0, order.k2), math.mul(2, G3))
+  x3 = math.add(math.sub(x0, 1), math.mul(3, G3))
+  y3 = math.add(math.sub(y0, 1), math.mul(3, G3))
+  z3 = math.add(math.sub(z0, 1), math.mul(3, G3))
+
+  n0 = contrib(grad(i, j, k), x0, y0, z0)
+  n1 = contrib(
+    grad(
+      math.add(i, order.i1),
+      math.add(j, order.j1),
+      math.add(k, order.k1)
+    ),
+    x1,
+    y1,
+    z1
+  )
+  n2 = contrib(
+    grad(
+      math.add(i, order.i2),
+      math.add(j, order.j2),
+      math.add(k, order.k2)
+    ),
+    x2,
+    y2,
+    z2
+  )
+  n3 = contrib(
+    grad(math.add(i, 1), math.add(j, 1), math.add(k, 1)),
+    x3,
+    y3,
+    z3
+  )
+
+  math.clamp(
+    math.add(
+      math.add(math.add(n0, n1), n2),
+      n3
+    ),
+    -1,
+    1
+  )
+}

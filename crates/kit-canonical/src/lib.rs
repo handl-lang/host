@@ -87,6 +87,13 @@ const PERLIN_HNL: &str = include_str!("../../../handl-packages/perlin/perlin.hnl
 const PERLIN_FUNCS: &[&str] = &["perlin_1d", "perlin_2d", "perlin_3d"];
 
 // ---------------------------------------------------------------------------
+// simplex module (pure Handl — ADR-0109)
+// ---------------------------------------------------------------------------
+
+const SIMPLEX_HNL: &str = include_str!("../../../handl-packages/simplex/simplex.hnl");
+const SIMPLEX_FUNCS: &[&str] = &["simplex_2d", "simplex_3d"];
+
+// ---------------------------------------------------------------------------
 // test framework modules (pure Handl — ADR-0092)
 // ---------------------------------------------------------------------------
 
@@ -283,6 +290,12 @@ fn build_dedent_module() -> HandlModule {
 
 fn build_perlin_module() -> HandlModule {
     HandlModule::new("perlin", PERLIN_HNL, PERLIN_FUNCS).with_global_lookup(std::sync::Arc::new(
+        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
+    ))
+}
+
+fn build_simplex_module() -> HandlModule {
+    HandlModule::new("simplex", SIMPLEX_HNL, SIMPLEX_FUNCS).with_global_lookup(std::sync::Arc::new(
         stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
     ))
 }
@@ -485,6 +498,9 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         }
         if want("perlin") {
             stdlib_registry.register(build_perlin_module());
+        }
+        if want("simplex") {
+            stdlib_registry.register(build_simplex_module());
         }
         // `test` framework modules — pure handl over tag/json/rand/time/
         // combinators (ADR-0092).

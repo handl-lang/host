@@ -1,0 +1,11 @@
+from "./simplex" import { simplex_2d, simplex_3d }
+
+test_simplex_2d_range :: assert math.clamp(simplex_2d(0.5, 0.5), -1, 1) = simplex_2d(0.5, 0.5)
+
+test_simplex_2d_stability :: assert simplex_2d(0.5, 0.5) = simplex_2d(0.5, 0.5)
+
+test_simplex_2d_boundary :: assert simplex_2d(1.0, 1.0) = simplex_2d(1.0, 1.0)
+
+test_simplex_3d_range :: assert math.clamp(simplex_3d(0.5, 0.5, 0.5), -1, 1) = simplex_3d(0.5, 0.5, 0.5)
+
+test_simplex_3d_stability :: assert simplex_3d(0.5, 0.5, 0.5) = simplex_3d(0.5, 0.5, 0.5)
