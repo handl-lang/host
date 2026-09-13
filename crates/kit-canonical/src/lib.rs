@@ -77,7 +77,7 @@ const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
 // ---------------------------------------------------------------------------
 
 const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
-const DEDENT_FUNCS: &[&str] = &["dedent"];
+const DEDENT_FUNCS: &[&str] = &["dedent", "debug_common"];
 
 // ---------------------------------------------------------------------------
 // perlin module (pure Handl — ADR-0109)
@@ -332,6 +332,7 @@ impl ImportResolver for DedentImportResolver {
         let name = match path {
             "../str-handl" => "str",
             "../transform" => "transform",
+            "../char" => "char",
             "../type" => "type",
             _ => {
                 return Err(LangError::engine(format!(
@@ -342,6 +343,7 @@ impl ImportResolver for DedentImportResolver {
         let module = get_module(name, || match name {
             "str" => std::sync::Arc::new(build_str_handl_module()),
             "transform" => std::sync::Arc::new(TransformModule::new()),
+            "char" => std::sync::Arc::new(CharModule),
             "type" => std::sync::Arc::new(build_type_module()),
             _ => unreachable!(),
         });

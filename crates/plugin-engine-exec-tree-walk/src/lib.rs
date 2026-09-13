@@ -5710,6 +5710,7 @@ impl TreeWalkCallable {
         let obj = callee.as_object().ok_or_else(|| {
             handl_platform::EvalError::Other("call_value: not an object".to_string())
         })?;
+
         let params: Vec<String> = obj
             .get("params")
             .and_then(|v| v.as_array())
@@ -5813,10 +5814,41 @@ impl TreeWalkCallable {
             for (param, arg) in params.iter().zip(head.iter()) {
                 arrow_env.define(param, TaggedValue::from(arg.clone()));
             }
-            engine
-                .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
-                .map(|v| tagged_to_value(&v))
-                .map_err(|e| handl_platform::EvalError::Other(e.to_string()))?
+            // Arrow bodies are carried as self-describing `body_def` AST
+            // subtrees so the body is always resolvable regardless of which
+            // runtime frame applies the arrow. Use it in preference to the
+            // ambient AST `body` index, which may be stale after the arrow
+            // crosses a serde boundary.
+            let body_res: Result<Value, handl_platform::EvalError> =
+                if let Some(body_def) = obj.get("body_def").and_then(|v| handl_language::as_ast(v)) {
+                    if body_def.is_empty() {
+                        Err(handl_platform::EvalError::Other(
+                            "arrow body_def is empty".to_string(),
+                        ))
+                    } else {
+                        let body_ref = AstRef::new(body_def.len() - 1);
+                        let body_ast = Rc::new(body_def);
+                        let frame = EvalFrame {
+                            ast: body_ast,
+                            lang: Rc::clone(&lang),
+                            modules: CURRENT_MODULES.with(|c| c.borrow().clone()),
+                            globals: CURRENT_GLOBALS.with(|c| c.borrow().clone()),
+                            import_resolver: CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone()),
+                        };
+                        frame.enter(|| {
+                            engine
+                                .eval_node_inner(&frame.ast, body_ref, &frame.lang, &mut arrow_env)
+                                .map(|v| tagged_to_value(&v))
+                                .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+                        })
+                    }
+                } else {
+                    engine
+                        .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
+                        .map(|v| tagged_to_value(&v))
+                        .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+                };
+            body_res?
         };
         while !rest.is_empty() {
             val = self.call_value(&val, rest)?;
