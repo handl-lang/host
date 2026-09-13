@@ -133,6 +133,18 @@ do {
       "array": v != [],
       "object": v != {},
       _: true
-    }
+    },
+
+    -- ---- type values ------------------------------------------------
+    Int: { "__tag__": "int", "__registry__": "type", "kind": "primitive" },
+    Number: { "__tag__": "number", "__registry__": "type", "kind": "primitive" },
+    Float: { "__tag__": "float", "__registry__": "type", "kind": "primitive" },
+    Str: { "__tag__": "str", "__registry__": "type", "kind": "primitive" },
+    String: { "__tag__": "str", "__registry__": "type", "kind": "primitive" },
+    Bool: { "__tag__": "bool", "__registry__": "type", "kind": "primitive" },
+    Null: { "__tag__": "null", "__registry__": "type", "kind": "primitive" },
+    Obj: { "__tag__": "obj", "__registry__": "type", "kind": "primitive" },
+    Array: { "__tag__": "array", "__registry__": "type", "kind": "primitive" },
+    Value: { "__tag__": "value", "__registry__": "type", "kind": "primitive" }
   }
 }
