@@ -1,7 +1,7 @@
 --- Option type and constructors.
 --- @details
---- The `option` contract declares the `Option<T>` type and the `some`
---- / `none` constructors. Backends implement these pure, total arrows.
+--- The `option` package provides the `Option<T>` type and the `some`
+--- / `none` constructors over the host tag system (ADR-0055/0077).
 
 --- @template T - the value type
 --- The `Option<T>` type.
@@ -13,11 +13,11 @@ export Option<T> := Type
 --- @param {value} - the value of type T
 --- @returns {Option<T>}
 export some<T>: T ~[Total]~> Option<T> := (value: T) ~> do {
-  { "__tag__": "Some", "__registry__": "option", "value": value }
+  tag.tag("Some", { value: value })
 }
 
 --- Construct a None option.
 --- @returns {Option<T>}
 export none<T>: () ~[Total]~> Option<T> := () ~> do {
-  { "__tag__": "None", "__registry__": "option" }
+  tag.tag("None", null)
 }
