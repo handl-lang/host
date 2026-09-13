@@ -1,4 +1,4 @@
---- parse — generic string parsing for the handl runtime.
+--- parse -- generic string parsing for the handl runtime.
 ---
 --- Single source of truth for the `parse` stdlib interface: 1 function
 --- covering parsing of a string into a `serde_json::Value` via a named
@@ -16,7 +16,7 @@
 --- `ops.rs` provides the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- parse.parse — parse a string into a value using a named parser.
+--- parse.parse -- parse a string into a value using a named parser.
 cap "parse.parse"
 op "parse.parse" : (String * Value) -> Value
   guarantee: True

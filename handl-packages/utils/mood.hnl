@@ -1,4 +1,4 @@
---- mood — mood (mode-of-data) operations for the handl runtime.
+--- mood -- mood (mode-of-data) operations for the handl runtime.
 ---
 --- Single source of truth for the `mood` stdlib interface: 6 functions
 --- covering projection, intersection, normalization, potential extraction,
@@ -16,12 +16,12 @@
 --- `Function` impls in `ops.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- mood.ind — strict projection: extract the matching component or error.
---- mood.int — intersection: test whether a value matches a kind.
---- mood.norm — normalized projection: wrap the result in an ok/err record.
---- mood.pot — potential extraction: extract the matching component or null.
---- mood.neg — complement: extract the non-matching component or null.
---- mood.cnd — conditional: extract the matching component or return a default.
+--- mood.ind -- strict projection: extract the matching component or error.
+--- mood.int -- intersection: test whether a value matches a kind.
+--- mood.norm -- normalized projection: wrap the result in an ok/err record.
+--- mood.pot -- potential extraction: extract the matching component or null.
+--- mood.neg -- complement: extract the non-matching component or null.
+--- mood.cnd -- conditional: extract the matching component or return a default.
 cap "mood.ind"
 cap "mood.int"
 cap "mood.norm"

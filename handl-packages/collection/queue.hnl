@@ -7,8 +7,8 @@
 --   enqueue = arr("list.append")
 --   dequeue = arr("list.head")
 
--- enqueue : (List α × List α) → List α — append to the back.
+-- enqueue : (List α × List α) -> List α -- append to the back.
 enqueue :: arr("list.append")
 
--- dequeue : List α → α — take from the front (head).
+-- dequeue : List α -> α -- take from the front (head).
 dequeue :: arr("list.head")

@@ -1,23 +1,23 @@
 --- Pure-handl implementation of the `unicode` contract
 --- (`handl-packages/unicode/unicode.hnl`), written over the `char`
---- abstraction floor — the same backend-neutral seam `str-handl` uses.
+--- abstraction floor -- the same backend-neutral seam `str-handl` uses.
 ---
 --- Coverage is the subset computable from `char.*` atoms alone:
 ---
----   - `code_points` / `from_code_points` / `is_ascii` — exact (scalar
+---   - `code_points` / `from_code_points` / `is_ascii` -- exact (scalar
 ---     values are a `char` primitive).
----   - `graphemes` / `grapheme_count` — *code-point fallback*: each Unicode
+---   - `graphemes` / `grapheme_count` -- *code-point fallback*: each Unicode
 ---     scalar value is one grapheme. Correct for ASCII and single-scalar
 ---     text; conservatively under-segments cluster text (emoji ZWJ
 ---     sequences, base+combining-mark, CRLF pairs). Full UAX #29 needs
 ---     `unicode-native`/`unicode-js`.
----   - `width` — *code-point-count fallback*: correct for ASCII-visible
+---   - `width` -- *code-point-count fallback*: correct for ASCII-visible
 ---     text; under-counts wide chars, over-counts combining marks. Full
 ---     UAX #11 needs a table backend.
----   - `casefold` — *lowercase fallback* (`char.to_lower` per char):
----     correct for ASCII; misses fold-only mappings (ß→ss, ligatures).
+---   - `casefold` -- *lowercase fallback* (`char.to_lower` per char):
+---     correct for ASCII; misses fold-only mappings (ÃÂÃÂÃÂÃÂ->ss, ligatures).
 ---     Full CaseFolding.txt needs a table backend.
----   - `nfc` / `nfd` — *not provided*: normalization needs the UAX #15
+---   - `nfc` / `nfd` -- *not provided*: normalization needs the UAX #15
 ---     tables and cannot be approximated from `char.*`. The record omits
 ---     these fields, so `unicode.nfc`/`unicode.nfd` under `unicode-handl`
 ---     fail loudly at call time rather than silently returning
@@ -28,23 +28,23 @@ from "char" import * as char
 do {
   rev :: xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
     }
   }
 
-  map :: [xs, f] ~> {
+  map :: [xs, f]~> {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: { state: { xs: t, acc: [f(h), ...acc] } }
       }
     }
   }
 
-  all :: [xs, p] ~> {
+  all :: [xs, p]~> {
     while xs {
       st ~> match st {
         []: { out: true },
@@ -64,8 +64,8 @@ do {
 
     -- `code_point_at` is char-level and exact. `decode` needs UTF-8 byte
     -- offsets, which `char.*` deliberately does not expose (the contract
-    -- is encoding-agnostic) — backend-required.
-    code_point_at: [s, i] ~> char.code_point_at(s, i),
+    -- is encoding-agnostic) -- backend-required.
+    code_point_at: [s, i]~> char.code_point_at(s, i),
 
     -- Code-point fallback: each scalar is one grapheme. Conservative for
     -- ASCII/single-scalar text; under-segments real cluster text. Full
@@ -80,7 +80,7 @@ do {
     width: s ~> char.length(s),
 
     -- Lowercase fallback: correct for ASCII; misses fold-only mappings
-    -- (ß→ss, ligatures). Full CaseFolding.txt is backend-provided.
+    -- (ÃÂÃÂÃÂÃÂ->ss, ligatures). Full CaseFolding.txt is backend-provided.
     casefold: s ~> lower_str(s),
 
     -- `nfc`/`nfd` intentionally omitted: UAX #15 normalization cannot be

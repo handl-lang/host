@@ -1,4 +1,4 @@
---- compress — compression abstractions for the handl runtime.
+--- compress -- compression abstractions for the handl runtime.
 ---
 --- This is a trait-abstraction library: the Compressor, Decompressor, and
 --- Codec traits live in Rust (plugin-lib-compress) and are implemented by
@@ -7,7 +7,7 @@
 --- for the plugin system.
 ---
 --- ## Capability declarations (ADR-0077 Phase 1)
---- compress.compress — compress bytes via a Codec.
---- compress.decompress — decompress bytes via a Codec.
+--- compress.compress -- compress bytes via a Codec.
+--- compress.decompress -- decompress bytes via a Codec.
 cap "compress.compress"
 cap "compress.decompress"

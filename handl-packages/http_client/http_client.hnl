@@ -1,10 +1,10 @@
---- http.get — issue an HTTP GET request to a URL, optionally with headers.
---- http.post — issue an HTTP POST request with a body, optionally with headers.
---- http.put — issue an HTTP PUT request with a body, optionally with headers.
---- http.patch — issue an HTTP PATCH request with a body, optionally with headers.
---- http.delete — issue an HTTP DELETE request, optionally with headers.
---- http.head — issue an HTTP HEAD request, optionally with headers.
---- http.request — issue a full HTTP request with method, url, body, and headers.
+--- http.get -- issue an HTTP GET request to a URL, optionally with headers.
+--- http.post -- issue an HTTP POST request with a body, optionally with headers.
+--- http.put -- issue an HTTP PUT request with a body, optionally with headers.
+--- http.patch -- issue an HTTP PATCH request with a body, optionally with headers.
+--- http.delete -- issue an HTTP DELETE request, optionally with headers.
+--- http.head -- issue an HTTP HEAD request, optionally with headers.
+--- http.request -- issue a full HTTP request with method, url, body, and headers.
 cap "http.get"
 cap "http.post"
 cap "http.put"

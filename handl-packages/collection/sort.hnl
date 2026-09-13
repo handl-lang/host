@@ -1,7 +1,7 @@
 --- sort: insertion sort over a list.
 ---
 --- Written as an arrow graph over insert.
---- Contract: Sorted(output) — INFERRED from insert's inferred Sorted contract.
+--- Contract: Sorted(output) -- INFERRED from insert's inferred Sorted contract.
 ---
 --- Graph structure:
 ---   loop (insert >>> first(id))

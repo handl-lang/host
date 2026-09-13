@@ -1,4 +1,4 @@
---- stats.stats — the canonical handl statistical aggregates.
+--- stats.stats -- the canonical handl statistical aggregates.
 ---
 --- Single source of truth for the `stats` stdlib logic: `sum`, `avg`,
 --- `product`, `min`, `max`, `median`, `stddev`. The Rust bridge in
@@ -17,10 +17,10 @@
 --- `stddev` calls `math.sqrt` (requires `MathModule` in the bridge runtime);
 --- handl has a native `**` (pow) op but no native `sqrt`.
 ---
---- Iteration uses the `while { state } { [fields...] ~> ... }` form: the
+--- Iteration uses the `while { state } { [fields...]~> ... }` form: the
 --- body returns `{ out: value }` to terminate or `{ state: { ... } }` to
 --- continue. `median` uses an insertion sort (handl has no native sort),
---- implemented via recursion-via-self (`[self, ...] ~> ...`).
+--- implemented via recursion-via-self (`[self, ...]~> ...`).
 ---
 --- Float vs int: handl integer/integer division truncates (like Rust i64).
 --- To match the Rust f64 semantics, divisions that must produce a float
@@ -28,13 +28,13 @@
 --- float by adding `0.0` or dividing by a float literal like `2.0`.
 ---
 --- ## Capability and op declarations (ADR-0077 Phase 4)
---- stats.sum — sum of the numeric elements of an array.
---- stats.avg — arithmetic mean of the numeric elements of an array.
---- stats.product — product of the numeric elements of an array.
---- stats.min — minimum of the numeric elements of an array (null if empty).
---- stats.max — maximum of the numeric elements of an array (null if empty).
---- stats.median — median of the numeric elements of an array (0 if empty).
---- stats.stddev — population standard deviation of the numeric elements of
+--- stats.sum -- sum of the numeric elements of an array.
+--- stats.avg -- arithmetic mean of the numeric elements of an array.
+--- stats.product -- product of the numeric elements of an array.
+--- stats.min -- minimum of the numeric elements of an array (null if empty).
+--- stats.max -- maximum of the numeric elements of an array (null if empty).
+--- stats.median -- median of the numeric elements of an array (0 if empty).
+--- stats.stddev -- population standard deviation of the numeric elements of
 --- an array (0 if fewer than 2 elements).
 cap "stats.sum"
 cap "stats.avg"
@@ -43,25 +43,25 @@ cap "stats.min"
 cap "stats.max"
 cap "stats.median"
 cap "stats.stddev"
-op "stats.sum" : Array -> Number
+op "stats.sum": Array - > Number
   guarantee: True
-op "stats.avg" : Array -> Number
+op "stats.avg": Array - > Number
   guarantee: True
-op "stats.product" : Array -> Number
+op "stats.product": Array - > Number
   guarantee: True
-op "stats.min" : Array -> Number
+op "stats.min": Array - > Number
   guarantee: True
-op "stats.max" : Array -> Number
+op "stats.max": Array - > Number
   guarantee: True
-op "stats.median" : Array -> Number
+op "stats.median": Array - > Number
   guarantee: True
-op "stats.stddev" : Array -> Number
+op "stats.stddev": Array - > Number
   guarantee: NonNeg(output)
 
 do {
   filter_nums :: xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: if typeof.type_of(h) == "num" {
           { state: { xs: t, acc: [h, ...acc] } }
@@ -71,13 +71,13 @@ do {
       }
     }
   }
-  insert :: [self, elem, sorted] ~> {
+  insert :: [self, elem, sorted]~> {
     match sorted {
       []: [elem],
       [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
     }
   }
-  sort :: [self, xs] ~> {
+  sort :: [self, xs]~> {
     match xs {
       []: [],
       [h, ...t]: insert(insert, h, self(self, t))
@@ -85,15 +85,15 @@ do {
   }
   length :: xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
     }
   }
-  nth :: [xs, i] ~> {
+  nth :: [xs, i]~> {
     while { xs: xs, i: i } {
-      [xs, i] ~> match xs {
+      [xs, i]~> match xs {
         []: { out: null },
         [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
       }
@@ -102,7 +102,7 @@ do {
   {
     sum: xs ~> {
       while { xs: xs, acc: 0 } {
-        [xs, acc] ~> match xs {
+        [xs, acc]~> match xs {
           []: { out: acc },
           [h, ...t]: if typeof.type_of(h) == "num" {
             { state: { xs: t, acc: acc + h } }
@@ -115,7 +115,7 @@ do {
 
     product: xs ~> {
       while { xs: xs, acc: 1 } {
-        [xs, acc] ~> match xs {
+        [xs, acc]~> match xs {
           []: { out: acc },
           [h, ...t]: if typeof.type_of(h) == "num" {
             { state: { xs: t, acc: acc * h } }
@@ -128,7 +128,7 @@ do {
 
     avg: xs ~> {
       while { xs: xs, sum: 0, count: 0 } {
-        [xs, sum, count] ~> match xs {
+        [xs, sum, count]~> match xs {
           []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
           [h, ...t]: if typeof.type_of(h) == "num" {
             { state: { xs: t, sum: sum + h, count: count + 1 } }
@@ -141,7 +141,7 @@ do {
 
     min: xs ~> {
       while { xs: xs, best: 0, seen: false } {
-        [xs, best, seen] ~> match xs {
+        [xs, best, seen]~> match xs {
           []: { out: if seen { best } else { null } },
           [h, ...t]: if typeof.type_of(h) == "num" {
             if seen {
@@ -158,7 +158,7 @@ do {
 
     max: xs ~> {
       while { xs: xs, best: 0, seen: false } {
-        [xs, best, seen] ~> match xs {
+        [xs, best, seen]~> match xs {
           []: { out: if seen { best } else { null } },
           [h, ...t]: if typeof.type_of(h) == "num" {
             if seen {
@@ -191,14 +191,14 @@ do {
       n :: length(nums)
       if n < 2 { 0 } else {
         total :: while { xs: nums, acc: 0 } {
-          [xs, acc] ~> match xs {
+          [xs, acc]~> match xs {
             []: { out: acc },
             [h, ...t]: { state: { xs: t, acc: acc + h } }
           }
         }
         mean :: total / (n + 0.0)
         sq_sum :: while { xs: nums, acc: 0 } {
-          [xs, acc] ~> match xs {
+          [xs, acc]~> match xs {
             []: { out: acc },
             [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
           }

@@ -1,5 +1,5 @@
 -- reduce: reduce a list using a binary function and initial accumulator.
--- Rich-loop version of reduce — a fold that returns only the final
+-- Rich-loop version of reduce -- a fold that returns only the final
 -- accumulator value, discarding the element stream.
 -- Contract: inferred from the step function's guarantee.
 --

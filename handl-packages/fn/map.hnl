@@ -1,7 +1,7 @@
 -- map: apply a function to every element of a list.
 --
 -- Written as an arrow graph over list primitives.
--- Contract: LengthEq(input, output) — INFERRED (side-channel pattern).
+-- Contract: LengthEq(input, output) -- INFERRED (side-channel pattern).
 --
 -- Graph structure:
 --   loop (first(fn.apply))

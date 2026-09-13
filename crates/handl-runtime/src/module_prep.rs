@@ -62,6 +62,14 @@ fn transform_export_to_object(src: &str) -> String {
     for line in src.lines() {
         let trimmed = line.trim_start();
         if is_top_import_line(line) {
+            if let Some((_, names)) = from_export_to_import(line) {
+                if let Some(entry) = current.take() {
+                    entries.push(entry);
+                }
+                for (name, alias) in names {
+                    entries.push((name, vec![alias]));
+                }
+            }
             continue;
         }
         if !line.starts_with(' ')
@@ -125,10 +133,61 @@ fn is_top_import_line(line: &str) -> bool {
     !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
 }
 
+/// If a `from` line uses the re-export form `from "..." export x, y`, rewrite
+/// it to a plain import `from "..." import x as __x, y as __y` and return the
+/// (name, local-alias) pairs that should appear in the module record.
+fn from_export_to_import(line: &str) -> Option<(String, Vec<(String, String)>)> {
+    let (path, rest) = extract_quoted_path(line)?;
+    let rest = rest.trim_start();
+    if let Some(tail) = rest.strip_prefix("export") {
+        if !tail.starts_with(' ') && !tail.starts_with('\t') && !tail.is_empty() {
+            return None;
+        }
+        let names: Vec<String> = tail
+            .trim_start()
+            .split(',')
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .collect();
+        if names.is_empty() {
+            return None;
+        }
+        let aliases: Vec<String> = names.iter().map(|n| format!("__{n}")).collect();
+        let imports: Vec<String> = names
+            .iter()
+            .zip(&aliases)
+            .map(|(n, a)| format!("{} as {}", n, a))
+            .collect();
+        let import_line = format!("from \"{}\" import {}", path, imports.join(", "));
+        return Some((import_line, names.into_iter().zip(aliases).collect()));
+    }
+    None
+}
+
+/// Extract the first quoted path in a `from` line and the text that follows it.
+fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
+    let trimmed = line.trim_start();
+    let after_from = trimmed.strip_prefix("from")?;
+    let after_from = after_from.trim_start();
+    let quote = after_from.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let after_quote = &after_from[quote.len_utf8()..];
+    let end = after_quote.find(quote)?;
+    let path = &after_quote[..end];
+    let rest = &after_quote[end + quote.len_utf8()..];
+    Some((path.to_string(), rest))
+}
+
 fn collect_import_lines(src: &str) -> Vec<String> {
     src.lines()
         .filter(|line| is_top_import_line(line))
-        .map(|line| line.to_string())
+        .map(|line| {
+            from_export_to_import(line)
+                .map(|(import_line, _)| import_line)
+                .unwrap_or_else(|| line.to_string())
+        })
         .collect()
 }
 

@@ -1,4 +1,4 @@
---- ffi — grades, types and arrows for foreign function calls.
+--- ffi -- grades, types and arrows for foreign function calls.
 --- @details
 --- `call`, `bind`, and `errno` are injected by the Rust runtime.
 --- This package exposes the typed FFI surface that SDK-generated adapters
@@ -33,7 +33,7 @@ export Handle := Obj
 --- @param {ret_kind} - return kind descriptor
 --- @param {errno?} - if `true`, negative integer returns are treated as errors
 --- @returns {Value - the C call's return, unmarshalled from `ret_kind`}
-export call: (String, String, Array, Array, String, Bool) ~ [FFI] ~> Value
+export call: (String, String, Array, Array, String, Bool) ~[FFI]~> Value
 
 --- Bind a C symbol to a first-class Handl arrow.
 --- @details
@@ -47,7 +47,7 @@ export call: (String, String, Array, Array, String, Bool) ~ [FFI] ~> Value
 --- @param {ret_kind} - return kind descriptor
 --- @param {errno?} - if `true`, negative integer returns are treated as errors
 --- @returns {Value - a Handl arrow that dispatches to the C symbol}
-export bind: (String, String, Array, Array, String, Bool) ~ [FFI] ~> Value
+export bind: (String, String, Array, Array, String, Bool) ~[FFI]~> Value
 
 --- Read the current thread's C `errno` value.
 --- @details
@@ -55,4 +55,4 @@ export bind: (String, String, Array, Array, String, Bool) ~ [FFI] ~> Value
 --- call whose error is being checked, before any other operation can
 --- overwrite `errno`.
 --- @returns {Errno - the current C `errno`}
-export errno: () ~ [FFI] ~> Errno
+export errno: () ~[FFI]~> Errno

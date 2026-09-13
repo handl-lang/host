@@ -1,4 +1,4 @@
--- scan: prefix sums — accumulate and output each intermediate.
+-- scan: prefix sums -- accumulate and output each intermediate.
 -- Rich-loop version of scan, written as an arrow graph over list primitives.
 -- Contract: inferred from the step function's guarantee.
 --

@@ -1,3 +1,3 @@
---- lang.typecheck — the typecheck meta function: typecheck an AST and return the synthesized type.
---- Called as typecheck.typecheck(lang, ast) → type value (types are values, ADR-0032).
+--- lang.typecheck -- the typecheck meta function: typecheck an AST and return the synthesized type.
+--- Called as typecheck.typecheck(lang, ast) -> type value (types are values, ADR-0032).
 --- The typecheck engine stays Rust (ADR-0077 "Special"); this .hnl declares the interface.

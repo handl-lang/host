@@ -1,9 +1,9 @@
---- tag.tag — mint a tagged value (host capability, ADR-0055).
---- tag.untag — return the payload of a tagged value (inspection).
---- tag.tag_of — return the tag name of a tagged value (inspection).
---- tag.is_tag — test whether a value is a tagged value (inspection).
---- tag.construct — mint a registry-scoped type value (ADR-0054).
---- tag.match_type — dispatch on the type tag of a value (ADR-0054).
+--- tag.tag -- mint a tagged value (host capability, ADR-0055).
+--- tag.untag -- return the payload of a tagged value (inspection).
+--- tag.tag_of -- return the tag name of a tagged value (inspection).
+--- tag.is_tag -- test whether a value is a tagged value (inspection).
+--- tag.construct -- mint a registry-scoped type value (ADR-0054).
+--- tag.match_type -- dispatch on the type tag of a value (ADR-0054).
 cap "tag.tag"
 cap "tag.untag"
 cap "tag.tag_of"

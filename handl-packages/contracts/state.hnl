@@ -2,48 +2,48 @@
 --
 -- These model the primitive operations of state machines: counters that
 -- maintain a non-negative invariant, buffers that push/pop items, and
--- protocol state transitions (idle → active → done).
+-- protocol state transitions (idle -> active -> done).
 --
 -- The key atoms are state.inc/state.dec (counter) and state.push/state.pop
 -- (buffer). state.dec has a conditional contract with Le(0, input)
 -- precondition and Le(0, output) guarantee, so the fixpoint can discover
 -- Count ≥ 0 as the loop invariant.
 
--- Increment a counter: Count → Count + 1
-axiom state.inc : Int → Int
+-- Increment a counter: Count -> Count + 1
+axiom state.inc : Int -> Int
   guarantee: Le(input, output)
   termination: constant
 
--- Decrement a counter: Count → Count - 1 (only valid if Count > 0)
-axiom state.dec : Int → Int
+-- Decrement a counter: Count -> Count - 1 (only valid if Count > 0)
+axiom state.dec : Int -> Int
   requires: Le(0, input)
   guarantee: Le(0, output)
   termination: constant
 
--- Add to buffer: (Buffer × Item) → Buffer
-axiom state.push : (List α × α) → List α
+-- Add to buffer: (Buffer × Item) -> Buffer
+axiom state.push : (List α × α) -> List α
   guarantee: LengthPlusOne(output, input)
   termination: constant
 
--- Remove from buffer: List α → List α (only valid if buffer non-empty)
-axiom state.pop : List α → List α
+-- Remove from buffer: List α -> List α (only valid if buffer non-empty)
+axiom state.pop : List α -> List α
   requires: Le(0, input)
   guarantee: LengthSubOne(output, input) ∧ Le(0, output)
   termination: constant
 
 -- Check if buffer is empty
-axiom state.is_empty : List α → Bool
+axiom state.is_empty : List α -> Bool
   guarantee: True
   termination: constant
 
--- Transition: idle → active
-axiom state.idle_to_active : State → State
+-- Transition: idle -> active
+axiom state.idle_to_active : State -> State
   requires: True
   guarantee: True
   termination: constant
 
--- Transition: active → done
-axiom state.active_to_done : State → State
+-- Transition: active -> done
+axiom state.active_to_done : State -> State
   requires: True
   guarantee: True
   termination: constant

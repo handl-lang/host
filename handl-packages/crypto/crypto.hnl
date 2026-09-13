@@ -1,5 +1,5 @@
---- crypto.sha256 — compute the SHA-256 hash of a string or byte array, returning a hex-encoded digest.
---- crypto.md5 — compute the MD5 hash of a string or byte array, returning a hex-encoded digest.
+--- crypto.sha256 -- compute the SHA-256 hash of a string or byte array, returning a hex-encoded digest.
+--- crypto.md5 -- compute the MD5 hash of a string or byte array, returning a hex-encoded digest.
 cap "crypto.sha256"
 cap "crypto.md5"
 op "crypto.sha256" : Value -> String

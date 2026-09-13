@@ -8,16 +8,16 @@ from "../math" import { Nat }
 
 --- Wall-clock milliseconds since the Unix epoch.
 --- @returns {Nat - milliseconds since 1970-01-01 00:00:00 UTC}
-export NowMs: () -> Nat
+export NowMs: () - > Nat
 
 --- Nanoseconds on a monotonic clock.
 --- @returns {Nat - nanoseconds from a backend-chosen, unspecified epoch}
-export InstantNs: () -> Nat
+export InstantNs: () - > Nat
 
 --- Nanoseconds elapsed since a previous `InstantNs` reading.
 --- @param {start} - a previous `InstantNs` reading
 --- @returns {Nat - `instant_ns() - start`, saturated at 0}
-export ElapsedNs: Nat -> Nat
+export ElapsedNs: Nat - > Nat
 
 from "../grade" import { Grade }
 --- @template Clock

@@ -1,5 +1,5 @@
---- hex.encode — encode a string to hexadecimal.
---- hex.decode — decode a hexadecimal string.
+--- hex.encode -- encode a string to hexadecimal.
+--- hex.decode -- decode a hexadecimal string.
 cap "hex.encode"
 cap "hex.decode"
 op "hex.encode" : String -> String

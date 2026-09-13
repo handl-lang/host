@@ -3,7 +3,7 @@
 --- @details
 --- `fanout_fn` takes a list `fs` and returns `x ~> [f1(x), f2(x), ...]`,
 --- preserving the order of `fs`. Unlike `comb.fanout`, no value is
---- needed up front — use it to build a reusable branching stage inside
+--- needed up front -- use it to build a reusable branching stage inside
 --- a `comb.flow` / `comb.compose` pipeline.
 ---
 --- An empty `fs` yields an arrow that always returns `[]`.
@@ -15,13 +15,13 @@
 ---
 export fanout_fn :: fs ~> x ~> do {
   rev :: xs ~> while { xs: xs, acc: [] } {
-    [xs, acc] ~> match xs {
+    [xs, acc]~> match xs {
       []: { out: acc },
       [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
     }
   }
   while { xs: fs, acc: [] } {
-    [xs, acc] ~> match xs {
+    [xs, acc]~> match xs {
       []: { out: rev(acc) },
       [h, ...t]: { state: { xs: t, acc: [h(x), ...acc] } }
     }

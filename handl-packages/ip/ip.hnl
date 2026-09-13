@@ -1,17 +1,17 @@
---- ip.parse — parse an IP address string into an ip object.
---- ip.format — format an ip object (or string) into a canonical string.
---- ip.is_loopback — test whether an ip address is a loopback address.
---- ip.is_multicast — test whether an ip address is a multicast address.
---- ip.is_private — test whether an ip address is in a private range.
---- ip.is_link_local — test whether an ip address is link-local.
---- ip.is_unspecified — test whether an ip address is unspecified (0.0.0.0 / ::).
---- ip.cidr.parse — parse a CIDR string into a cidr object.
---- ip.cidr.format — format a cidr object (or string) into a canonical string.
---- ip.cidr.contains — test whether a cidr contains an ip address.
---- ip.cidr.network — return the network address of a cidr.
---- ip.cidr.broadcast — return the broadcast (last) address of a cidr.
---- ip.socket.parse — parse a socket address string into a socket object.
---- ip.socket.format — format a socket object (or string) into a canonical string.
+--- ip.parse -- parse an IP address string into an ip object.
+--- ip.format -- format an ip object (or string) into a canonical string.
+--- ip.is_loopback -- test whether an ip address is a loopback address.
+--- ip.is_multicast -- test whether an ip address is a multicast address.
+--- ip.is_private -- test whether an ip address is in a private range.
+--- ip.is_link_local -- test whether an ip address is link-local.
+--- ip.is_unspecified -- test whether an ip address is unspecified (0.0.0.0 / ::).
+--- ip.cidr.parse -- parse a CIDR string into a cidr object.
+--- ip.cidr.format -- format a cidr object (or string) into a canonical string.
+--- ip.cidr.contains -- test whether a cidr contains an ip address.
+--- ip.cidr.network -- return the network address of a cidr.
+--- ip.cidr.broadcast -- return the broadcast (last) address of a cidr.
+--- ip.socket.parse -- parse a socket address string into a socket object.
+--- ip.socket.format -- format a socket object (or string) into a canonical string.
 cap "ip.parse"
 cap "ip.format"
 cap "ip.is_loopback"

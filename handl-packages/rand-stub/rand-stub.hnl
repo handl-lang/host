@@ -10,7 +10,7 @@ do {
 
   arr_len :: (xs) ~> do {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [_, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -19,7 +19,7 @@ do {
 
   arr_rev :: (xs) ~> do {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -28,7 +28,7 @@ do {
 
   arr_take :: (xs, n) ~> do {
     while { xs: xs, n: n, acc: [] } {
-      [xs, n, acc] ~> if n <= 0 {
+      [xs, n, acc]~> if n <= 0 {
         { out: arr_rev(acc) }
       } else {
         match xs {
@@ -58,7 +58,7 @@ do {
     -- Cycles through `count` elements, wrapping around the input.
     choice: (xs, count) ~> do {
       while { n: count, acc: [] } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
           { state: { n: n - 1, acc: [xs[math.mod(n - 1, arr_len(xs))], ...acc] } }
@@ -75,7 +75,7 @@ do {
     -- Always returns `n` bytes of value `4`.
     bytes: (n) ~> do {
       while { n: n, acc: [] } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
           { state: { n: n - 1, acc: [4, ...acc] } }
@@ -87,7 +87,7 @@ do {
     string: (len, charset) ~> do {
       c = char.at(charset, 0)
       while { n: len, acc: "" } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: acc }
         } else {
           { state: { n: n - 1, acc: acc + c } }
@@ -118,7 +118,7 @@ do {
 
     seeded_choice: (seed, xs, count) ~> do {
       while { n: count, acc: [] } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: arr_rev(acc) }
         } else {
           { state: { n: n - 1, acc: [xs[math.mod(n - 1, arr_len(xs))], ...acc] } }
@@ -133,7 +133,7 @@ do {
     seeded_string: (seed, len, charset) ~> do {
       c = char.at(charset, 0)
       while { n: len, acc: "" } {
-        [n, acc] ~> if n <= 0 {
+        [n, acc]~> if n <= 0 {
           { out: acc }
         } else {
           { state: { n: n - 1, acc: acc + c } }

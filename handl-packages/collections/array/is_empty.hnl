@@ -6,7 +6,9 @@
 --- `array.is_empty([1])`
 --- -- => false
 ---
-export is_empty<T>: List(T) ~[Total]~> Bool := (xs) ~> match xs {
-  []: true,
-  [h, ...t]: false
+export is_empty<T>: List(T) ~[Total]~> Bool := (xs) ~> do {
+  match xs {
+    []: true,
+    [h, ...t]: false
+  }
 }

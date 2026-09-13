@@ -1,4 +1,4 @@
---- serialize — format-agnostic serialization framework.
+--- serialize -- format-agnostic serialization framework.
 ---
 --- This is a trait-abstraction library: the Encoder, Decoder, Serializer,
 --- and SerializerRegistry traits live in Rust (plugin-lib-serialize) and

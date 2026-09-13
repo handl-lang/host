@@ -2,7 +2,7 @@
 --
 -- A Pratt (top-down operator-precedence) parser works by:
 -- 1. Parse an atom (number, identifier, parenthesized expression)
--- 2. Peek at the next token — if it's an operator, check its precedence
+-- 2. Peek at the next token -- if it's an operator, check its precedence
 -- 3. If the operator's precedence >= current precedence, consume it and
 --    recursively parse the right operand
 -- 4. Repeat until no more operators or lower precedence
@@ -15,7 +15,7 @@
 --   stop        = id
 --
 -- The recursive `pratt` call inside `apply_op` (to parse the right operand)
--- is modelled here WITHOUT recursion — the arrow-native inference engine
+-- is modelled here WITHOUT recursion -- the arrow-native inference engine
 -- uses depth-limited reference resolution, so a self-referential graph would
 -- hit the depth limit. Instead, the graph is expressed as a single
 -- nested-loop expression that captures the same structure: the outer loop
@@ -24,8 +24,8 @@
 -- (tokens consumed, termination via token list decrease) from parser-like
 -- graphs.
 --
--- Contract: LengthSubOne(output, input) — INFERRED (tokens are consumed).
--- Termination: Nested(ListLength) — INFERRED (token list decreases).
+-- Contract: LengthSubOne(output, input) -- INFERRED (tokens are consumed).
+-- Termination: Nested(ListLength) -- INFERRED (token list decreases).
 --
 -- The single-expression form below is equivalent to the named-arrow
 -- decomposition:

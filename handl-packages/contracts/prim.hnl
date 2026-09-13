@@ -1,23 +1,23 @@
 -- Axioms for irreducible Rust primitives.
--- These are the foundation — everything else is derived.
+-- These are the foundation -- everything else is derived.
 
-axiom prim.add : (Int × Int) → Int
+axiom prim.add : (Int × Int) -> Int
   guarantee: True
 
-axiom prim.compare : (α × β) → Int
+axiom prim.compare : (α × β) -> Int
   guarantee: Le(output, 1)
 
-axiom prim.alloc : Int → List α
+axiom prim.alloc : Int -> List α
   guarantee: LengthEq(output, 0)
 
-axiom prim.sub : (Int × Int) → Int
+axiom prim.sub : (Int × Int) -> Int
   guarantee: True
 
-axiom prim.mul : (Int × Int) → Int
+axiom prim.mul : (Int × Int) -> Int
   guarantee: True
 
-axiom prim.le : (Int × Int) → Bool
+axiom prim.le : (Int × Int) -> Bool
   guarantee: True
 
-axiom prim.eq : (α × α) → Bool
+axiom prim.eq : (α × α) -> Bool
   guarantee: True

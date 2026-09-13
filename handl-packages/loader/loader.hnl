@@ -1,4 +1,4 @@
---- loader — canonical text transforms for .hnl module loading.
+--- loader -- canonical text transforms for .hnl module loading.
 ---
 --- This is the bootstrap loader: it must contain no `cap`/`op`/`handl`/
 --- `import`/`tag`/`export` declaration lines (it is the code that strips
@@ -10,9 +10,9 @@
 --- dispatch) plus a small bootstrap fallback (`mod bootstrap`) used to
 --- build the `str`/`char` floors this file needs before it exists.  Once
 --- a host installs a `HandlLoader` (`install_loader`), every text-level
---- transform — declaration stripping, comment stripping, export
+--- transform -- declaration stripping, comment stripping, export
 --- transformation, binding-separator detection, import/capability/tag
---- parsing, tag expansion — is evaluated here, in pure handl, through
+--- parsing, tag expansion -- is evaluated here, in pure handl, through
 --- `HandlModule`'s cached per-thread runtime.
 ---
 --- All line/offset arithmetic is in *character* units (`char.slice`,
@@ -35,7 +35,7 @@ do {
 
   rev :: xs ~> do {
     while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -44,7 +44,7 @@ do {
 
   list_len :: xs ~> do {
     while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
+      [xs, n]~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -58,7 +58,7 @@ do {
 
   last :: xs ~> head(rev(xs))
 
-  member :: [x, xs] ~> do {
+  member :: [x, xs]~> do {
     while xs {
       st ~> match st {
         []: { out: false },
@@ -67,7 +67,7 @@ do {
     }
   }
 
-  all :: [xs, p] ~> do {
+  all :: [xs, p]~> do {
     while xs {
       st ~> match st {
         []: { out: true },
@@ -81,9 +81,9 @@ do {
   -- ---------------------------------------------------------------------
 
   slen :: s ~> char.length(s)
-  atc :: [s, i] ~> char.slice(s, i, i + 1)
-  stake :: [s, n] ~> char.slice(s, 0, n)
-  sdrop :: [s, n] ~> char.slice(s, n, slen(s))
+  atc :: [s, i]~> char.slice(s, i, i + 1)
+  stake :: [s, n]~> char.slice(s, 0, n)
+  sdrop :: [s, n]~> char.slice(s, n, slen(s))
   trim :: s ~> str.trim(s)
   trim_start :: s ~> str.trim_start(s)
   blank :: s ~> slen(trim(s)) == 0
@@ -94,7 +94,7 @@ do {
 
   -- True when `t` starts with `kw` followed by a delimiter: end of
   -- string, space, tab, or one of the chars in `extras` (e.g. quotes).
-  kw_match :: [t, kw, extras] ~> do {
+  kw_match :: [t, kw, extras]~> do {
     if str.starts_with(t, kw) {
       r :: sdrop(t, slen(kw))
       slen(r) == 0 || member(atc(r, 0), [" ", tab, ...extras])
@@ -105,7 +105,7 @@ do {
 
   -- If `t` starts with `kw` followed by a delimiter, return the text
   -- after `kw`; else null.
-  kw_rest :: [t, kw, extras] ~> do {
+  kw_rest :: [t, kw, extras]~> do {
     if kw_match(t, kw, extras) {
       sdrop(t, slen(kw))
     } else {
@@ -141,12 +141,12 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- strip_comments — drop `--` comment lines
+  -- strip_comments -- drop `--` comment lines
   -- ---------------------------------------------------------------------
 
   strip_comments :: s ~> do {
     kept :: while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if str.starts_with(trim_start(h), "--") {
           { state: { xs: t, acc: acc } }
@@ -159,7 +159,7 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- strip_decls — drop `cap`/`op`/`handl` declaration lines and indented
+  -- strip_decls -- drop `cap`/`op`/`handl` declaration lines and indented
   -- `guarantee:`/`requires:`/`termination:` continuation lines.
   --
   -- NOTE: `import`/`from` lines are deliberately KEPT (byte-for-byte):
@@ -177,7 +177,7 @@ do {
   -- A top-level (non-indented) import statement line.
   is_top_import_line :: line ~> !indented(line) && is_import_line(trim_start(line))
 
-  is_decl_line :: [line, t] ~> do {
+  is_decl_line :: [line, t]~> do {
     if indented(line) &&
        (str.starts_with(t, "guarantee") ||
         str.starts_with(t, "requires") ||
@@ -196,7 +196,7 @@ do {
 
   strip_decls :: s ~> do {
     kept :: while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if is_decl_line(h, trim_start(h)) {
           { state: { xs: t, acc: acc } }
@@ -209,7 +209,7 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- find_binding_sep — locate the `::` (canonical) or legacy `=` bind
+  -- find_binding_sep -- locate the `::` (canonical) or legacy `=` bind
   -- separator at bracket depth 0, skipping `==`, `=>`, `>=`, `<=`, `!=`.
   -- `::` takes precedence and returns immediately; the first bare `=` is
   -- remembered but the scan continues.  Returns `{pos, len}` or null.
@@ -217,7 +217,7 @@ do {
 
   find_binding_sep :: s ~> do {
     while { xs: char.chars(s), i: 0, depth: 0, feq: 0 - 1 } {
-      [xs, i, depth, feq] ~> match xs {
+      [xs, i, depth, feq]~> match xs {
         []: if feq >= 0 {
           { out: { pos: feq, len: 1 } }
         } else {
@@ -231,10 +231,10 @@ do {
           } else {
             if c == ":" && depth == 0 {
               if atc(s, i + 1) == ":" {
-                { out: { pos: i, len: 2 } }   -- ::  bind
+                { out: { pos: i, len: 2 } } -- ::  bind
               } else {
                 if atc(s, i + 1) == "=" {
-                  { out: { pos: i, len: 2 } }   -- :=  graded bind
+                  { out: { pos: i, len: 2 } } -- :=  graded bind
                 } else {
                   { state: { xs: t, i: i + 1, depth: depth, feq: feq } }
                 }
@@ -263,14 +263,14 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- strip_export_name — Strip generics `<...>` and type annotation
+  -- strip_export_name -- Strip generics `<...>` and type annotation
   -- `: Type` from an export name portion, returning the bare name.
   -- e.g. `len<T>: List(T) ~[Total]~> Nat ` -> `len`
   -- ---------------------------------------------------------------------
 
   strip_export_name :: s ~> do {
     while { xs: char.chars(s), i: 0, depth: 0, acc: "" } {
-      [xs, i, depth, acc] ~> match xs {
+      [xs, i, depth, acc]~> match xs {
         []: { out: acc },
         [c, ...t]: if depth == 0 && (c == "<" || c == ":") {
           { out: acc }
@@ -290,10 +290,10 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- transform_export_to_object — rewrite top-level
+  -- transform_export_to_object -- rewrite top-level
   -- `export name : Type ~> Grade := expr` or `export name :: expr`
   -- declarations into an object literal
-  -- `{ name: expr, ... }`.  No exports → source unchanged.
+  -- `{ name: expr, ... }`.  No exports -> source unchanged.
   -- ---------------------------------------------------------------------
 
   is_export_line :: line ~> do {
@@ -303,7 +303,7 @@ do {
   -- Emit `{ name: expr, ... }` from a list of `{name, expr}` records.
   emit_object :: entries ~> do {
     while { xs: entries, acc: "{ " } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc + " }" },
         [h, ...t]: if acc == "{ " {
           { state: { xs: t, acc: acc + h.name + ": " + trim(h.expr) } }
@@ -317,7 +317,7 @@ do {
   -- Collect top-level import statements, in original order.
   collect_import_lines :: s ~> do {
     while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if is_top_import_line(h) {
           { state: { xs: t, acc: [h, ...acc] } }
@@ -331,7 +331,7 @@ do {
   -- `s` with top-level import statements removed (all other lines kept).
   drop_import_lines :: s ~> do {
     kept :: while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if is_top_import_line(h) {
           { state: { xs: t, acc: acc } }
@@ -353,7 +353,7 @@ do {
   -- untouched source) is returned, exactly as before.
   transform_export_to_object :: s ~> do {
     scan :: while { xs: str.lines(s), entries: [], cur: null } {
-      [xs, entries, cur] ~> match xs {
+      [xs, entries, cur]~> match xs {
         []: match cur {
           null: { out: entries },
           c: { out: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries] }
@@ -409,12 +409,12 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- parse_caps — `cap "name"` declarations → `[name, ...]`
+  -- parse_caps -- `cap "name"` declarations -> `[name, ...]`
   -- ---------------------------------------------------------------------
 
   parse_caps :: s ~> do {
     while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: do {
           ln :: trim(h)
@@ -438,7 +438,7 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- parse_tags — `tag name <::|=> Type` declarations →
+  -- parse_tags -- `tag name <::|=> Type` declarations ->
   -- `[{name, payload}, ...]`.  `::` is preferred over `=` even when a
   -- `=` appears earlier in the line (mirrors the Rust scan).
   -- ---------------------------------------------------------------------
@@ -463,7 +463,7 @@ do {
 
   parse_tags :: s ~> do {
     while { xs: str.lines(s), acc: [] } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: do {
           ln :: trim(h)
@@ -494,9 +494,9 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- expand_tags — strip `tag` declaration lines and generate constructor
+  -- expand_tags -- strip `tag` declaration lines and generate constructor
   -- bindings `name :: _0 ~> tag.tag("name", {value: _0})`, wrapping the
-  -- remaining source in `do { ... }`.  No tags → source unchanged.
+  -- remaining source in `do { ... }`.  No tags -> source unchanged.
   -- ---------------------------------------------------------------------
 
   -- True when the trimmed line is a strippable `tag` declaration
@@ -517,16 +517,16 @@ do {
 
   -- Emit the `do { ... }` wrapper: constructor lines, then the remaining
   -- source lines each indented by two spaces (blank lines stay blank).
-  emit_tag_block :: [tags, lines] ~> do {
+  emit_tag_block :: [tags, lines]~> do {
     ctors :: while { xs: tags, acc: "" } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t,
                      acc: acc + "  " + h.name + " :: _0 ~> tag.tag(" + dq + h.name + dq + ", {value: _0})" + nl } }
       }
     }
     body :: while { xs: lines, acc: ctors } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [h, ...t]: if blank(h) {
           { state: { xs: t, acc: acc + nl } }
@@ -544,7 +544,7 @@ do {
       s
     } else {
       kept :: while { xs: str.lines(s), acc: [] } {
-        [xs, acc] ~> match xs {
+        [xs, acc]~> match xs {
           []: { out: rev(acc) },
           [h, ...t]: do {
             ln :: trim(h)
@@ -565,12 +565,12 @@ do {
   }
 
   -- ---------------------------------------------------------------------
-  -- escape_string — escape `"` and `\` for embedding in a `"..."` literal
+  -- escape_string -- escape `"` and `\` for embedding in a `"..."` literal
   -- ---------------------------------------------------------------------
 
   escape_string :: s ~> do {
     while { xs: char.chars(s), acc: "" } {
-      [xs, acc] ~> match xs {
+      [xs, acc]~> match xs {
         []: { out: acc },
         [c, ...t]: if c == dq {
           { state: { xs: t, acc: acc + backslash + c } }
@@ -587,7 +587,7 @@ do {
 
   -- ---------------------------------------------------------------------
   -- Composite pipeline (HandlModule::new order):
-  --   strip comments → strip decls → transform exports → expand tags
+  --   strip comments -> strip decls -> transform exports -> expand tags
   -- ---------------------------------------------------------------------
 
   prepare :: s ~> expand_tags(transform_export_to_object(strip_decls(strip_comments(s))))

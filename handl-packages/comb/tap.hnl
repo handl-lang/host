@@ -11,7 +11,7 @@
 --- `[x ~> print(x), 42] >>> comb.tap`
 --- -- => 42
 ---
-export tap :: [f, x] ~> do {
+export tap :: [f, x]~> do {
   f(x)
   x
 }

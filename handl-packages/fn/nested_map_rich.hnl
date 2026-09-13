@@ -1,4 +1,4 @@
--- nested_map: a nested rich loop — outer loop iterates over a list of lists,
+-- nested_map: a nested rich loop -- outer loop iterates over a list of lists,
 -- inner loop maps a function over each inner list.
 -- This demonstrates nested loop support in the rich-loop DSL.
 --

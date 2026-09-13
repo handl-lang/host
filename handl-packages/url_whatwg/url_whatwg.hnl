@@ -1,5 +1,5 @@
---- url_whatwg.parse — parse a WHATWG URL Standard string into a Value.
---- url_whatwg.url_whatwg — return the parser token for url_whatwg.
+--- url_whatwg.parse -- parse a WHATWG URL Standard string into a Value.
+--- url_whatwg.url_whatwg -- return the parser token for url_whatwg.
 cap "url_whatwg.parse"
 cap "url_whatwg.url_whatwg"
 op "url_whatwg.parse" : String -> Value

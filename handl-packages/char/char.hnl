@@ -8,7 +8,7 @@
 --- touching a single string algorithm.
 ---
 --- Names are *semantic*, not implementation-specific: `is_whitespace`,
---- `is_alpha`, `to_upper` — never `is_unicode_whitespace` or `utf8_at`.
+--- `is_alpha`, `to_upper` -- never `is_unicode_whitespace` or `utf8_at`.
 --- The contract deliberately says nothing about encoding (UTF-8/16/32) or
 --- about Unicode vs ASCII vs locale: each backend defines what counts as
 --- "whitespace", "alphabetic", "uppercase", etc. A backend that documents
@@ -16,7 +16,7 @@
 --- Database; `char-ascii` interprets them per ASCII.
 ---
 --- Indices are always character indices (logical positions in the char
---- sequence), never byte offsets — `at(s, i)` returns the i-th character.
+--- sequence), never byte offsets -- `at(s, i)` returns the i-th character.
 --- Characters are represented as 1-char strings; there is no separate char
 --- type in handl. `code_point`/`from_code_point` are the only ops that
 --- expose scalar values; backends without Unicode may limit the range.
@@ -64,7 +64,7 @@ axiom char.is_lowercase : String -> Bool
 -- take a string (1 char) and return a string (possibly multi-char).
 
 axiom char.to_upper : String -> String
--- LAW: IsUpper(output)  (backend-defined case map; may expand e.g. ß→SS)
+-- LAW: IsUpper(output)  (backend-defined case map; may expand e.g. ß->SS)
   guarantee: True
 
 axiom char.to_lower : String -> String
@@ -124,7 +124,7 @@ axiom char.code_point_at : (String * Int) -> Int
 -- ---------------------------------------------------------------------------
 --
 -- `char.at` is O(i) per call in most backends, so iterating a string via
--- `at` is O(n^2) — not prod-ready. `chars`/`from_chars` let `str-handl`
+-- `at` is O(n^2) -- not prod-ready. `chars`/`from_chars` let `str-handl`
 -- algorithms iterate char lists in O(n) total. The list element type is a
 -- 1-char string, keeping the contract encoding-agnostic.
 

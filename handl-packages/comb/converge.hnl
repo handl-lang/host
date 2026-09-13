@@ -12,7 +12,7 @@
 --- instead of folding them.
 ---
 --- @example
---- `[6, [a, b] ~> a + b, x ~> x * 2, x ~> x * 3] >>> comb.converge`
+--- `[6, [a, b]~> a + b, x ~> x * 2, x ~> x * 3] >>> comb.converge`
 --- -- => 30
 ---
 export converge :: args ~> match args {
@@ -20,7 +20,7 @@ export converge :: args ~> match args {
     []: null,
     [h, ...t]: {
       while { xs: t, acc: h(value) } {
-        [xs, acc] ~> match xs {
+        [xs, acc]~> match xs {
           []: { out: acc },
           [h2, ...t2]: { state: { xs: t2, acc: combiner(acc, h2(value)) } }
         }

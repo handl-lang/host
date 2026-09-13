@@ -1,15 +1,15 @@
---- tls.version — return TLS library and version information (tokio-rustls backend).
---- tls.generate_self_signed — generate a self-signed certificate via rcgen.
---- tls.parse_cert — parse a PEM certificate string using rustls-pemfile.
---- tls.fingerprint — return the SHA-256 hex fingerprint of the first certificate.
---- tls.client_config — build a rustls client configuration and return a config_id.
---- tls.server_config — build a rustls server configuration and return a config_id.
---- tls.connect — open a TLS client connection via tokio-rustls.
---- tls.accept — listen on addr:port and accept a TLS connection via tokio-rustls.
---- tls.read — read up to len bytes from a TLS connection.
---- tls.write — write data to a TLS connection.
---- tls.close_conn — close a TLS connection.
---- tls.close_listener — close a TLS listener.
+--- tls.version -- return TLS library and version information (tokio-rustls backend).
+--- tls.generate_self_signed -- generate a self-signed certificate via rcgen.
+--- tls.parse_cert -- parse a PEM certificate string using rustls-pemfile.
+--- tls.fingerprint -- return the SHA-256 hex fingerprint of the first certificate.
+--- tls.client_config -- build a rustls client configuration and return a config_id.
+--- tls.server_config -- build a rustls server configuration and return a config_id.
+--- tls.connect -- open a TLS client connection via tokio-rustls.
+--- tls.accept -- listen on addr:port and accept a TLS connection via tokio-rustls.
+--- tls.read -- read up to len bytes from a TLS connection.
+--- tls.write -- write data to a TLS connection.
+--- tls.close_conn -- close a TLS connection.
+--- tls.close_listener -- close a TLS listener.
 cap "tls.version"
 cap "tls.generate_self_signed"
 cap "tls.parse_cert"
@@ -22,29 +22,29 @@ cap "tls.read"
 cap "tls.write"
 cap "tls.close_conn"
 cap "tls.close_listener"
-op "tls.version" : -> Value
+op "tls.version": - > Value
   guarantee: True
-op "tls.generate_self_signed" : Value -> Value
+op "tls.generate_self_signed": Value - > Value
   guarantee: True
-op "tls.parse_cert" : String -> Value
+op "tls.parse_cert": String - > Value
   guarantee: True
-op "tls.fingerprint" : String -> String
+op "tls.fingerprint": String - > String
   guarantee: IsHex(output)
-op "tls.client_config" : Value -> Value
+op "tls.client_config": Value - > Value
   guarantee: True
-op "tls.server_config" : String -> Value
+op "tls.server_config": String - > Value
   guarantee: True
-op "tls.connect" : String -> Value
+op "tls.connect": String - > Value
   guarantee: True
-op "tls.accept" : String -> Value
+op "tls.accept": String - > Value
   guarantee: True
-op "tls.read" : Value -> String
+op "tls.read": Value - > String
   guarantee: IsString(output)
-op "tls.write" : Value -> Value
+op "tls.write": Value - > Value
   guarantee: True
-op "tls.close_conn" : Value -> Value
+op "tls.close_conn": Value - > Value
   guarantee: True
-op "tls.close_listener" : Value -> Value
+op "tls.close_listener": Value - > Value
   guarantee: True
 
 handl "tls.version" = rust_tls_version

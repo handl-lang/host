@@ -1,4 +1,4 @@
---- obj — record introspection primitives (gap #3).
+--- obj -- record introspection primitives (gap #3).
 ---
 --- `obj.keys`, `obj.values`, and `obj.entries` enumerate the fields of a
 --- Handl object, preserving the iteration order of the underlying

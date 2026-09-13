@@ -1,15 +1,15 @@
---- ws_rfc.client — create an in-memory RFC 6455 WebSocket client.
---- ws_rfc.connect — connect a client to a URL (sets the client URL).
---- ws_rfc.send — send a message on a client.
---- ws_rfc.recv — receive the next message on a client, or null if empty.
---- ws_rfc.close — close a client connection.
---- ws_rfc.server — create an in-memory RFC 6455 WebSocket server.
---- ws_rfc.listen — start a server listening on an address with a handler.
---- ws_rfc.stop — stop a running server.
---- ws_rfc.frame.encode — encode a frame object into base64 frame bytes.
---- ws_rfc.frame.decode — decode base64 frame bytes into a frame object.
---- ws_rfc.message.from_frame — construct a message object from a frame.
---- ws_rfc.message.to_frame — encode a message object into base64 frame bytes.
+--- ws_rfc.client -- create an in-memory RFC 6455 WebSocket client.
+--- ws_rfc.connect -- connect a client to a URL (sets the client URL).
+--- ws_rfc.send -- send a message on a client.
+--- ws_rfc.recv -- receive the next message on a client, or null if empty.
+--- ws_rfc.close -- close a client connection.
+--- ws_rfc.server -- create an in-memory RFC 6455 WebSocket server.
+--- ws_rfc.listen -- start a server listening on an address with a handler.
+--- ws_rfc.stop -- stop a running server.
+--- ws_rfc.frame.encode -- encode a frame object into base64 frame bytes.
+--- ws_rfc.frame.decode -- decode base64 frame bytes into a frame object.
+--- ws_rfc.message.from_frame -- construct a message object from a frame.
+--- ws_rfc.message.to_frame -- encode a message object into base64 frame bytes.
 cap "ws_rfc.client"
 cap "ws_rfc.connect"
 cap "ws_rfc.send"

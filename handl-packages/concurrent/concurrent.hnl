@@ -1,60 +1,60 @@
---- concurrent — concurrency primitives for the handl runtime.
+--- concurrent -- concurrency primitives for the handl runtime.
 ---
 --- Provides spawn/await/yield scheduling, synchronization primitives
 --- (channels, mutexes, rwlocks, semaphores), atomics, cancellation
---- tokens, and basic TCP I/O — all exposed as host functions backed
+--- tokens, and basic TCP I/O -- all exposed as host functions backed
 --- by swappable runtime backends.
 ---
 --- ## scheduling
---- concurrent.spawn — spawn a task from a function value, returning a task handle.
---- concurrent.await — await a task, returning its result value.
---- concurrent.yield — yield control to the scheduler, allowing other tasks to run.
---- concurrent.sleep — sleep for a given number of milliseconds.
---- concurrent.timeout — await a task with a timeout in milliseconds.
---- concurrent.may — alias for spawn: fire-and-forget a task.
---- concurrent.must — alias for timeout: await with a deadline.
---- concurrent.when — alias for select: wait on the first available channel.
+--- concurrent.spawn -- spawn a task from a function value, returning a task handle.
+--- concurrent.await -- await a task, returning its result value.
+--- concurrent.yield -- yield control to the scheduler, allowing other tasks to run.
+--- concurrent.sleep -- sleep for a given number of milliseconds.
+--- concurrent.timeout -- await a task with a timeout in milliseconds.
+--- concurrent.may -- alias for spawn: fire-and-forget a task.
+--- concurrent.must -- alias for timeout: await with a deadline.
+--- concurrent.when -- alias for select: wait on the first available channel.
 ---
---- ## synchronization — channels
---- concurrent.channel — create a channel with an optional bounded capacity.
---- concurrent.send — send a value on a channel (blocks if full).
---- concurrent.try_send — try to send a value on a channel (errors if full).
---- concurrent.recv — receive a value from a channel (blocks if empty).
---- concurrent.select — wait on the first available value across an array of channels.
+--- ## synchronization -- channels
+--- concurrent.channel -- create a channel with an optional bounded capacity.
+--- concurrent.send -- send a value on a channel (blocks if full).
+--- concurrent.try_send -- try to send a value on a channel (errors if full).
+--- concurrent.recv -- receive a value from a channel (blocks if empty).
+--- concurrent.select -- wait on the first available value across an array of channels.
 ---
---- ## synchronization — mutex
---- concurrent.mutex — create a mutex.
---- concurrent.lock — lock a mutex and run a thunk, then unlock.
---- concurrent.try_lock — try to lock a mutex and run a thunk.
---- concurrent.unlock — unlock a mutex.
+--- ## synchronization -- mutex
+--- concurrent.mutex -- create a mutex.
+--- concurrent.lock -- lock a mutex and run a thunk, then unlock.
+--- concurrent.try_lock -- try to lock a mutex and run a thunk.
+--- concurrent.unlock -- unlock a mutex.
 ---
---- ## synchronization — rwlock
---- concurrent.rwlock — create a read-write lock.
---- concurrent.read_lock — acquire a read lock and run a thunk.
---- concurrent.write_lock — acquire a write lock and run a thunk.
+--- ## synchronization -- rwlock
+--- concurrent.rwlock -- create a read-write lock.
+--- concurrent.read_lock -- acquire a read lock and run a thunk.
+--- concurrent.write_lock -- acquire a write lock and run a thunk.
 ---
---- ## synchronization — semaphore
---- concurrent.semaphore — create a semaphore with a given permit count.
---- concurrent.acquire — acquire permits from a semaphore (blocks if insufficient).
---- concurrent.try_acquire — try to acquire permits (errors if insufficient).
---- concurrent.release — release permits back to a semaphore.
+--- ## synchronization -- semaphore
+--- concurrent.semaphore -- create a semaphore with a given permit count.
+--- concurrent.acquire -- acquire permits from a semaphore (blocks if insufficient).
+--- concurrent.try_acquire -- try to acquire permits (errors if insufficient).
+--- concurrent.release -- release permits back to a semaphore.
 ---
 --- ## atomics
---- concurrent.atomic — create an atomic cell with an initial value.
---- concurrent.atomic_read — read the current value of an atomic cell.
---- concurrent.atomic_write — write a new value to an atomic cell, returning the old value.
---- concurrent.atomic_cas — compare-and-swap on an atomic cell.
+--- concurrent.atomic -- create an atomic cell with an initial value.
+--- concurrent.atomic_read -- read the current value of an atomic cell.
+--- concurrent.atomic_write -- write a new value to an atomic cell, returning the old value.
+--- concurrent.atomic_cas -- compare-and-swap on an atomic cell.
 ---
 --- ## cancellation
---- concurrent.cancel_token — create a cancellation token.
---- concurrent.cancel — cancel a cancellation token.
---- concurrent.cancelable — spawn a cancelable task tied to a cancellation token.
+--- concurrent.cancel_token -- create a cancellation token.
+--- concurrent.cancel -- cancel a cancellation token.
+--- concurrent.cancelable -- spawn a cancelable task tied to a cancellation token.
 ---
 --- ## TCP I/O
---- concurrent.tcp_connect — connect to a TCP address, returning a connection handle.
---- concurrent.tcp_send — send data on a TCP connection.
---- concurrent.tcp_recv — receive data from a TCP connection.
---- concurrent.tcp_close — close a TCP connection.
+--- concurrent.tcp_connect -- connect to a TCP address, returning a connection handle.
+--- concurrent.tcp_send -- send data on a TCP connection.
+--- concurrent.tcp_recv -- receive data from a TCP connection.
+--- concurrent.tcp_close -- close a TCP connection.
 cap "concurrent.spawn"
 cap "concurrent.await"
 cap "concurrent.yield"

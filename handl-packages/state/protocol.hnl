@@ -1,4 +1,4 @@
--- Protocol state machine: idle → active → done.
+-- Protocol state machine: idle -> active -> done.
 --
 -- A simple protocol state machine that transitions between states based on
 -- events. Uses choice to handle different event types: either

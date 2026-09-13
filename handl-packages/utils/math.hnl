@@ -1,4 +1,4 @@
---- math — numeric utility functions for the handl runtime.
+--- math -- numeric utility functions for the handl runtime.
 ---
 --- Single source of truth for the `math` stdlib interface: 60 functions
 --- covering arithmetic, bitwise integer ops, constants, exponential/logarithmic,
@@ -14,66 +14,66 @@
 --- interface; the Rust `Function` impls in `ops.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- math.abs — absolute value of a number.
---- math.add — add two numbers.
---- math.ceil — ceiling of a number.
---- math.clamp — clamp a number between a lower and upper bound.
---- math.cos — cosine of a number (radians).
---- math.cosh — hyperbolic cosine of a number.
---- math.cbrt — cube root of a number.
---- math.asin — arc sine of a number.
---- math.acos — arc cosine of a number.
---- math.atan — arc tangent of a number.
---- math.atan2 — arc tangent of y/x using signs of both arguments.
---- math.asinh — inverse hyperbolic sine.
---- math.acosh — inverse hyperbolic cosine.
---- math.atanh — inverse hyperbolic tangent.
---- math.bit_and — bitwise AND on 64-bit integers.
---- math.bit_not — bitwise NOT on a 64-bit integer.
---- math.bit_or — bitwise OR on 64-bit integers.
---- math.bit_xor — bitwise XOR on 64-bit integers.
---- math.shl — shift left (amount must be in 0..64).
---- math.shr — arithmetic shift right (amount must be in 0..64).
---- math.degrees — convert radians to degrees.
---- math.div — divide two numbers.
---- math.e — Euler's number (e).
---- math.exp — exponential function e^x.
---- math.factorial — factorial of a non-negative integer.
---- math.floor — floor of a number.
---- math.floor_div — integer (floored) division.
---- math.fract — fractional part of a number.
---- math.gcd — greatest common divisor of two integers.
---- math.hypot — hypotenuse: sqrt(a^2 + b^2).
---- math.infinity — positive infinity constant.
---- math.is_finite — test whether a number is finite.
---- math.is_infinite — test whether a number is infinite.
---- math.is_integer — test whether a number is an integer.
---- math.is_nan — test whether a number is NaN.
---- math.lcm — least common multiple of two integers.
---- math.lerp — linear interpolation between two values.
---- math.log — natural logarithm of a number.
---- math.log10 — base-10 logarithm of a number.
---- math.log2 — base-2 logarithm of a number.
---- math.map_range — map a value from one range to another.
---- math.max — maximum of two numbers.
---- math.min — minimum of two numbers.
---- math.mod — modulo of two numbers.
---- math.mul — multiply two numbers.
---- math.nan — NaN constant.
---- math.pi — pi constant.
---- math.pow — raise a number to a power.
---- math.radians — convert degrees to radians.
---- math.round — round a number to the nearest integer.
---- math.round_to — round a number to a given precision.
---- math.sign — sign of a number (-1, 0, or 1).
---- math.sin — sine of a number (radians).
---- math.sinh — hyperbolic sine of a number.
---- math.sqrt — square root of a number.
---- math.sub — subtract two numbers.
---- math.tan — tangent of a number (radians).
---- math.tanh — hyperbolic tangent of a number.
---- math.tau — tau (2*pi) constant.
---- math.trunc — truncate a number toward zero.
+--- math.abs -- absolute value of a number.
+--- math.add -- add two numbers.
+--- math.ceil -- ceiling of a number.
+--- math.clamp -- clamp a number between a lower and upper bound.
+--- math.cos -- cosine of a number (radians).
+--- math.cosh -- hyperbolic cosine of a number.
+--- math.cbrt -- cube root of a number.
+--- math.asin -- arc sine of a number.
+--- math.acos -- arc cosine of a number.
+--- math.atan -- arc tangent of a number.
+--- math.atan2 -- arc tangent of y/x using signs of both arguments.
+--- math.asinh -- inverse hyperbolic sine.
+--- math.acosh -- inverse hyperbolic cosine.
+--- math.atanh -- inverse hyperbolic tangent.
+--- math.bit_and -- bitwise AND on 64-bit integers.
+--- math.bit_not -- bitwise NOT on a 64-bit integer.
+--- math.bit_or -- bitwise OR on 64-bit integers.
+--- math.bit_xor -- bitwise XOR on 64-bit integers.
+--- math.shl -- shift left (amount must be in 0..64).
+--- math.shr -- arithmetic shift right (amount must be in 0..64).
+--- math.degrees -- convert radians to degrees.
+--- math.div -- divide two numbers.
+--- math.e -- Euler's number (e).
+--- math.exp -- exponential function e^x.
+--- math.factorial -- factorial of a non-negative integer.
+--- math.floor -- floor of a number.
+--- math.floor_div -- integer (floored) division.
+--- math.fract -- fractional part of a number.
+--- math.gcd -- greatest common divisor of two integers.
+--- math.hypot -- hypotenuse: sqrt(a^2 + b^2).
+--- math.infinity -- positive infinity constant.
+--- math.is_finite -- test whether a number is finite.
+--- math.is_infinite -- test whether a number is infinite.
+--- math.is_integer -- test whether a number is an integer.
+--- math.is_nan -- test whether a number is NaN.
+--- math.lcm -- least common multiple of two integers.
+--- math.lerp -- linear interpolation between two values.
+--- math.log -- natural logarithm of a number.
+--- math.log10 -- base-10 logarithm of a number.
+--- math.log2 -- base-2 logarithm of a number.
+--- math.map_range -- map a value from one range to another.
+--- math.max -- maximum of two numbers.
+--- math.min -- minimum of two numbers.
+--- math.mod -- modulo of two numbers.
+--- math.mul -- multiply two numbers.
+--- math.nan -- NaN constant.
+--- math.pi -- pi constant.
+--- math.pow -- raise a number to a power.
+--- math.radians -- convert degrees to radians.
+--- math.round -- round a number to the nearest integer.
+--- math.round_to -- round a number to a given precision.
+--- math.sign -- sign of a number (-1, 0, or 1).
+--- math.sin -- sine of a number (radians).
+--- math.sinh -- hyperbolic sine of a number.
+--- math.sqrt -- square root of a number.
+--- math.sub -- subtract two numbers.
+--- math.tan -- tangent of a number (radians).
+--- math.tanh -- hyperbolic tangent of a number.
+--- math.tau -- tau (2*pi) constant.
+--- math.trunc -- truncate a number toward zero.
 cap "math.abs"
 cap "math.add"
 cap "math.ceil"

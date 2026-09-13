@@ -1,7 +1,7 @@
 {
   head: match [1, 2, 3] { []: 0, [h, ...t]: h },
   tail_len: (self ~> self(self, [10, 20, 30, 40]))(
-    [self, xs] ~> match xs {
+    [self, xs]~> match xs {
       []: 0,
       [h, ...t]: 1 + self(self, t)
     }

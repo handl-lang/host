@@ -1,4 +1,4 @@
---- parse — generic, tree-shakeable parsing framework.
+--- parse -- generic, tree-shakeable parsing framework.
 ---
 --- This is a trait-abstraction library: the Parser and DynParser traits
 --- live in Rust (plugin-lib-parse) and are implemented by concrete parser

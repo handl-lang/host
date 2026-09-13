@@ -1,4 +1,4 @@
---- encoding — encoding abstractions for the handl runtime.
+--- encoding -- encoding abstractions for the handl runtime.
 ---
 --- This is a trait-abstraction library: the Encoding trait and
 --- EncodingRegistry live in Rust (plugin-lib-encoding) and are implemented

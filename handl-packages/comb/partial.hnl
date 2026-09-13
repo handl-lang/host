@@ -1,18 +1,18 @@
 --- Partially applies the leading argument(s) of a function.
 ---
 --- @details
---- `partial` takes `[f, bound]` where `bound` is a list of 1–3
+--- `partial` takes `[f, bound]` where `bound` is a list of 1ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ3
 --- arguments to pre-fill, and returns an arrow awaiting the remaining
---- argument. `bound` lists longer than 3 elements are not supported —
+--- argument. `bound` lists longer than 3 elements are not supported --
 --- `f` is returned unchanged in that case.
 ---
 --- @example
---- `add3 :: [a, b, c] ~> a + b + c`
+--- `add3 :: [a, b, c]~> a + b + c`
 --- `add_from_10 :: [add3, [10, 20]] >>> comb.partial`
 --- `5 >>> add_from_10`
 --- -- => 35
 ---
-export partial :: [f, bound] ~> match bound {
+export partial :: [f, bound]~> match bound {
   [a]: x ~> f(a, x),
   [a, b]: x ~> f(a, b, x),
   [a, b, c]: x ~> f(a, b, c, x),

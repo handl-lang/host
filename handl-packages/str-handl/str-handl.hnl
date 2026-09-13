@@ -1,4 +1,4 @@
---- str-handl — the pure-handl implementation of the `str` contract.
+--- str-handl -- the pure-handl implementation of the `str` contract.
 ---
 --- Every string *algorithm* in the `str` contract
 --- (`handl-packages/str/str.hnl`) is implemented here as handl code over
@@ -10,7 +10,7 @@
 --- `to_lower`/`to_title`. No string algorithm is written in Rust here.
 ---
 --- Portability: `str-handl` calls only `char.*` semantic ops, so it runs
---- over ANY `char` backend — `char-native` (Rust `std::char`), `char-ascii`
+--- over ANY `char` backend -- `char-native` (Rust `std::char`), `char-ascii`
 --- (no-Unicode runtimes), `char-js` (JS built-ins), or a future `char-icu`
 --- (ICU4X). The source never references Unicode, UTF-8, or codepoint
 --- semantics directly.
@@ -313,7 +313,7 @@ do {
     if ab < c { ab } else { c }
   }
 
-  -- iota(n) = [0, 1, ..., n] — the Levenshtein DP "row 0" (n+1 entries).
+  -- iota(n) = [0, 1, ..., n] -- the Levenshtein DP "row 0" (n+1 entries).
   iota :: n ~> {
     while { n: n, acc: [] } {
       [n, acc] ~> if n < 0 {

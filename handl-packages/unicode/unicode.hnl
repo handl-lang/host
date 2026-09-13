@@ -2,19 +2,19 @@
 ---
 --- `unicode` sits above `char`: `char` knows scalar values and character
 --- categories; `unicode` knows *text-level* structure that requires Unicode
---- data tables — grapheme clusters (UAX #29), canonical normalization
+--- data tables -- grapheme clusters (UAX #29), canonical normalization
 --- (UAX #15), full case folding (CaseFolding.txt), and display width
 --- (UAX #11, East Asian Width).
 ---
 --- This is the abstraction contract: every `unicode` backend
 --- (`unicode-handl`, `unicode-native` on ICU/`unicode-*` crates,
 --- `unicode-js` on `Intl`/`String.prototype`) must satisfy these laws.
---- Names are *semantic*, not implementation-specific — never
+--- Names are *semantic*, not implementation-specific -- never
 --- `nfc_icu4x` or `graphemes_utf16`.
 ---
 --- Because the algorithms need Unicode tables, backends differ in
 --- *coverage*, not in *meaning*: `unicode-handl` provides the subset that
---- can be computed from `char.*` atoms alone — code-point interop, ASCII
+--- can be computed from `char.*` atoms alone -- code-point interop, ASCII
 --- checks, and code-point-fallback `graphemes`/`grapheme_count`/`width`/
 --- `casefold` (documented as coarse: correct for ASCII and single-scalar
 --- text, conservative for cluster/decomposable text). Normalization
@@ -54,7 +54,7 @@ axiom unicode.is_ascii : String -> Bool
   guarantee: True
 
 -- ---------------------------------------------------------------------------
--- Code-point access + UTF-8 decode — `unicode.code_point_at` and
+-- Code-point access + UTF-8 decode -- `unicode.code_point_at` and
 -- `unicode.decode` are the current `plugin-lib-unicode` surface
 -- ---------------------------------------------------------------------------
 
@@ -70,11 +70,11 @@ axiom unicode.decode : String -> List Int
   guarantee: True
 
 -- ---------------------------------------------------------------------------
--- Identifier categories (UAX #31) — backend-required
+-- Identifier categories (UAX #31) -- backend-required
 -- ---------------------------------------------------------------------------
 --
 -- XID_Start/XID_Continue and identifier validity need the DerivedCore
--- properties table — not computable from `char.*` atoms. Provided by
+-- properties table -- not computable from `char.*` atoms. Provided by
 -- `unicode-native` (`plugin-lib-unicode`) / `unicode-js`.
 
 axiom unicode.is_valid_identifier : String -> Bool
@@ -91,14 +91,14 @@ axiom unicode.is_xid_continue : String -> Bool
   guarantee: True
 
 -- ---------------------------------------------------------------------------
--- Grapheme clusters (UAX #29) — table-dependent
+-- Grapheme clusters (UAX #29) -- table-dependent
 -- ---------------------------------------------------------------------------
 --
 -- A grapheme cluster is a user-perceived "character": base + combining
 -- marks, emoji sequences, CRLF, regional-indicator pairs. The contract is
 -- semantic (clusters), so a code-point fallback is *conservatively
 -- correct* for ASCII/single-scalar text but under-segments real cluster
--- text — `unicode-handl` implements it as `char.chars` (each scalar is a
+-- text -- `unicode-handl` implements it as `char.chars` (each scalar is a
 -- grapheme), documented as a fallback; `unicode-native`/`unicode-js`
 -- implement the full UAX #29 segmentation.
 
@@ -112,7 +112,7 @@ axiom unicode.grapheme_count : String -> Int
   guarantee: Le(0, output)
 
 -- ---------------------------------------------------------------------------
--- Display width (UAX #11) — table-dependent
+-- Display width (UAX #11) -- table-dependent
 -- ---------------------------------------------------------------------------
 --
 -- `width` is the terminal column count: full-width/wide chars count 2,
@@ -126,10 +126,10 @@ axiom unicode.width : String -> Int
   guarantee: Le(0, output)
 
 -- ---------------------------------------------------------------------------
--- Case folding (CaseFolding.txt) — table-dependent
+-- Case folding (CaseFolding.txt) -- table-dependent
 -- ---------------------------------------------------------------------------
 --
--- Full case folding maps "ß"→"ss", ligatures, etc. — stronger than
+-- Full case folding maps "ß"->"ss", ligatures, etc. -- stronger than
 -- lowercasing (which `char.to_lower`/`str.lower` provide). A lowercasing
 -- fallback is conservatively correct for ASCII but misses fold-only
 -- mappings.
@@ -140,7 +140,7 @@ axiom unicode.casefold : String -> String
   guarantee: True
 
 -- ---------------------------------------------------------------------------
--- Normalization (UAX #15) — backend-required
+-- Normalization (UAX #15) -- backend-required
 -- ---------------------------------------------------------------------------
 --
 -- Canonical composition/decomposition require the normalization tables.

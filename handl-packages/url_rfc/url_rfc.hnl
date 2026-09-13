@@ -1,5 +1,5 @@
---- url_rfc.parse — parse a strict RFC 3986 URI string into a Value.
---- url_rfc.url_rfc — return the parser token for url_rfc.
+--- url_rfc.parse -- parse a strict RFC 3986 URI string into a Value.
+--- url_rfc.url_rfc -- return the parser token for url_rfc.
 cap "url_rfc.parse"
 cap "url_rfc.url_rfc"
 op "url_rfc.parse" : String -> Value

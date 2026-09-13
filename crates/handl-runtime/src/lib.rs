@@ -1512,6 +1512,7 @@ impl ModuleLoader {
         // record and type-only exports like `export Clock<T>: Grade` are
         // safe to run.
         let src = module_prep::prepare_module(&src);
+        eprintln!("[prepared] {}\n{}\n---", resolved, src);
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);

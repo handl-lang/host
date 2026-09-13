@@ -1,5 +1,5 @@
 while { n: 1, out: 0 } {
-  [n, out] ~> if n > 15
+  [n, out]~> if n > 15
     return out
   else if n % 15 == 0
     { state: { n: n + 1, out: 15 } }
