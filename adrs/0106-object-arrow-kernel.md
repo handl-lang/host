@@ -430,26 +430,32 @@ rule.
   empty list (`A ~[]~> B`) is rejected. Grade/sort declarations carry the
   algebra as before (ADR-0098/0100, ADR-0102; `graded_theory.rs`,
   `graded_e2e.rs`). ADR notation and implementation now agree.
-- **Dimensions — syntax implemented, semantics not.** The `f<...>`
-  specialization *surface* now exists: the Pratt engine recognizes the
+- **Dimensions — syntax + lowering implemented; specialization is
+  application.** The `f<...>` surface exists: the Pratt engine recognizes the
   bracketed form and produces a `dimension` node (children `[target, args…]`,
-  shape `ast.dimension`), so `f<a>`, `map<T, U>` and `f<(a >>> b)>` parse.
-  Because `<` is also the comparison operator, the bracket is only
-  recognized on the unambiguous spelling: it must be **written adjacent** to a
-  name-like target (identifier / field access / call / dimension) and must
-  close with a `>` at balanced depth. `f < a` (spaced) and `f<a` (unclosed)
-  therefore remain comparisons, and `(f<a>) >>> b` is a flow whose left
-  operand is the dimension — all pinned by tests in
-  `crates/plugin-engine-parse-pratt` and
-  `crates/handl-kit-data-canonical/tests/graded_theory.rs`. There is no `>>`
-  split to worry about: the lexer has no shift token, so `f<g<x>>` lexes as
-  two `>` tokens and nests naturally. `f<>` is rejected.
-  TODO(ADR-0106): the *semantics* of a dimension — specialization of a type,
-  value, arrow, proof, grade, or algebra, plus expected-type/dimension
-  inference — remain unimplemented: a `dimension` node has no eval scheme, so
-  it evaluates to its payload rather than performing a specialization. The
-  payload is currently parsed as a general expression, not yet validated
-  against a dimension grammar.
+  shape `ast.dimension`). Because `<` is also the comparison operator, the
+  bracket is only recognized on the unambiguous spelling: it must be
+  **written adjacent** to a name-like target (`var`, `field-access`, `call`,
+  `dimension`) and must close with a `>` at balanced depth — so `f < a`
+  (spaced) and `f<a` (unclosed) remain comparisons, and `(f<a>) >>> b` is a
+  flow whose left operand is the dimension. `f<>` is rejected; there is no
+  `>>` split to worry about (the lexer has no shift token, so `f<g<x>>`
+  lexes as two `>` and nests naturally).
+
+  A dimension **evaluates as application**: the desugar pass lowers
+  `dimension` to a `call` (`transform.desugar.dimension`, children preserved),
+  so `f<X>` means `f(X)` — exactly the reading §12 gives the generic form
+  (`List<T> := T ~> sym()`), and it reuses the proven `call` machinery
+  (host dispatch + arrow application) rather than a parallel path. An
+  `eval.dimension` scheme with identical semantics also exists for paths that
+  evaluate a raw (undesugared) AST. Evidence: `graded_theory.rs` asserts
+  `inc<41>` evaluates to `42` and that `inc<41>` / `add<1, 2>` evaluate
+  *identically* to `inc(41)` / `add(1, 2)`.
+
+  TODO(ADR-0106): true *specialization semantics* (a dimension selecting a
+  type/value/grade instantiation rather than an argument, plus
+  expected-type/dimension inference) are not implemented; the payload is
+  parsed as a general expression and applied.
 
 Nominal subtyping itself (this ADR's §14) is implemented in the Handl-authored
 typecheck model, `project/design/adr0103/typecheck_model.hnl` (crate
