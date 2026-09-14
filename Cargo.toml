@@ -111,6 +111,10 @@ members = [
   "crates/handl-kit-data-canonical",
   "crates/handl-defining-handl",
   "crates/handl-value",
+  "crates/plugin-sdkgen",
+  "crates/plugin-sdkgen-backend-c",
+  "crates/plugin-sdkgen-emitter-file",
+  "crates/plugin-ext-sdkgen",
 ]
 resolver = "3"
 
@@ -240,6 +244,10 @@ handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
+handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
+handl-plugin-sdkgen-backend-c = { path = "crates/plugin-sdkgen-backend-c" }
+handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
+handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
 [features]
 default = []

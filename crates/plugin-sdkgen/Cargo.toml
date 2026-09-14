@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-sdkgen"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
