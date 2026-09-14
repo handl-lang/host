@@ -81,7 +81,9 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             }
         }
         "webidl" => {
-            let backend = WebIdlBackend::new();
+            let _ = only;
+            let _ = config_path;
+            let backend = WebIdlBackend::new(target);
             backend.parse_header(Path::new(&header))
         }
         _ => unreachable!(),
