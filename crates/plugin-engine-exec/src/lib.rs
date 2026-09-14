@@ -120,6 +120,40 @@ pub trait EvalEngine {
         self.eval(lang, &EvalRequest::new((**ast).clone()))
     }
 
+    /// Like [`eval_shared`](Self::eval_shared), but binds `args` directly
+    /// into the call frame's scope rather than via per-call
+    /// [`with_global`](Self::with_global) engine cloning, eliminating the N
+    /// engine clones that [`Runtime::eval_shared_with_globals`] would incur
+    /// for N arguments.
+    ///
+    /// The argument names are determined by the caller (typically
+    /// `__arg_0`, `__arg_1`, … matching a cached applied-form AST) and are
+    /// resolved through the engine's normal variable lookup at eval time.
+    ///
+    /// **Default:** clone the engine once and inject each arg via
+    /// [`with_global`](Self::with_global), then delegate to
+    /// [`eval_shared`](Self::eval_shared). Engines that can bind per-call
+    /// names directly on the call frame (e.g. the tree-walk engine's
+    /// [`ScopeStack`](plugin_engine_exec_tree_walk::ScopeStack)) override
+    /// this for a zero-clone path. The default preserves the existing
+    /// fallback behavior for engines that do not override it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on failure, as [`eval_shared`](Self::eval_shared).
+    fn eval_shared_with_call_args(
+        &self,
+        lang: &Language,
+        ast: &Rc<Ast>,
+        args: &[(String, Value)],
+    ) -> Result<Value, LangError> {
+        let mut engine: Box<dyn EvalEngine> = self.box_clone();
+        for (name, val) in args {
+            engine = engine.with_global(name, val.clone());
+        }
+        engine.eval_shared(lang, ast)
+    }
+
     /// Seal a module's exported bindings before they cross into the
     /// importer's scope (Phase 9.5 `import "path"`).
     ///

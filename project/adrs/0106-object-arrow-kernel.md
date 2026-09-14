@@ -15,6 +15,12 @@ remains:
   explicit `body_def` and apply after transport; `env` removal and
   bytecode/cranelift minting remain (Phase 5 note + "Design: serializable
   arrow representation (item 2)").
+- Per-call argument binding (env-removal for the `HandlFunction::call` seam):
+  implemented — `Runtime::eval_shared_with_call_args` binds `__arg_N` directly
+  on the call frame's `ScopeStack` globals (excluded from `capture()`), instead
+  of injecting per-call engine globals via `with_global` cloning (zero engine
+  clones per call). The arrow value's `env` field is still captured state; its
+  removal remains (Phase 5 note).
 - Graded arrows `A ~[R]~> B`: implemented (canonical spelling; legacy
   `~R~>` accepted).
 - Dimensions `f<...>`: syntax implemented; specialization semantics remain.
