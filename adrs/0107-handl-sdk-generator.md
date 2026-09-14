@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Phases 1 and 2 are implemented and tested; this ADR is now archived.
 
 Depends on the runtime-injected `ffi` package (`call`/`bind`/`errno`),
 [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md),
