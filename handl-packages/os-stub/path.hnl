@@ -7,15 +7,15 @@
 from "str" import * as str
 
 --- Join path components with a forward slash.
-export join: (List String) - > String := (parts) ~> str.join(parts, "/")
+export join: (List String) -> String := (parts) ~> str.join(parts, "/")
 
 --- Resolve a sequence of path components to a single path.
 --- @details
 --- Stub implementation: simply joins the components.
-export resolve: (List String) - > String := (parts) ~> str.join(parts, "/")
+export resolve: (List String) -> String := (parts) ~> str.join(parts, "/")
 
 --- Return the last component of a path.
-export basename: String - > String := (p) ~> do {
+export basename: String -> String := (p) ~> do {
   i = str.rfind(p, "/");
   if i > -1 {
     str.slice(p, i + 1, str.length(p))
@@ -25,7 +25,7 @@ export basename: String - > String := (p) ~> do {
 }
 
 --- Return the directory component of a path.
-export dirname: String - > String := (p) ~> do {
+export dirname: String -> String := (p) ~> do {
   i = str.rfind(p, "/");
   if i > -1 {
     str.slice(p, 0, i)
@@ -35,7 +35,7 @@ export dirname: String - > String := (p) ~> do {
 }
 
 --- Return the file extension, including the leading dot, or the empty string.
-export extname: String - > String := (p) ~> do {
+export extname: String -> String := (p) ~> do {
   base = basename(p);
   i = str.rfind(base, ".");
   if i > -1 {

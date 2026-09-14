@@ -43,19 +43,19 @@ cap "stats.min"
 cap "stats.max"
 cap "stats.median"
 cap "stats.stddev"
-op "stats.sum": Array - > Number
+op "stats.sum": Array -> Number
   guarantee: True
-op "stats.avg": Array - > Number
+op "stats.avg": Array -> Number
   guarantee: True
-op "stats.product": Array - > Number
+op "stats.product": Array -> Number
   guarantee: True
-op "stats.min": Array - > Number
+op "stats.min": Array -> Number
   guarantee: True
-op "stats.max": Array - > Number
+op "stats.max": Array -> Number
   guarantee: True
-op "stats.median": Array - > Number
+op "stats.median": Array -> Number
   guarantee: True
-op "stats.stddev": Array - > Number
+op "stats.stddev": Array -> Number
   guarantee: NonNeg(output)
 
 do {

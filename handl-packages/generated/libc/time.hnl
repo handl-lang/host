@@ -1,0 +1,26 @@
+--- Generated port for libc.time
+--- C target: x86_64-unknown-linux
+
+from "ffi" import { FFI, Errno }
+from "result" import { Result }
+
+export pid_t := Int
+
+--- C: clock_t (void)
+export Clock: () ~[(FFI)]~> Result<Int, Errno>
+
+--- C: double (time_t, time_t)
+export Difftime: (Int, Int) ~[(FFI)]~> Result<Float, Errno>
+
+--- C: void (void)
+export Tzset: () ~[(FFI)]~> Result<(), Errno>
+
+--- C: int (int)
+export Dysize: (Int) ~[(FFI)]~> Result<Int, Errno>
+
+--- C: int (timer_t)
+export TimerDelete: (Handle) ~[(FFI)]~> Result<Int, Errno>
+
+--- C: int (timer_t)
+export TimerGetoverrun: (Handle) ~[(FFI)]~> Result<Int, Errno>
+

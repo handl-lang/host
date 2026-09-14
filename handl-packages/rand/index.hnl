@@ -7,74 +7,74 @@
 --- configuration.
 
 --- Generate a random integer in `[0, max]`.
-export Int: Number - > Number
+export Int: Number -> Number
 
 --- Generate a random float in `[0, max)`.
-export Float: Number - > Number
+export Float: Number -> Number
 
 --- Generate a random boolean.
-export Bool: () - > Bool
+export Bool: () -> Bool
 
 --- Pick one random element from a non-empty array.
-export Pick: Array - > Value
+export Pick: Array -> Value
 
 --- Choose `count` elements from an array with replacement.
-export Choice: (Array, Number) - > Array
+export Choice: (Array, Number) -> Array
 
 --- Sample `count` elements from an array without replacement.
-export Sample: (Array, Number) - > Array
+export Sample: (Array, Number) -> Array
 
 --- Shuffle an array in random order.
-export Shuffle: Array - > Array
+export Shuffle: Array -> Array
 
 --- Pick one random element from weighted arrays.
-export WeightedPick: (Array, Array) - > Value
+export WeightedPick: (Array, Array) -> Value
 
 --- Generate `n` random bytes in `[0, 255]`.
-export Bytes: Number - > Array
+export Bytes: Number -> Array
 
 --- Generate a random string of `len` characters from `charset`.
-export String: (Number, String) - > String
+export String: (Number, String) -> String
 
 --- Generate a normally distributed number with `mean` and `stddev`.
-export Gauss: (Number, Number) - > Number
+export Gauss: (Number, Number) -> Number
 
 --- Generate an exponentially distributed non-negative number with `lambda`.
-export Exponential: Number - > Number
+export Exponential: Number -> Number
 
 --- Generate a Poisson-distributed non-negative integer with `lambda`.
-export Poisson: Number - > Number
+export Poisson: Number -> Number
 
 --- Generate a binomial-distributed integer in `[0, n]` with `n` trials
 --- and success probability `p`.
-export Binomial: (Number, Number) - > Number
+export Binomial: (Number, Number) -> Number
 
 --- Generate a seeded random integer in `[0, max]`.
-export SeededInt: (Number, Number) - > Number
+export SeededInt: (Number, Number) -> Number
 
 --- Generate a seeded random float in `[0, max)`.
-export SeededFloat: (Number, Number) - > Number
+export SeededFloat: (Number, Number) -> Number
 
 --- Generate a seeded random boolean.
-export SeededBool: Number - > Bool
+export SeededBool: Number -> Bool
 
 --- Pick one seeded random element from a non-empty array.
-export SeededPick: (Number, Array) - > Value
+export SeededPick: (Number, Array) -> Value
 
 --- Choose `count` seeded elements from an array with replacement.
-export SeededChoice: (Number, Array, Number) - > Array
+export SeededChoice: (Number, Array, Number) -> Array
 
 --- Sample `count` seeded elements from an array without replacement.
-export SeededSample: (Number, Array, Number) - > Array
+export SeededSample: (Number, Array, Number) -> Array
 
 --- Shuffle an array with a seeded RNG.
-export SeededShuffle: (Number, Array) - > Array
+export SeededShuffle: (Number, Array) -> Array
 
 --- Generate a seeded random string of `len` characters from `charset`.
-export SeededString: (Number, Number, String) - > String
+export SeededString: (Number, Number, String) -> String
 
 --- Generate a seeded normally distributed number with `mean` and `stddev`.
-export SeededGauss: (Number, Number, Number) - > Number
+export SeededGauss: (Number, Number, Number) -> Number
 
 from "../grade" import { Grade }
 --- @template Random

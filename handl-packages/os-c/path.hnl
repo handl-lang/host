@@ -11,7 +11,7 @@ from "str" import * as str
 --- Join path components with a forward slash.
 --- @param {parts} - list of path components
 --- @returns {String - the joined path}
-export join: (List String) - > String := (parts) ~> str.join(parts, "/")
+export join: (List String) -> String := (parts) ~> str.join(parts, "/")
 
 --- Resolve a sequence of path components to a single path.
 --- @param {parts} - list of path components
@@ -24,7 +24,7 @@ export resolve: (List String) ~[Effect]~> String := (parts) ~> str.join(parts, "
 --- Return the last component of a path.
 --- @param {p} - the path
 --- @returns {String - the file name portion}
-export basename: String - > String := (p) ~> do {
+export basename: String -> String := (p) ~> do {
   i = str.rfind(p, "/");
   if i > -1 {
     str.slice(p, i + 1, str.length(p))
@@ -36,7 +36,7 @@ export basename: String - > String := (p) ~> do {
 --- Return the directory component of a path.
 --- @param {p} - the path
 --- @returns {String - the directory portion}
-export dirname: String - > String := (p) ~> do {
+export dirname: String -> String := (p) ~> do {
   i = str.rfind(p, "/");
   if i > -1 {
     str.slice(p, 0, i)
@@ -48,7 +48,7 @@ export dirname: String - > String := (p) ~> do {
 --- Return the file extension, including the leading dot, or the empty string.
 --- @param {p} - the path
 --- @returns {String - the extension}
-export extname: String - > String := (p) ~> do {
+export extname: String -> String := (p) ~> do {
   base = basename(p);
   i = str.rfind(base, ".");
   if i > -1 {
