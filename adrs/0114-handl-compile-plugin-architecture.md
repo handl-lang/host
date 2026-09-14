@@ -56,6 +56,13 @@ package from ADR-0113: `js.call("<module>.<name>", args)` with
 `js.errno()` for errors. The runtime shim registers host functions by
 `(module, name)` so WebIDL/foreign binding metadata can be shared.
 
+`plugin-compile-js` inlines `js.call` / `js.error` by default when the
+foreign object, method, and descriptors are known at compile time. For
+example, `call("console", "log", [msg], ["js_string"], "js_void", false)`
+compiles directly to `console.log(msg)`. A configuration flag
+(`--no-inline-foreign` or `keep_js_shim`) opts out of inlining and keeps the
+runtime `js` client package for dynamic or generic foreign calls.
+
 **Consequences for the JS target:** v1 does not emit source maps; stack
 traces point at generated JS. The `inline` and `esm` modes may include a
 `# sourceURL=<input>` comment for debugging.
