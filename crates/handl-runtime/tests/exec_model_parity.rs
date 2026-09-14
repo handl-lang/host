@@ -99,7 +99,7 @@ const EXEC_MODEL_FUNCS: &[&str] = &[
 /// Build a `HandlModule` for the exec model with the stdlib dependency chain.
 fn exec_model_module() -> HandlModule {
     HandlModule::new("exec_model", EXEC_MODEL_HNL, EXEC_MODEL_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -115,7 +115,7 @@ fn exec_model_adapter() -> HandlModelAdapter {
 /// reference), used for parity comparison on overlapping tags.
 fn value_model() -> HandlModel {
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);

@@ -121,7 +121,7 @@ impl HandlTypecheckEngine {
                 // walks the AST and manages the typing context using the runtime
                 // `array`, `hash_map`, and `typeof` modules, and constructs tagged
                 // type values via the host `tag` capability (see the model header).
-                .with_dependency(stdlib::module("array").expect("array module"))
+                .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
                 .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
                 .with_dependency(stdlib::module("typeof").expect("typeof module"))
                 .with_dependency(stdlib::module("obj").expect("obj module"))

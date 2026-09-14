@@ -50,7 +50,7 @@ const META_FUNCS: &[&str] = &[
 /// Build the meta-model as a `HandlModule`.
 fn meta_module() -> HandlModule {
     HandlModule::new("meta_model", META_MODEL_HNL, META_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)

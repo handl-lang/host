@@ -105,7 +105,7 @@ fn typecheck_model_module() -> HandlModule {
         TYPECHECK_MODEL_HNL,
         TYPECHECK_MODEL_FUNCS,
     )
-    .with_dependency(stdlib::module("array").expect("array module"))
+    .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
     .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
     .with_dependency(stdlib::module("typeof").expect("typeof module"))
     .with_dependency(stdlib::module("obj").expect("obj module"))
@@ -267,7 +267,7 @@ fn typecheck_return_via_adapter() {
 /// runtime, so `check_module` may fail at call time.
 fn scope_model_module() -> HandlModule {
     HandlModule::new("scope_model", SCOPE_MODEL_HNL, SCOPE_MODEL_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(stdlib::module("str").expect("str module"))
@@ -331,7 +331,7 @@ fn scope_model_check_module_simple_source() {
 /// `typeof` — all available in the stdlib.
 fn totality_model_module() -> HandlModule {
     HandlModule::new("totality_model", TOTALITY_MODEL_HNL, TOTALITY_MODEL_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
 }
@@ -435,7 +435,7 @@ fn totality_model_check_totality_empty_ast() {
 /// `typeof`, and `tag.*` — all available in the stdlib and `TagModule`.
 fn type_model_module() -> HandlModule {
     HandlModule::new("type_model", TYPE_MODEL_HNL, TYPE_MODEL_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -659,7 +659,7 @@ const SUBTYPE_MODEL_FUNCS: &[&str] = &["typecheck", "eval_scheme"];
 /// judgment op can be driven directly.
 fn subtype_model_module() -> HandlModule {
     HandlModule::new("typecheck_model", TYPECHECK_MODEL_HNL, SUBTYPE_MODEL_FUNCS)
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(stdlib::module("obj").expect("obj module"))

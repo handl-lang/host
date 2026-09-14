@@ -42,7 +42,7 @@ fn to_term(td: TermData) -> Term {
 /// `arrow_model.hnl` adapter.
 fn type_model_adapter() -> HandlModelAdapter {
     let module = HandlModule::new("type_model", TYPE_MODEL_HNL, &["run"])
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);
@@ -54,7 +54,7 @@ fn type_model_adapter() -> HandlModelAdapter {
 /// semantics coincide.
 fn arrow_model() -> HandlModel {
     let module = HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);

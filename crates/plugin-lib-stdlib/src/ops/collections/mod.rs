@@ -258,7 +258,7 @@ pub struct CollectionsModule {
     deque: HandlModule,
     hash_map: HandlModule,
     hash_set: HandlModule,
-    array: HandlModule,
+    array: std::sync::Arc<HandlModule>,
 }
 
 impl CollectionsModule {
@@ -272,6 +272,11 @@ impl CollectionsModule {
                 std::sync::Arc::clone(&resolver),
             )
         };
+        let array = crate::load_hnl_file(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../handl-packages/collections/array/index.hnl"
+        ))
+        .expect("array module");
         Self {
             vec: build("vec"),
             list: build("list"),
@@ -280,7 +285,7 @@ impl CollectionsModule {
             deque: build("deque"),
             hash_map: build("hash_map"),
             hash_set: build("hash_set"),
-            array: build("array"),
+            array,
         }
     }
 }

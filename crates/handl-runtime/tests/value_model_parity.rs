@@ -19,7 +19,7 @@ fn to_term(td: TermData) -> Term {
 
 fn handl_model() -> HandlModel {
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);

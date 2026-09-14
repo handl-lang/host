@@ -38,7 +38,7 @@ const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arro
 /// Build a `HandlModule` for the arrow model.
 fn arrow_module() -> HandlModule {
     HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency(stdlib::module("array").expect("array module"))
+        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
