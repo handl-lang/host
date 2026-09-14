@@ -119,6 +119,15 @@ pub trait ModuleResolver: Send + Sync {
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>>;
 }
 
+/// A parsed import declaration from a `.hnl` source file.
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    /// The module path being imported from (e.g. `"str"`, `"fn"`).
+    pub path: String,
+    /// The local alias for the imported module (e.g. `"str"`).
+    pub alias: String,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers (generalized from the stats/hello bridges)
 // ---------------------------------------------------------------------------
@@ -214,6 +223,8 @@ impl ImportResolver for SharedImportResolver {
 // public functions below delegate to the handl implementations and these
 // remain only as the bootstrap path and correctness fallback.
 mod bootstrap {
+    use super::ImportDecl;
+
     /// Strip `--` comment lines from a `.hnl` source so the embedded source
     /// parses as a bare expression.
     ///
@@ -513,6 +524,78 @@ mod bootstrap {
         false
     }
 
+    /// Parse import declarations from a `.hnl` source string.
+    ///
+    /// Supports: `from 'path' import * as 'alias'` and `import "path" as alias`.
+    pub(super) fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+        src.lines()
+            .filter_map(|line| {
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("--") {
+                    return None;
+                }
+                parse_from_import_line(trimmed).or_else(|| parse_legacy_import_line(trimmed))
+            })
+            .collect()
+    }
+
+    fn parse_from_import_line(line: &str) -> Option<ImportDecl> {
+        let rest = line.strip_prefix("from")?.trim();
+        if rest.is_empty() {
+            return None;
+        }
+        let (path, after_path) = extract_quoted(rest)?;
+        let import_kw = after_path.trim().strip_prefix("import")?.trim();
+        let star = import_kw.strip_prefix("*")?.trim();
+        let as_kw = star.strip_prefix("as")?.trim();
+        if as_kw.is_empty() {
+            return None;
+        }
+        let alias = if as_kw.starts_with('"') || as_kw.starts_with('\'') {
+            extract_quoted(as_kw)?.0
+        } else {
+            as_kw.split_whitespace().next()?.to_string()
+        };
+        if alias.is_empty() {
+            return None;
+        }
+        Some(ImportDecl { path, alias })
+    }
+
+    fn parse_legacy_import_line(line: &str) -> Option<ImportDecl> {
+        let rest = line.strip_prefix("import")?.trim();
+        if rest.is_empty() {
+            return None;
+        }
+        let (path, after) = extract_quoted(rest)?;
+        let after = after.trim();
+        let alias = if let Some(as_part) = after.strip_prefix("as") {
+            let a = as_part.trim();
+            if a.is_empty() {
+                return None;
+            }
+            if a.starts_with('"') || a.starts_with('\'') {
+                extract_quoted(a)?.0
+            } else {
+                a.split_whitespace().next()?.to_string()
+            }
+        } else {
+            path.rsplit('/').next().unwrap_or(&path).to_string()
+        };
+        Some(ImportDecl { path, alias })
+    }
+
+    fn extract_quoted(s: &str) -> Option<(String, &str)> {
+        let s = s.trim_start();
+        let quote = s.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+        let rest = &s[quote.len_utf8()..];
+        let end = rest.find(quote)?;
+        Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
+    }
+
 
     /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
     ///
@@ -757,6 +840,12 @@ pub fn strip_declaration_lines(src: &str) -> String {
     loader_string("strip_decls", src).unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
 }
 
+
+/// Parse `from 'path' import * as 'alias'` / `import "path" as alias`
+/// declarations.  Uses the bootstrap implementation.
+pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
+    bootstrap::parse_import_declarations(src)
+}
 
 /// Parse `cap "name"` declarations (ADR-0077 Phase 5).  Delegates to
 /// `loader.parse_caps` when a [`HandlLoader`] is installed; otherwise uses
