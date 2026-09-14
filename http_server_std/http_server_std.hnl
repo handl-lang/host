@@ -10,17 +10,17 @@ cap "http_server.stop"
 cap "http_server.join"
 cap "http_server.route"
 cap "http_server.serve_static"
-op "http_server.new": - > Value
+op "http_server.new": -> Value
   guarantee: True
-op "http_server.start": Value - > Value
+op "http_server.start": Value -> Value
   guarantee: True
-op "http_server.stop": Value - > Value
+op "http_server.stop": Value -> Value
   guarantee: True
-op "http_server.join": Value - > Value
+op "http_server.join": Value -> Value
   guarantee: True
-op "http_server.route": Value - > Value
+op "http_server.route": Value -> Value
   guarantee: True
-op "http_server.serve_static": Value - > Value
+op "http_server.serve_static": Value -> Value
   guarantee: True
 
 handl "http_server.new" = rust_http_server_new

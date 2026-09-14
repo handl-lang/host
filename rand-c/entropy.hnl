@@ -13,7 +13,7 @@
 --- from "entropy" import { next_u32 }
 --- next_u32()
 --- ```
-export next_u32: () - > Number := () ~> do {
+export next_u32: () -> Number := () ~> do {
   -- `sodium_init` is idempotent; subsequent calls return 1 (already inited).
   ffi.call("libsodium.so", "sodium_init", [], [], "i32", false);
   raw = ffi.call(
