@@ -1,0 +1,11 @@
+from "./vec.hnl" import * as vec
+
+test_vec_len := assert vec.len([1, 2, 3]) = 3
+
+test_vec_is_empty := assert vec.is_empty([]) = true
+
+test_vec_push := assert vec.push([1, 2], 3) = [1, 2, 3]
+
+test_vec_pop := assert vec.pop([1, 2, 3]) = [1, 2]
+
+test_vec_peek := assert vec.peek([1, 2, 3]) = 3

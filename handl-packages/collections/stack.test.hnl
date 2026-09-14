@@ -1,0 +1,13 @@
+from "./stack.hnl" import * as stack
+
+test_stack_len := assert stack.len([1, 2, 3]) = 3
+
+test_stack_push := assert stack.push([1, 2], 3) = [1, 2, 3]
+
+test_stack_pop := assert stack.pop([1, 2, 3]) = [1, 2]
+
+test_stack_peek := assert stack.peek([1, 2, 3]) = 3
+
+test_stack_is_empty := assert stack.is_empty([]) = true
+
+test_stack_is_empty_false := assert stack.is_empty([1]) = false

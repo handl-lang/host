@@ -1,0 +1,17 @@
+from "./deque.hnl" import * as deque
+
+test_deque_len := assert deque.len([1, 2, 3]) = 3
+
+test_deque_is_empty := assert deque.is_empty([]) = true
+
+test_deque_push_back := assert deque.push_back([1, 2], 3) = [1, 2, 3]
+
+test_deque_push_front := assert deque.push_front([2, 3], 1) = [1, 2, 3]
+
+test_deque_pop_back := assert deque.pop_back([1, 2, 3]) = [1, 2]
+
+test_deque_pop_front := assert deque.pop_front([1, 2, 3]) = [2, 3]
+
+test_deque_peek_back := assert deque.peek_back([1, 2, 3]) = 3
+
+test_deque_peek_front := assert deque.peek_front([1, 2, 3]) = 1
