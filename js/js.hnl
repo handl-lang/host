@@ -1,0 +1,40 @@
+--- js -- grades, types and arrows for JavaScript interop.
+--- @details
+--- `call` and `error` are injected by the JS runtime.
+--- This package exposes the typed JS surface that SDK-generated adapters
+--- import.
+
+from "../grade" import { Grade }
+from "../type" import { Obj }
+
+--- Grade for JavaScript calls.
+--- @details
+--- Every arrow that calls a JS function or method carries the `JS` grade,
+--- making the foreign effect visible to the type system.
+export JS := Grade
+
+--- JavaScript error value.
+--- @details
+--- This is the exception object thrown by the most recent failing JS call.
+export JsError := Obj
+
+--- Call a JS function or method immediately.
+--- @details
+--- `call` marshals the provided Handl values to JS according to the
+--- descriptor strings, invokes the function, and unmarshals the return.
+--- @param {obj} - JS global object or namespace name
+--- @param {method} - method name on the object
+--- @param {all_args} - Handl values to pass to the JS function
+--- @param {descriptors} - marshalling descriptor for each argument and the return
+--- @param {ret_kind} - return kind descriptor
+--- @param {throws?} - if `true`, thrown exceptions are treated as errors
+--- @returns {Value - the JS call's return, unmarshalled from `ret_kind`}
+export call: (String, String, Array, Array, String, Bool) ~[JS]~> Value
+
+--- Read the most recent JS exception.
+--- @details
+--- This must be called synchronously, immediately after the failing JS
+--- call whose error is being checked, before any other operation can
+--- overwrite the stored exception.
+--- @returns {JsError - the current JS exception}
+export error: () ~[JS]~> JsError
