@@ -32,6 +32,15 @@ impl CBackend {
     }
 }
 
+fn resource_dir() -> Option<String> {
+    std::process::Command::new("clang")
+        .arg("-print-resource-dir")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+}
+
 impl SdkgenBackend for CBackend {
     fn parse_header(&self, path: &Path) -> Result<SdkgenModule, SdkgenError> {
         clang_sys::load().map_err(|e| SdkgenError(format!("libclang load failed: {e}")))?;
@@ -49,6 +58,11 @@ impl SdkgenBackend for CBackend {
         raw_args.push(CString::new("c").unwrap());
         let include = format!("-I{}", header_dir.display());
         raw_args.push(CString::new(include).unwrap());
+        raw_args.push(CString::new("-I/usr/include").unwrap());
+        if let Some(res) = resource_dir() {
+            raw_args.push(CString::new("-resource-dir").unwrap());
+            raw_args.push(CString::new(res).unwrap());
+        }
         raw_args.push(CString::new("-target").unwrap());
         raw_args.push(CString::new(target.as_str()).unwrap());
 
@@ -72,6 +86,7 @@ impl SdkgenBackend for CBackend {
         }
 
         let mut fatal = false;
+        let mut diag_msgs = Vec::new();
         let num = unsafe { clang_getNumDiagnostics(tu) };
         for i in 0..num {
             let diag = unsafe { clang_getDiagnostic(tu, i) };
@@ -79,12 +94,30 @@ impl SdkgenBackend for CBackend {
             if sev == CXDiagnostic_Error || sev == CXDiagnostic_Fatal {
                 fatal = true;
             }
+            if sev >= CXDiagnostic_Warning {
+                let sev_label = match sev {
+                    CXDiagnostic_Warning => "warning",
+                    CXDiagnostic_Error => "error",
+                    CXDiagnostic_Fatal => "fatal",
+                    _ => "note",
+                };
+                let s = unsafe { clang_getDiagnosticSpelling(diag) };
+                let c = unsafe { clang_getCString(s) };
+                if !c.is_null() {
+                    let msg = unsafe { CStr::from_ptr(c).to_string_lossy().into_owned() };
+                    diag_msgs.push(format!("[{sev_label}] {msg}"));
+                }
+                unsafe { clang_disposeString(s) };
+            }
             unsafe { clang_disposeDiagnostic(diag) };
         }
         if fatal {
             unsafe { clang_disposeTranslationUnit(tu) };
             unsafe { clang_disposeIndex(index) };
-            return Err(SdkgenError("libclang reported parse errors".into()));
+            return Err(SdkgenError(format!(
+                "libclang reported parse errors:\n{}",
+                diag_msgs.join("\n")
+            )));
         }
 
         let pointer_width_bits = unsafe {
