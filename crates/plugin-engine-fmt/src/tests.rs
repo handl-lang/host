@@ -858,6 +858,9 @@ fn post_process_individual_rules() {
     assert_eq!(canon_ops.apply("x : = y"), "x := y");
     assert_eq!(canon_ops.apply("export at < T >: T ~ [Total] ~> T"), "export at<T>: T ~[Total]~> T");
     assert_eq!(canon_ops.apply("export zip < A, B >: T ~ [Total] ~> T"), "export zip<A, B>: T ~[Total]~> T");
+    assert_eq!(canon_ops.apply("export v4: () - > String"), "export v4: () -> String");
+    // A `-` (minus) directly followed by `>` with no space is left alone.
+    assert_eq!(canon_ops.apply("a->b"), "a->b");
 }
 
 #[test]

@@ -147,8 +147,9 @@ impl PostProcessRule for SingleTrailingNewlineRule {
 /// combine on its own.
 ///
 /// 1. Collapses a split `: =` into a single `:=` binding operator.
-/// 2. Removes spaces inside type-parameter brackets: `at < T >` → `at<T>`.
-/// 3. Removes spaces around graded-arrow grade brackets:
+/// 2. Collapses a split arrow `- >` into a single `->` function-type arrow.
+/// 3. Removes spaces inside type-parameter brackets: `at < T >` → `at<T>`.
+/// 4. Removes spaces around graded-arrow grade brackets:
 ///    `~ [Total] ~>` → `~[Total]~>`.
 #[derive(Debug, Clone, Copy)]
 pub struct CanonicalizeOperatorsRule;
@@ -162,12 +163,44 @@ impl PostProcessRule for CanonicalizeOperatorsRule {
         let mut out_lines = Vec::new();
         for line in text.lines() {
             let line = fix_colon_eq(line);
+            let line = fix_rarrow(&line);
             let line = fix_graded_arrow(&line);
             let line = fix_type_params(&line);
             out_lines.push(line);
         }
         out_lines.join("\n")
     }
+}
+
+/// Replace `- >` (the token formatter's rendering of a split `->`) with the
+/// canonical `->` function-type arrow.
+fn fix_rarrow(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        // Look for '-' followed by optional spaces and '>'. The `->` function
+        // arrow is the only place a `-` (dash) is directly followed by `>`.
+        if bytes[i] == b'-' {
+            let mut j = i + 1;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j < bytes.len() && bytes[j] == b'>' {
+                // A bare `-` should not be merged with a following `>`:
+                // only merge when there was at least one space in between
+                // (i.e. the formatter split a lexed `->` token).
+                if j > i + 1 {
+                    out.push_str("->");
+                    i = j + 1;
+                    continue;
+                }
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
 }
 
 /// Replace `: =` (the token formatter's rendering of a split `:=`) with the
