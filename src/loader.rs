@@ -12,7 +12,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-
 use handl_platform::Module;
 use handl_plugin_lib_handl::HandlModule;
 
@@ -64,7 +63,8 @@ pub fn load_hnl_file<P: AsRef<Path>>(path: P) -> Option<Arc<HandlModule>> {
     let mut module = HandlModule::new_raw(&name, &prepared, &func_refs);
 
     for import in collect_direct_imports(&src) {
-        let dep: Arc<dyn Module + Send + Sync> = if import.starts_with("./") || import.contains('/') {
+        let dep: Arc<dyn Module + Send + Sync> = if import.starts_with("./") || import.contains('/')
+        {
             let sub_path = base_dir.join(resolve_relative_path(&import));
             let sub = load_hnl_file(&sub_path)?;
             sub
@@ -115,10 +115,7 @@ fn collect_direct_imports(src: &str) -> Vec<String> {
 
 fn module_name_for_path(path: &Path) -> Option<String> {
     if path.file_name()?.to_str()? == "index.hnl" {
-        path.parent()?
-            .file_name()?
-            .to_str()
-            .map(|s| s.to_string())
+        path.parent()?.file_name()?.to_str().map(|s| s.to_string())
     } else {
         path.file_stem()?.to_str().map(|s| s.to_string())
     }
@@ -182,10 +179,7 @@ fn collect_export_names(src: &str) -> Vec<String> {
             }
             continue;
         }
-        if !line.starts_with(' ')
-            && !line.starts_with('\t')
-            && trimmed.starts_with("export ")
-        {
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
             let rest = &trimmed["export ".len()..];
             if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 names.push(strip_export_name(&rest[..sep_pos]));
@@ -212,18 +206,14 @@ fn transform_export_to_object(src: &str) -> String {
             }
             continue;
         }
-        if !line.starts_with(' ')
-            && !line.starts_with('\t')
-            && trimmed.starts_with("export ")
-        {
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
             if let Some(entry) = current.take() {
                 entries.push(entry);
             }
             let rest = &trimmed["export ".len()..];
             if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
-                let is_type_only =
-                    sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
                 let expr_start = if is_type_only {
                     "null"
                 } else {
@@ -385,8 +375,7 @@ fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
             b'=' if depth == 0 => {
                 let prev = if i > 0 { bytes[i - 1] } else { 0 };
                 let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
-                {
+                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
                     i += 1;
                     continue;
                 }

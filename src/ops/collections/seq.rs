@@ -51,4 +51,3 @@ impl Function for ToArray {
         Ok(arr(input))
     }
 }
-
