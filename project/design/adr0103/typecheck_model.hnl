@@ -1414,9 +1414,17 @@ do {
             { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "function needs params and body") }
           } else {
             do {
+              param_idx :: at(children, 0)
+              param_node :: ast_node(s.ast, param_idx)
+              param_payload :: node_payload(param_node)
+              param_name :: if type_of(param_payload) == "str" {
+                param_payload
+              } else {
+                get_or(param_payload, "name", "x")
+              }
               body_idx :: at(children, 1)
               param_meta :: tc_fresh_meta(s)
-              extended :: tc_extend(param_meta["state"], "x", meta_value(param_meta.id))
+              extended :: tc_extend(param_meta["state"], param_name, meta_value(param_meta.id))
               body_result :: funcs.synth_node_(funcs, extended, body_idx)
               zonked_param :: zonk(zonk, meta_value(param_meta.id), body_result["state"].metas)
               zonked_body :: zonk(zonk, body_result.typ, body_result["state"].metas)
