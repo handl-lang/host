@@ -109,3 +109,59 @@ fn port_to_descriptor(p: &str) -> String {
         _ => "ptr".to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_plugin_sdkgen::{CFunction, CHandlArg};
+
+    #[test]
+    fn skip_and_override_symbols() {
+        let mut cfg = SdkgenConfig::default();
+        cfg.symbols.insert(
+            "skip_me".to_string(),
+            SymbolOverride {
+                skip: Some(true),
+                ..Default::default()
+            },
+        );
+        cfg.symbols.insert(
+            "open".to_string(),
+            SymbolOverride {
+                args: Some(vec!["cstr".to_string(), "i32".to_string()]),
+                ret: Some("Handle".to_string()),
+                ..Default::default()
+            },
+        );
+
+        assert!(cfg.should_skip("skip_me"));
+        assert!(!cfg.should_skip("open"));
+
+        let mut f = CFunction {
+            name: "open".to_string(),
+            port_name: "Open".to_string(),
+            port_args: vec![
+                CHandlArg {
+                    name: "path".to_string(),
+                    port: "String".to_string(),
+                },
+                CHandlArg {
+                    name: "flags".to_string(),
+                    port: "Int".to_string(),
+                },
+            ],
+            arg_descriptors: vec!["cstr".to_string(), "i32".to_string()],
+            return_port: "Int".to_string(),
+            ret_descriptor: "i32".to_string(),
+            out_struct: None,
+            variadic: false,
+            c_decl: "int open(const char *p, int f);".to_string(),
+            doc: None,
+        };
+        cfg.apply_to_function("open", &mut f);
+        assert_eq!(f.return_port, "Handle");
+        assert_eq!(f.ret_descriptor, "handle");
+        assert_eq!(f.port_args.len(), 2);
+        assert_eq!(f.port_args[1].port, "Int");
+    }
+}

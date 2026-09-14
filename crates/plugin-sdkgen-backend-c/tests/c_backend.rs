@@ -1,12 +1,12 @@
 use handl_plugin_sdkgen::SdkgenBackend;
+use handl_plugin_sdkgen_backend_c::CBackend;
 use std::path::Path;
 
 #[test]
 fn parses_simple_header() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend =
-        handl_plugin_sdkgen_backend_c::CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     let rec = module
@@ -17,6 +17,7 @@ fn parses_simple_header() {
     assert_eq!(rec.fields.len(), 2);
     assert_eq!(rec.fields[0].descriptor, "i32");
     assert_eq!(rec.fields[1].descriptor, "i64");
+    assert!(rec.doc.as_ref().unwrap().contains("2D"));
 
     let add = module
         .functions
@@ -27,6 +28,7 @@ fn parses_simple_header() {
     assert_eq!(add.port_args.len(), 2);
     assert_eq!(add.return_port, "Int");
     assert_eq!(add.arg_descriptors, &["i32", "i32"]);
+    assert!(add.doc.as_ref().unwrap().contains("Add two"));
 
     let mv = module
         .functions
@@ -37,4 +39,26 @@ fn parses_simple_header() {
     assert_eq!(mv.out_struct, Some("point".into()));
     assert_eq!(mv.port_args.len(), 2);
     assert!(mv.arg_descriptors.iter().any(|d| d.starts_with("out_struct")));
+}
+
+#[test]
+fn only_filter_matches_functions() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/simple.h");
+    let backend = CBackend::new(None, Default::default(), Some("add".into())).unwrap();
+    let module = backend.parse_header(&path).expect("parse header");
+    assert_eq!(module.functions.len(), 1);
+    assert_eq!(module.functions[0].name, "add");
+    assert!(module.records.is_empty());
+}
+
+#[test]
+fn only_filter_matches_records() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/simple.h");
+    let backend = CBackend::new(None, Default::default(), Some("point".into())).unwrap();
+    let module = backend.parse_header(&path).expect("parse header");
+    assert_eq!(module.records.len(), 1);
+    assert_eq!(module.records[0].name, "point");
+    assert!(module.functions.is_empty());
 }
