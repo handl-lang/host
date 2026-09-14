@@ -1,4 +1,4 @@
-# ADR-0114: Handl Compiler Plugin Architecture
+# ADR-0114: Handl Compile Plugin Architecture
 
 ## Status
 
@@ -15,13 +15,13 @@ external target languages such as JavaScript, C, or WebAssembly.
 
 ## Decision
 
-Introduce a `plugin-compiler` family of crates.
+Introduce a `plugin-compile` family of crates.
 
-- `plugin-compiler` defines a `Compiler` trait and the target-agnostic
+- `plugin-compile` defines a `Compiler` trait and the target-agnostic
   `CompilerInput` (a parsed and type-checked Handl `Ast` plus optional metadata).
 - Per-target compiler crates implement `Compiler`:
-  - `plugin-compiler-js` — emits JavaScript for browser / Deno / Node.
-  - `plugin-compiler-llvm` — emits native code and object files.
+  - `plugin-compile-js` — emits JavaScript for browser / Deno / Node.
+  - `plugin-compile-llvm` — emits native code and object files.
 - The existing `handl-emitters` crate keeps its current role: emitting
   `Language` data fragments. It is **not** a source-to-source compiler.
 - `host-cli` gains a `hnl compile <target> <file>` subcommand that dispatches
@@ -36,7 +36,7 @@ Introduce a `plugin-compiler` family of crates.
 - The `Compiler` trait can be implemented without touching the Handl core, as
   long as the input AST and type information are exposed.
 - The SDK generator (`plugin-sdkgen-*`) and the source-to-source compiler
-  (`plugin-compiler-*`) remain separate concerns: the former turns foreign APIs
+  (`plugin-compile-*`) remain separate concerns: the former turns foreign APIs
   into Handl source; the latter turns Handl source into foreign code.
 - A new dependency appears: the compiler needs access to the type-checked AST
   and a type/grade projection API from `plugin-engine-typecheck`.
