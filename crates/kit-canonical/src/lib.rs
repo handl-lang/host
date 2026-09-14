@@ -33,7 +33,7 @@ use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_ext_diag::Severity;
 use handl_plugin_lib_char_native::CharModule;
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry};
+use handl_plugin_lib_handl::{HandlModule, HandlNativeLint, HandlNativeRewrite, ModuleResolver, OpRegistry};
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
@@ -54,6 +54,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // hello.greet host function + registry
@@ -245,6 +246,33 @@ fn get_module(
     m
 }
 
+/// Cache of built-in `.hnl` [`HandlModule`]s keyed by their registered
+/// name. Shared with [`StdlibResolver`] so a `.hnl` module built as a
+/// dependency and the same module registered at kit-assembly time share
+/// one [`Arc`] and one per-thread runtime cache.
+static HANDL_MODULE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<String, Arc<HandlModule>>>,
+> = std::sync::OnceLock::new();
+
+/// Get a `.hnl` [`HandlModule`] from the cache or build it once.
+fn get_handl_module(name: &str, builder: impl FnOnce() -> HandlModule) -> Arc<HandlModule> {
+    let cache = HANDL_MODULE_CACHE.get_or_init(|| {
+        std::sync::Mutex::new(std::collections::HashMap::new())
+    });
+    let mut map = cache.lock().unwrap();
+    if let Some(m) = map.get(name) {
+        return Arc::clone(m);
+    }
+    let m = Arc::new(builder());
+    map.insert(name.to_string(), Arc::clone(&m));
+    m
+}
+
+/// Coerce an `Arc<HandlModule>` to `Arc<dyn Module + Send + Sync>`.
+fn coerce_handl(m: Arc<HandlModule>) -> Arc<dyn handl_platform::Module + Send + Sync> {
+    m
+}
+
 /// Resolver that maps stdlib module names to their [`Module`] impls,
 /// so `.hnl` files can declare dependencies via `from 'str' import * as 'str'`
 /// instead of hardcoding them in Rust.
@@ -256,66 +284,46 @@ impl ModuleResolver for StdlibResolver {
         name: &str,
     ) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
-            "str" => Some(get_module("str", || std::sync::Arc::new(build_str_handl_module()))),
-            "char" => Some(std::sync::Arc::new(CharModule)),
-            "unicode" => Some(std::sync::Arc::new(UnicodeModule)),
-            "transform" => Some(get_module("transform", || std::sync::Arc::new(TransformModule::new()))),
-            "comb" => Some(get_module("comb", || std::sync::Arc::new(CombModule::new()))),
-            "ffi" => Some(get_module("ffi", || std::sync::Arc::new(build_ffi_module()))),
-            "fn" | "combinators" => stdlib::module("combinators").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "math" => stdlib::module("math").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "prim" => stdlib::module("prim").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "bool" => stdlib::module("bool").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
+            "str" => Some(coerce_handl(get_handl_module("str", build_str_handl_module))),
+            "char" => Some(Arc::new(CharModule)),
+            "unicode" => Some(Arc::new(UnicodeModule)),
+            "transform" => Some(Arc::new(TransformModule::new())),
+            "comb" => Some(Arc::new(CombModule::new())),
+            "ffi" => Some(coerce_handl(get_handl_module("ffi", build_ffi_module))),
+            "fn" | "combinators" => Some(coerce_handl(get_handl_module("combinators", || stdlib::module("combinators").expect("combinators")))),
+            "math" => Some(coerce_handl(get_handl_module("math", || stdlib::module("math").expect("math")))),
+            "prim" => Some(coerce_handl(get_handl_module("prim", || stdlib::module("prim").expect("prim")))),
+            "bool" => Some(coerce_handl(get_handl_module("bool", || stdlib::module("bool").expect("bool")))),
             // `option` is a table module whose `tag` dep is not in the
             // table (`tag` stays native in `plugin-lib-tag`), so it is
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
-            "option" => stdlib::module_with("option", std::sync::Arc::new(StdlibResolver)).map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "type" => Some(get_module("type", || std::sync::Arc::new(build_type_module()))),
-            "dedent" => Some(get_module("dedent", || std::sync::Arc::new(build_dedent_module()))),
-            "perlin" => Some(get_module("perlin", || std::sync::Arc::new(build_perlin_module()))),
-            "simplex" => Some(get_module("simplex", || std::sync::Arc::new(build_simplex_module()))),
-            "rand" => Some(get_module("rand", || std::sync::Arc::new(build_rand_stub_module()))),
+            "option" => Some(coerce_handl(get_handl_module("option", || stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option")))),
+            "type" => Some(coerce_handl(get_handl_module("type", build_type_module))),
+            "dedent" => Some(coerce_handl(get_handl_module("dedent", build_dedent_module))),
+            "perlin" => Some(coerce_handl(get_handl_module("perlin", build_perlin_module))),
+            "simplex" => Some(coerce_handl(get_handl_module("simplex", build_simplex_module))),
+            "rand" => Some(coerce_handl(get_handl_module("rand", build_rand_stub_module))),
             // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
             // surface): `sym()` / `sym(parent)` mint via the existing
             // grammar's `call` rule (flat-name lookup), and
             // `sym.instanceof(v, n)` is a field-access host call to the
             // `instance_of` primitive. No lexer/parser changes.
-            "sym" => Some(std::sync::Arc::new(SymModule::new())),
+            "sym" => Some(Arc::new(SymModule::new())),
             // `error` — the error-raising primitive (ADR-0092 gap (a));
             // a plain table module.
-            "error" => stdlib::module("error").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
+            "error" => Some(coerce_handl(get_handl_module("error", || stdlib::module("error").expect("error")))),
             // `obj` — record introspection (gap #3); a plain table module.
-            "obj" => stdlib::module("obj").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "typeof" => stdlib::module("typeof").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
+            "obj" => Some(coerce_handl(get_handl_module("obj", || stdlib::module("obj").expect("obj")))),
+            "typeof" => Some(coerce_handl(get_handl_module("typeof", || stdlib::module("typeof").expect("typeof")))),
             // `result` is a table module whose `tag` dep is not in the
             // table (`tag` stays native in `plugin-lib-tag`), so it is
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
-            "tag" => Some(std::sync::Arc::new(TagModule)),
-            "result" => stdlib::module_with("result", std::sync::Arc::new(StdlibResolver)).map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "cmp" => stdlib::module("cmp").map(|m| {
-                std::sync::Arc::new(m) as std::sync::Arc<dyn handl_platform::Module + Send + Sync>
-            }),
-            "ip" => Some(std::sync::Arc::new(stdlib::ops::ip::IpModule)),
+            "tag" => Some(Arc::new(TagModule)),
+            "result" => Some(coerce_handl(get_handl_module("result", || stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result")))),
+            "cmp" => Some(coerce_handl(get_handl_module("cmp", || stdlib::module("cmp").expect("cmp")))),
+            "ip" => Some(Arc::new(stdlib::ops::ip::IpModule)),
             _ => None,
         }
     }
@@ -456,6 +464,69 @@ fn build_rand_stub_module() -> HandlModule {
     ))
 }
 
+/// The handl-native adapters a host can build from the kit's registered
+/// [`HandlModule`]s. Both [`HandlNativeLint`] (ADR-0097) and
+/// [`HandlNativeRewrite`] (ADR-0094) route `handl:<mod>.<fn>` names to
+/// functions on these modules — tracking them here is what lets a host wire
+/// the adapters once at startup instead of only in tests.
+struct HandlModules {
+    modules: HashMap<String, Arc<HandlModule>>,
+}
+
+impl HandlModules {
+    fn new() -> Self {
+        Self {
+            modules: HashMap::new(),
+        }
+    }
+
+    fn register(&mut self, name: &str, module: Arc<HandlModule>) {
+        self.modules.insert(name.to_string(), module);
+    }
+
+    /// Build a [`HandlNativeLint`] that resolves `handl:` lint rules against
+    /// the kit's registered [`HandlModule`]s.
+    fn lint_adapter(&self) -> HandlNativeLint {
+        let mut adapter = HandlNativeLint::new();
+        for module in self.modules.values() {
+            adapter = adapter.with_module_arc(Arc::clone(module));
+        }
+        adapter
+    }
+
+    /// Build a [`HandlNativeRewrite`] that resolves `handl:` transform rules
+    /// against the kit's registered [`HandlModule`]s.
+    fn rewrite_adapter(&self) -> HandlNativeRewrite {
+        let mut adapter = HandlNativeRewrite::new();
+        for module in self.modules.values() {
+            adapter = adapter.with_module_arc(Arc::clone(module));
+        }
+        adapter
+    }
+}
+
+/// The pair returned by [`build_stdlib_registry`]: the eval-time
+/// [`ModuleRegistry`] plus the [`HandlModules`] tracker that lets a host
+/// build handl-native adapters from the same `.hnl` modules.
+struct KitModules {
+    registry: ModuleRegistry,
+    handl_modules: HandlModules,
+}
+
+/// Register a `.hnl`-backed module in both the eval registry and the
+/// handl-modules tracker, sharing the cached [`HandlModule`] built by
+/// [`get_handl_module`].
+fn register_handl(
+    registry: &mut ModuleRegistry,
+    handl_modules: &mut HandlModules,
+    name: &str,
+    builder: impl FnOnce() -> HandlModule,
+) {
+    let handl_arc = get_handl_module(name, builder);
+    handl_modules.register(name, Arc::clone(&handl_arc));
+    registry.register_arc(coerce_handl(handl_arc));
+}
+
 /// Build the stdlib [`ModuleRegistry`] the canonical kit wires into every
 /// runtime's module chain.
 ///
@@ -464,7 +535,7 @@ fn build_rand_stub_module() -> HandlModule {
 /// eval-time lookup chain, and [`canonical_wire_names`] enumerates it for
 /// `hnl typecheck`'s unbound-wire scope. Keep the two in sync by adding new
 /// host modules here, not in `build_kit`.
-fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) -> ModuleRegistry {
+fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) -> KitModules {
     // Built-in `.hnl` modules are prepared with the bootstrap transforms;
     // routing them through the process-wide self-hosted loader would recurse
     // into loader construction and make repeated `Kit::new()` calls hang.
@@ -472,20 +543,29 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         let want = |name: &str| -> bool { modules.map(|s| s.contains(name)).unwrap_or(true) };
 
         let mut stdlib_registry = ModuleRegistry::new();
+        let mut handl_modules = HandlModules::new();
         if want("combinators") {
-            stdlib_registry.register(stdlib::module("combinators").expect("combinators"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "combinators",
+                || stdlib::module("combinators").expect("combinators"),
+            );
         }
         if want("math") {
-            stdlib_registry.register(stdlib::module("math").expect("math"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "math",
+                || stdlib::module("math").expect("math"),
+            );
         }
         // `str-handl` is the pure-handl `str` impl over the `char` floor;
         // it satisfies the `str` contract. Registered under `"str"` in
         // place of the former all-FFI `StrModule`, so `str.*` lookups and
         // `from "str" import` callers resolve to the handl impl.
         if want("str") {
-            stdlib_registry.register_arc(get_module("str", || {
-                std::sync::Arc::new(build_str_handl_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "str", build_str_handl_module);
         }
         if want("char") {
             stdlib_registry.register(CharModule);
@@ -494,15 +574,18 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             stdlib_registry.register(UnicodeModule);
         }
         if want("bool") {
-            stdlib_registry.register(stdlib::module("bool").expect("bool"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "bool",
+                || stdlib::module("bool").expect("bool"),
+            );
         }
         // `type` — the canonical runtime-introspection module: the
         // `type-handl` record (predicates/guards) over the native
         // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
         if want("type") {
-            stdlib_registry.register_arc(get_module("type", || {
-                std::sync::Arc::new(build_type_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "type", build_type_module);
         }
         // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
         // surface, zero lexer/parser changes): `sym()` / `sym(parent)`
@@ -514,61 +597,98 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
         // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
         if want("typeof") {
-            stdlib_registry.register(stdlib::module("typeof").expect("typeof"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "typeof",
+                || stdlib::module("typeof").expect("typeof"),
+            );
         }
         // `option` — pure-handl `some`/`none` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
         if want("option") {
-            stdlib_registry
-                .register(
-                    stdlib::module_with("option", std::sync::Arc::new(StdlibResolver))
-                        .expect("option"),
-                );
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "option",
+                || stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option"),
+            );
         }
         // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
         if want("result") {
-            stdlib_registry
-                .register(
-                    stdlib::module_with("result", std::sync::Arc::new(StdlibResolver))
-                        .expect("result"),
-                );
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "result",
+                || stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result"),
+            );
         }
         if want("mood") {
-            stdlib_registry.register(stdlib::module("mood").expect("mood"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "mood",
+                || stdlib::module("mood").expect("mood"),
+            );
         }
         if want("encoding") {
-            stdlib_registry.register(stdlib::module("encoding").expect("encoding"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "encoding",
+                || stdlib::module("encoding").expect("encoding"),
+            );
         }
         if want("parse") {
-            stdlib_registry.register(stdlib::module("parse").expect("parse"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "parse",
+                || stdlib::module("parse").expect("parse"),
+            );
         }
         if want("serialize") {
-            stdlib_registry.register(stdlib::module("serialize").expect("serialize"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "serialize",
+                || stdlib::module("serialize").expect("serialize"),
+            );
         }
         // `error` — the error-raising primitive (`error.raise`,
         // ADR-0092 gap (a)); ops-only table module, callable as
         // `error.raise(msg)` from any .hnl source or eval expression.
         if want("error") {
-            stdlib_registry.register(stdlib::module("error").expect("error"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "error",
+                || stdlib::module("error").expect("error"),
+            );
         }
         // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
         // `obj.entries`); ops-only table module.
         if want("obj") {
-            stdlib_registry.register(stdlib::module("obj").expect("obj"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "obj",
+                || stdlib::module("obj").expect("obj"),
+            );
         }
         // `ffi` — partial `ffi.hnl` package with native `call`/`bind`/`errno` ops.
-        stdlib_registry.register_arc(get_module("ffi", || {
-            std::sync::Arc::new(build_ffi_module())
-        }));
+        register_handl(&mut stdlib_registry, &mut handl_modules, "ffi", build_ffi_module);
         // `entropy` — the libsodium-backed `next_u32` surface that `rand-c`
         // is built on. Built with the stdlib resolver so `ffi`/`math` resolve.
         if want("entropy") {
-            stdlib_registry.register(
-                stdlib::module_with("entropy", std::sync::Arc::new(StdlibResolver))
-                    .expect("entropy"),
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "entropy",
+                || stdlib::module_with("entropy", Arc::new(StdlibResolver)).expect("entropy"),
             );
         }
         // `collections` — the aggregate module over the package-table
@@ -583,81 +703,71 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             stdlib_registry.register(TagModule);
         }
         if want("dedent") {
-            stdlib_registry.register_arc(get_module("dedent", || {
-                std::sync::Arc::new(build_dedent_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "dedent", build_dedent_module);
         }
         if want("perlin") {
-            stdlib_registry.register_arc(get_module("perlin", || {
-                std::sync::Arc::new(build_perlin_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "perlin", build_perlin_module);
         }
         if want("simplex") {
-            stdlib_registry.register_arc(get_module("simplex", || {
-                std::sync::Arc::new(build_simplex_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "simplex", build_simplex_module);
         }
         // `test` framework modules — pure handl over tag/json/rand/time/
         // combinators (ADR-0092).
         if want("test") {
-            stdlib_registry.register_arc(get_module("test", || {
-                std::sync::Arc::new(build_test_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "test", build_test_module);
         }
         if want("property") {
-            stdlib_registry.register_arc(get_module("property", || {
-                std::sync::Arc::new(build_property_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "property", build_property_module);
         }
         if want("benchmark") {
-            stdlib_registry.register_arc(get_module("benchmark", || {
-                std::sync::Arc::new(build_benchmark_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "benchmark", build_benchmark_module);
         }
         if want("fuzz") {
-            stdlib_registry.register_arc(get_module("fuzz", || {
-                std::sync::Arc::new(build_fuzz_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "fuzz", build_fuzz_module);
         }
         if want("snapshot") {
-            stdlib_registry.register_arc(get_module("snapshot", || {
-                std::sync::Arc::new(build_snapshot_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "snapshot", build_snapshot_module);
         }
         if want("assert") {
-            stdlib_registry.register_arc(get_module("assert", || {
-                std::sync::Arc::new(build_assert_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "assert", build_assert_module);
         }
         if want("transform") {
-            stdlib_registry.register_arc(get_module("transform", || {
-                std::sync::Arc::new(TransformModule::new())
-            }));
+            stdlib_registry.register_arc(Arc::new(TransformModule::new()));
         }
         if want("comb") {
-            stdlib_registry.register_arc(get_module("comb", || {
-                std::sync::Arc::new(CombModule::new())
-            }));
+            stdlib_registry.register_arc(Arc::new(CombModule::new()));
         }
         // `prim` — the atom layer: all four functions are pure handl
         // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
         if want("prim") {
-            stdlib_registry.register(stdlib::module("prim").expect("prim"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "prim",
+                || stdlib::module("prim").expect("prim"),
+            );
         }
         // `cmp` — ordering and sorting (gap #4).
         if want("cmp") {
-            stdlib_registry.register(stdlib::module("cmp").expect("cmp"));
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "cmp",
+                || stdlib::module("cmp").expect("cmp"),
+            );
         }
         // `rand` — deterministic seeded RNG for `property`/`fuzz` (ADR-0092).
         if want("rand") {
-            stdlib_registry.register_arc(get_module("rand", || {
-                std::sync::Arc::new(build_rand_stub_module())
-            }));
+            register_handl(&mut stdlib_registry, &mut handl_modules, "rand", build_rand_stub_module);
         }
         if want("ip") {
             stdlib_registry.register(stdlib::ops::ip::IpModule);
         }
-        stdlib_registry
+
+        KitModules {
+            registry: stdlib_registry,
+            handl_modules,
+        }
     })
 }
 
@@ -697,7 +807,8 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
         }
     }
 
-    let registry = build_stdlib_registry(None);
+    let modules = build_stdlib_registry(None);
+    let registry = modules.registry;
     let mut names = std::collections::HashSet::new();
     // Module names (qualified `mod.fn` wires) and their local function
     // names (flat wires via `ModuleRegistry::lookup`'s all-module search).
@@ -1556,6 +1667,10 @@ pub struct Kit {
     /// A lazily-initialized Handl-authored typecheck engine, reused across
     /// `typecheck_handl` calls so the model is loaded once per `Kit`.
     handl_typecheck_engine: RefCell<Option<HandlTypecheckEngine>>,
+    /// The `.hnl`-backed modules registered in the kit, tracked so a host
+    /// can build [`HandlNativeLint`]/[`HandlNativeRewrite`] adapters from
+    /// them (ADR-0097 / ADR-0094).
+    handl_modules: HandlModules,
 }
 
 impl std::fmt::Debug for Kit {
@@ -1707,6 +1822,28 @@ impl Kit {
         Self::build_kit(lang, config, Some(start_dir), deps, None)
     }
 
+    /// Build a [`HandlNativeLint`] (ADR-0097) from the kit's registered
+    /// `.hnl` modules. Wire the result onto a [`NativeLintRegistry`] with
+    /// `add_resolver` so `check: !Native "handl:<mod>.<fn>"` rules in a
+    /// `lints.yaml` dispatch into the corresponding `.hnl` function.
+    ///
+    /// This is the production seam — without it, `handl:` lint rules error
+    /// as "unknown native" because no host registers the resolver.
+    pub fn handl_lint_adapter(&self) -> HandlNativeLint {
+        self.handl_modules.lint_adapter()
+    }
+
+    /// Build a [`HandlNativeRewrite`] (ADR-0094) from the kit's registered
+    /// `.hnl` modules. Wire the result into a `RewriteEngine` with
+    /// `with_native_registry` so `rule: !Native "handl:<mod>.<fn>"` transform
+    /// rules dispatch into the corresponding `.hnl` function.
+    ///
+    /// This is the production seam — without it, `handl:` transform rules
+    /// error as "unknown native" because no host registers the registry.
+    pub fn handl_rewrite_adapter(&self) -> HandlNativeRewrite {
+        self.handl_modules.rewrite_adapter()
+    }
+
     /// Build a [`Kit`] from a caller-supplied [`Language`] and
     /// [`RuntimeConfig`], wiring the canonical engine registry, the
     /// stdlib/fp/hello/meta module chain, and the `self`/`hello` globals.
@@ -1797,7 +1934,9 @@ impl Kit {
         // the loader pipeline.
         let module_set =
             modules.map(|v| v.into_iter().collect::<std::collections::HashSet<String>>());
-        let stdlib_registry = build_stdlib_registry(module_set.as_ref());
+        let kit_modules = build_stdlib_registry(module_set.as_ref());
+        let stdlib_registry = kit_modules.registry;
+        let handl_modules = kit_modules.handl_modules;
 
         let _ = handl_plugin_lib_handl::install_loader(
             handl_plugin_lib_handl::with_loader_disabled(|| {
@@ -1926,6 +2065,7 @@ impl Kit {
             runtime,
             module_root,
             handl_typecheck_engine: RefCell::new(None),
+            handl_modules,
         })
     }
 

@@ -176,17 +176,17 @@ impl PostProcessRule for CanonicalizeOperatorsRule {
 /// canonical `->` function-type arrow.
 fn fix_rarrow(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
-    let bytes = line.as_bytes();
+    let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
-    while i < bytes.len() {
+    while i < chars.len() {
         // Look for '-' followed by optional spaces and '>'. The `->` function
         // arrow is the only place a `-` (dash) is directly followed by `>`.
-        if bytes[i] == b'-' {
+        if chars[i] == '-' {
             let mut j = i + 1;
-            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+            while j < chars.len() && chars[j].is_ascii_whitespace() {
                 j += 1;
             }
-            if j < bytes.len() && bytes[j] == b'>' {
+            if j < chars.len() && chars[j] == '>' {
                 // A bare `-` should not be merged with a following `>`:
                 // only merge when there was at least one space in between
                 // (i.e. the formatter split a lexed `->` token).
@@ -197,7 +197,7 @@ fn fix_rarrow(line: &str) -> String {
                 }
             }
         }
-        out.push(bytes[i] as char);
+        out.push(chars[i]);
         i += 1;
     }
     out
@@ -207,16 +207,16 @@ fn fix_rarrow(line: &str) -> String {
 /// canonical `:=` operator and one space on each side.
 fn fix_colon_eq(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
-    let bytes = line.as_bytes();
+    let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
-    while i < bytes.len() {
+    while i < chars.len() {
         // Look for ':' followed by optional spaces and '='.
-        if bytes[i] == b':' {
+        if chars[i] == ':' {
             let mut j = i + 1;
-            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+            while j < chars.len() && chars[j].is_ascii_whitespace() {
                 j += 1;
             }
-            if j < bytes.len() && bytes[j] == b'=' {
+            if j < chars.len() && chars[j] == '=' {
                 // Ensure one space before := if there is a preceding non-space char.
                 if !out.is_empty() && !out.ends_with(' ') {
                     out.push(' ');
@@ -225,13 +225,13 @@ fn fix_colon_eq(line: &str) -> String {
                 // Skip past the '='.
                 i = j + 1;
                 // Ensure one space after := if the next char is non-space.
-                if i < bytes.len() && !bytes[i].is_ascii_whitespace() {
+                if i < chars.len() && !chars[i].is_ascii_whitespace() {
                     out.push(' ');
                 }
                 continue;
             }
         }
-        out.push(bytes[i] as char);
+        out.push(chars[i]);
         i += 1;
     }
     out
@@ -252,50 +252,50 @@ fn fix_type_params(line: &str) -> String {
     // Find ` < ` where the preceding char is a word char, then find the
     // matching ` > ` and collapse the inner spaces.
     let mut out = String::with_capacity(line.len());
+    let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
-    let bytes = line.as_bytes();
-    while i < bytes.len() {
+    while i < chars.len() {
         // Look for ` < ` preceded by a word char.
-        if i + 3 <= bytes.len()
-            && bytes[i] == b' '
-            && bytes[i + 1] == b'<'
-            && bytes[i + 2] == b' '
+        if i + 2 < chars.len()
+            && chars[i] == ' '
+            && chars[i + 1] == '<'
+            && chars[i + 2] == ' '
             && i > 0
-            && is_word_char(bytes[i - 1] as char)
+            && is_word_char(chars[i - 1])
         {
-            // Find the closing ` > `.
-            if let Some(end) = find_type_param_close(&line[i + 3..]) {
-                let close_start = i + 3 + end; // position of the space before `>`
-                let content = &line[i + 3..close_start];
-                // Trim the leading/trailing spaces that the formatter inserts.
+            // Find the closing ` > ` starting after the opening `<`.
+            if let Some(close) = find_type_param_close(&chars, i + 2) {
+                // `close` is the index of the space in ` > `. The content is
+                // the chars between the opening space and that space.
+                let content: String = chars[i + 2..close].iter().collect();
                 let content = content.trim();
                 out.push('<');
                 out.push_str(content);
                 out.push('>');
-                i = close_start + 2; // skip ` >`
+                i = close + 2; // skip ` >`
                 continue;
             }
         }
-        out.push(bytes[i] as char);
+        out.push(chars[i]);
         i += 1;
     }
     out
 }
 
-/// Find the first occurrence of ` >` in `s` where the `>` is followed by a
-/// non-word character (so it is the closing bracket of a type-parameter list)
-/// and the content up to that point looks like a type-parameter list.
-/// Returns the byte offset of the leading space of ` >`, or `None`.
-fn find_type_param_close(s: &str) -> Option<usize> {
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    while i + 2 <= bytes.len() {
-        if bytes[i] == b' ' && bytes[i + 1] == b'>' {
+/// Find the first occurrence of ` >` in `chars[from..]` where the `>` is
+/// followed by a non-word character (so it is the closing bracket of a
+/// type-parameter list, not `>>` / `>=`) and the content up to that point
+/// looks like a type-parameter list. Returns the index of the leading space
+/// of ` >`, or `None`.
+fn find_type_param_close(chars: &[char], from: usize) -> Option<usize> {
+    let mut i = from;
+    while i + 1 < chars.len() {
+        if chars[i] == ' ' && chars[i + 1] == '>' {
             // Ensure the `>` is not part of a `>>=` / `>>` / `>=` operator.
-            let after = bytes.get(i + 2).copied().map(|b| b as char);
+            let after: Option<char> = chars.get(i + 2).copied();
             if after.map_or(true, |c| !is_word_char(c)) {
                 // Validate the content before this ` >`.
-                let content = &s[..i];
+                let content: String = chars[from..i].iter().collect();
                 if content.trim().chars().all(is_type_param_char) {
                     return Some(i);
                 }

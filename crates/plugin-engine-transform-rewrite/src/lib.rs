@@ -140,6 +140,23 @@ impl RewriteEngine {
         engine
     }
 
+    /// Wire the desugar native registry **and** layer a handl-native
+    /// [`NativeRewrite`] on top of it (ADR-0094). `handl_natives`
+    /// resolves `handl:<mod>.<fn>` rules against the kit's `.hnl` modules and
+    /// falls back to the `desugar.*` registry for everything else; the
+    /// `native_fallback` table is populated so kind-based dispatch still
+    /// works. This is the single production call that makes both `desugar.*`
+    /// and `handl:` transform rules resolve in one engine.
+    pub fn with_desugar_and_handl_natives(self, handl_natives: Arc<dyn NativeRewrite>) -> Self {
+        let mut engine = self.with_native_registry(handl_natives);
+        for (kind, name) in native::DESUGAR_NATIVES {
+            engine
+                .native_fallback
+                .insert(("desugar".to_string(), kind.to_string()), name.to_string());
+        }
+        engine
+    }
+
     /// Wire a custom [`NativeRewrite`] registry (no fallback table — custom
     /// natives are reachable only through explicit
     /// `TransformRule::Native(name)` rules).

@@ -1575,6 +1575,7 @@ dependencies = [
 name = "handl-plugin-ext-lint"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",

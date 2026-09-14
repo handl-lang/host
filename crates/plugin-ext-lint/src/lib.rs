@@ -236,8 +236,17 @@ pub fn lint_language() -> Result<&'static Language, LintError> {
 fn lint_engine() -> &'static LintEngine {
     static ENGINE: OnceLock<LintEngine> = OnceLock::new();
     ENGINE.get_or_init(|| {
+        let mut natives = canonical_lint_natives();
+        // Wire the handl-native lint resolver (ADR-0097) from the canonical
+        // kit's registered `.hnl` modules. Without this, a `lints.yaml` rule
+        // with `check: !Native "handl:<mod>.<fn>"` errors as "unknown
+        // native" — the resolver is the production seam a host uses to let
+        // `.hnl`-authored lint rules dispatch.
+        if let Ok(kit) = handl_kit_canonical::Kit::new() {
+            natives.add_resolver(kit.handl_lint_adapter().resolver());
+        }
         LintEngine::new()
-            .with_native_registry(canonical_lint_natives())
+            .with_native_registry(natives)
             // `scope.unbound-wire` is delegated to the bootstrap
             // typechecker's scope pass in `lint_source_with_prelude` — the
             // canonical native's local scope walk diverged from it. Register

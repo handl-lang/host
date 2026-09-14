@@ -275,8 +275,14 @@ impl<K: Plugin> ToolingHost<K> {
         }
         let root = handl_language::AstRef::new(ast.len() - 1);
         let lang = kit.runtime().lang();
+        // Wire the handl-native lint resolver (ADR-0097) from the kit's
+        // registered `.hnl` modules — the production seam that lets
+        // `check: !Native "handl:<mod>.<fn>"` lint rules dispatch.
+        let mut lint_natives = handl_plugin_engine_lint::NativeLintRegistry::new();
+        lint_natives.add_resolver(kit.handl_lint_adapter().resolver());
         match handl_plugin_engine_lint::LintEngine::new()
             .with_canonical_lint_natives()
+            .with_native_registry(lint_natives)
             .lint(lang, &ast, root)
         {
             Ok(lint_diags) => lint_diags
