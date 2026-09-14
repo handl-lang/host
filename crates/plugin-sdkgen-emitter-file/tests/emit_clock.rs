@@ -14,6 +14,7 @@ fn build_clock_module() -> SdkgenModule {
 
     module.records.push(CRecord {
         name: "Timespec".to_string(),
+        doc: None,
         fields: vec![
             CField {
                 name: "tv_sec".to_string(),
@@ -40,6 +41,7 @@ fn build_clock_module() -> SdkgenModule {
 
     module.functions.push(CFunction {
         name: "clock_gettime".to_string(),
+        doc: None,
         port_name: "ClockGettime".to_string(),
         port_args: vec![
             CHandlArg {

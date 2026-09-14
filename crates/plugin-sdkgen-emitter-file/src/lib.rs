@@ -65,6 +65,11 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     out.push_str("\n");
 
     for rec in &module.records {
+        if let Some(d) = &rec.doc {
+            for line in d.lines() {
+                out.push_str(&format!("--- {}\n", line.trim()));
+            }
+        }
         out.push_str(&format!("export {} := {{\n", rec.name));
         for (i, f) in rec.fields.iter().enumerate() {
             let comma = if i == rec.fields.len() - 1 { "" } else { "," };
@@ -74,6 +79,11 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     }
 
     for td in &module.typedefs {
+        if let Some(d) = &td.doc {
+            for line in d.lines() {
+                out.push_str(&format!("--- {}\n", line.trim()));
+            }
+        }
         out.push_str(&format!("export {} := {}\n\n", td.name, td.port));
     }
 
@@ -91,6 +101,11 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
             .map(|a| a.port.clone())
             .collect::<Vec<_>>()
             .join(", ");
+        if let Some(d) = &f.doc {
+            for line in d.lines() {
+                out.push_str(&format!("--- {}\n", line.trim()));
+            }
+        }
         out.push_str(&format!("--- C: {}\n", f.c_decl));
         out.push_str(&format!(
             "export {}: ({}) ~[(FFI)]~> Result<{}, Errno>\n\n",

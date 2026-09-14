@@ -1,7 +1,7 @@
 //! `hnl sdkgen` CLI extension (ADR-0107).
 
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
-use handl_plugin_sdkgen_backend_c::CBackend;
+use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use std::path::Path;
 
@@ -15,6 +15,8 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
     let mut header: Option<String> = None;
     let mut output: Option<String> = None;
     let mut target: Option<String> = None;
+    let mut only: Option<String> = None;
+    let mut config_path: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -27,10 +29,13 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 i += 1;
                 target = args.get(i).map(String::to_string);
             }
-            "--only" | "--config" => {
+            "--only" => {
                 i += 1;
-                // Accepted for CLI compatibility; not implemented in this phase.
-                let _ = args.get(i);
+                only = args.get(i).map(String::to_string);
+            }
+            "--config" => {
+                i += 1;
+                config_path = args.get(i).map(String::to_string);
             }
             s if s.starts_with("--") => {
                 eprintln!("sdkgen: unknown flag `{s}`");
@@ -57,7 +62,24 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
         return 2;
     };
 
-    let backend = CBackend::new(target);
+    let config = match config_path {
+        Some(p) => match SdkgenConfig::load(Path::new(&p)) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("sdkgen: {e}");
+                return 1;
+            }
+        },
+        None => SdkgenConfig::default(),
+    };
+
+    let backend = match CBackend::new(target, config, only) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("sdkgen: {e}");
+            return 1;
+        }
+    };
     let module = match backend.parse_header(Path::new(&header)) {
         Ok(m) => m,
         Err(e) => {

@@ -143,6 +143,8 @@ cranelift = { version = "0.115", features = ["frontend", "native"] }
 cranelift-module = "0.115"
 cranelift-jit = "0.115"
 cranelift-object = "0.115"
+serde_yaml = "0.9"
+glob = "0.3"
 
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }

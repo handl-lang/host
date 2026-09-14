@@ -25,6 +25,7 @@ pub struct CRecord {
     pub fields: Vec<CField>,
     pub size: usize,
     pub align: usize,
+    pub doc: Option<String>,
 }
 
 /// C record field.
@@ -51,6 +52,7 @@ pub struct CFunction {
     pub out_struct: Option<String>,
     pub variadic: bool,
     pub c_decl: String,
+    pub doc: Option<String>,
 }
 
 /// Visible Handl argument for a C function.
@@ -66,6 +68,7 @@ pub struct CTypedef {
     pub name: String,
     pub port: String,
     pub descriptor: String,
+    pub doc: Option<String>,
 }
 
 /// C enum constant.

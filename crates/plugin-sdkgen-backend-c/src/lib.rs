@@ -13,15 +13,28 @@ use std::path::Path;
 
 // libclang types and constants.
 use clang_sys::*;
+use glob::Pattern;
+
+mod config;
+pub use config::SdkgenConfig;
 
 /// C header parser using libclang.
 pub struct CBackend {
     target: Option<String>,
+    config: SdkgenConfig,
+    only: Option<Pattern>,
 }
 
 impl CBackend {
-    pub fn new(target: Option<String>) -> Self {
-        Self { target }
+    pub fn new(
+        target: Option<String>,
+        config: SdkgenConfig,
+        only: Option<String>,
+    ) -> Result<Self, SdkgenError> {
+        let only = only
+            .map(|p| Pattern::new(&p).map_err(|e| SdkgenError(format!("invalid --only pattern: {e}"))))
+            .transpose()?;
+        Ok(Self { target, config, only })
     }
 
     fn default_target() -> String {
@@ -131,7 +144,10 @@ impl SdkgenBackend for CBackend {
             records: RefCell::new(HashMap::new()),
         };
 
-        let mut cursor_data = CursorData::default();
+        let mut cursor_data = CursorData {
+            only: self.only.clone(),
+            ..Default::default()
+        };
         let root = unsafe { clang_getTranslationUnitCursor(tu) };
         unsafe {
             clang_visitChildren(
@@ -145,6 +161,9 @@ impl SdkgenBackend for CBackend {
         module.client_package = "ffi".into();
         module.backend_id = "c".into();
         module.target = target;
+        if let Some(lib) = &self.config.library {
+            module.library = lib.clone();
+        }
         module.module = path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -154,8 +173,10 @@ impl SdkgenBackend for CBackend {
         for &cursor in &cursor_data.records {
             match parse_record(cursor, &ctx) {
                 Ok(rec) => {
-                    ctx.records.borrow_mut().insert(rec.name.clone(), rec.clone());
-                    module.records.push(rec);
+                    if !self.config.should_skip(&rec.name) {
+                        ctx.records.borrow_mut().insert(rec.name.clone(), rec.clone());
+                        module.records.push(rec);
+                    }
                 }
                 Err(e) => module.diagnostics.push(e),
             }
@@ -163,7 +184,11 @@ impl SdkgenBackend for CBackend {
 
         for &cursor in &cursor_data.typedefs {
             match parse_typedef(cursor, &ctx) {
-                Ok(td) => module.typedefs.push(td),
+                Ok(td) => {
+                    if !self.config.should_skip(&td.name) {
+                        module.typedefs.push(td);
+                    }
+                }
                 Err(e) => module.diagnostics.push(e),
             }
         }
@@ -174,7 +199,13 @@ impl SdkgenBackend for CBackend {
 
         for &cursor in &cursor_data.functions {
             match parse_function(cursor, &ctx) {
-                Ok(f) => module.functions.push(f),
+                Ok(mut f) => {
+                    if !self.config.should_skip(&f.name) {
+                        let name = f.name.clone();
+                        self.config.apply_to_function(&name, &mut f);
+                        module.functions.push(f);
+                    }
+                }
                 Err(e) => module.diagnostics.push(e),
             }
         }
@@ -194,6 +225,7 @@ struct CursorData {
     records: Vec<CXCursor>,
     typedefs: Vec<CXCursor>,
     enums: Vec<CXCursor>,
+    only: Option<Pattern>,
 }
 
 struct ParseCtx {
@@ -210,20 +242,31 @@ extern "C" fn collect_cursors(
     if !from_main_file(cursor) {
         return CXChildVisit_Continue;
     }
+    let name = cursor_name(cursor);
+    let allowed = state
+        .only
+        .as_ref()
+        .map_or(true, |p| p.matches(&name));
     match cursor.kind {
         CXCursor_FunctionDecl => {
-            if unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External {
+            if allowed && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External {
                 state.functions.push(cursor);
             }
         }
         CXCursor_StructDecl => {
-            state.records.push(cursor);
+            if allowed {
+                state.records.push(cursor);
+            }
         }
         CXCursor_TypedefDecl => {
-            state.typedefs.push(cursor);
+            if allowed {
+                state.typedefs.push(cursor);
+            }
         }
         CXCursor_EnumDecl => {
-            state.enums.push(cursor);
+            if allowed {
+                state.enums.push(cursor);
+            }
         }
         _ => {}
     }
@@ -255,11 +298,23 @@ fn cx_string(str: CXString) -> String {
     }
 }
 
+fn raw_comment(cursor: CXCursor) -> Option<String> {
+    unsafe {
+        let raw = cx_string(clang_Cursor_getRawCommentText(cursor));
+        if raw.is_empty() {
+            None
+        } else {
+            Some(raw.trim().to_string())
+        }
+    }
+}
+
 fn parse_record(cursor: CXCursor, _ctx: &ParseCtx) -> Result<CRecord, String> {
     let name = cursor_name(cursor);
     if name.is_empty() {
         return Err("anonymous struct is not supported".into());
     }
+    let doc = raw_comment(cursor);
     let ty = unsafe { clang_getCursorType(cursor) };
     let size = unsafe { clang_Type_getSizeOf(ty) };
     let align = unsafe { clang_Type_getAlignOf(ty) };
@@ -288,6 +343,7 @@ fn parse_record(cursor: CXCursor, _ctx: &ParseCtx) -> Result<CRecord, String> {
         fields,
         size: size as usize,
         align: align as usize,
+        doc,
     })
 }
 
@@ -328,12 +384,14 @@ fn parse_typedef(cursor: CXCursor, _ctx: &ParseCtx) -> Result<CTypedef, String> 
     if name.is_empty() {
         return Err("anonymous typedef is not supported".into());
     }
+    let doc = raw_comment(cursor);
     let underlying = unsafe { clang_getTypedefDeclUnderlyingType(cursor) };
     let (port, descriptor) = map_arg_type(underlying, 64)?; // default width for typedefs
     Ok(CTypedef {
         name,
         port,
         descriptor,
+        doc,
     })
 }
 
@@ -376,6 +434,7 @@ fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<CFunction, String>
     if name.is_empty() {
         return Err("unnamed function".into());
     }
+    let doc = raw_comment(cursor);
     let port_name = to_pascal(&name);
     let c_decl = type_spelling(unsafe { clang_getCursorType(cursor) });
 
@@ -444,6 +503,7 @@ fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<CFunction, String>
         out_struct,
         variadic,
         c_decl,
+        doc,
     })
 }
 

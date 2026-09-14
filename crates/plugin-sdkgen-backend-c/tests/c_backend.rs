@@ -5,7 +5,8 @@ use std::path::Path;
 fn parses_simple_header() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = handl_plugin_sdkgen_backend_c::CBackend::new(None);
+    let backend =
+        handl_plugin_sdkgen_backend_c::CBackend::new(None, Default::default(), None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     let rec = module
