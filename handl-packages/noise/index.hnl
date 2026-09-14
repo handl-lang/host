@@ -1,0 +1,29 @@
+--- Deterministic lattice-noise contract.
+--- @details
+--- The `noise` contract abstracts deterministic, coordinate-driven pseudo-
+--- random value generation. Backends such as `noise-c` and `noise-stub`
+--- implement the same interface, selected by platform configuration.
+
+from "../grade" import { Grade }
+
+--- @template Noise
+--- Grade for deterministic noise generation.
+--- @details
+--- `Noise` tags arrows that produce deterministic, position-dependent
+--- pseudo-random values. All `noise` backends are pure and carry `Noise`.
+export Noise<T>: Grade
+
+--- 1-dimensional Perlin-style value noise.
+export Perlin1d: Number -> Number
+
+--- 2-dimensional Perlin-style value noise.
+export Perlin2d: (Number, Number) -> Number
+
+--- 3-dimensional Perlin-style value noise.
+export Perlin3d: (Number, Number, Number) -> Number
+
+--- 2-dimensional simplex-style value noise.
+export Simplex2d: (Number, Number) -> Number
+
+--- 3-dimensional simplex-style value noise.
+export Simplex3d: (Number, Number, Number) -> Number
