@@ -7,6 +7,7 @@ use handl_plugin_sdkgen::{
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
+#[allow(dead_code)]
 mod parser;
 use parser::{AstDef, Member, Type};
 
