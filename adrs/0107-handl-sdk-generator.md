@@ -354,14 +354,15 @@ Moved to [ADR-0110 — Handl SDK Generator: Windows and macOS C Backend Support]
 
 ### Phase 4 — Additional backends
 
-- WebIDL / JS backends — future work, no ADR yet.
+- WebIDL / JS backend — see [ADR-0113](./0113-handl-sdkgen-webidl-js.md).
 - JVM backend — see [ADR-0111](./0111-handl-sdkgen-jvm.md).
 - Bukkit / Spigot / Paper backend — see [ADR-0112](./0112-handl-sdkgen-bukkit-spigot-paper.md).
 
 Priority order (highest to lowest):
-1. JVM (ADR-0111)
-2. Bukkit / Spigot / Paper (ADR-0112)
-3. Windows / macOS (ADR-0110)
+1. WebIDL / JS (ADR-0113)
+2. JVM (ADR-0111)
+3. Bukkit / Spigot / Paper (ADR-0112)
+4. Windows / macOS (ADR-0110)
 
 ## Consequences
 
