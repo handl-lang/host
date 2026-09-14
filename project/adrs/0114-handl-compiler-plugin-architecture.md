@@ -21,9 +21,7 @@ Introduce a `plugin-compiler` family of crates.
   `CompilerInput` (a parsed and type-checked Handl `Ast` plus optional metadata).
 - Per-target compiler crates implement `Compiler`:
   - `plugin-compiler-js` — emits JavaScript for browser / Deno / Node.
-  - `plugin-compiler-c` — emits C source for native compilation.
-  - `plugin-compiler-wasm` — emits WebAssembly text or binary.
-  - Future: `plugin-compiler-jvm`, `plugin-compiler-llvm`, etc.
+  - `plugin-compiler-llvm` — emits native code and object files.
 - The existing `handl-emitters` crate keeps its current role: emitting
   `Language` data fragments. It is **not** a source-to-source compiler.
 - `host-cli` gains a `hnl compile <target> <file>` subcommand that dispatches
