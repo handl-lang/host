@@ -55,12 +55,41 @@ fn target_slug(target: &str) -> String {
     format!("{os}-{arch}")
 }
 
+struct ClientInfo {
+    client_pkg: &'static str,
+    grade: &'static str,
+    error_type: &'static str,
+    error_arrow: &'static str,
+}
+
+fn client_info(client_package: &str) -> ClientInfo {
+    if client_package == "js" {
+        ClientInfo {
+            client_pkg: "js",
+            grade: "JS",
+            error_type: "JsError",
+            error_arrow: "error",
+        }
+    } else {
+        ClientInfo {
+            client_pkg: "ffi",
+            grade: "FFI",
+            error_type: "Errno",
+            error_arrow: "errno",
+        }
+    }
+}
+
 fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
+    let client = client_info(&module.client_package);
     let mut out = String::new();
     out.push_str(&format!("--- Generated port for {lib}.{name}\n"));
-    out.push_str(&format!("--- C target: {}\n", module.target));
+    out.push_str(&format!("--- {} target: {}\n", client.client_pkg, module.target));
     out.push_str("\n");
-    out.push_str("from \"ffi\" import { FFI, Errno }\n");
+    out.push_str(&format!(
+        "from \"{}\" import {{ {}, {} }}\n",
+        client.client_pkg, client.grade, client.error_type
+    ));
     out.push_str("from \"result\" import { Result }\n");
     out.push_str("\n");
 
@@ -106,10 +135,10 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
                 out.push_str(&format!("--- {}\n", line.trim()));
             }
         }
-        out.push_str(&format!("--- C: {}\n", f.c_decl));
+        out.push_str(&format!("--- {}: {}\n", client.client_pkg, f.c_decl));
         out.push_str(&format!(
-            "export {}: ({}) ~[(FFI)]~> Result<{}, Errno>\n\n",
-            f.port_name, arg_list, f.return_port
+            "export {}: ({}) ~[({})]~> Result<{}, {}>\n\n",
+            f.port_name, arg_list, client.grade, f.return_port, client.error_type
         ));
     }
 
@@ -117,12 +146,16 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
 }
 
 fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str) -> String {
+    let client = client_info(&module.client_package);
     let mut out = String::new();
     out.push_str(&format!(
         "--- Generated adapter for {adapter_pkg}/{name}\n"
     ));
     out.push_str("\n");
-    out.push_str("from \"ffi\" import { call, errno }\n");
+    out.push_str(&format!(
+        "from \"{}\" import {{ call, {} }}\n",
+        client.client_pkg, client.error_arrow
+    ));
     out.push_str("from \"result\" import { ok, err }\n");
 
     let mut imports = Vec::new();
@@ -147,22 +180,50 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             .map(|a| a.name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        let descs = f
+
+        let descriptors: Vec<String> = f
             .arg_descriptors
             .iter()
-            .map(|d| format!("\"{d}\""))
-            .collect::<Vec<_>>()
-            .join(", ");
+            .map(|d| {
+                let mapped = if client.client_pkg == "js" {
+                    js_descriptor(d)
+                } else {
+                    d.clone()
+                };
+                format!("\"{mapped}\"")
+            })
+            .collect();
+        let descs = descriptors.join(", ");
+
+        let ret_descriptor = if client.client_pkg == "js" {
+            js_descriptor(&f.ret_descriptor)
+        } else {
+            f.ret_descriptor.clone()
+        };
+
+        let (call_lib, call_sym) = if client.client_pkg == "js" {
+            let method = f.c_decl.rsplit_once('.').map(|(_, m)| m).unwrap_or(&f.name);
+            (module.library.clone(), method.to_string())
+        } else {
+            (format!("{lib}.so.6"), f.name.clone())
+        };
+
         out.push_str(&format!(
-            "export {}: {} := ({}) ~[FFI]~> do {{\n",
-            f.name, f.port_name, arg_names
+            "export {}: {} := ({}) ~[{}]~> do {{\n",
+            f.name, f.port_name, arg_names, client.grade
         ));
         out.push_str(&format!(
-            "  r = call(\"{lib}.so.6\", \"{}\", [{}], [{}], \"{}\", false)\n",
-            f.name, arg_names, descs, f.ret_descriptor
+            "  r = call(\"{call_lib}\", \"{call_sym}\", [{arg_names}], [{descs}], \"{ret_descriptor}\", false)\n"
         ));
 
-        if f.out_struct.is_some() {
+        if client.client_pkg == "js" {
+            out.push_str("  e = error()\n");
+            out.push_str("  if e == null {\n");
+            out.push_str("    ok(r)\n");
+            out.push_str("  } else {\n");
+            out.push_str("    err(e)\n");
+            out.push_str("  }\n");
+        } else if f.out_struct.is_some() {
             out.push_str("  if r.ret < 0 {\n");
             out.push_str("    err(errno())\n");
             out.push_str("  } else {\n");
@@ -184,6 +245,21 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
     }
 
     out
+}
+
+fn js_descriptor(d: &str) -> String {
+    match d {
+        "js_string" | "js_number" | "js_object" | "js_boolean" | "js_promise" | "js_void" => {
+            d.to_string()
+        }
+        "void" => "js_void".to_string(),
+        "bool" => "js_boolean".to_string(),
+        "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "f32" | "f64" => {
+            "js_number".to_string()
+        }
+        s if s.starts_with("promise:") || s == "promise" => "js_promise".to_string(),
+        _ => d.to_string(),
+    }
 }
 
 fn is_numeric_descriptor(d: &str) -> bool {
