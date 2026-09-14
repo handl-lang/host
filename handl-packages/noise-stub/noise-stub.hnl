@@ -1,0 +1,14 @@
+--- Deterministic, pure-Handl backend for `noise`.
+--- @details
+--- Always returns `0.0` so tests and benchmarks stay deterministic.
+--- This is a no-effect backend; it does not call any FFI library.
+
+do {
+  {
+    perlin_1d: (_x) ~> 0.0,
+    perlin_2d: (_x, _y) ~> 0.0,
+    perlin_3d: (_x, _y, _z) ~> 0.0,
+    simplex_2d: (_x, _y) ~> 0.0,
+    simplex_3d: (_x, _y, _z) ~> 0.0
+  }
+}
