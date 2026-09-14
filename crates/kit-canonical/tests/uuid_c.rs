@@ -36,7 +36,11 @@ fn uuid_c_v4_format_is_valid() {
     assert_eq!(s.chars().nth(13), Some('-'), "hyphen at 13");
     assert_eq!(s.chars().nth(18), Some('-'), "hyphen at 18");
     assert_eq!(s.chars().nth(23), Some('-'), "hyphen at 23");
-    assert_eq!(s.chars().nth(14), Some('4'), "uuid-c v4 version must be 4: {s}");
+    assert_eq!(
+        s.chars().nth(14),
+        Some('4'),
+        "uuid-c v4 version must be 4: {s}"
+    );
     let variant = s.chars().nth(19).expect("fourth segment must have a char");
     assert!(
         matches!(variant, '8' | '9' | 'a' | 'b'),
@@ -53,8 +57,5 @@ fn uuid_stub_is_deterministic() {
     let a = eval_uuid_stub("v4()");
     let b = eval_uuid_stub("v4()");
     assert_eq!(a, b, "uuid-stub v4 must be deterministic");
-    assert_eq!(
-        a,
-        serde_json::json!("00000000-0000-4000-8000-000000000000")
-    );
+    assert_eq!(a, serde_json::json!("00000000-0000-4000-8000-000000000000"));
 }

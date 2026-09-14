@@ -31,8 +31,8 @@
 #![warn(missing_docs)]
 
 use handl_language::{
-    ArrSource, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Term, TokenKindDef,
-    Value,
+    ArrSource, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Term,
+    TokenKindDef, Value,
 };
 use plugin_engine::TermData;
 
@@ -218,7 +218,9 @@ pub fn app_call(num_args: usize) -> Term {
         &ArrSource::Native,
         Some(Value::from(0u64)),
     );
-    TermData::app(callee, args).to_term().expect("TermData round-trips to Term")
+    TermData::app(callee, args)
+        .to_term()
+        .expect("TermData round-trips to Term")
 }
 
 #[cfg(test)]

@@ -279,7 +279,10 @@ fn bracketed_and_legacy_graded_arrows_agree() {
     assert_eq!(rl.kind, rc.kind);
     assert_eq!(children(&legacy, rl).len(), children(&canonical, rc).len());
     // Both are consumed as graded arrows with the same left/right operands.
-    assert_eq!(children(&legacy, rl)[0].kind, children(&canonical, rc)[0].kind);
+    assert_eq!(
+        children(&legacy, rl)[0].kind,
+        children(&canonical, rc)[0].kind
+    );
     assert_eq!(
         children(&legacy, rl)[2].payload,
         children(&canonical, rc)[2].payload
@@ -438,5 +441,3 @@ fn empty_dimension_bracket_rejected_through_real_lexer() {
         "diagnostic should name the empty bracket: {err:?}",
     );
 }
-
-

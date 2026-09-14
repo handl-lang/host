@@ -995,6 +995,9 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-applier-bootstrap",
+ "handl-plugin-compile",
+ "handl-plugin-compile-js",
+ "handl-plugin-compile-llvm",
  "handl-plugin-engine-fmt",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
@@ -1003,6 +1006,7 @@ dependencies = [
  "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
  "handl-plugin-ext-cli",
+ "handl-plugin-ext-compile",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
@@ -1171,6 +1175,46 @@ dependencies = [
  "handl-plugin-ext-kit",
  "handl-plugin-load",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-compile"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-engine-typecheck",
+ "plugin-engine",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-compile-js"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-compile",
+ "handl-plugin-engine-typecheck",
+ "plugin-engine",
+ "rand 0.9.5",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-compile-llvm"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "handl-language",
+ "handl-plugin-compile",
+ "handl-plugin-engine-typecheck",
+ "inkwell",
+ "plugin-engine",
+ "serde_json",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1510,7 +1554,13 @@ dependencies = [
 name = "handl-plugin-ext-compile"
 version = "0.1.0"
 dependencies = [
+ "handl-language",
  "handl-platform",
+ "handl-plugin-compile",
+ "handl-plugin-compile-js",
+ "handl-plugin-compile-llvm",
+ "handl-plugin-engine-typecheck",
+ "plugin-engine",
  "serde_json",
 ]
 
@@ -2935,6 +2985,30 @@ name = "indexmap-nostd"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
+
+[[package]]
+name = "inkwell"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40fb405537710d51f6bdbc8471365ddd4cd6d3a3c3ad6e0c8291691031ba94b2"
+dependencies = [
+ "either",
+ "inkwell_internals",
+ "libc",
+ "once_cell",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "inkwell_internals"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dd28cfd4cfba665d47d31c08a6ba637eed16770abca2eccbbc3ca831fef1e44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "iri-string"

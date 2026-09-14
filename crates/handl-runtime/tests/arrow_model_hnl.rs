@@ -25,13 +25,21 @@ fn handl_arrow_model_evaluates_arr_const() {
         .merge(EvalSchemeDef::new(
             "e.test",
             "test.root",
-            TermData::arr(Value::from(5)).to_term().expect("TermData -> Term"),
+            TermData::arr(Value::from(5))
+                .to_term()
+                .expect("TermData -> Term"),
         ))
         .unwrap();
 
     // Load the Handl arrow model and wire the runtime modules it uses.
     let module = HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);

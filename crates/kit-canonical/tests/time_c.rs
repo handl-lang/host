@@ -39,5 +39,3 @@ fn time_elapsed_ns_since_reading() {
     let ns = v.as_f64().expect("elapsed_ns is a number");
     assert!(ns >= 0.0);
 }
-
-

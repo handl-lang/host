@@ -72,19 +72,19 @@ fn transform_export_to_object(src: &str) -> String {
             }
             continue;
         }
-        if !line.starts_with(' ')
-            && !line.starts_with('\t')
-            && trimmed.starts_with("export ")
-        {
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
             if let Some(entry) = current.take() {
                 entries.push(entry);
             }
             let rest = &trimmed["export ".len()..];
             if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
-                let is_type_only =
-                    sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
-                let expr_start = if is_type_only { "null" } else { rest[sep_pos + sep_len..].trim() };
+                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                let expr_start = if is_type_only {
+                    "null"
+                } else {
+                    rest[sep_pos + sep_len..].trim()
+                };
                 let mut expr_lines = Vec::new();
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
@@ -242,8 +242,7 @@ fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
             b'=' if depth == 0 => {
                 let prev = if i > 0 { bytes[i - 1] } else { 0 };
                 let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
-                {
+                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
                     i += 1;
                     continue;
                 }

@@ -484,7 +484,15 @@ fn validate_lsp_rule(
         Some(LspMatch::Native(_)) | None => None,
     };
 
-    validate_lsp_rule_config(rule, rule_id, def_id, lang, all_rule_ids, matched_shape, diags);
+    validate_lsp_rule_config(
+        rule,
+        rule_id,
+        def_id,
+        lang,
+        all_rule_ids,
+        matched_shape,
+        diags,
+    );
 }
 
 fn find_lsp_shape<'a>(lang: &'a Language, requested: &'a str) -> Option<&'a AstShapeDef> {

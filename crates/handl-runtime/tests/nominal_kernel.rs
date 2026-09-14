@@ -9,8 +9,8 @@
 
 use handl_platform::{EvalContext, Function, Module};
 use handl_runtime::vm_primitives::VmPrimitivesModule;
-use handl_value::{eq, tagged_to_value, TaggedValue};
-use serde_json::{json, Value};
+use handl_value::{TaggedValue, eq, tagged_to_value};
+use serde_json::{Value, json};
 
 /// Call a VM primitive by name, panicking on error (for success-path tests).
 fn call(name: &str, args: &[Value]) -> Value {
@@ -127,7 +127,9 @@ fn vm_sym_parent_chain_is_explicit_in_json() {
     let number_str = number.to_string();
     let number_handle = inner.get("handle").unwrap().to_string();
     assert_eq!(
-        fparent_str.matches(&format!("\"handle\":{}", number_handle)).count(),
+        fparent_str
+            .matches(&format!("\"handle\":{}", number_handle))
+            .count(),
         1,
         "parent chain is linear — the parent handle appears exactly once"
     );
@@ -202,15 +204,24 @@ fn vm_instance_of_transitive() {
         .unwrap()
         .clone();
     // Transitive: Float instanceof root (grandparent).
-    assert_eq!(call("instance_of", &[float.clone(), root.clone()]), json!(true));
+    assert_eq!(
+        call("instance_of", &[float.clone(), root.clone()]),
+        json!(true)
+    );
 }
 
 #[test]
 fn vm_instance_of_negative_parent_to_child_and_siblings() {
     let (root, number, float) = vm_chain();
     // Parent -> child is not an instance.
-    assert_eq!(call("instance_of", &[number.clone(), float.clone()]), json!(false));
-    assert_eq!(call("instance_of", &[root.clone(), float.clone()]), json!(false));
+    assert_eq!(
+        call("instance_of", &[number.clone(), float.clone()]),
+        json!(false)
+    );
+    assert_eq!(
+        call("instance_of", &[root.clone(), float.clone()]),
+        json!(false)
+    );
     // Sibling syms (same parent) are unrelated.
     let sibling = call("sym", &[root.clone()]);
     assert_eq!(
@@ -228,8 +239,17 @@ fn vm_instance_of_non_nominal_value_is_false() {
     let (_root, number, _float) = vm_chain();
     // A non-nominal value is simply not an instance of a nominal: false,
     // no error.
-    for v in [json!(42), json!("s"), json!(null), json!([1]), json!({"a": 1})] {
-        assert_eq!(call("instance_of", &[v.clone(), number.clone()]), json!(false));
+    for v in [
+        json!(42),
+        json!("s"),
+        json!(null),
+        json!([1]),
+        json!({"a": 1}),
+    ] {
+        assert_eq!(
+            call("instance_of", &[v.clone(), number.clone()]),
+            json!(false)
+        );
     }
 }
 
@@ -381,4 +401,3 @@ fn vm_instance_of_legacy_bridges_by_name_not_subtype_or_anonymous() {
         json!(false)
     );
 }
-

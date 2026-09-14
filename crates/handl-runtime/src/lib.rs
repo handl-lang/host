@@ -1546,21 +1546,21 @@ impl ModuleLoader {
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
-            self.lex_engine
-                .lex(&self.lang, &req)
-                .map_err(|e| LangError::engine(format!(
+            self.lex_engine.lex(&self.lang, &req).map_err(|e| {
+                LangError::engine(format!(
                     "import \"{}\" ({}): lex error: {}",
                     display_path, resolved, e
-                )))?
+                ))
+            })?
         };
         let ast = {
             let req = ParserRequest::new(toks);
-            self.parse_engine
-                .parse_dyn(&self.lang, &req)
-                .map_err(|e| LangError::engine(format!(
+            self.parse_engine.parse_dyn(&self.lang, &req).map_err(|e| {
+                LangError::engine(format!(
                     "import \"{}\" ({}): parse error: {}",
                     display_path, resolved, e
-                )))?
+                ))
+            })?
         };
         // Apply the same desugar pass the runtime applies at parse time
         // (ADR-0082), so imported modules see the same AST shape.
@@ -1596,12 +1596,12 @@ impl ModuleLoader {
         })?;
         let value = {
             let req = EvalRequest::new(ast.clone());
-            engine_rc
-                .eval(&self.lang, &req)
-                .map_err(|e| LangError::engine(format!(
+            engine_rc.eval(&self.lang, &req).map_err(|e| {
+                LangError::engine(format!(
                     "import \"{}\" ({}): eval error: {}",
                     display_path, resolved, e
-                )))?
+                ))
+            })?
         };
 
         // Collect the module's top-level bindings into a Value::Object.
@@ -1614,10 +1614,12 @@ impl ModuleLoader {
         // values carry no ambient-eval references).
         engine_rc
             .seal_module_value(&ast, &self.lang, bindings)
-            .map_err(|e| LangError::engine(format!(
-                "import \"{}\" ({}): seal error: {}",
-                display_path, resolved, e
-            )))
+            .map_err(|e| {
+                LangError::engine(format!(
+                    "import \"{}\" ({}): seal error: {}",
+                    display_path, resolved, e
+                ))
+            })
     }
 
     /// Remove module-declaration header lines that name a *host module*
@@ -1815,11 +1817,11 @@ mod tests {
         ArrSource, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Token,
         TokenKindDef,
     };
-    use plugin_engine::TermData;
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
+    use plugin_engine::TermData;
     use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
@@ -2297,9 +2299,14 @@ mod tests {
                 &ArrSource::Native,
                 Some(Value::from(0u64)),
             );
-            TermData::op("double", vec![arg], &ArrSource::Foreign("double".into()), None)
-                .to_term()
-                .expect("TermData round-trips to Term")
+            TermData::op(
+                "double",
+                vec![arg],
+                &ArrSource::Foreign("double".into()),
+                None,
+            )
+            .to_term()
+            .expect("TermData round-trips to Term")
         };
         lang.eval
             .merge(EvalSchemeDef::new("e.dbl", "foreign.double", dbl_scheme))

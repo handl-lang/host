@@ -899,10 +899,9 @@ static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// The shared `pred` [`HandlModule`], built lazily on first use.
 fn pred_module() -> &'static HandlModule {
-    PRED_MODULE
-        .get_or_init(|| {
-            HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
-        })
+    PRED_MODULE.get_or_init(|| {
+        HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
+    })
 }
 
 /// A compiled case-selection filter — the host-side handle for the `pred`

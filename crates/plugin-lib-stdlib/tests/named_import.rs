@@ -11,13 +11,14 @@ use std::sync::Arc;
 
 use handl_platform::{EvalContext, Function, Module};
 use handl_plugin_lib_handl::HandlModule;
-use handl_plugin_lib_stdlib::packages::TableImportResolver;
-use handl_plugin_lib_stdlib::TableModuleLookup;
 use handl_plugin_lib_stdlib::DEFAULT_RESOLVER;
+use handl_plugin_lib_stdlib::TableModuleLookup;
+use handl_plugin_lib_stdlib::packages::TableImportResolver;
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let f = module.function(name).expect("function exists");
-    f.call(args, &mut EvalContext::new()).expect("call succeeds")
+    f.call(args, &mut EvalContext::new())
+        .expect("call succeeds")
 }
 
 /// `from "len" import len` binds the bare name `len`, called directly.

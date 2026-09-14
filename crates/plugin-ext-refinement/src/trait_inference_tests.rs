@@ -49,7 +49,10 @@ fn left(inner: Term) -> Term {
 
 /// `comp(G, H)` — sequential composition.
 fn comp(g: Term, h: Term) -> Term {
-    td(TermData::seq(TermData::from_term(&g), TermData::from_term(&h)))
+    td(TermData::seq(
+        TermData::from_term(&g),
+        TermData::from_term(&h),
+    ))
 }
 
 /// `loop(G)` — feedback loop.
@@ -213,10 +216,7 @@ fn test_uses_left_absent_in_general_choice() {
     // choice(cons, cons) — a general choice (conditional), NOT a left,
     // because neither branch is an identity. This should NOT be recognized
     // as using left.
-    let g = choice(
-        td(op("cons")),
-        td(op("cons")),
-    );
+    let g = choice(td(op("cons")), td(op("cons")));
     assert!(!uses_left(&g));
 }
 
@@ -394,10 +394,7 @@ fn test_inferred_trait_real_map_graph() {
 fn test_inferred_trait_real_sort_graph() {
     // The real `sort` graph: loop(comp(insert_loop, first(id))).
     // The `first(id)` in the second position uses first → functor laws.
-    let insert_loop = loop_fb(choice(
-        td(op("cons")),
-        td(op("cons")),
-    ));
+    let insert_loop = loop_fb(choice(td(op("cons")), td(op("cons"))));
     let g = loop_fb(comp(insert_loop, first(id())));
     let laws = inferred_trait(&g);
     assert!(laws.contains(&Law::FunctorIdentity));

@@ -129,10 +129,7 @@ fn zip_graph() -> Term {
     // zip = loop(first(list.head) >>> (first(list.tail) >>> list.cons))
     td(TermData::loop_feedback(TermData::seq(
         TermData::first(op("list.head")),
-        TermData::seq(
-            TermData::first(op("list.tail")),
-            op("list.cons"),
-        ),
+        TermData::seq(TermData::first(op("list.tail")), op("list.cons")),
     )))
 }
 

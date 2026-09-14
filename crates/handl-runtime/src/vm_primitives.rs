@@ -33,7 +33,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use handl_value::{sym_from_parent_value, tagged_to_value, TaggedValue};
+use handl_value::{TaggedValue, sym_from_parent_value, tagged_to_value};
 use serde_json::{Map, Value, json};
 
 // ---------------------------------------------------------------------------
@@ -193,10 +193,7 @@ impl Function for CallFn {
             .and_then(|v| v.as_bool())
             == Some(true)
         {
-            return Ok(callee
-                .get("body")
-                .cloned()
-                .unwrap_or(Value::Null));
+            return Ok(callee.get("body").cloned().unwrap_or(Value::Null));
         }
 
         Ok(Value::Null)
@@ -246,10 +243,9 @@ struct LookupEvalSchemeFn;
 
 impl Function for LookupEvalSchemeFn {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-        let kind = args
-            .get(0)
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| EvalError::Other("lookup_eval_scheme: expected kind string".to_string()))?;
+        let kind = args.get(0).and_then(|v| v.as_str()).ok_or_else(|| {
+            EvalError::Other("lookup_eval_scheme: expected kind string".to_string())
+        })?;
         match kind {
             "Arr" | "Const" => Ok(Value::String(format!("eval_scheme_{kind}"))),
             _ => Ok(Value::Null),
@@ -470,7 +466,7 @@ impl Function for SymFn {
                 return Err(EvalError::Other(format!(
                     "sym: expected 0 or 1 argument (sym() or sym(parent)), got {}",
                     n
-                )))
+                )));
             }
         };
         Ok(tagged_to_value(&tv))
@@ -529,7 +525,8 @@ impl Function for InstanceOfFn {
         // Fast path: genuine nominal values walk the real parent chain.
         if value_tv.is_sym() {
             return Ok(Value::Bool(handl_value::has_ancestor(
-                &value_tv, &nominal_tv,
+                &value_tv,
+                &nominal_tv,
             )));
         }
         // Phase 4 legacy-tag bridge: a `__tag__`-tagged datum (no nominal
@@ -598,9 +595,7 @@ fn legacy_tag_instance_of(nominal: &Value, tag: &str) -> bool {
         Some(n) if !n.is_empty() => n.to_ascii_lowercase(),
         _ => return false,
     };
-    roles
-        .iter()
-        .any(|role| role.to_ascii_lowercase() == own)
+    roles.iter().any(|role| role.to_ascii_lowercase() == own)
 }
 
 // ---------------------------------------------------------------------------
@@ -644,10 +639,18 @@ impl VmPrimitivesModule {
     pub fn new() -> Self {
         let state = Arc::new(Mutex::new(VmState::new()));
         VmPrimitivesModule {
-            push_scope_fn: PushScopeFn { state: Arc::clone(&state) },
-            pop_scope_fn: PopScopeFn { state: Arc::clone(&state) },
-            bind_fn: BindFn { state: Arc::clone(&state) },
-            lookup_fn: LookupFn { state: Arc::clone(&state) },
+            push_scope_fn: PushScopeFn {
+                state: Arc::clone(&state),
+            },
+            pop_scope_fn: PopScopeFn {
+                state: Arc::clone(&state),
+            },
+            bind_fn: BindFn {
+                state: Arc::clone(&state),
+            },
+            lookup_fn: LookupFn {
+                state: Arc::clone(&state),
+            },
             make_closure_fn: MakeClosureFn,
             call_fn: CallFn,
             vm_pattern_match_fn: VmPatternMatchFn,
@@ -655,8 +658,12 @@ impl VmPrimitivesModule {
             eval_scheme_arr_fn: EvalSchemeArrFn,
             eval_scheme_const_fn: EvalSchemeConstFn,
             ffi_fn: FfiFn,
-            setfield_fn: SetFieldFn { state: Arc::clone(&state) },
-            ctx_fn: CtxFn { state: Arc::clone(&state) },
+            setfield_fn: SetFieldFn {
+                state: Arc::clone(&state),
+            },
+            ctx_fn: CtxFn {
+                state: Arc::clone(&state),
+            },
             eval_fn: EvalFn,
             find_op_handler_fn: FindOpHandlerFn,
             array_drop_last_fn: ArrayDropLastFn,
@@ -709,10 +716,19 @@ impl Module for VmPrimitivesModule {
             ("lookup", &self.lookup_fn as &dyn Function),
             ("make_closure", &self.make_closure_fn as &dyn Function),
             ("call", &self.call_fn as &dyn Function),
-            ("vm_pattern_match", &self.vm_pattern_match_fn as &dyn Function),
-            ("lookup_eval_scheme", &self.lookup_eval_scheme_fn as &dyn Function),
+            (
+                "vm_pattern_match",
+                &self.vm_pattern_match_fn as &dyn Function,
+            ),
+            (
+                "lookup_eval_scheme",
+                &self.lookup_eval_scheme_fn as &dyn Function,
+            ),
             ("eval_scheme_Arr", &self.eval_scheme_arr_fn as &dyn Function),
-            ("eval_scheme_Const", &self.eval_scheme_const_fn as &dyn Function),
+            (
+                "eval_scheme_Const",
+                &self.eval_scheme_const_fn as &dyn Function,
+            ),
             ("ffi", &self.ffi_fn as &dyn Function),
             ("setfield", &self.setfield_fn as &dyn Function),
             ("ctx", &self.ctx_fn as &dyn Function),
@@ -825,9 +841,18 @@ mod sym_module_tests {
         let root = call(&m, "sym", &[]).expect("sym() mints");
         assert!(root.get("__sym__").is_some());
         let child = call(&m, "sym", &[root.clone()]).expect("sym(parent) mints");
-        assert_eq!(call(&m, "instanceof", &[child.clone(), root.clone()]), Ok(json!(true)));
-        assert_eq!(call(&m, "instance_of", &[child.clone(), child.clone()]), Ok(json!(true)));
-        assert_eq!(call(&m, "instanceof", &[root.clone(), child.clone()]), Ok(json!(false)));
+        assert_eq!(
+            call(&m, "instanceof", &[child.clone(), root.clone()]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instance_of", &[child.clone(), child.clone()]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[root.clone(), child.clone()]),
+            Ok(json!(false))
+        );
     }
 
     #[test]
@@ -906,4 +931,3 @@ mod sym_module_tests {
         assert!(!legacy_tag_instance_of(&non_object, "int"));
     }
 }
-

@@ -190,8 +190,12 @@ fn infer_r_td(
             // This lets the fixpoint discover non-trivial invariants (e.g.
             // Sorted(acc)) that are already present in the body's contracts.
             let body_term = body.to_term().expect("Loop body: TermData -> Term failed");
-            let (invariant, how, _trace, verified) =
-                discover_invariant_fixpoint_real(&body_term, registry, &gp, FIXPOINT_MAX_ITERATIONS);
+            let (invariant, how, _trace, verified) = discover_invariant_fixpoint_real(
+                &body_term,
+                registry,
+                &gp,
+                FIXPOINT_MAX_ITERATIONS,
+            );
 
             loop_invs.push(LoopInvariant {
                 graph: format_scheme(&body_term),
@@ -248,7 +252,11 @@ fn format_scheme_td(td: &TermData) -> String {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            format!("seq({}, {})", format_scheme_td(&fst), format_scheme_td(&snd))
+            format!(
+                "seq({}, {})",
+                format_scheme_td(&fst),
+                format_scheme_td(&snd)
+            )
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");

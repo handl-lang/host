@@ -42,7 +42,13 @@ fn to_term(td: TermData) -> Term {
 /// `arrow_model.hnl` adapter.
 fn type_model_adapter() -> HandlModelAdapter {
     let module = HandlModule::new("type_model", TYPE_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);
@@ -54,7 +60,13 @@ fn type_model_adapter() -> HandlModelAdapter {
 /// semantics coincide.
 fn arrow_model() -> HandlModel {
     let module = HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);
@@ -125,10 +137,7 @@ fn type_model_seq_is_compose_type() {
         TermData::arr(json!(2)),
     ));
     let ty = type_model_run(&term, Value::Null);
-    assert_eq!(
-        ty,
-        json!({ "__tag__": "Compose", "fst": 1, "snd": 2 })
-    );
+    assert_eq!(ty, json!({ "__tag__": "Compose", "fst": 1, "snd": 2 }));
     // The arrow model instead executes the composition (2, the snd applied
     // to the fst result) — confirming the two interpretations diverge here.
     assert_eq!(arrow_model_run(&term, Value::Null), json!(2));
@@ -150,10 +159,7 @@ fn type_model_path_is_identity_type() {
         Some(TermData::arr(json!(3))),
     ));
     let ty = type_model_run(&term, Value::Null);
-    assert_eq!(
-        ty,
-        json!({ "__tag__": "Path", "from": 1, "to": 2 })
-    );
+    assert_eq!(ty, json!({ "__tag__": "Path", "from": 1, "to": 2 }));
 }
 
 #[test]
@@ -167,10 +173,7 @@ fn type_model_equiv_is_equivalence_type() {
         None,
     ));
     let ty = type_model_run(&term, Value::Null);
-    assert_eq!(
-        ty,
-        json!({ "__tag__": "type.bool", "value": true })
-    );
+    assert_eq!(ty, json!({ "__tag__": "type.bool", "value": true }));
 
     // A non-equivalence yields a false propositional witness.
     let term_false = to_term(TermData::equiv(
@@ -179,10 +182,7 @@ fn type_model_equiv_is_equivalence_type() {
         None,
     ));
     let ty_false = type_model_run(&term_false, Value::Null);
-    assert_eq!(
-        ty_false,
-        json!({ "__tag__": "type.bool", "value": false })
-    );
+    assert_eq!(ty_false, json!({ "__tag__": "type.bool", "value": false }));
 }
 
 #[test]
@@ -206,7 +206,10 @@ fn type_model_refine_is_type_error_when_predicate_fails() {
         TermData::arr(json!(false)),
     ));
     let ty = type_model_run(&term, json!("Nat"));
-    assert_eq!(ty.get("__tag__").and_then(|v| v.as_str()), Some("TypeError"));
+    assert_eq!(
+        ty.get("__tag__").and_then(|v| v.as_str()),
+        Some("TypeError")
+    );
     assert_eq!(
         ty.get("message").and_then(|v| v.as_str()),
         Some("Refine: predicate not satisfied")
@@ -329,10 +332,7 @@ fn type_model_univalence_produces_path_from_equiv() {
     let ty = type_model_run(&term, Value::Null);
     // The inner `Equiv` evaluates to `{ "__tag__": "type.bool", "value": true }`,
     // which is not an `Equiv`-tagged object, so univalence returns it as-is.
-    assert_eq!(
-        ty,
-        json!({ "__tag__": "type.bool", "value": true })
-    );
+    assert_eq!(ty, json!({ "__tag__": "type.bool", "value": true }));
 }
 
 #[test]
@@ -429,7 +429,10 @@ fn type_model_child_is_type_error() {
     // model's — so the type model reports a `TypeError`.
     let term = to_term(TermData::child("value"));
     let ty = type_model_run(&term, Value::Null);
-    assert_eq!(ty.get("__tag__").and_then(|v| v.as_str()), Some("TypeError"));
+    assert_eq!(
+        ty.get("__tag__").and_then(|v| v.as_str()),
+        Some("TypeError")
+    );
     assert_eq!(
         ty.get("message").and_then(|v| v.as_str()),
         Some("Child: AST recursion is the exec model's job, not the type model's")

@@ -9,7 +9,9 @@ use std::path::Path;
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
 pub fn sdkgen_command(args: &[String]) -> i32 {
     if args.is_empty() || (args[0] != "c" && args[0] != "webidl") {
-        eprintln!("usage: hnl sdkgen <c|webidl> <header> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]");
+        eprintln!(
+            "usage: hnl sdkgen <c|webidl> <header> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]"
+        );
         return 2;
     }
 

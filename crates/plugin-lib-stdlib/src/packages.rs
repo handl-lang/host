@@ -178,7 +178,6 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: ops::hex::HEX_OPS,
         registry: Some(ops::hex::hex_op_registry),
     },
-
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
@@ -232,11 +231,41 @@ pub static MODULES: &[ModuleSpec] = &[
     // imports from these prefixed names and re-exports under the bare
     // `list.*` fields, e.g. `from "list_len" import * as list_len` then
     // `len: list_len.len`, and so on.
-    ModuleSpec { name: "list_len", hnl: include_str!("../../../handl-packages/collections/list/len.hnl"), funcs: &["len"], ops: &[], registry: None },
-    ModuleSpec { name: "list_is_empty", hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None },
-    ModuleSpec { name: "list_push", hnl: include_str!("../../../handl-packages/collections/list/push.hnl"), funcs: &["push"], ops: &[], registry: None },
-    ModuleSpec { name: "list_peek", hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"), funcs: &["peek"], ops: &[], registry: None },
-    ModuleSpec { name: "list_pop", hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"), funcs: &["pop"], ops: &[], registry: None },
+    ModuleSpec {
+        name: "list_len",
+        hnl: include_str!("../../../handl-packages/collections/list/len.hnl"),
+        funcs: &["len"],
+        ops: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "list_is_empty",
+        hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"),
+        funcs: &["is_empty"],
+        ops: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "list_push",
+        hnl: include_str!("../../../handl-packages/collections/list/push.hnl"),
+        funcs: &["push"],
+        ops: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "list_peek",
+        hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"),
+        funcs: &["peek"],
+        ops: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "list_pop",
+        hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"),
+        funcs: &["pop"],
+        ops: &[],
+        registry: None,
+    },
     ModuleSpec {
         name: "queue",
         hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
@@ -296,8 +325,20 @@ pub static MODULES: &[ModuleSpec] = &[
     // The `array` package is loaded from `handl-packages/collections/array/index.hnl`
     // at runtime via `crate::loader::load_hnl_file` instead of being embedded here.
     // `hash_map` still depends on the leaf `len` and `contains` submodules.
-    ModuleSpec { name: "len", hnl: include_str!("../../../handl-packages/collections/array/len.hnl"), funcs: &["len"], ops: &[], registry: None },
-    ModuleSpec { name: "contains", hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"), funcs: &["contains"], ops: &[], registry: None },
+    ModuleSpec {
+        name: "len",
+        hnl: include_str!("../../../handl-packages/collections/array/len.hnl"),
+        funcs: &["len"],
+        ops: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "contains",
+        hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"),
+        funcs: &["contains"],
+        ops: &[],
+        registry: None,
+    },
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
     ModuleSpec {
         name: "stats",
@@ -458,8 +499,6 @@ pub static PACKAGES: &[PackageSpec] = &[
         hnl: include_str!("../../../handl-packages/cmp/cmp.hnl"),
         modules: &[],
     },
-
-
     PackageSpec {
         lib_name: "collections",
         plugin_id: "lib.collections",
@@ -690,10 +729,7 @@ impl Default for TableImportResolver {
 }
 
 impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
-    fn resolve_import(
-        &self,
-        path: &str,
-    ) -> Result<serde_json::Value, handl_language::LangError> {
+    fn resolve_import(&self, path: &str) -> Result<serde_json::Value, handl_language::LangError> {
         let name = normalize_module_name(path).to_string();
         if let Ok(cache) = self.cache.lock() {
             if let Some(value) = cache.get(&name) {
@@ -960,7 +996,10 @@ mod tests {
         // Deep path keeps only the basename (minus extension).
         assert_eq!(normalize_module_name("a/b/c.hnl"), "c");
         // Nested `collections/array` path.
-        assert_eq!(normalize_module_name("collections/array/reverse.hnl"), "reverse");
+        assert_eq!(
+            normalize_module_name("collections/array/reverse.hnl"),
+            "reverse"
+        );
         // Private module name.
         assert_eq!(normalize_module_name("./_reflect.hnl"), "_reflect");
     }

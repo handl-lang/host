@@ -39,10 +39,7 @@ impl SdkgenConfig {
 
     /// Return `true` if the symbol is explicitly skipped.
     pub fn should_skip(&self, name: &str) -> bool {
-        self.symbols
-            .get(name)
-            .and_then(|o| o.skip)
-            .unwrap_or(false)
+        self.symbols.get(name).and_then(|o| o.skip).unwrap_or(false)
     }
 
     /// Apply overrides to a parsed C function.

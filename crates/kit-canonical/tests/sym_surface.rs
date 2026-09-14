@@ -58,7 +58,10 @@ fn sym_empty_call_mints_nominal_object() {
     let v = eval("sym()");
     let inner = v.get("__sym__").expect("sym() must mint {__sym__: ...}");
     assert!(inner.get("handle").is_some(), "nominal has a handle: {v}");
-    assert!(inner.get("parent").unwrap().is_null(), "root sym has null parent: {v}");
+    assert!(
+        inner.get("parent").unwrap().is_null(),
+        "root sym has null parent: {v}"
+    );
 }
 
 #[test]
@@ -71,7 +74,10 @@ fn sym_with_parent_mints_child_linked_to_parent() {
         .unwrap()
         .get("parent")
         .expect("child must carry a parent");
-    assert!(parent.get("__sym__").is_some(), "parent must be a nominal: {v}");
+    assert!(
+        parent.get("__sym__").is_some(),
+        "parent must be a nominal: {v}"
+    );
 }
 
 #[test]
@@ -154,12 +160,10 @@ fn float_nominal_is_instanceof_number_nominal() {
         "Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Float, Number)",
     );
     assert_eq!(v, json!(true), "Float nominal must descend from Number");
-    let v = eval(
-        "Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Int, Number)",
-    );
+    let v =
+        eval("Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Int, Number)");
     assert_eq!(v, json!(true), "Int nominal must descend from Number");
-    let v = eval(
-        "Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Float, Int)",
-    );
+    let v =
+        eval("Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Float, Int)");
     assert_eq!(v, json!(false), "sibling nominals are unrelated");
 }

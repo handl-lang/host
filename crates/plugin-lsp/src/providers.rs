@@ -6,16 +6,17 @@
 
 use handl_host_tooling::lsp::{CompletionItem, DocumentSymbol, Position, Range, TextEdit};
 use handl_language::{
-    Ast, AstNode, AstRef, LangError, Language, LspDef, LspMatch, LspRule, Span, Token, Tokens, Value,
+    Ast, AstNode, AstRef, LangError, Language, LspDef, LspMatch, LspRule, Span, Token, Tokens,
+    Value,
 };
-use std::collections::BTreeSet;
-use std::fs;
-use std::path::{Path, PathBuf};
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_engine_transform_rewrite::condition::matches_condition;
 use handl_plugin_ext_diag::split_statements;
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// A parsed source module, ready for LSP rule evaluation.
 pub(crate) struct ParsedModule<'a> {
@@ -646,7 +647,11 @@ fn resolve_module_path(spec: &str, base: &Path, layouts: &[String]) -> Option<Pa
 }
 
 /// Extract leading trivia from the start of `module` as markdown.
-fn module_leading_docs(lang: &Language, module: &ParsedModule<'_>, rule: &LspRule) -> Option<String> {
+fn module_leading_docs(
+    lang: &Language,
+    module: &ParsedModule<'_>,
+    rule: &LspRule,
+) -> Option<String> {
     let leading_kinds = rule
         .config
         .get("module_docs")
@@ -678,7 +683,11 @@ fn is_string_token(token: &Token) -> bool {
 
 /// Extract a list of strings from a JSON array value.
 fn as_string_list(values: &[Value]) -> Vec<String> {
-    values.iter().filter_map(Value::as_str).map(String::from).collect()
+    values
+        .iter()
+        .filter_map(Value::as_str)
+        .map(String::from)
+        .collect()
 }
 
 /// Directory portion of an absolute or workspace-relative file path.
@@ -797,10 +806,11 @@ pub(crate) fn run_import_path(
         }
         let new_text = format!("\"{}\"", rel_str);
         let mut item = CompletionItem::new(&rel_str);
-        item.detail = resolved
-            .is_dir()
-            .then_some("directory".to_string());
-        item.text_edit = Some(TextEdit { range: range.clone(), new_text });
+        item.detail = resolved.is_dir().then_some("directory".to_string());
+        item.text_edit = Some(TextEdit {
+            range: range.clone(),
+            new_text,
+        });
         items.push(item);
     }
 
@@ -834,13 +844,21 @@ pub(crate) fn run_import_name(
 
     let import_idx = if name_tokens.iter().any(|k| k == &module.tokens[idx].kind) {
         idx
-    } else if idx > 0 && name_tokens.iter().any(|k| k == &module.tokens[idx - 1].kind) {
+    } else if idx > 0
+        && name_tokens
+            .iter()
+            .any(|k| k == &module.tokens[idx - 1].kind)
+    {
         idx - 1
     } else {
         return Vec::new();
     };
 
-    let Some(spec_tok) = module.tokens.get(import_idx.saturating_sub(1)).filter(|t| is_string_token(t)) else {
+    let Some(spec_tok) = module
+        .tokens
+        .get(import_idx.saturating_sub(1))
+        .filter(|t| is_string_token(t))
+    else {
         return Vec::new();
     };
 
@@ -879,7 +897,13 @@ pub(crate) fn run_import_name(
         .unwrap_or_else(|| {
             def.rules
                 .iter()
-                .filter_map(|(id, r)| if r.kind == "export" { Some(id.clone()) } else { None })
+                .filter_map(|(id, r)| {
+                    if r.kind == "export" {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                })
                 .collect()
         });
 
@@ -921,7 +945,13 @@ pub(crate) fn run_exported_names(
         .unwrap_or_else(|| {
             def.rules
                 .iter()
-                .filter_map(|(id, r)| if r.kind == "export" { Some(id.clone()) } else { None })
+                .filter_map(|(id, r)| {
+                    if r.kind == "export" {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                })
                 .collect()
         });
 

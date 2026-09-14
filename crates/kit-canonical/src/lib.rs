@@ -32,8 +32,11 @@ use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_ext_diag::Severity;
+use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno};
 use handl_plugin_lib_char_native::CharModule;
-use handl_plugin_lib_handl::{HandlModule, HandlNativeLint, HandlNativeRewrite, ModuleResolver, OpRegistry};
+use handl_plugin_lib_handl::{
+    HandlModule, HandlNativeLint, HandlNativeRewrite, ModuleResolver, OpRegistry,
+};
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
@@ -44,11 +47,10 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_tag::TypeRegistry;
-use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno};
 use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
-use handl_runtime::vm_primitives::SymModule;
 use handl_runtime::RuntimeFactory;
+use handl_runtime::vm_primitives::SymModule;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -234,9 +236,8 @@ fn get_module(
     name: &str,
     builder: impl FnOnce() -> std::sync::Arc<dyn Module + Send + Sync>,
 ) -> std::sync::Arc<dyn Module + Send + Sync> {
-    let cache = MODULE_CACHE.get_or_init(|| {
-        std::sync::Mutex::new(std::collections::HashMap::new())
-    });
+    let cache =
+        MODULE_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
     let mut map = cache.lock().unwrap();
     if let Some(m) = map.get(name) {
         return std::sync::Arc::clone(m);
@@ -256,9 +257,8 @@ static HANDL_MODULE_CACHE: std::sync::OnceLock<
 
 /// Get a `.hnl` [`HandlModule`] from the cache or build it once.
 fn get_handl_module(name: &str, builder: impl FnOnce() -> HandlModule) -> Arc<HandlModule> {
-    let cache = HANDL_MODULE_CACHE.get_or_init(|| {
-        std::sync::Mutex::new(std::collections::HashMap::new())
-    });
+    let cache =
+        HANDL_MODULE_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
     let mut map = cache.lock().unwrap();
     if let Some(m) = map.get(name) {
         return Arc::clone(m);
@@ -284,26 +284,51 @@ impl ModuleResolver for StdlibResolver {
         name: &str,
     ) -> Option<std::sync::Arc<dyn handl_platform::Module + Send + Sync>> {
         match name {
-            "str" => Some(coerce_handl(get_handl_module("str", build_str_handl_module))),
+            "str" => Some(coerce_handl(get_handl_module(
+                "str",
+                build_str_handl_module,
+            ))),
             "char" => Some(Arc::new(CharModule)),
             "unicode" => Some(Arc::new(UnicodeModule)),
             "transform" => Some(Arc::new(TransformModule::new())),
             "comb" => Some(Arc::new(CombModule::new())),
             "ffi" => Some(coerce_handl(get_handl_module("ffi", build_ffi_module))),
-            "fn" | "combinators" => Some(coerce_handl(get_handl_module("combinators", || stdlib::module("combinators").expect("combinators")))),
-            "math" => Some(coerce_handl(get_handl_module("math", || stdlib::module("math").expect("math")))),
-            "prim" => Some(coerce_handl(get_handl_module("prim", || stdlib::module("prim").expect("prim")))),
-            "bool" => Some(coerce_handl(get_handl_module("bool", || stdlib::module("bool").expect("bool")))),
+            "fn" | "combinators" => Some(coerce_handl(get_handl_module("combinators", || {
+                stdlib::module("combinators").expect("combinators")
+            }))),
+            "math" => Some(coerce_handl(get_handl_module("math", || {
+                stdlib::module("math").expect("math")
+            }))),
+            "prim" => Some(coerce_handl(get_handl_module("prim", || {
+                stdlib::module("prim").expect("prim")
+            }))),
+            "bool" => Some(coerce_handl(get_handl_module("bool", || {
+                stdlib::module("bool").expect("bool")
+            }))),
             // `option` is a table module whose `tag` dep is not in the
             // table (`tag` stays native in `plugin-lib-tag`), so it is
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
-            "option" => Some(coerce_handl(get_handl_module("option", || stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option")))),
+            "option" => Some(coerce_handl(get_handl_module("option", || {
+                stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option")
+            }))),
             "type" => Some(coerce_handl(get_handl_module("type", build_type_module))),
-            "dedent" => Some(coerce_handl(get_handl_module("dedent", build_dedent_module))),
-            "perlin" => Some(coerce_handl(get_handl_module("perlin", build_perlin_module))),
-            "simplex" => Some(coerce_handl(get_handl_module("simplex", build_simplex_module))),
-            "rand" => Some(coerce_handl(get_handl_module("rand", build_rand_stub_module))),
+            "dedent" => Some(coerce_handl(get_handl_module(
+                "dedent",
+                build_dedent_module,
+            ))),
+            "perlin" => Some(coerce_handl(get_handl_module(
+                "perlin",
+                build_perlin_module,
+            ))),
+            "simplex" => Some(coerce_handl(get_handl_module(
+                "simplex",
+                build_simplex_module,
+            ))),
+            "rand" => Some(coerce_handl(get_handl_module(
+                "rand",
+                build_rand_stub_module,
+            ))),
             // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
             // surface): `sym()` / `sym(parent)` mint via the existing
             // grammar's `call` rule (flat-name lookup), and
@@ -312,17 +337,27 @@ impl ModuleResolver for StdlibResolver {
             "sym" => Some(Arc::new(SymModule::new())),
             // `error` — the error-raising primitive (ADR-0092 gap (a));
             // a plain table module.
-            "error" => Some(coerce_handl(get_handl_module("error", || stdlib::module("error").expect("error")))),
+            "error" => Some(coerce_handl(get_handl_module("error", || {
+                stdlib::module("error").expect("error")
+            }))),
             // `obj` — record introspection (gap #3); a plain table module.
-            "obj" => Some(coerce_handl(get_handl_module("obj", || stdlib::module("obj").expect("obj")))),
-            "typeof" => Some(coerce_handl(get_handl_module("typeof", || stdlib::module("typeof").expect("typeof")))),
+            "obj" => Some(coerce_handl(get_handl_module("obj", || {
+                stdlib::module("obj").expect("obj")
+            }))),
+            "typeof" => Some(coerce_handl(get_handl_module("typeof", || {
+                stdlib::module("typeof").expect("typeof")
+            }))),
             // `result` is a table module whose `tag` dep is not in the
             // table (`tag` stays native in `plugin-lib-tag`), so it is
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
             "tag" => Some(Arc::new(TagModule)),
-            "result" => Some(coerce_handl(get_handl_module("result", || stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result")))),
-            "cmp" => Some(coerce_handl(get_handl_module("cmp", || stdlib::module("cmp").expect("cmp")))),
+            "result" => Some(coerce_handl(get_handl_module("result", || {
+                stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result")
+            }))),
+            "cmp" => Some(coerce_handl(get_handl_module("cmp", || {
+                stdlib::module("cmp").expect("cmp")
+            }))),
             "ip" => Some(Arc::new(stdlib::ops::ip::IpModule)),
             _ => None,
         }
@@ -345,7 +380,7 @@ impl ImportResolver for DedentImportResolver {
             _ => {
                 return Err(LangError::engine(format!(
                     "import: no relative module `{path}` in dedent package"
-                )))
+                )));
             }
         };
         let module = get_module(name, || match name {
@@ -394,7 +429,9 @@ fn build_test_module() -> HandlModule {
     HandlModule::new("test", TEST_HNL, TEST_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
         ))
@@ -405,7 +442,9 @@ fn build_property_module() -> HandlModule {
     HandlModule::new("property", PROPERTY_HNL, PROPERTY_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
         ))
@@ -414,7 +453,9 @@ fn build_property_module() -> HandlModule {
 fn build_benchmark_module() -> HandlModule {
     HandlModule::new("benchmark", BENCHMARK_HNL, BENCHMARK_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
         ))
@@ -424,7 +465,9 @@ fn build_fuzz_module() -> HandlModule {
     HandlModule::new("fuzz", FUZZ_HNL, FUZZ_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
         .with_dependency_arc(std::sync::Arc::new(build_rand_stub_module()))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
         .with_dependency_arc(std::sync::Arc::new(
             stdlib::module("combinators").expect("combinators"),
         ))
@@ -433,13 +476,17 @@ fn build_fuzz_module() -> HandlModule {
 fn build_snapshot_module() -> HandlModule {
     HandlModule::new("snapshot", SNAPSHOT_HNL, SNAPSHOT_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
 }
 
 fn build_assert_module() -> HandlModule {
     HandlModule::new("assert", ASSERT_HNL, ASSERT_FUNCS)
         .with_dependency_arc(std::sync::Arc::new(TagModule))
-        .with_dependency_arc(std::sync::Arc::new(stdlib::module("serialize").expect("serialize")))
+        .with_dependency_arc(std::sync::Arc::new(
+            stdlib::module("serialize").expect("serialize"),
+        ))
 }
 
 /// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
@@ -459,9 +506,11 @@ fn build_str_handl_module() -> HandlModule {
 
 /// Build the deterministic, pure-Handl `rand` backend from `rand-stub`.
 fn build_rand_stub_module() -> HandlModule {
-    HandlModule::new("rand", RAND_STUB_HNL, RAND_STUB_FUNCS).with_global_lookup(std::sync::Arc::new(
-        stdlib::TableModuleLookup::new(std::sync::Arc::new(StdlibResolver)),
-    ))
+    HandlModule::new("rand", RAND_STUB_HNL, RAND_STUB_FUNCS).with_global_lookup(
+        std::sync::Arc::new(stdlib::TableModuleLookup::new(std::sync::Arc::new(
+            StdlibResolver,
+        ))),
+    )
 }
 
 /// The handl-native adapters a host can build from the kit's registered
@@ -553,19 +602,21 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             );
         }
         if want("math") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "math",
-                || stdlib::module("math").expect("math"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "math", || {
+                stdlib::module("math").expect("math")
+            });
         }
         // `str-handl` is the pure-handl `str` impl over the `char` floor;
         // it satisfies the `str` contract. Registered under `"str"` in
         // place of the former all-FFI `StrModule`, so `str.*` lookups and
         // `from "str" import` callers resolve to the handl impl.
         if want("str") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "str", build_str_handl_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "str",
+                build_str_handl_module,
+            );
         }
         if want("char") {
             stdlib_registry.register(CharModule);
@@ -574,18 +625,20 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             stdlib_registry.register(UnicodeModule);
         }
         if want("bool") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "bool",
-                || stdlib::module("bool").expect("bool"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "bool", || {
+                stdlib::module("bool").expect("bool")
+            });
         }
         // `type` — the canonical runtime-introspection module: the
         // `type-handl` record (predicates/guards) over the native
         // `type.of`/`type.to_string`/`type.to_number`/`type.coalesce` ops.
         if want("type") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "type", build_type_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "type",
+                build_type_module,
+            );
         }
         // `sym` — ADR-0106 §2 nominal identity primitives (Phase 3
         // surface, zero lexer/parser changes): `sym()` / `sym(parent)`
@@ -597,58 +650,40 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `typeof` — the legacy all-FFI type module, kept for `typeof.*`
         // callers (e.g. `stats.hnl`'s `typeof.type_of` filter).
         if want("typeof") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "typeof",
-                || stdlib::module("typeof").expect("typeof"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "typeof", || {
+                stdlib::module("typeof").expect("typeof")
+            });
         }
         // `option` — pure-handl `some`/`none` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
         if want("option") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "option",
-                || stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "option", || {
+                stdlib::module_with("option", Arc::new(StdlibResolver)).expect("option")
+            });
         }
         // `result` — pure-handl `ok`/`err` constructors over the `tag.*`
         // atoms; built via `module_with` so its `tag` dep resolves to
         // `TagModule` through `StdlibResolver`.
         if want("result") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "result",
-                || stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "result", || {
+                stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result")
+            });
         }
         if want("mood") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "mood",
-                || stdlib::module("mood").expect("mood"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "mood", || {
+                stdlib::module("mood").expect("mood")
+            });
         }
         if want("encoding") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "encoding",
-                || stdlib::module("encoding").expect("encoding"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "encoding", || {
+                stdlib::module("encoding").expect("encoding")
+            });
         }
         if want("parse") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "parse",
-                || stdlib::module("parse").expect("parse"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "parse", || {
+                stdlib::module("parse").expect("parse")
+            });
         }
         if want("serialize") {
             register_handl(
@@ -662,34 +697,30 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // ADR-0092 gap (a)); ops-only table module, callable as
         // `error.raise(msg)` from any .hnl source or eval expression.
         if want("error") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "error",
-                || stdlib::module("error").expect("error"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "error", || {
+                stdlib::module("error").expect("error")
+            });
         }
         // `obj` — record introspection primitives (`obj.keys`/`obj.values`/
         // `obj.entries`); ops-only table module.
         if want("obj") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "obj",
-                || stdlib::module("obj").expect("obj"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "obj", || {
+                stdlib::module("obj").expect("obj")
+            });
         }
         // `ffi` — partial `ffi.hnl` package with native `call`/`bind`/`errno` ops.
-        register_handl(&mut stdlib_registry, &mut handl_modules, "ffi", build_ffi_module);
+        register_handl(
+            &mut stdlib_registry,
+            &mut handl_modules,
+            "ffi",
+            build_ffi_module,
+        );
         // `entropy` — the libsodium-backed `next_u32` surface that `rand-c`
         // is built on. Built with the stdlib resolver so `ffi`/`math` resolve.
         if want("entropy") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "entropy",
-                || stdlib::module_with("entropy", Arc::new(StdlibResolver)).expect("entropy"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "entropy", || {
+                stdlib::module_with("entropy", Arc::new(StdlibResolver)).expect("entropy")
+            });
         }
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
@@ -703,33 +734,78 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             stdlib_registry.register(TagModule);
         }
         if want("dedent") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "dedent", build_dedent_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "dedent",
+                build_dedent_module,
+            );
         }
         if want("perlin") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "perlin", build_perlin_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "perlin",
+                build_perlin_module,
+            );
         }
         if want("simplex") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "simplex", build_simplex_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "simplex",
+                build_simplex_module,
+            );
         }
         // `test` framework modules — pure handl over tag/json/rand/time/
         // combinators (ADR-0092).
         if want("test") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "test", build_test_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "test",
+                build_test_module,
+            );
         }
         if want("property") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "property", build_property_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "property",
+                build_property_module,
+            );
         }
         if want("benchmark") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "benchmark", build_benchmark_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "benchmark",
+                build_benchmark_module,
+            );
         }
         if want("fuzz") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "fuzz", build_fuzz_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "fuzz",
+                build_fuzz_module,
+            );
         }
         if want("snapshot") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "snapshot", build_snapshot_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "snapshot",
+                build_snapshot_module,
+            );
         }
         if want("assert") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "assert", build_assert_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "assert",
+                build_assert_module,
+            );
         }
         if want("transform") {
             stdlib_registry.register_arc(Arc::new(TransformModule::new()));
@@ -740,25 +816,24 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `prim` — the atom layer: all four functions are pure handl
         // (`prim-handl` record over builtin `+`/`[]`/`math.bit_or`/`cmp.compare`).
         if want("prim") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "prim",
-                || stdlib::module("prim").expect("prim"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "prim", || {
+                stdlib::module("prim").expect("prim")
+            });
         }
         // `cmp` — ordering and sorting (gap #4).
         if want("cmp") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "cmp",
-                || stdlib::module("cmp").expect("cmp"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "cmp", || {
+                stdlib::module("cmp").expect("cmp")
+            });
         }
         // `rand` — deterministic seeded RNG for `property`/`fuzz` (ADR-0092).
         if want("rand") {
-            register_handl(&mut stdlib_registry, &mut handl_modules, "rand", build_rand_stub_module);
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "rand",
+                build_rand_stub_module,
+            );
         }
         if want("ip") {
             stdlib_registry.register(stdlib::ops::ip::IpModule);
@@ -1136,7 +1211,9 @@ impl Function for TransformReduce {
         let (xs, mut acc, f) = match args.len() {
             1 => {
                 let tuple = args[0].as_array().ok_or_else(|| {
-                    EvalError::Other("transform.reduce: argument must be a 3-element list".to_string())
+                    EvalError::Other(
+                        "transform.reduce: argument must be a 3-element list".to_string(),
+                    )
                 })?;
                 if tuple.len() != 3 {
                     return Err(EvalError::Other(format!(
@@ -1156,7 +1233,9 @@ impl Function for TransformReduce {
             }
             3 => (
                 args[0].as_array().ok_or_else(|| {
-                    EvalError::Other("transform.reduce: first argument must be an array".to_string())
+                    EvalError::Other(
+                        "transform.reduce: first argument must be an array".to_string(),
+                    )
                 })?,
                 args[1].clone(),
                 &args[2],
@@ -1165,7 +1244,7 @@ impl Function for TransformReduce {
                 return Err(EvalError::Other(format!(
                     "transform.reduce: expected 1 or 3 arguments, got {}",
                     args.len()
-                )))
+                )));
             }
         };
         for x in xs {
@@ -2249,7 +2328,10 @@ impl Kit {
             .iter()
             .find(|d| d.severity.eq_ignore_ascii_case("error"))
         {
-            return Err(LangError::engine(format!("typecheck error: {}", err.message)));
+            return Err(LangError::engine(format!(
+                "typecheck error: {}",
+                err.message
+            )));
         }
         Ok(result.typ)
     }

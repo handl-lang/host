@@ -376,7 +376,9 @@ pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalE
             .to_string();
         let kind = parts
             .next()
-            .ok_or_else(|| EvalError::TypeMismatch(format!("out_struct field missing type: {pair}")))?
+            .ok_or_else(|| {
+                EvalError::TypeMismatch(format!("out_struct field missing type: {pair}"))
+            })?
             .trim()
             .to_string();
         let size = match kind.as_str() {
@@ -387,7 +389,7 @@ pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalE
             other => {
                 return Err(EvalError::TypeMismatch(format!(
                     "out_struct: unsupported field type {other}"
-                )))
+                )));
             }
         };
         let align = size;
@@ -399,7 +401,11 @@ pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalE
         offset += size;
     }
     // Add trailing alignment to the struct's total size.
-    let max_align = fields.iter().map(|(_, _, _, size)| *size).max().unwrap_or(1);
+    let max_align = fields
+        .iter()
+        .map(|(_, _, _, size)| *size)
+        .max()
+        .unwrap_or(1);
     let total = if offset == 0 {
         0
     } else {
@@ -478,7 +484,7 @@ pub(crate) fn unmarshal_out_struct(out: &OutStruct) -> Result<JsonValue, EvalErr
             other => {
                 return Err(EvalError::TypeMismatch(format!(
                     "out_struct: unsupported field type {other}"
-                )))
+                )));
             }
         };
         map.insert(name.clone(), value);

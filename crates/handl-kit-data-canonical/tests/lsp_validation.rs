@@ -9,5 +9,8 @@ fn canonical_lsp_validates_clean() {
         .iter()
         .filter(|d| d.severity == Severity::Error)
         .collect();
-    assert!(errors.is_empty(), "unexpected lsp validation errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "unexpected lsp validation errors: {errors:?}"
+    );
 }

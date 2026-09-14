@@ -1306,9 +1306,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
             .as_str()
             .ok_or("var: payload is not a string")?;
         if name == "id" {
-            return Ok(TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
-                .to_term()
-                .expect("materialize_node: id TermData -> Term failed"));
+            return Ok(
+                TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
+                    .to_term()
+                    .expect("materialize_node: id TermData -> Term failed"),
+            );
         }
         return Ok(TermData::app(
             TermData::op(name.to_string(), vec![], &ArrSource::Native, None),
@@ -1381,9 +1383,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
             .ok_or("choice: missing right child")? as usize;
         let l = materialize_node(ast, l_idx, lang)?;
         let r = materialize_node(ast, r_idx, lang)?;
-        return Ok(TermData::choice(TermData::from_term(&l), TermData::from_term(&r))
-            .to_term()
-            .expect("materialize_node: choice TermData -> Term failed"));
+        return Ok(
+            TermData::choice(TermData::from_term(&l), TermData::from_term(&r))
+                .to_term()
+                .expect("materialize_node: choice TermData -> Term failed"),
+        );
     }
 
     // `call` — function call. Dispatch on callee name for arrow combinators.
@@ -1451,9 +1455,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
                         as usize;
                     let a = materialize_node(ast, a_idx, lang)?;
                     let b = materialize_node(ast, b_idx, lang)?;
-                    return Ok(TermData::seq(TermData::from_term(&a), TermData::from_term(&b))
-                        .to_term()
-                        .expect("materialize_node: comp TermData -> Term failed"));
+                    return Ok(
+                        TermData::seq(TermData::from_term(&a), TermData::from_term(&b))
+                            .to_term()
+                            .expect("materialize_node: comp TermData -> Term failed"),
+                    );
                 }
                 "first" => {
                     // first(a) → First { inner: a }
@@ -1591,7 +1597,8 @@ fn walk_scheme_td(
                     let idx = td
                         .get("lit")
                         .and_then(|v| v.as_u64())
-                        .ok_or("proj_child: missing index literal")? as usize;
+                        .ok_or("proj_child: missing index literal")?
+                        as usize;
                     let children = get_children(&node.payload)?;
                     let child_arena_idx = children
                         .get(idx)
@@ -1607,7 +1614,8 @@ fn walk_scheme_td(
                     let child0_idx = children
                         .first()
                         .and_then(|v| v.as_u64())
-                        .ok_or("$str_child0: missing child 0")? as usize;
+                        .ok_or("$str_child0: missing child 0")?
+                        as usize;
                     let child0 = ast
                         .nodes()
                         .get(child0_idx)
@@ -1681,7 +1689,9 @@ fn walk_scheme_td(
 
         "Loop" => {
             let body = td.get_term("body").ok_or("Loop: missing body")?;
-            Ok(TermData::loop_feedback(walk_scheme_td(&body, ast, node, lang)?))
+            Ok(TermData::loop_feedback(walk_scheme_td(
+                &body, ast, node, lang,
+            )?))
         }
 
         "App" => {
@@ -1743,7 +1753,8 @@ fn walk_args_td(
             for i in 1..children.len() {
                 let child_idx = children[i]
                     .as_u64()
-                    .ok_or("proj_rest: child index not a number")? as usize;
+                    .ok_or("proj_rest: child index not a number")?
+                    as usize;
                 let child_term = materialize_node(ast, child_idx, lang)?;
                 result.push(TermData::from_term(&child_term));
             }

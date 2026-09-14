@@ -413,9 +413,8 @@ impl Function for FfiBind {
             arg_names.push(format!("__arg_{i}"));
         }
         let args_list = arg_names.join(", ");
-        let body = format!(
-            "ffi.call(__lib, __sym, [{args_list}], __descriptors, __ret_kind, __errno)"
-        );
+        let body =
+            format!("ffi.call(__lib, __sym, [{args_list}], __descriptors, __ret_kind, __errno)");
 
         // Captured constants for the closure.
         let mut captured = Vec::new();
@@ -429,7 +428,10 @@ impl Function for FfiBind {
         }
         captured.push(json!("__descriptors"));
         captured.push(JsonValue::Array(
-            descriptors.iter().map(|s| JsonValue::String(s.clone())).collect(),
+            descriptors
+                .iter()
+                .map(|s| JsonValue::String(s.clone()))
+                .collect(),
         ));
         captured.push(json!("__ret_kind"));
         captured.push(JsonValue::String(ret_kind.to_string()));

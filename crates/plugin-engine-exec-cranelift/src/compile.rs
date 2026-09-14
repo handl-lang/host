@@ -1008,9 +1008,7 @@ fn compile_scheme_td(
         }
 
         "Loop" => {
-            let body = td
-                .get_term("body")
-                .expect("Loop term missing 'body' field");
+            let body = td.get_term("body").expect("Loop term missing 'body' field");
             compile_loop(
                 builder,
                 &body,
@@ -1079,9 +1077,7 @@ fn compile_scheme_td(
         // the `Term` enum, so the `TermData` is converted back via
         // [`TermData::to_term`] for this one case.
         "Handle" => {
-            let term = td
-                .to_term()
-                .map_err(|e| LangError::engine(e.to_string()))?;
+            let term = td.to_term().map_err(|e| LangError::engine(e.to_string()))?;
             let eliminated = handl_language::eliminate_and_check(&term)
                 .map_err(|e| LangError::engine(e.to_string()))?;
             compile_scheme(
@@ -1119,9 +1115,7 @@ fn compile_scheme_td(
             )
         }
         "Src" => {
-            let cell = td
-                .get_term("cell")
-                .expect("Src term missing 'cell' field");
+            let cell = td.get_term("cell").expect("Src term missing 'cell' field");
             compile_scheme_td(
                 builder,
                 &TermData::op("cell2_src", vec![cell], &ArrSource::Native, None),
@@ -1134,9 +1128,7 @@ fn compile_scheme_td(
             )
         }
         "Tgt" => {
-            let cell = td
-                .get_term("cell")
-                .expect("Tgt term missing 'cell' field");
+            let cell = td.get_term("cell").expect("Tgt term missing 'cell' field");
             compile_scheme_td(
                 builder,
                 &TermData::op("cell2_tgt", vec![cell], &ArrSource::Native, None),
@@ -1184,7 +1176,7 @@ fn compile_scheme_td(
                 other => {
                     return Err(LangError::engine(format!(
                         "Whisker: unknown side '{other}'"
-                    )))
+                    )));
                 }
             };
             compile_scheme_td(

@@ -52,7 +52,9 @@ fn rand_c_bool_is_boolean() {
 fn rand_c_pick_is_from_input() {
     let v = eval_rand_c("pick([\"a\", \"b\", \"c\"])");
     assert!(
-        ["a", "b", "c"].iter().any(|s| *s == v.as_str().unwrap_or("")),
+        ["a", "b", "c"]
+            .iter()
+            .any(|s| *s == v.as_str().unwrap_or("")),
         "rand-c pick must be an element: {v}"
     );
 }
@@ -71,7 +73,10 @@ fn rand_c_sample_is_subset() {
     assert_eq!(arr.len(), 2, "rand-c sample length must match count");
     for item in arr {
         let s = item.as_str().unwrap_or("");
-        assert!(["a", "b", "c"].contains(&s), "rand-c sample must be from input: {item}");
+        assert!(
+            ["a", "b", "c"].contains(&s),
+            "rand-c sample must be from input: {item}"
+        );
     }
 }
 
@@ -82,7 +87,10 @@ fn rand_c_shuffle_is_permutation() {
     assert_eq!(arr.len(), 3, "rand-c shuffle length must match input");
     for item in arr {
         let s = item.as_str().unwrap_or("");
-        assert!(["a", "b", "c"].contains(&s), "rand-c shuffle must be a permutation: {item}");
+        assert!(
+            ["a", "b", "c"].contains(&s),
+            "rand-c shuffle must be a permutation: {item}"
+        );
     }
 }
 
@@ -93,7 +101,10 @@ fn rand_c_bytes_length_and_range() {
     assert_eq!(arr.len(), 8, "rand-c bytes length must match n");
     for item in arr {
         let b = item.as_f64().unwrap_or(-1.0);
-        assert!((0.0..=255.0).contains(&b), "rand-c byte out of range: {item}");
+        assert!(
+            (0.0..=255.0).contains(&b),
+            "rand-c byte out of range: {item}"
+        );
     }
 }
 
@@ -110,14 +121,19 @@ fn rand_c_string_length_and_charset() {
 #[test]
 fn rand_c_weighted_pick_rejects_length_mismatch() {
     let v = eval_rand_c("weighted_pick([1, 2], [\"a\"])");
-    assert!(v.is_null(), "rand-c weighted_pick must reject length mismatch: {v}");
+    assert!(
+        v.is_null(),
+        "rand-c weighted_pick must reject length mismatch: {v}"
+    );
 }
 
 #[test]
 fn rand_c_weighted_pick_is_from_input() {
     let v = eval_rand_c("weighted_pick([1, 2, 3], [\"a\", \"b\", \"c\"])");
     assert!(
-        ["a", "b", "c"].iter().any(|s| *s == v.as_str().unwrap_or("")),
+        ["a", "b", "c"]
+            .iter()
+            .any(|s| *s == v.as_str().unwrap_or("")),
         "rand-c weighted_pick must be from items: {v}"
     );
 }
@@ -138,7 +154,10 @@ fn rand_stub_is_deterministic() {
 
 #[test]
 fn rand_stub_pick_is_first() {
-    assert_eq!(eval_rand_stub("pick([\"x\", \"y\", \"z\"])"), serde_json::json!("x"));
+    assert_eq!(
+        eval_rand_stub("pick([\"x\", \"y\", \"z\"])"),
+        serde_json::json!("x")
+    );
 }
 
 #[test]
@@ -151,15 +170,27 @@ fn rand_stub_weighted_pick_is_first() {
 
 #[test]
 fn rand_stub_choice_sample_shuffle_are_deterministic() {
-    assert_eq!(eval_rand_stub("choice([\"a\", \"b\"], 3)"), serde_json::json!(["a", "b", "a"]));
-    assert_eq!(eval_rand_stub("sample([\"a\", \"b\", \"c\"], 2)"), serde_json::json!(["a", "b"]));
-    assert_eq!(eval_rand_stub("shuffle([\"a\", \"b\", \"c\"])"), serde_json::json!(["c", "b", "a"]));
+    assert_eq!(
+        eval_rand_stub("choice([\"a\", \"b\"], 3)"),
+        serde_json::json!(["a", "b", "a"])
+    );
+    assert_eq!(
+        eval_rand_stub("sample([\"a\", \"b\", \"c\"], 2)"),
+        serde_json::json!(["a", "b"])
+    );
+    assert_eq!(
+        eval_rand_stub("shuffle([\"a\", \"b\", \"c\"])"),
+        serde_json::json!(["c", "b", "a"])
+    );
 }
 
 #[test]
 fn rand_stub_bytes_and_string_are_deterministic() {
     assert_eq!(eval_rand_stub("bytes(3)"), serde_json::json!([4, 4, 4]));
-    assert_eq!(eval_rand_stub("string(4, \"abc\")"), serde_json::json!("aaaa"));
+    assert_eq!(
+        eval_rand_stub("string(4, \"abc\")"),
+        serde_json::json!("aaaa")
+    );
 }
 
 #[test]
@@ -246,12 +277,33 @@ fn rand_c_seeded_shuffle_is_reproducible() {
 #[test]
 fn rand_stub_seeded_are_deterministic() {
     assert_eq!(eval_rand_stub("seeded_int(6, 10)"), serde_json::json!(4));
-    assert_eq!(eval_rand_stub("seeded_float(6, 10)"), serde_json::json!(0.5));
+    assert_eq!(
+        eval_rand_stub("seeded_float(6, 10)"),
+        serde_json::json!(0.5)
+    );
     assert_eq!(eval_rand_stub("seeded_bool(6)"), serde_json::json!(true));
-    assert_eq!(eval_rand_stub("seeded_pick(6, [1, 2, 3])"), serde_json::json!(1));
-    assert_eq!(eval_rand_stub("seeded_choice(6, [1, 2], 3)"), serde_json::json!([1, 2, 1]));
-    assert_eq!(eval_rand_stub("seeded_sample(6, [1, 2, 3], 2)"), serde_json::json!([1, 2]));
-    assert_eq!(eval_rand_stub("seeded_shuffle(6, [1, 2, 3])"), serde_json::json!([3, 2, 1]));
-    assert_eq!(eval_rand_stub("seeded_string(6, 4, \"abc\")"), serde_json::json!("aaaa"));
-    assert_eq!(eval_rand_stub("seeded_gauss(6, 5, 2)"), serde_json::json!(5));
+    assert_eq!(
+        eval_rand_stub("seeded_pick(6, [1, 2, 3])"),
+        serde_json::json!(1)
+    );
+    assert_eq!(
+        eval_rand_stub("seeded_choice(6, [1, 2], 3)"),
+        serde_json::json!([1, 2, 1])
+    );
+    assert_eq!(
+        eval_rand_stub("seeded_sample(6, [1, 2, 3], 2)"),
+        serde_json::json!([1, 2])
+    );
+    assert_eq!(
+        eval_rand_stub("seeded_shuffle(6, [1, 2, 3])"),
+        serde_json::json!([3, 2, 1])
+    );
+    assert_eq!(
+        eval_rand_stub("seeded_string(6, 4, \"abc\")"),
+        serde_json::json!("aaaa")
+    );
+    assert_eq!(
+        eval_rand_stub("seeded_gauss(6, 5, 2)"),
+        serde_json::json!(5)
+    );
 }

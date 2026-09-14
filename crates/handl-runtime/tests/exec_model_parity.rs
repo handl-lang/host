@@ -99,7 +99,13 @@ const EXEC_MODEL_FUNCS: &[&str] = &[
 /// Build a `HandlModule` for the exec model with the stdlib dependency chain.
 fn exec_model_module() -> HandlModule {
     HandlModule::new("exec_model", EXEC_MODEL_HNL, EXEC_MODEL_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -115,7 +121,13 @@ fn exec_model_adapter() -> HandlModelAdapter {
 /// reference), used for parity comparison on overlapping tags.
 fn value_model() -> HandlModel {
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);
@@ -173,8 +185,7 @@ fn rust_run(term: &Term, incoming: Value) -> Value {
         node_ref: 0,
         handler_stack: vec![],
     };
-    rust.run(term, incoming, &mut ctx)
-        .unwrap_or(Value::Null)
+    rust.run(term, incoming, &mut ctx).unwrap_or(Value::Null)
 }
 
 /// Run `term` through the `value_model.hnl` [`HandlModel`] with the given
@@ -249,11 +260,7 @@ fn exec_model_number_add_matches_value_model() {
 #[test]
 fn exec_model_record_construction() {
     // record: construct a record from field/value pairs.
-    let args = vec![json!([
-        ["a", 1],
-        ["b", 2],
-        ["c", 3]
-    ])];
+    let args = vec![json!([["a", 1], ["b", 2], ["c", 3]])];
     let result = call_op("record", &args);
     assert_eq!(result, json!({ "a": 1, "b": 2, "c": 3 }));
 }
@@ -621,10 +628,7 @@ fn exec_model_run_tag() {
 fn exec_model_run_record_proj() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
-        TermData::record_proj(
-            TermData::op("id", vec![], &ArrSource::Native, None),
-            "a",
-        ),
+        TermData::record_proj(TermData::op("id", vec![], &ArrSource::Native, None), "a"),
     ));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(1));
@@ -806,10 +810,7 @@ fn exec_model_run_first() {
         TermData::first(TermData::op("inc", vec![], &ArrSource::Native, None)),
     ));
     let result = exec_model_run(&term, Value::Null);
-    assert_eq!(
-        result,
-        json!({ "__pair__": [2, 2] })
-    );
+    assert_eq!(result, json!({ "__pair__": [2, 2] }));
     assert_eq!(result, rust_run(&term, Value::Null));
 }
 

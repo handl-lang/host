@@ -154,11 +154,7 @@ pub fn weakest_precondition(scheme: &Term, registry: &ContractRegistry, post: &P
 
 /// Data-driven counterpart of [`weakest_precondition`], operating on
 /// [`TermData`].
-fn weakest_precondition_td(
-    td: &TermData,
-    registry: &ContractRegistry,
-    post: &Pred,
-) -> Pred {
+fn weakest_precondition_td(td: &TermData, registry: &ContractRegistry, post: &Pred) -> Pred {
     match td.tag() {
         // arr(id) is identity: wp(id, I) = I
         // arr(f) with contract: wp = precondition(f) if guarantee(f) ==> I,
@@ -349,7 +345,10 @@ fn graph_contains_td(td: &TermData, op: &str) -> bool {
         "App" => {
             let callee = td.get_term("callee").expect("App: missing callee");
             graph_contains_td(&callee, op)
-                || td.get_term_list("args").iter().any(|a| graph_contains_td(&a, op))
+                || td
+                    .get_term_list("args")
+                    .iter()
+                    .any(|a| graph_contains_td(&a, op))
         }
         "Handle" => {
             let body = td.get_term("body").expect("Handle: missing body");

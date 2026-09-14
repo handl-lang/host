@@ -6,9 +6,7 @@
 //! `Ast`: the runtime has no lex or parse engine, `lex` returns
 //! `LangError::NotImplemented`, and `eval` works on the provided `Ast`.
 
-use handl_language::{
-    Ast, AstNode, EvalSchemeDef, LangError, Language, Source, Tokens, Value,
-};
+use handl_language::{Ast, AstNode, EvalSchemeDef, LangError, Language, Source, Tokens, Value};
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use plugin_engine::{ArrSource, TermData};
 use serde_json::json;

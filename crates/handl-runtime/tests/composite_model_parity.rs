@@ -32,7 +32,13 @@ fn to_term(td: TermData) -> Term {
 /// Build a `HandlModelAdapter` from the `arrow_model.hnl` module.
 fn handl_adapter() -> HandlModelAdapter {
     let module = HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule);
@@ -83,8 +89,7 @@ fn eval(term: &Term, incoming: Value) -> (Value, Value) {
             node_ref: 0,
             handler_stack: vec![],
         };
-        rust.run(term, incoming, &mut ctx)
-            .unwrap_or(Value::Null)
+        rust.run(term, incoming, &mut ctx).unwrap_or(Value::Null)
     };
 
     (composite_value, rust_value)
@@ -214,10 +219,7 @@ fn parity_app_tag() {
 fn parity_record_proj() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
-        TermData::record_proj(
-            TermData::op("id", vec![], &ArrSource::Native, None),
-            "a",
-        ),
+        TermData::record_proj(TermData::op("id", vec![], &ArrSource::Native, None), "a"),
     ));
     let (composite, rust) = eval(&term, Value::Null);
     assert_eq!(composite, rust);

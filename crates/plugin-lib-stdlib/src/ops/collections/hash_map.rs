@@ -8,8 +8,7 @@ use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 use super::common::{
-    num, obj as object_value, require_array, require_object, require_one_array,
-    require_one_object,
+    num, obj as object_value, require_array, require_object, require_one_array, require_one_object,
 };
 
 // ── shared helpers ────────────────────────────────────────────────

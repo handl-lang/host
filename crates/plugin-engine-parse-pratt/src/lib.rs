@@ -1001,7 +1001,9 @@ impl PrattEngine {
                             let name = child_indices
                                 .first()
                                 .and_then(|v| v.as_u64())
-                                .and_then(|i| self.extract_child_name(lang, AstRef::new(i as usize)))
+                                .and_then(|i| {
+                                    self.extract_child_name(lang, AstRef::new(i as usize))
+                                })
                                 .ok_or_else(|| {
                                     LangError::engine_at(
                                         "trailing delimited block: missing import name".to_string(),
@@ -1012,10 +1014,13 @@ impl PrattEngine {
                             let alias = child_indices
                                 .get(1)
                                 .and_then(|v| v.as_u64())
-                                .and_then(|i| self.extract_child_name(lang, AstRef::new(i as usize)))
+                                .and_then(|i| {
+                                    self.extract_child_name(lang, AstRef::new(i as usize))
+                                })
                                 .ok_or_else(|| {
                                     LangError::engine_at(
-                                        "trailing delimited block: missing import alias".to_string(),
+                                        "trailing delimited block: missing import alias"
+                                            .to_string(),
                                         cursor.last_span(),
                                         None::<&str>,
                                     )
@@ -2930,7 +2935,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn tilde_arrow_maximal_munch_lexes_as_single_token() {
         let engine = PrattEngine::new();
@@ -3135,7 +3139,10 @@ mod tests {
         assert_eq!(root.kind, "dimension");
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         let inner = &ast.nodes()[children[1].as_u64().unwrap() as usize];
-        assert_eq!(inner.kind, "dimension", "the argument is itself a dimension");
+        assert_eq!(
+            inner.kind, "dimension",
+            "the argument is itself a dimension"
+        );
     }
 
     /// An empty bracket is rejected.

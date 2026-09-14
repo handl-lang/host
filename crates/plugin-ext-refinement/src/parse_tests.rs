@@ -61,8 +61,7 @@ fn pratt_graph() -> Term {
 
     // pratt = loop(parse_atom >>> parse_ops)
     td(TermData::loop_feedback(TermData::seq(
-        parse_atom,
-        parse_ops,
+        parse_atom, parse_ops,
     )))
 }
 

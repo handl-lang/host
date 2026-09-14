@@ -36,7 +36,10 @@ impl SdkgenBackend for WebIdlBackend {
         let mut module = SdkgenModule::default();
         module.client_package = "js".into();
         module.backend_id = "webidl".into();
-        module.target = self.target.clone().unwrap_or_else(WebIdlBackend::default_target);
+        module.target = self
+            .target
+            .clone()
+            .unwrap_or_else(WebIdlBackend::default_target);
         module.library = path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -115,7 +118,12 @@ impl SdkgenBackend for WebIdlBackend {
                         },
                     );
                 }
-                AstDef::Callback { name, return_ty, args, .. } => {
+                AstDef::Callback {
+                    name,
+                    return_ty,
+                    args,
+                    ..
+                } => {
                     if let Some(f) = callback_to_function(&name, &return_ty, &args) {
                         functions.insert((name.clone(), f.name.clone()), f);
                     }
@@ -165,7 +173,11 @@ fn member_to_field(m: &Member) -> Option<CField> {
 
 fn member_to_function(intf: &str, m: &Member) -> Option<CFunction> {
     let (op_name, return_ty, args) = match m {
-        Member::Operation { name, return_ty, args } => (name.clone(), return_ty, args),
+        Member::Operation {
+            name,
+            return_ty,
+            args,
+        } => (name.clone(), return_ty, args),
         Member::Constructor { args } => ("constructor".into(), &Type::Void, args),
         _ => return None,
     };
@@ -173,17 +185,32 @@ fn member_to_function(intf: &str, m: &Member) -> Option<CFunction> {
     let full_name = format!("{}_{}", to_snake(intf), snake);
     let port_name = format!("{}{}", to_pascal(intf), to_pascal(&to_snake(&op_name)));
     let c_decl = format!("{}.{}", intf, op_name);
-    Some(build_function(&full_name, port_name, return_ty, args, c_decl))
+    Some(build_function(
+        &full_name, port_name, return_ty, args, c_decl,
+    ))
 }
 
-fn callback_to_function(name: &str, return_ty: &Type, args: &[parser::Argument]) -> Option<CFunction> {
+fn callback_to_function(
+    name: &str,
+    return_ty: &Type,
+    args: &[parser::Argument],
+) -> Option<CFunction> {
     let port_name = to_pascal(&to_snake(name));
     let c_decl = format!(
         "callback {}({})",
         name,
-        args.iter().map(|a| a.name.clone()).collect::<Vec<_>>().join(", ")
+        args.iter()
+            .map(|a| a.name.clone())
+            .collect::<Vec<_>>()
+            .join(", ")
     );
-    Some(build_function(&to_snake(name), port_name, return_ty, args, c_decl))
+    Some(build_function(
+        &to_snake(name),
+        port_name,
+        return_ty,
+        args,
+        c_decl,
+    ))
 }
 
 fn build_function(

@@ -8,13 +8,13 @@
 //! outcome proves the adapter is wired correctly.
 
 use handl_kit_data_canonical::language_from_yaml;
+use handl_platform::ModuleLookup;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
-use handl_platform::ModuleLookup;
 
 /// A minimal empty `ModuleLookup` for the `with_modules` test.
 struct EmptyLookup;
@@ -34,9 +34,7 @@ fn parse(src: &str, lang: &handl_language::Language) -> handl_language::Ast {
     let tokens = lex(lang, src).expect("lex should succeed");
     let engine = PrattEngine::new();
     let req = ParserRequest::new(tokens);
-    engine
-        .parse(lang, &req)
-        .expect("parse should succeed")
+    engine.parse(lang, &req).expect("parse should succeed")
 }
 
 /// The adapter should construct, load its model, and run `typecheck` on a

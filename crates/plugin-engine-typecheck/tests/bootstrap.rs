@@ -93,7 +93,8 @@ fn unbound_export() {
 
 #[test]
 fn bound_export_is_clean() {
-    let report = check_module(lang(), "sorter = x ~> x; export sorter from \"collection\"").unwrap();
+    let report =
+        check_module(lang(), "sorter = x ~> x; export sorter from \"collection\"").unwrap();
     assert!(
         !has_diag(&report, "unbound-export", Severity::Error),
         "should not have unbound-export when name is bound, got: {:?}",
@@ -183,8 +184,7 @@ fn clean_module_with_import_and_call() {
 
 #[test]
 fn all_imports_used() {
-    let src =
-        "import sorter from \"collection\"; import map from \"fn/map\"; main = sorter(map([3, 1, 2]))";
+    let src = "import sorter from \"collection\"; import map from \"fn/map\"; main = sorter(map([3, 1, 2]))";
     let report = check_module(lang(), src).unwrap();
     assert!(
         !has_diag(&report, "unused-import", Severity::Warning),

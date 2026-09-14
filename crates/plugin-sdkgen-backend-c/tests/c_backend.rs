@@ -38,7 +38,11 @@ fn parses_simple_header() {
     assert_eq!(mv.port_name, "MovePoint");
     assert_eq!(mv.out_struct, Some("point".into()));
     assert_eq!(mv.port_args.len(), 2);
-    assert!(mv.arg_descriptors.iter().any(|d| d.starts_with("out_struct")));
+    assert!(
+        mv.arg_descriptors
+            .iter()
+            .any(|d| d.starts_with("out_struct"))
+    );
 }
 
 #[test]

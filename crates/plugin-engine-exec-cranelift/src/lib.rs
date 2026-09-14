@@ -2314,9 +2314,7 @@ fn prim_v2_import(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
                 }
             }
         }
-    } else if let Some(imported) =
-        names_val.and_then(|v| v.as_str()).filter(|n| *n != "*")
-    {
+    } else if let Some(imported) = names_val.and_then(|v| v.as_str()).filter(|n| *n != "*") {
         let exported = bindings
             .as_object()
             .and_then(|map| map.get(imported).cloned());
@@ -2854,7 +2852,12 @@ fn prim_v2_loop_step(
     };
     let call_args: Vec<TaggedValue> = match &current {
         TaggedValue::Obj(obj_state) => {
-            if let TaggedValue::Arrow { params, array_pattern, .. } = &body_proc {
+            if let TaggedValue::Arrow {
+                params,
+                array_pattern,
+                ..
+            } = &body_proc
+            {
                 if *array_pattern {
                     if params.len() == 1 {
                         vec![TaggedValue::Arr(Rc::from([current.clone()]))]
@@ -4969,11 +4972,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5051,11 +5050,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5088,11 +5083,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5476,11 +5467,7 @@ mod tests {
                 "unary.not",
                 td(op_native(
                     "not",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -5563,11 +5550,7 @@ mod tests {
                 "dbl",
                 td(op_foreign(
                     "double",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -5589,11 +5572,7 @@ mod tests {
                 "dbl",
                 td(op_foreign(
                     "double",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -5644,11 +5623,7 @@ mod tests {
                 "call",
                 td(app(
                     op_lit("proj_child", vec![], Value::from(0u64)),
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(1u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(1u64))],
                 )),
             ))
             .unwrap();
@@ -5682,11 +5657,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5718,11 +5689,7 @@ mod tests {
                 "call",
                 td(app(
                     op_lit("proj_child", vec![], Value::from(0u64)),
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(1u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(1u64))],
                 )),
             ))
             .unwrap();
@@ -5760,11 +5727,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5915,11 +5878,7 @@ mod tests {
                 td(seq(
                     seq(
                         op_lit("proj_child", vec![], Value::from(0u64)),
-                        op_lit(
-                            "extend_env",
-                            vec![],
-                            Value::String("$payload".into()),
-                        ),
+                        op_lit("extend_env", vec![], Value::String("$payload".into())),
                     ),
                     op_lit("proj_child", vec![], Value::from(1u64)),
                 )),
@@ -5950,11 +5909,7 @@ mod tests {
                 "call",
                 td(app(
                     op_lit("proj_child", vec![], Value::from(0u64)),
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(1u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(1u64))],
                 )),
             ))
             .unwrap();
@@ -6030,11 +5985,7 @@ mod tests {
                 "dbl",
                 td(op_foreign(
                     "double",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -6177,11 +6128,7 @@ mod tests {
                 "id",
                 td(op_native(
                     "id",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -6412,11 +6359,7 @@ mod tests {
                 "double",
                 td(op_foreign(
                     "double",
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(0u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(0u64))],
                 )),
             ))
             .unwrap();
@@ -6468,11 +6411,7 @@ mod tests {
                 "call",
                 td(app(
                     op_lit("proj_child", vec![], Value::from(0u64)),
-                    vec![op_lit(
-                        "proj_child",
-                        vec![],
-                        Value::from(1u64),
-                    )],
+                    vec![op_lit("proj_child", vec![], Value::from(1u64))],
                 )),
             ))
             .unwrap();
@@ -6570,11 +6509,7 @@ mod tests {
                     op_lit("proj_child", vec![], Value::from(0u64)),
                     loop_feedback(op_native(
                         "loop_step",
-                        vec![op_lit(
-                            "proj_child",
-                            vec![],
-                            Value::from(1u64),
-                        )],
+                        vec![op_lit("proj_child", vec![], Value::from(1u64))],
                     )),
                 )),
             ))
@@ -6653,10 +6588,7 @@ mod tests {
                     op_lit("const", vec![], json!(5)),
                     loop_feedback(op_native(
                         "while_step",
-                        vec![
-                            op_native("is_pos", vec![]),
-                            op_native("dec", vec![]),
-                        ],
+                        vec![op_native("is_pos", vec![]), op_native("dec", vec![])],
                     )),
                 )),
             ))
@@ -6679,10 +6611,7 @@ mod tests {
                     op_lit("const", vec![], json!(0)),
                     loop_feedback(op_native(
                         "while_step",
-                        vec![
-                            op_native("is_pos", vec![]),
-                            op_native("dec", vec![]),
-                        ],
+                        vec![op_native("is_pos", vec![]), op_native("dec", vec![])],
                     )),
                 )),
             ))
@@ -6703,10 +6632,7 @@ mod tests {
                 "for_test",
                 td(seq(
                     op_lit("const", vec![], pair(json!(5), json!(0))),
-                    loop_feedback(op_native(
-                        "for_step",
-                        vec![op_native("inc", vec![])],
-                    )),
+                    loop_feedback(op_native("for_step", vec![op_native("inc", vec![])])),
                 )),
             ))
             .unwrap();
@@ -6726,10 +6652,7 @@ mod tests {
                 "for_test",
                 td(seq(
                     op_lit("const", vec![], pair(json!(0), json!(99))),
-                    loop_feedback(op_native(
-                        "for_step",
-                        vec![op_native("inc", vec![])],
-                    )),
+                    loop_feedback(op_native("for_step", vec![op_native("inc", vec![])])),
                 )),
             ))
             .unwrap();
@@ -6749,10 +6672,7 @@ mod tests {
                 "fix_test",
                 td(seq(
                     op_lit("const", vec![], json!(100)),
-                    loop_feedback(op_native(
-                        "fix_step",
-                        vec![op_native("half_floor", vec![])],
-                    )),
+                    loop_feedback(op_native("fix_step", vec![op_native("half_floor", vec![])])),
                 )),
             ))
             .unwrap();
@@ -6772,10 +6692,7 @@ mod tests {
                 "fix_test",
                 td(seq(
                     op_lit("const", vec![], json!(0)),
-                    loop_feedback(op_native(
-                        "fix_step",
-                        vec![op_native("half_floor", vec![])],
-                    )),
+                    loop_feedback(op_native("fix_step", vec![op_native("half_floor", vec![])])),
                 )),
             ))
             .unwrap();
@@ -6968,11 +6885,7 @@ mod tests {
                         td(seq(
                             seq(
                                 op_lit("const", vec![], json!(10)),
-                                op_lit(
-                                    "extend_env",
-                                    vec![],
-                                    Value::String("x".into()),
-                                ),
+                                op_lit("extend_env", vec![], Value::String("x".into())),
                             ),
                             op_lit("proj_env", vec![], Value::String("x".into())),
                         )),

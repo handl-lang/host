@@ -873,7 +873,9 @@ fn out_struct_descriptor_accepts_all_integer_field_types() {
     let kinds: Vec<&str> = out.fields.iter().map(|(_, k, _, _)| k.as_str()).collect();
     assert_eq!(
         kinds,
-        vec!["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"]
+        vec![
+            "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"
+        ]
     );
     let sizes: Vec<usize> = out.fields.iter().map(|(_, _, _, s)| *s).collect();
     assert_eq!(sizes, vec![1, 2, 4, 8, 1, 2, 4, 8, 8, 8]);
@@ -881,8 +883,8 @@ fn out_struct_descriptor_accepts_all_integer_field_types() {
 
 #[test]
 fn out_struct_unmarshal_u32_i16_fields() {
-    let mut out = parse_out_struct_descriptor("out_struct:{x:u32,y:i16}")
-        .expect("parse out_struct");
+    let mut out =
+        parse_out_struct_descriptor("out_struct:{x:u32,y:i16}").expect("parse out_struct");
     out.buf = vec![0u8; out.buf.len()];
     out.buf[0..4].copy_from_slice(&0xDEADBEEFu32.to_ne_bytes());
     out.buf[4..6].copy_from_slice(&(-12345i16).to_ne_bytes());

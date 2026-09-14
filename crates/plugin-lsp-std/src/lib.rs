@@ -8,8 +8,8 @@
 
 use handl_host_tooling::lsp::{
     CompletionPlugin, CompletionRequest, CompletionResponse, DocumentSymbolsPlugin,
-    DocumentSymbolsRequest, DocumentSymbolsResponse, GotoDefPlugin, GotoDefRequest, GotoDefResponse,
-    HoverPlugin, HoverRequest, HoverResponse,
+    DocumentSymbolsRequest, DocumentSymbolsResponse, GotoDefPlugin, GotoDefRequest,
+    GotoDefResponse, HoverPlugin, HoverRequest, HoverResponse,
 };
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::Language;
@@ -42,7 +42,10 @@ impl Default for BasicLsp {
 }
 
 impl CompletionPlugin for BasicLsp {
-    fn run(&self, request: &CompletionRequest) -> Result<CompletionResponse, handl_platform::PlatformError> {
+    fn run(
+        &self,
+        request: &CompletionRequest,
+    ) -> Result<CompletionResponse, handl_platform::PlatformError> {
         Ok(LspEngine::new(&self.lang).completion(request))
     }
 }
@@ -54,13 +57,19 @@ impl HoverPlugin for BasicLsp {
 }
 
 impl GotoDefPlugin for BasicLsp {
-    fn run(&self, request: &GotoDefRequest) -> Result<GotoDefResponse, handl_platform::PlatformError> {
+    fn run(
+        &self,
+        request: &GotoDefRequest,
+    ) -> Result<GotoDefResponse, handl_platform::PlatformError> {
         Ok(LspEngine::new(&self.lang).goto(request))
     }
 }
 
 impl DocumentSymbolsPlugin for BasicLsp {
-    fn run(&self, request: &DocumentSymbolsRequest) -> Result<DocumentSymbolsResponse, handl_platform::PlatformError> {
+    fn run(
+        &self,
+        request: &DocumentSymbolsRequest,
+    ) -> Result<DocumentSymbolsResponse, handl_platform::PlatformError> {
         Ok(LspEngine::new(&self.lang).document_symbols(request))
     }
 }

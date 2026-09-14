@@ -398,10 +398,7 @@ mod tests {
         // The pattern recognizer should add IsPerm(input, output) to any
         // loop whose body contains cons (the list constructor). This test
         // verifies the recognizer fires for a simple cons-containing loop.
-        let body = TermData::seq(
-            op("list.tail"),
-            TermData::choice(op("cons"), op("id")),
-        );
+        let body = TermData::seq(op("list.tail"), TermData::choice(op("cons"), op("id")));
         let graph = td(TermData::loop_feedback(body));
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("loop inference");
@@ -430,10 +427,7 @@ mod tests {
 
     /// vec.get = comp(arr("list.nth"), first(id))
     fn vec_get_graph() -> Term {
-        td(TermData::seq(
-            op("list.nth"),
-            TermData::first(op("id")),
-        ))
+        td(TermData::seq(op("list.nth"), TermData::first(op("id"))))
     }
 
     /// queue.enqueue = arr("list.append")
@@ -483,10 +477,7 @@ mod tests {
     fn zip_graph() -> Term {
         td(TermData::loop_feedback(TermData::seq(
             TermData::first(op("list.head")),
-            TermData::seq(
-                TermData::first(op("list.tail")),
-                op("list.cons"),
-            ),
+            TermData::seq(TermData::first(op("list.tail")), op("list.cons")),
         )))
     }
 

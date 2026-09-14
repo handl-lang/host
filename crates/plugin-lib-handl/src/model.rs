@@ -7,9 +7,7 @@
 
 use std::rc::Rc;
 
-use handl_language::{
-    AstRef, LangError, Language, LanguageView, RewriteWitness, Term, Value,
-};
+use handl_language::{AstRef, LangError, Language, LanguageView, RewriteWitness, Term, Value};
 use handl_platform::{EvalContext, Module};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
 use plugin_engine::{Model, ModelCtx, RewriteResult, TermData};

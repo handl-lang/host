@@ -15,11 +15,11 @@
 
 use std::sync::OnceLock;
 
+use handl_language::ArrSource;
 use handl_language::{
     AstShapeRef, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow, Language, PairShape,
 };
 use plugin_engine::TermData;
-use handl_language::ArrSource;
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
 static ARROW_LANG: OnceLock<Language> = OnceLock::new();

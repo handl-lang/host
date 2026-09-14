@@ -60,7 +60,11 @@ fn renamed_language() -> Language {
 
     // `set` (renamed `assign`) — same eval scheme: `assign` native op
     lang.eval
-        .merge(EvalSchemeDef::new("e.set", "set", t(op_native("assign", vec![]))))
+        .merge(EvalSchemeDef::new(
+            "e.set",
+            "set",
+            t(op_native("assign", vec![])),
+        ))
         .unwrap();
     lang.ast
         .merge(AstShapeDef::new("ast.set", "set").with_children(vec![

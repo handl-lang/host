@@ -959,8 +959,7 @@ fn contains_project_td(td: &TermData) -> bool {
         }
         "App" => {
             let callee = td.get_term("callee").expect("App: missing callee");
-            contains_project_td(&callee)
-                || td.get_term_list("args").iter().any(contains_project_td)
+            contains_project_td(&callee) || td.get_term_list("args").iter().any(contains_project_td)
         }
         // `handle body with target = impl_` (ADR-0076): eliminated at compile
         // time — check both body and impl for projections.
@@ -1290,9 +1289,11 @@ pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Term, 
     if resolved_arrows.len() == 1 {
         Ok(resolved_arrows.into_iter().next().unwrap().1)
     } else if resolved_arrows.is_empty() {
-        Ok(TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
-            .to_term()
-            .expect("flatten_program: id TermData -> Term failed"))
+        Ok(
+            TermData::op("id".to_string(), vec![], &ArrSource::Native, None)
+                .to_term()
+                .expect("flatten_program: id TermData -> Term failed"),
+        )
     } else {
         Ok(build_module_record(&resolved_arrows))
     }
@@ -1434,10 +1435,9 @@ fn collect_app_callee_names_td(td: &TermData, out: &mut HashSet<String>) {
             collect_app_callee_names_td(&source, out);
             collect_app_callee_names_td(&target, out);
         }
-        "Arr" | "Child" | "Const" | "Path" | "Equiv" | "Src" | "Tgt"
-        | "RecordProj" | "RecordWith" | "Tag" | "CellId" | "CellCompV"
-        | "Whisker" | "Univalence" | "Glue" | "Fibrant" | "JElim"
-        | "Refine" | "Cobind" => {}
+        "Arr" | "Child" | "Const" | "Path" | "Equiv" | "Src" | "Tgt" | "RecordProj"
+        | "RecordWith" | "Tag" | "CellId" | "CellCompV" | "Whisker" | "Univalence" | "Glue"
+        | "Fibrant" | "JElim" | "Refine" | "Cobind" => {}
         "Iter" => {
             let fuel = td.get_term("fuel").expect("Iter: missing fuel");
             let predicate = td.get_term("predicate").expect("Iter: missing predicate");

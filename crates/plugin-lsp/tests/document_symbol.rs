@@ -12,7 +12,11 @@ fn document_symbol_lists_law_and_assign() {
     let response = engine.document_symbols(&request);
 
     let names: Vec<_> = response.0.iter().map(|s| s.name.as_str()).collect();
-    assert!(names.iter().any(|n| *n == "add"), "expected 'add' in {:?}", names);
+    assert!(
+        names.iter().any(|n| *n == "add"),
+        "expected 'add' in {:?}",
+        names
+    );
     assert!(
         names.iter().any(|n| *n == "square"),
         "expected 'square' in {:?}",

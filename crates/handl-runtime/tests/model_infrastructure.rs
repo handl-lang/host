@@ -38,7 +38,13 @@ const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arro
 /// Build a `HandlModule` for the arrow model.
 fn arrow_module() -> HandlModule {
     HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -148,35 +154,29 @@ fn handl_adapter_matches_handl_model() {
 /// `is_hott_tag` returns `true` for HoTT-specific tags.
 #[test]
 fn is_hott_tag_true_for_hott_tags() {
-    assert!(TermData::path(
-        TermData::arr(json!(1)),
-        TermData::arr(json!(2)),
-        None,
-    )
-    .is_hott_tag());
-    assert!(TermData::equiv(
-        TermData::arr(json!(1)),
-        TermData::arr(json!(1)),
-        None,
-    )
-    .is_hott_tag());
+    assert!(TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None,).is_hott_tag());
+    assert!(TermData::equiv(TermData::arr(json!(1)), TermData::arr(json!(1)), None,).is_hott_tag());
     assert!(TermData::cell_id(TermData::arr(json!(1))).is_hott_tag());
-    assert!(TermData::refine(
-        TermData::op("id", vec![], &ArrSource::Native, None),
-        TermData::op("is_pos", vec![], &ArrSource::Native, None),
-    )
-    .is_hott_tag());
+    assert!(
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        )
+        .is_hott_tag()
+    );
 }
 
 /// `is_hott_tag` returns `false` for core arrow-calculus tags.
 #[test]
 fn is_hott_tag_false_for_core_tags() {
     assert!(!TermData::arr(json!(5)).is_hott_tag());
-    assert!(!TermData::seq(
-        TermData::arr(json!(1)),
-        TermData::op("inc", vec![], &ArrSource::Native, None),
-    )
-    .is_hott_tag());
+    assert!(
+        !TermData::seq(
+            TermData::arr(json!(1)),
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+        )
+        .is_hott_tag()
+    );
     assert!(!TermData::op("add", vec![], &ArrSource::Native, None).is_hott_tag());
     assert!(!TermData::tag_value("ok", TermData::arr(json!(1))).is_hott_tag());
 }
@@ -414,44 +414,54 @@ fn termdata_is_hott_tag_true_for_hott_tags() {
     assert!(TermData::src(TermData::arr(json!(1))).is_hott_tag());
     assert!(TermData::tgt(TermData::arr(json!(1))).is_hott_tag());
     assert!(TermData::cell_comp_v(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
-    assert!(TermData::whisker(
-        &plugin_engine::Side::Left,
-        TermData::arr(json!(1)),
-        TermData::arr(json!(2)),
-    )
-    .is_hott_tag());
+    assert!(
+        TermData::whisker(
+            &plugin_engine::Side::Left,
+            TermData::arr(json!(1)),
+            TermData::arr(json!(2)),
+        )
+        .is_hott_tag()
+    );
     assert!(TermData::univalence(TermData::arr(json!(1))).is_hott_tag());
     assert!(TermData::glue(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
     assert!(TermData::fibrant(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
-    assert!(TermData::jelim(
-        TermData::arr(json!(1)),
-        TermData::arr(json!(2)),
-        TermData::arr(json!(3)),
-    )
-    .is_hott_tag());
-    assert!(TermData::refine(
-        TermData::op("id", vec![], &ArrSource::Native, None),
-        TermData::op("is_pos", vec![], &ArrSource::Native, None),
-    )
-    .is_hott_tag());
+    assert!(
+        TermData::jelim(
+            TermData::arr(json!(1)),
+            TermData::arr(json!(2)),
+            TermData::arr(json!(3)),
+        )
+        .is_hott_tag()
+    );
+    assert!(
+        TermData::refine(
+            TermData::op("id", vec![], &ArrSource::Native, None),
+            TermData::op("is_pos", vec![], &ArrSource::Native, None),
+        )
+        .is_hott_tag()
+    );
     assert!(TermData::cobind(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
-    assert!(TermData::rewrite(
-        TermData::arr(json!(1)),
-        TermData::arr(json!(2)),
-        &plugin_engine::RewriteWitness::Compute,
-    )
-    .is_hott_tag());
+    assert!(
+        TermData::rewrite(
+            TermData::arr(json!(1)),
+            TermData::arr(json!(2)),
+            &plugin_engine::RewriteWitness::Compute,
+        )
+        .is_hott_tag()
+    );
 }
 
 /// `TermData::is_hott_tag()` returns `false` for core arrow-calculus tags.
 #[test]
 fn termdata_is_hott_tag_false_for_core_tags() {
     assert!(!TermData::arr(json!(5)).is_hott_tag());
-    assert!(!TermData::seq(
-        TermData::arr(json!(1)),
-        TermData::op("inc", vec![], &ArrSource::Native, None),
-    )
-    .is_hott_tag());
+    assert!(
+        !TermData::seq(
+            TermData::arr(json!(1)),
+            TermData::op("inc", vec![], &ArrSource::Native, None),
+        )
+        .is_hott_tag()
+    );
     assert!(!TermData::op("add", vec![], &ArrSource::Native, None).is_hott_tag());
     assert!(!TermData::tag_value("ok", TermData::arr(json!(1))).is_hott_tag());
     assert!(!TermData::first(TermData::arr(json!(1))).is_hott_tag());
@@ -462,7 +472,10 @@ fn termdata_is_hott_tag_false_for_core_tags() {
 #[test]
 fn termdata_tag_extracts_tag_string() {
     assert_eq!(TermData::arr(json!(5)).tag(), "Arr");
-    assert_eq!(TermData::op("add", vec![], &ArrSource::Native, None).tag(), "Op");
+    assert_eq!(
+        TermData::op("add", vec![], &ArrSource::Native, None).tag(),
+        "Op"
+    );
     assert_eq!(
         TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None).tag(),
         "Path"
@@ -532,8 +545,7 @@ fn data_ctx() -> CtxBundle {
 /// the primary when using `TermData::is_hott_tag` as the predicate.
 #[test]
 fn composite_data_model_delegates_hott_tags() {
-    let composite =
-        CompositeDataModel::new(PrimaryData, DelegateData, TermData::is_hott_tag);
+    let composite = CompositeDataModel::new(PrimaryData, DelegateData, TermData::is_hott_tag);
 
     // HoTT tag → delegate.
     let hott = TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None);
@@ -571,8 +583,7 @@ fn composite_data_model_custom_predicate() {
     fn delegates_arr(term: &TermData) -> bool {
         term.is_tag("Arr")
     }
-    let composite =
-        CompositeDataModel::new(PrimaryData, DelegateData, delegates_arr);
+    let composite = CompositeDataModel::new(PrimaryData, DelegateData, delegates_arr);
 
     let arr = TermData::arr(json!(5));
     let bundle = data_ctx();

@@ -85,17 +85,8 @@ fn with_handle_pipeline_with_canonical_language() {
     //    `impl_` is the handler value; `body` is the graded `add` call.
     let left = TermData::arr(number_value(&["Addable"], 1.0));
     let right = TermData::arr(number_value(&["Addable"], 2.0));
-    let body = TermData::op(
-        "add",
-        vec![left, right],
-        &ArrSource::Native,
-        None,
-    );
-    let with_term = td(TermData::handle(
-        body,
-        "",
-        TermData::arr(add_handler()),
-    ));
+    let body = TermData::op("add", vec![left, right], &ArrSource::Native, None);
+    let with_term = td(TermData::handle(body, "", TermData::arr(add_handler())));
 
     // 4. Evaluate with `ValueModel`; incoming value carries `Addable`.
     let ast = Ast::new();

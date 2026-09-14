@@ -100,8 +100,20 @@ fn noise_c_simplex_3d_is_deterministic() {
 #[test]
 fn noise_stub_is_zero() {
     assert_eq!(eval_noise_stub("perlin_1d(1.5)"), serde_json::json!(0.0));
-    assert_eq!(eval_noise_stub("perlin_2d(1.0, 2.0)"), serde_json::json!(0.0));
-    assert_eq!(eval_noise_stub("perlin_3d(1.0, 2.0, 3.0)"), serde_json::json!(0.0));
-    assert_eq!(eval_noise_stub("simplex_2d(1.0, 2.0)"), serde_json::json!(0.0));
-    assert_eq!(eval_noise_stub("simplex_3d(1.0, 2.0, 3.0)"), serde_json::json!(0.0));
+    assert_eq!(
+        eval_noise_stub("perlin_2d(1.0, 2.0)"),
+        serde_json::json!(0.0)
+    );
+    assert_eq!(
+        eval_noise_stub("perlin_3d(1.0, 2.0, 3.0)"),
+        serde_json::json!(0.0)
+    );
+    assert_eq!(
+        eval_noise_stub("simplex_2d(1.0, 2.0)"),
+        serde_json::json!(0.0)
+    );
+    assert_eq!(
+        eval_noise_stub("simplex_3d(1.0, 2.0, 3.0)"),
+        serde_json::json!(0.0)
+    );
 }

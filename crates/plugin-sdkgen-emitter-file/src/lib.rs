@@ -26,10 +26,7 @@ impl Emitter for FileEmitter {
         let target_slug = target_slug(&module.target);
         let adapter_pkg = format!("{lib}-{}-{}", module.backend_id, target_slug);
 
-        let adapter_dir = output
-            .parent()
-            .unwrap_or(output)
-            .join(&adapter_pkg);
+        let adapter_dir = output.parent().unwrap_or(output).join(&adapter_pkg);
         std::fs::create_dir_all(&adapter_dir)
             .map_err(|e| SdkgenError(format!("failed to create adapter dir: {e}")))?;
 
@@ -51,7 +48,11 @@ impl Emitter for FileEmitter {
 fn target_slug(target: &str) -> String {
     let parts: Vec<&str> = target.split('-').collect();
     let arch = parts.first().copied().unwrap_or("unknown");
-    let os = parts.get(2).copied().or(parts.get(1).copied()).unwrap_or("unknown");
+    let os = parts
+        .get(2)
+        .copied()
+        .or(parts.get(1).copied())
+        .unwrap_or("unknown");
     format!("{os}-{arch}")
 }
 
@@ -84,7 +85,10 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     let client = client_info(&module.client_package);
     let mut out = String::new();
     out.push_str(&format!("--- Generated port for {lib}.{name}\n"));
-    out.push_str(&format!("--- {} target: {}\n", client.client_pkg, module.target));
+    out.push_str(&format!(
+        "--- {} target: {}\n",
+        client.client_pkg, module.target
+    ));
     out.push_str("\n");
     out.push_str(&format!(
         "from \"{}\" import {{ {}, {} }}\n",
@@ -148,9 +152,7 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
 fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str) -> String {
     let client = client_info(&module.client_package);
     let mut out = String::new();
-    out.push_str(&format!(
-        "--- Generated adapter for {adapter_pkg}/{name}\n"
-    ));
+    out.push_str(&format!("--- Generated adapter for {adapter_pkg}/{name}\n"));
     out.push_str("\n");
     out.push_str(&format!(
         "from \"{}\" import {{ call, {} }}\n",

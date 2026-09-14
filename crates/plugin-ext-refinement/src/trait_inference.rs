@@ -226,8 +226,7 @@ fn uses_first_td(td: &TermData) -> bool {
         }
         "App" => {
             let callee = td.get_term("callee").expect("App: missing callee");
-            uses_first_td(&callee)
-                || td.get_term_list("args").iter().any(uses_first_td)
+            uses_first_td(&callee) || td.get_term_list("args").iter().any(uses_first_td)
         }
         "Op" => td.get_term_list("args").iter().any(uses_first_td),
         "Handle" => {
@@ -322,8 +321,7 @@ fn uses_left_td(td: &TermData) -> bool {
         }
         "App" => {
             let callee = td.get_term("callee").expect("App: missing callee");
-            uses_left_td(&callee)
-                || td.get_term_list("args").iter().any(uses_left_td)
+            uses_left_td(&callee) || td.get_term_list("args").iter().any(uses_left_td)
         }
         "Op" => td.get_term_list("args").iter().any(uses_left_td),
         "Handle" => {
@@ -354,9 +352,7 @@ fn uses_left_td(td: &TermData) -> bool {
 
 /// Whether a `TermData` is the identity arrow (`op("id")` with no args).
 fn is_identity_td(td: &TermData) -> bool {
-    td.is_tag("Op")
-        && td.get_str("name") == Some("id")
-        && td.get_term_list("args").is_empty()
+    td.is_tag("Op") && td.get_str("name") == Some("id") && td.get_term_list("args").is_empty()
 }
 
 // ============================================================================

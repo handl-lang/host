@@ -26,13 +26,13 @@ use std::rc::Rc;
 use handl_language::{Ast, LangError, Language, Value};
 use handl_platform::{EvalContext, Module};
 use handl_plugin_engine_exec::EvalEngine;
-use plugin_engine::{Term, TermData};
 use handl_plugin_engine_typecheck::{
     TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
 };
 use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
+use plugin_engine::{Term, TermData};
 
 /// The embedded typecheck model source (ADR-0103/0105).
 const TYPECHECK_MODEL_HNL: &str =
@@ -111,7 +111,7 @@ impl HandlTypecheckEngine {
             // The loader's `analyze` is prohibitively slow on the ~51k-char
             // model source (it hangs), and the bootstrap transforms produce
             // identical output for canonical sources.
-            let loaded = handl_plugin_lib_handl::with_loader_disabled(||
+            let loaded = handl_plugin_lib_handl::with_loader_disabled(|| {
                 HandlModule::new(
                     "typecheck_model",
                     TYPECHECK_MODEL_HNL,
@@ -121,13 +121,19 @@ impl HandlTypecheckEngine {
                 // walks the AST and manages the typing context using the runtime
                 // `array`, `hash_map`, and `typeof` modules, and constructs tagged
                 // type values via the host `tag` capability (see the model header).
-                .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+                .with_dependency_arc(
+                    stdlib::load_hnl_file(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../handl-packages/collections/array/index.hnl"
+                    ))
+                    .expect("array module"),
+                )
                 .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
                 .with_dependency(stdlib::module("typeof").expect("typeof module"))
                 .with_dependency(stdlib::module("obj").expect("obj module"))
                 .with_dependency(TagModule)
                 .try_into_loaded()
-            )
+            })
             .map_err(|_msg| LangError::NotImplemented)?;
             *cell = Some(Rc::new(loaded));
         }
@@ -155,8 +161,16 @@ impl HandlTypecheckEngine {
         // objects to arrays of by_key values, which is what the model expects.
         if let Some(obj) = val.as_object_mut() {
             for field in [
-                "tokens", "grammar", "eval", "types", "ast", "transforms",
-                "caps", "options", "lexer_rules", "lints",
+                "tokens",
+                "grammar",
+                "eval",
+                "types",
+                "ast",
+                "transforms",
+                "caps",
+                "options",
+                "lexer_rules",
+                "lints",
             ] {
                 if let Some(fs) = obj.get_mut(field) {
                     if let Some(fs_obj) = fs.as_object() {
@@ -179,13 +193,17 @@ impl HandlTypecheckEngine {
 
     /// Convert `Term` scheme values under `types`/`eval` to `TermData` tagged records.
     fn convert_schemes_to_term_data(val: &mut Value) {
-        let Some(obj) = val.as_object_mut() else { return };
+        let Some(obj) = val.as_object_mut() else {
+            return;
+        };
         for field in ["types", "eval"] {
             let Some(arr) = obj.get_mut(field).and_then(|v| v.as_array_mut()) else {
                 continue;
             };
             for rule in arr {
-                let Some(rule_obj) = rule.as_object_mut() else { continue };
+                let Some(rule_obj) = rule.as_object_mut() else {
+                    continue;
+                };
                 for scheme_key in ["synth", "check", "scheme"] {
                     if let Some(scheme) = rule_obj.get_mut(scheme_key) {
                         if let Ok(term) = serde_json::from_value::<Term>(scheme.clone()) {
@@ -212,10 +230,7 @@ impl HandlTypecheckEngine {
     /// Unmarshal a model result [`Value`] (a `{ typ, diagnostics,
     /// node_types }` record) into a [`TypecheckResult`].
     fn unmarshal_result(val: &Value) -> Result<TypecheckResult, LangError> {
-        let typ = val
-            .get("typ")
-            .cloned()
-            .unwrap_or(Value::Null);
+        let typ = val.get("typ").cloned().unwrap_or(Value::Null);
 
         let diagnostics = val
             .get("diagnostics")

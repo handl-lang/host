@@ -26,16 +26,13 @@ use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const TYPECHECK_MODEL_HNL: &str =
     include_str!("../../../project/design/adr0103/typecheck_model.hnl");
-const SCOPE_MODEL_HNL: &str =
-    include_str!("../../../project/design/adr0103/scope_model.hnl");
-const TOTALITY_MODEL_HNL: &str =
-    include_str!("../../../project/design/adr0103/totality_model.hnl");
-const TYPE_MODEL_HNL: &str =
-    include_str!("../../../project/design/adr0103/type_model.hnl");
+const SCOPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/scope_model.hnl");
+const TOTALITY_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/totality_model.hnl");
+const TYPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/type_model.hnl");
 
 /// Function names exported by the typecheck model record.
 const TYPECHECK_MODEL_FUNCS: &[&str] = &["typecheck"];
@@ -105,7 +102,13 @@ fn typecheck_model_module() -> HandlModule {
         TYPECHECK_MODEL_HNL,
         TYPECHECK_MODEL_FUNCS,
     )
-    .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+    .with_dependency_arc(
+        stdlib::load_hnl_file(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../handl-packages/collections/array/index.hnl"
+        ))
+        .expect("array module"),
+    )
     .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
     .with_dependency(stdlib::module("typeof").expect("typeof module"))
     .with_dependency(stdlib::module("obj").expect("obj module"))
@@ -267,7 +270,13 @@ fn typecheck_return_via_adapter() {
 /// runtime, so `check_module` may fail at call time.
 fn scope_model_module() -> HandlModule {
     HandlModule::new("scope_model", SCOPE_MODEL_HNL, SCOPE_MODEL_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(stdlib::module("str").expect("str module"))
@@ -331,7 +340,13 @@ fn scope_model_check_module_simple_source() {
 /// `typeof` — all available in the stdlib.
 fn totality_model_module() -> HandlModule {
     HandlModule::new("totality_model", TOTALITY_MODEL_HNL, TOTALITY_MODEL_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
 }
@@ -376,10 +391,7 @@ fn totality_model_check_totality_simple_ast() {
                 result.is_object(),
                 "check_totality should return a proof record, got: {result}"
             );
-            let verdict = result
-                .get("verdict")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let verdict = result.get("verdict").and_then(|v| v.as_str()).unwrap_or("");
             assert!(
                 verdict == "proven" || verdict == "disproved" || verdict == "blocked",
                 "proof verdict should be proven/disproved/blocked, got '{verdict}'"
@@ -435,7 +447,13 @@ fn totality_model_check_totality_empty_ast() {
 /// `typeof`, and `tag.*` — all available in the stdlib and `TagModule`.
 fn type_model_module() -> HandlModule {
     HandlModule::new("type_model", TYPE_MODEL_HNL, TYPE_MODEL_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -659,7 +677,13 @@ const SUBTYPE_MODEL_FUNCS: &[&str] = &["typecheck", "eval_scheme"];
 /// judgment op can be driven directly.
 fn subtype_model_module() -> HandlModule {
     HandlModule::new("typecheck_model", TYPECHECK_MODEL_HNL, SUBTYPE_MODEL_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(stdlib::module("obj").expect("obj module"))
@@ -752,7 +776,6 @@ fn subtype_model_exports_eval_scheme() {
         "typecheck model must export 'eval_scheme' to drive judgment rules"
     );
 }
-
 
 /// `Int <: Number` — direct child of Number.
 #[test]
@@ -865,20 +888,27 @@ fn subtype_malformed_nominal_falls_back_to_unify() {
     // Zero handle is not a valid identity.
     let zero_handle = json!({ "__sym__": { "handle": 0, "name": "Bad", "parent": null } });
     assert!(
-        !subtype_failed(&run_subtype(&module, zero_handle.clone(), zero_handle.clone())),
+        !subtype_failed(&run_subtype(
+            &module,
+            zero_handle.clone(),
+            zero_handle.clone()
+        )),
         "a zero-handle nominal is malformed; unify(a, a) should succeed"
     );
 
     // Missing handle.
     let missing_handle = json!({ "__sym__": { "name": "Bad", "parent": null } });
     assert!(
-        !subtype_failed(&run_subtype(&module, missing_handle.clone(), missing_handle)),
+        !subtype_failed(&run_subtype(
+            &module,
+            missing_handle.clone(),
+            missing_handle
+        )),
         "a handle-less nominal is malformed; unify(a, a) should succeed"
     );
 
     // Non-numeric handle.
-    let string_handle =
-        json!({ "__sym__": { "handle": "nope", "name": "Bad", "parent": null } });
+    let string_handle = json!({ "__sym__": { "handle": "nope", "name": "Bad", "parent": null } });
     assert!(
         !subtype_failed(&run_subtype(&module, string_handle.clone(), string_handle)),
         "a non-numeric handle is malformed; unify(a, a) should succeed"
@@ -887,7 +917,11 @@ fn subtype_malformed_nominal_falls_back_to_unify() {
     // `__sym__` is not an object at all.
     let non_object_sym = json!({ "__sym__": 5 });
     assert!(
-        !subtype_failed(&run_subtype(&module, non_object_sym.clone(), non_object_sym)),
+        !subtype_failed(&run_subtype(
+            &module,
+            non_object_sym.clone(),
+            non_object_sym
+        )),
         "`__sym__: 5` is malformed; unify(a, a) should succeed"
     );
 
@@ -938,8 +972,7 @@ fn subtype_legacy_tagged_equality_via_unify() {
 fn subtype_nominal_vs_legacy_tag_delegates_to_unify() {
     let module = subtype_model_module();
     let (_obj, number, _int, _float, _nat) = std_chain();
-    let tagged_number =
-        json!({ "__tag__": "number", "__registry__": "type", "kind": "primitive" });
+    let tagged_number = json!({ "__tag__": "number", "__registry__": "type", "kind": "primitive" });
     match try_run_subtype(&module, number, tagged_number) {
         Ok(diags) => assert!(
             subtype_failed(&diags),
@@ -950,4 +983,3 @@ fn subtype_nominal_vs_legacy_tag_delegates_to_unify() {
         Err(e) => eprintln!("nominal vs legacy tag went through unify and errored (ok): {e}"),
     }
 }
-

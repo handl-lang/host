@@ -1,0 +1,13 @@
+[package]
+name = "handl-plugin-compile"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { path = "../handl-language" }
+plugin-engine = { path = "../plugin-engine" }
+plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
+rayon = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

@@ -47,10 +47,10 @@ use std::ffi::c_void;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use handl_value::{resource, tagged_to_value, TaggedValue};
+use handl_value::{TaggedValue, resource, tagged_to_value};
 use plugin_engine::TermData;
 use rustc_hash::FxHashMap;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The documented JSON key universe for an arrow value (ADR-0106 §6; the
 /// `TaggedValue::Arrow` variant fields of `handl-value/src/lib.rs:345`).
@@ -184,14 +184,16 @@ fn env_captured_arrow_with_home_id_round_trips_exactly() {
         },
     });
     let out = round_trip(outer.clone());
-    assert_eq!(out, outer, "nested homed arrow must round-trip byte-for-byte");
+    assert_eq!(
+        out, outer,
+        "nested homed arrow must round-trip byte-for-byte"
+    );
     assert_eq!(
         out["env"]["inner"]["__home__"],
         json!(7),
         "the nested arrow's `home` id is preserved on the JSON side",
     );
 }
-
 
 // ---------------------------------------------------------------------------
 // 4. Resource captured in `env` — round-trips *lossily*.
@@ -340,7 +342,11 @@ fn engine_arrow_value_uses_documented_shape() {
 
     assert_eq!(arrow["__arrow__"], json!(true), "result is an arrow value");
     assert_eq!(arrow["params"], json!(["x"]));
-    assert_eq!(arrow["env"], json!({}), "a minted arrow's env is empty here");
+    assert_eq!(
+        arrow["env"],
+        json!({}),
+        "a minted arrow's env is empty here"
+    );
     assert!(arrow["body"].is_u64(), "arrow carries a numeric body index");
 
     // ADR-0106 item 2 step 1: the engine also mints the body as explicit,
@@ -365,10 +371,6 @@ fn engine_arrow_value_uses_documented_shape() {
     // The engine-produced arrow round-trips through the value model unchanged.
     assert_eq!(round_trip(arrow.clone()), arrow);
 }
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // 7. `body_def` (ADR-0106 item 2 step 1): additive, present-only-when-set.
@@ -398,7 +400,10 @@ fn body_def_round_trips_when_present_and_is_absent_otherwise() {
         }
     });
     let out = round_trip(with_def.clone());
-    assert_eq!(out, with_def, "an arrow with `body_def` round-trips unchanged");
+    assert_eq!(
+        out, with_def,
+        "an arrow with `body_def` round-trips unchanged"
+    );
     assert_eq!(out["body_def"]["__ast__"]["nodes"][0]["kind"], json!("var"));
 }
 
@@ -428,7 +433,10 @@ fn body_def_is_derived_and_ignored_by_equality() {
         array_pattern: false,
         body_def: None,
     };
-    assert_eq!(none_val, explicit, "`body_def: None` is the decoded default");
+    assert_eq!(
+        none_val, explicit,
+        "`body_def: None` is the decoded default"
+    );
     assert_eq!(hash_of(&none_val), hash_of(&explicit));
 
     // With a definition present the *value* is still the same arrow: the field

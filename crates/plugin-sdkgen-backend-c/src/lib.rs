@@ -32,9 +32,15 @@ impl CBackend {
         only: Option<String>,
     ) -> Result<Self, SdkgenError> {
         let only = only
-            .map(|p| Pattern::new(&p).map_err(|e| SdkgenError(format!("invalid --only pattern: {e}"))))
+            .map(|p| {
+                Pattern::new(&p).map_err(|e| SdkgenError(format!("invalid --only pattern: {e}")))
+            })
             .transpose()?;
-        Ok(Self { target, config, only })
+        Ok(Self {
+            target,
+            config,
+            only,
+        })
     }
 
     fn default_target() -> String {
@@ -174,7 +180,9 @@ impl SdkgenBackend for CBackend {
             match parse_record(cursor, &ctx) {
                 Ok(rec) => {
                     if !self.config.should_skip(&rec.name) {
-                        ctx.records.borrow_mut().insert(rec.name.clone(), rec.clone());
+                        ctx.records
+                            .borrow_mut()
+                            .insert(rec.name.clone(), rec.clone());
                         module.records.push(rec);
                     }
                 }
@@ -243,10 +251,7 @@ extern "C" fn collect_cursors(
         return CXChildVisit_Continue;
     }
     let name = cursor_name(cursor);
-    let allowed = state
-        .only
-        .as_ref()
-        .map_or(true, |p| p.matches(&name));
+    let allowed = state.only.as_ref().map_or(true, |p| p.matches(&name));
     match cursor.kind {
         CXCursor_FunctionDecl => {
             if allowed && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External {
@@ -410,10 +415,7 @@ fn collect_enum(cursor: CXCursor, module: &mut SdkgenModule) {
             continue;
         }
         let value = unsafe { clang_getEnumConstantDeclValue(c) };
-        module.enum_constants.push(CEnumConst {
-            name,
-            value,
-        });
+        module.enum_constants.push(CEnumConst { name, value });
     }
 }
 
@@ -527,7 +529,11 @@ fn map_arg_with_peek(
     // size_t / ssize_t
     if original == "size_t" || original == "ssize_t" {
         let port = if original == "size_t" { "Nat" } else { "Int" };
-        let desc = if ctx.pointer_width == 32 { "i32" } else { "i64" };
+        let desc = if ctx.pointer_width == 32 {
+            "i32"
+        } else {
+            "i64"
+        };
         return Ok(ArgInfo {
             port: port.into(),
             descriptor: desc.into(),
@@ -638,10 +644,16 @@ fn map_arg_with_peek(
 fn map_arg_type(ty: CXType, pointer_width: usize) -> Result<(String, String), String> {
     let spelling = type_spelling(ty);
     if spelling == "size_t" {
-        return Ok(("Nat".into(), if pointer_width == 32 { "i32" } else { "i64" }.into()));
+        return Ok((
+            "Nat".into(),
+            if pointer_width == 32 { "i32" } else { "i64" }.into(),
+        ));
     }
     if spelling == "ssize_t" {
-        return Ok(("Int".into(), if pointer_width == 32 { "i32" } else { "i64" }.into()));
+        return Ok((
+            "Int".into(),
+            if pointer_width == 32 { "i32" } else { "i64" }.into(),
+        ));
     }
 
     match ty.kind {
@@ -699,7 +711,8 @@ fn map_return_type(ty: CXType, ctx: &ParseCtx) -> Result<(String, String), Strin
             return Ok(("Handle".into(), "handle".into()));
         }
     }
-    let (port, descriptor) = map_arg_type(unsafe { clang_getCanonicalType(ty) }, ctx.pointer_width)?;
+    let (port, descriptor) =
+        map_arg_type(unsafe { clang_getCanonicalType(ty) }, ctx.pointer_width)?;
     Ok((port, descriptor))
 }
 
@@ -740,7 +753,10 @@ fn is_void(ty: CXType) -> bool {
 }
 
 fn is_char(ty: CXType) -> bool {
-    matches!(ty.kind, CXType_Char_S | CXType_UChar | CXType_Char_U | CXType_SChar)
+    matches!(
+        ty.kind,
+        CXType_Char_S | CXType_UChar | CXType_Char_U | CXType_SChar
+    )
 }
 
 fn is_size_t(ty: CXType) -> bool {

@@ -53,8 +53,17 @@ impl<'l> LspEngine<'l> {
                 continue;
             };
             let items = match rule.kind.as_str() {
-                "import_path" => providers::run_import_path(self.lang, &module, request.pos, &request.path, rule),
-                "import_name" => providers::run_import_name(self.lang, &module, def, request.pos, &request.path, rule),
+                "import_path" => {
+                    providers::run_import_path(self.lang, &module, request.pos, &request.path, rule)
+                }
+                "import_name" => providers::run_import_name(
+                    self.lang,
+                    &module,
+                    def,
+                    request.pos,
+                    &request.path,
+                    rule,
+                ),
                 "export_name" => providers::run_exported_names(self.lang, &module, def, rule),
                 _ => Vec::new(),
             };
@@ -104,9 +113,13 @@ impl<'l> LspEngine<'l> {
                     return HoverResponse(Some(md));
                 }
             } else if rule.kind == "import_hover" {
-                if let Some(md) =
-                    providers::run_import_hover(self.lang, &module, request.pos, &request.path, rule)
-                {
+                if let Some(md) = providers::run_import_hover(
+                    self.lang,
+                    &module,
+                    request.pos,
+                    &request.path,
+                    rule,
+                ) {
                     return HoverResponse(Some(md));
                 }
             }

@@ -5,6 +5,12 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = {path = "../platform" }
+handl-plugin-compile.workspace = true
+handl-plugin-compile-js.workspace = true
+handl-plugin-compile-llvm.workspace = true
+handl-language.workspace = true
+plugin-engine.workspace = true
+plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

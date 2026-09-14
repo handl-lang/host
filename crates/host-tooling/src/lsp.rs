@@ -56,7 +56,11 @@ pub struct Location {
 
 impl Location {
     pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end, uri: None }
+        Self {
+            start,
+            end,
+            uri: None,
+        }
     }
 }
 

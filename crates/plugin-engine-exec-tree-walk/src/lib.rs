@@ -803,9 +803,7 @@ impl TreeWalkEngine {
                 Ok((tv, false))
             }
             "Op" => {
-                let op = td
-                    .get_str("name")
-                    .expect("Op term missing 'name' field");
+                let op = td.get_str("name").expect("Op term missing 'name' field");
                 let args = td.get_term_list("args");
                 let source = td
                     .arr_source()
@@ -931,9 +929,7 @@ impl TreeWalkEngine {
                 Ok((val, false))
             }
             "Loop" => {
-                let body = td
-                    .get_term("body")
-                    .expect("Loop term missing 'body' field");
+                let body = td.get_term("body").expect("Loop term missing 'body' field");
                 // Causal/strict feedback (ADR-0052 §"Feedback semantics").
                 // Two modes, selected by the body's result shape (see the
                 // module-level "Loop semantics" doc):
@@ -1021,8 +1017,15 @@ impl TreeWalkEngine {
                 const MAX_ITERS: usize = 100_000;
                 for _ in 0..MAX_ITERS {
                     let input = pair(inc.clone(), state.clone());
-                    let (result, pushed) =
-                        self.eval_inner_td(&body, ast, node_ref, lang, env, current_node, Some(input))?;
+                    let (result, pushed) = self.eval_inner_td(
+                        &body,
+                        ast,
+                        node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        Some(input),
+                    )?;
                     if pushed {
                         env.pop_scope();
                     }
@@ -1169,10 +1172,7 @@ impl TreeWalkEngine {
                 let body = td
                     .get_term("body")
                     .expect("Handle term missing 'body' field");
-                let target = td
-                    .get_str("target")
-                    .unwrap_or("")
-                    .to_string();
+                let target = td.get_str("target").unwrap_or("").to_string();
                 let impl_ = td
                     .get_term("impl_")
                     .expect("Handle term missing 'impl_' field");
@@ -1237,15 +1237,11 @@ impl TreeWalkEngine {
             // state — `false` breaks early, `true` applies `step` to
             // advance the state. Returns the final state.
             "Iter" => {
-                let fuel = td
-                    .get_term("fuel")
-                    .expect("Iter term missing 'fuel' field");
+                let fuel = td.get_term("fuel").expect("Iter term missing 'fuel' field");
                 let predicate = td
                     .get_term("predicate")
                     .expect("Iter term missing 'predicate' field");
-                let step = td
-                    .get_term("step")
-                    .expect("Iter term missing 'step' field");
+                let step = td.get_term("step").expect("Iter term missing 'step' field");
                 let initial = td
                     .get_term("initial")
                     .expect("Iter term missing 'initial' field");
@@ -1316,9 +1312,7 @@ impl TreeWalkEngine {
             // missing children are silently `Null`, matching the optional-child
             // behavior of `proj_child_or`.
             "Child" => {
-                let role = td
-                    .get_str("role")
-                    .unwrap_or("");
+                let role = td.get_str("role").unwrap_or("");
                 let idx = match lang.child_role_index(&current_node.kind, role) {
                     Ok(Some(idx)) => idx,
                     _ => {
@@ -1345,8 +1339,15 @@ impl TreeWalkEngine {
                 let a = td.get_term("a").expect("Equiv term missing 'a' field");
                 let b = td.get_term("b").expect("Equiv term missing 'b' field");
                 let inc = incoming.unwrap_or(TaggedValue::from(Value::Null));
-                let (av, _) =
-                    self.eval_inner_td(&a, ast, node_ref, lang, env, current_node, Some(inc.clone()))?;
+                let (av, _) = self.eval_inner_td(
+                    &a,
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                    Some(inc.clone()),
+                )?;
                 let (bv, _) =
                     self.eval_inner_td(&b, ast, node_ref, lang, env, current_node, Some(inc))?;
                 let val = Value::Bool(tagged_to_value(&av) == tagged_to_value(&bv));
@@ -1389,9 +1390,7 @@ impl TreeWalkEngine {
                 let record = td
                     .get_term("record")
                     .expect("RecordProj term missing 'record' field");
-                let field = td
-                    .get_str("field")
-                    .unwrap_or("");
+                let field = td.get_str("field").unwrap_or("");
                 let record_val = self.eval_scheme_tagged_td(
                     &record,
                     ast,
@@ -1407,9 +1406,7 @@ impl TreeWalkEngine {
                 let record = td
                     .get_term("record")
                     .expect("RecordWith term missing 'record' field");
-                let field = td
-                    .get_str("field")
-                    .unwrap_or("");
+                let field = td.get_str("field").unwrap_or("");
                 let value = td
                     .get_term("value")
                     .expect("RecordWith term missing 'value' field");
@@ -1436,9 +1433,7 @@ impl TreeWalkEngine {
                 Ok((TaggedValue::Obj(Rc::new(map)), false))
             }
             "Tag" => {
-                let tag = td
-                    .get_str("tag")
-                    .unwrap_or("");
+                let tag = td.get_str("tag").unwrap_or("");
                 let value = td
                     .get_term("value")
                     .expect("Tag term missing 'value' field");
@@ -1512,7 +1507,7 @@ impl TreeWalkEngine {
                         return Err(LangError::engine_node(
                             format!("Whisker: unknown side '{other}'"),
                             current_node,
-                        ))
+                        ));
                     }
                 };
                 let arrow_val = self.eval_scheme_tagged_td(
@@ -1618,9 +1613,7 @@ impl TreeWalkEngine {
                 let family = td
                     .get_term("family")
                     .expect("Glue term missing 'family' field");
-                let path = td
-                    .get_term("path")
-                    .expect("Glue term missing 'path' field");
+                let path = td.get_term("path").expect("Glue term missing 'path' field");
                 let _ = self.eval_scheme_tagged_td(
                     &path,
                     ast,
@@ -2883,12 +2876,7 @@ impl TreeWalkEngine {
                 // Grade-based op call: `add(1, 2)` where `add` is an `op`.
                 if let Some(op_decl) = lang.op_decl(callee) {
                     let op_incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
-                    let op_td = TermData::op(
-                        callee.to_string(),
-                        vec![],
-                        &ArrSource::Native,
-                        None,
-                    );
+                    let op_td = TermData::op(callee.to_string(), vec![], &ArrSource::Native, None);
                     let (mut result, pushed) = self.eval_inner_td(
                         &op_td,
                         ast,
@@ -3406,8 +3394,10 @@ impl TreeWalkEngine {
                     ) => match key.as_ref() {
                         "__arrow__" => Ok((TaggedValue::Bool(true), false)),
                         "params" => {
-                            let arr: Vec<TaggedValue> =
-                                params.iter().map(|p| TaggedValue::Str(Rc::from(p.as_str()))).collect();
+                            let arr: Vec<TaggedValue> = params
+                                .iter()
+                                .map(|p| TaggedValue::Str(Rc::from(p.as_str())))
+                                .collect();
                             Ok((TaggedValue::Arr(Rc::from(arr)), false))
                         }
                         "rest" => match rest {
@@ -3427,16 +3417,14 @@ impl TreeWalkEngine {
                         let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
                         Ok((TaggedValue::Str(joined), false))
                     }
-                    (target, field) => {
-                        Err(LangError::engine_node(
-                            format!(
-                                "field_access: target must be object/array, field must be string/number; got {} and {}",
-                                type_tag(&target),
-                                type_tag(&field),
-                            ),
-                            current_node,
-                        ))
-                    }
+                    (target, field) => Err(LangError::engine_node(
+                        format!(
+                            "field_access: target must be object/array, field must be string/number; got {} and {}",
+                            type_tag(&target),
+                            type_tag(&field),
+                        ),
+                        current_node,
+                    )),
                 }
             }
             // `arrow_field` — extract `inputs`/`grade`/`output` from an arrow value.
@@ -3976,30 +3964,31 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
-        let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) = match callee {
-            TaggedValue::Arrow {
-                params,
-                rest,
-                body,
-                env,
-                home,
-                array_pattern,
-                body_def,
-            } => (
-                params.clone(),
-                rest.clone(),
-                *body,
-                Rc::clone(env),
-                *home,
-                *array_pattern,
-                body_def.clone(),
-            ),
-            _ => {
-                return Err(LangError::engine(
-                    "callee is not an arrow-value".to_string(),
-                ));
-            }
-        };
+        let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) =
+            match callee {
+                TaggedValue::Arrow {
+                    params,
+                    rest,
+                    body,
+                    env,
+                    home,
+                    array_pattern,
+                    body_def,
+                } => (
+                    params.clone(),
+                    rest.clone(),
+                    *body,
+                    Rc::clone(env),
+                    *home,
+                    *array_pattern,
+                    body_def.clone(),
+                ),
+                _ => {
+                    return Err(LangError::engine(
+                        "callee is not an arrow-value".to_string(),
+                    ));
+                }
+            };
         // ADR-0106 item 2 step 2: prefer the arrow's **explicit body
         // definition** when it carries one. `body_def` holds the body as a
         // standalone arena (`{"__ast__": <Ast>}`, minted via
@@ -4402,7 +4391,7 @@ impl TreeWalkEngine {
                         return Err(LangError::engine_node(
                             "import: invalid braced import entry".to_string(),
                             current_node,
-                        ))
+                        ));
                     }
                 };
                 if imported == "*" {
@@ -4423,9 +4412,7 @@ impl TreeWalkEngine {
                 })?;
                 env.define(local, TaggedValue::from(value));
             }
-        } else if let Some(imported) =
-            names_val.and_then(|v| v.as_str()).filter(|n| *n != "*")
-        {
+        } else if let Some(imported) = names_val.and_then(|v| v.as_str()).filter(|n| *n != "*") {
             let exported = match &bindings {
                 Value::Object(map) => map.get(imported).cloned(),
                 _ => None,
@@ -5400,8 +5387,12 @@ impl Model for ValueModel {
             "Seq" => {
                 let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
                 let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
-                let fst_term = fst.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                let snd_term = snd.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let fst_term = fst
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let snd_term = snd
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let fst_val = self.run(&fst_term, incoming, ctx)?;
                 self.run(&snd_term, fst_val, ctx)
             }
@@ -5409,8 +5400,9 @@ impl Model for ValueModel {
                 let target = td
                     .get_term("target")
                     .expect("Rewrite term missing 'target' field");
-                let target_term =
-                    target.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let target_term = target
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 match self.run(&target_term, incoming, ctx) {
                     Ok(v) => Ok(v),
                     Err(_) => Err(plugin_engine::LangError::NotImplemented),
@@ -5427,9 +5419,7 @@ impl Model for ValueModel {
             // TODO: give `plugin_engine::LangError` a payload so real errors
             // can be propagated instead of collapsed to `NotImplemented`.
             "Child" => {
-                let role = td
-                    .get_str("role")
-                    .expect("Child term missing 'role' field");
+                let role = td.get_str("role").expect("Child term missing 'role' field");
                 let ast = ctx
                     .ast
                     .as_any()
@@ -5486,14 +5476,18 @@ impl Model for ValueModel {
             // handler value, push it onto `ctx.handler_stack`, run `body`,
             // then pop. `target` is retained for diagnostics.
             "Handle" => {
-                let body = td.get_term("body").expect("Handle term missing 'body' field");
+                let body = td
+                    .get_term("body")
+                    .expect("Handle term missing 'body' field");
                 let impl_ = td
                     .get_term("impl_")
                     .expect("Handle term missing 'impl_' field");
-                let body_term =
-                    body.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                let impl_term =
-                    impl_.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let body_term = body
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let impl_term = impl_
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let handler = self.run(&impl_term, incoming.clone(), ctx)?;
                 ctx.push_handler(handler.clone());
                 self.0
@@ -5541,10 +5535,12 @@ impl Model for ValueModel {
             "Path" => {
                 let a = td.get_term("from").expect("Path term missing 'from' field");
                 let b = td.get_term("to").expect("Path term missing 'to' field");
-                let a_term =
-                    a.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                let b_term =
-                    b.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let a_term = a
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let b_term = b
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let a_val = self.run(&a_term, incoming.clone(), ctx)?;
                 let b_val = self.run(&b_term, incoming.clone(), ctx)?;
                 let w_val = match td.get("witness") {
@@ -5567,10 +5563,12 @@ impl Model for ValueModel {
             "Equiv" => {
                 let a = td.get_term("a").expect("Equiv term missing 'a' field");
                 let b = td.get_term("b").expect("Equiv term missing 'b' field");
-                let a_term =
-                    a.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                let b_term =
-                    b.to_term().map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let a_term = a
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                let b_term = b
+                    .to_term()
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let a_val = self.run(&a_term, incoming.clone(), ctx)?;
                 let b_val = self.run(&b_term, incoming.clone(), ctx)?;
                 let mut eq = a_val == b_val;
@@ -5870,35 +5868,36 @@ impl TreeWalkCallable {
             // runtime frame applies the arrow. Use it in preference to the
             // ambient AST `body` index, which may be stale after the arrow
             // crosses a serde boundary.
-            let body_res: Result<Value, handl_platform::EvalError> =
-                if let Some(body_def) = obj.get("body_def").and_then(|v| handl_language::as_ast(v)) {
-                    if body_def.is_empty() {
-                        Err(handl_platform::EvalError::Other(
-                            "arrow body_def is empty".to_string(),
-                        ))
-                    } else {
-                        let body_ref = AstRef::new(body_def.len() - 1);
-                        let body_ast = Rc::new(body_def);
-                        let frame = EvalFrame {
-                            ast: body_ast,
-                            lang: Rc::clone(&lang),
-                            modules: CURRENT_MODULES.with(|c| c.borrow().clone()),
-                            globals: CURRENT_GLOBALS.with(|c| c.borrow().clone()),
-                            import_resolver: CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone()),
-                        };
-                        frame.enter(|| {
-                            engine
-                                .eval_node_inner(&frame.ast, body_ref, &frame.lang, &mut arrow_env)
-                                .map(|v| tagged_to_value(&v))
-                                .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
-                        })
-                    }
+            let body_res: Result<Value, handl_platform::EvalError> = if let Some(body_def) =
+                obj.get("body_def").and_then(|v| handl_language::as_ast(v))
+            {
+                if body_def.is_empty() {
+                    Err(handl_platform::EvalError::Other(
+                        "arrow body_def is empty".to_string(),
+                    ))
                 } else {
-                    engine
-                        .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
-                        .map(|v| tagged_to_value(&v))
-                        .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
-                };
+                    let body_ref = AstRef::new(body_def.len() - 1);
+                    let body_ast = Rc::new(body_def);
+                    let frame = EvalFrame {
+                        ast: body_ast,
+                        lang: Rc::clone(&lang),
+                        modules: CURRENT_MODULES.with(|c| c.borrow().clone()),
+                        globals: CURRENT_GLOBALS.with(|c| c.borrow().clone()),
+                        import_resolver: CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone()),
+                    };
+                    frame.enter(|| {
+                        engine
+                            .eval_node_inner(&frame.ast, body_ref, &frame.lang, &mut arrow_env)
+                            .map(|v| tagged_to_value(&v))
+                            .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+                    })
+                }
+            } else {
+                engine
+                    .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
+                    .map(|v| tagged_to_value(&v))
+                    .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+            };
             body_res?
         };
         while !rest.is_empty() {
@@ -6040,13 +6039,11 @@ fn bin_add(args: &[TaggedValue]) -> Result<(TaggedValue, bool), LangError> {
         (TaggedValue::Str(s1), TaggedValue::Str(s2)) => {
             Ok((TaggedValue::Str(Rc::from(format!("{}{}", s1, s2))), false))
         }
-        (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => {
-            Err(LangError::engine(format!(
-                "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
-                tagged_to_value(a),
-                tagged_to_value(b)
-            )))
-        }
+        (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => Err(LangError::engine(format!(
+            "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
+            tagged_to_value(a),
+            tagged_to_value(b)
+        ))),
         _ => bin_num(args, |x, y| x + y),
     }
 }
@@ -6168,7 +6165,12 @@ fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
 /// argument.
 fn build_loop_step_args(closure_val: &TaggedValue, current: &TaggedValue) -> Vec<TaggedValue> {
     if let Some(obj_state) = current.as_object() {
-        if let TaggedValue::Arrow { params, array_pattern, .. } = closure_val {
+        if let TaggedValue::Arrow {
+            params,
+            array_pattern,
+            ..
+        } = closure_val
+        {
             if *array_pattern {
                 if params.len() == 1 {
                     // Single-param array-pattern arrow: pass the state
@@ -6346,7 +6348,9 @@ fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Side, Term};
+    use handl_language::{
+        AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Side, Term,
+    };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
@@ -9585,4 +9589,3 @@ mod arrow_arena_cache_tests {
         }
     }
 }
-

@@ -104,6 +104,9 @@ members = [
   "crates/plugin-engine-exec-cranelift",
   "crates/plugin-engine-fmt",
     "crates/plugin-engine-lint",
+  "crates/plugin-compile",
+  "crates/plugin-compile-js",
+  "crates/plugin-compile-llvm",
   "crates/plugin-ffi",
   "crates/handl-runtime",
   "crates/handl-emitters",
@@ -225,6 +228,9 @@ handl-plugin-module = { path = "crates/plugin-module" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-host-tooling = { path = "crates/host-tooling" }
 handl-language = { path = "crates/handl-language" }
+handl-plugin-compile = { path = "crates/plugin-compile" }
+handl-plugin-compile-js = { path = "crates/plugin-compile-js" }
+handl-plugin-compile-llvm = { path = "crates/plugin-compile-llvm" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 plugin-engine = { path = "crates/plugin-engine" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }

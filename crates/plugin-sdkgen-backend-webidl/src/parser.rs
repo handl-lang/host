@@ -88,7 +88,13 @@ impl<'a> Tokenizer<'a> {
             }
             _ if c.is_ascii_digit() => {
                 while let Some(c2) = self.peek_char() {
-                    if c2.is_ascii_digit() || c2 == '.' || c2 == 'e' || c2 == 'E' || c2 == '+' || c2 == '-' {
+                    if c2.is_ascii_digit()
+                        || c2 == '.'
+                        || c2 == 'e'
+                        || c2 == 'E'
+                        || c2 == '+'
+                        || c2 == '-'
+                    {
                         self.advance_char();
                     } else {
                         break;
@@ -170,10 +176,9 @@ impl Type {
             "float" | "unrestricted float" => Type::F32,
             "double" | "unrestricted double" => Type::F64,
             "DOMString" | "USVString" | "ByteString" => Type::String,
-            "ArrayBuffer" | "ArrayBufferView" | "BufferSource" |
-            "Int8Array" | "Uint8Array" | "Int16Array" | "Uint16Array" |
-            "Int32Array" | "Uint32Array" | "Float32Array" | "Float64Array" |
-            "Uint8ClampedArray" | "SharedArrayBuffer" => Type::Bytes,
+            "ArrayBuffer" | "ArrayBufferView" | "BufferSource" | "Int8Array" | "Uint8Array"
+            | "Int16Array" | "Uint16Array" | "Int32Array" | "Uint32Array" | "Float32Array"
+            | "Float64Array" | "Uint8ClampedArray" | "SharedArrayBuffer" => Type::Bytes,
             "any" => Type::Any,
             "object" => Type::Object,
             "Promise" => Type::Promise(Box::new(Type::Void)),
@@ -195,23 +200,70 @@ pub struct Argument {
 
 #[derive(Debug, Clone)]
 pub enum Member {
-    Const { name: String, ty: Type, value: i64 },
-    Attribute { name: String, ty: Type, readonly: bool },
-    DictionaryField { name: String, ty: Type, required: bool },
-    Operation { name: String, return_ty: Type, args: Vec<Argument> },
-    Constructor { args: Vec<Argument> },
+    Const {
+        name: String,
+        ty: Type,
+        value: i64,
+    },
+    Attribute {
+        name: String,
+        ty: Type,
+        readonly: bool,
+    },
+    DictionaryField {
+        name: String,
+        ty: Type,
+        required: bool,
+    },
+    Operation {
+        name: String,
+        return_ty: Type,
+        args: Vec<Argument>,
+    },
+    Constructor {
+        args: Vec<Argument>,
+    },
     Skip(String),
 }
 
 #[derive(Debug, Clone)]
 pub enum AstDef {
-    Interface { name: String, base: Option<String>, members: Vec<Member>, partial: bool },
-    Mixin { name: String, members: Vec<Member>, partial: bool },
-    Dictionary { name: String, base: Option<String>, members: Vec<Member>, partial: bool },
-    Namespace { name: String, members: Vec<Member>, partial: bool },
-    Enum { name: String, values: Vec<String> },
-    Typedef { name: String, ty: Type },
-    Callback { name: String, return_ty: Type, args: Vec<Argument>, partial: bool },
+    Interface {
+        name: String,
+        base: Option<String>,
+        members: Vec<Member>,
+        partial: bool,
+    },
+    Mixin {
+        name: String,
+        members: Vec<Member>,
+        partial: bool,
+    },
+    Dictionary {
+        name: String,
+        base: Option<String>,
+        members: Vec<Member>,
+        partial: bool,
+    },
+    Namespace {
+        name: String,
+        members: Vec<Member>,
+        partial: bool,
+    },
+    Enum {
+        name: String,
+        values: Vec<String>,
+    },
+    Typedef {
+        name: String,
+        ty: Type,
+    },
+    Callback {
+        name: String,
+        return_ty: Type,
+        args: Vec<Argument>,
+        partial: bool,
+    },
     Skip(String),
 }
 
@@ -275,7 +327,17 @@ impl AstDef {
         if let (Some(a), Some(b)) = (self.members_mut(), other.members_mut()) {
             a.extend(std::mem::take(b));
         }
-        if let (AstDef::Callback { return_ty: a, args, .. }, AstDef::Callback { return_ty: b, args: bargs, .. }) = (self, other) {
+        if let (
+            AstDef::Callback {
+                return_ty: a, args, ..
+            },
+            AstDef::Callback {
+                return_ty: b,
+                args: bargs,
+                ..
+            },
+        ) = (self, other)
+        {
             if *a == Type::Void {
                 *a = b;
                 if bargs.len() > args.len() {
@@ -302,7 +364,11 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(tokens: Vec<Token<'a>>) -> Self {
-        Self { tokens, pos: 0, diags: Vec::new() }
+        Self {
+            tokens,
+            pos: 0,
+            diags: Vec::new(),
+        }
     }
 
     fn peek(&self) -> &Token<'a> {
@@ -545,7 +611,12 @@ impl<'a> Parser<'a> {
             if self.match_sym('=') {
                 self.skip_arg_default();
             }
-            args.push(Argument { name, ty, optional, variadic });
+            args.push(Argument {
+                name,
+                ty,
+                optional,
+                variadic,
+            });
             if self.match_sym(',') {
                 continue;
             }
@@ -625,7 +696,11 @@ impl<'a> Parser<'a> {
                 self.skip_arg_default();
             }
             self.consume_trailing_semi();
-            return Some(Member::DictionaryField { name, ty, required: true });
+            return Some(Member::DictionaryField {
+                name,
+                ty,
+                required: true,
+            });
         }
 
         if matches!(self.peek(), Token::Sym('}')) {
@@ -647,13 +722,21 @@ impl<'a> Parser<'a> {
         if self.match_sym('(') {
             let args = self.parse_args_body();
             self.consume_trailing_semi();
-            return Some(Member::Operation { name, return_ty: ty, args });
+            return Some(Member::Operation {
+                name,
+                return_ty: ty,
+                args,
+            });
         } else if ctx == Container::Dictionary {
             if self.match_sym('=') {
                 self.skip_arg_default();
             }
             self.consume_trailing_semi();
-            Some(Member::DictionaryField { name, ty, required: false })
+            Some(Member::DictionaryField {
+                name,
+                ty,
+                required: false,
+            })
         } else {
             self.diag("expected '(' for operation");
             self.consume_trailing_semi();
@@ -698,7 +781,12 @@ impl<'a> Parser<'a> {
         self.expect_sym('{');
         let members = self.parse_members(Container::Interface);
         self.expect_sym('}');
-        AstDef::Interface { name, base, members, partial }
+        AstDef::Interface {
+            name,
+            base,
+            members,
+            partial,
+        }
     }
 
     fn parse_mixin(&mut self, partial: bool) -> AstDef {
@@ -706,7 +794,11 @@ impl<'a> Parser<'a> {
         self.expect_sym('{');
         let members = self.parse_members(Container::Mixin);
         self.expect_sym('}');
-        AstDef::Mixin { name, members, partial }
+        AstDef::Mixin {
+            name,
+            members,
+            partial,
+        }
     }
 
     fn parse_dictionary(&mut self, partial: bool) -> AstDef {
@@ -719,7 +811,12 @@ impl<'a> Parser<'a> {
         self.expect_sym('{');
         let members = self.parse_members(Container::Dictionary);
         self.expect_sym('}');
-        AstDef::Dictionary { name, base, members, partial }
+        AstDef::Dictionary {
+            name,
+            base,
+            members,
+            partial,
+        }
     }
 
     fn parse_namespace(&mut self, partial: bool) -> AstDef {
@@ -727,7 +824,11 @@ impl<'a> Parser<'a> {
         self.expect_sym('{');
         let members = self.parse_members(Container::Namespace);
         self.expect_sym('}');
-        AstDef::Namespace { name, members, partial }
+        AstDef::Namespace {
+            name,
+            members,
+            partial,
+        }
     }
 
     fn parse_enum(&mut self) -> AstDef {
@@ -781,7 +882,12 @@ impl<'a> Parser<'a> {
         };
         self.expect_sym('(');
         let args = self.parse_args_body();
-        AstDef::Callback { name, return_ty, args, partial: false }
+        AstDef::Callback {
+            name,
+            return_ty,
+            args,
+            partial: false,
+        }
     }
 
     fn parse_definition(&mut self) -> Option<AstDef> {

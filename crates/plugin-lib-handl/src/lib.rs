@@ -132,7 +132,6 @@ pub struct ImportDecl {
 // Helpers (generalized from the stats/hello bridges)
 // ---------------------------------------------------------------------------
 
-
 /// Normalize a path-like import spec to its module basename
 /// (`./reverse.hnl` -> `reverse`; `a/b/c.hnl` -> `c`; `len` -> `len`).
 ///
@@ -368,8 +367,7 @@ mod bootstrap {
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                     let name = strip_export_name(&rest[..sep_pos]);
-                    let is_type_only =
-                        sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                    let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
                     let expr_start = if is_type_only {
                         "null"
                     } else {
@@ -595,7 +593,6 @@ mod bootstrap {
         let end = rest.find(quote)?;
         Some((rest[..end].to_string(), &rest[end + quote.len_utf8()..]))
     }
-
 
     /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
     ///
@@ -840,7 +837,6 @@ pub fn strip_declaration_lines(src: &str) -> String {
     loader_string("strip_decls", src).unwrap_or_else(|| bootstrap::strip_declaration_lines(src))
 }
 
-
 /// Parse `from 'path' import * as 'alias'` / `import "path" as alias`
 /// declarations.  Uses the bootstrap implementation.
 pub fn parse_import_declarations(src: &str) -> Vec<ImportDecl> {
@@ -897,7 +893,6 @@ pub fn transform_export_to_object(src: &str) -> String {
 struct SourceAnalysis {
     prepared: String,
 }
-
 
 fn caps_from_json(v: &serde_json::Value) -> Option<Vec<String>> {
     let arr = v.as_array()?;
@@ -1169,7 +1164,13 @@ fn build_runtime(
         };
     let globals = handl_runtime::fp::canonical_fp_host_functions(module_chain);
     let runtime = Runtime::from_registry_with_resolver(
-        lang, &registry, &config, Some(globals), None, resolver, None,
+        lang,
+        &registry,
+        &config,
+        Some(globals),
+        None,
+        resolver,
+        None,
     )?;
     Ok(runtime)
 }
@@ -1543,10 +1544,7 @@ impl HandlModule {
     /// import path names a registered dependency. This explicit hook is for
     /// resolvers that *build* modules from a table rather than reuse the
     /// dependency list (e.g. `plugin-lib-stdlib`'s `TableImportResolver`).
-    pub fn with_import_resolver(
-        mut self,
-        resolver: Arc<dyn ImportResolver + Send + Sync>,
-    ) -> Self {
+    pub fn with_import_resolver(mut self, resolver: Arc<dyn ImportResolver + Send + Sync>) -> Self {
         self.import_resolver = Some(resolver);
         self.rebuild_functions();
         self

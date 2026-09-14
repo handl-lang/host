@@ -26,7 +26,7 @@ use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const META_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/meta_model.hnl");
 
@@ -50,7 +50,13 @@ const META_FUNCS: &[&str] = &[
 /// Build the meta-model as a `HandlModule`.
 fn meta_module() -> HandlModule {
     HandlModule::new("meta_model", META_MODEL_HNL, META_FUNCS)
-        .with_dependency_arc(stdlib::load_hnl_file(concat!(env!("CARGO_MANIFEST_DIR"), "/../../handl-packages/collections/array/index.hnl")).expect("array module"))
+        .with_dependency_arc(
+            stdlib::load_hnl_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../handl-packages/collections/array/index.hnl"
+            ))
+            .expect("array module"),
+        )
         .with_dependency(stdlib::module("hash_map").expect("hash_map module"))
         .with_dependency(stdlib::module("typeof").expect("typeof module"))
         .with_dependency(TagModule)
@@ -98,7 +104,8 @@ fn identity_model_run_returns_term_unchanged() {
 #[test]
 fn identity_model_run_preserves_arbitrary_term() {
     let model = call_meta("identity_model", &[]);
-    let term = json!({ "__tag__": "Op", "name": "add", "args": [], "source": "Native", "lit": null });
+    let term =
+        json!({ "__tag__": "Op", "name": "add", "args": [], "source": "Native", "lit": null });
     let result = call_meta("run_model", &[model, term.clone(), Value::Null, json!({})]);
     assert_eq!(result, term);
 }
@@ -155,7 +162,10 @@ fn available_tags_lists_run_for_identity_model() {
     // `hash_map.keys` returns an array containing "run".
     assert!(tags.is_array(), "available_tags should return an array");
     let arr = tags.as_array().unwrap();
-    assert!(arr.contains(&json!("run")), "tags should contain 'run': {tags}");
+    assert!(
+        arr.contains(&json!("run")),
+        "tags should contain 'run': {tags}"
+    );
 }
 
 #[test]
@@ -229,7 +239,10 @@ fn compose_identity_with_identity_is_identity() {
     assert!(composed.is_object());
     assert!(composed.get("run").is_some());
     let term = sample_term();
-    let result = call_meta("run_model", &[composed, term.clone(), Value::Null, json!({})]);
+    let result = call_meta(
+        "run_model",
+        &[composed, term.clone(), Value::Null, json!({})],
+    );
     assert_eq!(result, term);
 }
 
@@ -240,7 +253,10 @@ fn compose_left_identity_preserves_model() {
     let id = call_meta("identity_model", &[]);
     let composed = call_meta("compose", &[id.clone(), id]);
     let term = json!({ "__tag__": "Arr", "value": 9 });
-    let result = call_meta("run_model", &[composed, term.clone(), Value::Null, json!({})]);
+    let result = call_meta(
+        "run_model",
+        &[composed, term.clone(), Value::Null, json!({})],
+    );
     assert_eq!(result, term);
 }
 
@@ -296,7 +312,9 @@ fn trace_model_returns_result_and_trace() {
     let traced = call_meta("trace_model", &[id, term.clone(), Value::Null, json!({})]);
     assert!(traced.is_object(), "trace_model should return a record");
     assert_eq!(traced.get("result"), Some(&term));
-    let trace = traced.get("trace").expect("trace_model should have a 'trace' field");
+    let trace = traced
+        .get("trace")
+        .expect("trace_model should have a 'trace' field");
     assert!(trace.is_array(), "trace should be an array: {trace}");
 }
 
@@ -372,10 +390,7 @@ fn build_parse_runtime() -> Result<Runtime, LangError> {
         "data",
         Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse(
-        "pratt",
-        handl_plugin_engine_parse_pratt::PrattEngine::new(),
-    );
+    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
         Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
@@ -588,7 +603,10 @@ fn load_model_loaded_model_validates() {
 fn load_model_loaded_model_lists_run_tag() {
     let model = call_meta_kernel("load_model", &[json!("models/mini.hnl")], mock_kernel());
     let tags = call_meta_kernel("available_tags", &[model], mock_kernel());
-    assert!(tags.is_array(), "available_tags should return an array: {tags}");
+    assert!(
+        tags.is_array(),
+        "available_tags should return an array: {tags}"
+    );
     assert!(
         tags.as_array().unwrap().contains(&json!("run")),
         "loaded model tags should contain 'run': {tags}"
@@ -610,11 +628,7 @@ fn load_model_loaded_model_is_runnable() {
 
 #[test]
 fn load_model_returns_null_for_nonexistent_path() {
-    let model = call_meta_kernel(
-        "load_model",
-        &[json!("does/not/exist.hnl")],
-        mock_kernel(),
-    );
+    let model = call_meta_kernel("load_model", &[json!("does/not/exist.hnl")], mock_kernel());
     // The mock `fs.read` returns Null for an unknown path; `parse(Null)`
     // returns Null, so `load_model` surfaces a null model.
     assert_eq!(model, Value::Null);

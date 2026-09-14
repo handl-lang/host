@@ -34,16 +34,23 @@ fn build_console_module() -> SdkgenModule {
 #[test]
 fn emits_js_port_and_adapter() {
     let module = build_console_module();
-    let tmp = PathBuf::from(format!("/tmp/sdkgen_emit_webidl_test_{}", std::process::id()));
+    let tmp = PathBuf::from(format!(
+        "/tmp/sdkgen_emit_webidl_test_{}",
+        std::process::id()
+    ));
     let port_dir = tmp.join("console");
 
     let _ = fs::remove_dir_all(&tmp);
     FileEmitter::new().emit(&module, &port_dir).unwrap();
 
     let port = fs::read_to_string(port_dir.join("console.hnl")).unwrap();
-    let adapter = fs::read_to_string(tmp.join("console-webidl-unknown-browser/console.hnl")).unwrap();
+    let adapter =
+        fs::read_to_string(tmp.join("console-webidl-unknown-browser/console.hnl")).unwrap();
 
-    assert!(port.contains("from \"js\" import { JS, JsError }"), "port import missing: {port}");
+    assert!(
+        port.contains("from \"js\" import { JS, JsError }"),
+        "port import missing: {port}"
+    );
     assert!(
         port.contains("export ConsoleLog:"),
         "port arrow missing: {port}"
@@ -81,10 +88,7 @@ fn emits_js_port_and_adapter() {
         adapter.contains("e = error()"),
         "error() call missing: {adapter}"
     );
-    assert!(
-        adapter.contains("err(e)"),
-        "err(e) missing: {adapter}"
-    );
+    assert!(adapter.contains("err(e)"), "err(e) missing: {adapter}");
 
     let _ = fs::remove_dir_all(&tmp);
 }

@@ -72,10 +72,7 @@ fn model_ctx<'a>(
 fn add_term() -> Term {
     td(op(
         "add",
-        vec![
-            TermData::arr(json!(1.0)),
-            TermData::arr(json!(2.0)),
-        ],
+        vec![TermData::arr(json!(1.0)), TermData::arr(json!(2.0))],
     ))
 }
 

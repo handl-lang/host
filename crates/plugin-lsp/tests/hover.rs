@@ -17,6 +17,14 @@ fn hover_assign_returns_signature_and_trailing_docs() {
 
     let response = engine.hover(&request);
     let md = response.0.expect("expected hover markdown");
-    assert!(md.contains("square :: 1"), "expected signature in hover: {}", md);
-    assert!(md.contains("a value"), "expected trailing docs in hover: {}", md);
+    assert!(
+        md.contains("square :: 1"),
+        "expected signature in hover: {}",
+        md
+    );
+    assert!(
+        md.contains("a value"),
+        "expected trailing docs in hover: {}",
+        md
+    );
 }

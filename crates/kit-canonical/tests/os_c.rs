@@ -45,7 +45,11 @@ fn os_c_env_get_path_is_set() {
 #[test]
 fn os_c_env_has_missing() {
     let v = eval_env_c("has(\"__NOT_SET__\")");
-    assert_eq!(v, serde_json::json!(false), "os-c env.has for missing must be false");
+    assert_eq!(
+        v,
+        serde_json::json!(false),
+        "os-c env.has for missing must be false"
+    );
 }
 
 #[test]
@@ -58,7 +62,10 @@ fn os_c_time_now_is_positive() {
 fn os_c_time_epoch_matches_now() {
     let n = eval_time_c("now()").as_f64().unwrap();
     let e = eval_time_c("epoch()").as_f64().unwrap();
-    assert!((n / 1000.0 - e).abs() < 1.0, "os-c time.now / 1000 must be close to time.epoch");
+    assert!(
+        (n / 1000.0 - e).abs() < 1.0,
+        "os-c time.now / 1000 must be close to time.epoch"
+    );
 }
 
 // ---------------------------------------------------------------------------
