@@ -1,3 +1,4 @@
+use handl_plugin_sdkgen::SdkgenBackend;
 use std::path::Path;
 
 #[test]

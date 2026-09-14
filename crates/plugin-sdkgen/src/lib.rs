@@ -1,9 +1,10 @@
 //! Handl SDK generator core IR and traits (ADR-0107).
 
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Platform-agnostic SDK module produced by a backend and consumed by an emitter.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SdkgenModule {
     pub client_package: String,
     pub backend_id: String,
@@ -18,7 +19,7 @@ pub struct SdkgenModule {
 }
 
 /// C record layout.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CRecord {
     pub name: String,
     pub fields: Vec<CField>,
@@ -27,7 +28,7 @@ pub struct CRecord {
 }
 
 /// C record field.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CField {
     pub name: String,
     pub port: String,
@@ -39,7 +40,7 @@ pub struct CField {
 }
 
 /// C function.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CFunction {
     pub name: String,
     pub port_name: String,
@@ -53,14 +54,14 @@ pub struct CFunction {
 }
 
 /// Visible Handl argument for a C function.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CHandlArg {
     pub name: String,
     pub port: String,
 }
 
 /// C typedef.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CTypedef {
     pub name: String,
     pub port: String,
@@ -68,7 +69,7 @@ pub struct CTypedef {
 }
 
 /// C enum constant.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CEnumConst {
     pub name: String,
     pub value: i64,

@@ -1,5 +1,7 @@
 //! C / libclang backend for the Handl SDK generator (ADR-0107).
 
+#![allow(non_upper_case_globals)]
+
 use handl_plugin_sdkgen::{
     CEnumConst, CField, CFunction, CHandlArg, CRecord, CTypedef, SdkgenBackend, SdkgenError,
     SdkgenModule,
@@ -92,9 +94,7 @@ impl SdkgenBackend for CBackend {
             width as usize
         };
         let ctx = ParseCtx {
-            tu,
             pointer_width: pointer_width_bits,
-            target: target.clone(),
             records: RefCell::new(HashMap::new()),
         };
 
@@ -164,9 +164,7 @@ struct CursorData {
 }
 
 struct ParseCtx {
-    tu: CXTranslationUnit,
     pointer_width: usize,
-    target: String,
     records: std::cell::RefCell<HashMap<String, CRecord>>,
 }
 

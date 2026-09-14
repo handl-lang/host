@@ -6,57 +6,60 @@ use handl_plugin_sdkgen_emitter_file::FileEmitter;
 
 fn build_clock_module() -> SdkgenModule {
     let mut module = SdkgenModule::default();
-    module.metadata = SdkgenMetadata {
-        module_name: "clock".to_string(),
-        backend_id: "c".to_string(),
-        target: "linux-x86_64".to_string(),
-        client_package: "libc".to_string(),
-        foreign_so_name: "libc.so.6".to_string(),
-    };
+    module.module = "clock".to_string();
+    module.backend_id = "c".to_string();
+    module.target = "x86_64-unknown-linux".to_string();
+    module.client_package = "libc".to_string();
+    module.library = "libc.so.6".to_string();
 
-    module.records.push(SdkgenRecord {
+    module.records.push(CRecord {
         name: "Timespec".to_string(),
         fields: vec![
-            SdkgenRecordField {
+            CField {
                 name: "tv_sec".to_string(),
-                port_type: "Int".to_string(),
+                port: "Int".to_string(),
                 descriptor: "i64".to_string(),
+                offset: 0,
+                size: 8,
+                ptr_depth: 0,
+                is_const: false,
             },
-            SdkgenRecordField {
+            CField {
                 name: "tv_nsec".to_string(),
-                port_type: "Int".to_string(),
+                port: "Int".to_string(),
                 descriptor: "i64".to_string(),
+                offset: 8,
+                size: 8,
+                ptr_depth: 0,
+                is_const: false,
             },
         ],
         size: 16,
         align: 8,
-        doc: Some("C `struct timespec`.".to_string()),
     });
 
-    module.functions.push(SdkgenFunction {
-        name: "ClockGettime".to_string(),
-        c_name: Some("clock_gettime".to_string()),
-        doc: "`clock_gettime` port.\n@param {clock_id}\n@returns {Result<Timespec, Errno>}"
-            .to_string(),
-        args: vec![
-            SdkgenFunctionArg {
+    module.functions.push(CFunction {
+        name: "clock_gettime".to_string(),
+        port_name: "ClockGettime".to_string(),
+        port_args: vec![
+            CHandlArg {
                 name: "clock_id".to_string(),
-                port_type: "Int".to_string(),
-                descriptor: "i32".to_string(),
-                is_out: false,
+                port: "Int".to_string(),
             },
-            SdkgenFunctionArg {
+            CHandlArg {
                 name: "tp".to_string(),
-                port_type: "Timespec".to_string(),
-                descriptor: "out_struct:{tv_sec:i64,tv_nsec:i64}".to_string(),
-                is_out: true,
+                port: "Timespec".to_string(),
             },
         ],
-        ret: SdkgenReturn {
-            port_type: "Result<Timespec, Errno>".to_string(),
-            descriptor: "i32".to_string(),
-        },
+        arg_descriptors: vec![
+            "i32".to_string(),
+            "out_struct:{tv_sec:i64,tv_nsec:i64}".to_string(),
+        ],
+        return_port: "Result<Timespec, Errno>".to_string(),
+        ret_descriptor: "i32".to_string(),
+        out_struct: Some("out_struct:{tv_sec:i64,tv_nsec:i64}".to_string()),
         variadic: false,
+        c_decl: "int clock_gettime(clockid_t clock_id, struct timespec *tp);".to_string(),
     });
 
     module
@@ -86,14 +89,17 @@ fn emits_port_and_adapter() {
         adapter.contains("export clock_gettime: ClockGettime :="),
         "adapter missing: {adapter}"
     );
-    assert!(adapter.contains("ffi.call("), "ffi.call missing: {adapter}");
     assert!(
-        adapter.contains("result.err(ffi.errno())"),
-        "result.err missing: {adapter}"
+        adapter.contains("call(\"libc.so.6\""),
+        "call missing: {adapter}"
     );
     assert!(
-        adapter.contains("result.ok(r.buf)"),
-        "result.ok missing: {adapter}"
+        adapter.contains("err(errno())"),
+        "err(errno()) missing: {adapter}"
+    );
+    assert!(
+        adapter.contains("ok(r.buf)"),
+        "ok(r.buf) missing: {adapter}"
     );
 
     let _ = fs::remove_dir_all(&tmp);
