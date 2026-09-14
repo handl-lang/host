@@ -19,10 +19,12 @@
 
 pub mod arrow_iter;
 pub mod function_value;
+pub mod loader;
 pub mod ops;
 pub mod packages;
 pub mod shared;
 
+pub use loader::load_hnl_file;
 pub use packages::{
     DEFAULT_RESOLVER, MODULES, ModuleSpec, PACKAGES, PackagePlugin, PackageResolver, PackageSpec,
     TableModuleLookup, build_module, library, module, module_ref, module_spec, module_with,

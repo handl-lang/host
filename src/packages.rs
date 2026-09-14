@@ -293,85 +293,11 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: ops::collections::HASH_SET_OPS,
         registry: Some(ops::collections::collections_op_registry),
     },
-    // `array` — the arrow-free surface is pure handl; the arrow-taking
-    // members (`take_while`/`drop_while`/`scan`/`foldr`/`find_*`) are ops.
-    ModuleSpec {
-        name: "array",
-        hnl: include_str!("../../../handl-packages/collections/array.hnl"),
-        funcs: &[
-            "len",
-            "is_empty",
-            "reverse",
-            "concat",
-            "contains",
-            "index_of",
-            "slice",
-            "first",
-            "last",
-            "at",
-            "pop",
-            "shift",
-            "fill",
-            "flatten",
-            "deep_flatten",
-            "take",
-            "drop",
-            "enumerate",
-            "unzip",
-            "intersperse",
-            "intercalate",
-            "dedupe",
-            "prepend",
-            "windows",
-            "transpose",
-            "insert_at",
-            "remove_at",
-            "zip",
-            "chunk",
-            "compact",
-            "pluck",
-        ],
-        ops: ops::collections::ARRAY_OPS,
-        registry: Some(ops::collections::collections_op_registry),
-    },
-    // `array` per-arrow modules (`collections/array/<name>.hnl`). Each
-    // arrow lives in its own file (`export <name> = ...`, its own doc
-    // comment); `array.hnl` (the aggregator) imports them all via
-    // `from "collections/array/<name>" import * as <name>`.
+    // The `array` package is loaded from `handl-packages/collections/array/index.hnl`
+    // at runtime via `crate::loader::load_hnl_file` instead of being embedded here.
+    // `hash_map` still depends on the leaf `len` and `contains` submodules.
     ModuleSpec { name: "len", hnl: include_str!("../../../handl-packages/collections/array/len.hnl"), funcs: &["len"], ops: &[], registry: None },
-    ModuleSpec { name: "is_empty", hnl: include_str!("../../../handl-packages/collections/array/is_empty.hnl"), funcs: &["is_empty"], ops: &[], registry: None },
-    ModuleSpec { name: "reverse", hnl: include_str!("../../../handl-packages/collections/array/reverse.hnl"), funcs: &["reverse"], ops: &[], registry: None },
-    ModuleSpec { name: "concat", hnl: include_str!("../../../handl-packages/collections/array/concat.hnl"), funcs: &["concat"], ops: &[], registry: None },
     ModuleSpec { name: "contains", hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"), funcs: &["contains"], ops: &[], registry: None },
-    ModuleSpec { name: "index_of", hnl: include_str!("../../../handl-packages/collections/array/index_of.hnl"), funcs: &["index_of"], ops: &[], registry: None },
-    ModuleSpec { name: "slice", hnl: include_str!("../../../handl-packages/collections/array/slice.hnl"), funcs: &["slice"], ops: &[], registry: None },
-    ModuleSpec { name: "first", hnl: include_str!("../../../handl-packages/collections/array/first.hnl"), funcs: &["first"], ops: &[], registry: None },
-    ModuleSpec { name: "last", hnl: include_str!("../../../handl-packages/collections/array/last.hnl"), funcs: &["last"], ops: &[], registry: None },
-    ModuleSpec { name: "at", hnl: include_str!("../../../handl-packages/collections/array/at.hnl"), funcs: &["at"], ops: &[], registry: None },
-    ModuleSpec { name: "pop", hnl: include_str!("../../../handl-packages/collections/array/pop.hnl"), funcs: &["pop"], ops: &[], registry: None },
-    ModuleSpec { name: "shift", hnl: include_str!("../../../handl-packages/collections/array/shift.hnl"), funcs: &["shift"], ops: &[], registry: None },
-    ModuleSpec { name: "fill", hnl: include_str!("../../../handl-packages/collections/array/fill.hnl"), funcs: &["fill"], ops: &[], registry: None },
-    ModuleSpec { name: "flatten", hnl: include_str!("../../../handl-packages/collections/array/flatten.hnl"), funcs: &["flatten"], ops: &[], registry: None },
-    ModuleSpec { name: "deep_flatten", hnl: include_str!("../../../handl-packages/collections/array/deep_flatten.hnl"), funcs: &["deep_flatten"], ops: &[], registry: None },
-    ModuleSpec { name: "take", hnl: include_str!("../../../handl-packages/collections/array/take.hnl"), funcs: &["take"], ops: &[], registry: None },
-    ModuleSpec { name: "drop", hnl: include_str!("../../../handl-packages/collections/array/drop.hnl"), funcs: &["drop"], ops: &[], registry: None },
-    ModuleSpec { name: "enumerate", hnl: include_str!("../../../handl-packages/collections/array/enumerate.hnl"), funcs: &["enumerate"], ops: &[], registry: None },
-    ModuleSpec { name: "unzip", hnl: include_str!("../../../handl-packages/collections/array/unzip.hnl"), funcs: &["unzip"], ops: &[], registry: None },
-    ModuleSpec { name: "intersperse", hnl: include_str!("../../../handl-packages/collections/array/intersperse.hnl"), funcs: &["intersperse"], ops: &[], registry: None },
-    ModuleSpec { name: "intercalate", hnl: include_str!("../../../handl-packages/collections/array/intercalate.hnl"), funcs: &["intercalate"], ops: &[], registry: None },
-    ModuleSpec { name: "dedupe", hnl: include_str!("../../../handl-packages/collections/array/dedupe.hnl"), funcs: &["dedupe"], ops: &[], registry: None },
-    ModuleSpec { name: "prepend", hnl: include_str!("../../../handl-packages/collections/array/prepend.hnl"), funcs: &["prepend"], ops: &[], registry: None },
-    ModuleSpec { name: "windows", hnl: include_str!("../../../handl-packages/collections/array/windows.hnl"), funcs: &["windows"], ops: &[], registry: None },
-    ModuleSpec { name: "transpose", hnl: include_str!("../../../handl-packages/collections/array/transpose.hnl"), funcs: &["transpose"], ops: &[], registry: None },
-    ModuleSpec { name: "insert_at", hnl: include_str!("../../../handl-packages/collections/array/insert_at.hnl"), funcs: &["insert_at"], ops: &[], registry: None },
-    ModuleSpec { name: "remove_at", hnl: include_str!("../../../handl-packages/collections/array/remove_at.hnl"), funcs: &["remove_at"], ops: &[], registry: None },
-    ModuleSpec { name: "zip", hnl: include_str!("../../../handl-packages/collections/array/zip.hnl"), funcs: &["zip"], ops: &[], registry: None },
-    ModuleSpec { name: "chunk", hnl: include_str!("../../../handl-packages/collections/array/chunk.hnl"), funcs: &["chunk"], ops: &[], registry: None },
-    ModuleSpec { name: "compact", hnl: include_str!("../../../handl-packages/collections/array/compact.hnl"), funcs: &["compact"], ops: &[], registry: None },
-    ModuleSpec { name: "pluck", hnl: include_str!("../../../handl-packages/collections/array/pluck.hnl"), funcs: &["pluck"], ops: &[], registry: None },
-    // `_reflect` — private reflection helpers shared by the array arrows
-    // (`is_arr`/`is_obj`); not part of the advertised package surface.
-    ModuleSpec { name: "_reflect", hnl: include_str!("../../../handl-packages/collections/array/_reflect.hnl"), funcs: &["is_arr", "is_obj"], ops: &[], registry: None },
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
     ModuleSpec {
         name: "stats",
@@ -506,7 +432,7 @@ const UTILS_MODULES: &[&str] = &[
 /// `collections` aggregate [`Module`] itself is contributed separately —
 /// see [`PackagePlugin::contribute`].
 const COLLECTIONS_MODULES: &[&str] = &[
-    "vec", "list", "queue", "stack", "deque", "hash_map", "hash_set", "array",
+    "vec", "list", "queue", "stack", "deque", "hash_map", "hash_set",
 ];
 
 /// The modules contributed by the `archive-tar` package (former
