@@ -1007,6 +1007,7 @@ dependencies = [
  "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
  "handl-plugin-ext-refinement",
+ "handl-plugin-ext-sdkgen",
  "handl-plugin-lib-scheduler",
  "serde_json",
 ]
@@ -1622,6 +1623,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ext-sdkgen"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-sdkgen",
+ "handl-plugin-sdkgen-backend-c",
+ "handl-plugin-sdkgen-emitter-file",
+]
+
+[[package]]
 name = "handl-plugin-ffi"
 version = "0.1.0"
 dependencies = [
@@ -2198,6 +2208,32 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-sdkgen"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-sdkgen-backend-c"
+version = "0.1.0"
+dependencies = [
+ "clang-sys",
+ "handl-plugin-sdkgen",
+ "libc",
+]
+
+[[package]]
+name = "handl-plugin-sdkgen-emitter-file"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-sdkgen",
 ]
 
 [[package]]
@@ -2878,6 +2914,8 @@ checksum = "07aa2048142242915a31d35844fb311e0e53fcca590c3a0a40dcf1b841fa09eb"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
