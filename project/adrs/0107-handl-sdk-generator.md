@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Phases 1 and 2 are implemented and tested; this ADR is now archived.
+Accepted. Phases 1 and 2 are implemented and tested. Phase 3 (Windows / macOS
+support) has been moved to [ADR-0110](./0110-handl-sdkgen-windows-macos.md).
+Phase 4 remains future work.
 
 Depends on the runtime-injected `ffi` package (`call`/`bind`/`errno`),
 [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md),
@@ -348,8 +350,7 @@ are in place:
 
 ### Phase 3 — Cross-platform
 
-- Windows and macOS target support in `plugin-sdkgen-backend-c`.
-- Shared-object name mapping per target.
+Moved to [ADR-0110 — Handl SDK Generator: Windows and macOS C Backend Support](./0110-handl-sdkgen-windows-macos.md).
 
 ### Phase 4 — Additional backends
 
