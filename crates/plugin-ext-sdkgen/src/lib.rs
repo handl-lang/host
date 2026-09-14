@@ -2,13 +2,14 @@
 
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
+use handl_plugin_sdkgen_backend_webidl::WebIdlBackend;
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use std::path::Path;
 
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
 pub fn sdkgen_command(args: &[String]) -> i32 {
-    if args.is_empty() || args[0] != "c" {
-        eprintln!("usage: hnl sdkgen c <header> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]");
+    if args.is_empty() || (args[0] != "c" && args[0] != "webidl") {
+        eprintln!("usage: hnl sdkgen <c|webidl> <header> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]");
         return 2;
     }
 
@@ -62,25 +63,30 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
         return 2;
     };
 
-    let config = match config_path {
-        Some(p) => match SdkgenConfig::load(Path::new(&p)) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("sdkgen: {e}");
-                return 1;
+    let module = match args[0].as_str() {
+        "c" => {
+            let config = match config_path {
+                Some(p) => match SdkgenConfig::load(Path::new(&p)) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("sdkgen: {e}");
+                        return 1;
+                    }
+                },
+                None => SdkgenConfig::default(),
+            };
+            match CBackend::new(target, config, only) {
+                Ok(b) => b.parse_header(Path::new(&header)),
+                Err(e) => Err(e),
             }
-        },
-        None => SdkgenConfig::default(),
-    };
-
-    let backend = match CBackend::new(target, config, only) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("sdkgen: {e}");
-            return 1;
         }
+        "webidl" => {
+            let backend = WebIdlBackend::new();
+            backend.parse_header(Path::new(&header))
+        }
+        _ => unreachable!(),
     };
-    let module = match backend.parse_header(Path::new(&header)) {
+    let module = match module {
         Ok(m) => m,
         Err(e) => {
             eprintln!("sdkgen: {e}");

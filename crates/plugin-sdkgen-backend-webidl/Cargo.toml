@@ -1,0 +1,7 @@
+[package]
+name = "handl-plugin-sdkgen-backend-webidl"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
