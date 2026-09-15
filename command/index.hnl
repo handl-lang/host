@@ -1,6 +1,6 @@
 --- command -- user-space command registration and invocation algebra.
 ---
---- A `Command` is an operation `~[(Op, Command)]~>` that is executed by the active
+--- A `Command` is an operation `~[1]~>` that is executed by the active
 --- `Command` handler.  Commands are effectful; by default they mutate a registry
 --- of named command arrows.  Everything below reduces to `Op`/`Handle`.
 
@@ -11,19 +11,25 @@ from "collections/hash_map" import * as hash_map
 export Command := Grade
 
 --- invoke a registered command by name with arguments.
-export command: (String, Array) ~[(Op, Command)]~> Value
+-- TODO(n-dim): was ~[(Op, Command)]~>
+export command: (String, Array) ~[1]~> Value
 
 --- register a named command implementation.
-export register: (String, (Array) ~[(Op, Command)]~> Value) ~[(Op, Command)]~> ()
+-- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): was ~[(Op, Command)]~>
+export register: (String, (Array) ~[1]~> Value) ~[1]~> ()
 
 --- test whether a named command is registered.
-export has: (String) ~[(Op, Command)]~> Bool
+-- TODO(n-dim): was ~[(Op, Command)]~>
+export has: (String) ~[1]~> Bool
 
 --- remove a named command from the registry.
-export unregister: (String) ~[(Op, Command)]~> ()
+-- TODO(n-dim): was ~[(Op, Command)]~>
+export unregister: (String) ~[1]~> ()
 
 --- list the names of registered commands.
-export names: () ~[(Op, Command)]~> Array
+-- TODO(n-dim): was ~[(Op, Command)]~>
+export names: () ~[1]~> Array
 
 --- the default `Command` handler: an ordinary arrow returning a record of operations.
 export default_handler := (registry) ~> {

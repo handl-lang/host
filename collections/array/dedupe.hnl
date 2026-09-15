@@ -8,7 +8,7 @@ from "./reverse.hnl" import reverse
 --- `array.dedupe([1, 1, 2, 2, 2, 3])`
 --- -- => [1, 2, 3]
 ---
-export dedupe<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export dedupe<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   out := []
   last := null
   seen := false

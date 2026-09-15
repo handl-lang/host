@@ -22,9 +22,12 @@ export Errno := Int
 --- Opaque foreign handle (file descriptor, socket, pointer, etc.).
 export Handle := Obj
 
-call = (String, String, Array, Array, String, Bool) ~[(Op, FFI)]~> Value
-bind = (String, String, Array, Array, String, Bool) ~[(Op, FFI)]~> Value
-errno = () ~[(Op, FFI)]~> Errno
+-- TODO(n-dim): was ~[(Op, FFI)]~>
+call = (String, String, Array, Array, String, Bool) ~[1]~> Value
+-- TODO(n-dim): was ~[(Op, FFI)]~>
+bind = (String, String, Array, Array, String, Bool) ~[1]~> Value
+-- TODO(n-dim): was ~[(Op, FFI)]~>
+errno = () ~[1]~> Errno
 
 export call
 export bind

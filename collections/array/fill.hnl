@@ -9,7 +9,7 @@
 --- `array.fill(3, 0)`
 --- -- => [0, 0, 0]
 ---
-export fill<T>: (Nat, T) ~[Total]~> List(T) := (n, v) ~> do {
+export fill<T>: (Nat, T) ~[1]~> List(T) := (n, v) ~> do {
   if n < 0 {
     null
   } else {

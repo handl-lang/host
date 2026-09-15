@@ -6,7 +6,7 @@
 --- `array.contains(["a", "b", "c"], "b")`
 --- -- => true
 ---
-export contains<T>: (List(T), T) ~[Total]~> Bool := (xs, needle) ~> do {
+export contains<T>: (List(T), T) ~[1]~> Bool := (xs, needle) ~> do {
   found := false
   for x in xs {
     if x == needle { found := true }

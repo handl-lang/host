@@ -1,4 +1,4 @@
 --- IsNegative arrow signature.
 from "type" import { Number, Bool }
 
-export IsNegative: Number ~[Total]~> Bool
+export IsNegative: Number ~[1]~> Bool

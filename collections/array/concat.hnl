@@ -8,7 +8,7 @@ from "./reverse.hnl" import reverse
 --- `array.concat([1, 2], [3, 4])`
 --- -- => [1, 2, 3, 4]
 ---
-export concat<T>: (List(T), List(T)) ~[Total]~> List(T) := (a, b) ~> do {
+export concat<T>: (List(T), List(T)) ~[1]~> List(T) := (a, b) ~> do {
   r := []
   for x in a {
     r := [x, ...r]

@@ -9,7 +9,7 @@ from "./take.hnl" import take
 --- `array.pop([1, 2, 3])`
 --- -- => [1, 2]
 ---
-export pop<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export pop<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   match xs {
     []: [],
     [h, ...t]: take(xs, len(xs) - 1)

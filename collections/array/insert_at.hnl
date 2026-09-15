@@ -12,7 +12,7 @@ from "./concat.hnl" import concat
 --- `array.insert_at([1, 2, 3], 1, 99)`
 --- -- => [1, 99, 2, 3]
 ---
-export insert_at<T>: (List(T), Nat, T) ~[Total]~> List(T) := (xs, i, v) ~> do {
+export insert_at<T>: (List(T), Nat, T) ~[1]~> List(T) := (xs, i, v) ~> do {
   if i < 0 {
     null
   } else {

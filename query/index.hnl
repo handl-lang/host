@@ -1,6 +1,6 @@
 --- query -- user-space query registration and invocation algebra.
 ---
---- A `Query` is an operation `~[(Op, Query)]~>` that is answered by the active
+--- A `Query` is an operation `~[1]~>` that is answered by the active
 --- `Query` handler.  The default handler keeps a `HashMap<String, (Array) -> Value>`
 --- registry.  Everything below reduces to the generic `Op`/`Handle` kernel.
 
@@ -11,19 +11,25 @@ from "collections/hash_map" import * as hash_map
 export Query := Grade
 
 --- call a registered query by name with arguments.
-export query: (String, Array) ~[(Op, Query)]~> Value
+-- TODO(n-dim): was ~[(Op, Query)]~>
+export query: (String, Array) ~[1]~> Value
 
 --- register a named query implementation.
-export register: (String, (Array) ~[(Op, Query)]~> Value) ~[(Op, Query)]~> ()
+-- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): was ~[(Op, Query)]~>
+export register: (String, (Array) ~[1]~> Value) ~[1]~> ()
 
 --- test whether a named query is registered.
-export has: (String) ~[(Op, Query)]~> Bool
+-- TODO(n-dim): was ~[(Op, Query)]~>
+export has: (String) ~[1]~> Bool
 
 --- remove a named query from the registry.
-export unregister: (String) ~[(Op, Query)]~> ()
+-- TODO(n-dim): was ~[(Op, Query)]~>
+export unregister: (String) ~[1]~> ()
 
 --- list the names of registered queries.
-export names: () ~[(Op, Query)]~> Array
+-- TODO(n-dim): was ~[(Op, Query)]~>
+export names: () ~[1]~> Array
 
 --- the default `Query` handler: an ordinary arrow returning a record of operations.
 export default_handler := (registry) ~> {

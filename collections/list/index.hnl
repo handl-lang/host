@@ -19,7 +19,7 @@
 ---     the kernel `Loop` primitive (Paterson's `loop`). The state record
 ---     `{ ys, n }` is the hidden feedback wire `S`; the count is the
 ---     exit wire.
----   * Signatures are graded arrows `A ~[G]~> B` (ADR-0102 surface).
+---   * Signatures are graded arrows `A ~[1]~> B` (ADR-0102 surface).
 ---     Grades are optional annotations carried by algebraic structures,
 ---     not hard-coded language features. Two algebras are used here:
 ---       Total -- the arrow never raises; composes as `Total >>> g := g`.

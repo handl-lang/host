@@ -4,7 +4,7 @@
 --- `array.reverse([1, 2, 3])`
 --- -- => [3, 2, 1]
 ---
-export reverse<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export reverse<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   r := []
   for x in xs {
     r := [x, ...r]

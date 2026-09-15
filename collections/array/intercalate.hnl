@@ -10,7 +10,7 @@ from "./concat.hnl" import concat
 --- `array.intercalate(["a", "b", "c"], "-")`
 --- -- => ["a", "-", "b", "-", "c"]
 ---
-export intercalate<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
+export intercalate<T>: (List(T), T) ~[1]~> List(T) := (xs, sep) ~> do {
   out := []
   is_first := true
   for x in xs {

@@ -10,7 +10,7 @@ from "hash_map" import get
 --- `array.pluck([{ name: "a" }, { name: "b" }, 7], "name")`
 --- -- => ["a", "b", null]
 ---
-export pluck<T>: (List(T), String) ~[Total]~> List(T) := (xs, key) ~> do {
+export pluck<T>: (List(T), String) ~[1]~> List(T) := (xs, key) ~> do {
   out := []
   for x in xs {
     do {

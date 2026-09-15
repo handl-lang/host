@@ -1,4 +1,4 @@
 --- Hypot arrow signature.
 from "type" import { Number }
 
-export Hypot: (Number * Number) ~[Total]~> Number
+export Hypot: (Number * Number) ~[1]~> Number

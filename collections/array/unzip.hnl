@@ -9,7 +9,7 @@ from "./reverse.hnl" import reverse
 --- `array.unzip([[1, "x"], [2, "y"]])`
 --- -- => [[1, 2], ["x", "y"]]
 ---
-export unzip<A, B>: List(Pair(A, B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
+export unzip<A, B>: List(Pair(A, B)) ~[1]~> Pair(List(A), List(B)) := (xs) ~> do {
   fs := [];
   gs := [];
   for x in xs {

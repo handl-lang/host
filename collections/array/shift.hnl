@@ -6,7 +6,7 @@
 --- `array.shift([1, 2, 3])`
 --- -- => [2, 3]
 ---
-export shift<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export shift<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   match xs {
     []: [],
     [h, ...t]: t

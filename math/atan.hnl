@@ -1,4 +1,4 @@
 --- Atan arrow signature.
 from "type" import { Number }
 
-export Atan: Number ~[Total]~> Number
+export Atan: Number ~[1]~> Number
