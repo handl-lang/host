@@ -1,0 +1,11 @@
+[package]
+name = "handl-plugin-compile-sexp"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-compile = { path = "../plugin-compile" }
+handl-language = { path = "../handl-language" }
+plugin-engine = { path = "../plugin-engine" }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

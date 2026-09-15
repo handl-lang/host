@@ -1,6 +1,6 @@
 # Graded algebraic theory in Handl
 
-This document explains the theoretical frame used by the Handl platform. It is written for anyone who wants to understand *why* the language is shaped the way it is, not how to use it. For the architecture decision, see ADR-0098.
+This document explains the theoretical frame used by the Handl platform. It is written for anyone who wants to understand _why_ the language is shaped the way it is, not how to use it. For the architecture decision, see ADR-0098.
 
 ## The one-sentence idea
 
@@ -27,7 +27,7 @@ Plotkin and Power showed that **computational effects** can be treated as algebr
 
 ## Graded algebraic theories
 
-A *graded* algebraic theory adds a **grade** to every operation and every term. The grade is an object in some indexing structure — usually a monoidal category or a category. The grade tracks extra structure: effects, resources, permissions, or capabilities.
+A _graded_ algebraic theory adds a **grade** to every operation and every term. The grade is an object in some indexing structure — usually a monoidal category or a category. The grade tracks extra structure: effects, resources, permissions, or capabilities.
 
 The classic example is graded state. The grade of `lookup_l` is the set `{l}`: this operation may access location `l`. The grade of `lookup_l` followed by `update_l` is still `{l}`. The grade of a compound computation is the union (or tensor) of the grades of its parts.
 
@@ -41,7 +41,7 @@ This corresponds to a **graded monad**: a computation `T_m A` returns an `A` and
 
 ## Category-graded theories
 
-In a **category-graded** theory, the grades are not just a monoid; they are morphisms in a category. This lets grades express *dependencies* or *state transitions*.
+In a **category-graded** theory, the grades are not just a monoid; they are morphisms in a category. This lets grades express _dependencies_ or _state transitions_.
 
 For example, a state can change type:
 
@@ -54,15 +54,15 @@ The grade of `lookup` is the morphism that takes a unit state and produces an `i
 
 ## How Handl maps onto this
 
-| Graded-theory concept | Handl construct | Surface keyword |
-|---|---|---|
-| Sort | value family | `sort` |
-| Grade | capability / effect | `grade` |
-| Carrier | `Model::Value` for a sort | (runtime concept) |
-| Operation | `op` declaration | `op` |
-| Term | `Term` data in the `Scheme` calculus | (runtime concept) |
-| Model | `Model` + handlers | (runtime concept) |
-| Handler | model for one sort | `handler` |
+| Graded-theory concept | Handl construct                      | Surface keyword   |
+| --------------------- | ------------------------------------ | ----------------- |
+| Sort                  | value family                         | `sort`            |
+| Grade                 | capability / effect                  | `grade`           |
+| Carrier               | `Model::Value` for a sort            | (runtime concept) |
+| Operation             | `op` declaration                     | `op`              |
+| Term                  | `Term` data in the `Scheme` calculus | (runtime concept) |
+| Model                 | `Model` + handlers                   | (runtime concept) |
+| Handler               | model for one sort                   | `handler`         |
 
 ### Sorts
 
@@ -104,7 +104,7 @@ op add<A: Addable> : (A, A) ~> A
 
 This says: `add` takes two values of any sort `A` that carries the grade `Addable`, and returns an `A`. The operation itself is graded by `Addable`.
 
-The grade is *not* the input sort. `Addable` is not a value you can pass to `add`. It is a constraint on the sort of the inputs.
+The grade is _not_ the input sort. `Addable` is not a value you can pass to `add`. It is a constraint on the sort of the inputs.
 
 For a concrete sort:
 
@@ -194,7 +194,7 @@ The graded arrow theory is not the end. Several other theories layer on top of i
 
 ### Coeffects
 
-Graded monads track what a computation *does* to the context. Graded comonads track what it *needs* from the context. Handl grades are already coeffects: `add` *needs* `Addable`. A full coeffect system would add a `needs` row alongside `with`:
+Graded monads track what a computation _does_ to the context. Graded comonads track what it _needs_ from the context. Handl grades are already coeffects: `add` _needs_ `Addable`. A full coeffect system would add a `needs` row alongside `with`:
 
 ```text
 add : (Number, Number) ~> Number  needs  Addable  with  Addable
@@ -237,10 +237,10 @@ The graded-theory frame explains several design choices:
 
 ## References
 
-- S. Kura, *Graded Algebraic Theories* (2020).
-- S. Kura et al., *Category-Graded Algebraic Theories and Effect Handlers* (CatEff, 2022).
-- T. Sanada, *Algebraic Effects and Handlers for Arrows* (2024).
-- J. Brachthäuser et al., *Effects as Capabilities: Effect Handlers and Lightweight Effect Polymorphism* (Effekt, 2020).
-- J. Hughes, *Generalising Monads to Arrows* (2000).
+- S. Kura, _Graded Algebraic Theories_ (2020).
+- S. Kura et al., _Category-Graded Algebraic Theories and Effect Handlers_ (CatEff, 2022).
+- T. Sanada, _Algebraic Effects and Handlers for Arrows_ (2024).
+- J. Brachthäuser et al., _Effects as Capabilities: Effect Handlers and Lightweight Effect Polymorphism_ (Effekt, 2020).
+- J. Hughes, _Generalising Monads to Arrows_ (2000).
 
 See also ADR-0098 for the architecture decision and ADR-0052 for the arrow-calculus kernel. [ADR-0106](../../project/adrs/0106-object-arrow-kernel.md) grounds the grades of this theory as ordinary objects in the one object/arrow world.

@@ -4,20 +4,20 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-plugin-module = {path = "../plugin-module" }
-handl-platform = {path = "../platform" }
-handl-kit-canonical = {path = "../kit-canonical" }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
-handl-language = {path = "../handl-language" }
-handl-runtime = {path = "../handl-runtime" }
-handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
-handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-ext-diag = {path = "../plugin-ext-diag" }
+handl-plugin-module = { path = "../plugin-module" }
+handl-platform = { path = "../platform" }
+handl-kit-canonical = { path = "../kit-canonical" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-language = { path = "../handl-language" }
+handl-runtime = { path = "../handl-runtime" }
+handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
 handl-plugin-lib-scheduler = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
-handl-plugin-exec-cache = {path = "../plugin-exec-cache" }
+handl-plugin-exec-cache = { path = "../plugin-exec-cache" }
 handl-plugin-ext-refinement = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }

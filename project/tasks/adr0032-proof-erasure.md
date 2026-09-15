@@ -34,12 +34,14 @@ Status: **done**
     `crates/handl-runtime/tests/proof_erasure.rs`.
 
 Files expected to change:
+
 - `crates/handl-kit-data-canonical/data/ast.yaml`
 - `crates/handl-kit-data-canonical/data/eval.yaml`
 - `crates/handl-runtime/src/lib.rs` or `crates/handl-runtime/tests/proof_erasure.rs`
   (or `crates/plugin-engine-exec-tree-walk/src/lib.rs`)
 
 Verification:
+
 - `cargo test -p handl-plugin-engine-exec-tree-walk`
 - `cargo test -p handl-runtime`
 
@@ -84,6 +86,7 @@ Status: **done**
   entries for the root and at least one child.
 
 Files expected to change:
+
 - `crates/plugin-engine-typecheck/src/lib.rs`
 - `crates/plugin-engine-typecheck-nbe/src/lib.rs`
 - `crates/plugin-engine-typecheck-nbe/src/tests.rs`
@@ -91,6 +94,7 @@ Files expected to change:
 - `.ref-crates/plugin-lib-lang-typecheck/src/tests.rs`
 
 Verification:
+
 - `cargo test -p handl-plugin-engine-typecheck-nbe`
 - `cargo test -p handl-runtime`
 - `cargo test -p handl-kit-canonical`
@@ -146,11 +150,13 @@ Status: **done**
       whose type is `type.number` still evaluates to `42`.
 
 Files changed:
+
 - `crates/handl-runtime/src/erase_pass.rs` (new)
 - `crates/handl-runtime/src/lib.rs`
 - `crates/handl-runtime/tests/proof_erasure.rs` (new)
 
 Verification (completed):
+
 - `cargo test -p handl-runtime --test proof_erasure` — 2 passed.
 - `cargo test -p handl-runtime` — 130+ tests passed (including new
   `erase_pass` unit tests and the `erased_node` / `proof_erasure`
@@ -182,10 +188,12 @@ Status: **done**
   surface syntax for marking constructors/types as `erased`/`proof`.
 
 Files changed:
+
 - `project/adrs/0032-types-as-values-remaining.md`
 - `project/tasks/adr0032-proof-erasure.md`
 
 Verification (completed):
+
 - Same targeted crate runs as subtask 3.
 - `data` desugaring tests (`indexed_family_data`, `indexed_family_match`,
   `indexed_family_fin`) and `runtime_assert` tests remain green.
@@ -239,7 +247,7 @@ from generated constructors/recursors).
     `__registry__` keys.
   - `type.empty` is the uninhabited proposition; if a node ever synthesizes it,
     it is also safe to erase.
-  - `type.eq` and `type.membership` are *proposition types* / type families,
+  - `type.eq` and `type.membership` are _proposition types_ / type families,
     not proof values. Their inhabitants are `type.refl` and
     `type.is_evidence` respectively, so only those inhabitants should be
     erased.

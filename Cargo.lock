@@ -991,13 +991,20 @@ name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
  "handl-host-tooling",
+ "handl-kit-arrow-lower",
  "handl-kit-canonical",
+ "handl-kit-data",
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
  "handl-plugin-applier-bootstrap",
  "handl-plugin-compile",
+ "handl-plugin-compile-dot",
+ "handl-plugin-compile-handl",
  "handl-plugin-compile-js",
  "handl-plugin-compile-llvm",
+ "handl-plugin-compile-sexp",
+ "handl-plugin-compile-term",
  "handl-plugin-engine-fmt",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
@@ -1013,6 +1020,7 @@ dependencies = [
  "handl-plugin-ext-refinement",
  "handl-plugin-ext-sdkgen",
  "handl-plugin-lib-scheduler",
+ "handl-runtime",
  "serde_json",
 ]
 
@@ -1025,6 +1033,7 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-ext-diag",
+ "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
  "handl-plugin-ext-lsp",
  "handl-plugin-ext-refinement",
@@ -1051,6 +1060,13 @@ dependencies = [
  "handl-plugin-loader-native",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "handl-kit-arrow-lower"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
 ]
 
 [[package]]
@@ -1191,6 +1207,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-compile-dot"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-compile",
+ "plugin-engine",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-compile-handl"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-arrow-lower",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-plugin-compile",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-ext-refinement",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "handl-plugin-compile-js"
 version = "0.1.0"
 dependencies = [
@@ -1213,6 +1256,28 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "inkwell",
  "plugin-engine",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-compile-sexp"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-compile",
+ "plugin-engine",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-compile-term"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-arrow-lower",
+ "handl-language",
+ "handl-plugin-compile",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -1557,8 +1622,12 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-compile",
+ "handl-plugin-compile-dot",
+ "handl-plugin-compile-handl",
  "handl-plugin-compile-js",
  "handl-plugin-compile-llvm",
+ "handl-plugin-compile-sexp",
+ "handl-plugin-compile-term",
  "handl-plugin-engine-typecheck",
  "plugin-engine",
  "serde_json",
@@ -2309,6 +2378,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-arrow-lower",
  "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",

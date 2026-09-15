@@ -1,0 +1,12 @@
+-- Multi-input / multi-output arrow wiring.
+-- `***` pairs two values (two inputs) into a categorical product.
+-- `&&&` fans a pair of values into a two-element array.
+-- `.0` and `.1` select the first and last of that array.
+
+do {
+  both = 10 *** 7
+  >>> ((a, b) ~> (a + 1) *** (b * 2))  -- product: +1 on the first input, *2 on the second
+  >>> ((c, d) ~> (c + d) &&& (c * d))  -- fan-out: produce first/last outputs
+
+  { first: both.0, last: both.1 }
+}

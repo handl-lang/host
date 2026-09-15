@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-lib-handl = { workspace = true }
-handl-plugin-module = {path = "../../crates/plugin-module"  }
-handl-platform = {path = "../../crates/platform" }
+handl-plugin-module = { path = "../../crates/plugin-module" }
+handl-platform = { path = "../../crates/platform" }
 serde_json = "1"
 chrono.workspace = true

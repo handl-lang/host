@@ -21,14 +21,14 @@ capabilities, and provenance.
 Module `tag`, declared in `handl-packages/tag/tag.hnl` (`op` + `handl`), backed
 by Rust handlers in an `OpRegistry`:
 
-| Callable | Role |
-|---|---|
-| `tag.tag(name, payload)` | **mint** a tagged value (host capability) |
-| `tag.untag(v)` | payload of `v` (`__tag__` removed), or `null` |
-| `tag.tag_of(v)` | tag name string, or `null` |
-| `tag.is_tag(v)` | `true` iff `v` carries a string `__tag__` |
-| `tag.construct(name, payload)` | **mint** a registry-scoped *type value* (`handl.canonical`) |
-| `tag.match_type(v, cases)` | **dispatch** on a type value's tag (no default fallback; `null` on miss) |
+| Callable                       | Role                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `tag.tag(name, payload)`       | **mint** a tagged value (host capability)                                |
+| `tag.untag(v)`                 | payload of `v` (`__tag__` removed), or `null`                            |
+| `tag.tag_of(v)`                | tag name string, or `null`                                               |
+| `tag.is_tag(v)`                | `true` iff `v` carries a string `__tag__`                                |
+| `tag.construct(name, payload)` | **mint** a registry-scoped _type value_ (`handl.canonical`)              |
+| `tag.match_type(v, cases)`     | **dispatch** on a type value's tag (no default fallback; `null` on miss) |
 
 Payload rules for `tag.tag`: object fields are spread into the value,
 `null` means empty, any other value is wrapped as `{value: payload}` —
@@ -134,7 +134,7 @@ colliding:
   `err({message, expected, actual, diff})` tagged values using the same
   primitive.
 
-Rule of thumb: if identity must be *checked* (did this come from the real
+Rule of thumb: if identity must be _checked_ (did this come from the real
 `ok` constructor / the canonical registry / the `Number` sort?), make it a
 tag. If it is just data, keep it a plain object.
 

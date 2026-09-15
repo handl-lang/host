@@ -4,5 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = {path = "../handl-language" }
+handl-language = { path = "../handl-language" }
 plugin-engine = { path = "../plugin-engine" }

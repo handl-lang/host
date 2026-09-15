@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-lib-handl = { workspace = true }
-handl-platform = {path = "../../crates/platform" }
-handl-plugin-lib-archive = {path = "../plugin-lib-archive"  }
+handl-platform = { path = "../../crates/platform" }
+handl-plugin-lib-archive = { path = "../plugin-lib-archive" }
 tar.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true

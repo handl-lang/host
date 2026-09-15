@@ -73,6 +73,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
+use handl_kit_arrow_lower::lower_ast;
+use plugin_engine::term_interpreter::interpret;
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
@@ -811,13 +813,27 @@ impl Runtime {
         desugar_pass::apply_desugar(&self.lang, &ast)
     }
 
-    /// Evaluate an [`Ast`] into a [`Value`] using the bound eval engine.
+    /// Evaluate an [`Ast`] into a [`Value`].
+    ///
+    /// First tries lowering the canonical AST to a `Term` and running the
+    /// small `Term` interpreter. If lowering or the interpreter cannot handle
+    /// the graph, falls back to the bound eval engine — keeping the existing
+    /// AST eval path alive for unsupported constructs.
     ///
     /// # Errors
     ///
     /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
     /// propagates the engine's error.
     pub fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
+        if !ast.is_empty() {
+            let root = AstRef::new(ast.len() - 1);
+            if let Ok(term) = lower_ast(ast, &self.lang, root) {
+                if let Ok(value) = interpret(&term, Value::Null) {
+                    return Ok(value);
+                }
+            }
+        }
+
         let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
         let req = EvalRequest::new(ast.clone());
         engine.eval(&self.lang, &req)

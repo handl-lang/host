@@ -23,6 +23,10 @@ pub struct CompileFileRequest {
     pub debug: bool,
     /// Target-specific output format (e.g. `esm`, `commonjs`, `iife`, `inline`, `o`, `ir`).
     pub format: Option<String>,
+    /// Handl-to-Handl sub-target (e.g. `hughes`).
+    pub to: Option<String>,
+    /// Term output format (e.g. `json`, `pretty`).
+    pub emit: Option<String>,
 }
 
 impl CompileFileRequest {
@@ -33,6 +37,8 @@ impl CompileFileRequest {
         let mut source_map = false;
         let mut debug = false;
         let mut format = None;
+        let mut to = None;
+        let mut emit = None;
 
         let mut i = 0;
         while i < args.len() {
@@ -53,6 +59,20 @@ impl CompileFileRequest {
                     })?;
                     format = Some(v.clone());
                 }
+                "--to" => {
+                    i += 1;
+                    let v = args.get(i).ok_or_else(|| {
+                        CompileError::InvalidInput("--to requires a value".to_string())
+                    })?;
+                    to = Some(v.clone());
+                }
+                "--emit" => {
+                    i += 1;
+                    let v = args.get(i).ok_or_else(|| {
+                        CompileError::InvalidInput("--emit requires a value".to_string())
+                    })?;
+                    emit = Some(v.clone());
+                }
                 "--" => {}
                 s if s.starts_with("--") => {
                     return Err(CompileError::InvalidInput(format!("unknown flag `{s}`")));
@@ -64,7 +84,7 @@ impl CompileFileRequest {
 
         if positional.len() < 2 {
             return Err(CompileError::InvalidInput(
-                "usage: compile <target> <file> [options]".to_string(),
+                "usage: compile <target> <file> [options]  (targets: js, llvm, handl, term, dot, sexp)".to_string(),
             ));
         }
         if positional.len() > 2 {
@@ -80,6 +100,8 @@ impl CompileFileRequest {
             source_map,
             debug,
             format,
+            to,
+            emit,
         })
     }
 

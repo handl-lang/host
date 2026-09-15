@@ -107,16 +107,16 @@ The arrow syntax `~>` is the only arrow constructor. There is no `->`.
 
 Handl is a **category-graded arrow theory** in the sense of Kura et al. (CatEff):
 
-| Graded theory | Handl | Surface keyword |
-|---|---|---|
-| Sort | value family | `sort` |
-| Grade | capability / effect | `grade` |
-| Carrier | `Model::Value` for a sort | concept |
-| Operation | `op` declaration | `op` |
-| Term | `Scheme`/`Term` arrow | concept |
-| Model | `Model` + handlers | concept |
-| GradeOfATerm | effect / grade row | `gradeof` (future) |
-| Handler | model for a sort | `handler` |
+| Graded theory | Handl                     | Surface keyword    |
+| ------------- | ------------------------- | ------------------ |
+| Sort          | value family              | `sort`             |
+| Grade         | capability / effect       | `grade`            |
+| Carrier       | `Model::Value` for a sort | concept            |
+| Operation     | `op` declaration          | `op`               |
+| Term          | `Scheme`/`Term` arrow     | concept            |
+| Model         | `Model` + handlers        | concept            |
+| GradeOfATerm  | effect / grade row        | `gradeof` (future) |
+| Handler       | model for a sort          | `handler`          |
 
 The `Model` is a **model** of the graded theory. A handler is a **model** for one sort. The `Term` is a **term** in the free model. The `Scheme` is the language of such terms.
 
@@ -625,7 +625,7 @@ These are not just open problems; they are existing theories that can be layered
 
 #### 18.1 Coeffects and graded comonads
 
-Graded monads track what a computation *does* to the context (effects). Graded comonads track what a computation *requires* from the context (coeffects). In Handl, grades are coeffects: `add` requires `Addable`.
+Graded monads track what a computation _does_ to the context (effects). Graded comonads track what a computation _requires_ from the context (coeffects). In Handl, grades are coeffects: `add` requires `Addable`.
 
 ```handl
 op add : (A, A) ~> A  needs  Addable

@@ -39,7 +39,6 @@
       - !Keep 0
       - !KeepRest 1
 
-
 - id: transform.desugar.call
   pass: desugar
   node_kind: call

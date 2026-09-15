@@ -93,9 +93,9 @@ Float  instanceof Number   -- runtime: parent chain walk
 -- static: Float <: Number  -- same parent chain, read statically
 ```
 
-Runtime `instanceof` and the static `<:` relation are the *same walk over the
-same nominal structure*. There is no parallel abstract type hierarchy and no
-`Subtype<A, B>` subsystem: the `sym` parent graph *is* the subtyping relation.
+Runtime `instanceof` and the static `<:` relation are the _same walk over the
+same nominal structure_. There is no parallel abstract type hierarchy and no
+`Subtype<A, B>` subsystem: the `sym` parent graph _is_ the subtyping relation.
 
 ### 3. Arrows as the fundamental computational primitive
 
@@ -250,7 +250,7 @@ The kernel distinguishes two moves that superficial syntax often conflates:
 
 - `Float ~> Number` — **conversion**: an arrow from a `Float` to its parent
   type. Compositional, lossy or lossless per the arrow's definition.
-- `Float := sym(Number)` — **nominal inheritance**: `Float` *is a* fresh
+- `Float := sym(Number)` — **nominal inheritance**: `Float` _is a_ fresh
   identity whose parent is `Number`. Powers `instanceof`, `<:`, and Liskov
   substitution — a `Float` may be used wherever a `Number` is expected.
 
@@ -304,18 +304,18 @@ from the value layer, no "type universe" separate from the object world.
 
 The entire language derives from ten forms:
 
-| Kernel form  | Meaning                                     |
-| ------------ | ------------------------------------------- |
-| `Obj`        | the world                                   |
-| `Type`       | `Type : Obj := sym()` — types are objects   |
-| `sym()`      | fresh nominal identity                      |
-| `sym(A)`     | fresh identity with parent `A`              |
-| `A ~> B`     | arrow                                       |
-| `a >>> b`    | composition                                 |
-| `f(x)`       | application                                 |
-| `f<...>`     | dimension specialization                    |
-| `(A, B)`     | product                                     |
-| `A ~[R]~> B` | graded arrow                                |
+| Kernel form  | Meaning                                   |
+| ------------ | ----------------------------------------- |
+| `Obj`        | the world                                 |
+| `Type`       | `Type : Obj := sym()` — types are objects |
+| `sym()`      | fresh nominal identity                    |
+| `sym(A)`     | fresh identity with parent `A`            |
+| `A ~> B`     | arrow                                     |
+| `a >>> b`    | composition                               |
+| `f(x)`       | application                               |
+| `f<...>`     | dimension specialization                  |
+| `(A, B)`     | product                                   |
+| `A ~[R]~> B` | graded arrow                              |
 
 And from these, everything else derives:
 
@@ -436,6 +436,7 @@ rule.
   empty list (`A ~[]~> B`) is rejected. Grade/sort declarations carry the
   algebra as before (ADR-0098/0100, ADR-0102; `graded_theory.rs`,
   `graded_e2e.rs`). ADR notation and implementation now agree.
+
 - **Dimensions — syntax + lowering implemented; specialization is
   application.** The `f<...>` surface exists: the Pratt engine recognizes the
   bracketed form and produces a `dimension` node (children `[target, args…]`,
@@ -456,9 +457,9 @@ rule.
   `eval.dimension` scheme with identical semantics also exists for paths that
   evaluate a raw (undesugared) AST. Evidence: `graded_theory.rs` asserts
   `inc<41>` evaluates to `42` and that `inc<41>` / `add<1, 2>` evaluate
-  *identically* to `inc(41)` / `add(1, 2)`.
+  _identically_ to `inc(41)` / `add(1, 2)`.
 
-  TODO(ADR-0106): true *specialization semantics* (a dimension selecting a
+  TODO(ADR-0106): true _specialization semantics_ (a dimension selecting a
   type/value/grade instantiation rather than an argument, plus
   expected-type/dimension inference) are not implemented; the payload is
   parsed as a general expression and applied.
@@ -505,15 +506,10 @@ lives in the model, not in any `*-nbe` crate.
 - ADR-0075 — capability discipline at the language level; capabilities as
   held object/arrow structures.
 
-
-
-
-
-
 ## Phase 5 conformance note (no closures / serializable arrows)
 
-This note records the state of the §6/§8 invariant — *arrows are objects with
-no closures, no lexical environments, and no hidden captured state* — as
+This note records the state of the §6/§8 invariant — _arrows are objects with
+no closures, no lexical environments, and no hidden captured state_ — as
 verified against the tree. **The invariant is partially satisfied.** As of the
 "serializable arrow representation (item 2)" work, an arrow minted by the
 tree-walk engine carries its body as explicit, serializable structure
@@ -531,16 +527,16 @@ Value layer (`crates/handl-value/src/lib.rs`):
 
 - `TaggedValue::Arrow` — `lib.rs:345-357`. Fields: `params: Rc<[String]>`,
   `rest: Option<Rc<str>>`, `body: usize`, `env: Rc<FxHashMap<Rc<str>,
-  TaggedValue>>`, `home: Option<u64>`, `array_pattern: bool`.
+TaggedValue>>`, `home: Option<u64>`, `array_pattern: bool`.
   - `env` (`:353`) is the captured lexical environment — the load-bearing
-    hidden state. It **is** JSON-serialized (as `"env"`), but its *contents*
+    hidden state. It **is** JSON-serialized (as `"env"`), but its _contents_
     can be non-serializable (see `Resource` below), and it exists only to
     support closure capture, which §3 forbids.
   - `body` (`:352`) is an **AST index** (`AstRef`). It serializes as a bare
     integer, which is not sufficient to reconstruct the arrow: the AST it
     indexes is not in the value.
   - `home` (`:354`) is stamped when an arrow crosses a runtime boundary. It
-    serializes as `"__home__"` (`:750-752`), but the *frame it names* lives in
+    serializes as `"__home__"` (`:750-752`), but the _frame it names_ lives in
     a process-local table (below).
 - JSON encoders (`lib.rs:729-757`): always emit `__arrow__`, `params`,
   `body`, `env`; emit `rest`, `__home__`, `array_pattern` only when set. The
@@ -560,24 +556,23 @@ Tree-walk engine (`crates/plugin-engine-exec-tree-walk/src/lib.rs`):
   `CURRENT_GLOBALS` and `HOME_FRAMES` (`:120-134`). `HOME_FRAMES` is a
   `HashMap<u64, EvalFrame>` — the process-local home-frame registry.
 - `EvalFrame { ast: Rc<Ast>, lang: Rc<Language>, modules: Option<Rc<dyn
-  ModuleLookup>>, globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>> }`
+ModuleLookup>>, globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>> }`
   (`:152-162`). This is the state a `__home__` id resolves to; it is **not**
   serializable and **not** part of the arrow value. `home_frame` /
   `register_frame_at` (`:189-200`).
 - `ScopeStack { scopes: Vec<FxHashMap<Rc<str>, TaggedValue>>, captured:
-  Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>, globals: Rc<FxHashMap<...>> }`
+Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>, globals: Rc<FxHashMap<...>> }`
   (`:291-302`), with `lookup` (`:338`), `define` (`:352`), `assign` (`:373`),
   `push_scope` (`:394`), `pop_scope` (`:399`), `capture` (`:417`). This is the
   mutable scope stack the closure substrate runs on.
 - Closure mint (`:2328-2336`): `TaggedValue::Arrow { …, env: captured,
-  home: None, … }`. Application threads `captured_env` back in
+home: None, … }`. Application threads `captured_env` back in
   (`apply_app`, `:3834-3975`; `:4007-4016`).
-
 
 Bytecode engine (`crates/plugin-engine-exec-bytecode/src/vm.rs`):
 
 - `ScopeStack` mirror (`:133-160`): `captured_root:
-  Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>` (`:143`), `globals`
+Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>` (`:143`), `globals`
   (`:148`), `lookup` (`:180`), `push_scope` (`:232`), `pop_scope` (`:239`),
   `capture` (`:256`). Verbatim scope-stack + captured-env state.
 
@@ -609,7 +604,7 @@ Boundary helpers:
 ### What is currently true (fenced by tests)
 
 `crates/handl-runtime/tests/arrow_serializability.rs` (8 tests, all green)
-pins the parts that *are* checkable through public APIs:
+pins the parts that _are_ checkable through public APIs:
 
 - the arrow JSON key universe is exactly `__arrow__`, `params`, `body`,
   `env`, `rest`, `__home__`, `array_pattern`; the bare arrow emits exactly
@@ -654,12 +649,11 @@ pins the parts that *are* checkable through public APIs:
    of holding non-serializable values (encode-time error) or carry opaque
    handles out-of-band; today they serialize as a finalizer-less pointer
    (`handl-value/src/lib.rs:758-764`) and leak on round-trip.
-5. **Make `>>>` compose.** Surface `>>>` is currently *application*, not
+5. **Make `>>>` compose.** Surface `>>>` is currently _application_, not
    composition (`handl-kit-data-canonical/data/types.yaml:2158-2166`); the
    ADR-0106 §3 composed-arrow value does not exist yet, so "a composed arrow
    has no hidden state beyond its components" is only fenced for the `Seq`
    term. TODO: lower `>>>` to composition and add composed-arrow tests.
-
 
 ## Design: serializable arrow representation (item 2)
 
@@ -683,8 +677,8 @@ outside the process that minted it:
   (`crates/plugin-engine-exec-tree-walk/src/lib.rs:134`, `:152-162`). The
   frame (AST + `Language` + module chain) is not in the value.
 
-`env` is the third piece of hidden state, but it is a *semantic* problem
-(ADR-0106 §3/§4 forbid closures) rather than a *serializability* one, so the
+`env` is the third piece of hidden state, but it is a _semantic_ problem
+(ADR-0106 §3/§4 forbid closures) rather than a _serializability_ one, so the
 design below replaces only the body representation first and leaves `env`
 elimination to the larger migration (TODO items 1/3).
 
@@ -705,7 +699,7 @@ Arrow {
 ```
 
 `body_def` carries the arrow's body as **explicit, serializable structure that
-lives in the value**. It holds the *existing* language-level AST-value
+lives in the value**. It holds the _existing_ language-level AST-value
 encoding — a `TaggedValue::Obj` `{"__ast__": <serialized handl_language::Ast>}`
 — the same shape `handl_language::ast_value` / `as_ast` already define for
 vau-bound unevaluated expressions (`crates/handl-language/src/lib.rs:196-226`,
@@ -717,7 +711,7 @@ its transitively-referenced children into a fresh standalone arena.
 Why this shape and not a new type in `handl-value`:
 
 - `handl-value` is a low-level data crate with no dependency on
-  `handl-language`; `body_def` is therefore typed as an *opaque*
+  `handl-language`; `body_def` is therefore typed as an _opaque_
   `TaggedValue`, not as an `Ast`. The `__ast__` convention is interpreted only
   by the engines (which do depend on `handl-language`), keeping the layering.
 - `{"__ast__": <Ast>}` is already the serializable form of an expression the
@@ -726,7 +720,7 @@ Why this shape and not a new type in `handl-value`:
 - `Option` keeps the change additive: an arrow with `body_def: None` behaves
   exactly as today (the `body`/`env`/`home` fallback).
 - `body_def` is **derived data** (the same body, pre-extracted into a
-  standalone arena), so it is not part of the value's *identity*: `eq` and
+  standalone arena), so it is not part of the value's _identity_: `eq` and
   `Hash` (`crates/handl-value/src/lib.rs:456-481`) both ignore it. Two arrows
   whose `params`/`rest`/`body`/`env`/`home`/`array_pattern` agree compare equal
   and hash identically whether or not either carries a definition — which also
@@ -796,7 +790,7 @@ The `__arrow__` object gains exactly one optional key, emitted only when
    convention), with `home` treated as absent. `body`/`home` remain the
    fallback when there is no definition (bytecode/cranelift arrows,
    hand-built values) or when the definition fails to deserialize.
-   **(2a) done**: `Ast::subtree` now remaps *named* arena references as well
+   **(2a) done**: `Ast::subtree` now remaps _named_ arena references as well
    as positional children, driven by the audited list
    [`ARENA_REF_PAYLOAD_KEYS`] (`crates/handl-language/src/ast.rs`), which
    currently contains `body`. Only in-range integer values are treated as
@@ -814,7 +808,7 @@ The `__arrow__` object gains exactly one optional key, emitted only when
 An arrow minted by the tree-walk engine is **self-describing and applicable
 without its minting frame**: `round_tripped_arrow_is_applicable_without_its_frame`
 (`crates/handl-runtime/tests/arrow_serializability.rs`) mints `x ~> x + 1` in
-one runtime, transports the value as JSON, and applies it in a *second*
+one runtime, transports the value as JSON, and applies it in a _second_
 runtime whose arena never contained that body — result `42`, identical to a
 directly-minted arrow. The same test strips `body_def` as a control: the
 transported value then cannot reproduce the result, which shows the behaviour
@@ -822,7 +816,7 @@ comes from the explicit definition rather than the ambient arena.
 
 Arrows minted by the bytecode/cranelift engines currently carry
 `body_def: None` (step 3); `env` is still a captured lexical environment
-(step 4). So §6 is *partially* satisfied today: bodies are explicit for
+(step 4). So §6 is _partially_ satisfied today: bodies are explicit for
 tree-walk arrows, environments are not explicit yet.
 
 **Attempted, reverted, and the pre-existing bug behind it.** Skipping the
@@ -858,7 +852,7 @@ established the following evidence:
 
 - **It is a stack-threshold + huge-evaluation problem, not an infinite loop.**
   With the default 8 MiB thread stack the test binary aborts; with
-  `RUST_MIN_STACK ≈ 128 MiB` it *passes* in ~20 s and returns the correct
+  `RUST_MIN_STACK ≈ 128 MiB` it _passes_ in ~20 s and returns the correct
   `[1, 2]`. An instrumentation of every `eval_node_inner` visit showed the
   program terminating at the `fanout` node.
 - **The cost is disproportionate.** The trivial source `1 &&& 2` drives on the
@@ -867,7 +861,7 @@ established the following evidence:
 - **The host is wired correctly.** `fn.fanout_fn` is registered via
   `canonical_fp_host_functions` (`crates/kit-canonical/src/lib.rs`), and
   `&&&` has `eval.fanout` → `fn.fanout_fn(proj_child 0, proj_child 1)` with no
-  desugar rule — so the blowup is *inside* the eval path, not a rewrite miss.
+  desugar rule — so the blowup is _inside_ the eval path, not a rewrite miss.
 - **Open question — loader vs evaluator.** The `kit()` build installs the
   self-hosted `HandlLoader` (which runs stdlib transforms on the **bytecode**
   engine), and the instrumented node mix (`match`/`if`/`index`/`binary.eq`)
@@ -883,7 +877,7 @@ validated against a clean oracle (`fp_integration` is red because of exactly
 this bug).
 
 **Cost of step 2 (resolved).** Preferring `body_def` initially deserialized
-the standalone arena on *every* application (`tagged_to_value` + `as_ast`),
+the standalone arena on _every_ application (`tagged_to_value` + `as_ast`),
 which allocates per call. `plugin-engine-exec-tree-walk` now memoizes the
 arena per definition value (`cached_def_arena`): the table is keyed by the
 `Rc<TaggedValue>` pointer of the `body_def`, and each entry holds an
@@ -894,9 +888,8 @@ therefore have distinct entries. Growth is bounded by clearing the table at
 `ARROW_ARENA_CACHE_CAP` (64) entries, at a cost of at most one
 re-deserialization per live arrow afterwards. Evidence:
 `arrow_arena_cache_tests` in `crates/plugin-engine-exec-tree-walk/src/lib.rs`
-asserts that a second lookup returns the *same* allocation
+asserts that a second lookup returns the _same_ allocation
 (`Rc::ptr_eq`) — a test that fails if the memo is removed — that equal-but-
 distinct definitions do not collide, that malformed/empty definitions are
 rejected (falling back to `body`/`home`), and that the table stays within its
 cap while remaining correct after a clear.
-

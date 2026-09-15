@@ -27,7 +27,7 @@ and a thin handl adapter.
 
    An `LspDef` has:
 
-   - `rules` — a registry of named rule *recipes* (`id -> LspRule`).
+   - `rules` — a registry of named rule _recipes_ (`id -> LspRule`).
    - `lsp` — a map from LSP method id (e.g. `textDocument/documentSymbol`)
      to an ordered list of rule ids.
 
@@ -39,7 +39,7 @@ and a thin handl adapter.
    - `config` — provider-specific data captured as a free `serde_json::Map`.
      No `Language` schema change is needed to add a new `kind`.
 
-   This makes the LSP surface *method-keyed*, not section-keyed. A language can
+   This makes the LSP surface _method-keyed_, not section-keyed. A language can
    enable only the LSP methods it wants, in any combination, with whatever rule
    recipe mix it needs. Missing methods return empty or `null` responses.
 
@@ -64,7 +64,7 @@ and a thin handl adapter.
    not at LSP request time.
 
 4. **Fallbacks and robustness.** Each export rule can declare `fallback:
-   source` for signatures (use the node's own source text when a dedicated
+source` for signatures (use the node's own source text when a dedicated
    signature role is absent) and `dotted_last_segment: true`/`false` for names.
    The engine silently skips a rule if the matched node does not provide the
    required role, so one malformed construct does not break the whole outline

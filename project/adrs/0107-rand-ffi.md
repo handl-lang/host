@@ -39,13 +39,13 @@ The goal is a feature-complete, production-ready `rand` package implemented as p
 
 ## Plan
 
-| Phase | Scope | Files affected |
-|---|---|---|
-| 1 | Sodium primitives in `crand` (`init`, `u32`, `bytes`) and `rand-c` core (`int`, `float`, `bool`, `bytes`, `string`) + validation. | `handl-packages/rand-c/crand.hnl`, `handl-packages/rand-c/rand-c.hnl`, `handl-packages/rand-stub/rand-stub.hnl` |
-| 2 | Pure-handl array ops (`pick`, `choice`, `sample`, `shuffle`, `weighted_pick`). | `handl-packages/rand-c/rand-c.hnl` |
-| 3 | Distributions (`gauss`, `exponential`, `poisson`, `binomial`) and `libuuid` UUID. | `handl-packages/rand-c/rand-c.hnl`, `handl-packages/rand-c/uuid.hnl` (if split) |
-| 4 | Seeded variants and noise (`perlin_*`, `simplex_*`). | `handl-packages/rand-c/seeded.hnl`, `handl-packages/rand-c/noise.hnl` (if split) |
-| 5 | Contract (`handl-packages/rand/index.hnl`) and removal of `crates/plugin-lib-rand`, `crates/plugin-lib-rand-native`, plus kit `Cargo.toml` cleanup. | `handl-packages/rand/index.hnl`, delete `crates/plugin-lib-rand`, `crates/plugin-lib-rand-native`, update `crates/kit-canonical/Cargo.toml`, `crates/plugin-ext-kit/Cargo.toml` |
+| Phase | Scope                                                                                                                                               | Files affected                                                                                                                                                                  |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Sodium primitives in `crand` (`init`, `u32`, `bytes`) and `rand-c` core (`int`, `float`, `bool`, `bytes`, `string`) + validation.                   | `handl-packages/rand-c/crand.hnl`, `handl-packages/rand-c/rand-c.hnl`, `handl-packages/rand-stub/rand-stub.hnl`                                                                 |
+| 2     | Pure-handl array ops (`pick`, `choice`, `sample`, `shuffle`, `weighted_pick`).                                                                      | `handl-packages/rand-c/rand-c.hnl`                                                                                                                                              |
+| 3     | Distributions (`gauss`, `exponential`, `poisson`, `binomial`) and `libuuid` UUID.                                                                   | `handl-packages/rand-c/rand-c.hnl`, `handl-packages/rand-c/uuid.hnl` (if split)                                                                                                 |
+| 4     | Seeded variants and noise (`perlin_*`, `simplex_*`).                                                                                                | `handl-packages/rand-c/seeded.hnl`, `handl-packages/rand-c/noise.hnl` (if split)                                                                                                |
+| 5     | Contract (`handl-packages/rand/index.hnl`) and removal of `crates/plugin-lib-rand`, `crates/plugin-lib-rand-native`, plus kit `Cargo.toml` cleanup. | `handl-packages/rand/index.hnl`, delete `crates/plugin-lib-rand`, `crates/plugin-lib-rand-native`, update `crates/kit-canonical/Cargo.toml`, `crates/plugin-ext-kit/Cargo.toml` |
 
 ## Quality, documentation, and test requirements
 

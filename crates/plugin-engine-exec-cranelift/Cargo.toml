@@ -7,13 +7,13 @@ edition.workspace = true
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-handl-language = {path = "../handl-language" }
-handl-platform = {path = "../platform" }
-plugin-engine = {path = "../plugin-engine" }
-handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
-handl-plugin-ffi = {path = "../plugin-ffi" }
-handl-runtime = {path = "../handl-runtime" }
-handl-value = {path = "../handl-value" }
+handl-language = { path = "../handl-language" }
+handl-platform = { path = "../platform" }
+plugin-engine = { path = "../plugin-engine" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-plugin-ffi = { path = "../plugin-ffi" }
+handl-runtime = { path = "../handl-runtime" }
+handl-value = { path = "../handl-value" }
 cranelift = { workspace = true }
 cranelift-module = { workspace = true }
 cranelift-jit = { workspace = true }
@@ -22,8 +22,8 @@ serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
-handl-test-utils = {path = "../handl-test-utils" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
-handl-plugin-module = {path = "../plugin-module" }
+handl-test-utils = { path = "../handl-test-utils" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
+handl-plugin-module = { path = "../plugin-module" }
 serde_json = { workspace = true }

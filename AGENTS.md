@@ -17,18 +17,18 @@ All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
 
 ### Crate map
 
-| Concern                | Crate                                    | Key API                                                                                                                                                                                                              |
-| ---------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared diagnostics     | `plugin-ext-diag`                        | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                          |
-| Formatter              | `plugin-ext-fmt`                         | `format_source(src)`, `check_source(src)`                                                                                                                                                                            |
-| AST formatter          | `plugin-engine-fmt`                      | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                   |
-| Linter                 | `plugin-ext-lint` (wiring) + `plugin-engine-lint` (engine, ADR-0097) | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`); `!Native "handl:<mod>.<fn>"` routes to `.hnl` functions via `HandlNativeLint` in `plugin-lib-handl` (a `NativeLintResolver` on the registry, mirroring `HandlNativeRewrite`)                                                                                                            |
-| Typechecker            | `plugin-engine-typecheck`                | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                           |
-| Test runner            | `plugin-engine-test` (new, ADR-0089)     | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                  |
-| Transform abstraction  | `plugin-engine-transform` (ADR-0094)     | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms` |
-| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094) | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives) |
-| CLI                    | `host-cli`                               | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree|json|source] [--write]` — ADR-0094)               |
+| Concern                | Crate                                                                                                      | Key API                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared diagnostics     | `plugin-ext-diag`                                                                                          | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Formatter              | `plugin-ext-fmt`                                                                                           | `format_source(src)`, `check_source(src)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| AST formatter          | `plugin-engine-fmt`                                                                                        | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Linter                 | `plugin-ext-lint` (wiring) + `plugin-engine-lint` (engine, ADR-0097)                                       | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`); `!Native "handl:<mod>.<fn>"` routes to `.hnl` functions via `HandlNativeLint` in `plugin-lib-handl` (a `NativeLintResolver` on the registry, mirroring `HandlNativeRewrite`)                        |
+| Typechecker            | `plugin-engine-typecheck`                                                                                  | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Test runner            | `plugin-engine-test` (new, ADR-0089)                                                                       | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
+| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Transform abstraction  | `plugin-engine-transform` (ADR-0094)                                                                       | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms`                                                                                                                                                                                                                                                                                                                                            |
+| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094)                                                               | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives)                                                                                                                                                                                                                                                                                                                                            |
+| CLI                    | `host-cli`                                                                                                 | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree                                                                                                                                                                                                                                                                                                                                                                                                                                    | json | source] [--write]` — ADR-0094) |
 
 ### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
 
@@ -125,7 +125,7 @@ Infrastructure that made it green:
   statement splitter (comment-at-boundary vs mid-statement handled
   correctly); used by typecheck, lint, and test.
 - `plugin-ext-refinement::detect_dialect` — `Dialect::{Canonical,Contract,
-  Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
+Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
   dialect files are skipped by canonical-only tools.
 - `plugin-engine-typecheck::check_module_with_prelude` — the bootstrap
   scope pass handles pattern binders (`AstShapeDef::pattern_role`), `data`
@@ -139,7 +139,7 @@ Infrastructure that made it green:
 
 - **Canonical surface forms** (all → `stmt.import`):
   `import "<spec>"`, `from "<spec>" import *`, `from "<spec>" import * as
-  <alias>`, `from "<spec>" import <name> [as <alias>]`. The `from` tail is
+<alias>`, `from "<spec>" import <name> [as <alias>]`. The `from` tail is
   `AstShapeRef::trailing_tokens` on `grammar.stmt-from.prefix`: `import`,
   then `*` or an identifier captured into `payload.names`, then an optional
   `as <alias>` gated by `TokenStep::requires_prev_match` (new flag — a
@@ -150,7 +150,7 @@ Infrastructure that made it green:
   dir → module root → CWD) is the executable import op — `prim_import` in
   all three eval engines splices exports, binds the module record under
   `* as`, or projects a named export (missing name → `module has no
-  export`). A spec that does **not** resolve to a file (bare host-module
+export`). A spec that does **not** resolve to a file (bare host-module
   names like `str`, extension-less siblings like `./dedent`) denotes a
   module on the host chain: `HandlModule::with_resolver` auto-wires it for
   `.hnl` module sources, and whole-program/file-loader hosts strip the
@@ -241,7 +241,7 @@ Infrastructure that made it green:
       rewritten to canonical `from "./dedent" import * as dedent`, so the
       divergence is **closed**. Note the import line in `.test.hnl` files is
       still skipped textually by the test runner (and stripped by `hnl
-      run` when its specifier does not resolve to a file) — the stdlib
+run` when its specifier does not resolve to a file) — the stdlib
       module chain supplies the bindings — but the line now also parses
       under canonical Pratt, so `hnl typecheck`/`lint`/`fmt` accept the
       file. See "Unified import model (ADR-0096)" below.
@@ -329,7 +329,7 @@ Infrastructure that made it green:
   `TestProvider`/`Reporter` are the provider and reporter seams, and
   `TestOutcome` carries `duration` + `FailureDetail`. `hnl test` is wired
   in `host-cli` (`--filter`/`--tag`/`--jobs`/`--cache`/`--report
-  human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
+human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   `SuiteStarted`/`SuiteFinished` bracket each **module** (the suite
   boundary — `TestPlan` has no `Suite` concept; a suite is a contiguous
   run of one module's cases in canonical plan order). Structured
@@ -400,7 +400,7 @@ tree-walk engine), so parsing is no longer the bottleneck. Measured on
 `examples/loader_bench.rs` (release): a warm `str.length` call went
 ~6.5ms → ~0.33ms (~19×); `loader.strip_decls` on `dedent.hnl` (2.7k
 chars) ~6.7s → ~0.93s (~7×); but on `str-handl.hnl` (22k chars) ~91s →
-~43s. The residual cost is the *interpreted* `str.*`/`char.*` body eval
+~43s. The residual cost is the _interpreted_ `str.*`/`char.*` body eval
 over every input character (record caching is impossible across the
 `serde_json::Value` boundary — arrows' captured `env`s expand
 exponentially for `do {}`-block modules like `str-handl`). ~43s for one
@@ -409,7 +409,7 @@ too slow, so `kit-canonical` deliberately does **not** `install_loader`
 (see the NOTE in `build_kit`). Promotion to the default path awaits a
 compiled eval engine (bytecode/cranelift) for the transform pass, or a
 `TaggedValue`-level cache that never serializes captured envs. Until then
-the Rust `bootstrap` seam is the minimal *active* implementation and
+the Rust `bootstrap` seam is the minimal _active_ implementation and
 `loader.hnl` is the verified spec.
 
 ## String / Char / Unicode layering (ADR-0093)
@@ -471,7 +471,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   arguments as per-call globals (`__arg_N`, via
   `Runtime::eval_with_globals`) instead of serializing them into the
   applied source text — closures, tagged values, and other reserved-key
-  values cross the boundary as *values*. Arrows that cross carry a
+  values cross the boundary as _values_. Arrows that cross carry a
   `"__home__"` frame id (registered in the tree-walk home-frame registry —
   `current_home_frame`/`register_home_frame`) so `apply_app`/`call_value`
   route the `body` index back to the AST + Language + module chain that
@@ -528,7 +528,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
     eval-scheme splice (a `proj_rest`/apply-path op that expands `rest`
     children into the arg list), not just a `rest_token` row on `call` —
     a language-design decision, not a sweep fix.
-  - The arrow parser's named-arrow path now actually splits ` :: ` (it was
+  - The arrow parser's named-arrow path now actually splits `::` (it was
     detected by `has_named_arrows` but never split — `name :: rec {...}`
     files failed with "no named arrows found") and routes bodies through
     `parse_arrow_expr` so `rec { ... }` bodies work in named arrows.

@@ -80,11 +80,11 @@ compiled-engine parity, AST caching).
   - block `x = y` never updated enclosing scopes (define-only);
   - `rec` fixpoint couldn't detect nested writes;
   - `__fresh_*` names collided with the `_` wildcard convention.
-  All fixed in tree-walk + bytecode. **Semantic change: block assigns are
-  now update-or-define** — `if c { x = 5 }` mutates an outer `x`
-  (required for the desugar to be meaningful; documented in AGENTS.md).
+    All fixed in tree-walk + bytecode. **Semantic change: block assigns are
+    now update-or-define** — `if c { x = 5 }` mutates an outer `x`
+    (required for the desugar to be meaningful; documented in AGENTS.md).
 - **Dialect routing** (`f3e9e73b`): the "32 unparseable files" were
-  mostly *dialect* files — `hnl typecheck` now routes contract files
+  mostly _dialect_ files — `hnl typecheck` now routes contract files
   (`axiom`/`requires:`/`guarantee:`) to `parse_contracts` and arrow-module
   files (`cap`/`op`/`handl`/`tag`, `arr`/`>>>`/`|||` graphs) to
   `parse_arrow_module`. `axiom` got a canonical alias row. Legacy `->`/
@@ -92,11 +92,11 @@ compiled-engine parity, AST caching).
   30 → 0; typecheck failures: 128 → 57** (remaining are genuine
   unbound-wire env gaps).
 - **Import unification** (`ecb81343`, ADR-0096 amendment): `import
-  "<spec>"`, `from "<spec>" import <name> [as x]`, `from "<spec>" import
-  * [as x]` all resolve through `prim_import` in all three engines with
-  named-projection errors; module-name (host-chain) declarations
-  documented as decorative under `hnl run`/`test`; arrow-loader
-  `import x from "p"` documented as dialect-fixed.
+"<spec>"`, `from "<spec>" import <name> [as x]`, `from "<spec>" import
+  - [as x]`all resolve through`prim_import`in all three engines with
+named-projection errors; module-name (host-chain) declarations
+documented as decorative under`hnl run`/`test`; arrow-loader
+`import x from "p"` documented as dialect-fixed.
 - **`Bind` on compiled engines** (`15595901`): `eval_rec` +
   update-or-define `ScopeStack::assign` in bytecode and cranelift —
   **all 44 handl-defining-handl corpus cases now run on all three
@@ -115,12 +115,12 @@ compiled-engine parity, AST caching).
 
 ## Remaining open items (by design or blocked)
 
-| Item | Status |
-|---|---|
-| `desugar.data` / `desugar.match_recursor` natives | Permanent native floor unless transform vocabulary grows env lookup + constructor iteration |
-| `f(...xs)` call-site spread | Needs an eval-splice op; no live usage yet |
-| `loader.hnl` as default | Blocked on interpreted-eval cost; AST cache landed but insufficient alone |
-| Typecheck env gaps (~57 files, `[unbound-wire]`) | Match-arm binder scoping, module envs — real remaining checker work |
-| Dialect routing for `lint`/`fmt`/`run`/`test` | Only `typecheck` routes dialects (dep-cycle constraint) |
-| RFC-0001–0007 self-hosting, arrow macros, registry module resolution | Backlog by design |
-| `{ x :: v }` multi-statement brace bodies | Canonical form is `do { ... }`; object-literal ambiguity documented |
+| Item                                                                 | Status                                                                                      |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `desugar.data` / `desugar.match_recursor` natives                    | Permanent native floor unless transform vocabulary grows env lookup + constructor iteration |
+| `f(...xs)` call-site spread                                          | Needs an eval-splice op; no live usage yet                                                  |
+| `loader.hnl` as default                                              | Blocked on interpreted-eval cost; AST cache landed but insufficient alone                   |
+| Typecheck env gaps (~57 files, `[unbound-wire]`)                     | Match-arm binder scoping, module envs — real remaining checker work                         |
+| Dialect routing for `lint`/`fmt`/`run`/`test`                        | Only `typecheck` routes dialects (dep-cycle constraint)                                     |
+| RFC-0001–0007 self-hosting, arrow macros, registry module resolution | Backlog by design                                                                           |
+| `{ x :: v }` multi-statement brace bodies                            | Canonical form is `do { ... }`; object-literal ambiguity documented                         |

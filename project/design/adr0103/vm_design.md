@@ -32,11 +32,11 @@ The kernel is exactly two things:
 2. **A hardware boundary** (Rust) — three categories of operations that
    touch the actual machine, nothing more:
 
-   | Op | What it does |
-   |----|-------------|
-   | `add`, `sub`, `mul`, `eq`, `lt`, ... | CPU arithmetic (ALU) |
-   | `load`, `store` | Memory access (RAM) |
-   | `ffi` | Host/OS syscall boundary |
+   | Op                                   | What it does             |
+   | ------------------------------------ | ------------------------ |
+   | `add`, `sub`, `mul`, `eq`, `lt`, ... | CPU arithmetic (ALU)     |
+   | `load`, `store`                      | Memory access (RAM)      |
+   | `ffi`                                | Host/OS syscall boundary |
 
 Everything else — structural ops, eval schemes, arrow-calculus combinators,
 type judgments, HoTT semantics — is **Handl code compiled to bytecode**
@@ -96,12 +96,12 @@ ISA has approximately 15 instructions, grouped into five categories.
 
 ### 2.1 Stack operations
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
-| `Push(value)` | `-> val` | Push a literal `Value` onto the operand stack. |
-| `Pop` | `val ->` | Discard the top of the operand stack. |
-| `Dup` | `val -> val val` | Duplicate the top of the operand stack. |
-| `Swap` | `a b -> b a` | Swap the top two values on the operand stack. |
+| Instruction   | Stack effect     | Description                                    |
+| ------------- | ---------------- | ---------------------------------------------- |
+| `Push(value)` | `-> val`         | Push a literal `Value` onto the operand stack. |
+| `Pop`         | `val ->`         | Discard the top of the operand stack.          |
+| `Dup`         | `val -> val val` | Duplicate the top of the operand stack.        |
+| `Swap`        | `a b -> b a`     | Swap the top two values on the operand stack.  |
 
 These are the fundamental stack-manipulation primitives. `Push` is the
 only instruction that introduces a literal value. `Pop`, `Dup`, and
@@ -109,12 +109,12 @@ only instruction that introduces a literal value. `Pop`, `Dup`, and
 
 ### 2.2 Memory / variable operations
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
-| `Load(name)` | `-> val` | Look up `name` in the scope stack and push its value. If unbound, push the name as a string (matching the tree-walk convention). |
-| `Store(name)` | `val ->` | Pop a value, push a new scope, and bind `name` to the value in that scope. (This is `extend_env`.) |
-| `LoadField(field)` | `obj -> val` | Pop a record/object, push the value of `field` from it. (This is `getfield`.) Returns `null` if the field is absent. |
-| `StoreField(field)` | `obj val -> obj` | Pop a value and a record/object, set `field` to the value on the record, push the updated record. (This is `setfield`.) |
+| Instruction         | Stack effect     | Description                                                                                                                      |
+| ------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `Load(name)`        | `-> val`         | Look up `name` in the scope stack and push its value. If unbound, push the name as a string (matching the tree-walk convention). |
+| `Store(name)`       | `val ->`         | Pop a value, push a new scope, and bind `name` to the value in that scope. (This is `extend_env`.)                               |
+| `LoadField(field)`  | `obj -> val`     | Pop a record/object, push the value of `field` from it. (This is `getfield`.) Returns `null` if the field is absent.             |
+| `StoreField(field)` | `obj val -> obj` | Pop a value and a record/object, set `field` to the value on the record, push the updated record. (This is `setfield`.)          |
 
 `Load` and `Store` operate on the **scope stack** (variable bindings).
 `LoadField` and `StoreField` operate on **record/object values** on the
@@ -131,13 +131,13 @@ values.
 
 ### 2.3 Control flow
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
-| `Call(n)` | `callee arg1..argN -> result` | Pop `n` argument values, pop the callee, apply (closure or host fn), push the result. |
-| `Return` | `val ->` | Pop the top of the operand stack and return it as the program result. |
-| `Jump(target)` | `->` | Unconditionally set the instruction pointer to `target`. |
-| `Branch(target)` | `bool ->` | Pop a boolean; if true, jump to `target`; if false, fall through. |
-| `MakeClosure(params, body)` | `-> closure` | Capture the current environment and push a closure value with the given parameter names and body (an instruction-range or AST node index). |
+| Instruction                 | Stack effect                  | Description                                                                                                                                |
+| --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Call(n)`                   | `callee arg1..argN -> result` | Pop `n` argument values, pop the callee, apply (closure or host fn), push the result.                                                      |
+| `Return`                    | `val ->`                      | Pop the top of the operand stack and return it as the program result.                                                                      |
+| `Jump(target)`              | `->`                          | Unconditionally set the instruction pointer to `target`.                                                                                   |
+| `Branch(target)`            | `bool ->`                     | Pop a boolean; if true, jump to `target`; if false, fall through.                                                                          |
+| `MakeClosure(params, body)` | `-> closure`                  | Capture the current environment and push a closure value with the given parameter names and body (an instruction-range or AST node index). |
 
 `Call(n)` is the universal function-application primitive. The callee
 may be a closure value (`{"__arrow__": true, ...}`) or a string naming a
@@ -158,20 +158,20 @@ conditionals all compile to `Branch` + `Jump`.
 These are the **only** instructions that touch the actual machine. Without
 them, the VM is pure computation over memory.
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
-| `Arith(op)` | `a b -> result` | Pop two values, apply the ALU operation `op`, push the result. |
+| Instruction            | Stack effect           | Description                                                                         |
+| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
+| `Arith(op)`            | `a b -> result`        | Pop two values, apply the ALU operation `op`, push the result.                      |
 | `Ffi(module, name, n)` | `arg1..argN -> result` | Pop `n` argument values, call the host/OS function `module::name`, push the result. |
 
 #### `Arith(op)` — ALU operations
 
 The `op` field selects the arithmetic operation. The full set:
 
-| Category | Operations |
-|----------|-----------|
+| Category   | Operations                               |
+| ---------- | ---------------------------------------- |
 | Arithmetic | `add`, `sub`, `mul`, `div`, `mod`, `neg` |
-| Comparison | `eq`, `neq`, `lt`, `gt`, `lte`, `gte` |
-| Logic | `and`, `or`, `not` |
+| Comparison | `eq`, `neq`, `lt`, `gt`, `lte`, `gte`    |
+| Logic      | `and`, `or`, `not`                       |
 
 `neg`, `not` are unary (pop one value). All others are binary (pop two
 values). These map directly to CPU ALU operations — they are the
@@ -193,25 +193,25 @@ The `module` and `name` fields identify the host function. The host
 runtime maintains a registry of `module::name` → Rust function mappings.
 Examples:
 
-| Module | Name | What it does |
-|--------|------|-------------|
-| `io` | `print` | Write to stdout |
-| `fs` | `read` | Read a file |
-| `fs` | `write` | Write a file |
-| `net` | `connect` | Open a network connection |
-| `time` | `now` | Get the current time |
-| `random` | `next` | Generate a random value |
+| Module   | Name        | What it does                                         |
+| -------- | ----------- | ---------------------------------------------------- |
+| `io`     | `print`     | Write to stdout                                      |
+| `fs`     | `read`      | Read a file                                          |
+| `fs`     | `write`     | Write a file                                         |
+| `net`    | `connect`   | Open a network connection                            |
+| `time`   | `now`       | Get the current time                                 |
+| `random` | `next`      | Generate a random value                              |
 | `native` | `<op_name>` | Call a registered native op (fallback for `call_op`) |
-| `module` | `load` | Load a Handl module by spec |
-| `alloc` | `alloc` | Allocate memory (or use `mmap` + Handl GC) |
-| `alloc` | `drop` | Free memory |
+| `module` | `load`      | Load a Handl module by spec                          |
+| `alloc`  | `alloc`     | Allocate memory (or use `mmap` + Handl GC)           |
+| `alloc`  | `drop`      | Free memory                                          |
 
 `Ffi` is the hardware boundary. Everything above it is bytecode or Handl.
 
 ### 2.5 Pattern matching (kernel primitive)
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
+| Instruction    | Stack effect                | Description                                                                                  |
+| -------------- | --------------------------- | -------------------------------------------------------------------------------------------- |
 | `PatternMatch` | `value pattern -> bindings` | Match `value` against `pattern`. On success, push a binding record. On failure, push `null`. |
 
 Per ADR-0103 resolved decision #4, the `match` op is exec model (Handl
@@ -240,11 +240,11 @@ bindings.
 
 ### 2.6 Scope stack management
 
-| Instruction | Stack effect | Description |
-|-------------|-------------|-------------|
-| `PopScope` | `->` | Pop the innermost scope from the scope stack. |
-| `Assign(name)` | `val ->` | Pop a value and update-or-define `name` in the scope stack (update nearest binding, or define in innermost scope if unbound). |
-| `PushScope` | `->` | Push a new empty scope (record a mark). |
+| Instruction    | Stack effect | Description                                                                                                                   |
+| -------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PopScope`     | `->`         | Pop the innermost scope from the scope stack.                                                                                 |
+| `Assign(name)` | `val ->`     | Pop a value and update-or-define `name` in the scope stack (update nearest binding, or define in innermost scope if unbound). |
+| `PushScope`    | `->`         | Push a new empty scope (record a mark).                                                                                       |
 
 `PopScope` is the counterpart to `Store(name)` — after a `Seq` whose `fst`
 pushed a scope via `Store`, the `snd` completes and `PopScope` removes
@@ -261,27 +261,27 @@ to create a block-local scope before evaluating children.
 
 ### 2.7 Complete target ISA summary
 
-| # | Instruction | Category | Stack effect |
-|---|-------------|----------|-------------|
-| 1 | `Push(value)` | Stack | `-> val` |
-| 2 | `Pop` | Stack | `val ->` |
-| 3 | `Dup` | Stack | `val -> val val` |
-| 4 | `Swap` | Stack | `a b -> b a` |
-| 5 | `Load(name)` | Memory | `-> val` |
-| 6 | `Store(name)` | Memory | `val ->` |
-| 7 | `LoadField(field)` | Memory | `obj -> val` |
-| 8 | `StoreField(field)` | Memory | `obj val -> obj` |
-| 9 | `Call(n)` | Control | `callee arg.. -> result` |
-| 10 | `Return` | Control | `val ->` |
-| 11 | `Jump(target)` | Control | `->` |
-| 12 | `Branch(target)` | Control | `bool ->` |
-| 13 | `MakeClosure(params, body)` | Control | `-> closure` |
-| 14 | `Arith(op)` | Hardware | `a b -> result` |
-| 15 | `Ffi(module, name, n)` | Hardware | `arg.. -> result` |
-| 16 | `PatternMatch` | Kernel primitive | `value pattern -> bindings` |
-| 17 | `PopScope` | Scope stack | `->` |
-| 18 | `Assign(name)` | Scope stack | `val ->` |
-| 19 | `PushScope` | Scope stack | `->` |
+| #   | Instruction                 | Category         | Stack effect                |
+| --- | --------------------------- | ---------------- | --------------------------- |
+| 1   | `Push(value)`               | Stack            | `-> val`                    |
+| 2   | `Pop`                       | Stack            | `val ->`                    |
+| 3   | `Dup`                       | Stack            | `val -> val val`            |
+| 4   | `Swap`                      | Stack            | `a b -> b a`                |
+| 5   | `Load(name)`                | Memory           | `-> val`                    |
+| 6   | `Store(name)`               | Memory           | `val ->`                    |
+| 7   | `LoadField(field)`          | Memory           | `obj -> val`                |
+| 8   | `StoreField(field)`         | Memory           | `obj val -> obj`            |
+| 9   | `Call(n)`                   | Control          | `callee arg.. -> result`    |
+| 10  | `Return`                    | Control          | `val ->`                    |
+| 11  | `Jump(target)`              | Control          | `->`                        |
+| 12  | `Branch(target)`            | Control          | `bool ->`                   |
+| 13  | `MakeClosure(params, body)` | Control          | `-> closure`                |
+| 14  | `Arith(op)`                 | Hardware         | `a b -> result`             |
+| 15  | `Ffi(module, name, n)`      | Hardware         | `arg.. -> result`           |
+| 16  | `PatternMatch`              | Kernel primitive | `value pattern -> bindings` |
+| 17  | `PopScope`                  | Scope stack      | `->`                        |
+| 18  | `Assign(name)`              | Scope stack      | `val ->`                    |
+| 19  | `PushScope`                 | Scope stack      | `->`                        |
 
 **19 instructions total.** Of these, 2 (`Arith`, `Ffi`) are the hardware
 boundary. The rest are the VM loop's instruction set. `PatternMatch` is a
@@ -299,15 +299,15 @@ its target ISA decomposition.
 
 ### 3.1 Direct mappings (same concept)
 
-| Current instruction | Target instruction | Notes |
-|---------------------|-------------------|-------|
-| `Push(Value)` | `Push(value)` | Identical — push a literal. |
-| `Load(Rc<str>)` | `Load(name)` | Identical — scope stack lookup. |
-| `Store(Rc<str>)` | `Store(name)` | Identical — push scope + bind. |
-| `PopScope` | `PopScope` | Identical — pop scope. |
-| `Call(usize)` | `Call(n)` | Identical — apply callee to n args. |
-| `Jump(usize)` | `Jump(target)` | Identical — unconditional jump. |
-| `Return` | `Return` | Identical — return top of stack. |
+| Current instruction                             | Target instruction          | Notes                                                                                                   |
+| ----------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `Push(Value)`                                   | `Push(value)`               | Identical — push a literal.                                                                             |
+| `Load(Rc<str>)`                                 | `Load(name)`                | Identical — scope stack lookup.                                                                         |
+| `Store(Rc<str>)`                                | `Store(name)`               | Identical — push scope + bind.                                                                          |
+| `PopScope`                                      | `PopScope`                  | Identical — pop scope.                                                                                  |
+| `Call(usize)`                                   | `Call(n)`                   | Identical — apply callee to n args.                                                                     |
+| `Jump(usize)`                                   | `Jump(target)`              | Identical — unconditional jump.                                                                         |
+| `Return`                                        | `Return`                    | Identical — return top of stack.                                                                        |
 | `Closure { params, rest, body, array_pattern }` | `MakeClosure(params, body)` | Same concept — capture env, create closure. The `rest`/`array_pattern` details become exec-model logic. |
 
 ### 3.2 Arithmetic mappings (consolidate to `Arith`)
@@ -317,34 +317,34 @@ The current ISA has 11 dedicated arithmetic bytecodes (`Add`, `Sub`,
 general `NativeOp(String, usize)` path. In the target ISA, all of these
 consolidate into a single `Arith(op)` instruction.
 
-| Current instruction | Target instruction |
-|---------------------|-------------------|
-| `Add` | `Arith("add")` |
-| `Sub` | `Arith("sub")` |
-| `Mul` | `Arith("mul")` |
-| `Div` | `Arith("div")` |
-| `Mod` | `Arith("mod")` |
-| `Eq` | `Arith("eq")` |
-| `Neq` | `Arith("neq")` |
-| `Lt` | `Arith("lt")` |
-| `Lte` | `Arith("lte")` |
-| `Gt` | `Arith("gt")` |
-| `Gte` | `Arith("gte")` |
-| `NativeOp("add", 2)` | `Arith("add")` |
-| `NativeOp("sub", 2)` | `Arith("sub")` |
-| `NativeOp("mul", 2)` | `Arith("mul")` |
-| `NativeOp("div", 2)` | `Arith("div")` |
-| `NativeOp("mod", 2)` | `Arith("mod")` |
-| `NativeOp("neg", 1)` | `Arith("neg")` |
-| `NativeOp("eq", 2)` | `Arith("eq")` |
-| `NativeOp("neq", 2)` | `Arith("neq")` |
-| `NativeOp("lt", 2)` | `Arith("lt")` |
-| `NativeOp("gt", 2)` | `Arith("gt")` |
-| `NativeOp("lte", 2)` | `Arith("lte")` |
-| `NativeOp("gte", 2)` | `Arith("gte")` |
-| `NativeOp("and", 2)` | `Arith("and")` |
-| `NativeOp("or", 2)` | `Arith("or")` |
-| `NativeOp("not", 1)` | `Arith("not")` |
+| Current instruction  | Target instruction |
+| -------------------- | ------------------ |
+| `Add`                | `Arith("add")`     |
+| `Sub`                | `Arith("sub")`     |
+| `Mul`                | `Arith("mul")`     |
+| `Div`                | `Arith("div")`     |
+| `Mod`                | `Arith("mod")`     |
+| `Eq`                 | `Arith("eq")`      |
+| `Neq`                | `Arith("neq")`     |
+| `Lt`                 | `Arith("lt")`      |
+| `Lte`                | `Arith("lte")`     |
+| `Gt`                 | `Arith("gt")`      |
+| `Gte`                | `Arith("gte")`     |
+| `NativeOp("add", 2)` | `Arith("add")`     |
+| `NativeOp("sub", 2)` | `Arith("sub")`     |
+| `NativeOp("mul", 2)` | `Arith("mul")`     |
+| `NativeOp("div", 2)` | `Arith("div")`     |
+| `NativeOp("mod", 2)` | `Arith("mod")`     |
+| `NativeOp("neg", 1)` | `Arith("neg")`     |
+| `NativeOp("eq", 2)`  | `Arith("eq")`      |
+| `NativeOp("neq", 2)` | `Arith("neq")`     |
+| `NativeOp("lt", 2)`  | `Arith("lt")`      |
+| `NativeOp("gt", 2)`  | `Arith("gt")`      |
+| `NativeOp("lte", 2)` | `Arith("lte")`     |
+| `NativeOp("gte", 2)` | `Arith("gte")`     |
+| `NativeOp("and", 2)` | `Arith("and")`     |
+| `NativeOp("or", 2)`  | `Arith("or")`      |
+| `NativeOp("not", 1)` | `Arith("not")`     |
 
 The fixed-arity `Call1`/`Call2`/`Call3` variants are optimizations that
 avoid per-call `Vec` allocation. In the target ISA, `Call(n)` is the
@@ -352,15 +352,15 @@ single instruction; the VM implementation can specialize internally for
 small `n` without exposing it in the ISA.
 
 | Current instruction | Target instruction |
-|---------------------|-------------------|
-| `Call1` | `Call(1)` |
-| `Call2` | `Call(2)` |
-| `Call3` | `Call(3)` |
+| ------------------- | ------------------ |
+| `Call1`             | `Call(1)`          |
+| `Call2`             | `Call(2)`          |
+| `Call3`             | `Call(3)`          |
 
 ### 3.3 Foreign op mapping
 
-| Current instruction | Target instruction |
-|---------------------|-------------------|
+| Current instruction  | Target instruction     |
+| -------------------- | ---------------------- |
 | `ForeignOp(name, n)` | `Ffi("host", name, n)` |
 
 `ForeignOp` calls a host function by name. In the target ISA, this is
@@ -389,6 +389,7 @@ export proj_child :: (node, role) ~> do {
 ```
 
 Target bytecode sequence:
+
 ```
 Load("node")              ; push the current node
 LoadField("children")     ; get children array
@@ -397,23 +398,23 @@ LoadField(role)           ; get the child at role
 Call(eval)                ; call eval on the child
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `EvalChild(n)` | `LoadField("children")`, `LoadField(n)`, `Call(eval)` (exec model `proj_child`) |
-| `EvalChildOr(n)` | Same as `EvalChild` + `Branch` for null check (exec model `proj_child_or`) |
+| Current instruction | Target decomposition                                                            |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `EvalChild(n)`      | `LoadField("children")`, `LoadField(n)`, `Call(eval)` (exec model `proj_child`) |
+| `EvalChildOr(n)`    | Same as `EvalChild` + `Branch` for null check (exec model `proj_child_or`)      |
 
 #### `LoadPayloadVar` / `LoadPayload` → exec model
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `LoadPayloadVar` | `LoadField("payload")`, `Load` (exec model: read payload as string, look up that variable) |
-| `LoadPayload` | `LoadField("payload")` (exec model: push payload directly) |
+| Current instruction | Target decomposition                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `LoadPayloadVar`    | `LoadField("payload")`, `Load` (exec model: read payload as string, look up that variable) |
+| `LoadPayload`       | `LoadField("payload")` (exec model: push payload directly)                                 |
 
 #### `StorePayloadName` → exec model
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `StorePayloadName` | `LoadField("payload")`, `LoadField("name")`, `Store(name)` (exec model: read payload name, push scope, bind) |
+| Current instruction | Target decomposition                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `StorePayloadName`  | `LoadField("payload")`, `LoadField("name")`, `Store(name)` (exec model: read payload name, push scope, bind) |
 
 #### `ChoiceJump(l, r)` → exec model (`Choice`)
 
@@ -428,6 +429,7 @@ in `arrow_model.hnl`:
 ```
 
 Target bytecode sequence:
+
 ```
 ; incoming is on the stack (an Either value)
 Dup                      ; duplicate the Either
@@ -450,9 +452,9 @@ right_target:
 end:
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `ChoiceJump(l, r)` | `LoadField("__either__")`, `Branch(l)`, `LoadField("value")`, `Jump(r)` (exec model `Choice`) |
+| Current instruction | Target decomposition                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `ChoiceJump(l, r)`  | `LoadField("__either__")`, `Branch(l)`, `LoadField("value")`, `Jump(r)` (exec model `Choice`) |
 
 #### `FirstOp(start, end)` → exec model (`First`)
 
@@ -466,6 +468,7 @@ handler in `arrow_model.hnl`:
 ```
 
 Target bytecode sequence:
+
 ```
 ; pair is on the stack: {"__pair__": [a, b]}
 Dup                      ; duplicate the pair
@@ -482,8 +485,8 @@ LoadField(1)             ; result, b (second component)
 ; (via StoreField calls)
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
+| Current instruction   | Target decomposition                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
 | `FirstOp(start, end)` | `LoadField("__pair__")`, index 0, `Call(inner)`, re-pair via `StoreField` (exec model `First`) |
 
 #### `Pair` → exec model
@@ -499,9 +502,9 @@ Swap                     ; a, {}, b → rearrange
 ; ... StoreField calls to build {"__pair__": [b, a]} ...
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `Pair` | `Push({})`, `StoreField("__pair__")`, `StoreField` for array elements (exec model record construction) |
+| Current instruction | Target decomposition                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Pair`              | `Push({})`, `StoreField("__pair__")`, `StoreField` for array elements (exec model record construction) |
 
 #### `LoopCheck(loop_back)` → exec model (`Loop`)
 
@@ -514,6 +517,7 @@ multi-step. In the target ISA, this is the `Loop` handler in
 ```
 
 Target bytecode sequence:
+
 ```
 ; body result is on the stack
 Dup                      ; duplicate the result
@@ -548,8 +552,8 @@ Jump(done)
 done:
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
+| Current instruction    | Target decomposition                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
 | `LoopCheck(loop_back)` | `LoadField("__either__")`, `Branch`, `LoadField("value")`, `Jump(loop_back)` (exec model `Loop`) |
 
 #### `DerivedStepOp(op, ranges)` → exec model
@@ -559,8 +563,8 @@ target ISA, this becomes Handl code in `arrow_model.hnl` that re-runs the
 sub-schemes with the current value as incoming, then dispatches to the
 native op via `call_op` (which falls back to `Ffi`).
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
+| Current instruction         | Target decomposition                                                        |
+| --------------------------- | --------------------------------------------------------------------------- |
 | `DerivedStepOp(op, ranges)` | Re-eval args via `Call`, then `Ffi("native", op, n)` (exec model loop step) |
 
 #### `RouteOnType(tag)` → exec model
@@ -582,9 +586,9 @@ matches:
 end:
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `RouteOnType(tag)` | `LoadField("__tag__")`, `Arith("eq")`, `Branch` (exec model type-tag dispatch) |
+| Current instruction | Target decomposition                                                           |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `RouteOnType(tag)`  | `LoadField("__tag__")`, `Arith("eq")`, `Branch` (exec model type-tag dispatch) |
 
 #### `EvalNode(idx)` → exec model
 
@@ -592,9 +596,9 @@ end:
 target ISA, this is `Load(node)` + `Call(eval)` — the exec model's `eval`
 function handles node evaluation.
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `EvalNode(idx)` | `Load(node)`, `Call(eval)` (exec model node evaluation) |
+| Current instruction | Target decomposition                                    |
+| ------------------- | ------------------------------------------------------- |
+| `EvalNode(idx)`     | `Load(node)`, `Call(eval)` (exec model node evaluation) |
 
 #### `MakeObj { keys }` → exec model (record construction)
 
@@ -613,6 +617,7 @@ export record :: (fields) ~> do {
 ```
 
 Target bytecode sequence:
+
 ```
 Push({})                  ; create empty record
 ; for each key/value pair:
@@ -621,9 +626,9 @@ StoreField(key)           ; set key to value
 ; repeat for all keys
 ```
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `MakeObj { keys }` | `Push({})`, `StoreField(key)` for each key (exec model `record`) |
+| Current instruction | Target decomposition                                             |
+| ------------------- | ---------------------------------------------------------------- |
+| `MakeObj { keys }`  | `Push({})`, `StoreField(key)` for each key (exec model `record`) |
 
 #### `NativeOp(op, n)` — general native ops
 
@@ -633,45 +638,45 @@ arithmetic ops map to `Arith(op)`, and all other native ops map to
 `call_op` structural op in `exec_model.hnl` first searches the handler
 stack, then falls back to `Ffi("native", name, args)`.
 
-| Current instruction | Target decomposition |
-|---------------------|---------------------|
-| `NativeOp("add"/"sub"/..., n)` | `Arith(op)` |
-| `NativeOp("tag", 1)` | `LoadField("__tag__")` (exec model `typeof`) |
-| `NativeOp("id", 0)` | no-op (the value is already on the stack) |
-| `NativeOp("closure", n)` | `MakeClosure(params, body)` (exec model `closure`) |
-| `NativeOp("bind", 2)` | `Store(name)` (exec model `extend_env`) |
-| `NativeOp("loop_step", n)` | exec model loop logic (Handl code) |
-| `NativeOp(op, n)` (other) | `Ffi("native", op, n)` (host fallback) |
+| Current instruction            | Target decomposition                               |
+| ------------------------------ | -------------------------------------------------- |
+| `NativeOp("add"/"sub"/..., n)` | `Arith(op)`                                        |
+| `NativeOp("tag", 1)`           | `LoadField("__tag__")` (exec model `typeof`)       |
+| `NativeOp("id", 0)`            | no-op (the value is already on the stack)          |
+| `NativeOp("closure", n)`       | `MakeClosure(params, body)` (exec model `closure`) |
+| `NativeOp("bind", 2)`          | `Store(name)` (exec model `extend_env`)            |
+| `NativeOp("loop_step", n)`     | exec model loop logic (Handl code)                 |
+| `NativeOp(op, n)` (other)      | `Ffi("native", op, n)` (host fallback)             |
 
 ### 3.5 Summary: current → target mapping
 
-| Current instruction | Target | Category |
-|---------------------|--------|----------|
-| `Push` | `Push` | Direct |
-| `Load` | `Load` | Direct |
-| `LoadPayloadVar` | `LoadField` + `Load` | Decompose (exec model) |
-| `LoadPayload` | `LoadField` | Decompose (exec model) |
-| `EvalChild` | `LoadField` + `Call` | Decompose (exec model) |
-| `EvalChildOr` | `LoadField` + `Branch` + `Call` | Decompose (exec model) |
-| `Store` | `Store` | Direct |
-| `StorePayloadName` | `LoadField` + `Store` | Decompose (exec model) |
-| `PopScope` | `PopScope` | Direct |
-| `Call`/`Call1`/`Call2`/`Call3` | `Call(n)` | Direct (consolidate) |
-| `ChoiceJump` | `LoadField` + `Branch` + `Jump` | Decompose (exec model) |
-| `Jump` | `Jump` | Direct |
-| `NativeOp` (arith) | `Arith(op)` | Consolidate |
-| `NativeOp` (other) | `Ffi("native", op, n)` | Consolidate |
-| `ForeignOp` | `Ffi(module, name, n)` | Direct (rename) |
-| `FirstOp` | `LoadField` + `Call` + `StoreField` | Decompose (exec model) |
-| `Pair` | `Push({})` + `StoreField` | Decompose (exec model) |
-| `LoopCheck` | `LoadField` + `Branch` + `Jump` | Decompose (exec model) |
-| `DerivedStepOp` | `Call` + `Ffi` | Decompose (exec model) |
-| `Return` | `Return` | Direct |
-| `RouteOnType` | `LoadField` + `Arith` + `Branch` | Decompose (exec model) |
-| `Add`..`Gte` | `Arith(op)` | Consolidate |
-| `EvalNode` | `Load` + `Call` | Decompose (exec model) |
-| `MakeObj` | `Push({})` + `StoreField` | Decompose (exec model) |
-| `Closure` | `MakeClosure` | Direct (rename) |
+| Current instruction            | Target                              | Category               |
+| ------------------------------ | ----------------------------------- | ---------------------- |
+| `Push`                         | `Push`                              | Direct                 |
+| `Load`                         | `Load`                              | Direct                 |
+| `LoadPayloadVar`               | `LoadField` + `Load`                | Decompose (exec model) |
+| `LoadPayload`                  | `LoadField`                         | Decompose (exec model) |
+| `EvalChild`                    | `LoadField` + `Call`                | Decompose (exec model) |
+| `EvalChildOr`                  | `LoadField` + `Branch` + `Call`     | Decompose (exec model) |
+| `Store`                        | `Store`                             | Direct                 |
+| `StorePayloadName`             | `LoadField` + `Store`               | Decompose (exec model) |
+| `PopScope`                     | `PopScope`                          | Direct                 |
+| `Call`/`Call1`/`Call2`/`Call3` | `Call(n)`                           | Direct (consolidate)   |
+| `ChoiceJump`                   | `LoadField` + `Branch` + `Jump`     | Decompose (exec model) |
+| `Jump`                         | `Jump`                              | Direct                 |
+| `NativeOp` (arith)             | `Arith(op)`                         | Consolidate            |
+| `NativeOp` (other)             | `Ffi("native", op, n)`              | Consolidate            |
+| `ForeignOp`                    | `Ffi(module, name, n)`              | Direct (rename)        |
+| `FirstOp`                      | `LoadField` + `Call` + `StoreField` | Decompose (exec model) |
+| `Pair`                         | `Push({})` + `StoreField`           | Decompose (exec model) |
+| `LoopCheck`                    | `LoadField` + `Branch` + `Jump`     | Decompose (exec model) |
+| `DerivedStepOp`                | `Call` + `Ffi`                      | Decompose (exec model) |
+| `Return`                       | `Return`                            | Direct                 |
+| `RouteOnType`                  | `LoadField` + `Arith` + `Branch`    | Decompose (exec model) |
+| `Add`..`Gte`                   | `Arith(op)`                         | Consolidate            |
+| `EvalNode`                     | `Load` + `Call`                     | Decompose (exec model) |
+| `MakeObj`                      | `Push({})` + `StoreField`           | Decompose (exec model) |
+| `Closure`                      | `MakeClosure`                       | Direct (rename)        |
 
 ---
 
@@ -688,23 +693,23 @@ exactly three categories:
 CPU arithmetic and logic operations. These map directly to hardware ALU
 instructions:
 
-| Operation | Arity | Description |
-|-----------|-------|-------------|
-| `add` | binary | Addition |
-| `sub` | binary | Subtraction |
-| `mul` | binary | Multiplication |
-| `div` | binary | Division |
-| `mod` | binary | Modulo |
-| `neg` | unary | Negation |
-| `eq` | binary | Equality |
-| `neq` | binary | Inequality |
-| `lt` | binary | Less than |
-| `gt` | binary | Greater than |
-| `lte` | binary | Less than or equal |
-| `gte` | binary | Greater than or equal |
-| `and` | binary | Logical AND |
-| `or` | binary | Logical OR |
-| `not` | unary | Logical NOT |
+| Operation | Arity  | Description           |
+| --------- | ------ | --------------------- |
+| `add`     | binary | Addition              |
+| `sub`     | binary | Subtraction           |
+| `mul`     | binary | Multiplication        |
+| `div`     | binary | Division              |
+| `mod`     | binary | Modulo                |
+| `neg`     | unary  | Negation              |
+| `eq`      | binary | Equality              |
+| `neq`     | binary | Inequality            |
+| `lt`      | binary | Less than             |
+| `gt`      | binary | Greater than          |
+| `lte`     | binary | Less than or equal    |
+| `gte`     | binary | Greater than or equal |
+| `and`     | binary | Logical AND           |
+| `or`      | binary | Logical OR            |
+| `not`     | unary  | Logical NOT           |
 
 These are exposed via the single `Arith(op)` instruction. The VM
 implementation dispatches on `op` to the corresponding Rust arithmetic
@@ -719,15 +724,15 @@ operation. No Handl code is needed — these are the raw ALU.
 
 Memory access operations. In the VM, these are:
 
-| Operation | Instruction | Description |
-|-----------|-------------|-------------|
-| Variable load | `Load(name)` | Look up a name in the scope stack |
-| Variable store | `Store(name)` | Push scope + bind name to value |
-| Field load | `LoadField(field)` | Get a field from a record on the stack |
-| Field store | `StoreField(field)` | Set a field on a record on the stack |
-| Scope push | `PushScope` | Push a new empty scope |
-| Scope pop | `PopScope` | Pop the innermost scope |
-| Assign | `Assign(name)` | Update-or-define a binding |
+| Operation      | Instruction         | Description                            |
+| -------------- | ------------------- | -------------------------------------- |
+| Variable load  | `Load(name)`        | Look up a name in the scope stack      |
+| Variable store | `Store(name)`       | Push scope + bind name to value        |
+| Field load     | `LoadField(field)`  | Get a field from a record on the stack |
+| Field store    | `StoreField(field)` | Set a field on a record on the stack   |
+| Scope push     | `PushScope`         | Push a new empty scope                 |
+| Scope pop      | `PopScope`          | Pop the innermost scope                |
+| Assign         | `Assign(name)`      | Update-or-define a binding             |
 
 The scope stack is a VM-managed data structure (see §7). `Load`/`Store`
 operate on it. `LoadField`/`StoreField` operate on record values on the
@@ -752,6 +757,7 @@ but it cannot observe or affect the outside world.
 
 The host runtime maintains a registry of `(module, name)` → Rust
 function mappings. When the VM encounters `Ffi(module, name, n)`, it:
+
 1. Pops `n` argument values from the operand stack.
 2. Looks up `module::name` in the host function registry.
 3. Calls the Rust function with the arguments.
@@ -764,22 +770,22 @@ If the function is not found, the VM raises an error.
 The following are **not** hardware boundary operations. They are Handl
 code compiled to bytecode:
 
-| Concept | How it's expressed |
-|---------|-------------------|
-| `typeof` | `LoadField("__tag__")` |
-| `alloc`/`drop` | `Ffi("alloc", ...)` or `Ffi("mem", "mmap", ...)` + Handl GC |
-| `getfield`/`setfield` | `LoadField`/`StoreField` (VM instructions) |
-| `call`/`ret` | `Call`/`Return` (VM instructions) |
-| `jump`/`branch` | `Jump`/`Branch` (VM instructions) |
-| `make_closure` | `MakeClosure` (VM instruction) |
-| `pattern_match` | `PatternMatch` (kernel primitive, stays in Rust) |
-| `proj_child` | exec model Handl code (`LoadField` + `Call`) |
-| `eval_block` | exec model Handl code (`PushScope` + `Call` + `PopScope`) |
-| `push_handler`/`pop_handler` | exec model Handl code (handler stack management) |
-| `apply` | exec model Handl code (`Call`) |
-| `record`/`array`/`tag_construct` | exec model Handl code (`StoreField` sequences) |
-| `call_op` | exec model Handl code (handler search + `Ffi` fallback) |
-| `import`/`export` | exec model Handl code (`Ffi("module", ...)` + `Store`) |
+| Concept                          | How it's expressed                                          |
+| -------------------------------- | ----------------------------------------------------------- |
+| `typeof`                         | `LoadField("__tag__")`                                      |
+| `alloc`/`drop`                   | `Ffi("alloc", ...)` or `Ffi("mem", "mmap", ...)` + Handl GC |
+| `getfield`/`setfield`            | `LoadField`/`StoreField` (VM instructions)                  |
+| `call`/`ret`                     | `Call`/`Return` (VM instructions)                           |
+| `jump`/`branch`                  | `Jump`/`Branch` (VM instructions)                           |
+| `make_closure`                   | `MakeClosure` (VM instruction)                              |
+| `pattern_match`                  | `PatternMatch` (kernel primitive, stays in Rust)            |
+| `proj_child`                     | exec model Handl code (`LoadField` + `Call`)                |
+| `eval_block`                     | exec model Handl code (`PushScope` + `Call` + `PopScope`)   |
+| `push_handler`/`pop_handler`     | exec model Handl code (handler stack management)            |
+| `apply`                          | exec model Handl code (`Call`)                              |
+| `record`/`array`/`tag_construct` | exec model Handl code (`StoreField` sequences)              |
+| `call_op`                        | exec model Handl code (handler search + `Ffi` fallback)     |
+| `import`/`export`                | exec model Handl code (`Ffi("module", ...)` + `Store`)      |
 
 ### 4.3 The effect boundary
 
@@ -800,18 +806,18 @@ This is the foundation for the serialization boundary (see §5).
 
 ADR-0103 defines an exact serialization boundary:
 
-| Layer | Serializable? | Resumable? |
-|-------|--------------|------------|
-| Handl source | Yes | N/A (recompiled) |
-| Bytecode | Yes | Yes |
-| Terms (tagged records) | Yes | Yes |
-| Eval schemes | Yes | Yes |
-| Models | Yes | Yes |
-| Environment state (scope stack) | Yes | Yes |
-| Values | Yes | Yes |
-| VM loop (Rust) | No | No |
-| Hardware boundary (Rust) | No | No |
-| `Ffi` call state | No | No |
+| Layer                           | Serializable? | Resumable?       |
+| ------------------------------- | ------------- | ---------------- |
+| Handl source                    | Yes           | N/A (recompiled) |
+| Bytecode                        | Yes           | Yes              |
+| Terms (tagged records)          | Yes           | Yes              |
+| Eval schemes                    | Yes           | Yes              |
+| Models                          | Yes           | Yes              |
+| Environment state (scope stack) | Yes           | Yes              |
+| Values                          | Yes           | Yes              |
+| VM loop (Rust)                  | No            | No               |
+| Hardware boundary (Rust)        | No            | No               |
+| `Ffi` call state                | No            | No               |
 
 The VM loop and hardware boundary are Rust — opaque, not serializable, not
 resumable. This is the fixed substrate by design. Everything above it is
@@ -905,6 +911,7 @@ target ISA. This compiler initially lives in Rust (later it will be
 reauthored in Handl per the bootstrap stages in ADR-0103).
 
 The compiler must handle:
+
 - Variable references → `Load(name)`
 - Bindings (`x = expr`) → compile expr, `Store(name)` or `Assign(name)`
 - Function calls → compile callee + args, `Call(n)`
@@ -922,30 +929,30 @@ The structural ops in `exec_model.hnl` (already drafted — see
 `exec_model.hnl`) are compiled to the target ISA. Each structural op
 becomes a Handl function:
 
-| Structural op | Target bytecode |
-|---------------|-----------------|
+| Structural op            | Target bytecode                                          |
+| ------------------------ | -------------------------------------------------------- |
 | `proj_child(node, role)` | `LoadField("children")`, `LoadField(role)`, `Call(eval)` |
-| `extend_env(name, val)` | `PushScope`, `Store(name)` |
-| `eval_block(node)` | `PushScope`, `Call(eval)` per child, `PopScope` |
-| `push_handler(handler)` | `LoadField(ctx, "handler_stack")`, `StoreField` |
-| `apply(callee, args)` | `Call(n)` |
-| `record(fields)` | `Push({})`, `StoreField` per field |
-| `call_op(name, args)` | handler search loop, `Ffi("native", name, n)` fallback |
+| `extend_env(name, val)`  | `PushScope`, `Store(name)`                               |
+| `eval_block(node)`       | `PushScope`, `Call(eval)` per child, `PopScope`          |
+| `push_handler(handler)`  | `LoadField(ctx, "handler_stack")`, `StoreField`          |
+| `apply(callee, args)`    | `Call(n)`                                                |
+| `record(fields)`         | `Push({})`, `StoreField` per field                       |
+| `call_op(name, args)`    | handler search loop, `Ffi("native", name, n)` fallback   |
 
 #### Phase 1d: Author `arrow_model.hnl` handlers as Handl code
 
 The arrow-calculus handlers in `arrow_model.hnl` (already drafted) are
 compiled to the target ISA. Each handler becomes a Handl function:
 
-| Handler | Target bytecode |
-|---------|-----------------|
-| `Arr` | `Push(value)` |
-| `Seq` | `Call(fst)`, `Call(snd)` |
-| `First` | `LoadField("__pair__")`, `Call(inner)`, re-pair |
+| Handler  | Target bytecode                                  |
+| -------- | ------------------------------------------------ |
+| `Arr`    | `Push(value)`                                    |
+| `Seq`    | `Call(fst)`, `Call(snd)`                         |
+| `First`  | `LoadField("__pair__")`, `Call(inner)`, re-pair  |
 | `Choice` | `LoadField("__either__")`, `Branch`, `Call(l/r)` |
-| `Loop` | `Jump`/`Branch` loop pattern |
-| `App` | `Call(callee)`, `Call(n)` |
-| `Handle` | `push_handler`, `Call(body)`, `pop_handler` |
+| `Loop`   | `Jump`/`Branch` loop pattern                     |
+| `App`    | `Call(callee)`, `Call(n)`                        |
+| `Handle` | `push_handler`, `Call(body)`, `pop_handler`      |
 
 #### Phase 2: Make eval schemes Handl-callable
 
@@ -1048,17 +1055,18 @@ ScopeStack {
 
 #### Operations
 
-| Operation | Instruction | Description |
-|-----------|-------------|-------------|
-| `push_scope()` | `PushScope` | Record current `bindings.len()` as a mark. |
-| `pop_scope()` | `PopScope` | Truncate `bindings` back to the last mark. |
-| `define(name, val)` | `Store(name)` | Push `(name, val)` onto `bindings`. |
-| `lookup(name)` | `Load(name)` | Reverse linear scan of `bindings`, then `captured_root`, then `globals`. |
-| `assign(name, val)` | `Assign(name)` | Update nearest binding, or define in innermost scope. |
+| Operation           | Instruction    | Description                                                              |
+| ------------------- | -------------- | ------------------------------------------------------------------------ |
+| `push_scope()`      | `PushScope`    | Record current `bindings.len()` as a mark.                               |
+| `pop_scope()`       | `PopScope`     | Truncate `bindings` back to the last mark.                               |
+| `define(name, val)` | `Store(name)`  | Push `(name, val)` onto `bindings`.                                      |
+| `lookup(name)`      | `Load(name)`   | Reverse linear scan of `bindings`, then `captured_root`, then `globals`. |
+| `assign(name, val)` | `Assign(name)` | Update nearest binding, or define in innermost scope.                    |
 
 #### Lookup ordering
 
 Variable lookup searches in this order (matching the current VM):
+
 1. **Innermost bindings** (reverse linear scan of `bindings`).
 2. **Captured root** (the closure's captured environment).
 3. **Host globals** (e.g. `self`, `__arg_N`).
@@ -1070,6 +1078,7 @@ User-defined scopes shadow captured variables, which shadow globals.
 When `MakeClosure` executes, the VM calls `scopes.capture()` to snapshot
 the current bindings as an `Rc<FxHashMap>`. When the closure is later
 applied via `Call`, the VM:
+
 1. Saves the current scope stack.
 2. Sets `captured_root` to the closure's captured environment.
 3. Pushes a new scope.
@@ -1080,7 +1089,7 @@ applied via `Call`, the VM:
 #### Fixpoint detection (`enclosing_updated`)
 
 The `enclosing_updated` flag is set when `Assign(name)` updates a binding
-in an *enclosing* scope (below the innermost mark) with a different value.
+in an _enclosing_ scope (below the innermost mark) with a different value.
 This is read and cleared by the `eval_rec` fixpoint logic — such writes
 are the ADR-0074 feedback wires (`while`/`do-while`/`for` body rebinding).
 A pass that produces any such write must not count as converged.
@@ -1108,10 +1117,10 @@ op names to handler implementations:
 
 #### Operations
 
-| Operation | Description |
-|-----------|-------------|
-| `push_handler(handler)` | Push `handler` onto `handler_stack`. |
-| `pop_handler()` | Pop the top handler from `handler_stack`. |
+| Operation               | Description                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `push_handler(handler)` | Push `handler` onto `handler_stack`.                                                                   |
+| `pop_handler()`         | Pop the top handler from `handler_stack`.                                                              |
 | `find_op_handler(name)` | Walk `handler_stack` innermost-first; return the first handler whose `impls` has a field named `name`. |
 
 `push_handler` and `pop_handler` are structural ops in `exec_model.hnl`.
@@ -1182,15 +1191,15 @@ popping scopes and handlers as it goes (auto-pop).
 The VM operates on the same tagged JSON value shapes as the current
 tree-walk and bytecode engines:
 
-| Shape | Representation | Used by |
-|-------|---------------|---------|
-| **Pair** | `{"__pair__": [a, b]}` | `First` combinator, loop state |
-| **Either** | `{"__either__": "left"\|"right", "value": v}` | `Choice` combinator, loop routing |
-| **Arrow** (closure) | `{"__arrow__": true, "params": [...], "body": <idx>, "env": {...}}` | `Call`, `MakeClosure` |
-| **Record** (object) | `{"key1": val1, "key2": val2, ...}` | `LoadField`/`StoreField`, record construction |
-| **Array** | `[val1, val2, ...]` | Array operations |
-| **Number** | `{"__tag__": "Number", "value": <num>}` | Tagged arithmetic (exec model) |
-| **Tagged** | `{"__tag__": <tag>, "value": <payload>}` | Universal data representation (ADR-0103: `Term` is `serde_json::Value`) |
+| Shape               | Representation                                                      | Used by                                                                 |
+| ------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Pair**            | `{"__pair__": [a, b]}`                                              | `First` combinator, loop state                                          |
+| **Either**          | `{"__either__": "left"\|"right", "value": v}`                       | `Choice` combinator, loop routing                                       |
+| **Arrow** (closure) | `{"__arrow__": true, "params": [...], "body": <idx>, "env": {...}}` | `Call`, `MakeClosure`                                                   |
+| **Record** (object) | `{"key1": val1, "key2": val2, ...}`                                 | `LoadField`/`StoreField`, record construction                           |
+| **Array**           | `[val1, val2, ...]`                                                 | Array operations                                                        |
+| **Number**          | `{"__tag__": "Number", "value": <num>}`                             | Tagged arithmetic (exec model)                                          |
+| **Tagged**          | `{"__tag__": <tag>, "value": <payload>}`                            | Universal data representation (ADR-0103: `Term` is `serde_json::Value`) |
 
 `typeof` is `LoadField("__tag__")` — a field access on a tagged record.
 The exec model's `typeof_tag` function is Handl code that calls
@@ -1333,6 +1342,7 @@ using the `PatternMatch` kernel primitive. The kernel provides
 ### 12.1 `MakeClosure` body representation
 
 `MakeClosure(params, body)` needs to reference the closure body. Options:
+
 - **(a)** `body` is an instruction-range `(start, end)` into the current
   bytecode program (like the current `FirstOp`).
 - **(b)** `body` is an AST node index (like the current `Closure`
@@ -1354,6 +1364,7 @@ bindings.
 
 `PatternMatch` takes a pattern and a value. The pattern is currently an
 AST node (`AstRef`). In the target ISA, should the pattern be:
+
 - **(a)** An AST node reference (the VM needs AST access).
 - **(b)** A pre-compiled pattern descriptor (a `Value` describing the
   pattern shape).
@@ -1381,6 +1392,7 @@ demands it, add `PushHandler`/`PopHandler` as VM instructions later.
 
 `Arith(op)` operates on raw values. But the current system uses tagged
 numbers (`{"__tag__": "Number", "value": <num>}`). Should `Arith`:
+
 - **(a)** Operate on raw values only (exec model handles tagging).
 - **(b)** Handle tagged values directly (faster, but leaks semantics into
   the kernel).

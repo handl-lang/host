@@ -5,8 +5,8 @@ edition.workspace = true
 description = "WebSocket frame and message codec for the handl runtime."
 
 [dependencies]
-handl-plugin-module = {path = "../../crates/plugin-module"  }
+handl-plugin-module = { path = "../../crates/plugin-module" }
 handl-plugin-lib-handl = { workspace = true }
-handl-platform = {path = "../../crates/platform" }
+handl-platform = { path = "../../crates/platform" }
 serde_json.workspace = true
 base64 = "0.22"

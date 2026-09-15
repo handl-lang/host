@@ -140,7 +140,7 @@ RecordWith {
    before interpreting a term.
 3. Update `eval.yaml` rules to emit core terms directly; keep the
    desugaring helper for backward compatibility and for terms supplied by
-  external tools.
+   external tools.
 4. Remove the removed variants from the `Term` Rust enum and from any
    hand-written matches. Tests that construct `CellCompH`, `Transport`,
    `Cobox`, or `Witness` directly must use the equivalent desugared form

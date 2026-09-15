@@ -12,7 +12,7 @@ The linter did not. `plugin-ext-lint` hardcoded all eight canonical rules in
 Rust (`rule_unused_import`, `rule_unbound_wire`, …), with a bespoke
 `LangInfo` classifier and a token-position zipping hack to recover spans the
 Pratt AST already carries. ADR-0094's `lint` pass (`find_matches` over
-`TransformDef`s) proved a lint rule can be *data*: `simplify-paren` was
+`TransformDef`s) proved a lint rule can be _data_: `simplify-paren` was
 already declared in `plugin-ext-lint/data/lint_transforms.yaml` — but only
 as a pattern matcher, with the diagnostic and fix still computed in Rust.
 
@@ -36,7 +36,7 @@ Lint rules are first-class `Language` data.
 2. **Two check kinds**, mirroring ADR-0094's declarative/native split:
 
    - `check: !Match { node_kind, when? }` — node-local matching. `when` is a
-     `TransformCondition`, evaluated by the *same* evaluator the rewrite
+     `TransformCondition`, evaluated by the _same_ evaluator the rewrite
      engine uses (`plugin-engine-transform-rewrite::condition::matches_condition`,
      now public). The predicate vocabulary gains
      `!ChildPayloadEq { index?, role?, path?, value }` — "the child at
@@ -80,7 +80,7 @@ Lint rules are first-class `Language` data.
    widened from `&'static str` to `String` because rule names are now data.
 
    The `lint`-pass `TransformDef` in `plugin-ext-lint/data/lint_transforms.yaml`
-   was later *removed*: `host-lsp` builds the `simplify-paren` quick fix
+   was later _removed_: `host-lsp` builds the `simplify-paren` quick fix
    directly from the diagnostic's `fix` payload (`LintFixOut` →
    `plugin-ext-diag::Fix`), so the transform-engine `lint`/`lsp-rewrite`
    passes had no remaining consumer. The match predicate now lives solely
@@ -94,7 +94,7 @@ Lint rules are first-class `Language` data.
 - Span quality improved for free: `unbound-wire`, `shadowed-binding`, and
   `naming-convention` now report real `AstNode::span` positions (the old
   token-position zip emitted degenerate `0:0`/`1:1` spans). Verified by
-  byte-identical diagnostic *sets* over `handl-packages/` + `examples/`
+  byte-identical diagnostic _sets_ over `handl-packages/` + `examples/`
   (5,189 diagnostics, positions normalized) against the pre-change binary.
 - `!ChildPayloadEq` is shared vocabulary: `validate_transforms` checks its
   role/index bounds at `Language` build like every other condition.
@@ -117,7 +117,7 @@ Lint rules are first-class `Language` data.
   the module view `!Match` cannot reach. Like `HandlNativeRewrite`, no
   shipped host wires it yet (canonical `lints.yaml` declares no `handl:`
   rules); hosts opt in via `reg.add_resolver(HandlNativeLint::new()
-  .with_module(...).resolver())`. See `plugin-lib-handl/tests/handl_lint.rs`.
+.with_module(...).resolver())`. See `plugin-lib-handl/tests/handl_lint.rs`.
 - Done: the remaining built-in engine checks (`empty-block`,
   `unreachable-code`, `shadowed-binding`, `unused-binding`) are now declared
   as `!Native "builtin.*"` rules in `crates/handl-kit-data-canonical/data/lints.yaml`

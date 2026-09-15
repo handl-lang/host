@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-platform.workspace = true
-handl-value = {path = "../handl-value" }
+handl-value = { path = "../handl-value" }
 libloading.workspace = true
 serde_json.workspace = true
 cranelift.workspace = true

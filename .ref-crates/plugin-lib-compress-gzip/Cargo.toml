@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-lib-handl = { workspace = true }
-handl-platform = {path = "../../crates/platform" }
-handl-plugin-lib-compress = {path = "../plugin-lib-compress"  }
+handl-platform = { path = "../../crates/platform" }
+handl-plugin-lib-compress = { path = "../plugin-lib-compress" }
 serde_json.workspace = true
 base64 = "0.22"
 flate2.workspace = true

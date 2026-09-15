@@ -7,7 +7,7 @@ bytecode engines for Phase 9.5 import/export:
 
 - Support `import "path"` in compiled/native programs.
 - Support `do { stmt; expr }` blocks (`eval_block`) so that import statements
-can appear in a block and the last expression can use imported bindings.
+  can appear in a block and the last expression can use imported bindings.
 
 ## Background
 

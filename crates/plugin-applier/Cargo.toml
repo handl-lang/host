@@ -4,4 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = {path = "../platform" }
+handl-platform = { path = "../platform" }

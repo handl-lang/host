@@ -4,29 +4,30 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = {path = "../handl-language" }
-handl-platform = {path = "../platform" }
-handl-value = {path = "../handl-value" }
-handl-plugin-engine-lex = {path = "../plugin-engine-lex" }
-handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
-handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
-handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
+handl-language = { path = "../handl-language" }
+handl-platform = { path = "../platform" }
+handl-value = { path = "../handl-value" }
+handl-kit-arrow-lower = { path = "../handl-kit-arrow-lower" }
+plugin-engine = { path = "../plugin-engine" }
+handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
+handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = {path = "../plugin-engine-exec-cranelift" }
-handl-plugin-module = {path = "../plugin-module" }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
-handl-kit-canonical = {path = "../kit-canonical" }
-handl-plugin-lib-handl = {path = "../plugin-lib-handl" }
-handl-plugin-lib-stdlib = {path = "../plugin-lib-stdlib" }
-handl-plugin-lib-tag = {path = "../plugin-lib-tag" }
-plugin-engine = {path = "../plugin-engine" }
+handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = { path = "../plugin-engine-exec-cranelift" }
+handl-plugin-module = { path = "../plugin-module" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-canonical = { path = "../kit-canonical" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
+handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
 rustc-hash = "2"

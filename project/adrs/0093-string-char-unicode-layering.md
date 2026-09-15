@@ -27,15 +27,15 @@ This document is retroactive; the code was merged before the ADR was written.
 
 ### 1. Three layers: contract, pure-handl implementation, native backend
 
-| Layer | File / crate | Role |
-|-------|--------------|------|
-| `str` contract | `handl-packages/str/str.hnl` | 45 axioms + laws; no implementation; `String`/`Float` are treated as type variables. |
-| `char` contract | `handl-packages/char/char.hnl` | 18 axioms; semantic names (`is_whitespace`, `is_alpha`, …) with no encoding or byte-offset leakage. |
-| `str` canonical impl | `handl-packages/str-handl/str-handl.hnl` | Pure handl over `char.*`; `kit-canonical` registers it as the module named `"str"`. |
-| `char` native backend | `crates/plugin-lib-char-native` | Rust `std::char` Unicode scalar-value backend for `char.*` ops. |
-| `unicode` contract | `handl-packages/unicode/unicode.hnl` | Graphemes / normalization / casefold / width (UAX #29/#15/#11). |
-| `unicode` handl impl | `handl-packages/unicode-handl/unicode-handl.hnl` | Code-point-level fallbacks over `char.*`; `nfc`/`nfd` intentionally omitted. |
-| `unicode` native backend | `crates/plugin-lib-unicode-native` | ICU4X-backed native `unicode.*` ops, composed with `unicode-handl` as fallback. |
+| Layer                    | File / crate                                     | Role                                                                                                |
+| ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `str` contract           | `handl-packages/str/str.hnl`                     | 45 axioms + laws; no implementation; `String`/`Float` are treated as type variables.                |
+| `char` contract          | `handl-packages/char/char.hnl`                   | 18 axioms; semantic names (`is_whitespace`, `is_alpha`, …) with no encoding or byte-offset leakage. |
+| `str` canonical impl     | `handl-packages/str-handl/str-handl.hnl`         | Pure handl over `char.*`; `kit-canonical` registers it as the module named `"str"`.                 |
+| `char` native backend    | `crates/plugin-lib-char-native`                  | Rust `std::char` Unicode scalar-value backend for `char.*` ops.                                     |
+| `unicode` contract       | `handl-packages/unicode/unicode.hnl`             | Graphemes / normalization / casefold / width (UAX #29/#15/#11).                                     |
+| `unicode` handl impl     | `handl-packages/unicode-handl/unicode-handl.hnl` | Code-point-level fallbacks over `char.*`; `nfc`/`nfd` intentionally omitted.                        |
+| `unicode` native backend | `crates/plugin-lib-unicode-native`               | ICU4X-backed native `unicode.*` ops, composed with `unicode-handl` as fallback.                     |
 
 There is also `crates/plugin-lib-unicode` (no `-native`): a lightweight
 `UnicodeLibraryPlugin` used by the kit `LibraryRegistry` for non-canonical
@@ -49,7 +49,7 @@ canonical runtime module, however, is `plugin-lib-unicode-native::UnicodeModule`
   manipulates UTF-8, or assumes a particular encoding. This lets the same
   source run over `char-native`, `char-ascii`, `char-js`, or a future
   `char-icu` backend.
-- `char` names are *semantic*: `is_whitespace`, `is_alpha`, `to_upper`, etc.
+- `char` names are _semantic_: `is_whitespace`, `is_alpha`, `to_upper`, etc.
   The contract deliberately never mentions `is_ascii_*`, `utf8_at`, or byte
   offsets.
 - Indices in `char` and `str` are character (scalar) indices, not byte offsets.
@@ -114,6 +114,6 @@ application must preserve them.
    tagged values, and other reserved-key values cross as real values. Arrows
    that cross are stamped with `__home__` using the tree-walk home-frame
    registry so `apply_app` / `call_value` route the `body` index back to the
-  originating AST, Language, and module chain. `apply_app` also curries
-  surplus arguments (`x ~> y ~> body` applied to two args applies `x`, then
-  applies the result to `y`).
+   originating AST, Language, and module chain. `apply_app` also curries
+   surplus arguments (`x ~> y ~> body` applied to two args applies `x`, then
+   applies the result to `y`).

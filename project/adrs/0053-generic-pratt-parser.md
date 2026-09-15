@@ -373,10 +373,10 @@ and the desugar pass preserves eval results.
 
 ## Amendment — contextual clause vocabulary (`match`/`data` closed)
 
-*Amended after implementation: the last two contextual prefix forms,
+_Amended after implementation: the last two contextual prefix forms,
 `match` and `data`, are now expressed in grammar data. Three further
 `AstShapeRef` fields close the gap — all `Vec`/`serde`-defaulted, so
-third-party grammar rows are unaffected:*
+third-party grammar rows are unaffected:_
 
 - **`child_binding_powers: Vec<u8>`** — per-child right binding powers.
   `child_binding_powers[i]` overrides the row default (prefix left bp /
@@ -391,7 +391,7 @@ third-party grammar rows are unaffected:*
   clause expression at the clause's own `binding_power`, requires and
   consumes `close`, and splices the expression in as an extra child at that
   position. `match` declares `after_child: 0, open: token.keyword.return,
-  close: token.keyword.with` — producing `[scrutinee, motive?, arms]`
+close: token.keyword.with` — producing `[scrutinee, motive?, arms]`
   children with no parser special-case.
 - **`payload_extract: Vec<PayloadExtractSpec>`** — lift a name-like string
   out of fixed child `child` into the node's payload under `field`. The
@@ -403,28 +403,28 @@ third-party grammar rows are unaffected:*
 With these fields the generic `expression_inner` handles `match` and `data`
 entirely from `grammar.yaml` rows; the `kind == "match"`/`kind == "data"`
 branches are deleted. The scope-boundary list above still stands —
-`keyword_clauses` covers *keyword-delimited* optionality between a fixed
+`keyword_clauses` covers _keyword-delimited_ optionality between a fixed
 child and the trailing block, not arbitrary optional sub-structure.
 
 ## Amendment — trailing token steps (`from` closed)
 
-*Amended after implementation: the last contextual prefix form, `from`, is
+_Amended after implementation: the last contextual prefix form, `from`, is
 now expressed in grammar data. One further `AstShapeRef` field plus a flag
 on `PayloadExtractSpec` close the gap — all `serde`-defaulted, so
-third-party grammar rows are unaffected:*
+third-party grammar rows are unaffected:_
 
 - **`trailing_tokens: Vec<TokenStep>`** — an ordered sequence of token
-  steps consumed *after* all fixed children and the delimited block, before
+  steps consumed _after_ all fixed children and the delimited block, before
   the node's payload is assembled. Each `TokenStep` accepts one of `kinds`,
   optionally captures the token's text into `payload.field`, and may be
   marked `optional` (skipped when the next token does not match). This is
-  the tail-form counterpart of `payload_tokens` (which consumes *before*
+  the tail-form counterpart of `payload_tokens` (which consumes _before_
   children) and generalizes multi-keyword suffixes: `from "path" import *
-  as alias` is `kinds: [token.keyword.import]`, `kinds: [token.star]`,
+as alias` is `kinds: [token.keyword.import]`, `kinds: [token.star]`,
   `kinds: [token.keyword.as]`, `kinds: [token.identifier, token.string],
-  field: alias`. It would equally serve `try ... catch ... finally`-style
+field: alias`. It would equally serve `try ... catch ... finally`-style
   tails or `export * from "path"` suffixes where the tail carries no
-  children (keyword-anchored *children* remain `keyword_clauses`' job).
+  children (keyword-anchored _children_ remain `keyword_clauses`' job).
 - **`PayloadExtractSpec.required: bool`** — when true, failure to resolve a
   name-like string from the child is a parse error instead of a silently
   unset field. `from` uses `{child: 0, field: path, required: true}` so a

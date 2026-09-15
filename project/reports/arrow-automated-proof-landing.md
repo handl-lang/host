@@ -9,11 +9,11 @@
 ## Summary
 
 Two formalization milestones landed in the Lean4 corpus, both addressing the
-question *"can we universalize automated proof of arrow-semantics programs?"*:
+question _"can we universalize automated proof of arrow-semantics programs?"_:
 
 1. **`AlgorithmicCompletenessOmega.lean`** — the invariant domain for
    annotation-free loop-invariant inference was widened from `D` to `Dω`,
-   converting Theorem 4's *conditional* algorithmic completeness into an
+   converting Theorem 4's _conditional_ algorithmic completeness into an
    **unconditional** theorem.
 2. **`DecidableFragment.lean`** — the loop-free arrow fragment received a
    mechanized decision procedure that is **sound, terminating, and complete**
@@ -28,7 +28,7 @@ Both files are imported from the library root (`ArrowMinimalityLib.lean`).
 
 ### The obstruction that was removed
 
-`AlgorithmicCompleteness.lean` (Theorem 4) proved only *conditionally* that
+`AlgorithmicCompleteness.lean` (Theorem 4) proved only _conditionally_ that
 `analyze_strongest ∈ D`: it required D to be closed under arbitrary meets,
 and documented why that closure cannot be added directly — an infinitary-meet
 constructor forces the index type to embed `InvariantDomain` derivations
@@ -47,21 +47,21 @@ dInf : {ι : Type} → (f : ι → Val → Prop) → ((i : ι) → Dω (f i)) �
 ```
 
 Because derivations become proof-irrelevant `Prop`s, the meet's index type
-(the subtype of Dω-members *preserved by G*) lives in `Type 0` — the spiral
+(the subtype of Dω-members _preserved by G_) lives in `Type 0` — the spiral
 does not arise.
 
 ### Theorems landed (all zero `sorry`)
 
-| Theorem | Content |
-| --- | --- |
-| `domega_closed_under_meets` | Dω closed under arbitrary meets — Theorem 4's hypothesis, now a theorem |
-| `invariant_domain_mono` | `D ⊆ Dω` — full backward compatibility |
-| `PreservesWt` / `preserves_meet` | well-typed preservation; closed under arbitrary meets |
-| `analyze_strongest_omega_sound` | the strongest preserved Dω-invariant is preserved |
-| **`analyze_strongest_omega_in_domain`** | **headline: it is itself in Dω — Theorem 4 unconditional** |
-| `analyze_strongest_omega_implies_any_preserved` | it implies every preserved Dω-invariant (so it *is* the strongest) |
-| `analyze_strongest_omega_implies_analyze_strongest` | strictly dominates the original `analyze_strongest` |
-| `domega_true_mem` | the sound floor lives in Dω |
+| Theorem                                             | Content                                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| `domega_closed_under_meets`                         | Dω closed under arbitrary meets — Theorem 4's hypothesis, now a theorem |
+| `invariant_domain_mono`                             | `D ⊆ Dω` — full backward compatibility                                  |
+| `PreservesWt` / `preserves_meet`                    | well-typed preservation; closed under arbitrary meets                   |
+| `analyze_strongest_omega_sound`                     | the strongest preserved Dω-invariant is preserved                       |
+| **`analyze_strongest_omega_in_domain`**             | **headline: it is itself in Dω — Theorem 4 unconditional**              |
+| `analyze_strongest_omega_implies_any_preserved`     | it implies every preserved Dω-invariant (so it _is_ the strongest)      |
+| `analyze_strongest_omega_implies_analyze_strongest` | strictly dominates the original `analyze_strongest`                     |
+| `domega_true_mem`                                   | the sound floor lives in Dω                                             |
 
 ### Axiom audit
 
@@ -69,7 +69,7 @@ does not arise.
 
 ### Honest scope
 
-Incompleteness is *narrowed*, not eliminated: predicates outside `Dω`
+Incompleteness is _narrowed_, not eliminated: predicates outside `Dω`
 (e.g. iteration-count invariants not expressible via signature guarantees +
 meets) remain structurally undetectable. Membership in `Dω` alone does not
 imply preservation; soundness is stated relative to constituents'
@@ -103,11 +103,11 @@ decider (`funEqAux`) whose correctness lemma `funEqAux_eq`
 
 ### The three guarantees (all zero `sorry`, axiom-checked)
 
-| Guarantee | Theorem | Axioms |
-| --- | --- | --- |
-| **Sound** (TRUE → holds) | `PropF.decider_sound` | propext, Quot.sound |
-| **Complete** (holds → TRUE) | `PropF.decider_complete` | propext |
-| **Terminating** (always TRUE xor FALSE) | `PropF.decider_terminates` | none |
+| Guarantee                               | Theorem                    | Axioms              |
+| --------------------------------------- | -------------------------- | ------------------- |
+| **Sound** (TRUE → holds)                | `PropF.decider_sound`      | propext, Quot.sound |
+| **Complete** (holds → TRUE)             | `PropF.decider_complete`   | propext             |
+| **Terminating** (always TRUE xor FALSE) | `PropF.decider_terminates` | none                |
 
 Additionally: `Graph.deq_true_iff` — semantic equality of two arrow programs
 is decidable; `funEq f g` yields a `Decidable (f = g)` instance via
@@ -179,5 +179,5 @@ Together the two files give the "specified class" claim both halves:
 The remaining boundary is exactly characterized, not hidden: outside `Dω`
 the inference is incomplete by theorem; beyond the decidable fragment,
 undecidability (Rice, fixpoints) applies — the automation claim is
-"*for a proven-sound, well-characterized and now strictly widened class,
-automatically*".
+"_for a proven-sound, well-characterized and now strictly widened class,
+automatically_".

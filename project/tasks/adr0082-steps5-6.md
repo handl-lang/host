@@ -23,7 +23,7 @@ hardcoded engine `kind ==` checks.
 Status: **completed**
 
 - [x] Add an end-to-end test that parses and evaluates a value-indexed family such
-  as `Vec` or `Fin` from source.
+      as `Vec` or `Fin` from source.
 - Surface syntax example:
 
   ```text
@@ -33,18 +33,18 @@ Status: **completed**
   ```
 
 - [x] Verify that the parser emits the `data` node shape used by
-  `desugar_pass.rs` (`type` child is a `call` with `type-annot` parameters,
-  `constructors` child is an `alt` tree with `type-annot` constructor result
-  types).
+      `desugar_pass.rs` (`type` child is a `call` with `type-annot` parameters,
+      `constructors` child is an `alt` tree with `type-annot` constructor result
+      types).
 - [x] Verify that `parse_data_payload`, `parse_type_expr`, `parse_type_param`,
-  `collect_constructors`, `extract_result_indices_from_type`, and
-  `build_predicate_body` handle index expressions such as `0`, `n`, and
-  `n - 1` correctly.
+      `collect_constructors`, `extract_result_indices_from_type`, and
+      `build_predicate_body` handle index expressions such as `0`, `n`, and
+      `n - 1` correctly.
 - [x] Fix any issues found in `node_to_type_string` or `TypeExprParser` so that
-  index arithmetic in constructor argument types and result types is preserved.
+      index arithmetic in constructor argument types and result types is preserved.
 - [x] Manually call the generated recursor (`Vec.rec(null, base, step)(n, a, v)`)
-  in the test to show that the generated predicate and recursor work without
-  surface `match`.
+      in the test to show that the generated predicate and recursor work without
+      surface `match`.
 - [x] Targeted verification:
   - `cargo test -p handl-runtime --test indexed_family_data`
   - `cargo test -p handl-runtime`
@@ -55,7 +55,7 @@ Status: **completed**
 Status: **completed**
 
 - [x] Extend `desugar_match_to_recursor` in `crates/handl-runtime/src/desugar_pass.rs`
-  to handle indexed families (`params` non-empty).
+      to handle indexed families (`params` non-empty).
 - [x] Syntax supported:
 
   ```text
@@ -78,10 +78,10 @@ Status: **completed**
   - Engine genericity preserved: no `kind ==` checks added in eval engines;
     the desugar pass only builds ordinary `call`/`function`/`var` nodes.
 - [x] Updated `crates/handl-kit-data-canonical/data/grammar.yaml` and
-  `crates/handl-kit-data-canonical/data/ast.yaml` comments to accurately reflect
-  the 2- or 3-child `match` shape and the optional `return`/`with` clause.
+      `crates/handl-kit-data-canonical/data/ast.yaml` comments to accurately reflect
+      the 2- or 3-child `match` shape and the optional `return`/`with` clause.
 - [x] Added end-to-end test `crates/handl-runtime/tests/indexed_family_match.rs`
-  covering plain and motive-bearing indexed `match` on `Vec`.
+      covering plain and motive-bearing indexed `match` on `Vec`.
 - [x] Verification commands run and passed:
   - `cargo test -p handl-runtime --test indexed_family_match`
   - `cargo test -p handl-runtime --test indexed_family_data`
@@ -93,13 +93,13 @@ Status: **completed**
 Status: **completed**
 
 - [x] Added `crates/handl-runtime/tests/indexed_family_fin.rs` covering `Fin`
-  predicate membership, surface `match` without a motive, and `match` with an
-  explicit motive.
+      predicate membership, surface `match` without a motive, and `match` with an
+      explicit motive.
 - [x] Updated `crates/handl-runtime/src/desugar_pass.rs` to guard `Nat`-indexed
-  constructors against negative indices, so `Fin(0, FS(FZ))` correctly evaluates
-  to `false` while `Fin(0, FZ)` and `Fin(1, FS(FZ))` evaluate to `true`.
+      constructors against negative indices, so `Fin(0, FS(FZ))` correctly evaluates
+      to `false` while `Fin(0, FZ)` and `Fin(1, FS(FZ))` evaluate to `true`.
 - [x] Updated `project/adrs/0082-inductive-types.md` status from `Proposed` to
-  `Accepted`.
+      `Accepted`.
 - [x] Verification commands run:
   - `cargo test -p handl-runtime --test indexed_family_fin` — passed
   - `cargo test -p handl-runtime --test indexed_family_data` — passed

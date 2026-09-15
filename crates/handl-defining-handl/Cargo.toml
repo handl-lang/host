@@ -4,25 +4,25 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = {path = "../handl-language" }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
-handl-runtime = {path = "../handl-runtime" }
-handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
+handl-language = { path = "../handl-language" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-runtime = { path = "../handl-runtime" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-platform = {path = "../platform" }
-handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = {path = "../plugin-engine-exec-cranelift" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-platform = { path = "../platform" }
+handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = { path = "../plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-lib-lang-lex = { workspace = true }
 handl-plugin-lib-lang-parse = { workspace = true }
 handl-plugin-lib-lang-eval = { workspace = true }
 handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
-handl-kit-canonical = {path = "../kit-canonical" }
-handl-test-utils = {path = "../handl-test-utils" }
+handl-kit-canonical = { path = "../kit-canonical" }
+handl-test-utils = { path = "../handl-test-utils" }

@@ -4,17 +4,17 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = {path = "../handl-language" }
-handl-platform = {path = "../platform" }
-plugin-engine = {path = "../plugin-engine" }
-handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
-handl-value = {path = "../handl-value" }
+handl-language = { path = "../handl-language" }
+handl-platform = { path = "../platform" }
+plugin-engine = { path = "../plugin-engine" }
+handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-value = { path = "../handl-value" }
 serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
-handl-test-utils = {path = "../handl-test-utils" }
-handl-plugin-module = {path = "../plugin-module" }
-handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
+handl-test-utils = { path = "../handl-test-utils" }
+handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 serde_json = { workspace = true }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

@@ -20,8 +20,7 @@
     # Shared export recipe for ast.law (axiom/law surface forms).
     lsp.export.law:
       kind: export
-      match:
-        !Match
+      match: !Match
         node_kind: ast.law
       name:
         payload: name
@@ -34,8 +33,7 @@
 
     lsp.export.assign:
       kind: export
-      match:
-        !Match
+      match: !Match
         node_kind: ast.assign
       name:
         role: target
@@ -48,8 +46,7 @@
 
     lsp.export.data:
       kind: export
-      match:
-        !Match
+      match: !Match
         node_kind: ast.data
       name:
         payload: name
@@ -61,8 +58,7 @@
     # Document-symbol recipes (one per exportable shape).
     lsp.symbol.law:
       kind: symbol
-      match:
-        !Match
+      match: !Match
         node_kind: ast.law
       symbol_kind: Function
       name:
@@ -70,8 +66,7 @@
 
     lsp.symbol.data:
       kind: symbol
-      match:
-        !Match
+      match: !Match
         node_kind: ast.data
       symbol_kind: Class
       name:
@@ -79,8 +74,7 @@
 
     lsp.symbol.assign:
       kind: symbol
-      match:
-        !Match
+      match: !Match
         node_kind: ast.assign
       symbol_kind: Variable
       name:

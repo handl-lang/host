@@ -5,5 +5,5 @@ edition.workspace = true
 description = "Native `char` module — the Rust `std::char` backend for the `char` contract"
 
 [dependencies]
-handl-platform = {path = "../platform" }
+handl-platform = { path = "../platform" }
 serde_json = { workspace = true }

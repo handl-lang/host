@@ -1,24 +1,32 @@
-//! Compile dispatcher that wires the concrete `js` and `llvm` compilers into
-//! a shared `CompilerRegistry` (ADR-0114 Phase 14).
+//! Compile dispatcher that wires the concrete `js`, `llvm`, `handl`, `term`,
+//! `dot`, and `sexp` compilers into a shared `CompilerRegistry` (ADR-0114 Phase 14).
 
 use handl_plugin_compile::{
     CompileError, CompilerConfig, CompilerInput, CompilerOutput, CompilerRegistry,
 };
+use handl_plugin_compile_dot::DotCompiler;
+use handl_plugin_compile_handl::HandlCompiler;
 use handl_plugin_compile_js::JsCompiler;
 use handl_plugin_compile_llvm::LlvmCompiler;
+use handl_plugin_compile_sexp::SexpCompiler;
+use handl_plugin_compile_term::TermCompiler;
 
-/// A dispatcher over the built-in `js` and `llvm` compilers.
+/// A dispatcher over the built-in `js`, `llvm`, `handl`, `term`, `dot`, and `sexp` compilers.
 #[derive(Debug)]
 pub struct CompileDispatcher {
     registry: CompilerRegistry,
 }
 
 impl CompileDispatcher {
-    /// Create a new dispatcher with `JsCompiler` and `LlvmCompiler` registered.
+    /// Create a new dispatcher with the built-in compilers registered.
     pub fn new() -> Self {
         let mut registry = CompilerRegistry::new();
         registry.register(Box::new(JsCompiler));
         registry.register(Box::new(LlvmCompiler::new()));
+        registry.register(Box::new(HandlCompiler));
+        registry.register(Box::new(TermCompiler));
+        registry.register(Box::new(DotCompiler));
+        registry.register(Box::new(SexpCompiler));
         Self { registry }
     }
 

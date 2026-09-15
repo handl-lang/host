@@ -10,10 +10,10 @@ client = []
 server = []
 
 [dependencies]
-handl-platform = {path = "../../crates/platform" }
-handl-plugin-module = {path = "../../crates/plugin-module"  }
+handl-platform = { path = "../../crates/platform" }
+handl-plugin-module = { path = "../../crates/plugin-module" }
 handl-plugin-lib-handl = { workspace = true }
-handl-plugin-ext-eval = {path = "../../crates/plugin-ext-eval"  }
+handl-plugin-ext-eval = { path = "../../crates/plugin-ext-eval" }
 handl-plugin-lib-ws-rfc.workspace = true
 base64.workspace = true
 serde_json.workspace = true

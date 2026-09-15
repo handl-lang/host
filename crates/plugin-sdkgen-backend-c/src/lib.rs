@@ -7,7 +7,7 @@ use handl_plugin_sdkgen::{
     SdkgenModule,
 };
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{CStr, CString, c_char, c_int, c_uint, c_void};
 use std::path::Path;
 
@@ -218,6 +218,23 @@ impl SdkgenBackend for CBackend {
             }
         }
 
+        // Prune records and typedefs that are not used by any emitted function,
+        // unless the user is only asking for types (no functions were selected).
+        if !module.functions.is_empty() {
+            let mut referenced: HashSet<String> = HashSet::new();
+            for f in &module.functions {
+                if let Some(r) = &f.out_struct {
+                    referenced.insert(r.clone());
+                }
+                for a in &f.port_args {
+                    referenced.insert(a.port.clone());
+                }
+                referenced.insert(f.return_port.clone());
+            }
+            module.records.retain(|r| referenced.contains(&r.name));
+            module.typedefs.retain(|t| referenced.contains(&t.name));
+        }
+
         unsafe {
             clang_disposeTranslationUnit(tu);
             clang_disposeIndex(index);
@@ -247,30 +264,30 @@ extern "C" fn collect_cursors(
     data: *mut c_void,
 ) -> CXChildVisitResult {
     let state = unsafe { &mut *(data as *mut CursorData) };
-    if !from_main_file(cursor) {
-        return CXChildVisit_Continue;
-    }
     let name = cursor_name(cursor);
     let allowed = state.only.as_ref().map_or(true, |p| p.matches(&name));
+    let is_main = from_main_file(cursor);
     match cursor.kind {
         CXCursor_FunctionDecl => {
-            if allowed && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External {
+            if is_main
+                && allowed
+                && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External
+            {
                 state.functions.push(cursor);
             }
         }
-        CXCursor_StructDecl => {
-            if allowed {
-                state.records.push(cursor);
-            }
-        }
-        CXCursor_TypedefDecl => {
-            if allowed {
-                state.typedefs.push(cursor);
-            }
-        }
-        CXCursor_EnumDecl => {
-            if allowed {
-                state.enums.push(cursor);
+        CXCursor_StructDecl | CXCursor_TypedefDecl | CXCursor_EnumDecl => {
+            let is_sys = is_system_header(cursor);
+            // Collect type declarations from the main file (filtered by --only)
+            // and from system headers, which supply the ABI for the selected
+            // functions even when their names do not match --only.
+            if (is_main && allowed) || (is_sys && (allowed || state.only.is_some())) {
+                match cursor.kind {
+                    CXCursor_StructDecl => state.records.push(cursor),
+                    CXCursor_TypedefDecl => state.typedefs.push(cursor),
+                    CXCursor_EnumDecl => state.enums.push(cursor),
+                    _ => {}
+                }
             }
         }
         _ => {}
@@ -280,6 +297,10 @@ extern "C" fn collect_cursors(
 
 fn from_main_file(cursor: CXCursor) -> bool {
     unsafe { clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) != 0 }
+}
+
+fn is_system_header(cursor: CXCursor) -> bool {
+    unsafe { clang_Location_isInSystemHeader(clang_getCursorLocation(cursor)) != 0 }
 }
 
 fn cursor_name(cursor: CXCursor) -> String {

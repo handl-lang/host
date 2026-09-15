@@ -106,15 +106,15 @@ The port can then `export Timespec` and the adapter can use `r.buf.tv_sec` direc
 
 ## Language readiness
 
-| Feature | Status | Evidence | Gap |
-| --- | --- | --- | --- |
-| `Effect` grade | Ready | `handl-packages/grade/index.hnl` | none |
-| `FFI` grade | Not in stdlib | none | create `handl-packages/ffi` |
-| `Errno` / `Handle` types | Not in stdlib | none | add to `handl-packages/ffi` |
-| `Result` type | In `result` package | `handl-packages/result/result.hnl` | export `Result` type plus `ok` / `err` constructors |
-| `Option` type | In `option` package | `handl-packages/utils/option.hnl` | export `Option` type plus `some` / `none` constructors |
-| `ffi.errno()` | Not in runtime | `crates/plugin-ffi/src/lib.rs` | add `ffi.errno()` op |
-| Object/record type values | In grammar | record/object literals | **verify** layout matches C ABI for `out_struct` / `in_buf` |
+| Feature                   | Status              | Evidence                           | Gap                                                         |
+| ------------------------- | ------------------- | ---------------------------------- | ----------------------------------------------------------- |
+| `Effect` grade            | Ready               | `handl-packages/grade/index.hnl`   | none                                                        |
+| `FFI` grade               | Not in stdlib       | none                               | create `handl-packages/ffi`                                 |
+| `Errno` / `Handle` types  | Not in stdlib       | none                               | add to `handl-packages/ffi`                                 |
+| `Result` type             | In `result` package | `handl-packages/result/result.hnl` | export `Result` type plus `ok` / `err` constructors         |
+| `Option` type             | In `option` package | `handl-packages/utils/option.hnl`  | export `Option` type plus `some` / `none` constructors      |
+| `ffi.errno()`             | Not in runtime      | `crates/plugin-ffi/src/lib.rs`     | add `ffi.errno()` op                                        |
+| Object/record type values | In grammar          | record/object literals             | **verify** layout matches C ABI for `out_struct` / `in_buf` |
 
 ## Consequences
 

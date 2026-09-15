@@ -47,5 +47,3 @@ The language core is a single semantic world: `Obj : sym()`, `Type : Obj := sym(
 For the full kernel design, read [ADR-0106: The object/arrow kernel](../project/adrs/0106-object-arrow-kernel.md).
 
 For the full platform design, read [ADR-0002: Single Plugin Model](../project/adrs/0002-handl-platform-composable-host). For hands-on instructions, see the [Build a host tutorial](../tutorials/build-a-host).
-
-

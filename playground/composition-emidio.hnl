@@ -1,0 +1,15 @@
+-- Same algorithm as composition-2.hnl, written with named functions
+-- and direct calls instead of Hughes composition (>>>, ***, &&&).
+
+do {
+  add1 = x ~> x + 1
+  dbl = y ~> y * 2
+
+  a = 10
+  b = 7
+
+  a1 = add1(a)
+  b1 = dbl(b)
+
+  { first: a1 + b1, last: a1 * b1 }
+}

@@ -4,10 +4,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = {path = "../platform" }
+handl-platform = { path = "../platform" }
 handl-plugin-compile.workspace = true
 handl-plugin-compile-js.workspace = true
 handl-plugin-compile-llvm.workspace = true
+handl-plugin-compile-handl.workspace = true
+handl-plugin-compile-term.workspace = true
+handl-plugin-compile-dot.workspace = true
+handl-plugin-compile-sexp.workspace = true
 handl-language.workspace = true
 plugin-engine.workspace = true
 plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }

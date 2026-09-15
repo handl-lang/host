@@ -35,7 +35,7 @@ fresh-name generation or recursive construction the declarative
 This has three problems:
 
 1. **The pass is a singleton.** Desugar is hardcoded into `Runtime::parse`
-   (ADR-0082 Phase 1.2). There is no way to define a *second* transform —
+   (ADR-0082 Phase 1.2). There is no way to define a _second_ transform —
    a `lower` pass for a backend, a codemod, an optimization pass, an LSP
    refactor — without cloning the walk/remap/copy-on-write machinery.
 2. **The dispatch table is buried in `AstShapeDef`.** `desugar` is a field
@@ -48,7 +48,7 @@ This has three problems:
    other consumer. Per the engine-genericity rule, residual `kind ==`
    dispatch is debt to close, not a pattern to extend — but the
    declarative vocabulary genuinely cannot express fresh-name generation
-   yet, so an escape hatch must exist *inside* the data-driven dispatch.
+   yet, so an escape hatch must exist _inside_ the data-driven dispatch.
 
 Meanwhile, the primitives the engine needs already exist and are proven:
 
@@ -243,7 +243,7 @@ pub trait RuleSource {
 ```
 
 Default `LanguageRuleSource` reads `lang.transforms`. An alternate impl
-loads rules from a codemod file or extra YAML fragment set *without*
+loads rules from a codemod file or extra YAML fragment set _without_
 merging into the `Language` — so "the language ships its own lowering" and
 "a user runs an ad-hoc codemod" are the same machinery (mirrors
 `TestProvider` in `plugin-engine-test`).
@@ -273,7 +273,7 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
   ~4000 lines) moves verbatim into
   `plugin-engine-transform-rewrite::native::desugar` behind
   `NativeRewrite`. Each gets a `TransformDef { node_kind, rule:
-  Native("desugar.<form>") }` — dispatch data-driven, implementation Rust.
+Native("desugar.<form>") }` — dispatch data-driven, implementation Rust.
   (The five fixed-shape forms were later migrated to declarative
   `TransformDef`s in `transforms.yaml`; only `data`/`match` remain native
   — see the addendum below.)
@@ -326,7 +326,7 @@ handl-runtime                    calls RewriteEngine (drops
 - **Any pass, not just desugar.** `lower`/`optimize`/codemod/LSP refactors
   become `TransformDef` data + a `run_pass` call — no new engine code.
 - **Genericity rule satisfied.** Engine dispatch is `lang.transforms[pass]
-  [kind]`; child access is role-based; the `try_rust_desugar` `kind ==`
+[kind]`; child access is role-based; the `try_rust_desugar` `kind ==`
   side channel moves behind a named, data-dispatched registry.
 - **Free provenance.** `RewriteTrace` gives diagnostics and the LSP
   input→output node mapping at zero cost.
@@ -338,7 +338,7 @@ handl-runtime                    calls RewriteEngine (drops
   behind the same trait.
 - **Zero behavioral change** at migration: the existing desugar test suite
   is the conformance suite, plus a parity test asserting `run_pass
-  ("desugar")` output is identical to the pre-refactor `apply_desugar`.
+("desugar")` output is identical to the pre-refactor `apply_desugar`.
 
 ### Negative / costs
 
@@ -434,7 +434,7 @@ migrated from Rust `desugar.*` handlers to `TransformDef`s in
 fresh-name generation was wrong (their `__continue`/`__result`/`__xs`/
 `rec_v`/`rec_tail` binders are fixed `__`-namespace names, not gensyms)
 and no `Apply`-style recursion was needed either (bottom-up
-`Keep`/`KeepRest` already resolves children to their *rewritten*
+`Keep`/`KeepRest` already resolves children to their _rewritten_
 counterparts via the `remap` table). Two findings of note:
 
 - serde_yaml cannot deserialize an enum nested inside
@@ -442,7 +442,7 @@ counterparts via the `remap` table). Two findings of note:
   `while` state-passing guard is expressed as a higher-priority
   identity rule (`transform.desugar.while.state_form`, `priority: -1`,
   `when: KindAt{index:1, kind:"function"}` → `while → while [Keep 0,
-  Keep 1]`), which produces output identical to a pass-through.
+Keep 1]`), which produces output identical to a pass-through.
 - The unregistered `desugar_if` (`if`→`match`, never part of the pass
   because `type.if` must observe `if` nodes) was deleted — it is
   trivially a `Declarative` rule and its coverage was duplicated by the
@@ -470,7 +470,7 @@ on declarative rewrites.
 ## Production readiness
 
 The architecture above is production-grade; the following requirements
-make the *implementation* production-grade rather than MVP. They are part
+make the _implementation_ production-grade rather than MVP. They are part
 of the decision, not follow-ups.
 
 ### Correctness
@@ -484,7 +484,7 @@ of the decision, not follow-ups.
   silent first-pick. Identity key `pass:node_kind:priority` enforces this
   structurally; `validate_transforms` checks condition-overlap where
   statically decidable.
-- **Termination discipline.** `Fixpoint` passes carry `max` *and* a
+- **Termination discipline.** `Fixpoint` passes carry `max` _and_ a
   node-count budget; `validate_transforms` warns when a rule's
   `target_kind` is re-matchable in the same pass (potential rewrite
   cycle) or when a rewrite cycle exists across a pass's rules.
@@ -495,7 +495,7 @@ of the decision, not follow-ups.
   registry; `Apply` targets an existing rule id. Runs at `Language` build
   (wired in `handl-kit-data-canonical::merge_fragments` — Error-severity
   diagnostics fail assembly; warnings do not, since shapes and native
-  registries may arrive from other fragments/engines) *and* under the CLI
+  registries may arrive from other fragments/engines) _and_ under the CLI
   check path: `hnl typecheck` (the `hnl check` surface) builds its
   `Language` in `plugin-engine-typecheck::bootstrap`, which cannot depend
   on `handl-kit-data-canonical` (cycle via `handl-runtime`), so it embeds
@@ -525,7 +525,7 @@ of the decision, not follow-ups.
 ### Observability
 
 - `TransformOutput` carries `PassStats { visited, rewritten, per_rule:
-  BTreeMap<rule_id, usize>, duration }` alongside `RewriteTrace` — dead
+BTreeMap<rule_id, usize>, duration }` alongside `RewriteTrace` — dead
   rules and hot passes are visible without instrumentation.
 
 ### Performance
@@ -613,7 +613,7 @@ surface-preserving passes can be turned back into usable source text.
 ## Second consumer: lint
 
 The canonical v0.1 linter (`handl-plugin-ext-lint`) was the first non-desugar
-use of the transform engine.  The exercise confirmed the engine generalizes as
+use of the transform engine. The exercise confirmed the engine generalizes as
 a **pattern matcher**; with `AstNode::span` now populated by the Pratt parser,
 the lint-to-fix chain is fully AST-derived for pattern-based rules. A
 layout-preserving AST→source emitter is now available in
@@ -631,25 +631,25 @@ text-level edits:
 - `naming-convention` — rename an identifier token.
 
 None of them is a structural rewrite that can be expressed with the current
-`RewriteStep` vocabulary.  `naming-convention` needs payload string
+`RewriteStep` vocabulary. `naming-convention` needs payload string
 manipulation (`snake_case`); `unused-import` needs statement deletion;
-`fmt` is a token-stream operation.  There is still no span-preserving
+`fmt` is a token-stream operation. There is still no span-preserving
 AST→source renderer (the formatter emits canonical text, not the original
 layout), so a pure `run_pass("lint")` + re-print would discard comments,
-whitespace, and line breaks.  The `simplify-paren` rule therefore stays a
+whitespace, and line breaks. The `simplify-paren` rule therefore stays a
 text replacement, but the text is now cut directly from the matched node spans.
 
 ### Chosen bridge
 
 The honest minimal win is to keep the existing text-fix pipeline and use
 `RewriteEngine::find_matches` as the lint's structural matcher for new,
-pattern-based rules.  This satisfies the engine-genericity rule: dispatch is
+pattern-based rules. This satisfies the engine-genericity rule: dispatch is
 `lang.transforms["lint"][kind]` and child positions resolve through
 `AstShapeDef` roles; no new `kind ==` checks are added.
 
 A demonstrative rule, `lint.simplify-paren`, lives in the embedded
 `crates/plugin-ext-lint/data/lint_transforms.yaml` file and is merged into the
-canonical `Language` at lint time.  It matches `paren` nodes with a single
+canonical `Language` at lint time. It matches `paren` nodes with a single
 `var`/`value` child via `find_matches`; the source fix then replaces the
 `paren` node's `span` with the source text under the matched child's `span`.
 This proves the engine generalizes beyond desugar and that the match
@@ -659,14 +659,14 @@ This proves the engine generalizes beyond desugar and that the match
 
 When an AST-level lint fix eventually becomes desirable (e.g. a structural
 codemod), the path is: define a `lint` pass rule and use `find_matches` (or
-`RewriteEngine::run_pass` once a formatting-preserving renderer exists).  The
+`RewriteEngine::run_pass` once a formatting-preserving renderer exists). The
 existing v0.1 rules remain text edits.
 
 ## LSP consumer: code actions
 
 `handl-host-lsp` now offers transform-engine-driven quick fixes in
 `textDocument/codeAction` (`crates/host-lsp/src/code_actions.rs`,
-`lint_fix_actions`).  The handler runs
+`lint_fix_actions`). The handler runs
 `handl_plugin_ext_lint::lint_source` over the open document; every lint
 diagnostic that carries a `Fix` and intersects the requested range becomes a
 `quickfix` `CodeAction` whose `WorkspaceEdit` applies the fix's text edit.
@@ -677,7 +677,7 @@ parentheses" and its edit replaces the parenthesized span with the inner
 atom's text.
 
 The match comes from `RewriteEngine::find_matches`; the default fix is still
-a span→text replacement for speed.  The edit range is taken from the
+a span→text replacement for speed. The edit range is taken from the
 `Fix`/`Span` the linter computes from `AstNode::span` (the matched `paren`
 node and its inner child), so the match → span → edit chain is now fully
 AST-derived.
@@ -687,7 +687,7 @@ A second `quickfix` action is also offered for `lint.simplify-paren`:
 `RewriteEngine::apply_rule` is run against a companion `lsp-rewrite` pass
 rule and the transformed statement is re-emitted with
 `handl-plugin-engine-fmt::PreserveEmitter`, producing a `WorkspaceEdit` that
-replaces the whole statement.  This exercises the `find_matches` →
+replaces the whole statement. This exercises the `find_matches` →
 `apply_rule` → `RewriteTrace` → `PreserveEmitter` bridge end-to-end while
 leaving the existing text fix in place as a lighter-weight alternative.
 
@@ -706,8 +706,8 @@ leaving the existing text fix in place as a lighter-weight alternative.
 ## Follow-up: a `lower` pass for codegen backends
 
 The first concrete `lower` rule is `transform.lower.entry` in the canonical
-`transforms.yaml`.  It matches an `entry` node whose `key` child is a `string`
-literal and rewrites it to use the canonical `var` literal key shape.  This
+`transforms.yaml`. It matches an `entry` node whose `key` child is a `string`
+literal and rewrites it to use the canonical `var` literal key shape. This
 normalizes the `var`/`string` object-key heuristic that the bytecode and
 cranelift backends currently keep as a fallback in their compile/runtime
 paths.
@@ -725,10 +725,10 @@ The rule is data-driven:
 ```
 
 Because the rewrite must copy the original `string` payload into a newly
-allocated `var` leaf, the rule is `Native`.  The implementation lives in the
+allocated `var` leaf, the rule is `Native`. The implementation lives in the
 backend that opts in to lowering (`handl-plugin-engine-exec-bytecode` registers
 `lower.object_key` and calls `RewriteEngine::run_pass(lang, ast, root,
-"lower")` from `BytecodeEngine::eval`).  This keeps the canonical `Language`
+"lower")` from `BytecodeEngine::eval`). This keeps the canonical `Language`
 free of backend-specific payload-manipulation rules while proving that the
 pass machinery, dispatch, and native seam are reusable beyond `desugar`.
 
@@ -736,44 +736,44 @@ pass machinery, dispatch, and native seam are reusable beyond `desugar`.
 
 An audit of the two codegen backends (`plugin-engine-exec-bytecode` and
 `plugin-engine-exec-cranelift`) was performed to find `kind ==`/shape
-heuristics that could be retired by the `lower` pass.  The candidates flagged
+heuristics that could be retired by the `lower` pass. The candidates flagged
 in `AGENTS.md` were:
 
 - **Object-entry key `var`/`string` heuristic** — found in
   `plugin-engine-exec-bytecode/src/compile.rs` (`try_extract_static_object_keys`),
   `plugin-engine-exec-bytecode/src/vm.rs` (`object` native op), and
-  `plugin-engine-exec-cranelift/src/lib.rs` (object helper).  This is the
+  `plugin-engine-exec-cranelift/src/lib.rs` (object helper). This is the
   only heuristic that reaches the codegen backends in a form the `lower` pass
   can remove: the existing `transform.lower.entry` + `lower.object_key` native
   rewrite `string` keys to the canonical `var` shape before the backend sees
   the AST.
 - **`match`/`arm`/`block`/`paren`/`type-annot` desugared-vs-raw assumptions** —
-  no residual shape heuristics found in the codegen paths.  `match` is
+  no residual shape heuristics found in the codegen paths. `match` is
   dispatched as a native op, `paren` wrappers are already removed by the
   `desugar` pass, and `block`/`type-annot` handling is role-based.
 - **`nullish`/`opt-chain` remnants** — none reach the backends un-desugared;
   the `desugar` pass rewrites them before evaluation.
-- **Constant folding (e.g. `binary.add` of numeric literals)** — skipped.  The
+- **Constant folding (e.g. `binary.add` of numeric literals)** — skipped. The
   canonical literal shape and eval scheme for `value` nodes are not
   unambiguous enough in the current data to make a semantics-preserving
   rewrite that does not duplicate backend arithmetic; the `binary.add` scheme
-  is evaluated as the `add` native op.  No rule was added for this.
+  is evaluated as the `add` native op. No rule was added for this.
 
 The audit produced **no additional `lower` rules** beyond `transform.lower.entry`.
 The object-key `var`/`string` fallback in the backends is therefore kept but
 now explicitly commented as redundant under `BytecodeEngine::with_lowering()`;
 removing it entirely would break the non-lowering path and any role-less
-`entry` shapes.  A unit test (`lower_object_key_bypasses_string_kind_heuristic`)
+`entry` shapes. A unit test (`lower_object_key_bypasses_string_kind_heuristic`)
 proves the `lower` pass rewrites `string` keys to `var` so the heuristic is
 not exercised.
 
 ### Cranelift parity
 
-`CraneliftEngine` does not yet opt in to the `lower` pass.  Wiring it would
+`CraneliftEngine` does not yet opt in to the `lower` pass. Wiring it would
 require adding `plugin-engine-transform-rewrite` as a dependency, which risks
 introducing a dependency cycle: `handl-runtime` already depends on
 `plugin-engine-exec-cranelift`, and `plugin-engine-transform-rewrite` has a
-dev-dependency on `handl-runtime`.  Cranelift therefore retains the same
+dev-dependency on `handl-runtime`. Cranelift therefore retains the same
 `var`/`string` kind fallback with a cross-reference to this ADR section.
 
 ## Handl-authored transforms (the `handl:` native seam)
@@ -816,7 +816,7 @@ and returns either `null` (decline → the engine pushes the node through with
 remapped children) or a **node spec** `{ kind, payload?, children? }` that the
 engine realizes into the output arena. Each `children` element is itself a
 node spec or the marker `{ "__keep__": n }`, which reuses the remapped output
-of the *matched* node's child `n` (the index always refers to the matched
+of the _matched_ node's child `n` (the index always refers to the matched
 node's `children` array, no matter how deeply nested the marker appears). A
 bare `{ "__keep__": n }` return replaces the matched node with that child.
 Realized nodes inherit the matched node's `span`, matching the documented

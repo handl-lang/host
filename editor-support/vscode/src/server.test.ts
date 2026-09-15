@@ -68,7 +68,9 @@ describe("resolveServerPath", () => {
       getWorkspaceFolders: () => [{ uri: { fsPath: "/repo" } }],
       exists: (p) => p === path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
     });
-    expect(resolveServerPath(deps)).toBe(path.join("/repo", "platform", "target", "debug", "handl-host-lsp"));
+    expect(resolveServerPath(deps)).toBe(
+      path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
+    );
   });
 
   it("finds the binary in a parent directory when workspace is nested", () => {
@@ -76,7 +78,9 @@ describe("resolveServerPath", () => {
       getWorkspaceFolders: () => [{ uri: { fsPath: "/repo/platform/crates/host-lsp" } }],
       exists: (p) => p === path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
     });
-    expect(resolveServerPath(deps)).toBe(path.join("/repo", "platform", "target", "debug", "handl-host-lsp"));
+    expect(resolveServerPath(deps)).toBe(
+      path.join("/repo", "platform", "target", "debug", "handl-host-lsp"),
+    );
   });
 });
 

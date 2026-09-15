@@ -21,11 +21,11 @@ make future features new compositions rather than surgery.**
 
 ### Crate boundary
 
-| Crate | Role | Fate |
-| --- | --- | --- |
-| `plugin-engine-fmt` | Format **engine**: staged pipeline + `NodeEmitter`, `FormattingRule`, `PostProcessRule` seams. Language-generic (ADR-0044/0041). | Gained `layout.rs`, `token.rs`, `post_process.rs`. |
-| `plugin-ext-fmt` | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` + CLI contract + golden/idempotence tests. | `lib.rs` slimmed to a thin wrapper over the engine pipeline. |
-| `platform/format.rs` | Generic `Format` capability. | Doc-only: documented as the generic per-node contribution seam (cannot dispatch to the engine due to dependency direction). |
+| Crate                | Role                                                                                                                                                                                     | Fate                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `plugin-engine-fmt`  | Format **engine**: staged pipeline + `NodeEmitter`, `FormattingRule`, `PostProcessRule` seams. Language-generic (ADR-0044/0041).                                                         | Gained `layout.rs`, `token.rs`, `post_process.rs`.                                                                          |
+| `plugin-ext-fmt`     | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` + CLI contract + golden/idempotence tests. | `lib.rs` slimmed to a thin wrapper over the engine pipeline.                                                                |
+| `platform/format.rs` | Generic `Format` capability.                                                                                                                                                             | Doc-only: documented as the generic per-node contribution seam (cannot dispatch to the engine due to dependency direction). |
 
 ### Pipeline and stage contracts
 
@@ -112,9 +112,9 @@ field, so two transforms targeting the same node_kind in the same pass collide
 unless one `replaces:` the other. `handl-kit-data-canonical/data/transforms.yaml`
 has duplicate identity_keys:
 
-| Duplicates | Lines | Content |
-| --- | --- | --- |
-| `transform.desugar.nullish` × 2 | 65, 317 | identical rule |
+| Duplicates                                                                           | Lines    | Content                      |
+| ------------------------------------------------------------------------------------ | -------- | ---------------------------- |
+| `transform.desugar.nullish` × 2                                                      | 65, 317  | identical rule               |
 | `transform.desugar.opt_chain` (underscore) vs `transform.desugar.opt-chain` (hyphen) | 102, 317 | same node_kind/pass/priority |
 
 These duplicates exist in the **parent commit** (`0343f344`), so this is
@@ -133,4 +133,4 @@ typecheck/exec. Two options:
 2. **Fix the duplicates** — remove the identical nullish copy and reconcile
    `opt_chain` / `opt-chain` (sign-off recommended; affects language transforms
    beyond the formatter).
-unchanged.
+   unchanged.

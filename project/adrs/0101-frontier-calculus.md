@@ -29,7 +29,7 @@ Partial:
 
 ADR-0100 establishes directed homotopy type theory as the long-term
 theoretical limit for the platform. Its higher cells, paths, univalence,
-fibrations, and refinement/witness machinery are the *concepts*.
+fibrations, and refinement/witness machinery are the _concepts_.
 
 This ADR records the concrete, accepted `Term` data constructors that
 carry those concepts in the arrow-calculus kernel. It does not restate the

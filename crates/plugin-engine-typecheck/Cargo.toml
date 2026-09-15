@@ -4,14 +4,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-language = {path = "../handl-language" }
-handl-platform = {path = "../platform" }
-handl-plugin-ext-diag = {path = "../plugin-ext-diag", features = ["lang-span"] }
-handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
-handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-language = { path = "../handl-language" }
+handl-platform = { path = "../platform" }
+handl-plugin-ext-diag = { path = "../plugin-ext-diag", features = ["lang-span"] }
+handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-plugin-module = {path = "../plugin-module" }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-plugin-module = { path = "../plugin-module" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

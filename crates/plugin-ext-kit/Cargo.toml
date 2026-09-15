@@ -4,9 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = {path = "../platform" }
+handl-platform = { path = "../platform" }
 handl-kit-data = { workspace = true }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-module = { workspace = true }
 handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-crypto = { workspace = true }

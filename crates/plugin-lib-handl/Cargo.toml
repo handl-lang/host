@@ -5,15 +5,15 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
-handl-platform = {path = "../platform" }
-handl-language = {path = "../handl-language" }
-handl-runtime = {path = "../handl-runtime" }
-handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
-handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-platform = { path = "../platform" }
+handl-language = { path = "../handl-language" }
+handl-runtime = { path = "../handl-runtime" }
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
-handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-exec-bytecode = {path = "../plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
 handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
 plugin-engine = { path = "../plugin-engine" }

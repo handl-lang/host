@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-platform = {path = "../../crates/platform" }
+handl-platform = { path = "../../crates/platform" }
 handl-plugin-lib-handl = { workspace = true }
-handl-plugin-lib-tag = {path = "../plugin-lib-tag" }
+handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
 serde_json = { workspace = true }
