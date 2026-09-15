@@ -23,7 +23,7 @@ ADR-0032 establishes that types are values and share the same `Value` space as r
 Treat the type-level language as handl itself, restricted to a total subset. Before unifying type arguments of indexed families such as `List(T, n)`, the typechecker will:
 
 1. Substitute the concrete call-site type and value arguments into the function's declared return type.
-2. Reduce the resulting handl expressions by evaluating them in a **total** interpreter (no effects, no general recursion, only structurally terminating definitions marked with `~[Total]~>`).
+2. Reduce the resulting handl expressions by evaluating them in a **total** interpreter: no effects, no `while`/`do-while` loops, only bounded iteration such as `for` over a known collection or an explicit nat fuel. Recursion must be structural on an explicit fuel or on a descending data pattern.
 3. Compare the reduced indices during unification. If the reduced values differ and neither side is a metavariable, report a type error.
 4. Leave expressions that cannot be reduced (because they contain unresolved variables or metavariables) in normal form and continue unification; do not fail unless a concrete mismatch is found.
 
@@ -34,7 +34,8 @@ The same handl syntax, standard-library functions, and user-defined arrows may b
 - `List(T, n)` and similar indexed families can carry and check statically known length information.
 - Calling `array.take([1, 2, 3, 4, 5], 2)` and asserting the result has type `List(Int, 3)` will fail typechecking.
 - Type-level programming reuses handl's existing evaluation engines, libraries, and tooling.
-- The total evaluator must prove or enforce termination; non-total functions cannot be invoked at the type level.
+- The type-level evaluator enforces termination syntactically and structurally: unbounded conditional loops (`while`/`do-while`) are not allowed, and all iteration is bounded by a known collection or an explicit fuel. We do not attempt to prove termination for arbitrary code; instead we reject constructs that are not manifestly bounded.
+- Effects and grades (`~[g]~>`) are interpretative at the runtime level. At the type level, only pure/total code may run; any expression carrying an effect grade or using an effectful primitive is rejected.
 - The Handl typecheck model (`typecheck_model.hnl`) will need a new normalization step, or a native `eval_total` op that the model can call before unifying indices.
 
 ## Related work
