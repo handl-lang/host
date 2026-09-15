@@ -1,3 +1,5 @@
+from "./reverse.hnl" import reverse
+
 --- Split an array of `[a, b]` pairs into two arrays.
 ---
 --- Returns `[as, bs]`. Elements that are not arrays with at least two
@@ -7,8 +9,6 @@
 --- `array.unzip([[1, "x"], [2, "y"]])`
 --- -- => [[1, 2], ["x", "y"]]
 ---
-from "./reverse.hnl" import reverse
-
 export unzip<A, B>: List(Pair(A, B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~> do {
   fs := [];
   gs := [];
@@ -16,8 +16,8 @@ export unzip<A, B>: List(Pair(A, B)) ~[Total]~> Pair(List(A), List(B)) := (xs) ~
     do {
       match x {
         [f, s, ...rest]: do {
-          fs := [f, ...fs];
-          gs := [s, ...gs]
+          fs = [f, ...fs];
+          gs = [s, ...gs]
         },
         _: null
       }
