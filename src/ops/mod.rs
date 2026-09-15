@@ -26,6 +26,7 @@ pub mod toml;
 pub mod type_ops;
 pub mod url_rfc;
 pub mod url_whatwg;
+pub mod yaml;
 
 /// Back-compat alias so consumers can refer to
 /// `handl_plugin_lib_stdlib::ops::r#type::{ToString, ToNumber, Coalesce}`.
