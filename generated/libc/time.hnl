@@ -13,7 +13,7 @@ export Clock: () ~[(FFI)]~> Result<Int, Errno>
 export Difftime: (Int, Int) ~[(FFI)]~> Result<Float, Errno>
 
 --- C: void (void)
-export Tzset: () ~[(FFI)]~> Result<(), Errno>
+export Tzset: () ~[(FFI)]~> Result < (), Errno >
 
 --- C: int (int)
 export Dysize: (Int) ~[(FFI)]~> Result<Int, Errno>
@@ -23,4 +23,3 @@ export TimerDelete: (Handle) ~[(FFI)]~> Result<Int, Errno>
 
 --- C: int (timer_t)
 export TimerGetoverrun: (Handle) ~[(FFI)]~> Result<Int, Errno>
-

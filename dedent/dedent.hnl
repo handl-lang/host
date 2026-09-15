@@ -18,7 +18,7 @@ from "../char" import * as char
 --- Blank and whitespace-only lines are ignored when computing the shared
 --- prefix. They are output as empty lines so no trailing whitespace remains.
 export dedent := (text) ~> do {
-  is_blank := (line) ~> str.is_empty(line) || reduce([char.chars(line), true, [acc, c] ~> do {
+  is_blank := (line) ~> str.is_empty(line) || reduce([char.chars(line), true, [acc, c]~> do {
     result := acc;
     if c != "" {
       if !char.is_whitespace(c) && char.code_point(c) != 160 {
@@ -28,10 +28,10 @@ export dedent := (text) ~> do {
     result
   }]);
 
-  common_prefix := [a, b] ~> {
+  common_prefix := [a, b]~> {
     n := if char.length(a) < char.length(b) { char.length(a) } else { char.length(b) };
     while { i: 0, prefix: "", a: a, b: b, n: n } {
-      [state] ~> if state.i < state.n {
+      [state]~> if state.i < state.n {
         if char.at(state.a, state.i) == char.at(state.b, state.i) {
           { state: { i: state.i + 1, prefix: state.prefix + char.at(state.a, state.i), a: state.a, b: state.b, n: state.n } }
         } else {
@@ -44,7 +44,7 @@ export dedent := (text) ~> do {
   };
 
   prefix_of := (line) ~> do {
-    state := reduce([char.chars(line), { prefix: "", done: false }, [state, c] ~> do {
+    state := reduce([char.chars(line), { prefix: "", done: false }, [state, c]~> do {
       result := state;
       if c != "" {
         if !state.done && (char.is_whitespace(c) || char.code_point(c) == 160) {
@@ -73,10 +73,10 @@ export dedent := (text) ~> do {
     prefixes := map(non_blank, prefix_of);
     common_full := "";
     if prefixes != [] {
-      common_full := reduce([prefixes, prefixes[0], [acc, p] ~> common_prefix(acc, p)]);
+      common_full := reduce([prefixes, prefixes[0], [acc, p]~> common_prefix(acc, p)]);
     };
 
-    line_count := reduce([non_blank, 0, [acc, _] ~> acc + 1]);
+    line_count := reduce([non_blank, 0, [acc, _]~> acc + 1]);
     common := common_full;
     if line_count <= 1 {
       common := prefix_of(common_full);
