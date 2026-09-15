@@ -1,4 +1,4 @@
 --- Nan arrow signature.
 from "type" import { Number, Unit }
 
-export Nan: Unit ~[Total]~> Number
+export Nan: Unit ~[1]~> Number

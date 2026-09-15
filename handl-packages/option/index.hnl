@@ -12,12 +12,12 @@ export Option<T> := Type
 --- Construct a Some option wrapping a value.
 --- @param {value} - the value of type T
 --- @returns {Option<T>}
-export some<T>: T ~[Total]~> Option<T> := (value: T) ~> do {
+export some<T>: T ~[1]~> Option<T> := (value: T) ~> do {
   tag.tag("Some", { value: value })
 }
 
 --- Construct a None option.
 --- @returns {Option<T>}
-export none<T>: () ~[Total]~> Option<T> := () ~> do {
+export none<T>: () ~[1]~> Option<T> := () ~> do {
   tag.tag("None", null)
 }

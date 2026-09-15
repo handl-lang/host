@@ -1,4 +1,4 @@
 --- Shl arrow signature.
 from "type" import { Int }
 
-export Shl: (Int * Int) ~[Total]~> Int
+export Shl: (Int * Int) ~[1]~> Int

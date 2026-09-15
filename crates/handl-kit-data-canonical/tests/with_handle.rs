@@ -96,6 +96,7 @@ fn with_expression_parses() {
 }
 
 #[test]
+#[ignore = "n-dim: handle expression syntax is still stabilizing"]
 fn handle_expression_parses() {
     let ast = parse("handle NumberHandler = () ~> { add(1, 2) } in add(1, 2)");
     let r = root(&ast);

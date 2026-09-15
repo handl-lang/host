@@ -1,4 +1,4 @@
 --- IsFinite arrow signature.
 from "type" import { Number, Bool }
 
-export IsFinite: Number ~[Total]~> Bool
+export IsFinite: Number ~[1]~> Bool

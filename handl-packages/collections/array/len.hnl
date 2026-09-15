@@ -4,7 +4,7 @@
 --- `array.len([1, 2, 3])`
 --- -- => 3
 ---
-export len<T>: List(T) ~[Total]~> Nat := (xs) ~> do {
+export len<T>: List(T) ~[1]~> Nat := (xs) ~> do {
   n := 0
   for x in xs {
     n := n + 1

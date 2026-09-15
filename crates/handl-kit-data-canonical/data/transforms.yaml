@@ -321,3 +321,16 @@
                                 children:
                                   - !Fresh "__xs"
                                   - !Fresh "rec_tail"
+
+# ---------------------------------------------------------------------------
+# Meta-transform placeholder for N-dimensional arrow rewrites (ADR-0119).
+# Real meta-transforms need `dim_arrow` rules (and a `rule` AST node that the
+# canonical surface does not yet expose), so this is an identity placeholder.
+# ---------------------------------------------------------------------------
+- id: transform.meta.dim_arrow_identity
+  pass: meta-transform
+  node_kind: dim_arrow
+  rule: !Declarative
+    target_kind: dim_arrow
+    children:
+      - !KeepRest 0

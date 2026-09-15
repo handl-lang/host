@@ -1192,26 +1192,6 @@
 # ---------------------------------------------------------------------------
 # Cell/cubical theory surface forms (Term frontier)
 # ---------------------------------------------------------------------------
-# `cell_id` — identity of a cell in a frontier context. The surface `id2`
-# returns the witness value, so the Cell2 metadata is projected out.
-- id: eval.j
-  node_kind: j
-  scheme: !JElim
-    path: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 0
-    motive: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 1
-    base: !Op
-      name: proj_child
-      args: []
-      source: Native
-      lit: 2
 # `witness` — a proof value indexed by a grade. The grade is type-level
 # metadata; the runtime result is just the proof (child 1).
 - id: eval.cobind

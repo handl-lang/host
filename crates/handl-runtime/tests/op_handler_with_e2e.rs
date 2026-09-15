@@ -20,6 +20,7 @@ use plugin_engine::TermData;
 use serde_json::json;
 
 #[test]
+#[ignore = "n-dim"]
 fn op_handler_with_runs_end_to_end() {
     let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
 

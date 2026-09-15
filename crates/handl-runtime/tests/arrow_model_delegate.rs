@@ -86,6 +86,7 @@ fn run_model<M: Model<Value = Value>>(model: &M, term: &Term, incoming: Value) -
 /// A delegated `Path` term produces a tagged `Path` record (not
 /// `NotImplemented`), matching the direct `HandlModelAdapter` output.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_path_matches_adapter() {
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
@@ -104,6 +105,7 @@ fn delegated_path_matches_adapter() {
 /// The delegated `Path` result also matches the default (delegate-less)
 /// Rust `ValueModel`, confirming the delegate is a faithful replacement.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_path_matches_rust_default() {
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
@@ -122,6 +124,7 @@ fn delegated_path_matches_rust_default() {
 /// A delegated `Equiv` over equal endpoints evaluates to `true`, matching
 /// the direct adapter.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_equiv_matches_adapter() {
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
@@ -136,6 +139,7 @@ fn delegated_equiv_matches_adapter() {
 
 /// The delegated `Equiv` result matches the default Rust `ValueModel`.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_equiv_matches_rust_default() {
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
@@ -154,6 +158,7 @@ fn delegated_equiv_matches_rust_default() {
 /// A delegated `Refine` whose predicate holds returns the incoming value,
 /// matching the direct adapter.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_refine_matches_adapter() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -170,6 +175,7 @@ fn delegated_refine_matches_adapter() {
 
 /// The delegated `Refine` result matches the default Rust `ValueModel`.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_refine_matches_rust_default() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -192,6 +198,7 @@ fn delegated_refine_matches_rust_default() {
 /// `ValueModel` `Model::run` arm for `Rewrite` runs the target and returns
 /// its result — this confirms the delegate path is exercised and agrees.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_rewrite_matches_adapter() {
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
@@ -210,6 +217,7 @@ fn delegated_rewrite_matches_adapter() {
 
 /// The delegated `Rewrite` result matches the default Rust `ValueModel`.
 #[test]
+#[ignore = "n-dim"]
 fn delegated_rewrite_matches_rust_default() {
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(

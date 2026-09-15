@@ -10,7 +10,7 @@
 from "./_reflect.hnl" import is_arr
 from "./concat.hnl" import concat
 
-export flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export flatten<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   out := []
   for x in xs {
     if is_arr(x) {

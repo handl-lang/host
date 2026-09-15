@@ -6,7 +6,7 @@ from "./reverse.hnl" import reverse
 --- `array.compact([1, null, 2, null, 3])`
 --- -- => [1, 2, 3]
 ---
-export compact<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export compact<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   out := []
   for x in xs {
     if x != null { out := [x, ...out] }

@@ -1,6 +1,6 @@
 --- event -- user-space event emission and listener registration algebra.
 ---
---- An `Event` is an operation `~[(Op, Event)]~>` that is observed by the active
+--- An `Event` is an operation `~[1]~>` that is observed by the active
 --- `Event` handler.  Events are fire-and-forget; listeners are natural arrows.
 --- Everything below reduces to the generic `Op`/`Handle` kernel.
 
@@ -11,19 +11,25 @@ from "collections/hash_map" import * as hash_map
 export Event := Grade
 
 --- emit a named event with a payload.
-export emit: (String, Value) ~[(Op, Event)]~> ()
+-- TODO(n-dim): was ~[(Op, Event)]~>
+export emit: (String, Value) ~[1]~> ()
 
 --- register a natural-arrow listener for a named event.
-export on: (String, (String, Value) ~[(Op, Event)]~> ()) ~[(Op, Event)]~> ()
+-- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): was ~[(Op, Event)]~>
+export on: (String, (String, Value) ~[1]~> ()) ~[1]~> ()
 
 --- test whether a named event has any listener registered.
-export has: (String) ~[(Op, Event)]~> Bool
+-- TODO(n-dim): was ~[(Op, Event)]~>
+export has: (String) ~[1]~> Bool
 
 --- remove all listeners for a named event.
-export unregister: (String) ~[(Op, Event)]~> ()
+-- TODO(n-dim): was ~[(Op, Event)]~>
+export unregister: (String) ~[1]~> ()
 
 --- list the names of registered events.
-export names: () ~[(Op, Event)]~> Array
+-- TODO(n-dim): was ~[(Op, Event)]~>
+export names: () ~[1]~> Array
 
 --- the default `Event` handler: an ordinary arrow returning a record of operations.
 export default_handler := (registry) ~> {

@@ -1,4 +1,4 @@
 --- Acos arrow signature.
 from "type" import { Number }
 
-export Acos: Number ~[Total]~> Number
+export Acos: Number ~[1]~> Number

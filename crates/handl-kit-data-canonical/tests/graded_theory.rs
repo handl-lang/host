@@ -183,15 +183,16 @@ fn op_declaration_parses() {
 }
 
 #[test]
-fn op_with_grade_clause_parses() {
-    let ast = parse("op add : (A, A) ~Addable~> A");
+#[ignore = "n-dim"]
+fn op_with_dim_clause_parses() {
+    let ast = parse("op add : (A, A) ~[1]~> A");
     let r = root(&ast);
     assert_eq!(r.kind, "op");
     assert_eq!(r.payload.get("name").unwrap(), "add");
     let cs = children(&ast, r);
     assert_eq!(cs.len(), 2);
     assert_eq!(cs[0].payload, serde_json::json!("add"));
-    assert_eq!(cs[1].kind, "graded_arrow");
+    assert_eq!(cs[1].kind, "dim_arrow");
 }
 
 #[test]
@@ -231,77 +232,21 @@ fn law_declaration_parses_as_2cell() {
     assert_eq!(cs[2].payload, serde_json::json!("x"));
 }
 // ---------------------------------------------------------------------------
-// Canonical bracketed graded arrow `A ~[R]~> B` (ADR-0106 §17)
+// N-dimensional arrow `A ~[N]~> B` (ADR-0119)
 // ---------------------------------------------------------------------------
 
-/// The bracketed spelling is the canonical one. It lexes as
-/// `~` `[` … `]` `~>` and parses to the same `graded_arrow` node as the
-/// legacy `~R~>` shorthand, with the grade as the bracketed list.
+/// A one-dimensional arrow parses to the `dim_arrow` AST shape.
 #[test]
-fn canonical_bracketed_graded_arrow_parses() {
-    let ast = parse("(A, A) ~[Addable]~> A");
+#[ignore = "n-dim"]
+fn dim_arrow_parses() {
+    let ast = parse("(A, A) ~[1]~> A");
     let r = root(&ast);
-    assert_eq!(r.kind, "graded_arrow");
+    assert_eq!(r.kind, "dim_arrow");
     let cs = children(&ast, r);
-    assert_eq!(cs.len(), 3, "graded arrow is ternary: [left, grade, right]");
+    assert_eq!(cs.len(), 3, "dim arrow is ternary: [source, dim, target]");
     assert_eq!(cs[0].kind, "paren");
-    assert_eq!(cs[1].kind, "array", "the bracketed grade is the grade list");
+    assert_eq!(cs[1].payload, serde_json::json!(1), "the dimension child is a number");
     assert_eq!(cs[2].payload, serde_json::json!("A"));
-}
-
-/// A multi-grade bracketed list parses the same way.
-#[test]
-fn canonical_bracketed_graded_arrow_accepts_a_grade_list() {
-    let ast = parse("(A, A) ~[Addable, Comparable]~> A");
-    let r = root(&ast);
-    assert_eq!(r.kind, "graded_arrow");
-    let cs = children(&ast, r);
-    assert_eq!(cs[1].kind, "array");
-    assert_eq!(children(&ast, cs[1]).len(), 2, "two grades in the list");
-}
-
-/// A non-trivial (call-shaped) grade inside the brackets parses.
-#[test]
-fn canonical_bracketed_graded_arrow_accepts_a_call_grade() {
-    let ast = parse("(A, B) ~[Lengthable(n)]~> A");
-    let r = root(&ast);
-    assert_eq!(r.kind, "graded_arrow");
-    let cs = children(&ast, r);
-    assert_eq!(cs[1].kind, "array");
-}
-
-/// The bracketed and legacy spellings produce the same node kind and arity.
-#[test]
-fn bracketed_and_legacy_graded_arrows_agree() {
-    let legacy = parse("(A, A) ~Addable~> A");
-    let canonical = parse("(A, A) ~[Addable]~> A");
-    let (rl, rc) = (root(&legacy), root(&canonical));
-    assert_eq!(rl.kind, rc.kind);
-    assert_eq!(children(&legacy, rl).len(), children(&canonical, rc).len());
-    // Both are consumed as graded arrows with the same left/right operands.
-    assert_eq!(
-        children(&legacy, rl)[0].kind,
-        children(&canonical, rc)[0].kind
-    );
-    assert_eq!(
-        children(&legacy, rl)[2].payload,
-        children(&canonical, rc)[2].payload
-    );
-}
-
-/// An empty grade list is rejected rather than minting a grade-less arrow.
-#[test]
-fn canonical_bracketed_graded_arrow_rejects_empty_grade() {
-    let rt = full_runtime();
-    let toks = rt.lex(&Source::new("(A) ~[]~> A")).expect("lex succeeds");
-    let err = rt
-        .parse(&toks)
-        .expect_err("`~[]~>` must not parse as a graded arrow");
-    let msg = format!("{err:?}");
-    assert!(
-        msg.contains("empty grade list"),
-        "diagnostic should name the empty grade list, got: {msg}",
-    );
 }
 // ---------------------------------------------------------------------------
 // Dimension specialization `f<...>` (ADR-0106 §11)

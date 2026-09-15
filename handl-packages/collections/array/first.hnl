@@ -6,7 +6,7 @@
 --- `array.first([1, 2, 3])`
 --- -- => 1
 ---
-export first<T>: List(T) ~[Total]~> T := (xs) ~> do {
+export first<T>: List(T) ~[1]~> T := (xs) ~> do {
   match xs {
     []: null,
     [h, ...t]: h

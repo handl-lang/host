@@ -1,4 +1,4 @@
 --- FloorDiv arrow signature.
 from "type" import { Number }
 
-export FloorDiv: (Number * Number) ~[Total]~> Number
+export FloorDiv: (Number * Number) ~[1]~> Number

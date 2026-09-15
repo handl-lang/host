@@ -265,7 +265,7 @@ do {
   -- ---------------------------------------------------------------------
   -- strip_export_name -- Strip generics `<...>` and type annotation
   -- `: Type` from an export name portion, returning the bare name.
-  -- e.g. `len<T>: List(T) ~[Total]~> Nat ` -> `len`
+  -- e.g. `len<T>: List(T) ~[1]~> Nat ` -> `len`
   -- ---------------------------------------------------------------------
 
   strip_export_name :: s ~> do {

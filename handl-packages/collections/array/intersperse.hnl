@@ -9,7 +9,7 @@ from "./reverse.hnl" import reverse
 --- `array.intersperse(["a", "b", "c"], ",")`
 --- -- => ["a", ",", "b", ",", "c"]
 ---
-export intersperse<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
+export intersperse<T>: (List(T), T) ~[1]~> List(T) := (xs, sep) ~> do {
   out := []
   is_first := true
   for x in xs {

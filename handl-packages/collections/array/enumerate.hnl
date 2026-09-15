@@ -8,7 +8,7 @@ from "./reverse.hnl" import reverse
 --- `array.enumerate(["a", "b"])`
 --- -- => [[0, "a"], [1, "b"]]
 ---
-export enumerate<T>: List(T) ~[Total]~> List(Pair(Nat, T)) := (xs) ~> do {
+export enumerate<T>: List(T) ~[1]~> List(Pair(Nat, T)) := (xs) ~> do {
   out := []
   k := 0
   for x in xs {

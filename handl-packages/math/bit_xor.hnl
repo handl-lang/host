@@ -1,4 +1,4 @@
 --- BitXor arrow signature.
 from "type" import { Int }
 
-export BitXor: (Int * Int) ~[Total]~> Int
+export BitXor: (Int * Int) ~[1]~> Int

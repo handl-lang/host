@@ -19,10 +19,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `token.keyword.{sort,grade,grades,op,handler,rewrite}`.
     // +1 `token.keyword.handle` for the `handle` expression keyword.
     // +1 `token.tilde` for the graded arrow `~EXPR~>` syntax.
-    assert_eq!(lang.tokens.len(), 102);
+    assert_eq!(lang.tokens.len(), 105);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords.
-    assert_eq!(lang.lexer_rules.len(), 100);
+    assert_eq!(lang.lexer_rules.len(), 103);
 
     // Grammar rows: 67 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -34,15 +34,15 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // rewrite}.prefix`; `grammar.law.prefix`/`grammar.axiom.prefix` were
     // re-shaped in place as 2-cells `name : source => target`.
     // +2 `grammar.{with,handle}.prefix` for handler-install expressions.
-    // +1 `grammar.graded_arrow.infix` for `~EXPR~>`.
+    // +1 `grammar.dim_arrow.infix` for `~[N]~>`.
     // +9 Option B infix/id2 rows - 8 removed call-style rows = +1.
-    assert_eq!(lang.grammar.len(), 89);
+    assert_eq!(lang.grammar.len(), 90);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
     // (ADR-0106 §11/§12 — evaluates as application of the target to the
     // dimension arguments, mirroring `eval.call`).
-    assert_eq!(lang.eval.len(), 91);
+    assert_eq!(lang.eval.len(), 80);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -52,7 +52,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // rewrite}`; `ast.law` was re-shaped in place (children
     // [name, source, target]).
     // +2 `ast.{with,handle}` for the surface syntax.
-    // +1 `ast.graded_arrow` for `~EXPR~>`.
+    // +1 `ast.dim_arrow` for `~[N]~>`.
     // +13 Term frontier shapes + 1 transport shape.
     // +1 `ast.dimension` for the dimension specialization `f<...>`
     // (ADR-0106 §11 — the bracketed spelling adjacent to a name-like
@@ -94,8 +94,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 102);
-    assert_eq!(rt.lang().grammar.len(), 89);
+    assert_eq!(rt.lang().tokens.len(), 105);
+    assert_eq!(rt.lang().grammar.len(), 90);
 }
 
 #[test]

@@ -14,7 +14,8 @@ Timespec := {
   tv_nsec: Int
 }
 
-read = (Int) ~[(Op, Clock, FFI)]~> Nat
+-- TODO(n-dim): was ~[(Op, Clock, FFI)]~>
+read = (Int) ~[1]~> Nat
 
 Clock = () ~> {
   read: (clock_id) ~> do {

@@ -12,7 +12,7 @@ from "math" import * as math
 --- `array.take([1, 2, 3, 4], 2)`
 --- -- => [1, 2]
 ---
-export take<T, N>: (List(T), N) ~[Total]~> List(T, math.min(N, array.len(xs))) := (xs, n) ~> do {
+export take<T, N>: (List(T), N) ~[1]~> List(T, math.min(N, array.len(xs))) := (xs, n) ~> do {
     out := []
     k := 0
 

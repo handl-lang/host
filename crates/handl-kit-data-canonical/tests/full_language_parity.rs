@@ -80,7 +80,7 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "nullish",
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
-        "graded_arrow",
+        "dim_arrow",
         // Option B transport (ADR-0101)
         "transport",
     ];
@@ -154,7 +154,7 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.infer.prefix",
         "grammar.type.prefix",
         // Graded arrow syntax (ADR-0098)
-        "grammar.graded_arrow.infix",
+        "grammar.dim_arrow.infix",
     ];
     for id in grammar_ids {
         assert!(
@@ -304,7 +304,7 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "nullish",
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
-        "graded_arrow",
+        "dim_arrow",
         // Option B transport (ADR-0101)
         "transport",
     ];

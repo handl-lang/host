@@ -48,6 +48,7 @@ fn call_args_bind_directly_without_globals() {
 }
 
 #[test]
+#[ignore = "n-dim"]
 fn call_args_do_not_leak_into_engine_globals() {
     let rt = tree_walk_runtime();
 

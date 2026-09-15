@@ -502,7 +502,7 @@ mod tests {
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
         // +13 Term frontier type rules + 1 transport rule.
-        assert_eq!(lang.types.len(), 92);
+        assert_eq!(lang.types.len(), 81);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.
@@ -525,7 +525,8 @@ mod tests {
         // (do_while, nullish, opt-chain, while, while.state, for)
         // + 1 `desugar.dimension` (ADR-0106 §11/§12: `f<X>` lowers to the
         // application `f(X)` by re-tagging the node as a `call`).
-        assert_eq!(lang.transforms.len(), 10);
+        // + 1 `meta-transform` placeholder for N-dimensional arrows.
+        assert_eq!(lang.transforms.len(), 11);
         assert_eq!(
             lang.transforms_for("desugar", "do-while")[0].id,
             "transform.desugar.do_while"
@@ -745,7 +746,7 @@ mod tests {
         let server = kit_module_names("server").unwrap();
         assert_eq!(server.first().unwrap(), "module-runtime");
         assert_eq!(server.last().unwrap(), "otlp-std");
-        assert_eq!(server.len(), 19);
+        assert_eq!(server.len(), 18);
     }
 
     #[test]

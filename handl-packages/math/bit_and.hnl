@@ -1,4 +1,4 @@
 --- BitAnd arrow signature.
 from "type" import { Int }
 
-export BitAnd: (Int * Int) ~[Total]~> Int
+export BitAnd: (Int * Int) ~[1]~> Int

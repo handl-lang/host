@@ -13,13 +13,13 @@ export Result<T, E> := Type
 --- Construct an Ok result wrapping a success value.
 --- @param {value} - the success value of type T
 --- @returns {Result<T, E>}
-export ok<T, E>: T ~[Total]~> Result<T, E> := (value: T) ~> do {
+export ok<T, E>: T ~[1]~> Result<T, E> := (value: T) ~> do {
   tag.tag("ok", { value: value })
 }
 
 --- Construct an Err result wrapping an error value.
 --- @param {error} - the error value of type E
 --- @returns {Result<T, E>}
-export err<T, E>: E ~[Total]~> Result<T, E> := (error: E) ~> do {
+export err<T, E>: E ~[1]~> Result<T, E> := (error: E) ~> do {
   tag.tag("err", { value: error })
 }

@@ -9,7 +9,7 @@ from "./concat.hnl" import concat
 --- `array.deep_flatten([[1, [2]], 3, [[[4]]]])`
 --- -- => [1, 2, 3, 4]
 ---
-export deep_flatten<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
+export deep_flatten<T>: List(T) ~[1]~> List(T) := (xs) ~> do {
   go := (self, ys) ~> do {
     out := []
     for x in ys {

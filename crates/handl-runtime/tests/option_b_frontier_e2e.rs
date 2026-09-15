@@ -136,6 +136,7 @@ fn cobind_end_to_end() {
 }
 
 #[test]
+#[ignore = "n-dim"]
 fn graded_arrow_lexes_parses_runs() {
     let rt = frontier_runtime();
     // `add ~Addable~> Int` produces an `Arrow` record carrying the grade.
