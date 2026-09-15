@@ -73,6 +73,25 @@ The existing generic AST/eval runtime is replaced or augmented by an engine
 that interprets `Term` directly. `eval.yaml` becomes a description of how each
 `Term` constructor is interpreted.
 
+## Rationale for `Arr`, `Op`, and `Handle`
+
+The three leaf-like constructors are not interchangeable:
+
+- `Arr` = a pure, fixed arrow whose behaviour is supplied by the host runtime.
+  The `~[FFI]~>` grade on `call` in `handl-packages/ffi/ffi.hnl` is this
+  pattern: a shallow, runtime-injected effect with no user-visible continuation.
+- `Op` = an effect **request** with an explicit continuation `k`. It is required
+  for user-space algebraic handlers because the handler must inspect and rebuild
+  the continuation tree (`Pure v | Op op arg k` in the freer-arrow model).
+- `Handle` = a handler scope / model that interprets `Op` requests and removes
+  the corresponding grade from the row.
+
+`Op` cannot be collapsed into a graded `Arr` of type `(HandlerEnv, A) -> B`,
+because that makes the continuation an opaque function and the handler cannot
+pattern-match on the rest of the computation to rewire it. `Arr` + grade is the
+right primitive for host/FFI effects; `Op` + `Handle` is required for user-space
+algebraic handlers. The `Term` kernel therefore retains all three.
+
 ## Consequences
 
 - `Term` does **not** gain `Lam` or `Var`. The kernel stays combinator-based.
