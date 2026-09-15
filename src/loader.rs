@@ -7,7 +7,7 @@
 //! package that uses top-level `export` and `from "..." export` forms can
 //! be loaded from disk.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -24,6 +24,21 @@ use crate::packages::module;
 fn top_module_cache() -> &'static Mutex<HashMap<PathBuf, Arc<HandlModule>>> {
     static CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<HandlModule>>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn loading_paths() -> &'static Mutex<HashSet<PathBuf>> {
+    static SET: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    SET.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+struct LoadingGuard(PathBuf);
+
+impl Drop for LoadingGuard {
+    fn drop(&mut self) {
+        if let Ok(mut set) = loading_paths().lock() {
+            set.remove(&self.0);
+        }
+    }
 }
 
 fn table_module_cache() -> &'static Mutex<HashMap<String, Arc<HandlModule>>> {
@@ -52,6 +67,13 @@ pub fn load_hnl_file<P: AsRef<Path>>(path: P) -> Option<Arc<HandlModule>> {
             return Some(Arc::clone(m));
         }
     }
+
+    if let Ok(mut loading) = loading_paths().lock() {
+        if !loading.insert(path.clone()) {
+            return None;
+        }
+    }
+    let _loading_guard = LoadingGuard(path.clone());
 
     let src = fs::read_to_string(&path).ok()?;
     let base_dir = path.parent()?.to_path_buf();
