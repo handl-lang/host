@@ -1,4 +1,4 @@
 --- IsNan arrow signature.
 from "type" import { Number, Bool }
 
-export IsNan: Number ~[Total]~> Bool
+export IsNan: Number ~[1]~> Bool
