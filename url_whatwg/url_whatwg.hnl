@@ -7,5 +7,5 @@ op "url_whatwg.parse" : String -> Value
 op "url_whatwg.url_whatwg" : () -> Value
   guarantee: True
 
-handl "url_whatwg.parse" = rust_url_whatwg_parse
-handl "url_whatwg.url_whatwg" = rust_url_whatwg_name
+handle "url_whatwg.parse" with rust_url_whatwg_parse
+handle "url_whatwg.url_whatwg" with rust_url_whatwg_name

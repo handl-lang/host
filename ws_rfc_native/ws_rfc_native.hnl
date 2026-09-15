@@ -59,15 +59,15 @@ op "ws_rfc.message.from_frame" : Value -> Value
 op "ws_rfc.message.to_frame" : Value -> String
   guarantee: IsBase64(output)
 
-handl "ws_rfc.client" = rust_ws_rfc_native_client
-handl "ws_rfc.connect" = rust_ws_rfc_native_connect
-handl "ws_rfc.send" = rust_ws_rfc_native_send
-handl "ws_rfc.recv" = rust_ws_rfc_native_recv
-handl "ws_rfc.close" = rust_ws_rfc_native_close
-handl "ws_rfc.server" = rust_ws_rfc_native_server
-handl "ws_rfc.listen" = rust_ws_rfc_native_listen
-handl "ws_rfc.stop" = rust_ws_rfc_native_stop
-handl "ws_rfc.frame.encode" = rust_ws_rfc_frame_encode
-handl "ws_rfc.frame.decode" = rust_ws_rfc_frame_decode
-handl "ws_rfc.message.from_frame" = rust_ws_rfc_message_from_frame
-handl "ws_rfc.message.to_frame" = rust_ws_rfc_message_to_frame
+handle "ws_rfc.client" with rust_ws_rfc_native_client
+handle "ws_rfc.connect" with rust_ws_rfc_native_connect
+handle "ws_rfc.send" with rust_ws_rfc_native_send
+handle "ws_rfc.recv" with rust_ws_rfc_native_recv
+handle "ws_rfc.close" with rust_ws_rfc_native_close
+handle "ws_rfc.server" with rust_ws_rfc_native_server
+handle "ws_rfc.listen" with rust_ws_rfc_native_listen
+handle "ws_rfc.stop" with rust_ws_rfc_native_stop
+handle "ws_rfc.frame.encode" with rust_ws_rfc_frame_encode
+handle "ws_rfc.frame.decode" with rust_ws_rfc_frame_decode
+handle "ws_rfc.message.from_frame" with rust_ws_rfc_message_from_frame
+handle "ws_rfc.message.to_frame" with rust_ws_rfc_message_to_frame

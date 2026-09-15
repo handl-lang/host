@@ -23,9 +23,9 @@ op "tag.construct" : (String, Value) -> Value
 op "tag.match_type" : (Value, Value) -> Value
   guarantee: True
 
-handl "tag.tag" = rust_tag_tag
-handl "tag.untag" = rust_tag_untag
-handl "tag.tag_of" = rust_tag_tag_of
-handl "tag.is_tag" = rust_tag_is_tag
-handl "tag.construct" = rust_tag_construct
-handl "tag.match_type" = rust_tag_match_type
+handle "tag.tag" with rust_tag_tag
+handle "tag.untag" with rust_tag_untag
+handle "tag.tag_of" with rust_tag_tag_of
+handle "tag.is_tag" with rust_tag_is_tag
+handle "tag.construct" with rust_tag_construct
+handle "tag.match_type" with rust_tag_match_type

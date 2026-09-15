@@ -21,6 +21,6 @@ op "transform.filter" : (Value * Value) -> Value
 
 op "transform.reduce" : (Value * Value * Value) -> Value
 
-handl "transform.map" = rust_fn_map
-handl "transform.filter" = rust_fn_filter
-handl "transform.reduce" = rust_fn_reduce
+handle "transform.map" with rust_fn_map
+handle "transform.filter" with rust_fn_filter
+handle "transform.reduce" with rust_fn_reduce

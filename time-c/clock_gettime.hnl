@@ -14,25 +14,25 @@ Timespec := {
   tv_nsec: Int
 }
 
--- TODO(n-dim): was ~[(Op, Clock, FFI)]~>
+-- TODO(n-dim): effect row
 read = (Int) ~[1]~> Nat
 
-Clock = () ~> {
-  read: (clock_id) ~> do {
-    r = call(
-      "libc.so.6",
-      "clock_gettime",
-      [clock_id],
-      ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"],
-      "i32",
-      false
-    );
-    if r.ret < 0 {
-      error.raise("clock_gettime failed")
-    } else {
-      r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
-    }
+read_impl = (clock_id) ~> do {
+  r = call(
+    "libc.so.6",
+    "clock_gettime",
+    [clock_id],
+    ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"],
+    "i32",
+    false
+  );
+  if r.ret < 0 {
+    error.raise("clock_gettime failed")
+  } else {
+    r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
   }
 }
+
+Clock = () ~> { read: read_impl }
 
 export read_ns := handle arr read with Clock

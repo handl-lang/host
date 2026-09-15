@@ -84,17 +84,17 @@ op "intl.get_canonical_locales" : Value -> Value
 op "intl.supported_locales_of" : Value -> Value
   guarantee: True
 
-handl "intl.format_number" = rust_intl_format_number
-handl "intl.format_number_to_parts" = rust_intl_format_number_to_parts
-handl "intl.select_plural" = rust_intl_select_plural
-handl "intl.format_list" = rust_intl_format_list
-handl "intl.format_relative_time" = rust_intl_format_relative_time
-handl "intl.format_date" = rust_intl_format_date
-handl "intl.format_date_to_parts" = rust_intl_format_date_to_parts
-handl "intl.format_duration" = rust_intl_format_duration
-handl "intl.compare_strings" = rust_intl_compare_strings
-handl "intl.display_name" = rust_intl_display_name
-handl "intl.segment" = rust_intl_segment
-handl "intl.locale" = rust_intl_locale
-handl "intl.get_canonical_locales" = rust_intl_get_canonical_locales
-handl "intl.supported_locales_of" = rust_intl_supported_locales_of
+handle "intl.format_number" with rust_intl_format_number
+handle "intl.format_number_to_parts" with rust_intl_format_number_to_parts
+handle "intl.select_plural" with rust_intl_select_plural
+handle "intl.format_list" with rust_intl_format_list
+handle "intl.format_relative_time" with rust_intl_format_relative_time
+handle "intl.format_date" with rust_intl_format_date
+handle "intl.format_date_to_parts" with rust_intl_format_date_to_parts
+handle "intl.format_duration" with rust_intl_format_duration
+handle "intl.compare_strings" with rust_intl_compare_strings
+handle "intl.display_name" with rust_intl_display_name
+handle "intl.segment" with rust_intl_segment
+handle "intl.locale" with rust_intl_locale
+handle "intl.get_canonical_locales" with rust_intl_get_canonical_locales
+handle "intl.supported_locales_of" with rust_intl_supported_locales_of

@@ -11,24 +11,24 @@ from "collections/hash_map" import * as hash_map
 export Event := Grade
 
 --- emit a named event with a payload.
--- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): effect row
 export emit: (String, Value) ~[1]~> ()
 
 --- register a natural-arrow listener for a named event.
--- TODO(n-dim): was ~[(Op, Event)]~>
--- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): effect row
+-- TODO(n-dim): effect row
 export on: (String, (String, Value) ~[1]~> ()) ~[1]~> ()
 
 --- test whether a named event has any listener registered.
--- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): effect row
 export has: (String) ~[1]~> Bool
 
 --- remove all listeners for a named event.
--- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): effect row
 export unregister: (String) ~[1]~> ()
 
 --- list the names of registered events.
--- TODO(n-dim): was ~[(Op, Event)]~>
+-- TODO(n-dim): effect row
 export names: () ~[1]~> Array
 
 --- the default `Event` handler: an ordinary arrow returning a record of operations.

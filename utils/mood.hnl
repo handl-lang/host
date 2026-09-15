@@ -40,9 +40,9 @@ op "mood.neg" : (Value * Value) -> Value
   guarantee: True
 op "mood.cnd" : (Value * Value * Value) -> Value
   guarantee: True
-handl "mood.ind" = rust_mood_ind
-handl "mood.int" = rust_mood_int
-handl "mood.norm" = rust_mood_norm
-handl "mood.pot" = rust_mood_pot
-handl "mood.neg" = rust_mood_neg
-handl "mood.cnd" = rust_mood_cnd
+handle "mood.ind" with rust_mood_ind
+handle "mood.int" with rust_mood_int
+handle "mood.norm" with rust_mood_norm
+handle "mood.pot" with rust_mood_pot
+handle "mood.neg" with rust_mood_neg
+handle "mood.cnd" with rust_mood_cnd

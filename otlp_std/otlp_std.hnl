@@ -35,12 +35,12 @@ op "otlp.flush": -> Value
 op "otlp.shutdown": -> Value
   guarantee: True
 
-handl "otlp.configure" = rust_otlp_configure
-handl "otlp.start_span" = rust_otlp_start_span
-handl "otlp.end_span" = rust_otlp_end_span
-handl "otlp.set_attribute" = rust_otlp_set_attribute
-handl "otlp.add_event" = rust_otlp_add_event
-handl "otlp.record_log" = rust_otlp_record_log
-handl "otlp.record_metric" = rust_otlp_record_metric
-handl "otlp.flush" = rust_otlp_flush
-handl "otlp.shutdown" = rust_otlp_shutdown
+handle "otlp.configure" with rust_otlp_configure
+handle "otlp.start_span" with rust_otlp_start_span
+handle "otlp.end_span" with rust_otlp_end_span
+handle "otlp.set_attribute" with rust_otlp_set_attribute
+handle "otlp.add_event" with rust_otlp_add_event
+handle "otlp.record_log" with rust_otlp_record_log
+handle "otlp.record_metric" with rust_otlp_record_metric
+handle "otlp.flush" with rust_otlp_flush
+handle "otlp.shutdown" with rust_otlp_shutdown

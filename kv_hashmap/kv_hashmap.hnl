@@ -22,9 +22,9 @@ op "kv.has" : String -> Bool
 op "kv.size" : Unit -> Int
   guarantee: NonNeg(output)
 
-handl "kv.get" = rust_kv_get
-handl "kv.set" = rust_kv_set
-handl "kv.remove" = rust_kv_remove
-handl "kv.clear" = rust_kv_clear
-handl "kv.has" = rust_kv_has
-handl "kv.size" = rust_kv_size
+handle "kv.get" with rust_kv_get
+handle "kv.set" with rust_kv_set
+handle "kv.remove" with rust_kv_remove
+handle "kv.clear" with rust_kv_clear
+handle "kv.has" with rust_kv_has
+handle "kv.size" with rust_kv_size
