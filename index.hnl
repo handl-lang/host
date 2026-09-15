@@ -4,7 +4,7 @@
 --- (e.g. `time-c` for libc, `time-stub` for tests) must satisfy.
 --- Backends are selected by platform configuration.
 
-from "../math" import { Nat }
+from "type" import { Nat }
 
 --- Wall-clock milliseconds since the Unix epoch.
 --- @returns {Nat - milliseconds since 1970-01-01 00:00:00 UTC}
