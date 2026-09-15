@@ -4,11 +4,10 @@
 --- the raw time as an integer number of nanoseconds. Used only by the
 --- `time-c` backend.
 
-from "type" import { Nat }
+from "type" import { Nat, Int }
 from "../time" import { Clock }
 from "../grade" import { Effect }
 from "ffi" import { FFI, Errno, call, errno }
-from "result" import { Result, ok, err }
 
 --- C `struct timespec`.
 Timespec := {
@@ -16,31 +15,24 @@ Timespec := {
   tv_nsec: Int
 }
 
---- Calls `clock_gettime` in `libc.so.6`.
-clock_gettime: (Int) ~[(FFI)]~> Result<Timespec, Errno> := (clock_id) ~> do {
-  r = call(
-    "libc.so.6",
-    "clock_gettime",
-    [clock_id],
-    ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"],
-    "i32",
-    false
-  );
-  if r.ret < 0 {
-    err(errno())
-  } else {
-    ok(r.buf)
+op "read" : (Int) ~[Clock]~> Nat
+
+handler Clock = () ~> {
+  read: (clock_id) ~> do {
+    r = call(
+      "libc.so.6",
+      "clock_gettime",
+      [clock_id],
+      ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"],
+      "i32",
+      false
+    );
+    if r.ret < 0 {
+      error.raise("clock_gettime failed")
+    } else {
+      r.buf.tv_sec * 1000000000 + r.buf.tv_nsec
+    }
   }
 }
 
---- Read a clock as nanoseconds.
---- @details
---- `clock_id` 0 maps to `CLOCK_REALTIME`; 1 maps to `CLOCK_MONOTONIC`.
---- @param {clock_id} - `0` for `CLOCK_REALTIME`, `1` for `CLOCK_MONOTONIC`
---- @returns {Nat - the clock reading in nanoseconds}
-export read_ns: Nat ~[(Clock, Effect)]~> Nat := (clock_id) ~> do {
-  match clock_gettime(clock_id) {
-    { __tag__: "ok", value: t }: t.tv_sec * 1000000000 + t.tv_nsec,
-    { __tag__: "err", value: _ }: error.raise("clock_gettime failed")
-  }
-}
+export read_ns := arr read
