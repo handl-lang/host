@@ -23,13 +23,13 @@ impl HughesEmitter {
                     Some(n) => format!(".{}", n),
                     None => ".proj".to_string(),
                 },
-                "math.add" | "math.mul" => self.emit_math_arrow(name, args, params),
+                "add" | "mul" => self.emit_math_arrow(name, args, params),
                 "product" if args.len() == 2 => {
                     let a = self.emit_arrow(&args[0], params);
                     let b = self.emit_arrow(&args[1], params);
                     format!("({} *** {})", a, b)
                 }
-                "fanout" if args.len() == 2 => {
+                "fn.fanout_fn" if args.len() == 2 => {
                     let a = self.emit_arrow(&args[0], params);
                     let b = self.emit_arrow(&args[1], params);
                     format!("({} &&& {})", a, b)
@@ -62,12 +62,12 @@ impl HughesEmitter {
         }
     }
 
-    /// Emit `math.add` or `math.mul` as an arrow.
+    /// Emit `add` or `mul` as an arrow.
     fn emit_math_arrow(&self, op: &str, args: &[Term], params: &[String]) -> String {
-        let (sym, arr) = if op == "math.add" {
-            ("+", "math.add")
+        let (sym, arr) = if op == "add" {
+            ("+", "add")
         } else {
-            ("*", "math.mul")
+            ("*", "mul")
         };
 
         if args.len() != 2 {
@@ -167,22 +167,22 @@ impl HughesEmitter {
                     Some(n) => format!(".{}", n),
                     None => ".proj".to_string(),
                 },
-                "math.add" if args.len() == 2 => format!(
+                "add" if args.len() == 2 => format!(
                     "({} + {})",
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)
                 ),
-                "math.sub" if args.len() == 2 => format!(
+                "sub" if args.len() == 2 => format!(
                     "({} - {})",
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)
                 ),
-                "math.mul" if args.len() == 2 => format!(
+                "mul" if args.len() == 2 => format!(
                     "({} * {})",
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)
                 ),
-                "math.div" if args.len() == 2 => format!(
+                "div" if args.len() == 2 => format!(
                     "({} / {})",
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)
@@ -192,7 +192,7 @@ impl HughesEmitter {
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)
                 ),
-                "fanout" if args.len() == 2 => format!(
+                "fn.fanout_fn" if args.len() == 2 => format!(
                     "({}) &&& ({})",
                     self.emit_expr(&args[0], params),
                     self.emit_expr(&args[1], params)

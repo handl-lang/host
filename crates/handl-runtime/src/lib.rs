@@ -816,9 +816,10 @@ impl Runtime {
     /// Evaluate an [`Ast`] into a [`Value`].
     ///
     /// First tries lowering the canonical AST to a `Term` and running the
-    /// small `Term` interpreter. If lowering or the interpreter cannot handle
-    /// the graph, falls back to the bound eval engine — keeping the existing
-    /// AST eval path alive for unsupported constructs.
+    /// small `Term` interpreter. If the lowerer does not support the file,
+    /// it logs a warning and falls back to the bound eval engine so existing
+    /// surface constructs keep working. If lowering succeeds but the
+    /// interpreter cannot handle a `Term` variant, the error is propagated.
     ///
     /// # Errors
     ///
@@ -827,9 +828,18 @@ impl Runtime {
     pub fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
         if !ast.is_empty() {
             let root = AstRef::new(ast.len() - 1);
-            if let Ok(term) = lower_ast(ast, &self.lang, root) {
-                if let Ok(value) = interpret(&term, Value::Null) {
-                    return Ok(value);
+            match lower_ast(ast, &self.lang, root) {
+                Ok(term) => match interpret(&term, Value::Null) {
+                    Ok(value) => return Ok(value),
+                    Err(e) => {
+                        eprintln!("[handl-runtime] Term interpreter failed: {e}");
+                        return Err(LangError::engine(e));
+                    }
+                },
+                Err(e) => {
+                    eprintln!(
+                        "[handl-runtime] lower_ast unsupported: {e}; falling back to AST eval"
+                    );
                 }
             }
         }

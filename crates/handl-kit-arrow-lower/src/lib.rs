@@ -53,13 +53,16 @@ fn lower_node(
 
         "call" => lower_call(ast, lang, node, env, params),
 
-        "binary.add" => lower_binary(ast, lang, node, env, params, "math.add"),
-        "binary.mul" => lower_binary(ast, lang, node, env, params, "math.mul"),
-        "binary.sub" => lower_binary(ast, lang, node, env, params, "math.sub"),
-        "binary.div" => lower_binary(ast, lang, node, env, params, "math.div"),
+        "binary.add" => lower_binary(ast, lang, node, env, params, "add"),
+        "binary.mul" => lower_binary(ast, lang, node, env, params, "mul"),
+        "binary.sub" => lower_binary(ast, lang, node, env, params, "sub"),
+        "binary.div" => lower_binary(ast, lang, node, env, params, "div"),
 
         "product" => lower_pair_combinator(ast, lang, node, env, params, "product"),
-        "fanout" => lower_pair_combinator(ast, lang, node, env, params, "fanout"),
+        "fanout" => {
+            let (l, r) = lower_two_children(ast, lang, node, env, params)?;
+            Ok(Term::op_foreign("fn.fanout_fn", vec![l, r]))
+        }
         "flow" => {
             let (l, r) = lower_two_children(ast, lang, node, env, params)?;
             Ok(Term::seq(l, r))
