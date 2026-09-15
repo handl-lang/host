@@ -1,0 +1,5 @@
+--- Native-backed implementation of bit_and.
+from "type" import { Int }
+from "../math/bit_and" import { BitAnd }
+
+export bit_and: BitAnd := (a, b) ~> math.bit_and(a, b)

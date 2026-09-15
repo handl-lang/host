@@ -1,0 +1,5 @@
+--- Native-backed implementation of tanh.
+from "type" import { Number }
+from "../math/tanh" import { Tanh }
+
+export tanh: Tanh := (a) ~> math.tanh(a)

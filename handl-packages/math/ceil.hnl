@@ -1,0 +1,4 @@
+--- Ceil arrow signature.
+from "type" import { Number }
+
+export Ceil: Number ~[Total]~> Number

@@ -1,0 +1,4 @@
+--- Div arrow signature.
+from "type" import { Number }
+
+export Div: (Number * Number) ~[Total]~> Number

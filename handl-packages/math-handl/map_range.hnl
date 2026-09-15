@@ -1,0 +1,5 @@
+--- Pure-handl implementation of map_range.
+from "type" import { Number }
+from "../math/map_range" import { MapRange }
+
+export map_range: MapRange := (s, s1, s2, a, b) ~> do { a + ((s - s1) * (b - a)) / (s2 - s1) }

@@ -1,0 +1,5 @@
+--- Native-backed implementation of cbrt.
+from "type" import { Number }
+from "../math/cbrt" import { Cbrt }
+
+export cbrt: Cbrt := (a) ~> math.cbrt(a)

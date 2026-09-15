@@ -1,0 +1,4 @@
+--- Min arrow signature.
+from "type" import { Number }
+
+export Min: (Number * Number) ~[Total]~> Number

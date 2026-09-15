@@ -1,0 +1,5 @@
+--- Pure-handl implementation of min.
+from "type" import { Number }
+from "../math/min" import { Min }
+
+export min: Min := (a, b) ~> do { if a <= b { a } else { b } }

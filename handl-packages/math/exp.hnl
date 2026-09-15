@@ -1,0 +1,4 @@
+--- Exp arrow signature.
+from "type" import { Number }
+
+export Exp: Number ~[Total]~> Number

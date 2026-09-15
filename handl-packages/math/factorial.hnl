@@ -1,0 +1,4 @@
+--- Factorial arrow signature.
+from "type" import { Number }
+
+export Factorial: Number ~[Total]~> Number

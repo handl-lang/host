@@ -1,0 +1,4 @@
+--- BitNot arrow signature.
+from "type" import { Int }
+
+export BitNot: Int ~[Total]~> Int

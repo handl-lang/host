@@ -1,0 +1,4 @@
+--- Lcm arrow signature.
+from "type" import { Number }
+
+export Lcm: (Number * Number) ~[Total]~> Number

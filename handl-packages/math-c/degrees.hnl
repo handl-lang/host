@@ -1,0 +1,5 @@
+--- Native-backed implementation of degrees.
+from "type" import { Number }
+from "../math/degrees" import { Degrees }
+
+export degrees: Degrees := (a) ~> math.degrees(a)

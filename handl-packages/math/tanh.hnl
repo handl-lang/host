@@ -1,0 +1,4 @@
+--- Tanh arrow signature.
+from "type" import { Number }
+
+export Tanh: Number ~[Total]~> Number

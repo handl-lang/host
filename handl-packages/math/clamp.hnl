@@ -1,0 +1,4 @@
+--- Clamp arrow signature.
+from "type" import { Number }
+
+export Clamp: (Number * Number * Number) ~[Total]~> Number

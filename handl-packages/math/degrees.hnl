@@ -1,0 +1,4 @@
+--- Degrees arrow signature.
+from "type" import { Number }
+
+export Degrees: Number ~[Total]~> Number

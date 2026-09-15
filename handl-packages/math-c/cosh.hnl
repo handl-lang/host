@@ -1,0 +1,5 @@
+--- Native-backed implementation of cosh.
+from "type" import { Number }
+from "../math/cosh" import { Cosh }
+
+export cosh: Cosh := (a) ~> math.cosh(a)

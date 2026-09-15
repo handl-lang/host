@@ -1,0 +1,4 @@
+--- Atanh arrow signature.
+from "type" import { Number }
+
+export Atanh: Number ~[Total]~> Number

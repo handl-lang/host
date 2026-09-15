@@ -1,0 +1,5 @@
+--- Native-backed implementation of tan.
+from "type" import { Number }
+from "../math/tan" import { Tan }
+
+export tan: Tan := (a) ~> math.tan(a)

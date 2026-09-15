@@ -1,0 +1,5 @@
+--- Native-backed implementation of log.
+from "type" import { Number }
+from "../math/log" import { Log }
+
+export log: Log := (a) ~> math.log(a)

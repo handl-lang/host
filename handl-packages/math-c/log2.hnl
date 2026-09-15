@@ -1,0 +1,5 @@
+--- Native-backed implementation of log2.
+from "type" import { Number }
+from "../math/log2" import { Log2 }
+
+export log2: Log2 := (a) ~> math.log2(a)

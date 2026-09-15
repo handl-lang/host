@@ -1,0 +1,4 @@
+--- Floor arrow signature.
+from "type" import { Number }
+
+export Floor: Number ~[Total]~> Number
