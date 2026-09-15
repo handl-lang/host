@@ -14,16 +14,16 @@ from "../grade" import { Grade }
 export Noise<T>: Grade
 
 --- 1-dimensional Perlin-style value noise.
-export Perlin1d: Number -> Number
+export Perlin1d: Number ~> Number
 
 --- 2-dimensional Perlin-style value noise.
-export Perlin2d: (Number, Number) -> Number
+export Perlin2d: (Number, Number) ~> Number
 
 --- 3-dimensional Perlin-style value noise.
-export Perlin3d: (Number, Number, Number) -> Number
+export Perlin3d: (Number, Number, Number) ~> Number
 
 --- 2-dimensional simplex-style value noise.
-export Simplex2d: (Number, Number) -> Number
+export Simplex2d: (Number, Number) ~> Number
 
 --- 3-dimensional simplex-style value noise.
-export Simplex3d: (Number, Number, Number) -> Number
+export Simplex3d: (Number, Number, Number) ~> Number
