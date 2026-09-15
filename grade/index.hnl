@@ -1,3 +1,4 @@
 export Grade := Obj
 
 export Effect := Grade
+export Op := Grade
