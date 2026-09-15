@@ -101,6 +101,15 @@ fn lower_node(
         "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
         "bind" => lower_bind(ast, lang, node, env, params),
 
+        "assert" => {
+            // Keyword assertion (ADR-0089/0092). In the arrow/compiled
+            // model this is a side-channel op request: the AST eval engine
+            // (tree-walk) keeps the assert failure side-channel, so the
+            // lowerer only needs to emit the op and let the runtime fall
+            // back to the AST engine.
+            Ok(Term::op_native("assert", vec![]))
+        }
+
         other => Err(format!("lower: unsupported node kind `{}` at {}", other, idx)),
     }
 }

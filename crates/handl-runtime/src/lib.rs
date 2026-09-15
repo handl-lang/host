@@ -817,9 +817,10 @@ impl Runtime {
     ///
     /// First tries lowering the canonical AST to a `Term` and running the
     /// small `Term` interpreter. If the lowerer does not support the file,
-    /// it logs a warning and falls back to the bound eval engine so existing
-    /// surface constructs keep working. If lowering succeeds but the
-    /// interpreter cannot handle a `Term` variant, the error is propagated.
+    /// it logs a warning and falls back to the bound eval engine. If lowering
+    /// succeeds but the `Term` interpreter cannot handle the term, it falls
+    /// back to the bound eval engine so existing surface constructs
+    /// (including test-only forms like keyword `assert`) keep working.
     ///
     /// # Errors
     ///
@@ -836,9 +837,13 @@ impl Runtime {
                         std::collections::HashMap::new();
                     match interpret_with_handlers(&term, Value::Null, &default_handlers) {
                         Ok(value) => return Ok(value),
-                        Err(e) => {
-                            eprintln!("[handl-runtime] Term interpreter failed: {e}");
+                        Err(e) if self.eval_engine.is_none() => {
                             return Err(LangError::engine(e));
+                        }
+                        Err(_) => {
+                            // Arrow interpreter cannot handle the lowered
+                            // term (e.g. keyword `assert`). Fall through to
+                            // the AST eval engine.
                         }
                     }
                 }
