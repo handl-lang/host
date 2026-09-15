@@ -22,37 +22,10 @@ export Errno := Int
 --- Opaque foreign handle (file descriptor, socket, pointer, etc.).
 export Handle := Obj
 
---- Call a C symbol immediately.
---- @details
---- `call` marshals the provided Handl values to C according to the
---- descriptor strings, invokes the symbol, and unmarshals the return.
---- @param {lib} - shared library name or path
---- @param {sym} - C symbol name
---- @param {all_args} - Handl values to pass to the C function
---- @param {descriptors} - marshalling descriptor for each argument and the return
---- @param {ret_kind} - return kind descriptor
---- @param {errno?} - if `true`, negative integer returns are treated as errors
---- @returns {Value - the C call's return, unmarshalled from `ret_kind`}
-export call: (String, String, Array, Array, String, Bool) ~[FFI]~> Value
+op "call" : (String, String, Array, Array, String, Bool) ~[FFI]~> Value
+op "bind" : (String, String, Array, Array, String, Bool) ~[FFI]~> Value
+op "errno" : () ~[FFI]~> Errno
 
---- Bind a C symbol to a first-class Handl arrow.
---- @details
---- `bind` captures a prefix of arguments and returns a Handl arrow that
---- calls the C symbol with the bound prefix followed by the caller's
---- remaining arguments.
---- @param {lib} - shared library name or path
---- @param {sym} - C symbol name
---- @param {bound_args} - Handl values to prepend on every call
---- @param {descriptors} - marshalling descriptor for each argument and the return
---- @param {ret_kind} - return kind descriptor
---- @param {errno?} - if `true`, negative integer returns are treated as errors
---- @returns {Value - a Handl arrow that dispatches to the C symbol}
-export bind: (String, String, Array, Array, String, Bool) ~[FFI]~> Value
-
---- Read the current thread's C `errno` value.
---- @details
---- This must be called synchronously, immediately after the failing C
---- call whose error is being checked, before any other operation can
---- overwrite `errno`.
---- @returns {Errno - the current C `errno`}
-export errno: () ~[FFI]~> Errno
+export call := arr call
+export bind := arr bind
+export errno := arr errno

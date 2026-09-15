@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use handl_language::{Ast, AstNode, AstRef, Language, Term, Value};
+use handl_language::{ArrSource, Ast, AstNode, AstRef, Language, Term, Value};
 
 /// Lower a canonical AST rooted at `root` to a `Term` arrow.
 pub fn lower_ast(ast: &Ast, lang: &Language, root: AstRef) -> Result<Term, String> {
@@ -93,6 +93,12 @@ fn lower_node(
             lower_node(ast, lang, inner, env, params)
         }
 
+        "op" => lower_op(ast, lang, node, env, params),
+        "handler" => lower_handler(ast, lang, node, env, params),
+        "with" => lower_with(ast, lang, node, env, params),
+        "handle" => lower_handle(ast, lang, node, env, params),
+        "arr" => lower_arr(ast, lang, node, env, params),
+
         other => Err(format!("lower: unsupported node kind `{}` at {}", other, idx)),
     }
 }
@@ -129,6 +135,15 @@ fn lower_block(
             let value_idx = child_at_role_or_pos(child, lang, "value", 1)
                 .ok_or_else(|| format!("assign at {} missing value child", idx))?;
             let value = lower_node(ast, lang, value_idx, &env, params)?;
+            env.insert(name, value);
+        } else if child.kind == "op" || child.kind == "handler" {
+            let name = child
+                .payload
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("{} at {} missing payload.name", child.kind, idx))?
+                .to_string();
+            let value = lower_node(ast, lang, idx, &env, params)?;
             env.insert(name, value);
         } else {
             last = Some(lower_node(ast, lang, idx, &env, params)?);
@@ -272,6 +287,144 @@ fn lower_object(
         source: handl_language::ArrSource::Native,
         lit: Some(Value::Array(keys)),
     })
+}
+
+fn lower_op(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    _env: &HashMap<String, Term>,
+    _params: &[String],
+) -> Result<Term, String> {
+    let name = node
+        .payload
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("op at {} missing payload.name", node_index(node)))?
+        .to_string();
+
+    let source = if let Some(signature_idx) = child_at_role_or_pos(node, lang, "signature", 1) {
+        if let Some(signature) = ast.get(AstRef::new(signature_idx)) {
+            if let Some(grade_idx) = child_at_role_or_pos(signature, lang, "grade", 1) {
+                if let Some(grade) = ast.get(AstRef::new(grade_idx)) {
+                    match grade.kind.as_str() {
+                        "var" => grade
+                            .payload
+                            .as_str()
+                            .map(|s| ArrSource::Foreign(s.to_string()))
+                            .unwrap_or(ArrSource::Native),
+                        _ => ArrSource::Native,
+                    }
+                } else {
+                    ArrSource::Native
+                }
+            } else {
+                ArrSource::Native
+            }
+        } else {
+            ArrSource::Native
+        }
+    } else {
+        ArrSource::Native
+    };
+
+    Ok(Term::Op {
+        name,
+        args: vec![],
+        source,
+        lit: None,
+    })
+}
+
+fn lower_handler(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
+        .ok_or_else(|| format!("handler at {} missing impl child", node_index(node)))?;
+    lower_node(ast, lang, impl_idx, env, params)
+}
+
+fn lower_with(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let handler_idx = child_at_role_or_pos(node, lang, "handler", 0)
+        .ok_or_else(|| format!("with at {} missing handler child", node_index(node)))?;
+    let body_idx = child_at_role_or_pos(node, lang, "body", 1)
+        .ok_or_else(|| format!("with at {} missing body child", node_index(node)))?;
+    let impl_ = lower_node(ast, lang, handler_idx, env, params)?;
+    let body = lower_node(ast, lang, body_idx, env, params)?;
+    let target = if let Some(handler) = ast.get(AstRef::new(handler_idx)) {
+        if handler.kind == "var" {
+            handler.payload.as_str().unwrap_or("").to_string()
+        } else if let Some(name) = handler.payload.get("name").and_then(Value::as_str) {
+            name.to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    Ok(Term::handle(body, target, impl_))
+}
+
+fn lower_handle(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
+        name.to_string()
+    } else if let Some(target_idx) = child_at_role_or_pos(node, lang, "target", 0) {
+        if let Some(target_node) = ast.get(AstRef::new(target_idx)) {
+            target_node.payload.as_str().unwrap_or("").to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
+        .ok_or_else(|| format!("handle at {} missing impl child", node_index(node)))?;
+    let body_idx = child_at_role_or_pos(node, lang, "body", 2)
+        .ok_or_else(|| format!("handle at {} missing body child", node_index(node)))?;
+    let impl_ = lower_node(ast, lang, impl_idx, env, params)?;
+    let body = lower_node(ast, lang, body_idx, env, params)?;
+    Ok(Term::handle(body, target, impl_))
+}
+
+fn lower_arr(
+    _ast: &Ast,
+    _lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    _params: &[String],
+) -> Result<Term, String> {
+    let name = node
+        .payload
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("arr at {} missing payload.name", node_index(node)))?
+        .to_string();
+    if let Some(term) = env.get(&name) {
+        Ok(term.clone())
+    } else {
+        Ok(Term::Op {
+            name,
+            args: vec![],
+            source: ArrSource::Native,
+            lit: None,
+        })
+    }
 }
 
 fn lower_field_access(

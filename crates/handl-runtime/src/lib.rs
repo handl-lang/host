@@ -74,7 +74,7 @@ use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
 use handl_kit_arrow_lower::lower_ast;
-use plugin_engine::term_interpreter::interpret;
+use plugin_engine::term_interpreter::interpret_with_handlers;
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
@@ -829,13 +829,19 @@ impl Runtime {
         if !ast.is_empty() {
             let root = AstRef::new(ast.len() - 1);
             match lower_ast(ast, &self.lang, root) {
-                Ok(term) => match interpret(&term, Value::Null) {
-                    Ok(value) => return Ok(value),
-                    Err(e) => {
-                        eprintln!("[handl-runtime] Term interpreter failed: {e}");
-                        return Err(LangError::engine(e));
+                Ok(term) => {
+                    // The default handler registry is currently empty; a future
+                    // runtime-provided `FFI` handler can be injected here.
+                    let default_handlers: std::collections::HashMap<String, Value> =
+                        std::collections::HashMap::new();
+                    match interpret_with_handlers(&term, Value::Null, &default_handlers) {
+                        Ok(value) => return Ok(value),
+                        Err(e) => {
+                            eprintln!("[handl-runtime] Term interpreter failed: {e}");
+                            return Err(LangError::engine(e));
+                        }
                     }
-                },
+                }
                 Err(e) => {
                     eprintln!(
                         "[handl-runtime] lower_ast unsupported: {e}; falling back to AST eval"
