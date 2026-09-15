@@ -1,0 +1,45 @@
+--- query -- user-space query registration and invocation algebra.
+---
+--- A `Query` is an operation `~[(Op, Query)]~>` that is answered by the active
+--- `Query` handler.  The default handler keeps a `HashMap<String, (Array) -> Value>`
+--- registry.  Everything below reduces to the generic `Op`/`Handle` kernel.
+
+from "grade" import { Op, Grade }
+from "type" import { String, Value, Bool, Array }
+from "collections/hash_map" import * as hash_map
+
+export Query := Grade
+
+--- call a registered query by name with arguments.
+export query: (String, Array) ~[(Op, Query)]~> Value
+
+--- register a named query implementation.
+export register: (String, (Array) ~[(Op, Query)]~> Value) ~[(Op, Query)]~> ()
+
+--- test whether a named query is registered.
+export has: (String) ~[(Op, Query)]~> Bool
+
+--- remove a named query from the registry.
+export unregister: (String) ~[(Op, Query)]~> ()
+
+--- list the names of registered queries.
+export names: () ~[(Op, Query)]~> Array
+
+--- the default `Query` handler: an ordinary arrow returning a record of operations.
+export default_handler := (registry) ~> {
+  query: (name, args) ~> do {
+    if hash_map.has(registry, name) {
+      error.raise("query found but invocation not yet implemented")
+    } else {
+      error.raise("query not found")
+    }
+  },
+  register: (name, handler) ~> do {
+    error.raise("query register not yet implemented")
+  },
+  has: (name) ~> hash_map.has(registry, name),
+  unregister: (name) ~> do {
+    error.raise("query unregister not yet implemented")
+  },
+  names: () ~> hash_map.keys(registry)
+}

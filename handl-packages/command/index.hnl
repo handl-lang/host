@@ -1,0 +1,45 @@
+--- command -- user-space command registration and invocation algebra.
+---
+--- A `Command` is an operation `~[(Op, Command)]~>` that is executed by the active
+--- `Command` handler.  Commands are effectful; by default they mutate a registry
+--- of named command arrows.  Everything below reduces to `Op`/`Handle`.
+
+from "grade" import { Op, Grade }
+from "type" import { String, Value, Bool, Array }
+from "collections/hash_map" import * as hash_map
+
+export Command := Grade
+
+--- invoke a registered command by name with arguments.
+export command: (String, Array) ~[(Op, Command)]~> Value
+
+--- register a named command implementation.
+export register: (String, (Array) ~[(Op, Command)]~> Value) ~[(Op, Command)]~> ()
+
+--- test whether a named command is registered.
+export has: (String) ~[(Op, Command)]~> Bool
+
+--- remove a named command from the registry.
+export unregister: (String) ~[(Op, Command)]~> ()
+
+--- list the names of registered commands.
+export names: () ~[(Op, Command)]~> Array
+
+--- the default `Command` handler: an ordinary arrow returning a record of operations.
+export default_handler := (registry) ~> {
+  command: (name, args) ~> do {
+    if hash_map.has(registry, name) {
+      error.raise("command found but invocation not yet implemented")
+    } else {
+      error.raise("command not found")
+    }
+  },
+  register: (name, handler) ~> do {
+    error.raise("command register not yet implemented")
+  },
+  has: (name) ~> hash_map.has(registry, name),
+  unregister: (name) ~> do {
+    error.raise("command unregister not yet implemented")
+  },
+  names: () ~> hash_map.keys(registry)
+}

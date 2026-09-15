@@ -1,0 +1,43 @@
+--- event -- user-space event emission and listener registration algebra.
+---
+--- An `Event` is an operation `~[(Op, Event)]~>` that is observed by the active
+--- `Event` handler.  Events are fire-and-forget; listeners are natural arrows.
+--- Everything below reduces to the generic `Op`/`Handle` kernel.
+
+from "grade" import { Op, Grade }
+from "type" import { String, Value, Bool, Array }
+from "collections/hash_map" import * as hash_map
+
+export Event := Grade
+
+--- emit a named event with a payload.
+export emit: (String, Value) ~[(Op, Event)]~> ()
+
+--- register a natural-arrow listener for a named event.
+export on: (String, (String, Value) ~[(Op, Event)]~> ()) ~[(Op, Event)]~> ()
+
+--- test whether a named event has any listener registered.
+export has: (String) ~[(Op, Event)]~> Bool
+
+--- remove all listeners for a named event.
+export unregister: (String) ~[(Op, Event)]~> ()
+
+--- list the names of registered events.
+export names: () ~[(Op, Event)]~> Array
+
+--- the default `Event` handler: an ordinary arrow returning a record of operations.
+export default_handler := (registry) ~> {
+  emit: (name, payload) ~> do {
+    if hash_map.has(registry, name) {
+      error.raise("event emit not yet implemented")
+    }
+  },
+  on: (name, listener) ~> do {
+    error.raise("event on not yet implemented")
+  },
+  has: (name) ~> hash_map.has(registry, name),
+  unregister: (name) ~> do {
+    error.raise("event unregister not yet implemented")
+  },
+  names: () ~> hash_map.keys(registry)
+}
