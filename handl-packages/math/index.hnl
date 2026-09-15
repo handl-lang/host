@@ -1,0 +1,16 @@
+--- math -- pure-handl comparison and classification helpers.
+---
+--- These are re-exported from `math-handl/index.hnl`; the implementations
+--- use only comparisons, `if`, and the built-in `+`, `-`, and `%` operators.
+
+from "../math-handl/index" export min
+from "../math-handl/index" export max
+from "../math-handl/index" export abs
+from "../math-handl/index" export clamp
+from "../math-handl/index" export sign
+from "../math-handl/index" export is_positive
+from "../math-handl/index" export is_negative
+from "../math-handl/index" export is_nan
+from "../math-handl/index" export is_infinite
+from "../math-handl/index" export is_finite
+from "../math-handl/index" export is_integer
