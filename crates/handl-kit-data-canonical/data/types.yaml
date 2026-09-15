@@ -1917,14 +1917,46 @@
         lit: 1
 
 # `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
-# Typed as `type.unknown` until the type system supports N-dimensional arrows.
+# Synthesizes the existing `Arrow` record (with `inputs`, `grade`, `output`)
+# so the `Term` produced by `eval.dim_arrow` typechecks. This uses the
+# existing arrow object representation (ADR-0119 Phase 4a).
 - id: type.dim_arrow
   node_kind: dim_arrow
   synth: !Op
     name: construct
-    args: []
+    args:
+      - !Op
+        name: field
+        args:
+          - !Op
+            name: synth_child
+            args: []
+            source: Judgment
+            lit: 0
+        source: Judgment
+        lit: inputs
+      - !Op
+        name: field
+        args:
+          - !Op
+            name: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+        source: Judgment
+        lit: grade
+      - !Op
+        name: field
+        args:
+          - !Op
+            name: synth_child
+            args: []
+            source: Judgment
+            lit: 2
+        source: Judgment
+        lit: output
     source: Judgment
-    lit: type.unknown
+    lit: Arrow
 
 # ---------------------------------------------------------------------------
 # Dependent types — Pi / Sigma (ADR-0054 closure machinery)
