@@ -655,9 +655,11 @@
       - 0
     child_separators:
       - !Required token.keyword.do
-# `handle name = impl in body` — bind a named handler implementation.
-# Three children: [target, impl, body]. `payload.name` is extracted from
-# the target child.
+# `handle <arrow> with <handler>` — install a handler for an op arrow.
+# Two children: [arrow, handler]. `payload.name` is extracted from the
+# arrow child (e.g. `read` in `handle read with Clock` or `arr read`).
+# A legacy three-child `handle target = impl in body` shape is also kept
+# for transitional ASTs.
 - id: grammar.handle.prefix
   token: token.keyword.handle
   position: Prefix
@@ -666,14 +668,12 @@
     - 0
   child_shape:
     node_kind: handle
-    arity: 3
+    arity: 2
     child_binding_powers:
-      - 6
       - 0
       - 0
     child_separators:
-      - !Required token.bind
-      - !Required token.keyword.in
+      - !Required token.keyword.with
     payload_extract:
       - child: 0
         field: name

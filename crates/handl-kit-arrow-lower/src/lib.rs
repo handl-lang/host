@@ -98,6 +98,8 @@ fn lower_node(
         "with" => lower_with(ast, lang, node, env, params),
         "handle" => lower_handle(ast, lang, node, env, params),
         "arr" => lower_arr(ast, lang, node, env, params),
+        "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
+        "bind" => lower_bind(ast, lang, node, env, params),
 
         other => Err(format!("lower: unsupported node kind `{}` at {}", other, idx)),
     }
@@ -134,8 +136,30 @@ fn lower_block(
                 .to_string();
             let value_idx = child_at_role_or_pos(child, lang, "value", 1)
                 .ok_or_else(|| format!("assign at {} missing value child", idx))?;
-            let value = lower_node(ast, lang, value_idx, &env, params)?;
-            env.insert(name, value);
+            if is_op_graded_arrow(ast, lang, value_idx)? {
+                let op = op_term_from_graded_arrow(ast, lang, &name, value_idx)?;
+                env.insert(name, op);
+            } else {
+                let value = lower_node(ast, lang, value_idx, &env, params)?;
+                env.insert(name, value);
+            }
+        } else if child.kind == "bind" {
+            let name = child
+                .payload
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("bind at {} missing payload.name", idx))?
+                .to_string();
+            let value_idx = child_at_role_or_pos(child, lang, "value", 0)
+                .or_else(|| children(child).first().copied())
+                .ok_or_else(|| format!("bind at {} missing value child", idx))?;
+            if is_op_graded_arrow(ast, lang, value_idx)? {
+                let op = op_term_from_graded_arrow(ast, lang, &name, value_idx)?;
+                env.insert(name, op);
+            } else {
+                let value = lower_node(ast, lang, value_idx, &env, params)?;
+                env.insert(name, value);
+            }
         } else if child.kind == "op" || child.kind == "handler" {
             let name = child
                 .payload
@@ -382,21 +406,40 @@ fn lower_handle(
     env: &HashMap<String, Term>,
     params: &[String],
 ) -> Result<Term, String> {
-    let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
-        name.to_string()
-    } else if let Some(target_idx) = child_at_role_or_pos(node, lang, "target", 0) {
-        if let Some(target_node) = ast.get(AstRef::new(target_idx)) {
-            target_node.payload.as_str().unwrap_or("").to_string()
+    let childs = children(node);
+    let (body_idx, impl_idx, target) = if childs.len() == 2 {
+        // `handle <arrow> with <handler>`: child 0 is the arrow to handle,
+        // child 1 is the handler record.
+        let body_idx = childs[0];
+        let impl_idx = childs[1];
+        let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
+            name.to_string()
+        } else {
+            let body = lower_node(ast, lang, body_idx, env, params)?;
+            op_target_name(&body).unwrap_or_default().to_string()
+        };
+        (body_idx, impl_idx, target)
+    } else if childs.len() >= 3 {
+        // Legacy `handle target = impl in body`.
+        let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
+            name.to_string()
+        } else if let Some(target_idx) = child_at_role_or_pos(node, lang, "target", 0) {
+            if let Some(target_node) = ast.get(AstRef::new(target_idx)) {
+                target_node.payload.as_str().unwrap_or("").to_string()
+            } else {
+                String::new()
+            }
         } else {
             String::new()
-        }
+        };
+        let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
+            .ok_or_else(|| format!("handle at {} missing impl child", node_index(node)))?;
+        let body_idx = child_at_role_or_pos(node, lang, "body", 2)
+            .ok_or_else(|| format!("handle at {} missing body child", node_index(node)))?;
+        (body_idx, impl_idx, target)
     } else {
-        String::new()
+        return Err(format!("handle at {} needs 2 or 3 children", node_index(node)));
     };
-    let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
-        .ok_or_else(|| format!("handle at {} missing impl child", node_index(node)))?;
-    let body_idx = child_at_role_or_pos(node, lang, "body", 2)
-        .ok_or_else(|| format!("handle at {} missing body child", node_index(node)))?;
     let impl_ = lower_node(ast, lang, impl_idx, env, params)?;
     let body = lower_node(ast, lang, body_idx, env, params)?;
     Ok(Term::handle(body, target, impl_))
@@ -425,6 +468,30 @@ fn lower_arr(
             lit: None,
         })
     }
+}
+
+fn lower_graded_arrow(
+    _ast: &Ast,
+    _lang: &Language,
+    _node: &AstNode,
+    _env: &HashMap<String, Term>,
+    _params: &[String],
+) -> Result<Term, String> {
+    // A bare graded-arrow expression is a signature, not a runnable arrow.
+    Ok(Term::const_value(Value::Null))
+}
+
+fn lower_bind(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let value_idx = child_at_role_or_pos(node, lang, "value", 0)
+        .or_else(|| children(node).first().copied())
+        .ok_or_else(|| format!("bind at {} missing value child", node_index(node)))?;
+    lower_node(ast, lang, value_idx, env, params)
 }
 
 fn lower_field_access(
@@ -535,6 +602,92 @@ fn function_body_index(lang: &Language, node: &AstNode) -> Result<usize, String>
     child_at_role_or_pos(node, lang, "body", 1)
         .or_else(|| node.payload.get("body").and_then(Value::as_u64).map(|u| u as usize))
         .ok_or_else(|| format!("function at {} missing body child/payload", node_index(node)))
+}
+
+fn is_op_graded_arrow(ast: &Ast, lang: &Language, value_idx: usize) -> Result<bool, String> {
+    let value = ast
+        .get(AstRef::new(value_idx))
+        .ok_or_else(|| format!("value node {} out of bounds", value_idx))?;
+    if value.kind != "graded_arrow" {
+        return Ok(false);
+    }
+    let grade_idx = child_at_role_or_pos(value, lang, "grade", 1)
+        .ok_or_else(|| format!("graded_arrow at {} missing grade child", value_idx))?;
+    Ok(grade_contains_op(ast, grade_idx))
+}
+
+fn op_term_from_graded_arrow(
+    ast: &Ast,
+    lang: &Language,
+    name: &str,
+    value_idx: usize,
+) -> Result<Term, String> {
+    let value = ast
+        .get(AstRef::new(value_idx))
+        .ok_or_else(|| format!("graded_arrow node {} out of bounds", value_idx))?;
+    let grade_idx = child_at_role_or_pos(value, lang, "grade", 1)
+        .ok_or_else(|| format!("graded_arrow at {} missing grade child", value_idx))?;
+    let source = first_non_op_grade(ast, lang, grade_idx)
+        .map(ArrSource::Foreign)
+        .unwrap_or(ArrSource::Native);
+    Ok(Term::Op {
+        name: name.to_string(),
+        args: vec![],
+        source,
+        lit: None,
+    })
+}
+
+fn grade_contains_op(ast: &Ast, grade_idx: usize) -> bool {
+    if let Some(grade) = ast.get(AstRef::new(grade_idx)) {
+        match grade.kind.as_str() {
+            "var" => grade.payload.as_str() == Some("Op"),
+            "product" | "paren" | "array" => children(grade)
+                .iter()
+                .any(|&child| grade_contains_op(ast, child)),
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
+fn first_non_op_grade(ast: &Ast, lang: &Language, grade_idx: usize) -> Option<String> {
+    if let Some(grade) = ast.get(AstRef::new(grade_idx)) {
+        match grade.kind.as_str() {
+            "var" => {
+                let name = grade.payload.as_str()?;
+                if name != "Op" {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            }
+            "product" | "paren" | "array" => {
+                for &child in &children(grade) {
+                    if let Some(name) = first_non_op_grade(ast, lang, child) {
+                        return Some(name);
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    } else {
+        None
+    }
+}
+
+fn op_target_name(term: &Term) -> Option<&str> {
+    match term {
+        Term::Op {
+            name,
+            args,
+            lit: None,
+            ..
+        } if args.is_empty() => Some(name),
+        _ => None,
+    }
 }
 
 fn children(node: &AstNode) -> Vec<usize> {

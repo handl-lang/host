@@ -1120,12 +1120,14 @@
     target: ""
     impl_: !Child
       role: "handler"
-# `handle` — bind a named handler implementation for `body`.
+# `handle` — install a handler for an op arrow.
+# `handle <arrow> with <handler>` gives `arrow` as the body (role
+# `target`) and `handler` as the implementation (role `impl`).
 - id: eval.handle
   node_kind: handle
   scheme: !Handle
     body: !Child
-      role: "body"
+      role: "target"
     target: ""
     impl_: !Child
       role: "impl"

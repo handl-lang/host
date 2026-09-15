@@ -939,8 +939,10 @@
     required:
       - children
     type: object
-# `handle` — bind a named handler implementation for `body`.
-# Three children: `target`, `impl`, and `body`.
+# `handle` — install a handler for an op arrow.
+# Two or three children: `target` (the arrow), `impl` (the handler),
+# and an optional `body` for the legacy `handle target = impl in body`
+# transitional shape.
 - id: ast.handle
   node_kind: handle
   children:
@@ -953,7 +955,7 @@
         items:
           type: integer
         maxItems: 3
-        minItems: 3
+        minItems: 2
         type: array
       name:
         type: string
