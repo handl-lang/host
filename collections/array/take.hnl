@@ -1,6 +1,10 @@
 from "./reverse.hnl" import reverse
+from "./len" import * as array
+from "math" import * as math
 
 --- Return the first `n` elements of `xs`.
+---
+--- The length of the returned list is `math.min(n, array.len(xs))`.
 ---
 --- Returns `null` if `n` is negative.
 ---
@@ -8,18 +12,17 @@ from "./reverse.hnl" import reverse
 --- `array.take([1, 2, 3, 4], 2)`
 --- -- => [1, 2]
 ---
-export take<T>: (List(T), Nat) ~[Total]~> List(T) := (xs, n) ~> do {
-  if n < 0 {
-    null
-  } else {
-    do {
-      out := []
-      k := 0
-      for x in xs {
-        if k < n { out := [x, ...out] };
-        k := k + 1
+export take<T, N>: (List(T), N) ~[Total]~> List(T, math.min(N, array.len(xs))) := (xs, n) ~> do {
+    out := []
+    k := 0
+
+    for x in xs { do {
+      if k < n {
+        out := [x, ...out]
       }
-      reverse(out)
-    }
+
+      k := k + 1
+    } }
+
+    reverse(out)
   }
-}
