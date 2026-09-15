@@ -281,6 +281,121 @@ fn is_type_param_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_' || c == ',' || c == ' '
 }
 
+/// Re-indent a binding whose `:=` operator is on a new line at the same
+/// level as the preceding signature.
+///
+/// Example:
+/// ```text
+/// export take<T>: T
+/// := (xs) ~> do {
+///   ...
+/// }
+/// ```
+/// becomes:
+/// ```text
+/// export take<T>: T
+///   := (xs) ~> do {
+///     ...
+///   }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct IndentContinuationBindingsRule;
+
+impl PostProcessRule for IndentContinuationBindingsRule {
+    fn name(&self) -> &str {
+        "indent-continuation-bindings"
+    }
+
+    fn apply(&self, text: &str) -> String {
+        let lines: Vec<&str> = text.lines().collect();
+        let mut out: Vec<String> = Vec::with_capacity(lines.len());
+        let mut i = 0;
+        while i < lines.len() {
+            let trimmed = lines[i].trim_start();
+            if trimmed.starts_with(":=") {
+                let prev = previous_nonblank_leading(&lines, i);
+                let curr = leading_spaces(lines[i]);
+                if curr <= prev {
+                    let shift = prev + 2 - curr;
+                    let end = continuation_block_end(&lines, i);
+                    for k in i..=end {
+                        if lines[k].trim().is_empty() {
+                            out.push(String::new());
+                        } else {
+                            out.push(format!("{}{}", " ".repeat(shift), lines[k]));
+                        }
+                    }
+                    i = end + 1;
+                    continue;
+                }
+            }
+            out.push(lines[i].to_string());
+            i += 1;
+        }
+        out.join("\n")
+    }
+}
+
+fn previous_nonblank_leading(lines: &[&str], from: usize) -> usize {
+    let mut i = from;
+    while i > 0 {
+        i -= 1;
+        if !lines[i].trim().is_empty() {
+            return leading_spaces(lines[i]);
+        }
+    }
+    0
+}
+
+fn leading_spaces(line: &str) -> usize {
+    line.chars().take_while(|&c| c == ' ').count()
+}
+
+fn continuation_block_end(lines: &[&str], start: usize) -> usize {
+    let mut depth = brace_delta(lines[start]);
+    if depth == 0 {
+        return start;
+    }
+    let mut j = start;
+    while j + 1 < lines.len() {
+        j += 1;
+        depth += brace_delta(lines[j]);
+        if depth == 0 {
+            return j;
+        }
+    }
+    lines.len() - 1
+}
+
+fn brace_delta(line: &str) -> i32 {
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            if c == '\\' {
+                chars.next();
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if c == '"' {
+            in_string = true;
+            continue;
+        }
+        if c == '-' && chars.peek() == Some(&'-') {
+            break;
+        }
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
+}
+
 pub fn post_process_pipeline(text: &str, rules: &[&dyn PostProcessRule]) -> String {
     let mut out = text.to_string();
     for rule in rules {
@@ -298,6 +413,7 @@ pub fn canonical_post_process(text: &str) -> String {
             &CollapseBlankLinesRule,
             &BlankLineBetweenDeclGroupsRule,
             &CanonicalizeOperatorsRule,
+            &IndentContinuationBindingsRule,
             &SingleTrailingNewlineRule,
         ],
     )

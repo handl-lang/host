@@ -12,6 +12,7 @@
 //! - Long lines are never broken.
 //! - Only lines that actually changed produce `TextEdit`s.
 
+use handl_plugin_ext_fmt::format_source;
 use serde_json::{Value, json};
 
 /// A single LSP text edit: replace the range `[start, end)` with `new_text`.
@@ -185,21 +186,28 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
 
 /// Wrap the formatting edits in an LSP `textDocument/formatting` response
 /// (a JSON array of `{ range, newText }` objects).
+///
+/// The full-document canonical formatter (`handl_plugin_ext_fmt::format_source`)
+/// is used so the LSP matches the `hnl fmt` CLI.
 pub fn format_document_json(source: &str) -> Value {
-    let edits = format_document(source);
-    let arr: Vec<Value> = edits
-        .iter()
-        .map(|e| {
-            json!({
+    match format_source(source) {
+        Ok(formatted) => {
+            if formatted == source {
+                return json!([]);
+            }
+            let lines: Vec<&str> = source.split('\n').collect();
+            let end_line = lines.len().saturating_sub(1);
+            let end_char = lines.last().map(|s| s.chars().count()).unwrap_or(0);
+            json!([{
                 "range": {
-                    "start": { "line": e.start_line, "character": e.start_char },
-                    "end": { "line": e.end_line, "character": e.end_char },
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": end_line, "character": end_char },
                 },
-                "newText": e.new_text,
-            })
-        })
-        .collect();
-    json!(arr)
+                "newText": formatted,
+            }])
+        }
+        Err(_) => json!([]),
+    }
 }
 
 // ---------------------------------------------------------------------------
