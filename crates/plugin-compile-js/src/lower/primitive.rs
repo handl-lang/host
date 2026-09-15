@@ -13,7 +13,7 @@ const INPUT_NAME: &str = "__in";
 /// Lower one of the four primitive terms to a JS expression.
 pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
     match term {
-        Term::Arr { value } => {
+        Term::Arr { value, .. } => {
             let body = lower_value(value)?;
             Ok(JsAst::ArrowFn {
                 params: vec![INPUT_NAME.to_string()],
@@ -34,6 +34,7 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
             args,
             source,
             lit,
+            ..
         } => lower_op(name, args, source.clone(), lit.as_ref()),
         _ => Err(CompileError::Lower(format!(
             "primitive lowerer received non-primitive term: {term:?}"
@@ -44,7 +45,7 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
 /// Lower the application of a primitive term to an input value.
 pub fn lower_applied(term: &Term, _input: &JsAst) -> Result<JsAst, CompileError> {
     match term {
-        Term::Arr { value } | Term::Const { value } => lower_value(value),
+        Term::Arr { value, .. } | Term::Const { value } => lower_value(value),
         Term::Op { .. } => Ok(JsAst::Call {
             callee: Box::new(lower(term)?),
             args: vec![_input.clone()],

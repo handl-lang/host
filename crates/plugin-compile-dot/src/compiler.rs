@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 
 use handl_plugin_compile::{CompileError, Compiler, CompilerConfig, CompilerInput, CompilerOutput};
-use plugin_engine::{ArrSource, RewriteWitness, Side, Term};
+use plugin_engine::{ArrSource, RewriteWitness, Term};
 use serde_json::Value;
 
 use crate::config::DotConfig;
@@ -80,7 +80,7 @@ fn emit_dot(term: &Term) -> String {
 
 fn emit_term(term: &Term, e: &mut Emitter) -> usize {
     match term {
-        Term::Arr { value } => {
+        Term::Arr { value, .. } => {
             let label = format!("Arr {}", compact_value(value));
             e.node(&label)
         }
@@ -93,6 +93,7 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             args,
             source,
             lit,
+            ..
         } => {
             let src = source_label(source);
             let lit_s = lit
@@ -185,39 +186,6 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             e.edge(id, c2, "target");
             id
         }
-        Term::Path {
-            endpoints: (a, b),
-            witness,
-        } => {
-            let id = e.node("Path");
-            let c1 = emit_term(a, e);
-            let c2 = emit_term(b, e);
-            e.edge(id, c1, "from");
-            e.edge(id, c2, "to");
-            if let Some(w) = witness {
-                let c3 = emit_term(w, e);
-                e.edge(id, c3, "witness");
-            }
-            id
-        }
-        Term::Equiv { a, b, path } => {
-            let id = e.node("Equiv");
-            let c1 = emit_term(a, e);
-            let c2 = emit_term(b, e);
-            e.edge(id, c1, "a");
-            e.edge(id, c2, "b");
-            if let Some(p) = path {
-                let c3 = emit_term(p, e);
-                e.edge(id, c3, "path");
-            }
-            id
-        }
-        Term::CellId { arrow } => {
-            let id = e.node("CellId");
-            let c = emit_term(arrow, e);
-            e.edge(id, c, "arrow");
-            id
-        }
         Term::Src { cell } => {
             let id = e.node("Src");
             let c = emit_term(cell, e);
@@ -228,26 +196,6 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             let id = e.node("Tgt");
             let c = emit_term(cell, e);
             e.edge(id, c, "cell");
-            id
-        }
-        Term::CellCompV { first, second } => {
-            let id = e.node("CellCompV");
-            let c1 = emit_term(first, e);
-            let c2 = emit_term(second, e);
-            e.edge(id, c1, "first");
-            e.edge(id, c2, "second");
-            id
-        }
-        Term::Whisker { side, arrow, cell } => {
-            let side_s = match side {
-                Side::Left => "Left",
-                Side::Right => "Right",
-            };
-            let id = e.node(&format!("Whisker {side_s}"));
-            let c1 = emit_term(arrow, e);
-            let c2 = emit_term(cell, e);
-            e.edge(id, c1, "arrow");
-            e.edge(id, c2, "cell");
             id
         }
         Term::RecordProj { record, field } => {
@@ -268,46 +216,6 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             let id = e.node(&format!("Tag {tag}"));
             let c = emit_term(value, e);
             e.edge(id, c, "value");
-            id
-        }
-        Term::Univalence { equiv } => {
-            let id = e.node("Univalence");
-            let c = emit_term(equiv, e);
-            e.edge(id, c, "equiv");
-            id
-        }
-        Term::Glue { family, path } => {
-            let id = e.node("Glue");
-            let c1 = emit_term(family, e);
-            let c2 = emit_term(path, e);
-            e.edge(id, c1, "family");
-            e.edge(id, c2, "path");
-            id
-        }
-        Term::Fibrant { base, family } => {
-            let id = e.node("Fibrant");
-            let c1 = emit_term(base, e);
-            let c2 = emit_term(family, e);
-            e.edge(id, c1, "base");
-            e.edge(id, c2, "family");
-            id
-        }
-        Term::JElim { path, motive, base } => {
-            let id = e.node("JElim");
-            let c1 = emit_term(path, e);
-            let c2 = emit_term(motive, e);
-            let c3 = emit_term(base, e);
-            e.edge(id, c1, "path");
-            e.edge(id, c2, "motive");
-            e.edge(id, c3, "base");
-            id
-        }
-        Term::Refine { sort, predicate } => {
-            let id = e.node("Refine");
-            let c1 = emit_term(sort, e);
-            let c2 = emit_term(predicate, e);
-            e.edge(id, c1, "sort");
-            e.edge(id, c2, "predicate");
             id
         }
         Term::Cobind { grade, body } => {

@@ -306,6 +306,7 @@ fn lower_object(
     }
 
     Ok(Term::Op {
+        dim: Term::default_dim(),
         name: "record".to_string(),
         args: values,
         source: handl_language::ArrSource::Native,
@@ -353,6 +354,7 @@ fn lower_op(
     };
 
     Ok(Term::Op {
+        dim: Term::default_dim(),
         name,
         args: vec![],
         source,
@@ -462,6 +464,7 @@ fn lower_arr(
         Ok(term.clone())
     } else {
         Ok(Term::Op {
+            dim: Term::default_dim(),
             name,
             args: vec![],
             source: ArrSource::Native,
@@ -631,6 +634,7 @@ fn op_term_from_graded_arrow(
         .map(ArrSource::Foreign)
         .unwrap_or(ArrSource::Native);
     Ok(Term::Op {
+        dim: Term::default_dim(),
         name: name.to_string(),
         args: vec![],
         source,

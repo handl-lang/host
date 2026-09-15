@@ -1,7 +1,7 @@
 //! The `SexpCompiler` implementation.
 
 use handl_plugin_compile::{CompileError, Compiler, CompilerConfig, CompilerInput, CompilerOutput};
-use plugin_engine::{ArrSource, RewriteWitness, Side, Term};
+use plugin_engine::{ArrSource, RewriteWitness, Term};
 use serde_json::Value;
 
 use crate::config::SexpConfig;
@@ -39,7 +39,7 @@ fn emit_sexp(term: &Term) -> String {
 
 fn emit(term: &Term, out: &mut String) {
     match term {
-        Term::Arr { value } => {
+        Term::Arr { value, .. } => {
             out.push_str("(arr ");
             out.push_str(&value_to_sexp(value));
             out.push(')');
@@ -54,6 +54,7 @@ fn emit(term: &Term, out: &mut String) {
             args,
             source,
             lit,
+            ..
         } => {
             out.push('(');
             out.push_str(name);
@@ -147,36 +148,6 @@ fn emit(term: &Term, out: &mut String) {
             out.push_str(&witness_to_sexp(witness));
             out.push(')');
         }
-        Term::Path {
-            endpoints: (a, b),
-            witness,
-        } => {
-            out.push_str("(path ");
-            emit(a, out);
-            out.push(' ');
-            emit(b, out);
-            if let Some(w) = witness {
-                out.push(' ');
-                emit(w, out);
-            }
-            out.push(')');
-        }
-        Term::Equiv { a, b, path } => {
-            out.push_str("(equiv ");
-            emit(a, out);
-            out.push(' ');
-            emit(b, out);
-            if let Some(p) = path {
-                out.push(' ');
-                emit(p, out);
-            }
-            out.push(')');
-        }
-        Term::CellId { arrow } => {
-            out.push_str("(cell-id ");
-            emit(arrow, out);
-            out.push(')');
-        }
         Term::Src { cell } => {
             out.push_str("(src ");
             emit(cell, out);
@@ -184,25 +155,6 @@ fn emit(term: &Term, out: &mut String) {
         }
         Term::Tgt { cell } => {
             out.push_str("(tgt ");
-            emit(cell, out);
-            out.push(')');
-        }
-        Term::CellCompV { first, second } => {
-            out.push_str("(cell-comp-v ");
-            emit(first, out);
-            out.push(' ');
-            emit(second, out);
-            out.push(')');
-        }
-        Term::Whisker { side, arrow, cell } => {
-            out.push_str("(whisker ");
-            out.push_str(match side {
-                Side::Left => "left",
-                Side::Right => "right",
-            });
-            out.push(' ');
-            emit(arrow, out);
-            out.push(' ');
             emit(cell, out);
             out.push(')');
         }
@@ -227,41 +179,6 @@ fn emit(term: &Term, out: &mut String) {
             out.push_str(tag);
             out.push(' ');
             emit(value, out);
-            out.push(')');
-        }
-        Term::Univalence { equiv } => {
-            out.push_str("(univalence ");
-            emit(equiv, out);
-            out.push(')');
-        }
-        Term::Glue { family, path } => {
-            out.push_str("(glue ");
-            emit(family, out);
-            out.push(' ');
-            emit(path, out);
-            out.push(')');
-        }
-        Term::Fibrant { base, family } => {
-            out.push_str("(fibrant ");
-            emit(base, out);
-            out.push(' ');
-            emit(family, out);
-            out.push(')');
-        }
-        Term::JElim { path, motive, base } => {
-            out.push_str("(j-elim ");
-            emit(path, out);
-            out.push(' ');
-            emit(motive, out);
-            out.push(' ');
-            emit(base, out);
-            out.push(')');
-        }
-        Term::Refine { sort, predicate } => {
-            out.push_str("(refine ");
-            emit(sort, out);
-            out.push(' ');
-            emit(predicate, out);
             out.push(')');
         }
         Term::Cobind { grade, body } => {

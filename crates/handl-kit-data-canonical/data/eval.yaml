@@ -1004,23 +1004,29 @@
 - id: eval.dim_arrow
   node_kind: dim_arrow
   scheme: !Op
+    dim: !Const { value: 1 }
     name: "tag.construct"
     args:
       - !Arr
+        dim: !Const { value: 1 }
         value: "Arrow"
       - !Op
+        dim: !Const { value: 1 }
         name: "record"
         source: Native
         args:
           - !Arr
+            dim: !Const { value: 1 }
             value: "inputs"
           - !Child
             role: "source"
           - !Arr
+            dim: !Const { value: 1 }
             value: "grade"
           - !Child
             role: "dim"
           - !Arr
+            dim: !Const { value: 1 }
             value: "output"
           - !Child
             role: "target"

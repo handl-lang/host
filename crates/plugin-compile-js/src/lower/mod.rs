@@ -239,7 +239,7 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
         | Term::Iter { .. }
         | Term::App { .. } => control::lower(term),
         Term::Child { .. } | Term::Handle { .. } => higher::lower(term),
-        Term::Rewrite { .. } | Term::Path { .. } | Term::Equiv { .. } => proof::lower(term),
+        Term::Rewrite { .. } => proof::lower(term),
         _ => Err(CompileError::Lower(format!("unsupported term: {term:?}"))),
     }
 }
@@ -256,7 +256,7 @@ pub fn lower_applied(term: &Term, input: &JsAst) -> Result<JsAst, CompileError> 
         | Term::Iter { .. }
         | Term::App { .. } => control::lower_applied(term, input),
         Term::Child { .. } | Term::Handle { .. } => higher::lower_applied(term, input),
-        Term::Rewrite { .. } | Term::Path { .. } | Term::Equiv { .. } => {
+        Term::Rewrite { .. } => {
             proof::lower_applied(term, input)
         }
         _ => Err(CompileError::Lower(format!("unsupported term: {term:?}"))),

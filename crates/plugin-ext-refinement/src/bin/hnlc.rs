@@ -179,6 +179,7 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             args,
             source,
             lit,
+            ..
         } => {
             let lit_str = lit
                 .as_ref()
@@ -266,7 +267,7 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             out
         }
 
-        Term::Arr { value } => format!("{}const({})", indent, value),
+        Term::Arr { value, .. } => format!("{}const({})", indent, value),
         Term::Child { role } => format!("{}child({})", indent, role),
         Term::Iter {
             fuel,

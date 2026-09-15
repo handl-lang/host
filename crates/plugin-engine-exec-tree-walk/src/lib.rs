@@ -1211,10 +1211,7 @@ impl TreeWalkEngine {
                                 let term = td
                                     .to_term()
                                     .map_err(|e| LangError::engine_node(e, current_node))?;
-                                let e =
-                                    handl_language::eliminate_and_check(&term).map_err(|e| {
-                                        LangError::engine_node(e.to_string(), current_node)
-                                    })?;
+                                let e = term.eliminate_handlers();
                                 cache.insert(current_node.kind.to_string(), e.clone());
                                 e
                             }

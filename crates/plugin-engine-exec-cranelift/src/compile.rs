@@ -1078,8 +1078,7 @@ fn compile_scheme_td(
         // [`TermData::to_term`] for this one case.
         "Handle" => {
             let term = td.to_term().map_err(|e| LangError::engine(e.to_string()))?;
-            let eliminated = handl_language::eliminate_and_check(&term)
-                .map_err(|e| LangError::engine(e.to_string()))?;
+            let eliminated = term.eliminate_handlers();
             compile_scheme(
                 builder,
                 &eliminated,

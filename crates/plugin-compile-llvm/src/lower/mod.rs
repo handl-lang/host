@@ -108,8 +108,6 @@ pub fn lower_term<'ctx>(
             target,
             witness,
         } => proof::lower_rewrite(ctx, source, target, witness, input),
-        Term::Path { endpoints, witness } => proof::lower_path(ctx, endpoints, witness, input),
-        Term::Equiv { a, b, path } => proof::lower_equiv(ctx, a, b, path, input),
         _ => Err(CompileError::Lower(format!("unsupported term: {term:?}"))),
     }
 }
@@ -151,19 +149,11 @@ pub fn lower_term<'ctx>(
         | Term::Const { .. }
         | Term::Op { .. }
         | Term::Seq { .. }
-        | Term::CellId { .. }
         | Term::Src { .. }
         | Term::Tgt { .. }
-        | Term::CellCompV { .. }
-        | Term::Whisker { .. }
         | Term::RecordProj { .. }
         | Term::RecordWith { .. }
         | Term::Tag { .. }
-        | Term::Univalence { .. }
-        | Term::Glue { .. }
-        | Term::Fibrant { .. }
-        | Term::JElim { .. }
-        | Term::Refine { .. }
         | Term::Cobind { .. } => Ok(()),
         Term::First { inner } => control::lower_first(ctx, inner, ()),
         Term::Choice { l, r } => control::lower_choice(ctx, l, r, ()),
@@ -186,8 +176,6 @@ pub fn lower_term<'ctx>(
             target,
             witness,
         } => proof::lower_rewrite(ctx, source, target, witness, ()),
-        Term::Path { endpoints, witness } => proof::lower_path(ctx, endpoints, witness, ()),
-        Term::Equiv { a, b, path } => proof::lower_equiv(ctx, a, b, path, ()),
     }
 }
 

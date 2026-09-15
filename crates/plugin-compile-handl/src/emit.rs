@@ -15,7 +15,7 @@ impl HughesEmitter {
     /// Emit `term` as an arrow.
     fn emit_arrow(&self, term: &Term, params: &[String]) -> String {
         match term {
-            Term::Arr { value } | Term::Const { value } => value_to_string(value),
+            Term::Arr { value, .. } | Term::Const { value } => value_to_string(value),
             Term::Op { name, args, lit, .. } => match name.as_str() {
                 "id" => params.first().cloned().unwrap_or_else(|| "id".to_string()),
                 "proj_child" => match lit.as_ref().and_then(Value::as_u64) {
@@ -159,7 +159,7 @@ impl HughesEmitter {
     /// Emit `term` as a value expression.
     fn emit_expr(&self, term: &Term, params: &[String]) -> String {
         match term {
-            Term::Arr { value } | Term::Const { value } => value_to_string(value),
+            Term::Arr { value, .. } | Term::Const { value } => value_to_string(value),
             Term::Op { name, args, lit, .. } => match name.as_str() {
                 "id" => params.first().cloned().unwrap_or_else(|| "id".to_string()),
                 "proj_child" => match lit.as_ref().and_then(Value::as_u64) {

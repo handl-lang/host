@@ -36,11 +36,6 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
             target,
             witness,
         } => lower_rewrite(source, target, witness),
-        Term::Path {
-            endpoints: (a, b),
-            witness,
-        } => lower_path(a, b, witness.as_deref()),
-        Term::Equiv { a, b, path } => lower_equiv(a, b, path.as_deref()),
         _ => Err(CompileError::Lower(format!(
             "proof lowerer received non-proof term: {term:?}"
         ))),
@@ -55,11 +50,6 @@ pub fn lower_applied(term: &Term, input: &JsAst) -> Result<JsAst, CompileError> 
             target,
             witness,
         } => lower_rewrite_applied(source, target, witness, input),
-        Term::Path {
-            endpoints: (a, b),
-            witness,
-        } => lower_path_applied(a, b, witness.as_deref(), input),
-        Term::Equiv { a, b, path } => lower_equiv_applied(a, b, path.as_deref(), input),
         _ => Err(CompileError::Lower(format!(
             "proof lowerer received non-proof term: {term:?}"
         ))),
