@@ -22,6 +22,7 @@ pub mod parse;
 pub mod serialize;
 pub mod strs;
 pub mod tar;
+pub mod toml;
 pub mod type_ops;
 pub mod url_rfc;
 pub mod url_whatwg;
