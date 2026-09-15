@@ -140,9 +140,6 @@ fn is_contract_source(src: &str) -> bool {
 /// `|||`, `rec {`).
 fn has_arrow_markers(src: &str) -> bool {
     const DIRECTIVES: [&str; 4] = ["cap ", "op ", "handl ", "tag "];
-    const COMBINATORS: [&str; 8] = [
-        "arr(", "first(", "choice(", "loop(", "comp(", "app(", "|||", "rec {",
-    ];
     src.lines().any(|line| {
         let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
         if let Some(top) = top_level_line(line) {
@@ -150,8 +147,72 @@ fn has_arrow_markers(src: &str) -> bool {
                 return true;
             }
         }
-        COMBINATORS.iter().any(|c| code.contains(c))
+        contains_arrow_combinator(code)
     })
+}
+
+/// True when `code` mentions an arrow-calculus combinator as a *standalone*
+/// expression, rather than as the tail of a longer identifier or a field
+/// access. Handl surface code that calls a function like `array.first(…)` or
+/// `fn.comp(…)` must not be mistaken for the arrow kernel's `first`/`comp`
+/// combinators, so each combinator name is matched word-bounded (not preceded
+/// by `.` or an identifier character).
+fn contains_arrow_combinator(code: &str) -> bool {
+    if code.contains("|||") {
+        return true;
+    }
+
+    // `name(` — call-form combinators.
+    for name in ["arr", "first", "choice", "loop", "comp", "app"] {
+        if standalone_call(code, name) {
+            return true;
+        }
+    }
+
+    // `rec {` — `rec` standalone followed by optional whitespace and `{`.
+    standalone_rec(code)
+}
+
+/// Whether `name` occurs in `code` as a standalone `name(` call: not preceded
+/// by an identifier character or `.`, and immediately followed by `(`.
+fn standalone_call(code: &str, name: &str) -> bool {
+    let mut search = 0;
+    while let Some(rel) = code[search..].find(name) {
+        let start = search + rel;
+        let end = start + name.len();
+        let before_ok = code[..start]
+            .chars()
+            .next_back()
+            .map_or(true, |c| !(c.is_alphanumeric() || c == '_' || c == '.'));
+        let after_ok = code[end..].chars().next() == Some('(');
+        if before_ok && after_ok {
+            return true;
+        }
+        search = end;
+    }
+    false
+}
+
+/// Whether `rec` occurs in `code` as a standalone identifier followed by
+/// (optional whitespace and) `{`.
+fn standalone_rec(code: &str) -> bool {
+    let mut search = 0;
+    while let Some(rel) = code[search..].find("rec") {
+        let start = search + rel;
+        let end = start + 3;
+        let before_ok = code[..start]
+            .chars()
+            .next_back()
+            .map_or(true, |c| !(c.is_alphanumeric() || c == '_' || c == '.'));
+        if before_ok {
+            let after = code[end..].trim_start().chars().next();
+            if after == Some('{') {
+                return true;
+            }
+        }
+        search = end;
+    }
+    false
 }
 
 /// Detect the surface dialect of `src`.

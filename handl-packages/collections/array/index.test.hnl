@@ -14,6 +14,10 @@ test_array_zip := assert array.zip([1, 2], ["x", "y", "z"]) = [[1, "x"], [2, "y"
 
 test_array_concat := assert array.concat([1, 2], [3, 4]) = [1, 2, 3, 4]
 
+test_array_first := assert array.first([1, 2, 3]) = 1
+
+test_array_first_empty := assert array.first([]) = null
+
 test_array_last := assert array.last([1, 2, 3]) = 3
 
 test_array_shift := assert array.shift([1, 2, 3]) = [2, 3]

@@ -32,8 +32,9 @@ is_canonical() {
     if (tl ~ /^(cap|op|handl|tag) /) { arrow = 1 }
     code = strip_comment($0)
     if (code != "") {
-      if (index(code, "arr(") || index(code, "first(") || index(code, "choice(") || index(code, "loop(") || index(code, "comp(") || index(code, "app(") || index(code, "|||") || index(code, "rec {"))
+      if (index(code, "|||") || code ~ /(^|[^a-zA-Z0-9_.])(arr|first|choice|loop|comp|app)\(/)
         { arrow = 1 }
+      if (code ~ /(^|[^a-zA-Z0-9_.])rec[[:space:]]*\{/) { arrow = 1 }
     }
   }
   END { exit (arrow ? 1 : 0) }
