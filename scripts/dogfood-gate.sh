@@ -34,6 +34,7 @@ is_canonical() {
     if (code != "") {
       if (index(code, "|||") || code ~ /(^|[^a-zA-Z0-9_.])(arr|first|choice|loop|comp|app)\(/)
         { arrow = 1 }
+      if (code ~ /(^|[^a-zA-Z0-9_.])~>/) { arrow = 1 }
       if (code ~ /(^|[^a-zA-Z0-9_.])rec[[:space:]]*\{/) { arrow = 1 }
     }
   }
@@ -47,12 +48,14 @@ is_canonical() {
 SKIP_LIST=(
   "handl-packages/collections/array/first.hnl"
   "handl-packages/collections/array.hnl"
+  "handl-packages/os-stub"
+  "handl-packages/os-c"
 )
 
 is_skipped() {
   local f=$1
   for skip in "${SKIP_LIST[@]}"; do
-    if [[ "$f" == "$skip" ]]; then
+    if [[ "$f" == "$skip" || "$f" == "$skip"/* ]]; then
       return 0
     fi
   done
