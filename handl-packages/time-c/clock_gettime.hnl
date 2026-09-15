@@ -4,7 +4,7 @@
 --- the raw time as an integer number of nanoseconds. Used only by the
 --- `time-c` backend.
 
-from "../math" import { Nat }
+from "type" import { Nat }
 from "../time" import { Clock }
 from "../grade" import { Effect }
 from "ffi" import { FFI, Errno, call, errno }
