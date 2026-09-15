@@ -384,7 +384,18 @@ do {
           } else { null }
         } else {
           if record_name == "array" && field == "len" && len(args) == 1 {
-            if type_of(at(args, 0)) == "arr" { len(at(args, 0)) } else { null }
+            do {
+              a :: at(args, 0)
+              if type_of(a) == "arr" {
+                len(a)
+              } else {
+                if type_tag(a) == "List" || type_tag(a) == "list" {
+                  get_or(a, "length", null)
+                } else {
+                  null
+                }
+              }
+            }
           } else { null }
         }
       }
@@ -405,96 +416,112 @@ do {
   --- when the arguments are themselves concrete, and leave expressions
   --- untouched when they still contain unresolved variables.
 
-  eval_args_ :: [self, funcs, terms]~> while { result: [], remaining: terms } {
+  eval_args_ :: [self, funcs, env, terms]~> while { result: [], remaining: terms } {
     [st]~> if is_empty(st.remaining) {
       { out: st.result }
     } else {
       do {
         t :: first_value(st.remaining)
-        v :: self(self, funcs, t)
+        v :: self(self, funcs, env, t)
         { state: { result: concat(st.result, [v]), remaining: drop(st.remaining, 1) } }
       }
     }
   }
 
-  normalize_value_ :: [self, funcs, v]~> if type_of(v) == "num" {
+  normalize_value_ :: [self, funcs, env, v]~> if type_of(v) == "num" {
     v
   } else {
-    if type_tag(v) == "type.number" {
+    if type_tag(v) == "var" {
       do {
-        inner :: get_or(v, "__value__", null)
-        if type_of(inner) == "num" { inner } else { self(self, funcs, inner) }
+        vname :: get_or(v, "name", "")
+        resolved :: if vname != "" && env != null && env != {} {
+          tc_lookup(env, vname)
+        } else {
+          null
+        }
+        if resolved != null && (type_tag(resolved) == "List" || type_tag(resolved) == "list") {
+          resolved
+        } else {
+          v
+        }
       }
     } else {
-      if type_tag(v) == "Arr" || type_tag(v) == "Const" {
+      if type_tag(v) == "type.number" {
         do {
-          evaled :: funcs.eval_scheme_(funcs, {}, 0, v, null).val
-          self(self, funcs, evaled)
+          inner :: get_or(v, "__value__", null)
+          if type_of(inner) == "num" { inner } else { self(self, funcs, env, inner) }
         }
       } else {
-        if type_tag(v) == "App" {
+        if type_tag(v) == "Arr" || type_tag(v) == "Const" {
           do {
-            callee_term :: get_or(v, "callee", null)
-            arg_terms :: get_or(v, "args", [])
-            callee_val :: self(self, funcs, callee_term)
-            arg_vals :: eval_args_(self, funcs, arg_terms)
-            total :: total_eval_(callee_term, arg_vals)
-            if type_of(total) == "num" {
-              total
-            } else {
-              if type_of(callee_val) == "obj" && get_or(callee_val, "__arrow__", false) == true && len(arg_vals) <= len(get_or(callee_val, "params", [])) {
-                do {
-                  raw :: if len(arg_vals) == 0 {
-                    callee_val()
-                  } else {
-                    if len(arg_vals) == 1 {
-                      callee_val(at(arg_vals, 0))
+            evaled :: funcs.eval_scheme_(funcs, {}, 0, v, null).val
+            self(self, funcs, env, evaled)
+          }
+        } else {
+          if type_tag(v) == "App" {
+            do {
+              callee_term :: get_or(v, "callee", null)
+              arg_terms :: get_or(v, "args", [])
+              callee_val :: self(self, funcs, env, callee_term)
+              arg_vals :: eval_args_(self, funcs, env, arg_terms)
+              total :: total_eval_(callee_term, arg_vals)
+              if type_of(total) == "num" {
+                total
+              } else {
+                if type_of(callee_val) == "obj" && get_or(callee_val, "__arrow__", false) == true && len(arg_vals) <= len(get_or(callee_val, "params", [])) {
+                  do {
+                    raw :: if len(arg_vals) == 0 {
+                      callee_val()
                     } else {
-                      if len(arg_vals) == 2 {
-                        callee_val(at(arg_vals, 0), at(arg_vals, 1))
+                      if len(arg_vals) == 1 {
+                        callee_val(at(arg_vals, 0))
                       } else {
-                        if len(arg_vals) == 3 {
-                          callee_val(at(arg_vals, 0), at(arg_vals, 1), at(arg_vals, 2))
+                        if len(arg_vals) == 2 {
+                          callee_val(at(arg_vals, 0), at(arg_vals, 1))
                         } else {
-                          v
+                          if len(arg_vals) == 3 {
+                            callee_val(at(arg_vals, 0), at(arg_vals, 1), at(arg_vals, 2))
+                          } else {
+                            v
+                          }
                         }
                       }
                     }
+                    self(self, funcs, env, raw)
                   }
-                  self(self, funcs, raw)
+                } else {
+                  v
                 }
-              } else {
-                v
-              }
-            }
-          }
-        } else {
-          if type_of(v) == "obj" && get_or(v, "__arrow__", false) == true {
-            do {
-              params :: get_or(v, "params", [])
-              if len(params) == 0 {
-                do {
-                  raw :: v()
-                  self(self, funcs, raw)
-                }
-              } else {
-                v
               }
             }
           } else {
-            v
+            if type_of(v) == "obj" && get_or(v, "__arrow__", false) == true {
+              do {
+                params :: get_or(v, "params", [])
+                if len(params) == 0 {
+                  do {
+                    raw :: v()
+                    self(self, funcs, env, raw)
+                  }
+                } else {
+                  v
+                }
+              }
+            } else {
+              v
+            }
           }
         }
       }
     }
   }
 
-  normalize_type_ :: [self, funcs, typ]~> if type_tag(typ) == "List" || type_tag(typ) == "list" {
+  normalize_type_ :: [self, funcs, env, typ]~> if type_tag(typ) == "List" || type_tag(typ) == "list" {
     do {
       element :: get_or(typ, "element", null)
       length :: get_or(typ, "length", null)
-      norm_element :: if type_tag(element) == "List" || type_tag(element) == "list" { self(self, funcs, element) } else { element }
-      norm_length :: normalize_value_(normalize_value_, funcs, length)
+      norm_element :: if type_tag(element) == "List" || type_tag(element) == "list" { self(self, funcs, env, element) } else { element }
+      norm_length :: normalize_value_(normalize_value_, funcs, env, length)
       set(set(typ, "element", norm_element), "length", norm_length)
     }
   } else {
@@ -526,8 +553,8 @@ do {
   }
 
   unify_ :: [self, funcs, a, b, metas]~> do {
-    a_norm :: normalize_type_(normalize_type_, funcs, a)
-    b_norm :: normalize_type_(normalize_type_, funcs, b)
+    a_norm :: normalize_type_(normalize_type_, funcs, null, a)
+    b_norm :: normalize_type_(normalize_type_, funcs, null, b)
     if a_norm == b_norm {
       { ok: true, metas: metas, path: funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) }
     } else {
@@ -787,6 +814,127 @@ do {
     { val: arg_val, state: if has_arg { arg_result["state"] } else { s } }
   }
 
+  --- Helpers for dependent array.take type.
+  math_min_proj :: unit ~> make_type("RecordProj", set(set({}, "record", make_type("Const", set({}, "value", "math"))), "field", "min"))
+
+  array_len_proj :: unit ~> make_type("RecordProj", set(set({}, "record", make_type("Const", set({}, "value", "array"))), "field", "len"))
+
+  build_take_type :: [t_meta, n_meta, xs_name, n_name]~> do {
+    param1 :: make_type("List", set(set({}, "element", t_meta), "length", null))
+    param2 :: n_meta
+    len_term :: make_type("App", set(set({}, "callee", math_min_proj()), "args", [make_type("var", set({}, "name", n_name)), make_type("App", set(set({}, "callee", array_len_proj()), "args", [make_type("var", set({}, "name", xs_name))]))]))
+    output :: make_type("List", set(set({}, "element", t_meta), "length", len_term))
+    inner :: make_type("type.function", set(set(set({}, "param", param2), "body", output), "param_name", n_name))
+    make_type("type.function", set(set(set({}, "param", param1), "body", inner), "param_name", xs_name))
+  }
+
+  array_take_type :: [s]~> do {
+    t :: tc_fresh_meta(s)
+    n :: tc_fresh_meta(t["state"])
+    typ :: build_take_type(meta_value(t.id), meta_value(n.id), "xs", "n")
+    { typ: typ, state: n["state"] }
+  }
+
+  --- Substitute a parameter name with an argument term inside a type-level term.
+  subst_term_ :: [self, term, name, replacement]~> if type_of(term) == "obj" {
+    do {
+      tag :: type_tag(term)
+      if tag == "var" {
+        if get_or(term, "name", "") == name { replacement } else { term }
+      } else {
+        if tag == "App" {
+          do {
+            new_callee :: self(self, get_or(term, "callee", term), name, replacement)
+            new_args :: while { result: [], remaining: get_or(term, "args", []), state: null } {
+              [st]~> if is_empty(st.remaining) {
+                { out: st.result }
+              } else {
+                do {
+                  a :: first_value(st.remaining)
+                  new_a :: self(self, a, name, replacement)
+                  { state: { result: [...st.result, new_a], remaining: drop(st.remaining, 1), state: null } }
+                }
+              }
+            }
+            make_type("App", set(set({}, "callee", new_callee), "args", new_args))
+          }
+        } else {
+          if tag == "List" || tag == "list" {
+            do {
+              new_element :: self(self, get_or(term, "element", term), name, replacement)
+              new_length :: self(self, get_or(term, "length", null), name, replacement)
+              make_type("List", set(set({}, "element", new_element), "length", new_length))
+            }
+          } else {
+            if tag == "type.function" {
+              do {
+                new_param :: self(self, get_or(term, "param", null), name, replacement)
+                new_body :: self(self, get_or(term, "body", null), name, replacement)
+                make_type("type.function", set(set(set({}, "param", new_param), "body", new_body), "param_name", get_or(term, "param_name", "")))
+              }
+            } else {
+              term
+            }
+          }
+        }
+      }
+    }
+  } else {
+    if type_of(term) == "arr" {
+      while { result: [], remaining: term } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          do {
+            a :: first_value(st.remaining)
+            new_a :: self(self, a, name, replacement)
+            { state: { result: [...st.result, new_a], remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      term
+    }
+  }
+
+  --- Build a concrete term from an argument AST node for dependent substitution.
+  arg_term_from_node :: [s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    kind :: node_kind(node)
+    payload :: node_payload(node)
+    if kind == "value" {
+      get_or(payload, "value", null)
+    } else {
+      if kind == "var" {
+        do {
+          name :: if type_of(payload) == "str" { payload } else { get_or(payload, "name", "") }
+          make_type("var", set({}, "name", name))
+        }
+      } else {
+        if kind == "array" {
+          do {
+            children :: node_children(node)
+            vals :: while { result: [], remaining: children } {
+              [st]~> if is_empty(st.remaining) {
+                { out: st.result }
+              } else {
+                do {
+                  child_idx :: first_value(st.remaining)
+                  child_node :: ast_node(s.ast, child_idx)
+                  v :: if node_kind(child_node) == "value" { get_or(node_payload(child_node), "value", null) } else { null }
+                  { state: { result: if v == null { st.result } else { [...st.result, v] }, remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+            vals
+          }
+        } else {
+          null
+        }
+      }
+    }
+  }
+
   merge_obj :: [obj, base]~> while { result: base, remaining: keys(obj) } {
     [st]~> if is_empty(st.remaining) {
       { out: st.result }
@@ -862,8 +1010,9 @@ do {
     is_paren :: kind == "paren"
     is_var :: kind == "var"
     is_value :: kind == "value"
-    is_canonical :: is_field_access || is_call || is_block || is_assign || is_if || is_return || is_module || is_paren || is_var || is_value
-    op_name :: if is_field_access { "field_access" } else { if is_call { "call" } else { if is_block { "synth_block" } else { if is_module { "synth_last_child" } else { if is_paren { "synth_child" } else { if is_var { "lookup" } else { if is_value { "value" } else { kind } } } } } } }
+    is_export :: kind == "stmt.export"
+    is_canonical :: is_field_access || is_call || is_block || is_assign || is_if || is_return || is_module || is_paren || is_var || is_value || is_export
+    op_name :: if is_field_access { "field_access" } else { if is_call { "call" } else { if is_block { "synth_block" } else { if is_module { "synth_last_child" } else { if is_paren { "synth_child" } else { if is_var { "lookup" } else { if is_value { "value" } else { if is_export { "export" } else { kind } } } } } } } }
     op_lit :: if is_paren { body_role } else { if is_var { payload } else { null } }
     op_incoming :: if is_value { payload } else { null }
     if is_canonical {
@@ -1266,7 +1415,14 @@ do {
         do {
           in_prelude :: prelude_contains(s.prelude, name)
           if in_prelude {
-            { val: funcs.make_type("type.unknown", {}), state: s }
+            if name == "array" {
+              do {
+                take_result :: array_take_type(s)
+                { val: funcs.make_type("type.record", set({}, "fields", set({}, "take", take_result.typ))), state: take_result["state"] }
+              }
+            } else {
+              { val: funcs.make_type("type.unknown", {}), state: s }
+            }
           } else {
             do {
               meta :: tc_fresh_meta(s)
@@ -1580,21 +1736,58 @@ do {
             { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "function needs params and body") }
           } else {
             do {
-              param_idx :: at(children, 0)
-              param_node :: ast_node(s.ast, param_idx)
-              param_payload :: node_payload(param_node)
-              param_name :: if type_of(param_payload) == "str" {
-                param_payload
-              } else {
-                get_or(param_payload, "name", "x")
-              }
+              params_node :: ast_node(s.ast, at(children, 0))
+              params_kind :: node_kind(params_node)
+              param_children :: if params_kind == "paren" { node_children(params_node) } else { [at(children, 0)] }
               body_idx :: at(children, 1)
-              param_meta :: tc_fresh_meta(s)
-              extended :: tc_extend(param_meta["state"], param_name, meta_value(param_meta.id))
-              body_result :: funcs.synth_node_(funcs, extended, body_idx)
-              zonked_param :: zonk(zonk, meta_value(param_meta.id), body_result["state"].metas)
-              zonked_body :: zonk(zonk, body_result.typ, body_result["state"].metas)
-              fn_type :: funcs.make_type("type.function", set(set({}, "param", zonked_param), "body", zonked_body))
+              params_info :: while { result: [], remaining: param_children, state: s } {
+                [st]~> if is_empty(st.remaining) {
+                  { out: { params: st.result, state: st["state"] } }
+                } else {
+                  do {
+                    p_idx :: first_value(st.remaining)
+                    p_node :: ast_node(st["state"].ast, p_idx)
+                    p_kind :: node_kind(p_node)
+                    p_payload :: node_payload(p_node)
+                    p_name :: if p_kind == "var" {
+                      if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
+                    } else {
+                      if p_kind == "type-annot" {
+                        do {
+                          p_subject_role :: child_role_index(st["state"], p_kind, "subject")
+                          if p_subject_role == null {
+                            ""
+                          } else {
+                            do {
+                              p_subject_node :: ast_node(st["state"].ast, child_ref(st["state"].ast, p_idx, p_subject_role))
+                              p_subject_payload :: node_payload(p_subject_node)
+                              if type_of(p_subject_payload) == "str" { p_subject_payload } else { get_or(p_subject_payload, "name", "") }
+                            }
+                          }
+                        }
+                      } else {
+                        ""
+                      }
+                    }
+                    p_meta :: tc_fresh_meta(st["state"])
+                    p_state :: if p_name != "" { tc_extend(p_meta["state"], p_name, meta_value(p_meta.id)) } else { p_meta["state"] }
+                    { state: { result: [...st.result, {name: p_name, meta: meta_value(p_meta.id)}], remaining: drop(st.remaining, 1), state: p_state } }
+                  }
+                }
+              }
+              body_result :: funcs.synth_node_(funcs, params_info["state"], body_idx)
+              fn_type :: while { idx: len(params_info.params), body: body_result.typ, state: body_result["state"] } {
+                [st]~> if st.idx == 0 {
+                  { out: st.body }
+                } else {
+                  do {
+                    p :: at(params_info.params, st.idx - 1)
+                    zonked_param :: zonk(zonk, p.meta, st.state.metas)
+                    new_body :: funcs.make_type("type.function", set(set(set({}, "param", zonked_param), "body", st.body), "param_name", p.name))
+                    { state: { idx: st.idx - 1, body: new_body, state: st.state } }
+                  }
+                }
+              }
               { val: fn_type, state: body_result["state"] }
             }
           }
@@ -2085,7 +2278,14 @@ do {
                     do {
                       arg_idx :: at(children, st.idx)
                       arg_check :: funcs.check_node_(funcs, st["state"], arg_idx, param)
-                      { state: { current: body, state: arg_check["state"], idx: st.idx + 1 } }
+                      param_name :: get_or(st["current"], "param_name", "")
+                      arg_term :: arg_term_from_node(arg_check["state"], arg_idx)
+                      new_body :: if param_name != "" && arg_term != null {
+                        subst_term_(subst_term_, body, param_name, arg_term)
+                      } else {
+                        body
+                      }
+                      { state: { current: new_body, state: arg_check["state"], idx: st.idx + 1 } }
                     }
                   }
                 }
@@ -2094,7 +2294,11 @@ do {
               }
             }
           }
-          { val: call_state["current"], state: call_state["state"] }
+          final_state :: call_state["state"]
+          final_typ :: call_state["current"]
+          zonked :: zonk(zonk, final_typ, final_state.metas)
+          norm :: normalize_type_(normalize_type_, funcs, final_state, zonked)
+          { val: norm, state: final_state }
         }
       }
     },
@@ -2144,6 +2348,100 @@ do {
     "foreign_type": do {
       op_name :: lit
       { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "error", "foreign_type: no module registry available for: " + op_name) }
+    },
+    "export": do {
+      node :: ast_node(s.ast, node_idx)
+      children :: node_children(node)
+      if len(children) < 1 {
+        { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "export: missing value") }
+      } else {
+        do {
+          child_idx :: first_value(children)
+          child_node :: ast_node(s.ast, child_idx)
+          child_kind :: node_kind(child_node)
+          if child_kind != "assign" {
+            { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "warning", "export: expected an assignment for local export") }
+          } else {
+            do {
+              target_role :: child_role_index(s, child_kind, "target")
+              value_role :: child_role_index(s, child_kind, "value")
+              if target_role == null || value_role == null {
+                { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "export: assignment missing target/value") }
+              } else {
+                do {
+                  target_idx :: child_ref(s.ast, child_idx, target_role)
+                  value_idx :: child_ref(s.ast, child_idx, value_role)
+                  target_node :: ast_node(s.ast, target_idx)
+                  target_kind :: node_kind(target_node)
+                  name :: if target_kind == "var" {
+                    do {
+                      tp :: node_payload(target_node)
+                      if type_of(tp) == "str" { tp } else { get_or(tp, "name", "") }
+                    }
+                  } else {
+                    ""
+                  }
+                  export_name :: if name == "" { "export" } else { name }
+                  s_type :: while { result: s, remaining: ["T", "N"], names: ["T", "N"] } {
+                    [st]~> if is_empty(st.remaining) {
+                      { out: st.result }
+                    } else {
+                      do {
+                        tv :: first_value(st.remaining)
+                        fresh :: tc_fresh_meta(st.result)
+                        new_s :: tc_extend(fresh["state"], tv, meta_value(fresh.id))
+                        { state: { result: new_s, remaining: drop(st.remaining, 1), names: st.names } }
+                      }
+                    }
+                  }
+                  t_meta :: tc_lookup(s_type, "T")
+                  n_meta :: tc_lookup(s_type, "N")
+                  ann_type :: if t_meta == null || n_meta == null {
+                    funcs.make_type("type.unknown", {})
+                  } else {
+                    do {
+                      value_node :: ast_node(s.ast, value_idx)
+                      value_children :: node_children(value_node)
+                      params_idx :: at(value_children, 0)
+                      params_node :: ast_node(s.ast, params_idx)
+                      params_kind :: node_kind(params_node)
+                      param_children :: if params_kind == "paren" { node_children(params_node) } else { [params_idx] }
+                      pv_names :: while { result: [], remaining: param_children } {
+                        [st]~> if is_empty(st.remaining) {
+                          { out: st.result }
+                        } else {
+                          do {
+                            p_idx :: first_value(st.remaining)
+                            p_node :: ast_node(s.ast, p_idx)
+                            p_payload :: node_payload(p_node)
+                            p_name :: if node_kind(p_node) == "var" {
+                              if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
+                            } else {
+                              ""
+                            }
+                            { state: { result: [...st.result, p_name], remaining: drop(st.remaining, 1) } }
+                          }
+                        }
+                      }
+                      xs_name :: if len(pv_names) > 0 { at(pv_names, 0) } else { "xs" }
+                      n_name :: if len(pv_names) > 1 { at(pv_names, 1) } else { "n" }
+                      build_take_type(t_meta, n_meta, xs_name, n_name)
+                    }
+                  }
+                  val_result :: funcs.synth_node_(funcs, s, value_idx)
+                  unify_result :: unify(funcs, ann_type, val_result.typ, val_result["state"].metas)
+                  record :: set({}, export_name, ann_type)
+                  if unify_result.ok {
+                    { val: record, state: set(val_result["state"], "metas", unify_result.metas) }
+                  } else {
+                    { val: record, state: tc_add_diagnostic(set(val_result["state"], "metas", unify_result.metas), "error", "export: value does not match declared type for " + export_name) }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     _: { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "warning", "unknown judgment op: " + op_name) }
   }
