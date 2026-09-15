@@ -48,8 +48,8 @@ export transpose<T>: List(T) ~[Total]~> List(T) := (xs) ~> do {
             }
             pick
           }
-          cols:= []
-          c   := 0
+          cols := []
+          c := 0
           for pad in driver {
             do {
               col := do {

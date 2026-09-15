@@ -11,8 +11,8 @@ from "./concat.hnl" import concat
 --- -- => ["a", "-", "b", "-", "c"]
 ---
 export intercalate<T>: (List(T), T) ~[Total]~> List(T) := (xs, sep) ~> do {
-  out     := []
-  is_first:= true
+  out := []
+  is_first := true
   for x in xs {
     do {
       hv := if is_arr(x) { x } else { [x] }
