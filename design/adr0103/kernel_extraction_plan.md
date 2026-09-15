@@ -109,13 +109,14 @@ shrinks to the loop + the hardware boundary.
 The irreducible operations that touch the actual machine — physics + OS
 boundary. Three things, nothing more:
 
-| Op | What it does |
-|----|-------------|
-| `add`, `sub`, `mul`, `eq`, `lt`, ... | CPU arithmetic (ALU) |
-| `load`, `store` | Memory access (RAM) |
-| `ffi` | Host/OS syscall boundary |
+| Op                                   | What it does             |
+| ------------------------------------ | ------------------------ |
+| `add`, `sub`, `mul`, `eq`, `lt`, ... | CPU arithmetic (ALU)     |
+| `load`, `store`                      | Memory access (RAM)      |
+| `ffi`                                | Host/OS syscall boundary |
 
 Everything else is expressible in Handl compiled to bytecode:
+
 - `typeof` → `getfield "__tag__"`
 - `alloc`/`drop` → `ffi` to allocator, or `mmap` + Handl GC
 - `getfield`/`setfield`/`call`/`ret`/`jump`/`branch`/`make_closure`/
@@ -167,6 +168,7 @@ part of the exec model — Handl code on the VM, not permanent Rust.
 The following are currently native ops in Rust but move out:
 
 **To `exec_model.hnl`** (structural ops, part of the exec model):
+
 - `proj_child`, `proj_child_or`, `proj_rest` — AST recursion
 - `eval_block`, `eval_rec` — block/fixpoint evaluation
 - `proj_env`, `extend_env`, `closure` — environment management
@@ -175,6 +177,7 @@ The following are currently native ops in Rust but move out:
 - `call_op`, `import`, `export` — host/module dispatch
 
 **To `arrow_model.hnl`** (arrow-calculus combinators, not kernel):
+
 - `first`, `second`, `left`, `right`, `sum`, `product` — arrow combinators
 - `app` — arrow application (ArrowApply); calls `apply`
 - `tag` — Either routing
@@ -182,12 +185,15 @@ The following are currently native ops in Rust but move out:
 - `route_on_type` — type-tag dispatch
 
 **To `exec_model.hnl`** (exec semantics, not kernel):
+
 - `number_add` — tagged Number arithmetic
 
 **To `type_model.hnl`** (HoTT semantics, not kernel):
+
 - `transport` — path transport
 
 **To Handl library / test harness** (not kernel):
+
 - `is_pos`, `dec`, `inc`, `half_floor` — test helpers
 - `inc_fst`, `countdown_step`, `infinite_step` — test helpers
 - `assert`, `runtime_assert` — test/graduated infrastructure
@@ -200,6 +206,7 @@ are `Term` values (`Seq`, `Fst`, `Op`, ...). After this decision, they are
 **Handl functions** — data that compiles to bytecode.
 
 Example — eval scheme for `assign`:
+
 ```yaml
 - id: eval.assign
   node_kind: assign
@@ -318,6 +325,7 @@ Interprets the same tags as type/proof judgments:
 - etc.
 
 HoTT is the semantic foundation of the type model:
+
 - Types are spaces (fibrant types, universes).
 - Values are points (inhabitants of a space).
 - Equality is paths (`Path a b` is identity type `Id_A(a, b)`).
@@ -326,7 +334,7 @@ HoTT is the semantic foundation of the type model:
 - Refinement is a proposition over a type.
 - Grades are coeffects.
 
-The type model doesn't "also handle HoTT" — it *is* the HoTT
+The type model doesn't "also handle HoTT" — it _is_ the HoTT
 interpretation.
 
 ```handl
@@ -406,6 +414,7 @@ is compiled from Handl code (structural ops, eval schemes, models). The
 VM doesn't know what any tag means — it just executes bytecode.
 
 The dispatch is in the bytecode:
+
 ```
 ; eval(term, incoming, ctx, model):
 ;   tag = term["__tag__"]
@@ -502,8 +511,9 @@ The engines become the VM + exec model. No hardcoded semantics.
 ### Phase 5: Author the type model (HoTT)
 
 Author `type_model.hnl` with HoTT interpretations of all tags (kernel tags
-+ `Path`/`Equiv`/`CellId`/`Refine`/`Cobind`/etc.). Move the nbe
-typechecker's HoTT arms into `type_model.hnl`.
+
+- `Path`/`Equiv`/`CellId`/`Refine`/`Cobind`/etc.). Move the nbe
+  typechecker's HoTT arms into `type_model.hnl`.
 
 ### Phase 6: Remove the `Term` enum
 
@@ -526,6 +536,7 @@ loaded, validated, composed, and run inside the language.
 ### Phase 9: Testing and documentation
 
 **Rust (kernel + VM):**
+
 - 100% test coverage on all public Rust code (VM loop, hardware boundary,
   loader, `Term` as `serde_json::Value`).
 - Unit tests for every VM instruction.
@@ -533,6 +544,7 @@ loaded, validated, composed, and run inside the language.
 - Property tests for arithmetic, memory, ffi dispatch.
 
 **Handl (models):**
+
 - 100% test coverage on all models (`exec_model.hnl`, `arrow_model.hnl`,
   `type_model.hnl`, `meta_model.hnl`).
 - Every exported arrow has test cases covering its contract.
@@ -541,6 +553,7 @@ loaded, validated, composed, and run inside the language.
   (evaluation) and type model (checking) with the same source.
 
 **Documentation:**
+
 - Doc comments on all public Rust items (VM instructions, hardware
   boundary ops, loader, `Term` type).
 - Doc comments on all exported Handl arrows in every model.
@@ -604,7 +617,7 @@ loaded, validated, composed, and run inside the language.
 ## Open Questions
 
 1. **Performance** — dispatching through a model (Handl arrow) is slower
-   than Rust match arms. Bytecode/cranelift may need to *compile* the
+   than Rust match arms. Bytecode/cranelift may need to _compile_ the
    model's handlers into native code for performance. Is this acceptable,
    or do we keep hot-path match arms in Rust as an optimization?
 
@@ -623,6 +636,7 @@ loaded, validated, composed, and run inside the language.
 ## Files Affected
 
 ### Kernel (Rust — minimal)
+
 - `crates/plugin-engine/src/term.rs` — replace enum with
   `serde_json::Value`
 - `crates/plugin-engine/src/lib.rs` — evaluator (dispatch + recurse)
@@ -632,20 +646,24 @@ loaded, validated, composed, and run inside the language.
 - `crates/plugin-engine-typecheck-nbe/src/lib.rs` — thin dispatcher
 
 ### Models (Handl-authored data)
+
 - `project/design/adr0103/arrow_model.hnl` — arrow calculus (new)
 - `project/design/adr0103/exec_model.hnl` — exec model (update)
 - `project/design/adr0103/type_model.hnl` — type model, HoTT (new)
 - `project/design/adr0103/meta_model.hnl` — meta-model (new)
 
 ### Language analysis
+
 - `crates/handl-language/src/law_inference.rs` — update for JSON terms
 - `crates/handl-language/src/effects.rs` — update for JSON terms
 - `crates/handl-language/src/capabilities.rs` — update for JSON terms
 
 ### Refinement
+
 - `crates/plugin-ext-refinement/src/*` — update for JSON terms
 
 ### Tests
+
 - `crates/handl-runtime/tests/exec_model_parity.rs`
 - `crates/plugin-engine-exec-tree-walk/tests/path_transport.rs`
 - `crates/plugin-engine-exec-tree-walk/tests/rewrite_law.rs`

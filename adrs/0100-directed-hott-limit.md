@@ -153,14 +153,14 @@ The `ValueModel` uses `rewrite` to check that both sides of a `law` produce the 
 
 ### 4. The model family
 
-| Model | 0-cell target | 1-cell target | 2-cell target |
-|---|---|---|---|
-| `ValueModel` | sets | functions | equality of functions |
-| `TypeModel` | types and grades | type rules | equality of types |
-| `CompilerModel` | target types | target code | equivalence of target code |
-| `OptimizerModel` | `Term` | rewrites | 2-cells in the `Term` 2-category |
-| `TheoremProverModel` | propositions | proof rules | proof steps |
-| `DenotationalModel` | domains | continuous functions | domain equations |
+| Model                | 0-cell target    | 1-cell target        | 2-cell target                    |
+| -------------------- | ---------------- | -------------------- | -------------------------------- |
+| `ValueModel`         | sets             | functions            | equality of functions            |
+| `TypeModel`          | types and grades | type rules           | equality of types                |
+| `CompilerModel`      | target types     | target code          | equivalence of target code       |
+| `OptimizerModel`     | `Term`           | rewrites             | 2-cells in the `Term` 2-category |
+| `TheoremProverModel` | propositions     | proof rules          | proof steps                      |
+| `DenotationalModel`  | domains          | continuous functions | domain equations                 |
 
 All models are functors from the same `Language` 2-category. The difference is only the target 2-category.
 

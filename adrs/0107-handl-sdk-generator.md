@@ -15,7 +15,7 @@ Depends on the runtime-injected `ffi` package (`call`/`bind`/`errno`),
 
 Handl already calls C code at runtime through the `ffi` package
 (`crates/plugin-ffi/src/lib.rs`) and the `export` / `export ... :=` pattern
-already separates *ports* from *adapters* in the stdlib
+already separates _ports_ from _adapters_ in the stdlib
 (`handl-packages/time/index.hnl` is the port, `handl-packages/time-c` is the
 libc adapter).
 
@@ -46,12 +46,12 @@ primitives in `plugin-ffi`.
 
 ### 2. New crates
 
-| Crate | Responsibility |
-| --- | --- |
-| `crates/plugin-sdkgen` | Core generator. Defines the `SdkgenModule` IR, the `SdkgenBackend` trait, the abstract `Emitter` trait, and the public `generate` API. |
-| `crates/plugin-sdkgen-backend-c` | C backend. Parses C headers with libclang, computes target ABI, and produces `SdkgenModule` records. Build/authoring tool only. |
-| `crates/plugin-sdkgen-emitter-file` | File emitter. Writes the IR to `.hnl` files on disk. |
-| `crates/plugin-ext-sdkgen` | CLI extension. Wires `hnl sdkgen` into `host-cli`. |
+| Crate                               | Responsibility                                                                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/plugin-sdkgen`              | Core generator. Defines the `SdkgenModule` IR, the `SdkgenBackend` trait, the abstract `Emitter` trait, and the public `generate` API. |
+| `crates/plugin-sdkgen-backend-c`    | C backend. Parses C headers with libclang, computes target ABI, and produces `SdkgenModule` records. Build/authoring tool only.        |
+| `crates/plugin-sdkgen-emitter-file` | File emitter. Writes the IR to `.hnl` files on disk.                                                                                   |
+| `crates/plugin-ext-sdkgen`          | CLI extension. Wires `hnl sdkgen` into `host-cli`.                                                                                     |
 
 Package names follow the existing convention:
 `handl-plugin-sdkgen`, `handl-plugin-sdkgen-backend-c`, `handl-plugin-sdkgen-emitter-file`, `handl-plugin-ext-sdkgen`.
@@ -209,21 +209,21 @@ emitter for every generated adapter, not inferred.
 
 ### 8. Mappings to Handl
 
-| C concept | Port | Adapter descriptor | Notes |
-| --- | --- | --- | --- |
-| `int` / `int32_t` | `Int` | `i32` |  |
-| `long long` / `int64_t` | `Int` | `i64` |  |
-| `double` | `Float` | `f64` |  |
-| `char *` (NUL string) | `String` | `cstr` | rejects embedded NUL at runtime |
-| `const char *` (byte buffer) | `Bytes` | `cbytes` |  |
-| `void *` / opaque handle | `Handle` | `ptr` / `handle` | `handle` wrapped in a resource table entry |
-| `T *` (out param) | `Obj` / named record | `out_struct:{...}` | allocated by `ffi.call`; appears in return `.buf` |
-| `void *` + size (in) | `Bytes` | `in_buf` |  |
-| `struct` | `data` or `Obj` | `out_struct:{...}` | use `data` once desugaring is verified |
-| `enum` | `Int` + named constants | `i32` |  |
-| `typedef` | type alias | follows underlying |  |
-| `size_t` / `ssize_t` | `Nat` / `Int` | target-width integer | `libclang` provides target width |
-| variadic | fixed-arity wrapper | `...` not directly used | variadic C calls get fixed-arity Handl wrappers |
+| C concept                    | Port                    | Adapter descriptor      | Notes                                             |
+| ---------------------------- | ----------------------- | ----------------------- | ------------------------------------------------- |
+| `int` / `int32_t`            | `Int`                   | `i32`                   |                                                   |
+| `long long` / `int64_t`      | `Int`                   | `i64`                   |                                                   |
+| `double`                     | `Float`                 | `f64`                   |                                                   |
+| `char *` (NUL string)        | `String`                | `cstr`                  | rejects embedded NUL at runtime                   |
+| `const char *` (byte buffer) | `Bytes`                 | `cbytes`                |                                                   |
+| `void *` / opaque handle     | `Handle`                | `ptr` / `handle`        | `handle` wrapped in a resource table entry        |
+| `T *` (out param)            | `Obj` / named record    | `out_struct:{...}`      | allocated by `ffi.call`; appears in return `.buf` |
+| `void *` + size (in)         | `Bytes`                 | `in_buf`                |                                                   |
+| `struct`                     | `data` or `Obj`         | `out_struct:{...}`      | use `data` once desugaring is verified            |
+| `enum`                       | `Int` + named constants | `i32`                   |                                                   |
+| `typedef`                    | type alias              | follows underlying      |                                                   |
+| `size_t` / `ssize_t`         | `Nat` / `Int`           | target-width integer    | `libclang` provides target width                  |
+| variadic                     | fixed-arity wrapper     | `...` not directly used | variadic C calls get fixed-arity Handl wrappers   |
 
 `String` lives in the `string` package; `Bytes` is not part of `ffi` and may be supplied by a future `bytes` package. Where the header is ambiguous (e.g. a `char *` that is a byte buffer, or a
 pointer that is nullable), a per-library `.sdkgen.yaml` file provides
@@ -359,6 +359,7 @@ Moved to [ADR-0110 — Handl SDK Generator: Windows and macOS C Backend Support]
 - Bukkit / Spigot / Paper backend — see [ADR-0112](./0112-handl-sdkgen-bukkit-spigot-paper.md).
 
 Priority order (highest to lowest):
+
 1. WebIDL / JS (ADR-0113)
 2. JVM (ADR-0111)
 3. Bukkit / Spigot / Paper (ADR-0112)

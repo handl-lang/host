@@ -36,10 +36,10 @@ remains unchanged.
 - [x] Rewrite the temporary `plugin-engine-test::framework` Rust handls as
       pure-handl `assert.hnl`/`property.hnl`/etc. (per ADR-0092 target layout)
 - [~] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
-      `handl-packages/` and `examples/` (workflow + script added; currently
-      informational/continue-on-error because the gate is not green: fmt 1/172
-      canonical, lint 139/172 files with diagnostics, typecheck 141/172 files
-      with diagnostics, test 42 pass but 32 scanned modules have parse errors)
+  `handl-packages/` and `examples/` (workflow + script added; currently
+  informational/continue-on-error because the gate is not green: fmt 1/172
+  canonical, lint 139/172 files with diagnostics, typecheck 141/172 files
+  with diagnostics, test 42 pass but 32 scanned modules have parse errors)
 
 ## High priority — engine genericity and known issues
 

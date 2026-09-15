@@ -47,7 +47,7 @@ step in front of this mechanism without changing import semantics.
 
 ### Arrow-value sealing
 
-Exported arrow values carry `body` indices into the *module's* AST. Before
+Exported arrow values carry `body` indices into the _module's_ AST. Before
 bindings cross into the importer's scope, `EvalEngine::seal_module_value`
 (a defaulted trait hook — identity for engines whose values carry no
 ambient-eval references) lets the tree-walk engine register the module's
@@ -112,7 +112,7 @@ pending `loader.hnl` becoming the installed default transform (the
 `HandlLoader`/`install_loader` seam). The value model does not currently
 expose a host module as a first-class record, so declarations suffice.
 
-*Loader status update:* the parsed-AST cache in `HandlFunction::call`
+_Loader status update:_ the parsed-AST cache in `HandlFunction::call`
 (thread-local `AST_CACHE` + `EvalEngine::eval_shared` /
 `Runtime::eval_shared_with_globals`) removed the per-call re-parse that
 originally blocked the default install — measured ~7× faster on
@@ -160,7 +160,7 @@ strips them.
 - A module file is a single top-level statement (Pratt convention); its
   export is the root node's binding target (`x :: expr` → `x`). Multi-
   statement modules use a `do { ... }` root, which exports nothing.
-- `from "<name>" import` forms still name *modules* resolved via the
+- `from "<name>" import` forms still name _modules_ resolved via the
   `HandlModule`/`ModuleResolver` seam, not files — `hnl run` strips them
   when the specifier does not resolve to a file. Closing that gap
   (module-name fallback in `resolve_import`) is future work.

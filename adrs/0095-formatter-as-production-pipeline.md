@@ -33,7 +33,7 @@ shape ADR-0089's Context criticized:
    blank-line policy, trailing-NL) is baked into that walk. There are no
    stage boundaries and no seams. A style change is surgery on the chain.
 2. **The generic formatter capability is disconnected.** `crates/platform/
-   src/format.rs` ships `BasicFormatter` / `FormatBehavior` / `FormatRequest`
+src/format.rs` ships `BasicFormatter` / `FormatBehavior` / `FormatRequest`
    — ADR-0014's "generic core, pluggable rules" — but they key rules by
    `AstNode.kind`, operate on a single node payload, and are exercised only by
    echo-style unit tests. The real canonical formatter never goes through
@@ -65,11 +65,11 @@ surgery.
 
 ### Crate boundary
 
-| Crate                           | Role                                                                         | Fate                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `plugin-engine-fmt` (**core**)  | Format **engine**: the staged pipeline plus the `NodeEmitter` and `FormattingRule` seams. Language-generic (ADR-0044/ADR-0041). | Improved in place; hosts the pipeline and traits.    |
-| `plugin-ext-fmt` (**surface**)  | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` as thin wrappers + CLI contract + golden/idempotence tests. | Slimmed to a thin wrapper over the engine pipeline.  |
-| `crates/platform/format.rs`     | The generic `Format` capability (`BasicFormatter` / `FormatBehavior`).        | **Decision point below.**                             |
+| Crate                          | Role                                                                                                                                                                                                      | Fate                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `plugin-engine-fmt` (**core**) | Format **engine**: the staged pipeline plus the `NodeEmitter` and `FormattingRule` seams. Language-generic (ADR-0044/ADR-0041).                                                                           | Improved in place; hosts the pipeline and traits.   |
+| `plugin-ext-fmt` (**surface**) | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` as thin wrappers + CLI contract + golden/idempotence tests. | Slimmed to a thin wrapper over the engine pipeline. |
+| `crates/platform/format.rs`    | The generic `Format` capability (`BasicFormatter` / `FormatBehavior`).                                                                                                                                    | **Decision point below.**                           |
 
 ### Pipeline and stage contracts
 

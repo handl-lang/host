@@ -21,11 +21,11 @@ NBE typechecker (`lib.rs`), `handl-runtime` (tests), `plugin-engine`).
 
 Three Rust crates currently own typechecking:
 
-| Crate | Lines | Role |
-|-------|-------|------|
-| `plugin-engine-typecheck` | ~1,500 | `TypecheckEngine` trait + `bootstrap.rs` (scope/import checker) |
-| `plugin-engine-typecheck-nbe` | ~5,500 + 11,364 tests | NBE engine: AST walk, context, unification, dependent types |
-| `plugin-lib-lang-typecheck` | ~229 | Host function `typecheck.typecheck(lang, ast)` |
+| Crate                         | Lines                 | Role                                                            |
+| ----------------------------- | --------------------- | --------------------------------------------------------------- |
+| `plugin-engine-typecheck`     | ~1,500                | `TypecheckEngine` trait + `bootstrap.rs` (scope/import checker) |
+| `plugin-engine-typecheck-nbe` | ~5,500 + 11,364 tests | NBE engine: AST walk, context, unification, dependent types     |
+| `plugin-lib-lang-typecheck`   | ~229                  | Host function `typecheck.typecheck(lang, ast)`                  |
 
 `type_model.hnl` (817 lines, extended from 459) covers HoTT
 tag-to-judgment interpretation — now with 26 new judgment ops
@@ -91,17 +91,17 @@ Typechecking (Handl, compiled to bytecode):
 
 ### What moves to Handl
 
-| NBE component | Handl replacement |
-|---------------|-------------------|
-| `eval_type_scheme` (tag dispatch) | `type_model.hnl` `run` (exists) |
-| `eval_judgment` (~50 ops) | `typecheck_model.hnl` judgment ops |
-| `synth_node` / `check_node` (AST walk) | `typecheck_model.hnl` synth/check |
-| Γ management (extend, lookup, bind) | `typecheck_model.hnl` context ops |
-| Unification + metavariables | `typecheck_model.hnl` unify |
-| Dependent-type closures (Pi/Sigma/Forall/Vau) | `typecheck_model.hnl` |
-| Predicate evaluation | `typecheck_model.hnl` (or `predicate_model.hnl`) |
-| Totality checking | `totality_model.hnl` |
-| `bootstrap.rs` scope/import/export checks | `scope_model.hnl` |
+| NBE component                                 | Handl replacement                                |
+| --------------------------------------------- | ------------------------------------------------ |
+| `eval_type_scheme` (tag dispatch)             | `type_model.hnl` `run` (exists)                  |
+| `eval_judgment` (~50 ops)                     | `typecheck_model.hnl` judgment ops               |
+| `synth_node` / `check_node` (AST walk)        | `typecheck_model.hnl` synth/check                |
+| Γ management (extend, lookup, bind)           | `typecheck_model.hnl` context ops                |
+| Unification + metavariables                   | `typecheck_model.hnl` unify                      |
+| Dependent-type closures (Pi/Sigma/Forall/Vau) | `typecheck_model.hnl`                            |
+| Predicate evaluation                          | `typecheck_model.hnl` (or `predicate_model.hnl`) |
+| Totality checking                             | `totality_model.hnl`                             |
+| `bootstrap.rs` scope/import/export checks     | `scope_model.hnl`                                |
 
 ### Bootstrap solution
 

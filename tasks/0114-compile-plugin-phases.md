@@ -111,74 +111,89 @@ src/
 ## Implementation phases
 
 ### Phase 1 — Core contracts (`plugin-compile`)
+
 - `Compiler`, `CompilerConfig`, `CompilerOutput`, `CompilerInput`, `CompileError`.
 - `CompilerRegistry`.
 - 100% unit tests for all public traits and registry paths.
 
 ### Phase 2 — Value ABI
+
 - Define `ValueAbi` (tagged `serde_json::Value` layout, closure shape,
   pair/either representation).
 - Declare `helper_v2_*` signatures.
 - Tests for value layout and round-tripping.
 
 ### Phase 3 — JS primitive lowering
+
 - `Arr`, `Const`, `Op`, `Seq` -> JS.
 - `Deno` and `Node` targets; `Esm` and `CommonJs` formats.
 - Source maps for the generated subset.
 - Tests compare generated JS to expected strings.
 
 ### Phase 4 — JS control flow
+
 - `First`, `Choice`, `Loop`, `Iter`, `App`.
 - Tests for each combinator in isolation and in combination.
 
 ### Phase 5 — JS higher-order / proof terms
+
 - `Child`, `Handle`, `Rewrite`, `Path`, `Equiv`.
 - `Bun` and `Browser` targets, `Iife` and `Inline` formats.
 
 ### Phase 6 — JS source maps & debug
+
 - Full V3 source maps, `sourceMappingURL`, span mapping.
 - Error diagnostics that point back to Handl source.
 
 ### Phase 7 — JS security & fuzzing
+
 - Foreign descriptor validation.
 - `no_inline_foreign` guard.
 - No `eval` / `new Function` in generated JS.
 - Fuzz `Term` vs tree-walk / bytecode output.
 
 ### Phase 8 — LLVM primitive lowering
+
 - `Arr`, `Const`, `Op`, `Seq` -> `inkwell` IR.
 - `X86_64` and `AArch64` targets.
 - Mock `ObjectWriter` for tests.
 
 ### Phase 9 — LLVM control flow & higher-order
+
 - Same `Term` progression as JS.
 
 ### Phase 10 — LLVM object emission & debug info
+
 - Real `.o` emission with `inkwell::object`.
 - DWARF line tables via `inkwell::debug_info`.
 
 ### Phase 11 — LLVM performance
+
 - `PassManager` with `instcombine`, `reassociate`, `gvn`.
 - Benchmark vs tree-walk and bytecode.
 
 ### Phase 12 — Scalability
+
 - `rayon` parallel per-module compilation.
 - `plugin-exec-cache` incremental artifact cache.
 - Streaming output for large modules.
 
 ### Phase 13 — Security & robustness
+
 - Bounds checks on `Value` tags in LLVM.
 - `#![forbid(unsafe_code)]` in `plugin-compile` and `plugin-compile-js`;
   unsafe isolated to `rt/` and `emit/` in `plugin-compile-llvm`.
 - Graceful LLVM/inkwell build detection and helpful error messages.
 
 ### Phase 14 — Wiring & CLI
+
 - `plugin-ext-compile` dispatcher.
 - `host-cli` `hnl compile <target> <file> [--output] [--source-map] [--debug]`.
 - End-to-end dogfood: compile a small `.hnl` to JS and Deno, and to `.o` with a
   C harness.
 
 ### Phase 15 — Acceptance
+
 - `cargo test --workspace`, `cargo clippy`, `cargo fmt`.
 - `cargo llvm-cov` or `cargo tarpaulin` per new crate.
 
