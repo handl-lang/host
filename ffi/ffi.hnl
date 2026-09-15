@@ -22,10 +22,10 @@ export Errno := Int
 --- Opaque foreign handle (file descriptor, socket, pointer, etc.).
 export Handle := Obj
 
-op "call" : (String, String, Array, Array, String, Bool) ~[FFI]~> Value
-op "bind" : (String, String, Array, Array, String, Bool) ~[FFI]~> Value
-op "errno" : () ~[FFI]~> Errno
+call = (String, String, Array, Array, String, Bool) ~[(Op, FFI)]~> Value
+bind = (String, String, Array, Array, String, Bool) ~[(Op, FFI)]~> Value
+errno = () ~[(Op, FFI)]~> Errno
 
-export call := arr call
-export bind := arr bind
-export errno := arr errno
+export call
+export bind
+export errno

@@ -6,7 +6,6 @@
 
 from "type" import { Nat, Int }
 from "../time" import { Clock }
-from "../grade" import { Effect }
 from "ffi" import { FFI, Errno, call, errno }
 
 --- C `struct timespec`.
@@ -15,9 +14,9 @@ Timespec := {
   tv_nsec: Int
 }
 
-op "read" : (Int) ~[Clock]~> Nat
+read = (Int) ~[(Op, Clock, FFI)]~> Nat
 
-handler Clock = () ~> {
+Clock = () ~> {
   read: (clock_id) ~> do {
     r = call(
       "libc.so.6",
@@ -35,4 +34,4 @@ handler Clock = () ~> {
   }
 }
 
-export read_ns := arr read
+export read_ns := handle arr read with Clock
