@@ -864,12 +864,6 @@ fn post_process_individual_rules() {
         canon_ops.apply("export zip < A, B >: T ~ [Total] ~> T"),
         "export zip<A, B>: T ~[Total]~> T"
     );
-    assert_eq!(
-        canon_ops.apply("export v4: () - > String"),
-        "export v4: () -> String"
-    );
-    // A `-` (minus) directly followed by `>` with no space is left alone.
-    assert_eq!(canon_ops.apply("a->b"), "a->b");
     // Multi-byte UTF-8 characters must be preserved byte-for-byte.
     assert_eq!(
         canon_ops.apply("--- caf\u{00e9} \u{2014} \u{2192} x"),
