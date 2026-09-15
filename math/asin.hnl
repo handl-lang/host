@@ -1,0 +1,4 @@
+--- Asin arrow signature.
+from "type" import { Number }
+
+export Asin: Number ~[Total]~> Number

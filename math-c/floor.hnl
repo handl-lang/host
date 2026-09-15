@@ -1,0 +1,5 @@
+--- Native-backed implementation of floor.
+from "type" import { Number }
+from "../math/floor" import { Floor }
+
+export floor: Floor := (a) ~> math.floor(a)

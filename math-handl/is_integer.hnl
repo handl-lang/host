@@ -1,0 +1,5 @@
+--- Pure-handl implementation of is_integer.
+from "type" import { Number, Bool }
+from "../math/is_integer" import { IsInteger }
+
+export is_integer: IsInteger := (x) ~> do { x % 1 == 0 }

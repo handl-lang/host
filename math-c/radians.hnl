@@ -1,0 +1,5 @@
+--- Native-backed implementation of radians.
+from "type" import { Number }
+from "../math/radians" import { Radians }
+
+export radians: Radians := (a) ~> math.radians(a)

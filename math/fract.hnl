@@ -1,0 +1,4 @@
+--- Fract arrow signature.
+from "type" import { Number }
+
+export Fract: Number ~[Total]~> Number

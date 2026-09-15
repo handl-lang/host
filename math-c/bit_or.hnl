@@ -1,0 +1,5 @@
+--- Native-backed implementation of bit_or.
+from "type" import { Int }
+from "../math/bit_or" import { BitOr }
+
+export bit_or: BitOr := (a, b) ~> math.bit_or(a, b)

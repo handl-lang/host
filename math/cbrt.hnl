@@ -1,0 +1,4 @@
+--- Cbrt arrow signature.
+from "type" import { Number }
+
+export Cbrt: Number ~[Total]~> Number

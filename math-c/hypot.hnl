@@ -1,0 +1,5 @@
+--- Native-backed implementation of hypot.
+from "type" import { Number }
+from "../math/hypot" import { Hypot }
+
+export hypot: Hypot := (a, b) ~> math.hypot(a, b)

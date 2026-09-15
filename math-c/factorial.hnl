@@ -1,0 +1,5 @@
+--- Native-backed implementation of factorial.
+from "type" import { Number }
+from "../math/factorial" import { Factorial }
+
+export factorial: Factorial := (a) ~> math.factorial(a)

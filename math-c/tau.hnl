@@ -1,0 +1,5 @@
+--- Native-backed implementation of tau.
+from "type" import { Number, Unit }
+from "../math/tau" import { Tau }
+
+export tau: Tau := () ~> math.tau()

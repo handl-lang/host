@@ -1,0 +1,5 @@
+--- Pure-handl implementation of abs.
+from "type" import { Number }
+from "../math/abs" import { Abs }
+
+export abs: Abs := (x) ~> do { if x < 0 { 0 - x } else { x } }

@@ -1,0 +1,5 @@
+--- Pure-handl implementation of sub.
+from "type" import { Number }
+from "../math/sub" import { Sub }
+
+export sub: Sub := (a, b) ~> do { a - b }

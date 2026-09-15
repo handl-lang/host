@@ -1,0 +1,5 @@
+--- Native-backed implementation of asinh.
+from "type" import { Number }
+from "../math/asinh" import { Asinh }
+
+export asinh: Asinh := (a) ~> math.asinh(a)

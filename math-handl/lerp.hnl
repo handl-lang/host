@@ -1,0 +1,5 @@
+--- Pure-handl implementation of lerp.
+from "type" import { Number }
+from "../math/lerp" import { Lerp }
+
+export lerp: Lerp := (a, b, t) ~> do { a + (b - a) * t }

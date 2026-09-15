@@ -1,0 +1,5 @@
+--- Native-backed implementation of infinity.
+from "type" import { Number, Unit }
+from "../math/infinity" import { Infinity }
+
+export infinity: Infinity := () ~> math.infinity()

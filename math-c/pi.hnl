@@ -1,0 +1,5 @@
+--- Native-backed implementation of pi.
+from "type" import { Number, Unit }
+from "../math/pi" import { Pi }
+
+export pi: Pi := () ~> math.pi()

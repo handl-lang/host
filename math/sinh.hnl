@@ -1,0 +1,4 @@
+--- Sinh arrow signature.
+from "type" import { Number }
+
+export Sinh: Number ~[Total]~> Number

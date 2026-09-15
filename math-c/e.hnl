@@ -1,0 +1,5 @@
+--- Native-backed implementation of e.
+from "type" import { Number, Unit }
+from "../math/e" import { E }
+
+export e: E := () ~> math.e()

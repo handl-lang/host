@@ -1,0 +1,5 @@
+--- Native-backed implementation of atan2.
+from "type" import { Number }
+from "../math/atan2" import { Atan2 }
+
+export atan2: Atan2 := (a, b) ~> math.atan2(a, b)

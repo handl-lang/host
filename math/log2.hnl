@@ -1,0 +1,4 @@
+--- Log2 arrow signature.
+from "type" import { Number }
+
+export Log2: Number ~[Total]~> Number

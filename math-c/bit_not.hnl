@@ -1,0 +1,5 @@
+--- Native-backed implementation of bit_not.
+from "type" import { Int }
+from "../math/bit_not" import { BitNot }
+
+export bit_not: BitNot := (a) ~> math.bit_not(a)

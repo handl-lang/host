@@ -1,0 +1,5 @@
+--- Native-backed implementation of asin.
+from "type" import { Number }
+from "../math/asin" import { Asin }
+
+export asin: Asin := (a) ~> math.asin(a)

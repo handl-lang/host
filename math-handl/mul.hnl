@@ -1,0 +1,5 @@
+--- Pure-handl implementation of mul.
+from "type" import { Number }
+from "../math/mul" import { Mul }
+
+export mul: Mul := (a, b) ~> do { a * b }

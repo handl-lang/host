@@ -1,0 +1,5 @@
+--- Native-backed implementation of pow.
+from "type" import { Number }
+from "../math/pow" import { Pow }
+
+export pow: Pow := (a, b) ~> math.pow(a, b)

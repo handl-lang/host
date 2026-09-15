@@ -1,0 +1,5 @@
+--- Native-backed implementation of cos.
+from "type" import { Number }
+from "../math/cos" import { Cos }
+
+export cos: Cos := (a) ~> math.cos(a)

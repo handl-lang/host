@@ -1,0 +1,5 @@
+--- Pure-handl implementation of is_infinite.
+from "type" import { Number, Bool }
+from "../math/is_infinite" import { IsInfinite }
+
+export is_infinite: IsInfinite := (x) ~> do { if x == 0 { false } else { x == x + x } }

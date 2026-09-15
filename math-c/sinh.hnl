@@ -1,0 +1,5 @@
+--- Native-backed implementation of sinh.
+from "type" import { Number }
+from "../math/sinh" import { Sinh }
+
+export sinh: Sinh := (a) ~> math.sinh(a)

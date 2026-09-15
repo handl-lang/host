@@ -1,0 +1,4 @@
+--- Cos arrow signature.
+from "type" import { Number }
+
+export Cos: Number ~[Total]~> Number

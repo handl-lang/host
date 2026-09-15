@@ -1,0 +1,4 @@
+--- Lerp arrow signature.
+from "type" import { Number }
+
+export Lerp: (Number * Number * Number) ~[Total]~> Number
