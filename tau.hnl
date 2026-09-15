@@ -1,0 +1,4 @@
+--- Tau arrow signature.
+from "type" import { Number, Unit }
+
+export Tau: Unit ~[Total]~> Number

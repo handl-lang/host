@@ -1,0 +1,4 @@
+--- Pow arrow signature.
+from "type" import { Number }
+
+export Pow: (Number * Number) ~[Total]~> Number

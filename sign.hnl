@@ -1,0 +1,4 @@
+--- Sign arrow signature.
+from "type" import { Number }
+
+export Sign: Number ~[Total]~> Number

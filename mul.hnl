@@ -1,0 +1,4 @@
+--- Mul arrow signature.
+from "type" import { Number }
+
+export Mul: (Number * Number) ~[Total]~> Number
