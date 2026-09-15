@@ -1,0 +1,55 @@
+--- math-handl -- pure-handl implementations of math helpers that need no
+--- native numeric operations or recursion.
+---
+--- These functions are expressed using only comparisons, `if`, and the
+--- built-in `+`, `-`, and `%` operators.
+
+export min: (Number * Number) ~[Total]~> Number := (a, b) ~> do {
+  if a <= b { a } else { b }
+}
+
+export max: (Number * Number) ~[Total]~> Number := (a, b) ~> do {
+  if a >= b { a } else { b }
+}
+
+export abs: Number ~[Total]~> Number := (x) ~> do {
+  if x < 0 { 0 - x } else { x }
+}
+
+export clamp: (Number * Number * Number) ~[Total]~> Number := (x, lo, hi) ~> do {
+  if x < lo { lo } else {
+    if x > hi { hi } else { x }
+  }
+}
+
+export sign: Number ~[Total]~> Number := (x) ~> do {
+  if x > 0 { 1.0 } else {
+    if x < 0 { -1.0 } else { 0.0 }
+  }
+}
+
+export is_positive: Number ~[Total]~> Bool := (x) ~> do {
+  x > 0
+}
+
+export is_negative: Number ~[Total]~> Bool := (x) ~> do {
+  x < 0
+}
+
+export is_nan: Number ~[Total]~> Bool := (x) ~> do {
+  x != x
+}
+
+export is_infinite: Number ~[Total]~> Bool := (x) ~> do {
+  if x == 0 { false } else { x == x + x }
+}
+
+export is_finite: Number ~[Total]~> Bool := (x) ~> do {
+  if is_nan(x) { false } else {
+    if is_infinite(x) { false } else { true }
+  }
+}
+
+export is_integer: Number ~[Total]~> Bool := (x) ~> do {
+  x % 1 == 0
+}
