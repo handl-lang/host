@@ -7,5 +7,5 @@ op "crypto.sha256" : Value -> String
 op "crypto.md5" : Value -> String
   guarantee: IsHex(output)
 
-handl "crypto.sha256" = rust_crypto_sha256
-handl "crypto.md5" = rust_crypto_md5
+handle "crypto.sha256" with rust_crypto_sha256
+handle "crypto.md5" with rust_crypto_md5

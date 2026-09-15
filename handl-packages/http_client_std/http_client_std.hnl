@@ -27,10 +27,10 @@ op "http.head" : String -> Value
 op "http.request" : String -> Value
   guarantee: True
 
-handl "http.get" = rust_http_get
-handl "http.post" = rust_http_post
-handl "http.put" = rust_http_put
-handl "http.patch" = rust_http_patch
-handl "http.delete" = rust_http_delete
-handl "http.head" = rust_http_head
-handl "http.request" = rust_http_request
+handle "http.get" with rust_http_get
+handle "http.post" with rust_http_post
+handle "http.put" with rust_http_put
+handle "http.patch" with rust_http_patch
+handle "http.delete" with rust_http_delete
+handle "http.head" with rust_http_head
+handle "http.request" with rust_http_request

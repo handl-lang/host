@@ -11,24 +11,24 @@ from "collections/hash_map" import * as hash_map
 export Command := Grade
 
 --- invoke a registered command by name with arguments.
--- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): effect row
 export command: (String, Array) ~[1]~> Value
 
 --- register a named command implementation.
--- TODO(n-dim): was ~[(Op, Command)]~>
--- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): effect row
+-- TODO(n-dim): effect row
 export register: (String, (Array) ~[1]~> Value) ~[1]~> ()
 
 --- test whether a named command is registered.
--- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): effect row
 export has: (String) ~[1]~> Bool
 
 --- remove a named command from the registry.
--- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): effect row
 export unregister: (String) ~[1]~> ()
 
 --- list the names of registered commands.
--- TODO(n-dim): was ~[(Op, Command)]~>
+-- TODO(n-dim): effect row
 export names: () ~[1]~> Array
 
 --- the default `Command` handler: an ordinary arrow returning a record of operations.

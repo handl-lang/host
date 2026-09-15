@@ -7,5 +7,5 @@ op "hex.encode" : String -> String
 op "hex.decode" : String -> String
   guarantee: True
 
-handl "hex.encode" = rust_hex_encode
-handl "hex.decode" = rust_hex_decode
+handle "hex.encode" with rust_hex_encode
+handle "hex.decode" with rust_hex_decode

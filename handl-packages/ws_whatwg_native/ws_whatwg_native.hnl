@@ -24,8 +24,8 @@ op "ws_whatwg_native.recv": Value -> Value
   guarantee: True
 op "ws_whatwg_native.close": Value -> Value
   guarantee: True
-handl "ws_whatwg_native.ws_whatwg_native" = rust_ws_whatwg_native_name
-handl "ws_whatwg_native.connect" = rust_ws_whatwg_native_connect
-handl "ws_whatwg_native.send" = rust_ws_whatwg_native_send
-handl "ws_whatwg_native.recv" = rust_ws_whatwg_native_recv
-handl "ws_whatwg_native.close" = rust_ws_whatwg_native_close
+handle "ws_whatwg_native.ws_whatwg_native" with rust_ws_whatwg_native_name
+handle "ws_whatwg_native.connect" with rust_ws_whatwg_native_connect
+handle "ws_whatwg_native.send" with rust_ws_whatwg_native_send
+handle "ws_whatwg_native.recv" with rust_ws_whatwg_native_recv
+handle "ws_whatwg_native.close" with rust_ws_whatwg_native_close

@@ -70,21 +70,21 @@ op "char.chars" : String -> (List String)
 op "char.from_chars" : (List String) -> String
   guarantee: True
 
-handl "char.is_whitespace" = rust_char_is_whitespace
-handl "char.is_alpha" = rust_char_is_alpha
-handl "char.is_numeric" = rust_char_is_numeric
-handl "char.is_alnum" = rust_char_is_alnum
-handl "char.is_uppercase" = rust_char_is_uppercase
-handl "char.is_lowercase" = rust_char_is_lowercase
-handl "char.to_upper" = rust_char_to_upper
-handl "char.to_lower" = rust_char_to_lower
-handl "char.to_title" = rust_char_to_title
-handl "char.code_point" = rust_char_code_point
-handl "char.from_code_point" = rust_char_from_code_point
-handl "char.at" = rust_char_at
-handl "char.slice" = rust_char_slice
-handl "char.length" = rust_char_length
-handl "char.concat" = rust_char_concat
-handl "char.code_point_at" = rust_char_code_point_at
-handl "char.chars" = rust_char_chars
-handl "char.from_chars" = rust_char_from_chars
+handle "char.is_whitespace" with rust_char_is_whitespace
+handle "char.is_alpha" with rust_char_is_alpha
+handle "char.is_numeric" with rust_char_is_numeric
+handle "char.is_alnum" with rust_char_is_alnum
+handle "char.is_uppercase" with rust_char_is_uppercase
+handle "char.is_lowercase" with rust_char_is_lowercase
+handle "char.to_upper" with rust_char_to_upper
+handle "char.to_lower" with rust_char_to_lower
+handle "char.to_title" with rust_char_to_title
+handle "char.code_point" with rust_char_code_point
+handle "char.from_code_point" with rust_char_from_code_point
+handle "char.at" with rust_char_at
+handle "char.slice" with rust_char_slice
+handle "char.length" with rust_char_length
+handle "char.concat" with rust_char_concat
+handle "char.code_point_at" with rust_char_code_point_at
+handle "char.chars" with rust_char_chars
+handle "char.from_chars" with rust_char_from_chars

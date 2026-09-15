@@ -4,7 +4,7 @@ from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/time" import { Clock, Difftime, Tzset, Dysize, TimerDelete, TimerGetoverrun }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export clock: Clock := () ~[1]~> do {
   r = call("libc.so.6", "clock", [], [], "i64", false)
   if r < 0 {
@@ -14,7 +14,7 @@ export clock: Clock := () ~[1]~> do {
   }
 }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export difftime: Difftime := (__time1, __time0) ~[1]~> do {
   r = call("libc.so.6", "difftime", [__time1, __time0], ["i64", "i64"], "f64", false)
   if r < 0 {
@@ -24,13 +24,13 @@ export difftime: Difftime := (__time1, __time0) ~[1]~> do {
   }
 }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export tzset: Tzset := () ~[1]~> do {
   r = call("libc.so.6", "tzset", [], [], "void", false)
   ok(null)
 }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export dysize: Dysize := (__year) ~[1]~> do {
   r = call("libc.so.6", "dysize", [__year], ["i32"], "i32", false)
   if r < 0 {
@@ -40,7 +40,7 @@ export dysize: Dysize := (__year) ~[1]~> do {
   }
 }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export timer_delete: TimerDelete := (__timerid) ~[1]~> do {
   r = call("libc.so.6", "timer_delete", [__timerid], ["ptr"], "i32", false)
   if r < 0 {
@@ -50,7 +50,7 @@ export timer_delete: TimerDelete := (__timerid) ~[1]~> do {
   }
 }
 
--- TODO(n-dim): was ~[FFI]~>
+-- TODO(n-dim): effect row
 export timer_getoverrun: TimerGetoverrun := (__timerid) ~[1]~> do {
   r = call("libc.so.6", "timer_getoverrun", [__timerid], ["ptr"], "i32", false)
   if r < 0 {

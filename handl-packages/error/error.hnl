@@ -33,5 +33,5 @@ op "error.raise" : Value -> a
 --- error.try -- call a thunk and return a `result` tag.
 op "error.try" : Fn -> Value
 
-handl "error.raise" = rust_error_raise
-handl "error.try" = rust_error_try
+handle "error.raise" with rust_error_raise
+handle "error.try" with rust_error_try

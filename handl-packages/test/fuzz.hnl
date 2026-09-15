@@ -10,7 +10,7 @@ cap "fuzz.run"
 
 op "fuzz.run" : (Function, Number, Number) -> Value
 
-handl "fuzz.run" = run
+handle "fuzz.run" with run
 
 do {
   generate_inputs :: [f, s, i] ~> {

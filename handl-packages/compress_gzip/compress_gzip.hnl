@@ -7,5 +7,5 @@ op "gzip.compress" : String -> String
 op "gzip.decompress" : String -> String
   guarantee: True
 
-handl "gzip.compress" = rust_gzip_compress
-handl "gzip.decompress" = rust_gzip_decompress
+handle "gzip.compress" with rust_gzip_compress
+handle "gzip.decompress" with rust_gzip_decompress

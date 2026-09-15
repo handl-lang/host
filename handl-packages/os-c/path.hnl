@@ -19,7 +19,7 @@ export join: (List(String)) ~> String := (parts) ~> str.join(parts, "/")
 --- @details
 --- Currently this is a placeholder: it joins the components. Realpath
 --- semantics will be added once the FFI supports C-allocated output.
--- TODO(n-dim): was ~[Effect]~>
+-- TODO(n-dim): effect row
 export resolve: (List(String)) ~[1]~> String := (parts) ~> str.join(parts, "/")
 
 --- Return the last component of a path.

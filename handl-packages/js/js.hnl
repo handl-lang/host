@@ -29,7 +29,7 @@ export JsError := Obj
 --- @param {ret_kind} - return kind descriptor
 --- @param {throws?} - if `true`, thrown exceptions are treated as errors
 --- @returns {Value - the JS call's return, unmarshalled from `ret_kind`}
--- TODO(n-dim): was ~[JS]~>
+-- TODO(n-dim): effect row
 export call: (String, String, Array, Array, String, Bool) ~[1]~> Value
 
 --- Read the most recent JS exception.
@@ -38,5 +38,5 @@ export call: (String, String, Array, Array, String, Bool) ~[1]~> Value
 --- call whose error is being checked, before any other operation can
 --- overwrite the stored exception.
 --- @returns {JsError - the current JS exception}
--- TODO(n-dim): was ~[JS]~>
+-- TODO(n-dim): effect row
 export error: () ~[1]~> JsError

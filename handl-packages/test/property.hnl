@@ -10,7 +10,7 @@ cap "property.for_all"
 
 op "property.for_all" : (Function, Number, Number) -> Value
 
-handl "property.for_all" = for_all
+handle "property.for_all" with for_all
 
 do {
   generate_inputs :: [f, s, i] ~> {

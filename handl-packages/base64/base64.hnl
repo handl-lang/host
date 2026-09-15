@@ -7,5 +7,5 @@ op "base64.encode" : String -> String
 op "base64.decode" : String -> String
   guarantee: True
 
-handl "base64.encode" = rust_base64_encode
-handl "base64.decode" = rust_base64_decode
+handle "base64.encode" with rust_base64_encode
+handle "base64.decode" with rust_base64_decode

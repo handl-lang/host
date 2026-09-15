@@ -20,4 +20,4 @@
 cap "parse.parse"
 op "parse.parse" : (String * Value) -> Value
   guarantee: True
-handl "parse.parse" = rust_parse_parse
+handle "parse.parse" with rust_parse_parse

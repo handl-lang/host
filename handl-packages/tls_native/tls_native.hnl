@@ -47,15 +47,15 @@ op "tls.close_conn": Value -> Value
 op "tls.close_listener": Value -> Value
   guarantee: True
 
-handl "tls.version" = rust_tls_version
-handl "tls.generate_self_signed" = rust_tls_generate_self_signed
-handl "tls.parse_cert" = rust_tls_parse_cert
-handl "tls.fingerprint" = rust_tls_fingerprint
-handl "tls.client_config" = rust_tls_client_config
-handl "tls.server_config" = rust_tls_server_config
-handl "tls.connect" = rust_tls_connect
-handl "tls.accept" = rust_tls_accept
-handl "tls.read" = rust_tls_read
-handl "tls.write" = rust_tls_write
-handl "tls.close_conn" = rust_tls_close_conn
-handl "tls.close_listener" = rust_tls_close_listener
+handle "tls.version" with rust_tls_version
+handle "tls.generate_self_signed" with rust_tls_generate_self_signed
+handle "tls.parse_cert" with rust_tls_parse_cert
+handle "tls.fingerprint" with rust_tls_fingerprint
+handle "tls.client_config" with rust_tls_client_config
+handle "tls.server_config" with rust_tls_server_config
+handle "tls.connect" with rust_tls_connect
+handle "tls.accept" with rust_tls_accept
+handle "tls.read" with rust_tls_read
+handle "tls.write" with rust_tls_write
+handle "tls.close_conn" with rust_tls_close_conn
+handle "tls.close_listener" with rust_tls_close_listener

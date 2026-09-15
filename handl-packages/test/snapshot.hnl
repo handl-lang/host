@@ -13,8 +13,8 @@ op "snapshot.format" : Value -> String
 
 op "snapshot.match" : (String, Value, Value) -> Value
 
-handl "snapshot.format" = format
-handl "snapshot.match" = match
+handle "snapshot.format" with format
+handle "snapshot.match" with match
 
 {
   format: [v] ~> serialize(v, "json"),

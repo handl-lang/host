@@ -79,23 +79,23 @@ op "cmp.min_by" : (Function, Array) -> Value
 op "cmp.max_by" : (Function, Array) -> Value
   guarantee: True
 
-handl "cmp.eq" = rust_cmp_eq
-handl "cmp.ne" = rust_cmp_ne
-handl "cmp.lt" = rust_cmp_lt
-handl "cmp.le" = rust_cmp_le
-handl "cmp.gt" = rust_cmp_gt
-handl "cmp.ge" = rust_cmp_ge
-handl "cmp.compare" = rust_cmp_compare
-handl "cmp.min" = rust_cmp_min
-handl "cmp.max" = rust_cmp_max
-handl "cmp.clamp" = rust_cmp_clamp
-handl "cmp.between" = rust_cmp_between
-handl "cmp.in_range" = rust_cmp_in_range
-handl "cmp.is_sorted" = rust_cmp_is_sorted
-handl "cmp.is_sorted_desc" = rust_cmp_is_sorted_desc
-handl "cmp.sort" = rust_cmp_sort
-handl "cmp.sort_desc" = rust_cmp_sort_desc
-handl "cmp.sort_by" = rust_cmp_sort_by
-handl "cmp.sort_by_desc" = rust_cmp_sort_by_desc
-handl "cmp.min_by" = rust_cmp_min_by
-handl "cmp.max_by" = rust_cmp_max_by
+handle "cmp.eq" with rust_cmp_eq
+handle "cmp.ne" with rust_cmp_ne
+handle "cmp.lt" with rust_cmp_lt
+handle "cmp.le" with rust_cmp_le
+handle "cmp.gt" with rust_cmp_gt
+handle "cmp.ge" with rust_cmp_ge
+handle "cmp.compare" with rust_cmp_compare
+handle "cmp.min" with rust_cmp_min
+handle "cmp.max" with rust_cmp_max
+handle "cmp.clamp" with rust_cmp_clamp
+handle "cmp.between" with rust_cmp_between
+handle "cmp.in_range" with rust_cmp_in_range
+handle "cmp.is_sorted" with rust_cmp_is_sorted
+handle "cmp.is_sorted_desc" with rust_cmp_is_sorted_desc
+handle "cmp.sort" with rust_cmp_sort
+handle "cmp.sort_desc" with rust_cmp_sort_desc
+handle "cmp.sort_by" with rust_cmp_sort_by
+handle "cmp.sort_by_desc" with rust_cmp_sort_by_desc
+handle "cmp.min_by" with rust_cmp_min_by
+handle "cmp.max_by" with rust_cmp_max_by

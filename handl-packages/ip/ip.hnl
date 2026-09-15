@@ -55,17 +55,17 @@ op "ip.socket.parse" : String -> Value
 op "ip.socket.format" : Value -> String
   guarantee: IsString(output)
 
-handl "ip.parse" = rust_ip_parse
-handl "ip.format" = rust_ip_format
-handl "ip.is_loopback" = rust_ip_is_loopback
-handl "ip.is_multicast" = rust_ip_is_multicast
-handl "ip.is_private" = rust_ip_is_private
-handl "ip.is_link_local" = rust_ip_is_link_local
-handl "ip.is_unspecified" = rust_ip_is_unspecified
-handl "ip.cidr.parse" = rust_ip_cidr_parse
-handl "ip.cidr.format" = rust_ip_cidr_format
-handl "ip.cidr.contains" = rust_ip_cidr_contains
-handl "ip.cidr.network" = rust_ip_cidr_network
-handl "ip.cidr.broadcast" = rust_ip_cidr_broadcast
-handl "ip.socket.parse" = rust_ip_socket_parse
-handl "ip.socket.format" = rust_ip_socket_format
+handle "ip.parse" with rust_ip_parse
+handle "ip.format" with rust_ip_format
+handle "ip.is_loopback" with rust_ip_is_loopback
+handle "ip.is_multicast" with rust_ip_is_multicast
+handle "ip.is_private" with rust_ip_is_private
+handle "ip.is_link_local" with rust_ip_is_link_local
+handle "ip.is_unspecified" with rust_ip_is_unspecified
+handle "ip.cidr.parse" with rust_ip_cidr_parse
+handle "ip.cidr.format" with rust_ip_cidr_format
+handle "ip.cidr.contains" with rust_ip_cidr_contains
+handle "ip.cidr.network" with rust_ip_cidr_network
+handle "ip.cidr.broadcast" with rust_ip_cidr_broadcast
+handle "ip.socket.parse" with rust_ip_socket_parse
+handle "ip.socket.format" with rust_ip_socket_format

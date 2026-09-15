@@ -8,10 +8,10 @@ from "../time-c" import { now_ms }
 
 --- Current wall-clock time as epoch milliseconds.
 --- @returns {Number - milliseconds since the Unix epoch}
--- TODO(n-dim): was ~[Effect]~>
+-- TODO(n-dim): effect row
 export now: () ~[1]~> Number := () ~> now_ms()
 
 --- Current wall-clock time as epoch seconds.
 --- @returns {Number - seconds since the Unix epoch}
--- TODO(n-dim): was ~[Effect]~>
+-- TODO(n-dim): effect row
 export epoch: () ~[1]~> Number := () ~> now_ms() / 1000

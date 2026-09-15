@@ -7,5 +7,5 @@ op "url_rfc.parse" : String -> Value
 op "url_rfc.url_rfc" : () -> Value
   guarantee: True
 
-handl "url_rfc.parse" = rust_url_rfc_parse
-handl "url_rfc.url_rfc" = rust_url_rfc_name
+handle "url_rfc.parse" with rust_url_rfc_parse
+handle "url_rfc.url_rfc" with rust_url_rfc_name

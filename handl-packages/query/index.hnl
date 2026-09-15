@@ -11,41 +11,51 @@ from "collections/hash_map" import * as hash_map
 export Query := Grade
 
 --- call a registered query by name with arguments.
--- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): effect row
 export query: (String, Array) ~[1]~> Value
 
 --- register a named query implementation.
--- TODO(n-dim): was ~[(Op, Query)]~>
--- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): effect row
+-- TODO(n-dim): effect row
 export register: (String, (Array) ~[1]~> Value) ~[1]~> ()
 
 --- test whether a named query is registered.
--- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): effect row
 export has: (String) ~[1]~> Bool
 
 --- remove a named query from the registry.
--- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): effect row
 export unregister: (String) ~[1]~> ()
 
 --- list the names of registered queries.
--- TODO(n-dim): was ~[(Op, Query)]~>
+-- TODO(n-dim): effect row
 export names: () ~[1]~> Array
 
 --- the default `Query` handler: an ordinary arrow returning a record of operations.
+query_impl = (registry, name, args) ~> do {
+  if hash_map.has(registry, name) {
+    error.raise("query found but invocation not yet implemented")
+  } else {
+    error.raise("query not found")
+  }
+}
+
+register_impl = (registry, name, handler) ~> do {
+  error.raise("query register not yet implemented")
+}
+
+has_impl = (registry, name) ~> hash_map.has(registry, name)
+
+unregister_impl = (registry, name) ~> do {
+  error.raise("query unregister not yet implemented")
+}
+
+names_impl = (registry) ~> hash_map.keys(registry)
+
 export default_handler := (registry) ~> {
-  query: (name, args) ~> do {
-    if hash_map.has(registry, name) {
-      error.raise("query found but invocation not yet implemented")
-    } else {
-      error.raise("query not found")
-    }
-  },
-  register: (name, handler) ~> do {
-    error.raise("query register not yet implemented")
-  },
-  has: (name) ~> hash_map.has(registry, name),
-  unregister: (name) ~> do {
-    error.raise("query unregister not yet implemented")
-  },
-  names: () ~> hash_map.keys(registry)
+  query: (name, args) ~> query_impl(registry, name, args),
+  register: (name, handler) ~> register_impl(registry, name, handler),
+  has: (name) ~> has_impl(registry, name),
+  unregister: (name) ~> unregister_impl(registry, name),
+  names: () ~> names_impl(registry)
 }

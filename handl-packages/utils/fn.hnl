@@ -106,25 +106,25 @@ op "combinators.unless" : (Value * Value * Value) -> Value
   guarantee: True
 op "combinators.converge" : (Value * Value * Value) -> Value
   guarantee: True
-handl "combinators.pipe" = rust_fn_pipe
-handl "combinators.flow" = rust_fn_flow
-handl "combinators.compose" = rust_fn_compose
-handl "combinators.fanout" = rust_fn_fanout
-handl "combinators.fanout_fn" = rust_fn_fanout_fn
-handl "combinators.choice" = rust_fn_choice
-handl "combinators.apply" = rust_fn_apply
-handl "combinators.flat_map" = rust_fn_flat_map
-handl "combinators.find" = rust_fn_find
-handl "combinators.some" = rust_fn_some
-handl "combinators.every" = rust_fn_every
-handl "combinators.group_by" = rust_fn_group_by
-handl "combinators.partition" = rust_fn_partition
-handl "combinators.count_by" = rust_fn_count_by
-handl "combinators.tap" = rust_fn_tap
-handl "combinators.match" = rust_fn_match
-handl "combinators.constantly" = rust_fn_constantly
-handl "combinators.flip" = rust_fn_flip
-handl "combinators.partial" = rust_fn_partial
-handl "combinators.when" = rust_fn_when
-handl "combinators.unless" = rust_fn_unless
-handl "combinators.converge" = rust_fn_converge
+handle "combinators.pipe" with rust_fn_pipe
+handle "combinators.flow" with rust_fn_flow
+handle "combinators.compose" with rust_fn_compose
+handle "combinators.fanout" with rust_fn_fanout
+handle "combinators.fanout_fn" with rust_fn_fanout_fn
+handle "combinators.choice" with rust_fn_choice
+handle "combinators.apply" with rust_fn_apply
+handle "combinators.flat_map" with rust_fn_flat_map
+handle "combinators.find" with rust_fn_find
+handle "combinators.some" with rust_fn_some
+handle "combinators.every" with rust_fn_every
+handle "combinators.group_by" with rust_fn_group_by
+handle "combinators.partition" with rust_fn_partition
+handle "combinators.count_by" with rust_fn_count_by
+handle "combinators.tap" with rust_fn_tap
+handle "combinators.match" with rust_fn_match
+handle "combinators.constantly" with rust_fn_constantly
+handle "combinators.flip" with rust_fn_flip
+handle "combinators.partial" with rust_fn_partial
+handle "combinators.when" with rust_fn_when
+handle "combinators.unless" with rust_fn_unless
+handle "combinators.converge" with rust_fn_converge

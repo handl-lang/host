@@ -82,19 +82,19 @@ op "option.and" : (Value * Value) -> Value
   guarantee: True
 op "option.xor" : (Value * Value) -> Value
   guarantee: True
-handl "option.some" = rust_option_some
-handl "option.none" = rust_option_none
-handl "option.is_some" = rust_option_is_some
-handl "option.is_none" = rust_option_is_none
-handl "option.unwrap" = rust_option_unwrap
-handl "option.unwrap_or" = rust_option_unwrap_or
-handl "option.unwrap_or_else" = rust_option_unwrap_or_else
-handl "option.map" = rust_option_map
-handl "option.flat_map" = rust_option_flat_map
-handl "option.and_then" = rust_option_and_then
-handl "option.filter" = rust_option_filter
-handl "option.map_or" = rust_option_map_or
-handl "option.or" = rust_option_or
-handl "option.or_else" = rust_option_or_else
-handl "option.and" = rust_option_and
-handl "option.xor" = rust_option_xor
+handle "option.some" with rust_option_some
+handle "option.none" with rust_option_none
+handle "option.is_some" with rust_option_is_some
+handle "option.is_none" with rust_option_is_none
+handle "option.unwrap" with rust_option_unwrap
+handle "option.unwrap_or" with rust_option_unwrap_or
+handle "option.unwrap_or_else" with rust_option_unwrap_or_else
+handle "option.map" with rust_option_map
+handle "option.flat_map" with rust_option_flat_map
+handle "option.and_then" with rust_option_and_then
+handle "option.filter" with rust_option_filter
+handle "option.map_or" with rust_option_map_or
+handle "option.or" with rust_option_or
+handle "option.or_else" with rust_option_or_else
+handle "option.and" with rust_option_and
+handle "option.xor" with rust_option_xor

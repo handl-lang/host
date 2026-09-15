@@ -7,25 +7,25 @@ from "result" import { Result }
 export pid_t := Int
 
 --- C: clock_t (void)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export Clock: () ~[1]~> Result<Int, Errno>
 
 --- C: double (time_t, time_t)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export Difftime: (Int, Int) ~[1]~> Result<Float, Errno>
 
 --- C: void (void)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export Tzset: () ~[1]~> Result < (), Errno >
 
 --- C: int (int)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export Dysize: (Int) ~[1]~> Result<Int, Errno>
 
 --- C: int (timer_t)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export TimerDelete: (Handle) ~[1]~> Result<Int, Errno>
 
 --- C: int (timer_t)
--- TODO(n-dim): was ~[(FFI)]~>
+-- TODO(n-dim): effect row
 export TimerGetoverrun: (Handle) ~[1]~> Result<Int, Errno>

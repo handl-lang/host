@@ -12,7 +12,7 @@ cap "test.run"
 
 op "test.run" : Array -> Value
 
-handl "test.run" = run
+handle "test.run" with run
 
 do {
   run_case :: [c, t, i, results, passed, failed] ~> {
