@@ -997,10 +997,12 @@
           - !Child
             role: "name"
     source: Native
-# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
-# Produces an `Arrow` tagged value with `inputs`, `grade`, and `output` fields.
-- id: eval.graded_arrow
-  node_kind: graded_arrow
+# `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
+# Placeholder: mints an `Arrow` record using the legacy `inputs`/`grade`/
+# `output` field names so `arrow_field` in `op`/`handler` keeps working
+# until Phase 1 updates the engine `Term` to N-dimensional arrows.
+- id: eval.dim_arrow
+  node_kind: dim_arrow
   scheme: !Op
     name: "tag.construct"
     args:
@@ -1013,19 +1015,19 @@
           - !Arr
             value: "inputs"
           - !Child
-            role: "inputs"
+            role: "source"
           - !Arr
             value: "grade"
           - !Child
-            role: "grade"
+            role: "dim"
           - !Arr
             value: "output"
           - !Child
-            role: "output"
+            role: "target"
     source: Native
 # `op` — graded operation declaration; a generating 1-cell.
 # The `signature` child is an arrow expression (`function` for ungraded,
-# `graded_arrow` for graded). The `arrow_field` native op extracts the
+# `dim_arrow` for graded). The `arrow_field` native op extracts the
 # `inputs`, `grade`, and `output` fields from either shape.
 - id: eval.op
   node_kind: op

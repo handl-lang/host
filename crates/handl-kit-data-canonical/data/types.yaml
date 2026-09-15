@@ -1916,10 +1916,10 @@
         source: Judgment
         lit: 1
 
-# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
-# Typed as `type.unknown` until the type system supports grade-indexed arrows.
-- id: type.graded_arrow
-  node_kind: graded_arrow
+# `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
+# Typed as `type.unknown` until the type system supports N-dimensional arrows.
+- id: type.dim_arrow
+  node_kind: dim_arrow
   synth: !Op
     name: construct
     args: []

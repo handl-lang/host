@@ -416,13 +416,13 @@
       - params
       - body
     type: object
-# `graded_arrow` — ternary graded arrow `inputs ~ grade ~> output`.
-- id: ast.graded_arrow
-  node_kind: graded_arrow
+# `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
+- id: ast.dim_arrow
+  node_kind: dim_arrow
   children:
-    - role: inputs
-    - role: grade
-    - role: output
+    - role: source
+    - role: dim
+    - role: target
   payload_schema:
     properties:
       children:
@@ -876,7 +876,7 @@
 #   0. `name`      — the operation head: `var(name)` or `call(name, params...)`
 #                    for the parenthesized constraint form `op add(A: Addable)`.
 #   1. `signature`  — the arrow expression: ungraded `A ~> B` (`function`) or
-#                    graded `A ~G~> B` (`graded_arrow`).
+#                    dimensioned `A ~[N]~> B` (`dim_arrow`).
 # `payload.name` carries the extracted op name.
 - id: ast.op
   node_kind: op

@@ -25,6 +25,13 @@
 - id: token.tilde
   label: "~"
   category: operator
+# `~[ ... ]~>` — N-dimensional arrow bracket (ADR-0119).
+- id: token.dim_open
+  label: "~["
+  category: operator
+- id: token.dim_close
+  label: "]~>"
+  category: operator
 - id: token.bang
   label: null
   category: operator

@@ -47,21 +47,21 @@
     arity: 2
     block_children:
       - 1
-# `graded_arrow.infix` — ternary graded arrow, canonical spelling
-# `A ~[R]~> B` (legacy shorthand `A ~ R ~> B` is accepted too). The Pratt
-# engine special-cases `token.tilde` because the declarative grammar cannot
-# express an infix operator whose closing delimiter is a different token
-# (`~>`). The row still declares the binding power and resulting
-# `graded_arrow` node shape for the special-case code to use.
-- id: grammar.graded_arrow.infix
-  token: token.tilde
+# `dim_arrow.infix` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
+# The infix operator is `~[`; the `]~>` token separates the dimension `N`
+# from the target `B`. The declarative grammar treats the bracketed segment
+# via `child_separators` pending full Pratt special-case support.
+- id: grammar.dim_arrow.infix
+  token: token.dim_open
   position: Infix
   binding_power:
     - 10
     - 9
   child_shape:
-    node_kind: graded_arrow
+    node_kind: dim_arrow
     arity: 3
+    child_separators:
+      - !Required token.dim_close
 # `not.prefix` uses `token.bang` (`!`) — the v0.1 negation operator.
 # The `not` keyword infix (`grammar.not.infix`) is removed in v0.1.
 - id: grammar.not.prefix
@@ -593,7 +593,7 @@
 # `op name : signature` — graded operation declaration
 # (a generating 1-cell, ADR-0098/0100). Two children: [name, signature].
 # The signature is an arrow expression, either ungraded `A ~> B` (a `function`
-# node) or graded `A ~G~> B` (a `graded_arrow` node). The name child parses at
+# node) or graded `A ~[N]~> B` (a `dim_arrow` node). The name child parses at
 # rbp 14 so it stops before `:` (lbp 12) — which also lets the parenthesized
 # parameter form `op add(A: Addable) : (A, A) ~Addable~> A` parse the name as
 # `call(add, A:Addable)`. The signature child parses at rbp 0 so it consumes
