@@ -338,6 +338,7 @@
     trailing_tokens:
       - kinds:
           - token.keyword.import
+          - token.keyword.export
       - kinds:
           - token.star
           - token.identifier

@@ -25,6 +25,7 @@ use crate::types::{BaseTy, Measure, Pred, RefTy};
 /// Convenience: native arr with no args.
 fn arr(op: &str) -> Term {
     Term::Op {
+        dim: Box::new(Term::constant(1i64)),
         name: op.to_string(),
         args: vec![],
         source: ArrSource::Native,

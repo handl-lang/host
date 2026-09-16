@@ -4,7 +4,7 @@ use handl_language::{Ast, AstNode, Language};
 use handl_plugin_compile::{
     ArtifactContent, CompileError, Compiler, CompilerInput, CompilerOutput,
 };
-use plugin_engine::{RewriteWitness, Term};
+use plugin_engine::{ArrSource, RewriteWitness, Term};
 use plugin_engine_typecheck::TypecheckReport;
 use serde_json::Value;
 
@@ -237,17 +237,16 @@ fn phase9_terms() -> Vec<Term> {
             target: Box::new(Term::constant(Value::Null)),
             witness: RewriteWitness::Compute,
         },
-        Term::Path {
-            endpoints: (
-                Box::new(Term::constant(Value::Null)),
-                Box::new(Term::constant(Value::Null)),
-            ),
-            witness: None,
+        Term::Arr {
+            dim: Box::new(Term::constant(Value::from(1))),
+            value: Value::Null,
         },
-        Term::Equiv {
-            a: Box::new(Term::constant(Value::Null)),
-            b: Box::new(Term::constant(Value::Null)),
-            path: None,
+        Term::Op {
+            dim: Box::new(Term::constant(Value::from(1))),
+            name: "id".to_string(),
+            args: vec![],
+            source: ArrSource::Native,
+            lit: None,
         },
     ]
 }

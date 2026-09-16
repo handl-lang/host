@@ -161,6 +161,9 @@ fn contains_arrow_combinator(code: &str) -> bool {
     if code.contains("|||") {
         return true;
     }
+    if code.contains(">>>") {
+        return true;
+    }
 
     // `name(` — call-form combinators.
     for name in ["arr", "first", "choice", "loop", "comp", "app"] {
@@ -225,7 +228,7 @@ pub fn detect_dialect(src: &str) -> Dialect {
     if is_contract_source(src) {
         return Dialect::Contract;
     }
-    if has_arrow_markers(src) && parse_arrow_module(src).is_ok() {
+    if has_arrow_markers(src) {
         return Dialect::Arrow;
     }
     Dialect::Canonical

@@ -75,6 +75,8 @@ fn compile_file_request_builds_input_with_root_ref() {
         source_map: false,
         debug: false,
         format: Some("esm".to_string()),
+        to: None,
+        emit: None,
     };
     let src = "x = 1";
     let ast = CompileFileRequest::build_ast(src);

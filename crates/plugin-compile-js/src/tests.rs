@@ -264,30 +264,6 @@ fn rewrite_lowering() {
 }
 
 #[test]
-fn path_lowering() {
-    let term = Term::Path {
-        endpoints: (
-            Box::new(Term::const_value(Value::Number(Number::from(1)))),
-            Box::new(Term::const_value(Value::Number(Number::from(2)))),
-        ),
-        witness: None,
-    };
-    let js = compile_to_string(&input(term), &JsConfig::esm_deno()).unwrap();
-    assert!(js.contains("__handl_rt.path"), "{js}");
-}
-
-#[test]
-fn equiv_lowering() {
-    let term = Term::Equiv {
-        a: Box::new(Term::const_value(Value::Number(Number::from(1)))),
-        b: Box::new(Term::const_value(Value::Number(Number::from(2)))),
-        path: None,
-    };
-    let js = compile_to_string(&input(term), &JsConfig::esm_deno()).unwrap();
-    assert!(js.contains("__handl_rt.equiv"), "{js}");
-}
-
-#[test]
 fn bun_target_name() {
     assert_eq!(Bun.name(), "bun");
 }
@@ -385,6 +361,7 @@ fn safe_foreign_descriptor_validates_and_inlines() {
     assert!(is_safe_for_inlining(&fd));
 
     let term = Term::Op {
+        dim: Box::new(Term::constant(Value::Number(Number::from(1)))),
         name: "add".to_string(),
         args: vec![
             Term::constant(Value::Number(Number::from(1))),
@@ -421,6 +398,7 @@ fn no_inline_foreign_emits_runtime_js_call() {
     let mut config = JsConfig::esm_deno();
     config.no_inline_foreign = true;
     let term = Term::Op {
+        dim: Box::new(Term::constant(Value::Number(Number::from(1)))),
         name: "add".to_string(),
         args: vec![
             Term::constant(Value::Number(Number::from(1))),
@@ -454,6 +432,7 @@ fn dangerous_foreign_op_rejected_at_compile_time() {
         "return_type": "void"
     });
     let term = Term::Op {
+        dim: Box::new(Term::constant(Value::Number(Number::from(1)))),
         name: "eval".to_string(),
         args: vec![],
         source: ArrSource::Foreign("x".to_string()),
