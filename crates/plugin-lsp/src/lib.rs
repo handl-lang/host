@@ -17,9 +17,9 @@ mod lsp_provider;
 mod providers;
 pub mod validate;
 
-pub use validate::validate_lsp;
-use crate::lsp_provider::{default_providers, LspProvider};
+use crate::lsp_provider::{LspProvider, default_providers};
 use crate::providers::ParsedModule;
+pub use validate::validate_lsp;
 
 /// Generic LSP engine bound to a `Language`.
 pub struct LspEngine<'l> {
@@ -54,13 +54,12 @@ impl<'l> LspEngine<'l> {
         if let Some(module) = guard.get(src) {
             return module.clone();
         }
-        let module = providers::parse_module(self.lang, src.to_string()).unwrap_or_else(|_| {
-            ParsedModule {
+        let module =
+            providers::parse_module(self.lang, src.to_string()).unwrap_or_else(|_| ParsedModule {
                 src: src.to_string(),
                 tokens: Vec::new(),
                 statements: Vec::new(),
-            }
-        });
+            });
         guard.insert(src.to_string(), module.clone());
         module
     }

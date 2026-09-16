@@ -1,17 +1,17 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
+use super::position_offset_from_msg;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::implementation;
+use crate::line_map::LineMap;
+use crate::protocol::Message;
+use crate::protocol::send_error;
+use crate::protocol::send_response;
+use crate::refinement::RefinementEngine;
+use crate::type_definition;
 use handl_host_tooling::GotoDefRequest;
 use handl_host_tooling::ToolingHost;
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
-use super::position_offset_from_msg;
-use crate::line_map::LineMap;
-use crate::refinement::RefinementEngine;
-use crate::protocol::send_response;
-use crate::protocol::send_error;
-use crate::implementation;
-use crate::type_definition;
+use serde_json::{Value, json};
 pub fn handle_type_definition(
     writer: &mut impl Write,
     id: Value,
@@ -102,4 +102,3 @@ pub fn handle_definition(
         }
     }
 }
-

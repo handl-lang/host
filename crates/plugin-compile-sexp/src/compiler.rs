@@ -126,7 +126,11 @@ fn emit(term: &Term, out: &mut String) {
             out.push_str(role);
             out.push(')');
         }
-        Term::Handle { body, target, impl_ } => {
+        Term::Handle {
+            body,
+            target,
+            impl_,
+        } => {
             out.push_str("(handle ");
             emit(body, out);
             out.push(' ');
@@ -165,7 +169,11 @@ fn emit(term: &Term, out: &mut String) {
             out.push_str(field);
             out.push(')');
         }
-        Term::RecordWith { record, field, value } => {
+        Term::RecordWith {
+            record,
+            field,
+            value,
+        } => {
             out.push_str("(record-with ");
             emit(record, out);
             out.push(' ');

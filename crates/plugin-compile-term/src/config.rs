@@ -14,9 +14,7 @@ pub struct TermConfig {
 impl TermConfig {
     /// Create a new Term config for `emit`.
     pub fn new(emit: impl Into<String>) -> Self {
-        Self {
-            emit: emit.into(),
-        }
+        Self { emit: emit.into() }
     }
 }
 

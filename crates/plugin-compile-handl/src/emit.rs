@@ -16,7 +16,9 @@ impl HughesEmitter {
     fn emit_arrow(&self, term: &Term, params: &[String]) -> String {
         match term {
             Term::Arr { value, .. } | Term::Const { value } => value_to_string(value),
-            Term::Op { name, args, lit, .. } => match name.as_str() {
+            Term::Op {
+                name, args, lit, ..
+            } => match name.as_str() {
                 "id" => params.first().cloned().unwrap_or_else(|| "id".to_string()),
                 "proj_child" => match lit.as_ref().and_then(Value::as_u64) {
                     Some(n) if (n as usize) < params.len() => params[n as usize].clone(),
@@ -71,7 +73,14 @@ impl HughesEmitter {
         };
 
         if args.len() != 2 {
-            return format!("{}({})", op, args.iter().map(|a| self.emit_expr(a, params)).collect::<Vec<_>>().join(", "));
+            return format!(
+                "{}({})",
+                op,
+                args.iter()
+                    .map(|a| self.emit_expr(a, params))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
 
         let a = &args[0];
@@ -160,7 +169,9 @@ impl HughesEmitter {
     fn emit_expr(&self, term: &Term, params: &[String]) -> String {
         match term {
             Term::Arr { value, .. } | Term::Const { value } => value_to_string(value),
-            Term::Op { name, args, lit, .. } => match name.as_str() {
+            Term::Op {
+                name, args, lit, ..
+            } => match name.as_str() {
                 "id" => params.first().cloned().unwrap_or_else(|| "id".to_string()),
                 "proj_child" => match lit.as_ref().and_then(Value::as_u64) {
                     Some(n) if (n as usize) < params.len() => params[n as usize].clone(),
@@ -243,7 +254,9 @@ impl HughesEmitter {
 fn needed_count(term: &Term) -> usize {
     match term {
         Term::Arr { .. } | Term::Const { .. } => 0,
-        Term::Op { name, args, lit, .. } => {
+        Term::Op {
+            name, args, lit, ..
+        } => {
             if name == "id" {
                 return 1;
             }
@@ -313,7 +326,9 @@ fn is_constant(term: &Term) -> bool {
 fn is_input_ref(term: &Term) -> bool {
     match term {
         Term::Op { name, args, .. } if name == "id" && args.is_empty() => true,
-        Term::Op { name, lit: Some(_), .. } if name == "proj_child" => true,
+        Term::Op {
+            name, lit: Some(_), ..
+        } if name == "proj_child" => true,
         _ => false,
     }
 }
@@ -329,13 +344,8 @@ fn is_current_param_ref(term: &Term, params: &[String]) -> bool {
     match term {
         Term::Op { name, args, .. } if name == "id" && args.is_empty() => true,
         Term::Op {
-            name,
-            lit: Some(n),
-            ..
-        } if name == "proj_child" => n
-            .as_u64()
-            .map(|i| i == 0)
-            .unwrap_or(false),
+            name, lit: Some(n), ..
+        } if name == "proj_child" => n.as_u64().map(|i| i == 0).unwrap_or(false),
         _ => false,
     }
 }

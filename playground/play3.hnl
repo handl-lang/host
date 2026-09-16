@@ -1,0 +1,3 @@
+add_one := x ~> x
+
+cache := (add_one >>> add_one) ~[2]~> (x ~> x)

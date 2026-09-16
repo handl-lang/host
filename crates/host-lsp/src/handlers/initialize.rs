@@ -1,13 +1,9 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use handl_host_tooling::SemanticTokenLegend;
 use crate::protocol::send_response;
-pub fn handle_initialize(
-    writer: &mut impl Write,
-    id: Value,
-    legend: &SemanticTokenLegend,
-) {
+use handl_host_tooling::SemanticTokenLegend;
+use serde_json::{Value, json};
+pub fn handle_initialize(writer: &mut impl Write, id: Value, legend: &SemanticTokenLegend) {
     let result = build_initialize_result(legend);
     send_response(writer, id, result);
 }

@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{self, DocumentStore, resolve_document_text};
-use crate::protocol::send_response;
 use crate::code_actions;
+use crate::document::{self, DocumentStore, resolve_document_text};
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use serde_json::{Value, json};
 pub fn handle_code_actions(
     writer: &mut impl Write,
     id: Value,
@@ -49,4 +49,3 @@ pub fn handle_code_actions(
     let actions = code_actions::code_actions(&source, range_start, range_end, &diagnostics);
     send_response(writer, id, json!(actions));
 }
-

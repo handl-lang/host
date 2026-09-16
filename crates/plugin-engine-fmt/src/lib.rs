@@ -505,6 +505,69 @@ impl<'a> FormatCtx<'a> {
             .as_deref()
             .and_then(|s| self.token_label(s));
 
+        let is_object = open == "{"
+            && delimited
+                .pair
+                .as_ref()
+                .map_or(false, |p| p.node_kind == "entry");
+
+        // Object/record literals: keep small (1-2 pair) objects inline;
+        // break larger ones one pair per line with a trailing comma.
+        if is_object {
+            if elements.len() <= 2
+                && elements
+                    .iter()
+                    .all(|r| self.ast.at(*r).map(|n| n.kind == "entry").unwrap_or(false))
+            {
+                let pair = delimited.pair.as_ref().expect("object has pair");
+                let pair_sep = self.token_label(&pair.separator).unwrap_or("");
+                let mut parts = Vec::new();
+                let mut any_multiline = false;
+                for elem_ref in &elements {
+                    let pair_children = self.children_of(self.ast.at(*elem_ref)?);
+                    if pair_children.len() != 2 {
+                        any_multiline = true;
+                        break;
+                    }
+                    let lhs = self.emit(pair_children[0], indent)?;
+                    let rhs = self.emit(pair_children[1], indent)?;
+                    if lhs.contains('\n') || rhs.contains('\n') {
+                        any_multiline = true;
+                        break;
+                    }
+                    parts.push(format!("{lhs} {pair_sep} {rhs}"));
+                }
+                if !any_multiline {
+                    return Ok(format!("{open} {} {close}", parts.join(", ")));
+                }
+            }
+
+            let inner_indent = indent + 1;
+            let pad = self.indent(inner_indent);
+            let pair = delimited.pair.as_ref().expect("object has pair");
+            let pair_sep = self.token_label(&pair.separator).unwrap_or("");
+
+            let mut lines: Vec<String> = Vec::new();
+            for elem_ref in &elements {
+                let elem = self.ast.at(*elem_ref)?;
+                if elem.kind == "entry" {
+                    let pair_children = self.children_of(elem);
+                    if pair_children.len() == 2 {
+                        let lhs = self.emit(pair_children[0], inner_indent)?;
+                        let rhs = self.emit(pair_children[1], inner_indent)?;
+                        lines.push(format!("{pad}{lhs} {pair_sep} {rhs}"));
+                        continue;
+                    }
+                }
+                let rendered = self.emit(*elem_ref, inner_indent)?;
+                lines.push(format!("{pad}{rendered}"));
+            }
+
+            let joined = lines.join(",\n");
+            let closing_pad = self.indent(indent);
+            return Ok(format!("{open}\n{joined},\n{closing_pad}{close}"));
+        }
+
         // Inline rendering: a single element with no separator and no pair
         // shape renders on one line (e.g. `( expr )`).
         if elements.len() == 1 && sep_label.is_none() && delimited.pair.is_none() {

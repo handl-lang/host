@@ -1,19 +1,14 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
 use super::position_line_char;
-use crate::protocol::send_response;
+use crate::document::{DocumentStore, resolve_document_text};
 use crate::formatting;
 use crate::on_type_formatting;
+use crate::protocol::Message;
+use crate::protocol::send_response;
 use crate::range_formatting;
-pub fn handle_formatting(
-    writer: &mut impl Write,
-    id: Value,
-    msg: &Message,
-    store: &DocumentStore,
-) {
+use serde_json::{Value, json};
+pub fn handle_formatting(writer: &mut impl Write, id: Value, msg: &Message, store: &DocumentStore) {
     let source = resolve_document_text(store, &msg.params);
     let result = formatting::format_document_json(&source);
     send_response(writer, id, result);
@@ -57,4 +52,3 @@ pub fn handle_range_formatting(
     let edits = range_formatting::range_format(&source, start_line, end_line);
     send_response(writer, id, json!(edits));
 }
-

@@ -18,11 +18,6 @@
 #   when:     !KindAt { index?, role?, kind } | !PayloadEq { path, value }
 #             | !ChildCount <n> | !And […] | !Or […] | !Not <cond>
 
-# `call` → `json` (ADR-0060 Layer 1): json{...}(args) is syntactic sugar.
-# When the callee (child 0) is a `json` node, desugar the `call` into a
-# `json` node that carries all original children. The `json` eval scheme
-# then evaluates the args and performs $0/$1/… placeholder substitution
-# into the template string (carried by child 0's payload).
 # `dimension` — `f<X, Y>` lowers to the application `f(X, Y)` (ADR-0106
 # §11/§12). A dimension node's children are already `[target, args...]`,
 # exactly a `call`'s, so the rewrite is a re-tagging: the proven `call`
@@ -35,18 +30,6 @@
   node_kind: dimension
   rule: !Declarative
     target_kind: call
-    children:
-      - !Keep 0
-      - !KeepRest 1
-
-- id: transform.desugar.call
-  pass: desugar
-  node_kind: call
-  when: !KindAt
-    index: 0
-    kind: json
-  rule: !Declarative
-    target_kind: json
     children:
       - !Keep 0
       - !KeepRest 1

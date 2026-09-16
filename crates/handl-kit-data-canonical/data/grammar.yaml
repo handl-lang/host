@@ -257,12 +257,6 @@
   child_shape:
     node_kind: var
     arity: 0
-- id: grammar.json.prefix
-  token: token.json
-  position: Prefix
-  child_shape:
-    node_kind: json
-    arity: 0
 # v0.1: `if cond { body } else { body }`.
 # The `then` keyword is removed (ADR-0074). The `else` keyword is the
 # separator between the then-branch (child 1) and the else-branch (child 2).
@@ -472,78 +466,11 @@
   child_shape:
     node_kind: return
     arity: 1
-# `law name : source => target` — compile-time law declaration (ADR-0074;
-# re-shaped as a 2-cell by ADR-0100). Three children: [name, source, target].
-# The name child parses at rbp 14 so it stops before the `:` separator
-# (`token.colon` infix has lbp 12); the source child parses at rbp 0 and
-# stops before `=>` (`token.fat_arrow` has no infix row). The name string is
-# also lifted into `payload.name`.
-- id: grammar.law.prefix
-  token: token.keyword.law
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: law
-    arity: 3
-    child_binding_powers:
-      - 14
-      - 0
-      - 0
-    child_separators:
-      - !Required token.colon
-      - !Required token.fat_arrow
-    payload_extract:
-      - child: 0
-        field: name
-# `axiom name : source => target` — compatible alias for `law` (produces a
-# `law` node, same 2-cell shape).
-# Note: the `axiom name : Type -> Type` / `guarantee:` contract files under
-# `handl-packages/contracts/` (and the contract headers in
-# `str`/`char`/`time`/`unicode`) are a separate dialect parsed by
-# `plugin-ext-refinement::loader::parse_contracts`, not by this grammar.
-- id: grammar.axiom.prefix
-  token: token.keyword.axiom
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: law
-    arity: 3
-    child_binding_powers:
-      - 14
-      - 0
-      - 0
-    child_separators:
-      - !Required token.colon
-      - !Required token.fat_arrow
-    payload_extract:
-      - child: 0
-        field: name
-# `rewrite name : source => target` — a directed rewrite rule (2-cell,
-# ADR-0100). Same shape as `law` but produces a `rewrite` node: children
-# [name, source, target], `payload.name` extracted from child 0.
-- id: grammar.rewrite.prefix
-  token: token.keyword.rewrite
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: rewrite
-    arity: 3
-    child_binding_powers:
-      - 14
-      - 0
-      - 0
-    child_separators:
-      - !Required token.colon
-      - !Required token.fat_arrow
-    payload_extract:
-      - child: 0
-        field: name
+# `law`/`axiom`/`rewrite` are removed from the canonical surface (ADR-0119).
+# A 2-cell rule is now an ordinary named arrow binding:
+#   cache := (S.read >>> S.read) ~[2]~> S.read
+# Contract axioms remain a separate dialect parsed by
+# `plugin-ext-refinement::loader::parse_contracts`.
 # `sort Name(params...) grades G1, G2` — graded-theory sort declaration
 # (a generating 0-cell, ADR-0098/0100). Two children: [name, grades].
 # child 0 is the sort head — `var(Name)` or `call(Name, params...)` for the

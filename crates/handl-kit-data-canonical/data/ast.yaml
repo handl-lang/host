@@ -315,9 +315,6 @@
       - callee
       - args
     type: object
-  # ADR-0060 Layer 1: json{...}(args) is syntactic sugar — see
-  # `transform.desugar.call` in transforms.yaml, which rewrites a `call`
-  # whose callee is a `json` node into that `json` node.
 # `dimension` — dimension specialization `f<...>` (ADR-0106 §11).
 #
 # The canonical surface writes the specialization brackets adjacent to a
@@ -485,15 +482,6 @@
     required:
       - target
       - index
-    type: object
-- id: ast.json
-  node_kind: json
-  payload_schema:
-    properties:
-      args:
-        type: array
-      expr:
-        type: string
     type: object
 - id: ast.match
   node_kind: match

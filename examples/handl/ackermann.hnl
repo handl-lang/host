@@ -1,5 +1,5 @@
 (self ~> self(self, 2, 3))(
-  [self, m, n]~> match m {
+  [self, m, n] ~> match m {
     0: n + 1,
     _: match n {
       0: self(self, m - 1, 1),

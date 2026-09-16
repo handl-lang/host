@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
-use crate::protocol::send_response;
 use crate::color_provider;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use serde_json::{Value, json};
 pub fn handle_document_color(
     writer: &mut impl Write,
     id: Value,
@@ -39,4 +39,3 @@ pub fn handle_color_presentation(writer: &mut impl Write, id: Value, msg: &Messa
     let presentations = color_provider::color_presentations(&color, &range);
     send_response(writer, id, json!(presentations));
 }
-

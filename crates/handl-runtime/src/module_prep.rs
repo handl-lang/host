@@ -7,7 +7,7 @@
 
 /// Prepare a module source for evaluation: strip comments and declarations,
 /// then rewrite top-level `export` declarations into a single object literal.
-pub(crate) fn prepare_module(src: &str) -> String {
+pub fn prepare_module(src: &str) -> String {
     let src = strip_comment_lines(src);
     let src = strip_declaration_lines(&src);
     transform_export_to_object(&src)

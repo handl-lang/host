@@ -63,7 +63,9 @@ impl<'a> Emitter<'a> {
 }
 
 fn dot_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 fn emit_dot(term: &Term) -> String {
@@ -166,7 +168,11 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             let label = format!("Child {role}");
             e.node(&label)
         }
-        Term::Handle { body, target, impl_ } => {
+        Term::Handle {
+            body,
+            target,
+            impl_,
+        } => {
             let id = e.node(&format!("Handle {target}"));
             let c1 = emit_term(body, e);
             let c2 = emit_term(impl_, e);
@@ -204,7 +210,11 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             e.edge(id, c, "record");
             id
         }
-        Term::RecordWith { record, field, value } => {
+        Term::RecordWith {
+            record,
+            field,
+            value,
+        } => {
             let id = e.node(&format!("RecordWith {field}"));
             let c1 = emit_term(record, e);
             let c2 = emit_term(value, e);

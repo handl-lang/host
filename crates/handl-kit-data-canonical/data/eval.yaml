@@ -491,12 +491,6 @@
         source: Native
         lit: 1
     source: Native
-- id: eval.json
-  node_kind: json
-  scheme: !Op
-    name: json
-    args: []
-    source: Native
 - id: eval.block
   node_kind: block
   scheme: !Op

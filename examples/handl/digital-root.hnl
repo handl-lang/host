@@ -1,5 +1,5 @@
 while { n: 942, sum: 0 } {
-  [n, sum]~> if n == 0
+  [n, sum] ~> if n == 0
     if sum < 10
       return sum
     else

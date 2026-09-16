@@ -28,10 +28,12 @@
 # `~[ ... ]~>` — N-dimensional arrow bracket (ADR-0119).
 - id: token.dim_open
   label: "~["
-  category: operator
+  category: open-bracket
+  pair: token.dim_close
 - id: token.dim_close
   label: "]~>"
-  category: operator
+  category: close-bracket
+  pair: token.dim_open
 - id: token.bang
   label: null
   category: operator
@@ -109,15 +111,6 @@
 - id: token.if
   label: null
   category: keyword
-- id: token.json
-  label: json
-  literal: !StripAffix
-    prefix: "json{"
-    suffix: "}"
-    wrap:
-      - "{"
-      - "}"
-  category: string
 - id: token.keyword.app
   label: app
   category: keyword

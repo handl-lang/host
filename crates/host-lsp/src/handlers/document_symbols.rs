@@ -1,12 +1,12 @@
 use std::io::Write;
 
-use serde_json::Value;
-use handl_host_tooling::ToolingHost;
-use crate::protocol::Message;
 use crate::document::{DocumentStore, resolve_document_text};
 use crate::line_map::LineMap;
-use crate::protocol::send_response;
+use crate::protocol::Message;
 use crate::protocol::send_error;
+use crate::protocol::send_response;
+use handl_host_tooling::ToolingHost;
+use serde_json::Value;
 pub fn handle_document_symbols(
     writer: &mut impl Write,
     id: Value,
@@ -47,4 +47,3 @@ pub fn handle_document_symbols(
         }
     }
 }
-

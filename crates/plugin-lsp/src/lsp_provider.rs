@@ -6,8 +6,8 @@
 //! registered in `default_providers`.
 
 use crate::providers::{
-    run_export, run_exported_names, run_import_hover, run_import_name, run_import_path,
-    run_symbol, ExportMatch, ParsedModule,
+    ExportMatch, ParsedModule, run_export, run_exported_names, run_import_hover, run_import_name,
+    run_import_path, run_symbol,
 };
 use handl_host_tooling::lsp::{
     CompletionItem, CompletionRequest, DocumentSymbol, DocumentSymbolsRequest, GotoDefRequest,
@@ -178,11 +178,7 @@ fn format_export_hover(m: &ExportMatch) -> Option<String> {
         md.push('\n');
         md.push_str("```");
     }
-    if md.is_empty() {
-        None
-    } else {
-        Some(md)
-    }
+    if md.is_empty() { None } else { Some(md) }
 }
 
 /// Build the canonical provider registry.

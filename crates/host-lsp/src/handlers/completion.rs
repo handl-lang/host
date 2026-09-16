@@ -1,13 +1,13 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use handl_host_tooling::ToolingHost;
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
 use super::position_offset_from_msg;
-use crate::protocol::send_response;
-use crate::protocol::send_error;
 use crate::completion_resolve;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::protocol::Message;
+use crate::protocol::send_error;
+use crate::protocol::send_response;
+use handl_host_tooling::ToolingHost;
+use serde_json::{Value, json};
 pub fn handle_completion_resolve(writer: &mut impl Write, id: Value, msg: &Message) {
     let item = msg
         .params
@@ -72,4 +72,3 @@ pub fn handle_completion(
         }
     }
 }
-

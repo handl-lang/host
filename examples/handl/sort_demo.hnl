@@ -15,6 +15,6 @@ from "transform" import * as transform
   -- Expected inference: LengthEq([1,2,3], mapped) -> LengthEq holds
   filtered: transform.filter([1, 2, 3, 4, 5], x ~> x > 2),
   -- Expected inference: AllSatisfy(filtered, x > 2) ÃÂÃÂ¢ÃÂÃÂÃÂ(section) LengthLe(filtered, [1..5])
-  summed: transform.reduce([1, 2, 3, 4, 5], 0, [acc, x]~> acc + x)
+  summed: transform.reduce([1, 2, 3, 4, 5], 0, [acc, x] ~> acc + x)
   -- Expected inference: from step function's guarantee
 }

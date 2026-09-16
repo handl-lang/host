@@ -2287,16 +2287,6 @@
     source: Judgment
     lit: type.string
 
-# `json` — dynamic JSON path evaluation. The result type depends on the
-# `expr` string and cannot be determined statically. Returns type.unknown.
-- id: type.json
-  node_kind: json
-  synth: !Op
-    name: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
-
 # `assign` — assignment is a statement with side effects, returns unit
 # (ADR-0054 legacy migration).
 - id: type.assign

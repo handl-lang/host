@@ -1067,6 +1067,7 @@ name = "handl-kit-arrow-lower"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "serde_json",
 ]
 
 [[package]]
@@ -1750,6 +1751,8 @@ dependencies = [
  "handl-plugin-sdkgen-backend-c",
  "handl-plugin-sdkgen-backend-webidl",
  "handl-plugin-sdkgen-emitter-file",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]

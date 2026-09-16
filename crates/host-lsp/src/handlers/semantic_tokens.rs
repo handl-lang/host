@@ -1,11 +1,11 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use handl_host_tooling::{SemanticTokensPlugin, SemanticTokensRequest};
-use crate::protocol::Message;
 use crate::document::{DocumentStore, resolve_document_text};
-use crate::protocol::send_response;
+use crate::protocol::Message;
 use crate::protocol::send_error;
+use crate::protocol::send_response;
+use handl_host_tooling::{SemanticTokensPlugin, SemanticTokensRequest};
+use serde_json::{Value, json};
 pub fn handle_semantic_tokens_full(
     writer: &mut impl Write,
     id: Value,
@@ -123,4 +123,3 @@ pub fn handle_semantic_tokens_range(
         }
     }
 }
-

@@ -350,81 +350,40 @@ fn match_object_destructuring_partial() {
 // referenced the removed syntax and were deleted rather than migrated.
 
 // ---------------------------------------------------------------------------
-// json — Prim op: parse a JSON template from payload
+// object — ordinary object literals (was json{...})
 // ---------------------------------------------------------------------------
 
-/// Build a manual AST for the `json` prim to test it directly, since the
-/// source syntax for `json` may not have a parser rule yet.
 #[test]
-fn json_prim_parses_literal_string() {
+fn object_source_syntax_literal() {
     let kit = kit();
-    // ADR-0053: json node payload is the JSON template string directly.
-    let mut ast = Ast::new();
-    let json_node = AstNode::new("json").with_payload(json!("{\"a\": 1}"));
-    ast.push(json_node);
-    let result = kit.runtime().eval(&ast).expect("json prim must eval");
+    let result = kit.run("{\"a\": 1}").expect("object literal must eval");
     assert_eq!(result, json!({"a": 1}));
 }
 
 #[test]
-fn json_prim_with_placeholder_substitution() {
-    let kit = kit();
-    // ADR-0053/0060: json{...}(args) is parsed as call { children: [json_node, arg_node] }.
-    // The desugar pass rewrites call(json, args...) → json node with children,
-    // which the json eval op uses for $0/$1/… placeholder substitution.
-    let mut ast = Ast::new();
-    // Node 0: literal 42 (value to substitute into $0).
-    let lit_node = AstNode::new("lit").with_payload(json!(42));
-    let lit_idx = ast.push(lit_node).index();
-    // Node 1: the json node with template containing $0.
-    let json_node = AstNode::new("json").with_payload(json!("{\"value\": $0}"));
-    let json_idx = ast.push(json_node).index();
-    // Node 2: call node wrapping json with args.
-    let call_node = AstNode::new("call").with_payload(json!({ "children": [json_idx, lit_idx] }));
-    ast.push(call_node);
-    // Apply the desugar pass (same as Runtime::parse does) so the call
-    // node is rewritten into a json node before evaluation.
-    let ast = desugar_pass::apply_desugar(kit.runtime().lang(), &ast).expect("desugar failed");
-    let result = kit
-        .runtime()
-        .eval(&ast)
-        .expect("json prim with args must eval");
-    assert_eq!(result, json!({"value": 42}));
-}
-
-// --- json source syntax: json{...} and json{...}(args) ---
-
-#[test]
-fn json_source_syntax_literal() {
-    let kit = kit();
-    let result = kit.run("json{\"a\": 1}").expect("json source must eval");
-    assert_eq!(result, json!({"a": 1}));
-}
-
-#[test]
-fn json_source_syntax_nested() {
+fn object_source_syntax_nested() {
     let kit = kit();
     let result = kit
-        .run("json{\"a\": {\"b\": 1}}")
-        .expect("nested json must eval");
+        .run("{\"a\": {\"b\": 1}}")
+        .expect("nested object must eval");
     assert_eq!(result, json!({"a": {"b": 1}}));
 }
 
 #[test]
-fn json_source_syntax_with_placeholder() {
+fn object_source_syntax_with_value_expr() {
     let kit = kit();
     let result = kit
-        .run("json{\"value\": $0}(42)")
-        .expect("json with args must eval");
+        .run("{\"value\": 42}")
+        .expect("object with value must eval");
     assert_eq!(result, json!({"value": 42}));
 }
 
 #[test]
-fn json_source_syntax_with_expr_arg() {
+fn object_source_syntax_with_arith_expr() {
     let kit = kit();
     let result = kit
-        .run("json{\"sum\": $0}(1 + 2)")
-        .expect("json with expr arg must eval");
+        .run("{\"sum\": 1 + 2}")
+        .expect("object with expr must eval");
     assert_eq!(result, json!({"sum": 3}));
 }
 

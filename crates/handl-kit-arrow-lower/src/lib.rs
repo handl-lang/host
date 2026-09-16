@@ -99,6 +99,7 @@ fn lower_node(
         "handle" => lower_handle(ast, lang, node, env, params),
         "arr" => lower_arr(ast, lang, node, env, params),
         "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
+        "dim_arrow" => lower_dim_arrow(ast, lang, node, env, params),
         "bind" => lower_bind(ast, lang, node, env, params),
 
         "assert" => {
@@ -110,7 +111,10 @@ fn lower_node(
             Ok(Term::op_native("assert", vec![]))
         }
 
-        other => Err(format!("lower: unsupported node kind `{}` at {}", other, idx)),
+        other => Err(format!(
+            "lower: unsupported node kind `{}` at {}",
+            other, idx
+        )),
     }
 }
 
@@ -183,7 +187,12 @@ fn lower_block(
         }
     }
 
-    last.ok_or_else(|| format!("block at {} produced no result expression", node_index(node)))
+    last.ok_or_else(|| {
+        format!(
+            "block at {} produced no result expression",
+            node_index(node)
+        )
+    })
 }
 
 fn lower_call(
@@ -197,8 +206,7 @@ fn lower_call(
     if children.is_empty() {
         return Err(format!("call at {} has no children", node_index(node)));
     }
-    let callee_idx = child_at_role_or_pos(node, lang, "callee", 0)
-        .unwrap_or(children[0]);
+    let callee_idx = child_at_role_or_pos(node, lang, "callee", 0).unwrap_or(children[0]);
     let callee = ast
         .get(AstRef::new(callee_idx))
         .ok_or_else(|| format!("call callee {} out of bounds", callee_idx))?;
@@ -449,7 +457,10 @@ fn lower_handle(
             .ok_or_else(|| format!("handle at {} missing body child", node_index(node)))?;
         (body_idx, impl_idx, target)
     } else {
-        return Err(format!("handle at {} needs 2 or 3 children", node_index(node)));
+        return Err(format!(
+            "handle at {} needs 2 or 3 children",
+            node_index(node)
+        ));
     };
     let impl_ = lower_node(ast, lang, impl_idx, env, params)?;
     let body = lower_node(ast, lang, body_idx, env, params)?;
@@ -563,7 +574,16 @@ fn lower_two_children(
 }
 
 fn function_params(ast: &Ast, lang: &Language, node: &AstNode) -> Result<Vec<String>, String> {
-    // Prefer the `params` child role; fall back to payload for hand-built ASTs.
+    // Hand-built ASTs may store parameter names directly in the payload.
+    if let Some(params) = node.payload.get("params").and_then(Value::as_array) {
+        let names: Vec<String> = params
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        return Ok(names);
+    }
+
+    // Prefer the `params` child role; fall back to a single payload index.
     let params_idx = child_at_role_or_pos(node, lang, "params", 0)
         .or_else(|| {
             node.payload
@@ -571,7 +591,12 @@ fn function_params(ast: &Ast, lang: &Language, node: &AstNode) -> Result<Vec<Str
                 .and_then(Value::as_u64)
                 .map(|u| u as usize)
         })
-        .ok_or_else(|| format!("function at {} missing params child/payload", node_index(node)))?;
+        .ok_or_else(|| {
+            format!(
+                "function at {} missing params child/payload",
+                node_index(node)
+            )
+        })?;
 
     let params_node = ast
         .get(AstRef::new(params_idx))
@@ -601,19 +626,35 @@ fn function_params(ast: &Ast, lang: &Language, node: &AstNode) -> Result<Vec<Str
                             .to_string(),
                     );
                 } else {
-                    return Err(format!("unsupported parameter kind `{}` at {}", child.kind, child_idx));
+                    return Err(format!(
+                        "unsupported parameter kind `{}` at {}",
+                        child.kind, child_idx
+                    ));
                 }
             }
             Ok(names)
         }
-        other => Err(format!("unsupported function params kind `{}` at {}", other, params_idx)),
+        other => Err(format!(
+            "unsupported function params kind `{}` at {}",
+            other, params_idx
+        )),
     }
 }
 
 fn function_body_index(lang: &Language, node: &AstNode) -> Result<usize, String> {
     child_at_role_or_pos(node, lang, "body", 1)
-        .or_else(|| node.payload.get("body").and_then(Value::as_u64).map(|u| u as usize))
-        .ok_or_else(|| format!("function at {} missing body child/payload", node_index(node)))
+        .or_else(|| {
+            node.payload
+                .get("body")
+                .and_then(Value::as_u64)
+                .map(|u| u as usize)
+        })
+        .ok_or_else(|| {
+            format!(
+                "function at {} missing body child/payload",
+                node_index(node)
+            )
+        })
 }
 
 fn is_op_graded_arrow(ast: &Ast, lang: &Language, value_idx: usize) -> Result<bool, String> {
@@ -701,6 +742,51 @@ fn op_target_name(term: &Term) -> Option<&str> {
         } if args.is_empty() => Some(name),
         _ => None,
     }
+}
+
+fn lower_dim_arrow(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let source_idx = child_at_role_or_pos(node, lang, "source", 0)
+        .ok_or_else(|| format!("dim_arrow at {} missing source child", node_index(node)))?;
+    let dim_idx = child_at_role_or_pos(node, lang, "dim", 1)
+        .ok_or_else(|| format!("dim_arrow at {} missing dim child", node_index(node)))?;
+    let target_idx = child_at_role_or_pos(node, lang, "target", 2)
+        .ok_or_else(|| format!("dim_arrow at {} missing target child", node_index(node)))?;
+
+    let source = lower_node(ast, lang, source_idx, env, params)?;
+    let dim = lower_node(ast, lang, dim_idx, env, params)?;
+    let target = lower_node(ast, lang, target_idx, env, params)?;
+
+    let tag = Term::Arr {
+        dim: Term::default_dim(),
+        value: "Arrow".into(),
+    };
+    let record = Term::op_native(
+        "record",
+        vec![
+            Term::Arr {
+                dim: Term::default_dim(),
+                value: "inputs".into(),
+            },
+            source,
+            Term::Arr {
+                dim: Term::default_dim(),
+                value: "grade".into(),
+            },
+            dim,
+            Term::Arr {
+                dim: Term::default_dim(),
+                value: "output".into(),
+            },
+            target,
+        ],
+    );
+    Ok(Term::op_native("tag.construct", vec![tag, record]))
 }
 
 fn children(node: &AstNode) -> Vec<usize> {

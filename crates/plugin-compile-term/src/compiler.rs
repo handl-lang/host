@@ -25,9 +25,8 @@ impl Compiler for TermCompiler {
             .map_err(|e| CompileError::Lower(e))?;
 
         let json = match cfg.emit.as_str() {
-            "json" | "pretty" => {
-                serde_json::to_string_pretty(&term).map_err(|e| CompileError::Emit(e.to_string()))?
-            }
+            "json" | "pretty" => serde_json::to_string_pretty(&term)
+                .map_err(|e| CompileError::Emit(e.to_string()))?,
             other => return Err(CompileError::UnsupportedTarget(other.to_string())),
         };
 

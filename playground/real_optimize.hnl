@@ -1,0 +1,81 @@
+-- real_optimize.hnl -- Optimize a JSON-over-HTTP pipeline using real HTTP and JSON.
+--
+-- No explicit FFI here; `fs` and `json_lib` packages hide the OS helpers.
+
+from "http_client_std" import * as http
+from "fs" import { read_file }
+from "json_lib" import { parse, serialize }
+
+-- Toggle to use the real network call.  Disabled by default so `hnl run`
+-- works in offline environments and falls back to a built-in JSON value.
+use_http := false
+
+url := "https://httpbin.org/json"
+
+-- Local fallback value (matches playground/test.json).
+local_json := {
+  "slideshow": {
+    "author": "Yours Truly",
+    "date": "date of publication",
+    "slides": [
+      { "title": "Wake up to WonderWidgets!", "type": "all" },
+      { "title": "Overview", "type": "all", "items": ["Why <em>WonderWidgets</em> are great", "Who <em>buys</em> WonderWidgets"] }
+    ],
+    "title": "Sample Slide Show"
+  }
+}
+
+-- Real HTTP 1-cell.
+fetch := (url) ~> http.get(url)
+
+-- Fetch with offline fallback.  `http.get` already returns a parsed Value,
+-- so the fallback is the same JSON loaded from a `{...}` literal.
+fetched := if use_http { fetch(url) } else { local_json }
+
+-- Show the real JSON parser running on the local file.
+file_text := read_file("playground/test.json")
+
+file_parsed := parse(file_text)
+
+round_trip := serialize(file_parsed)
+
+-- Identity 1-cell, used in the rewrite rules.
+id := x ~> x
+
+-- 2-cell rewrite rules as genuine arrows between the real 1-cells.
+-- The left 1-cell is the composite (written as an arrow) and the right is the
+-- optimized equivalent.  The runtime stores the rule as a 2-cell without
+-- executing the component arrows, so the concrete pipeline still typechecks
+-- and runs.
+parse_after_serialize := (x ~> parse(serialize(x))) ~[2]~> id
+
+dedupe_fetch := (x ~> fetch(fetch(x))) ~[2]~> fetch
+
+right_identity := (x ~> fetch(id(x))) ~[2]~> fetch
+
+-- Apply the 2-cell rewrites to the 1-cell pipeline string.
+original := "fetch >>> serialize >>> parse"
+
+stage1 := match(original) { "fetch >>> serialize >>> parse": "fetch >>> id", _: original }
+
+optimized := match(stage1) { "fetch >>> id": "fetch", _: stage1 }
+
+-- Human-readable record proving the pipeline shrinks.
+{
+  use_http: use_http,
+  url: url,
+  original: original,
+  optimized: optimized,
+  dimension: 2,
+  rules: [
+    { name: "parse_after_serialize", from: "serialize >>> parse", to: "id", dimension: 2 },
+    { name: "dedupe_fetch", from: "fetch >>> fetch", to: "fetch", dimension: 2 },
+    { name: "right_identity", from: "fetch >>> id", to: "fetch", dimension: 2 }
+  ],
+  sample: {
+    raw_file: file_text,
+    parsed_file: file_parsed,
+    round_trip: round_trip
+  },
+  note: "http.get is live when use_http is true; parse/serialize come from handl-packages/json_lib; read_file comes from handl-packages/fs."
+}

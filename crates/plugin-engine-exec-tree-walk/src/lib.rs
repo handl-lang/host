@@ -9222,7 +9222,6 @@ mod tests {
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));
     }
-
 }
 // ---------------------------------------------------------------------------
 // ADR-0106 item 2 — `body_def` arena memo (`cached_def_arena`)

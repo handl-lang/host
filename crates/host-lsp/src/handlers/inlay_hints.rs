@@ -1,12 +1,12 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
 use crate::document::{DocumentStore, resolve_document_text};
-use crate::refinement::RefinementEngine;
-use crate::protocol::send_response;
 use crate::inlay_hint_resolve;
 use crate::inlay_hints;
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use crate::refinement::RefinementEngine;
+use serde_json::{Value, json};
 pub fn handle_inlay_hint_resolve(writer: &mut impl Write, id: Value, msg: &Message) {
     let item = msg
         .params
@@ -35,4 +35,3 @@ pub fn handle_inlay_hints(
     let hints = inlay_hints::inlay_hints(&source, refinement, file_path);
     send_response(writer, id, json!(hints));
 }
-

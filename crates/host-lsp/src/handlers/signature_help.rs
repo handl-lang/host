@@ -1,11 +1,11 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
 use super::position_offset_from_msg;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::protocol::Message;
 use crate::protocol::send_response;
 use crate::signature_help;
+use serde_json::{Value, json};
 pub fn handle_signature_help(
     writer: &mut impl Write,
     id: Value,
@@ -19,4 +19,3 @@ pub fn handle_signature_help(
         None => send_response(writer, id, json!(null)),
     }
 }
-

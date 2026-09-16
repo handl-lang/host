@@ -256,9 +256,7 @@ pub fn lower_applied(term: &Term, input: &JsAst) -> Result<JsAst, CompileError> 
         | Term::Iter { .. }
         | Term::App { .. } => control::lower_applied(term, input),
         Term::Child { .. } | Term::Handle { .. } => higher::lower_applied(term, input),
-        Term::Rewrite { .. } => {
-            proof::lower_applied(term, input)
-        }
+        Term::Rewrite { .. } => proof::lower_applied(term, input),
         _ => Err(CompileError::Lower(format!("unsupported term: {term:?}"))),
     }
 }

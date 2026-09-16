@@ -14,9 +14,7 @@ pub struct HandlConfig {
 impl HandlConfig {
     /// Create a new Handl config for `to`.
     pub fn new(to: impl Into<String>) -> Self {
-        Self {
-            to: to.into(),
-        }
+        Self { to: to.into() }
     }
 }
 

@@ -158,12 +158,9 @@ fn has_arrow_markers(src: &str) -> bool {
 /// combinators, so each combinator name is matched word-bounded (not preceded
 /// by `.` or an identifier character).
 fn contains_arrow_combinator(code: &str) -> bool {
-    if code.contains("|||") {
-        return true;
-    }
-    if code.contains(">>>") {
-        return true;
-    }
+    // `>>>` and `|||` are now canonical dimension-polymorphic composition
+    // operators (ADR-0119); arrow-dialect files are recognized by
+    // `cap`/`op`/`handl`/`tag` directives and call-form combinators.
 
     // `name(` — call-form combinators.
     for name in ["arr", "first", "choice", "loop", "comp", "app"] {

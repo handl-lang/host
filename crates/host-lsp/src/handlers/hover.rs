@@ -1,14 +1,14 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use handl_host_tooling::{HoverRequest, HoverResponse};
-use handl_host_tooling::ToolingHost;
-use crate::protocol::Message;
-use crate::document::{self, DocumentStore, resolve_document_text};
 use super::position_line_char;
-use crate::refinement::RefinementEngine;
-use crate::protocol::send_response;
+use crate::document::{self, DocumentStore, resolve_document_text};
+use crate::protocol::Message;
 use crate::protocol::send_error;
+use crate::protocol::send_response;
+use crate::refinement::RefinementEngine;
+use handl_host_tooling::ToolingHost;
+use handl_host_tooling::{HoverRequest, HoverResponse};
+use serde_json::{Value, json};
 pub fn handle_hover(
     writer: &mut impl Write,
     id: Value,
@@ -63,4 +63,3 @@ pub fn handle_hover(
         Err(e) => send_error(writer, id, -32603, &e.to_string()),
     }
 }
-

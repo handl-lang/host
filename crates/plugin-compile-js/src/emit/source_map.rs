@@ -54,7 +54,9 @@ impl SourceMapBuilder {
         source_col: u32,
         name: Option<String>,
     ) {
-        if let Some(n) = name.as_ref() && !self.names.contains(n) {
+        if let Some(n) = name.as_ref()
+            && !self.names.contains(n)
+        {
             self.names.push(n.clone());
         }
 

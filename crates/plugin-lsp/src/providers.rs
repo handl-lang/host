@@ -53,10 +53,7 @@ pub(crate) struct ExportMatch {
 /// Split `src` into statements, lex, and parse each chunk using the data-driven
 /// pipeline.  Trivia tokens are retained in `tokens` for documentation
 /// extraction; the Pratt parser filters them internally.
-pub(crate) fn parse_module(
-    lang: &Language,
-    src: String,
-) -> Result<ParsedModule, LangError> {
+pub(crate) fn parse_module(lang: &Language, src: String) -> Result<ParsedModule, LangError> {
     let mut all_tokens = Vec::new();
     let mut statements = Vec::new();
 
@@ -649,11 +646,7 @@ fn resolve_module_path(spec: &str, base: &Path, layouts: &[String]) -> Option<Pa
 }
 
 /// Extract leading trivia from the start of `module` as markdown.
-fn module_leading_docs(
-    lang: &Language,
-    module: &ParsedModule,
-    rule: &LspRule,
-) -> Option<String> {
+fn module_leading_docs(lang: &Language, module: &ParsedModule, rule: &LspRule) -> Option<String> {
     let leading_kinds = rule
         .config
         .get("module_docs")

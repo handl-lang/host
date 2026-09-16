@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use handl_host_tooling::ToolingHost;
 use crate::protocol::Message;
 use crate::protocol::send_response;
 use crate::workspace_symbols;
+use handl_host_tooling::ToolingHost;
+use serde_json::{Value, json};
 pub fn handle_workspace_symbols(
     writer: &mut impl Write,
     id: Value,
@@ -24,4 +24,3 @@ pub fn handle_workspace_symbols(
     let symbols = workspace_symbols::workspace_symbols(query, root.as_deref(), host);
     send_response(writer, id, json!(symbols));
 }
-

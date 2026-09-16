@@ -20,10 +20,14 @@ pub enum TokenCat {
     OpenParen,
     /// `[`
     OpenBracket,
+    /// `~[`
+    OpenDim,
     /// `)`
     CloseParen,
     /// `]`
     CloseBracket,
+    /// `]~>`
+    CloseDim,
     /// `{`
     OpenBrace,
     /// `}`
@@ -69,7 +73,9 @@ pub fn classify_token(lang: &Language, kind: &str) -> TokenCat {
     let is_label = |l: &str| lang.token_kind_for_label(l) == Some(kind);
     match lang.token_category(kind) {
         Some("open-bracket") => {
-            if is_label("{") {
+            if is_label("~[") {
+                TokenCat::OpenDim
+            } else if is_label("{") {
                 TokenCat::OpenBrace
             } else if is_label("(") {
                 TokenCat::OpenParen
@@ -78,7 +84,9 @@ pub fn classify_token(lang: &Language, kind: &str) -> TokenCat {
             }
         }
         Some("close-bracket") => {
-            if is_label("}") {
+            if is_label("]~>") {
+                TokenCat::CloseDim
+            } else if is_label("}") {
                 TokenCat::CloseBrace
             } else if is_label(")") {
                 TokenCat::CloseParen
@@ -118,8 +126,13 @@ pub fn classify_token(lang: &Language, kind: &str) -> TokenCat {
 /// Bracket direction of a category, for depth tracking.
 pub fn indent_bias(cat: TokenCat) -> IndentBias {
     match cat {
-        TokenCat::OpenParen | TokenCat::OpenBracket | TokenCat::OpenBrace => IndentBias::Open,
-        TokenCat::CloseParen | TokenCat::CloseBracket | TokenCat::CloseBrace => IndentBias::Close,
+        TokenCat::OpenParen | TokenCat::OpenBracket | TokenCat::OpenDim | TokenCat::OpenBrace => {
+            IndentBias::Open
+        }
+        TokenCat::CloseParen
+        | TokenCat::CloseBracket
+        | TokenCat::CloseDim
+        | TokenCat::CloseBrace => IndentBias::Close,
         _ => IndentBias::None,
     }
 }
@@ -162,11 +175,11 @@ impl FormattingRule for CanonicalFormattingRule {
 /// tokens (the v0.1 canonical table).
 fn canonical_needs_space(prev: TokenCat, curr: TokenCat) -> bool {
     use TokenCat::*;
-    // No space inside () and [].
-    if prev == OpenParen || prev == OpenBracket {
+    // No space inside () and [] and ~[...]>.
+    if prev == OpenParen || prev == OpenBracket || prev == OpenDim {
         return false;
     }
-    if curr == CloseParen || curr == CloseBracket {
+    if curr == CloseParen || curr == CloseBracket || curr == CloseDim {
         return false;
     }
     // Space before closing brace (inline record: value }), but not for
@@ -220,6 +233,10 @@ fn canonical_needs_space(prev: TokenCat, curr: TokenCat) -> bool {
     // Space between adjacent identifiers / literals (juxtaposed function
     // application), e.g. `assert dedent("...")`.
     if prev == Atom && curr == Atom {
+        return true;
+    }
+    // Space around the N-dimensional arrow bracket pair: `~[` / `]>`.
+    if curr == OpenDim || prev == CloseDim {
         return true;
     }
     // Default: no space.

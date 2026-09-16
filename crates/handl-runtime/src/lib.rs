@@ -72,9 +72,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
 use handl_kit_arrow_lower::lower_ast;
-use plugin_engine::term_interpreter::interpret_with_handlers;
+use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
@@ -83,6 +82,7 @@ use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 /// `handl-plugin-engine-typecheck` (ADR-0054).
 pub use handl_plugin_engine_typecheck::TypecheckResult;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
+use plugin_engine::term_interpreter::interpret_with_handlers;
 
 // ---------------------------------------------------------------------------
 // Compiled-handle / artifact / compile-engine traits (ADR-0047 §3)

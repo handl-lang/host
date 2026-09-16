@@ -1,10 +1,9 @@
 //! Tests for the graded-theory declaration surface syntax (ADR-0098/0100).
 //!
-//! The canonical kit recognizes six declaration forms — `sort`, `grade`,
-//! `op`, `handler`, `rewrite`, and `law` — plus the `=>` 2-cell arrow
-//! (`token.fat_arrow`) and the `grades` clause keyword. These tests verify
-//! the lexer and Pratt parser produce the declared node kinds and child
-//! roles.
+//! The canonical kit recognizes four declaration forms — `sort`, `grade`,
+//! `op`, and `handler` — plus the `~[N]~>` N-dimensional arrow
+//! (`token.dim_open` / `token.dim_close`). `law`/`rewrite`/`axiom` are
+//! removed; 2-cell rules are ordinary `~[2]~>` arrow bindings.
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, AstNode, Language, Source};
@@ -62,13 +61,13 @@ fn children<'a>(ast: &'a Ast, node: &'a AstNode) -> Vec<&'a AstNode> {
 fn graded_theory_tokens_exist() {
     let lang = full_language();
     for id in [
-        "token.fat_arrow",
+        "token.dim_open",
+        "token.dim_close",
         "token.keyword.sort",
         "token.keyword.grade",
         "token.keyword.grades",
         "token.keyword.op",
         "token.keyword.handler",
-        "token.keyword.rewrite",
     ] {
         assert!(lang.tokens.get_by_id(id).is_some(), "missing {id}");
     }
@@ -82,8 +81,7 @@ fn graded_theory_grammar_rows_exist() {
         "grammar.grade.prefix",
         "grammar.op.prefix",
         "grammar.handler.prefix",
-        "grammar.rewrite.prefix",
-        "grammar.law.prefix",
+        "grammar.dim_arrow.infix",
     ] {
         assert!(lang.grammar.get_by_id(id).is_some(), "missing {id}");
     }
@@ -97,8 +95,7 @@ fn graded_theory_ast_shapes_exist() {
         ("ast.grade", vec!["name"]),
         ("ast.op", vec!["name", "signature"]),
         ("ast.handler", vec!["name", "impl", "grades"]),
-        ("ast.rewrite", vec!["name", "source", "target"]),
-        ("ast.law", vec!["name", "source", "target"]),
+        ("ast.dim_arrow", vec!["source", "dim", "target"]),
     ] {
         let shape = lang
             .ast
@@ -207,30 +204,6 @@ fn handler_declaration_parses() {
     assert_eq!(cs[1].kind, "function");
 }
 
-#[test]
-fn rewrite_declaration_parses() {
-    let ast = parse("rewrite for_to_iter : f => g");
-    let r = root(&ast);
-    assert_eq!(r.kind, "rewrite");
-    assert_eq!(r.payload.get("name").unwrap(), "for_to_iter");
-    let cs = children(&ast, r);
-    assert_eq!(cs.len(), 3);
-    assert_eq!(cs[1].payload, serde_json::json!("f"));
-    assert_eq!(cs[2].payload, serde_json::json!("g"));
-}
-
-#[test]
-fn law_declaration_parses_as_2cell() {
-    let ast = parse("law add_zero : add(0, x) => x");
-    let r = root(&ast);
-    assert_eq!(r.kind, "law");
-    assert_eq!(r.payload.get("name").unwrap(), "add_zero");
-    let cs = children(&ast, r);
-    assert_eq!(cs.len(), 3);
-    assert_eq!(cs[0].payload, serde_json::json!("add_zero"));
-    assert_eq!(cs[1].kind, "call");
-    assert_eq!(cs[2].payload, serde_json::json!("x"));
-}
 // ---------------------------------------------------------------------------
 // N-dimensional arrow `A ~[N]~> B` (ADR-0119)
 // ---------------------------------------------------------------------------
@@ -245,7 +218,11 @@ fn dim_arrow_parses() {
     let cs = children(&ast, r);
     assert_eq!(cs.len(), 3, "dim arrow is ternary: [source, dim, target]");
     assert_eq!(cs[0].kind, "paren");
-    assert_eq!(cs[1].payload, serde_json::json!(1), "the dimension child is a number");
+    assert_eq!(
+        cs[1].payload,
+        serde_json::json!(1),
+        "the dimension child is a number"
+    );
     assert_eq!(cs[2].payload, serde_json::json!("A"));
 }
 // ---------------------------------------------------------------------------

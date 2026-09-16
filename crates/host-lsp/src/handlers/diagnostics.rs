@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use serde_json::json;
-use crate::refinement::RefinementEngine;
-use crate::protocol::send_notification;
 use crate::diagnostics::parse_diagnostics;
+use crate::protocol::send_notification;
+use crate::refinement::RefinementEngine;
+use serde_json::json;
 pub fn handle_publish_diagnostics(
     writer: &mut impl Write,
     uri: &str,
@@ -46,4 +46,3 @@ pub fn handle_publish_diagnostics(
     let params = json!({ "uri": uri, "diagnostics": diagnostics });
     send_notification(writer, "textDocument/publishDiagnostics", params);
 }
-

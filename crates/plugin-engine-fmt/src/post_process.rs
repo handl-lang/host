@@ -205,8 +205,78 @@ fn fix_colon_eq(line: &str) -> String {
 }
 
 /// Collapse spaces around graded-arrow brackets: `~ [G] ~>` → `~[G]~>`.
+/// Leaves array-lambda arrows spaced: `[...] ~>` does not become `[...]~>`.
 fn fix_graded_arrow(line: &str) -> String {
-    line.replace("~ [", "~[").replace("] ~>", "]~>")
+    // First collapse the opening `~ [` into the `~[` token.
+    let line = line.replace("~ [", "~[");
+    let chars: Vec<char> = line.chars().collect();
+    let mut out = String::with_capacity(chars.len());
+    let mut i = 0;
+    // Track bracket pairs: true = `~[` (dim open), false = bare `[`.
+    let mut stack: Vec<bool> = Vec::new();
+
+    while i < chars.len() {
+        // `~[` opens a dimension bracket.
+        if i + 1 < chars.len() && chars[i] == '~' && chars[i + 1] == '[' {
+            stack.push(true);
+            out.push('~');
+            out.push('[');
+            i += 2;
+            continue;
+        }
+
+        // A bare `[` opens a normal bracket (array-lambda, list, etc.).
+        if chars[i] == '[' {
+            stack.push(false);
+            out.push('[');
+            i += 1;
+            continue;
+        }
+
+        // `]` closes the most recent bracket.
+        if chars[i] == ']' {
+            let is_dim = stack.pop().unwrap_or(false);
+            out.push(']');
+
+            // Is this `] ~>`? Only collapse to `]~>` when closing a `~[...]`.
+            if i + 3 < chars.len()
+                && chars[i + 1] == ' '
+                && chars[i + 2] == '~'
+                && chars[i + 3] == '>'
+            {
+                if is_dim {
+                    // `~[...] ~>` → `~[...]~>`
+                    out.push('~');
+                    out.push('>');
+                    i += 4;
+                    continue;
+                } else {
+                    // `[...] ~>` array-lambda: keep the space.
+                    out.push(' ');
+                    out.push('~');
+                    out.push('>');
+                    i += 4;
+                    continue;
+                }
+            }
+
+            // Already-collapsed `]~>` (dim close token).
+            if i + 2 < chars.len() && chars[i + 1] == '~' && chars[i + 2] == '>' {
+                out.push('~');
+                out.push('>');
+                i += 3;
+                continue;
+            }
+
+            i += 1;
+            continue;
+        }
+
+        out.push(chars[i]);
+        i += 1;
+    }
+
+    out
 }
 
 /// Collapse spaces inside type-parameter brackets when they follow an

@@ -1,11 +1,11 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
 use super::position_offset_from_msg;
-use crate::protocol::send_response;
 use crate::cross_file_rename;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use serde_json::{Value, json};
 pub fn handle_prepare_rename(
     writer: &mut impl Write,
     id: Value,
@@ -20,12 +20,7 @@ pub fn handle_prepare_rename(
     }
 }
 
-pub fn handle_rename(
-    writer: &mut impl Write,
-    id: Value,
-    msg: &Message,
-    store: &DocumentStore,
-) {
+pub fn handle_rename(writer: &mut impl Write, id: Value, msg: &Message, store: &DocumentStore) {
     let source = resolve_document_text(store, &msg.params);
     let offset = position_offset_from_msg(&msg, &source);
     let new_name = msg
@@ -46,4 +41,3 @@ pub fn handle_rename(
         None => send_response(writer, id, json!(null)),
     }
 }
-

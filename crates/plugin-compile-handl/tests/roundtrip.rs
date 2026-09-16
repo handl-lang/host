@@ -6,14 +6,14 @@
 
 use std::path::{Path, PathBuf};
 
-use handl_language::{Ast, AstRef, Language, Term};
 use handl_kit_arrow_lower::lower_ast;
 use handl_kit_data_canonical::language_from_yaml;
+use handl_language::{Ast, AstRef, Language, Term};
 use handl_plugin_compile_handl::HughesEmitter;
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_plugin_ext_refinement::{parse_arrow_file, ParsedFile};
+use handl_plugin_ext_refinement::{ParsedFile, parse_arrow_file};
 
 fn canonical_lang() -> Language {
     language_from_yaml().expect("canonical language should assemble")

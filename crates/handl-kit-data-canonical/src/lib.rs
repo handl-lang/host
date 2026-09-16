@@ -502,7 +502,7 @@ mod tests {
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
         // +13 Term frontier type rules + 1 transport rule.
-        assert_eq!(lang.types.len(), 81);
+        assert_eq!(lang.types.len(), 80);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.
@@ -521,32 +521,24 @@ mod tests {
         // and rewrite steps).
         use handl_language::{RewriteStep, TransformCondition, TransformRule};
         let lang = language_from_yaml().unwrap();
-        // 3 baseline rules (call, entry, lower.entry) + 6 desugar rules
+        // 2 baseline rules (entry, lower.entry) + 6 desugar rules
         // (do_while, nullish, opt-chain, while, while.state, for)
         // + 1 `desugar.dimension` (ADR-0106 §11/§12: `f<X>` lowers to the
         // application `f(X)` by re-tagging the node as a `call`).
         // + 1 `meta-transform` placeholder for N-dimensional arrows.
-        assert_eq!(lang.transforms.len(), 11);
+        assert_eq!(lang.transforms.len(), 10);
         assert_eq!(
             lang.transforms_for("desugar", "do-while")[0].id,
             "transform.desugar.do_while"
         );
 
-        let call = &lang.transforms_for("desugar", "call")[0];
-        assert_eq!(call.id, "transform.desugar.call");
-        assert_eq!(call.priority, 0);
+        let dimension = &lang.transforms_for("desugar", "dimension")[0];
+        assert_eq!(dimension.id, "transform.desugar.dimension");
+        assert_eq!(dimension.priority, 0);
         assert_eq!(
-            call.when,
-            Some(TransformCondition::KindAt {
-                index: Some(0),
-                role: None,
-                kind: "json".into()
-            })
-        );
-        assert_eq!(
-            call.rule,
+            dimension.rule,
             TransformRule::Declarative {
-                target_kind: "json".into(),
+                target_kind: "call".into(),
                 children: vec![RewriteStep::Keep(0), RewriteStep::KeepRest(1)],
                 payload: None,
             }

@@ -269,9 +269,7 @@ extern "C" fn collect_cursors(
     let is_main = from_main_file(cursor);
     match cursor.kind {
         CXCursor_FunctionDecl => {
-            if is_main
-                && allowed
-                && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External
+            if is_main && allowed && unsafe { clang_getCursorLinkage(cursor) } == CXLinkage_External
             {
                 state.functions.push(cursor);
             }

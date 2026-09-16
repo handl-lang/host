@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
 use crate::document::{DocumentStore, resolve_document_text};
-use crate::refinement::RefinementEngine;
+use crate::protocol::Message;
 use crate::protocol::send_response;
+use crate::refinement::RefinementEngine;
+use serde_json::{Value, json};
 /// Handle `textDocument/codeLens`: show the inferred refinement contract
 /// summary as a code lens at the top of arrow files.
 pub fn handle_code_lens(
@@ -33,4 +33,3 @@ pub fn handle_code_lens(
         .collect();
     send_response(writer, id, json!(lenses));
 }
-

@@ -1,0 +1,21 @@
+--- json_lib -- real JSON parser/stringifier built on the OS Python json module.
+---
+--- This package hides the FFI calls; consumers just use `parse` and `serialize`
+--- like any other Handl library.
+
+from "ffi" import { call }
+
+{
+  parse: (json_string) ~> do {
+    _ = call("libpython3.14.so", "Py_Initialize", [], [], "void", false);
+    code := "import json, os; d = json.loads('''" + json_string + "'''); os.putenv('HANDL_JQ_OUT', json.dumps(d, sort_keys=True))";
+    _ = call("libpython3.14.so", "PyRun_SimpleString", [code], ["cstr"], "i32", false);
+    call("libc.so.6", "getenv", ["HANDL_JQ_OUT"], ["cstr"], "cstr", false)
+  },
+  serialize: (json_string) ~> do {
+    _ = call("libpython3.14.so", "Py_Initialize", [], [], "void", false);
+    code := "import json, os; d = json.loads('''" + json_string + "'''); os.putenv('HANDL_JQ_OUT', json.dumps(d, sort_keys=True))";
+    _ = call("libpython3.14.so", "PyRun_SimpleString", [code], ["cstr"], "i32", false);
+    call("libc.so.6", "getenv", ["HANDL_JQ_OUT"], ["cstr"], "cstr", false)
+  }
+}

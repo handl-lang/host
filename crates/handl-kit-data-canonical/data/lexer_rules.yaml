@@ -32,17 +32,18 @@
     text: "~"
   priority: 10
 # `~[ ... ]~>` — N-dimensional arrow bracket (ADR-0119).
-# Higher priority (35) than `~`/`~>` and `[`/`]` so the combined tokens win.
+# `]~>` must have a higher priority (lower number) than `]` so it
+# matches the whole closing bracket before a bare `]`.
 - id: lex.dim_open
   token_kind: token.dim_open
   pattern: !Literal
     text: "~["
-  priority: 35
+  priority: 5
 - id: lex.dim_close
   token_kind: token.dim_close
   pattern: !Literal
     text: "]~>"
-  priority: 35
+  priority: 5
 - id: lex.arrow.unicode
   token_kind: token.arrow
   pattern: !Literal
@@ -199,16 +200,6 @@
     start_chars: a-zA-Z_α-ωΑ-Ω
     continue_chars: a-zA-Z0-9_α-ωΑ-Ω
   priority: 50
-- id: lex.json
-  token_kind: token.json
-  pattern: !Delimited
-    open: "json{"
-    close: "}"
-    escape: false
-    interpolation: false
-    close_at_eof: false
-    nesting_open: "{"
-  priority: 5
 - id: lex.keyword.app
   token_kind: token.keyword.app
   pattern: !Literal

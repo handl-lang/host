@@ -65,7 +65,6 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "stmt.import",
         "stmt.export",
         "hello.greet",
-        "json",
         // v0.1 new eval schemes (ADR-0074)
         "rec",
         "while",
@@ -131,7 +130,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.array.prefix",
         "grammar.object.prefix",
         "grammar.match.prefix",
-        "grammar.json.prefix",
         "grammar.ellipsis.prefix",
         "grammar.field-access.postfix",
         "grammar.index.postfix",
@@ -148,7 +146,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.while.prefix",
         "grammar.for.prefix",
         "grammar.return.prefix",
-        "grammar.law.prefix",
         "grammar.trait.prefix",
         "grammar.impl.prefix",
         "grammar.infer.prefix",
@@ -242,7 +239,6 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.bang",
         "token.question",
         "token.template",
-        "token.json",
         "token.ellipsis",
         // Comments + EOF.
         "token.comment",
@@ -289,7 +285,6 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "type-annot",
         "resolve",
         "hello.greet",
-        "json",
         // v0.1 new AST shapes (ADR-0074)
         "rec",
         "while",

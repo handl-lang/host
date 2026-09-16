@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
 use crate::document::{DocumentStore, resolve_document_text};
-use crate::protocol::send_response;
 use crate::document_link;
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use serde_json::{Value, json};
 pub fn handle_document_link(
     writer: &mut impl Write,
     id: Value,
@@ -22,4 +22,3 @@ pub fn handle_document_link(
     let links = document_link::document_links(&source, file_path);
     send_response(writer, id, json!(links));
 }
-

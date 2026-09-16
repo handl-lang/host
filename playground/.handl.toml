@@ -1,2 +1,6 @@
 [language]
 kit = "handl-kit-data-canonical"
+
+[dependencies]
+fs = { path = "../handl-packages/fs" }
+json_lib = { path = "../handl-packages/json_lib" }

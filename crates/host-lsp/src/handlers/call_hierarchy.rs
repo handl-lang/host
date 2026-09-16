@@ -1,11 +1,11 @@
 use std::io::Write;
 
-use serde_json::{json, Value};
-use crate::protocol::Message;
-use crate::document::{DocumentStore, resolve_document_text};
 use super::position_offset_from_msg;
-use crate::protocol::send_response;
 use crate::call_hierarchy;
+use crate::document::{DocumentStore, resolve_document_text};
+use crate::protocol::Message;
+use crate::protocol::send_response;
+use serde_json::{Value, json};
 pub fn handle_prepare_call_hierarchy(
     writer: &mut impl Write,
     id: Value,
@@ -25,11 +25,7 @@ pub fn handle_prepare_call_hierarchy(
     send_response(writer, id, json!(items));
 }
 
-pub fn handle_call_hierarchy_incoming(
-    writer: &mut impl Write,
-    id: Value,
-    msg: &Message,
-) {
+pub fn handle_call_hierarchy_incoming(writer: &mut impl Write, id: Value, msg: &Message) {
     let item = msg.params.as_ref().and_then(|p| p.get("item"));
     let name = item
         .and_then(|i| i.get("name"))
@@ -43,11 +39,7 @@ pub fn handle_call_hierarchy_incoming(
     send_response(writer, id, json!(calls));
 }
 
-pub fn handle_call_hierarchy_outgoing(
-    writer: &mut impl Write,
-    id: Value,
-    msg: &Message,
-) {
+pub fn handle_call_hierarchy_outgoing(writer: &mut impl Write, id: Value, msg: &Message) {
     let item = msg.params.as_ref().and_then(|p| p.get("item"));
     let name = item
         .and_then(|i| i.get("name"))
@@ -60,4 +52,3 @@ pub fn handle_call_hierarchy_outgoing(
     let calls = call_hierarchy::outgoing_calls(name, file_path);
     send_response(writer, id, json!(calls));
 }
-

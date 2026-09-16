@@ -1,5 +1,5 @@
 while { xs: [3, 7, 2, 9, 4, 1], best: 0 } {
-  [xs, best]~> match xs {
+  [xs, best] ~> match xs {
     []: return best,
 
     [h, ...t]: if h > best
