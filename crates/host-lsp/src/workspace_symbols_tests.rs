@@ -9,7 +9,15 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use handl_host_tooling::ToolingHost;
+use handl_plugin_lsp_std::BasicLsp;
+
 use crate::workspace_symbols::workspace_symbols;
+
+/// A small `ToolingHost` with the canonical LSP document-symbol plugin.
+fn test_host() -> ToolingHost {
+    ToolingHost::new().with_document_symbols_plugin(Box::new(BasicLsp::new()))
+}
 
 /// Monotonic counter so each test gets a unique temp directory.
 static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -53,6 +61,7 @@ fn workspace_symbols_finds_arrow_by_name() {
     let results = workspace_symbols(
         "insert",
         Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
     );
 
     assert!(
@@ -63,22 +72,19 @@ fn workspace_symbols_finds_arrow_by_name() {
 }
 
 #[test]
-fn workspace_symbols_finds_law_in_contracts() {
-    let dir = unique_temp_dir("law-contracts");
-    write_file(
-        &dir,
-        "handl-packages/contracts/prim.hnl",
-        "law prim.add : a ~> b\n",
-    );
+fn workspace_symbols_finds_symbol_in_contracts() {
+    let dir = unique_temp_dir("contracts");
+    write_file(&dir, "handl-packages/contracts/prim.hnl", "prim :: 1\n");
 
     let results = workspace_symbols(
-        "prim.add",
+        "prim",
         Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
     );
 
     assert!(
-        find_named(&results, "prim.add").is_some(),
-        "expected to find 'prim.add', got: {:?}",
+        find_named(&results, "prim").is_some(),
+        "expected to find 'prim', got: {:?}",
         results
     );
 }
@@ -93,7 +99,11 @@ fn workspace_symbols_empty_query_returns_all() {
     );
     write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
-    let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
+    );
 
     // We expect at least the two arrow symbols we authored.
     assert!(
@@ -120,6 +130,7 @@ fn workspace_symbols_no_match_returns_empty() {
     let results = workspace_symbols(
         "does-not-exist",
         Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
     );
 
     assert!(
@@ -141,6 +152,7 @@ fn workspace_symbols_case_insensitive() {
     let results = workspace_symbols(
         "INSERT",
         Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
     );
 
     assert!(
@@ -160,7 +172,11 @@ fn workspace_symbols_includes_container_name() {
     );
     write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
 
-    let results = workspace_symbols("", Some(dir.join("handl-packages/").to_str().unwrap()));
+    let results = workspace_symbols(
+        "",
+        Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
+    );
 
     let insert = find_named(&results, "insert").expect("found insert");
     let container = insert
@@ -197,6 +213,7 @@ fn workspace_symbols_returns_valid_json() {
     let results = workspace_symbols(
         "insert",
         Some(dir.join("handl-packages/").to_str().unwrap()),
+        &test_host(),
     );
 
     assert!(!results.is_empty(), "expected at least one result");

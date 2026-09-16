@@ -9,7 +9,6 @@ mod diagnostics;
 mod document;
 mod document_highlight;
 mod document_link;
-mod document_symbols;
 mod execute_command;
 mod file_watcher;
 mod folding_ranges;
@@ -22,6 +21,7 @@ mod inlay_hints;
 mod kit_resolver;
 mod line_map;
 mod linked_editing;
+mod lsp_types;
 mod moniker;
 mod on_type_formatting;
 mod protocol;
@@ -33,44 +33,6 @@ mod symbols;
 mod type_definition;
 mod type_hierarchy;
 mod workspace_symbols;
-
-mod noop_kit {
-    use handl_platform::{
-        CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError,
-        Plugin, PluginContext,
-    };
-
-    #[derive(Debug, Clone, Default)]
-    pub struct NoopKit;
-
-    impl NoopKit {
-        pub fn new() -> Self {
-            Self
-        }
-    }
-
-    impl Plugin for NoopKit {
-        fn name(&self) -> &str {
-            "noop-kit"
-        }
-
-        fn capabilities(&self) -> &[CapabilityId] {
-            &[]
-        }
-
-        fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
-            None
-        }
-
-        fn run(
-            &self,
-            _req: &CapabilityRequest,
-            _ctx: &mut PluginContext,
-        ) -> Result<CapabilityResponse, PlatformError> {
-            Err(PlatformError::NotImplemented)
-        }
-    }
-}
 
 #[cfg(test)]
 mod call_hierarchy_tests;
@@ -95,8 +57,6 @@ mod diagnostics_tests;
 mod document_highlight_tests;
 #[cfg(test)]
 mod document_link_tests;
-#[cfg(test)]
-mod document_symbols_tests;
 #[cfg(test)]
 mod document_tests;
 #[cfg(test)]
@@ -207,7 +167,7 @@ fn main() {
     let mut writer = stdout.lock();
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
-    let host = ToolingHost::new(noop_kit::NoopKit::new())
+    let host = ToolingHost::new()
         .with_completion_plugin(Box::new(BasicLsp::new()))
         .with_goto_def_plugin(Box::new(BasicLsp::new()))
         .with_document_symbols_plugin(Box::new(BasicLsp::new()))
@@ -449,7 +409,7 @@ fn main() {
                 send_log_message(&mut writer, 4, "configuration changed");
             }
             "workspace/symbol" => {
-                handle_workspace_symbols(&mut writer, id, &msg);
+                handle_workspace_symbols(&mut writer, id, &msg, &host);
             }
             "shutdown" => {
                 handle_shutdown(&mut writer, id);

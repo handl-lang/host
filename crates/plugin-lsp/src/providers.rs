@@ -19,9 +19,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// A parsed source module, ready for LSP rule evaluation.
-pub(crate) struct ParsedModule<'a> {
+#[derive(Clone)]
+pub(crate) struct ParsedModule {
     /// Original source text.
-    pub src: &'a str,
+    pub src: String,
     /// All lexer tokens (including trivia), with absolute byte spans.
     pub tokens: Vec<Token>,
     /// Parsed top-level statements, in source order, with absolute spans.
@@ -29,6 +30,7 @@ pub(crate) struct ParsedModule<'a> {
 }
 
 /// A single parsed top-level statement.
+#[derive(Clone)]
 pub(crate) struct ParsedStmt {
     /// Parsed AST arena.
     pub ast: Ast,
@@ -51,14 +53,14 @@ pub(crate) struct ExportMatch {
 /// Split `src` into statements, lex, and parse each chunk using the data-driven
 /// pipeline.  Trivia tokens are retained in `tokens` for documentation
 /// extraction; the Pratt parser filters them internally.
-pub(crate) fn parse_module<'a>(
+pub(crate) fn parse_module(
     lang: &Language,
-    src: &'a str,
-) -> Result<ParsedModule<'a>, LangError> {
+    src: String,
+) -> Result<ParsedModule, LangError> {
     let mut all_tokens = Vec::new();
     let mut statements = Vec::new();
 
-    for chunk in split_statements(src) {
+    for chunk in split_statements(&src) {
         let toks = lex(lang, &chunk.text)?;
         if toks.as_slice().is_empty() {
             continue;
@@ -93,7 +95,7 @@ pub(crate) fn parse_module<'a>(
 /// Evaluate a single `kind: export` rule against `module` at `pos`.
 pub(crate) fn run_export(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     pos: usize,
     rule: &LspRule,
 ) -> Option<ExportMatch> {
@@ -239,7 +241,7 @@ fn payload_at<'a>(payload: &'a Value, path: &str) -> Option<&'a Value> {
 
 /// Return the span of the token whose text equals `name` and lies inside
 /// `search_span`, if one exists.
-fn token_span_for_name(module: &ParsedModule<'_>, name: &str, search_span: &Span) -> Option<Span> {
+fn token_span_for_name(module: &ParsedModule, name: &str, search_span: &Span) -> Option<Span> {
     for t in &module.tokens {
         if t.start >= search_span.start && t.end <= search_span.end && t.text == name {
             return Some(Span {
@@ -255,7 +257,7 @@ fn token_span_for_name(module: &ParsedModule<'_>, name: &str, search_span: &Span
 /// kinds declared in the rule configuration.
 fn extract_docs(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     config: &std::collections::BTreeMap<String, Value>,
     node_span: Span,
 ) -> Option<String> {
@@ -380,14 +382,14 @@ fn clean_token_text(lang: &Language, token: &Token) -> String {
 }
 
 /// Slice the source text for a span.
-fn source_text<'a>(module: &ParsedModule<'a>, span: Span) -> &'a str {
+fn source_text(module: &ParsedModule, span: Span) -> &str {
     &module.src[span.start..span.end]
 }
 
 /// Evaluate a single `kind: symbol` rule against `module`.
 pub(crate) fn run_symbol(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     rule: &LspRule,
 ) -> Vec<DocumentSymbol> {
     let (node_kind, when) = match rule.match_condition.as_ref() {
@@ -519,7 +521,7 @@ pub(crate) fn symbol_kind_number(s: &str) -> Option<u32> {
 /// Evaluate a single `kind: import_hover` rule against `module` at `pos`.
 pub(crate) fn run_import_hover(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     pos: usize,
     path: &str,
     rule: &LspRule,
@@ -556,7 +558,7 @@ pub(crate) fn run_import_hover(
     let base = base_dir(path)?;
     let target = resolve_module_path(spec, &base, &layouts)?;
     let target_src = fs::read_to_string(&target).ok()?;
-    let target_module = parse_module(lang, &target_src).ok()?;
+    let target_module = parse_module(lang, target_src).ok()?;
 
     let docs = module_leading_docs(lang, &target_module, rule)?;
     Some(format!("**module** `{}`\n\n{}", spec, docs))
@@ -649,7 +651,7 @@ fn resolve_module_path(spec: &str, base: &Path, layouts: &[String]) -> Option<Pa
 /// Extract leading trivia from the start of `module` as markdown.
 fn module_leading_docs(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     rule: &LspRule,
 ) -> Option<String> {
     let leading_kinds = rule
@@ -717,7 +719,7 @@ fn byte_to_position(src: &str, offset: usize) -> Position {
 /// Collect exported names from `module` using an `export` rule.
 fn collect_export_names(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     rule: &LspRule,
 ) -> Vec<(String, Option<String>)> {
     let mut out = Vec::new();
@@ -739,7 +741,7 @@ fn collect_export_names(
 /// Evaluate a single `kind: import_path` completion rule.
 pub(crate) fn run_import_path(
     _lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     pos: usize,
     path: &str,
     rule: &LspRule,
@@ -778,8 +780,8 @@ pub(crate) fn run_import_path(
         return Vec::new();
     }
 
-    let start = byte_to_position(module.src, token.start);
-    let end = byte_to_position(module.src, token.end);
+    let start = byte_to_position(&module.src, token.start);
+    let end = byte_to_position(&module.src, token.end);
     let range = Range { start, end };
 
     let mut items = Vec::new();
@@ -820,7 +822,7 @@ pub(crate) fn run_import_path(
 /// Evaluate a single `kind: import_name` completion rule.
 pub(crate) fn run_import_name(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     def: &LspDef,
     pos: usize,
     path: &str,
@@ -885,7 +887,7 @@ pub(crate) fn run_import_name(
     let Ok(target_src) = fs::read_to_string(&target) else {
         return Vec::new();
     };
-    let Ok(target_module) = parse_module(lang, &target_src) else {
+    let Ok(target_module) = parse_module(lang, target_src) else {
         return Vec::new();
     };
 
@@ -933,7 +935,7 @@ pub(crate) fn run_import_name(
 /// Evaluate a single `kind: export_name` completion rule.
 pub(crate) fn run_exported_names(
     lang: &Language,
-    module: &ParsedModule<'_>,
+    module: &ParsedModule,
     def: &LspDef,
     rule: &LspRule,
 ) -> Vec<CompletionItem> {

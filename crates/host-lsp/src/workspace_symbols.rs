@@ -12,17 +12,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde_json::{Value, json};
+use handl_host_tooling::ToolingHost;
+use serde_json::{Value, to_value};
 
-use crate::document_symbols::document_symbols;
+use crate::line_map::LineMap;
+use crate::lsp_types::{Location, Position, Range, SymbolInformation};
 use crate::refinement::find_arrows_root;
-
-// `offset_to_position` is re-exported here so callers translating raw byte
-// spans (e.g. from custom lexers) can reuse the same position conversion the
-// rest of the crate uses. It is not needed internally because
-// `document_symbols` already emits line/character ranges.
-#[allow(unused_imports)]
-pub use crate::diagnostics::offset_to_position;
 
 /// Recursively collect every `.hnl` file under `dir`.
 fn collect_hnl_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -43,24 +38,6 @@ fn collect_hnl_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Convert a byte offset span (from a `document_symbols` entry) into an LSP
-/// range JSON object. The document symbols store `range`/`selectionRange` as
-/// already-computed `{start,end}` objects, so we simply reuse those.
-fn range_from_symbol(symbol: &Value) -> Value {
-    // Prefer the full `range`; fall back to `selectionRange`.
-    if let Some(range) = symbol.get("range") {
-        return range.clone();
-    }
-    if let Some(sel) = symbol.get("selectionRange") {
-        return sel.clone();
-    }
-    // Should never happen, but produce a sane default.
-    json!({
-        "start": { "line": 0, "character": 0 },
-        "end": { "line": 0, "character": 0 },
-    })
-}
-
 /// Build a `file://` URI from an absolute path.
 fn path_to_uri(path: &Path) -> String {
     let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -74,15 +51,17 @@ fn path_to_uri(path: &Path) -> String {
 /// list when `Ctrl+T` is pressed without typing a filter.
 ///
 /// Results are sorted alphabetically by symbol name.
-pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value> {
+pub fn workspace_symbols(
+    query: &str,
+    workspace_root: Option<&str>,
+    host: &ToolingHost,
+) -> Vec<Value> {
     let mut results = Vec::new();
 
     let root = match workspace_root {
         Some(r) => r,
         None => return results,
     };
-
-    let _root_path = Path::new(root);
 
     // Locate the kit root. `find_arrows_root` looks for
     // `/handl-packages/<pkg>/` within the path string.
@@ -121,31 +100,40 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
             .to_string();
 
         let uri = path_to_uri(file);
+        let lines = LineMap::new(&contents);
 
-        for symbol in document_symbols(&contents) {
-            let name = symbol
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or("")
-                .to_string();
+        let to_position = |offset: usize| {
+            let (line, character) = lines.position(offset);
+            Position {
+                line: line as u32,
+                character: character as u32,
+            }
+        };
+        let to_range = |start: usize, end: usize| Range {
+            start: to_position(start),
+            end: to_position(end),
+        };
 
-            if !query_lower.is_empty() && !name.to_lowercase().contains(&query_lower) {
+        let symbols = match host.document_symbols(&contents) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+
+        for s in symbols {
+            if !query_lower.is_empty() && !s.name.to_lowercase().contains(&query_lower) {
                 continue;
             }
 
-            let kind = symbol.get("kind").and_then(|k| k.as_u64()).unwrap_or(13) as u32;
-
-            let range = range_from_symbol(&symbol);
-
-            results.push(json!({
-                "name": name,
-                "kind": kind,
-                "location": {
-                    "uri": uri,
-                    "range": range,
+            let info = SymbolInformation {
+                name: s.name,
+                kind: s.kind,
+                location: Location {
+                    uri: uri.clone(),
+                    range: to_range(s.range_start, s.range_end),
                 },
-                "containerName": container,
-            }));
+                container_name: container.clone(),
+            };
+            results.push(to_value(&info).unwrap());
         }
     }
 

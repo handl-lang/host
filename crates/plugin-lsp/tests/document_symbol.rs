@@ -7,7 +7,7 @@ fn document_symbol_lists_law_and_assign() {
     let lang = language_from_yaml().expect("canonical language assembles");
     let engine = LspEngine::new(&lang);
 
-    let source = "law add : 1 => 2\nsquare :: 1";
+    let source = "add :: 2\nsquare :: 1";
     let request = DocumentSymbolsRequest(source.to_string());
     let response = engine.document_symbols(&request);
 

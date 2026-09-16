@@ -1,7 +1,7 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
 use handl_language::Language;
-use handl_platform::{PlatformError, Plugin};
+use handl_platform::PlatformError;
 
 /// A diagnostic message with severity and optional source span.
 ///
@@ -48,8 +48,7 @@ pub use semantic_tokens::*;
 mod semantic_tokens_tests;
 
 /// Tooling / LSP host that decouples formatter and diagnostics from parser internals.
-pub struct ToolingHost<K: Plugin> {
-    kit: K,
+pub struct ToolingHost {
     completion: Option<Box<dyn CompletionPlugin>>,
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
@@ -58,11 +57,10 @@ pub struct ToolingHost<K: Plugin> {
     hover: Option<Box<dyn HoverPlugin>>,
 }
 
-impl<K: Plugin> ToolingHost<K> {
-    /// Creates a new tooling host with the given kit.
-    pub fn new(kit: K) -> Self {
+impl ToolingHost {
+    /// Creates a new tooling host.
+    pub fn new() -> Self {
         Self {
-            kit,
             completion: None,
             goto_def: None,
             document_symbols: None,
@@ -106,11 +104,6 @@ impl<K: Plugin> ToolingHost<K> {
     pub fn with_hover_plugin(mut self, plugin: Box<dyn HoverPlugin>) -> Self {
         self.hover = Some(plugin);
         self
-    }
-
-    /// Returns a reference to the configured kit.
-    pub fn kit(&self) -> &K {
-        &self.kit
     }
 
     /// Returns the CLI commands registered by loaded plugins.

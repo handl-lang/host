@@ -1,19 +1,25 @@
 //! Generic, data-driven LSP engine (ADR-0100).
 //!
 //! `plugin-lsp` consumes `Language::lsp` and dispatches LSP requests by the
-//! method-keyed rule map.  Each rule's `kind` selects a provider; provider
-//! configuration lives in `LspRule::config` as free-form data.
+//! method-keyed rule map.  Each rule's `kind` selects a provider via a
+//! language-agnostic registry; provider configuration lives in `LspRule::config`
+//! as free-form data.
 
 use handl_host_tooling::lsp::{
     CompletionRequest, CompletionResponse, DocumentSymbolsRequest, DocumentSymbolsResponse,
     GotoDefRequest, GotoDefResponse, HoverRequest, HoverResponse, Location,
 };
 use handl_language::{Language, LspDef};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
+mod lsp_provider;
 mod providers;
 pub mod validate;
 
 pub use validate::validate_lsp;
+use crate::lsp_provider::{default_providers, LspProvider};
+use crate::providers::ParsedModule;
 
 /// Generic LSP engine bound to a `Language`.
 pub struct LspEngine<'l> {
@@ -21,6 +27,10 @@ pub struct LspEngine<'l> {
     /// The first `LspDef` in `Language::lsp` (multiple fragments can be merged;
     /// for now the engine consults the canonical one with id `canonical.lsp`).
     def: Option<&'l LspDef>,
+    /// Registry mapping `rule.kind` strings to their provider implementations.
+    providers: HashMap<String, Box<dyn LspProvider + Send + Sync>>,
+    /// Source-level parse cache, keyed by the full source string.
+    cache: Mutex<HashMap<String, ParsedModule>>,
 }
 
 impl<'l> LspEngine<'l> {
@@ -30,7 +40,29 @@ impl<'l> LspEngine<'l> {
             .lsp
             .get_by_id("canonical.lsp")
             .or_else(|| lang.lsp.iter().next());
-        Self { lang, def }
+        Self {
+            lang,
+            def,
+            providers: default_providers(),
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Return a cached parse of `src`, computing and storing it if necessary.
+    fn module_for(&self, src: &str) -> ParsedModule {
+        let mut guard = self.cache.lock().unwrap();
+        if let Some(module) = guard.get(src) {
+            return module.clone();
+        }
+        let module = providers::parse_module(self.lang, src.to_string()).unwrap_or_else(|_| {
+            ParsedModule {
+                src: src.to_string(),
+                tokens: Vec::new(),
+                statements: Vec::new(),
+            }
+        });
+        guard.insert(src.to_string(), module.clone());
+        module
     }
 
     /// Evaluate `textDocument/completion` against the language's rules.
@@ -42,32 +74,17 @@ impl<'l> LspEngine<'l> {
             return CompletionResponse(Vec::new());
         };
 
-        let module = match providers::parse_module(self.lang, &request.source) {
-            Ok(m) => m,
-            Err(_) => return CompletionResponse(Vec::new()),
-        };
+        let module = self.module_for(&request.source);
 
         let mut out = Vec::new();
         for rule_id in rule_ids {
             let Some(rule) = def.rules.get(rule_id) else {
                 continue;
             };
-            let items = match rule.kind.as_str() {
-                "import_path" => {
-                    providers::run_import_path(self.lang, &module, request.pos, &request.path, rule)
-                }
-                "import_name" => providers::run_import_name(
-                    self.lang,
-                    &module,
-                    def,
-                    request.pos,
-                    &request.path,
-                    rule,
-                ),
-                "export_name" => providers::run_exported_names(self.lang, &module, def, rule),
-                _ => Vec::new(),
+            let Some(provider) = self.providers.get(&rule.kind) else {
+                continue;
             };
-            out.extend(items);
+            out.extend(provider.completion(self.lang, def, &module, rule, request));
         }
 
         CompletionResponse(out)
@@ -82,46 +99,17 @@ impl<'l> LspEngine<'l> {
             return HoverResponse(None);
         };
 
-        // Parse once, then evaluate the export rules in declaration order.
-        let module = match providers::parse_module(self.lang, &request.source) {
-            Ok(m) => m,
-            Err(_) => return HoverResponse(None),
-        };
+        let module = self.module_for(&request.source);
 
         for rule_id in rule_ids {
             let Some(rule) = def.rules.get(rule_id) else {
                 continue;
             };
-            if rule.kind == "export" {
-                if let Some(m) = providers::run_export(self.lang, &module, request.pos, rule) {
-                    let mut md = String::new();
-                    if let Some(docs) = m.docs {
-                        md.push_str(&docs);
-                    }
-                    if let Some(signature) = m.signature {
-                        if !md.is_empty() {
-                            md.push_str("\n\n");
-                        }
-                        md.push_str("```\n");
-                        md.push_str(&signature);
-                        md.push('\n');
-                        md.push_str("```");
-                    }
-                    if md.is_empty() {
-                        return HoverResponse(None);
-                    }
-                    return HoverResponse(Some(md));
-                }
-            } else if rule.kind == "import_hover" {
-                if let Some(md) = providers::run_import_hover(
-                    self.lang,
-                    &module,
-                    request.pos,
-                    &request.path,
-                    rule,
-                ) {
-                    return HoverResponse(Some(md));
-                }
+            let Some(provider) = self.providers.get(&rule.kind) else {
+                continue;
+            };
+            if let Some(md) = provider.hover(self.lang, def, &module, rule, request) {
+                return HoverResponse(Some(md));
             }
         }
 
@@ -137,20 +125,17 @@ impl<'l> LspEngine<'l> {
             return GotoDefResponse(None);
         };
 
-        let module = match providers::parse_module(self.lang, &request.source) {
-            Ok(m) => m,
-            Err(_) => return GotoDefResponse(None),
-        };
+        let module = self.module_for(&request.source);
 
         for rule_id in rule_ids {
             let Some(rule) = def.rules.get(rule_id) else {
                 continue;
             };
-            if rule.kind != "export" {
+            let Some(provider) = self.providers.get(&rule.kind) else {
                 continue;
-            }
-            if let Some(m) = providers::run_export(self.lang, &module, request.pos, rule) {
-                return GotoDefResponse(Some(Location::new(m.name_span.start, m.name_span.end)));
+            };
+            if let Some(span) = provider.goto(self.lang, def, &module, rule, request) {
+                return GotoDefResponse(Some(Location::new(span.start, span.end)));
             }
         }
 
@@ -166,19 +151,17 @@ impl<'l> LspEngine<'l> {
             return DocumentSymbolsResponse(Vec::new());
         };
 
-        let module = match providers::parse_module(self.lang, &request.0) {
-            Ok(m) => m,
-            Err(_) => return DocumentSymbolsResponse(Vec::new()),
-        };
+        let module = self.module_for(&request.0);
 
         let mut out = Vec::new();
         for rule_id in rule_ids {
             let Some(rule) = def.rules.get(rule_id) else {
                 continue;
             };
-            if rule.kind == "symbol" {
-                out.extend(providers::run_symbol(self.lang, &module, rule));
-            }
+            let Some(provider) = self.providers.get(&rule.kind) else {
+                continue;
+            };
+            out.extend(provider.document_symbols(self.lang, def, &module, rule, request));
         }
 
         DocumentSymbolsResponse(out)
