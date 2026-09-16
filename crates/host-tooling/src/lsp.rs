@@ -239,3 +239,88 @@ pub trait HoverPlugin: Send + Sync {
     /// Return a markdown hover string, or `None` if no hover is available.
     fn run(&self, request: &HoverRequest) -> Result<HoverResponse, PlatformError>;
 }
+
+/// Request for `textDocument/signatureHelp`.
+#[derive(Debug, Clone)]
+pub struct SignatureHelpRequest {
+    /// Source text of the document.
+    pub source: String,
+    /// Cursor byte offset.
+    pub pos: usize,
+    /// Filesystem path of the document (without the `file://` URI prefix).
+    pub path: String,
+}
+
+/// A single signature parameter.
+#[derive(Debug, Clone)]
+pub struct SignatureParameter {
+    /// Display label for the parameter.
+    pub label: String,
+    /// Human-readable documentation for the parameter.
+    pub documentation: String,
+}
+
+impl SignatureParameter {
+    /// Create a parameter description.
+    pub fn new(label: impl Into<String>, documentation: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            documentation: documentation.into(),
+        }
+    }
+}
+
+/// A single signature candidate.
+#[derive(Debug, Clone)]
+pub struct SignatureInformation {
+    /// Full signature label, e.g. `comp(a, b)`.
+    pub label: String,
+    /// Optional human-readable documentation for the signature.
+    pub documentation: Option<String>,
+    /// Parameters of the signature.
+    pub parameters: Vec<SignatureParameter>,
+}
+
+impl SignatureInformation {
+    /// Create a signature with the given label.
+    pub fn new(label: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            documentation: None,
+            parameters: Vec::new(),
+        }
+    }
+}
+
+/// Response for `textDocument/signatureHelp`.
+#[derive(Debug, Clone)]
+pub struct SignatureHelpResponse {
+    /// One or more signatures for the active call.
+    pub signatures: Vec<SignatureInformation>,
+    /// Zero-based index of the parameter the cursor is on.
+    pub active_parameter: usize,
+}
+
+impl SignatureHelpResponse {
+    /// Create a response with a single signature and active parameter.
+    pub fn new(signature: SignatureInformation, active_parameter: usize) -> Self {
+        Self {
+            signatures: vec![signature],
+            active_parameter,
+        }
+    }
+
+    /// Create an empty response for when no signature help is available.
+    pub fn empty() -> Self {
+        Self {
+            signatures: Vec::new(),
+            active_parameter: 0,
+        }
+    }
+}
+
+/// Plugin contract for `textDocument/signatureHelp`.
+pub trait SignatureHelpPlugin: Send + Sync {
+    /// Return signature information for the call enclosing `request.pos`.
+    fn run(&self, request: &SignatureHelpRequest) -> Result<SignatureHelpResponse, PlatformError>;
+}

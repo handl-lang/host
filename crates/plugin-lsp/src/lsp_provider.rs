@@ -7,11 +7,11 @@
 
 use crate::providers::{
     ExportMatch, ParsedModule, run_export, run_exported_names, run_import_hover, run_import_name,
-    run_import_path, run_symbol,
+    run_import_path, run_signature_help, run_symbol,
 };
 use handl_host_tooling::lsp::{
     CompletionItem, CompletionRequest, DocumentSymbol, DocumentSymbolsRequest, GotoDefRequest,
-    HoverRequest,
+    HoverRequest, SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_language::{Language, LspDef, LspRule, Span};
 use std::collections::HashMap;
@@ -63,6 +63,17 @@ pub(crate) trait LspProvider: Send + Sync {
         _request: &DocumentSymbolsRequest,
     ) -> Vec<DocumentSymbol> {
         Vec::new()
+    }
+
+    fn signature_help(
+        &self,
+        _lang: &Language,
+        _def: &LspDef,
+        _module: &ParsedModule,
+        _rule: &LspRule,
+        _request: &SignatureHelpRequest,
+    ) -> Option<SignatureHelpResponse> {
+        None
     }
 }
 
@@ -163,6 +174,21 @@ impl LspProvider for SymbolProvider {
     }
 }
 
+struct SignatureHelpProvider;
+
+impl LspProvider for SignatureHelpProvider {
+    fn signature_help(
+        &self,
+        lang: &Language,
+        _def: &LspDef,
+        module: &ParsedModule,
+        rule: &LspRule,
+        request: &SignatureHelpRequest,
+    ) -> Option<SignatureHelpResponse> {
+        run_signature_help(lang, module, request.pos, rule)
+    }
+}
+
 /// Format an `ExportMatch` into the markdown shown on hover.
 fn format_export_hover(m: &ExportMatch) -> Option<String> {
     let mut md = String::new();
@@ -190,5 +216,6 @@ pub(crate) fn default_providers() -> HashMap<String, Box<dyn LspProvider + Send 
     providers.insert("export".into(), Box::new(ExportProvider));
     providers.insert("import_hover".into(), Box::new(ImportHoverProvider));
     providers.insert("symbol".into(), Box::new(SymbolProvider));
+    providers.insert("signature".into(), Box::new(SignatureHelpProvider));
     providers
 }

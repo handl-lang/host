@@ -121,6 +121,12 @@
         - lsp.export.assign
         - lsp.export.data
 
+    # Signature help for ordinary parenthesized calls.
+    lsp.signature.call:
+      kind: signature
+      match: !Match
+        node_kind: ast.call
+
   lsp:
     textDocument/documentSymbol:
       - lsp.symbol.law
@@ -142,3 +148,6 @@
       - lsp.completion.import_path
       - lsp.completion.import_name
       - lsp.completion.exported_name
+
+    textDocument/signatureHelp:
+      - lsp.signature.call

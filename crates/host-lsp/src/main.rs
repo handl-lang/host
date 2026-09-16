@@ -28,6 +28,7 @@ mod protocol;
 mod range_formatting;
 mod refinement;
 mod selection_ranges;
+#[cfg(test)]
 mod signature_help;
 mod symbols;
 mod type_definition;
@@ -171,7 +172,8 @@ fn main() {
         .with_completion_plugin(Box::new(BasicLsp::new()))
         .with_goto_def_plugin(Box::new(BasicLsp::new()))
         .with_document_symbols_plugin(Box::new(BasicLsp::new()))
-        .with_hover_plugin(Box::new(BasicLsp::new()));
+        .with_hover_plugin(Box::new(BasicLsp::new()))
+        .with_signature_help_plugin(Box::new(BasicLsp::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 
@@ -214,7 +216,7 @@ fn main() {
                 handle_completion(&mut writer, id, &msg, &store, &host);
             }
             "textDocument/signatureHelp" => {
-                handle_signature_help(&mut writer, id, &msg, &store);
+                handle_signature_help(&mut writer, id, &msg, &store, &host);
             }
             "textDocument/codeLens" => {
                 handle_code_lens(&mut writer, id, &msg, &store, &refinement_engine);

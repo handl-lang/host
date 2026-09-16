@@ -55,6 +55,7 @@ pub struct ToolingHost {
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
     semantic_tokens: Option<Box<dyn SemanticTokensPlugin>>,
     hover: Option<Box<dyn HoverPlugin>>,
+    signature_help: Option<Box<dyn SignatureHelpPlugin>>,
 }
 
 impl ToolingHost {
@@ -67,6 +68,7 @@ impl ToolingHost {
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
             semantic_tokens: None,
             hover: None,
+            signature_help: None,
         }
     }
 
@@ -103,6 +105,12 @@ impl ToolingHost {
     /// Registers a hover plugin.
     pub fn with_hover_plugin(mut self, plugin: Box<dyn HoverPlugin>) -> Self {
         self.hover = Some(plugin);
+        self
+    }
+
+    /// Registers a signature-help plugin.
+    pub fn with_signature_help_plugin(mut self, plugin: Box<dyn SignatureHelpPlugin>) -> Self {
+        self.signature_help = Some(plugin);
         self
     }
 
@@ -309,6 +317,15 @@ impl ToolingHost {
         match &self.hover {
             Some(plugin) => plugin.run(request),
             None => Ok(HoverResponse(None)),
+        }
+    }
+
+    /// Returns signature help for the call enclosing `request.pos` in
+    /// `request.source`.
+    pub fn signature_help(&self, request: &SignatureHelpRequest) -> Result<SignatureHelpResponse, PlatformError> {
+        match &self.signature_help {
+            Some(plugin) => plugin.run(request),
+            None => Ok(SignatureHelpResponse::empty()),
         }
     }
 }

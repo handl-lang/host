@@ -40,12 +40,13 @@
 //! Idempotence: `fmt(fmt(src)) == fmt(src)` — tested exhaustively.
 
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
+pub use handl_language::Language;
 pub use handl_plugin_engine_fmt::{
     CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule,
     TokenCat, TokenFormatter, canonical_post_process, classify_token, needs_space,
 };
 
-use handl_language::{Ast, AstRef, LangError, Language};
+use handl_language::{Ast, AstRef, LangError};
 use handl_plugin_engine_lex_pattern::lex;
 
 // ---------------------------------------------------------------------------
@@ -95,10 +96,9 @@ impl From<LangError> for FormatError {
 /// # Errors
 ///
 /// Returns [`FormatError::Parse`] if the source cannot be lexed.
-pub fn format_source(src: &str) -> Result<String, FormatError> {
-    let lang = canonical_language()?;
+pub fn format_source_with_language(lang: &Language, src: &str) -> Result<String, FormatError> {
     // Stage 1 · lex: the token stream preserves comments and exact text.
-    let tokens = lex(&lang, src)?;
+    let tokens = lex(lang, src)?;
     // If there are no tokens, the source is empty/whitespace-only.
     if tokens.as_slice().is_empty() {
         return Ok(String::new());
@@ -107,25 +107,32 @@ pub fn format_source(src: &str) -> Result<String, FormatError> {
     // v0.1 rule set.
     let opts = FormatOptions::default();
     let formatter = TokenFormatter::canonical(opts.indent_size);
-    let rendered = formatter.format(src, tokens.as_slice(), &lang);
+    let rendered = formatter.format(src, tokens.as_slice(), lang);
     // Stage 4 · post-process: blank lines, trailing whitespace, trailing newline.
     Ok(canonical_post_process(&rendered))
 }
 
-/// Check whether source text is already in canonical form.
-///
-/// Returns `true` if `format_source(src)` produces output equal to `src`
-/// (after normalizing trailing whitespace). Does not modify the source.
-///
-/// # Errors
-///
-/// Returns [`FormatError`] if the source cannot be parsed.
-pub fn check_source(src: &str) -> Result<bool, FormatError> {
-    let formatted = format_source(src)?;
+/// Format handl source text into canonical form using the canonical [`Language`].
+pub fn format_source(src: &str) -> Result<String, FormatError> {
+    let lang = canonical_language()?;
+    format_source_with_language(&lang, src)
+}
+
+/// Check whether source text is already in canonical form using the provided
+/// [`Language`].
+pub fn check_source_with_language(lang: &Language, src: &str) -> Result<bool, FormatError> {
+    let formatted = format_source_with_language(lang, src)?;
     // Normalize the input for comparison: trim trailing whitespace and ensure
     // a single trailing newline (matching what format_source produces).
     let normalized = normalize_for_compare(src);
     Ok(formatted == normalized)
+}
+
+/// Check whether source text is already in canonical form using the canonical
+/// [`Language`].
+pub fn check_source(src: &str) -> Result<bool, FormatError> {
+    let lang = canonical_language()?;
+    check_source_with_language(&lang, src)
 }
 
 /// Format the subtree rooted at `root` in `ast` using `lang` data.

@@ -29,16 +29,16 @@
 //! [`lint_source`], [`check_source`], and [`fix_source`] for the public API.
 
 pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
+pub use handl_language::Language;
 
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-use handl_language::{LangError, Language};
+use handl_language::{LangError};
 use handl_plugin_engine_lint::{
     DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, canonical_lint_natives,
 };
 use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
-use handl_plugin_ext_fmt::{check_source as fmt_check_source, format_source as fmt_format_source};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -67,69 +67,52 @@ impl From<LangError> for LintError {
     }
 }
 
+/// Lint a handl source file using the provided [`Language`] and rule set.
+pub fn lint_source_with_language(lang: &Language, src: &str) -> Result<Vec<Diagnostic>, LintError> {
+    lint_source_with_prelude_and_language(lang, src, &HashSet::new())
+}
+
+/// Lint a handl source file using the provided [`Language`] and a host-supplied
+/// wire prelude.
+pub fn lint_source_with_prelude_and_language(
+    lang: &Language,
+    src: &str,
+    prelude: &HashSet<String>,
+) -> Result<Vec<Diagnostic>, LintError> {
+    let diags = lint_engine().lint_source(lang, src)?;
+    let mut out: Vec<Diagnostic> = diags
+        .iter()
+        .map(|d| convert(src, d))
+        // `unbound-wire` comes from the typechecker, not the engine's native.
+        .filter(|d| d.rule != "unbound-wire")
+        .collect();
+    out.extend(unbound_wire_diagnostics_with_language(lang, src, prelude));
+    out.sort_by_key(|d| d.span.start);
+    Ok(out)
+}
+
 /// Lint a handl source file with the canonical rule set.
-///
-/// Runs every [`LintRuleDef`](handl_language::LintRuleDef) in `lang.lints`
-/// over the module — `!Match` rules node-locally, `!Native` rules via the
-/// registered native set. Returns diagnostics sorted by span (byte offset).
-///
-/// # Errors
-///
-/// Returns [`LintError::Parse`] if the source cannot be parsed.
 pub fn lint_source(src: &str) -> Result<Vec<Diagnostic>, LintError> {
-    lint_source_with_prelude(src, &HashSet::new())
+    let lang = lint_language()?;
+    lint_source_with_language(lang, src)
 }
 
 /// Lint a handl source file with a host-supplied wire prelude.
-///
-/// Identical to [`lint_source`], but `prelude` names are seeded into scope
-/// for the `unbound-wire` rule — the names the host's runtime would
-/// auto-wire for `.hnl` sources (module-chain names, flat host-function
-/// names, ambient globals; ADR-0096). This crate carries no host-name
-/// knowledge: the set comes from the host's module registry / resolver
-/// (e.g. `handl_kit_canonical::canonical_wire_names`), which this crate
-/// cannot depend on without a dependency cycle.
-///
-/// `unbound-wire` diagnostics are delegated to the bootstrap typechecker's
-/// scope pass ([`handl_plugin_engine_typecheck::check_module_with_prelude`])
-/// rather than the lint engine's local scope walk — the checker's
-/// binder/pattern/import scoping is the reference implementation and lint
-/// must not diverge from it. The `scope.unbound-wire` native is overridden
-/// with a no-op for the same reason. If the checker fails on the whole
-/// source (parse/language error), lint degrades to no `unbound-wire`
-/// diagnostics rather than failing.
-///
-/// # Errors
-///
-/// Returns [`LintError::Parse`] if the source cannot be parsed.
 pub fn lint_source_with_prelude(
     src: &str,
     prelude: &HashSet<String>,
 ) -> Result<Vec<Diagnostic>, LintError> {
     let lang = lint_language()?;
-    let diags = lint_engine().lint_source(lang, src)?;
-    let mut out: Vec<Diagnostic> = diags
-        .iter()
-        .map(|d| convert(src, d))
-        // `unbound-wire` comes from the typechecker's scope pass, not the
-        // engine's native (which is a registered no-op — belt and suspenders).
-        .filter(|d| d.rule != "unbound-wire")
-        .collect();
-    out.extend(unbound_wire_diagnostics(src, prelude));
-    out.sort_by_key(|d| d.span.start);
-    Ok(out)
+    lint_source_with_prelude_and_language(lang, src, prelude)
 }
 
-/// `unbound-wire` diagnostics delegated to the bootstrap typechecker's
-/// scope pass. Only `unbound-wire` diagnostics are merged — the checker's
-/// other rules (`unbound-export`, `duplicate-binding`, `unused-import`,
-/// `not-yet-checked`) belong to typecheck, not lint. A checker-level failure
-/// (parse/language error) degrades to no diagnostics: the lint parse stage
-/// already reports parse errors, and lint must not fail on a checker hiccup.
-fn unbound_wire_diagnostics(src: &str, prelude: &HashSet<String>) -> Vec<Diagnostic> {
-    let Ok(lang) = lint_language() else {
-        return Vec::new();
-    };
+/// `unbound-wire` diagnostics delegated to the bootstrap typechecker using the
+/// supplied [`Language`].
+fn unbound_wire_diagnostics_with_language(
+    lang: &Language,
+    src: &str,
+    prelude: &HashSet<String>,
+) -> Vec<Diagnostic> {
     match handl_plugin_engine_typecheck::check_module_with_prelude(lang, src, prelude) {
         Ok(report) => report
             .diagnostics
@@ -140,22 +123,21 @@ fn unbound_wire_diagnostics(src: &str, prelude: &HashSet<String>) -> Vec<Diagnos
     }
 }
 
+/// Check if a source file is lint-clean (no Error diagnostics) using the
+/// provided [`Language`].
+pub fn check_source_with_language(lang: &Language, src: &str) -> Result<bool, LintError> {
+    let diags = lint_source_with_language(lang, src)?;
+    Ok(!diags.iter().any(|d| d.severity == Severity::Error))
+}
+
 /// Check if a source file is lint-clean (no Error diagnostics).
-///
-/// # Errors
-///
-/// Returns [`LintError`] if the source cannot be parsed.
 pub fn check_source(src: &str) -> Result<bool, LintError> {
-    check_source_with_prelude(src, &HashSet::new())
+    let lang = lint_language()?;
+    check_source_with_language(lang, src)
 }
 
 /// Check if a source file is lint-clean (no Error diagnostics), with a
-/// host-supplied wire prelude for `unbound-wire` (see
-/// [`lint_source_with_prelude`]).
-///
-/// # Errors
-///
-/// Returns [`LintError`] if the source cannot be parsed.
+/// host-supplied wire prelude for `unbound-wire`.
 pub fn check_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<bool, LintError> {
     let diags = lint_source_with_prelude(src, prelude)?;
     Ok(!diags.iter().any(|d| d.severity == Severity::Error))
@@ -253,20 +235,21 @@ fn lint_engine() -> &'static LintEngine {
             // a no-op so the `lint.scope.unbound-wire` data rule still
             // resolves but emits nothing here.
             .with_native("scope.unbound-wire", |_ctx| Ok(Vec::new()))
-            .with_native("source.fmt", |ctx| Ok(fmt_rule(ctx.src)))
+            .with_native("source.fmt", |ctx| Ok(fmt_rule(ctx.lang, ctx.src)))
     })
 }
 
-/// `source.fmt` — the file is not canonical per ADR-0086. Fixable: the fix
+/// `source.fmt` — the file is not canonical for the language. Fixable: the fix
 /// is the formatted file.
-fn fmt_rule(src: &str) -> Vec<NativeHit> {
+fn fmt_rule(lang: &Language, src: &str) -> Vec<NativeHit> {
     if src.trim().is_empty() {
         return Vec::new();
     }
-    match fmt_check_source(src) {
+    match handl_plugin_ext_fmt::check_source_with_language(lang, src) {
         Ok(true) => Vec::new(),
         Ok(false) => {
-            let replacement = fmt_format_source(src).unwrap_or_default();
+            let replacement = handl_plugin_ext_fmt::format_source_with_language(lang, src)
+                .unwrap_or_default();
             vec![NativeHit {
                 args: Default::default(),
                 span: Some(handl_language::Span {

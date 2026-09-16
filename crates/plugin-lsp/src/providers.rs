@@ -4,7 +4,10 @@
 //! language-agnostic data (`ExportMatch`, etc.) that `LspEngine` formats into
 //! host LSP responses.
 
-use handl_host_tooling::lsp::{CompletionItem, DocumentSymbol, Position, Range, TextEdit};
+use handl_host_tooling::lsp::{
+    CompletionItem, DocumentSymbol, Position, Range, SignatureHelpResponse, SignatureInformation,
+    SignatureParameter, TextEdit,
+};
 use handl_language::{
     Ast, AstNode, AstRef, LangError, Language, LspDef, LspMatch, LspRule, Span, Token, Tokens,
     Value,
@@ -14,7 +17,7 @@ use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_plugin_engine_transform_rewrite::condition::matches_condition;
 use handl_plugin_ext_diag::split_statements;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -971,4 +974,299 @@ pub(crate) fn run_exported_names(
     }
 
     items
+}
+
+/// Static description of a known arrow combinator's signature.
+#[derive(Clone, Copy)]
+struct CombinatorInfo {
+    label: &'static str,
+    documentation: &'static str,
+    parameters: &'static [(&'static str, &'static str)],
+}
+
+/// Look up the static signature information for a known arrow combinator.
+fn known_combinator(name: &str) -> Option<CombinatorInfo> {
+    match name {
+        "arr" => Some(CombinatorInfo {
+            label: "arr(\"op\", args…)",
+            documentation: "Lift a named pure function into the arrow.",
+            parameters: &[
+                ("op", "the named operation to lift into the arrow"),
+                ("args…", "additional arguments forwarded to the operation"),
+            ],
+        }),
+        "comp" => Some(CombinatorInfo {
+            label: "comp(a, b)",
+            documentation: "Compose two arrows.",
+            parameters: &[
+                ("a (first arrow)", "the first arrow to run"),
+                ("b (second arrow)", "the second arrow, fed by the output of the first"),
+            ],
+        }),
+        "first" => Some(CombinatorInfo {
+            label: "first(inner)",
+            documentation: "Run `inner` on the first component of a pair.",
+            parameters: &[("inner", "the arrow to apply to the first component of the pair")],
+        }),
+        "choice" => Some(CombinatorInfo {
+            label: "choice(l, r)",
+            documentation: "Route on `Either`: `l` handles `Left`, `r` handles `Right`.",
+            parameters: &[
+                ("l (Left case)", "arrow handling the Left case"),
+                ("r (Right case)", "arrow handling the Right case"),
+            ],
+        }),
+        "app" => Some(CombinatorInfo {
+            label: "app(\"name\", args…)",
+            documentation: "Dynamic / higher-order arrow application.",
+            parameters: &[
+                ("name", "the named arrow to apply"),
+                ("args…", "arguments passed to the arrow"),
+            ],
+        }),
+        "rec" => Some(CombinatorInfo {
+            label: "rec { state, body }",
+            documentation: "Feedback loop (replaces `loop`).",
+            parameters: &[
+                ("state", "initial state bindings"),
+                ("body", "match or if to determine exit vs continue"),
+            ],
+        }),
+        "insert" => Some(CombinatorInfo {
+            label: "insert({ elem, acc })",
+            documentation: "Insert an element into a sorted list.",
+            parameters: &[("{ elem, acc }", "record with `elem` and accumulator `acc`")],
+        }),
+        _ => None,
+    }
+}
+
+/// Token classifications derived from `Language::tokens`, mirroring the
+/// `TokenClasses` helper without adding a `handl-kit-canonical` dependency.
+struct TokenClasses {
+    categories: HashMap<String, String>,
+    pairs: HashMap<String, String>,
+    kind_labels: HashMap<String, String>,
+}
+
+impl TokenClasses {
+    fn new(lang: &Language) -> Self {
+        let mut categories = HashMap::new();
+        let mut pairs = HashMap::new();
+        let mut kind_labels = HashMap::new();
+        for def in lang.tokens.iter() {
+            if let Some(c) = &def.category {
+                categories.insert(def.id.clone(), c.clone());
+            }
+            if let Some(p) = &def.pair {
+                pairs.insert(def.id.clone(), p.clone());
+            }
+            if let Some(l) = &def.label {
+                kind_labels.insert(def.id.clone(), l.clone());
+            }
+        }
+        Self {
+            categories,
+            pairs,
+            kind_labels,
+        }
+    }
+
+    fn is(&self, kind: &str, category: &str) -> bool {
+        self.categories
+            .get(kind)
+            .map_or(false, |c| c == category)
+    }
+
+    fn is_identifier(&self, kind: &str) -> bool {
+        self.is(kind, "identifier")
+    }
+
+    fn is_comment(&self, kind: &str) -> bool {
+        self.is(kind, "comment") || self.is(kind, "doc-comment")
+    }
+
+    fn is_open_bracket(&self, kind: &str) -> bool {
+        self.is(kind, "open-bracket")
+    }
+
+    fn is_close_bracket(&self, kind: &str) -> bool {
+        self.is(kind, "close-bracket")
+    }
+
+    fn is_label(&self, kind: &str, label: &str) -> bool {
+        self.kind_labels.get(kind).map_or(false, |l| l == label)
+    }
+
+    fn pair_of(&self, kind: &str) -> Option<&str> {
+        self.pairs.get(kind).map(String::as_str)
+    }
+}
+
+/// Evaluate a single `kind: signature` rule and return structured signature
+/// help for the call enclosing `pos`.
+pub(crate) fn run_signature_help(
+    lang: &Language,
+    module: &ParsedModule,
+    pos: usize,
+    rule: &LspRule,
+) -> Option<SignatureHelpResponse> {
+    let (node_kind, when) = match rule.match_condition.as_ref() {
+        Some(LspMatch::Match { node_kind, when }) => (node_kind, when.as_ref()),
+        _ => return None,
+    };
+
+    let target_kind = resolve_node_kind(lang, node_kind);
+    let classes = TokenClasses::new(lang);
+
+    // Find the innermost call-like AST node containing `pos`.
+    let mut best: Option<(&AstNode, &Ast, Span)> = None;
+    for stmt in &module.statements {
+        for node in stmt.ast.iter() {
+            if node.kind != target_kind {
+                continue;
+            }
+            let span = match node.span {
+                Some(s) => s,
+                None => continue,
+            };
+            if span.start > pos || span.end <= pos {
+                continue;
+            }
+            if let Some(cond) = when {
+                if !matches_condition(lang, &stmt.ast, node, cond) {
+                    continue;
+                }
+            }
+            if let Some((_, _, cur)) = best {
+                if (span.end - span.start) < (cur.end - cur.start) {
+                    best = Some((node, &stmt.ast, span));
+                }
+            } else {
+                best = Some((node, &stmt.ast, span));
+            }
+        }
+    }
+
+    let (call, ast, _call_span) = best?;
+    let callee = child_node(lang, ast, call, "callee")?;
+    let callee_span = callee.span?;
+
+    // The callee must begin with an identifier (rules out keyword forms like `arr`).
+    let name_token = module
+        .tokens
+        .iter()
+        .find(|t| {
+            t.start >= callee_span.start
+                && t.end <= callee_span.end
+                && classes.is_identifier(&t.kind)
+        })?;
+    let name = &name_token.text;
+
+    // Locate the opening `(` immediately after the callee.
+    let lparen_idx = module
+        .tokens
+        .iter()
+        .position(|t| t.start >= callee_span.end && classes.is_label(&t.kind, "("))?;
+    let lparen = &module.tokens[lparen_idx];
+    if pos < lparen.end {
+        return None;
+    }
+
+    let active_param = count_active_parameter(&classes, &module.tokens, lparen_idx, pos);
+
+    let signature = if let Some(info) = known_combinator(name) {
+        SignatureInformation {
+            label: info.label.to_string(),
+            documentation: Some(info.documentation.to_string()),
+            parameters: info
+                .parameters
+                .iter()
+                .map(|(l, d)| SignatureParameter::new(*l, *d))
+                .collect(),
+        }
+    } else {
+        let n = count_args(&classes, &module.tokens, lparen_idx);
+        let labels: Vec<String> = (1..=n).map(|i| format!("arg{}", i)).collect();
+        let label = if labels.is_empty() {
+            format!("{}()", name)
+        } else {
+            format!("{}({})", name, labels.join(", "))
+        };
+        let parameters = labels
+            .iter()
+            .map(|l| {
+                let doc = format!("parameter `{}` of `{}`", l, name);
+                SignatureParameter::new(l.clone(), doc)
+            })
+            .collect();
+        SignatureInformation {
+            label,
+            documentation: Some(format!("Call to `{}`", name)),
+            parameters,
+        }
+    };
+
+    let active = active_param.min(signature.parameters.len().saturating_sub(1));
+    Some(SignatureHelpResponse::new(signature, active))
+}
+
+/// Count how many top-level (depth-0) commas appear between the `(` at
+/// `lparen_idx` and the cursor `offset`.
+fn count_active_parameter(
+    classes: &TokenClasses,
+    tokens: &[Token],
+    lparen_idx: usize,
+    offset: usize,
+) -> usize {
+    let closing = classes.pair_of(&tokens[lparen_idx].kind);
+    let mut depth: i32 = 0;
+    let mut commas: usize = 0;
+    let mut j = lparen_idx + 1;
+    while j < tokens.len() {
+        let t = &tokens[j];
+        if t.start >= offset {
+            break;
+        }
+        let k = t.kind.as_str();
+        if classes.is_open_bracket(k) {
+            depth += 1;
+        } else if classes.is_close_bracket(k) {
+            if Some(k) == closing && depth == 0 {
+                break;
+            }
+            depth -= 1;
+        } else if depth == 0 && classes.is_label(k, ",") {
+            commas += 1;
+        }
+        j += 1;
+    }
+    commas
+}
+
+/// Count the number of top-level arguments inside the call whose `(` is at
+/// `lparen_idx`.
+fn count_args(classes: &TokenClasses, tokens: &[Token], lparen_idx: usize) -> usize {
+    let closing = classes.pair_of(&tokens[lparen_idx].kind);
+    let mut depth: i32 = 0;
+    let mut commas: usize = 0;
+    let mut has_content = false;
+    let mut j = lparen_idx + 1;
+    while j < tokens.len() {
+        let k = tokens[j].kind.as_str();
+        if classes.is_open_bracket(k) {
+            depth += 1;
+        } else if classes.is_close_bracket(k) {
+            if Some(k) == closing && depth == 0 {
+                break;
+            }
+            depth -= 1;
+        } else if depth == 0 && classes.is_label(k, ",") {
+            commas += 1;
+        } else if depth == 0 && !classes.is_comment(k) {
+            has_content = true;
+        }
+        j += 1;
+    }
+    if has_content { commas + 1 } else { 0 }
 }

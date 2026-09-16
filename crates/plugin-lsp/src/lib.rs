@@ -7,7 +7,8 @@
 
 use handl_host_tooling::lsp::{
     CompletionRequest, CompletionResponse, DocumentSymbolsRequest, DocumentSymbolsResponse,
-    GotoDefRequest, GotoDefResponse, HoverRequest, HoverResponse, Location,
+    GotoDefRequest, GotoDefResponse, HoverRequest, HoverResponse, Location, SignatureHelpRequest,
+    SignatureHelpResponse,
 };
 use handl_language::{Language, LspDef};
 use std::collections::HashMap;
@@ -164,5 +165,31 @@ impl<'l> LspEngine<'l> {
         }
 
         DocumentSymbolsResponse(out)
+    }
+
+    /// Evaluate `textDocument/signatureHelp` against the language's rules.
+    pub fn signature_help(&self, request: &SignatureHelpRequest) -> SignatureHelpResponse {
+        let Some(def) = self.def else {
+            return SignatureHelpResponse::empty();
+        };
+        let Some(rule_ids) = def.lsp.get("textDocument/signatureHelp") else {
+            return SignatureHelpResponse::empty();
+        };
+
+        let module = self.module_for(&request.source);
+
+        for rule_id in rule_ids {
+            let Some(rule) = def.rules.get(rule_id) else {
+                continue;
+            };
+            let Some(provider) = self.providers.get(&rule.kind) else {
+                continue;
+            };
+            if let Some(resp) = provider.signature_help(self.lang, def, &module, rule, request) {
+                return resp;
+            }
+        }
+
+        SignatureHelpResponse::empty()
     }
 }

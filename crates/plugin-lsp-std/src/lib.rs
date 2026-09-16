@@ -9,7 +9,8 @@
 use handl_host_tooling::lsp::{
     CompletionPlugin, CompletionRequest, CompletionResponse, DocumentSymbolsPlugin,
     DocumentSymbolsRequest, DocumentSymbolsResponse, GotoDefPlugin, GotoDefRequest,
-    GotoDefResponse, HoverPlugin, HoverRequest, HoverResponse,
+    GotoDefResponse, HoverPlugin, HoverRequest, HoverResponse, SignatureHelpPlugin,
+    SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::Language;
@@ -71,5 +72,14 @@ impl DocumentSymbolsPlugin for BasicLsp {
         request: &DocumentSymbolsRequest,
     ) -> Result<DocumentSymbolsResponse, handl_platform::PlatformError> {
         Ok(LspEngine::new(&self.lang).document_symbols(request))
+    }
+}
+
+impl SignatureHelpPlugin for BasicLsp {
+    fn run(
+        &self,
+        request: &SignatureHelpRequest,
+    ) -> Result<SignatureHelpResponse, handl_platform::PlatformError> {
+        Ok(LspEngine::new(&self.lang).signature_help(request))
     }
 }
