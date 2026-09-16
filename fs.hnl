@@ -1,0 +1,15 @@
+--- fs -- tiny filesystem helpers backed by OS Python for now.
+---
+--- Exposes `read_file` and other basic file operations.  The FFI stays
+--- inside this package so consumers just see ordinary Handl arrows.
+
+from "ffi" import { call }
+
+{
+  read_file: (path) ~> do {
+    _ = call("libpython3.14.so", "Py_Initialize", [], [], "void", false);
+    code := "import os; f = open('''" + path + "''', 'r'); os.putenv('HANDL_FILE', f.read())";
+    _ = call("libpython3.14.so", "PyRun_SimpleString", [code], ["cstr"], "i32", false);
+    call("libc.so.6", "getenv", ["HANDL_FILE"], ["cstr"], "cstr", false)
+  }
+}
