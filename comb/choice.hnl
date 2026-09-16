@@ -14,7 +14,7 @@
 --- `[4, x ~> x % 2 == 0, x ~> "even", x ~> "odd"] >>> comb.choice`
 --- -- => "even"
 ---
-export choice :: [value, pred, true_fn, false_fn]~> {
+export choice :: [value, pred, true_fn, false_fn] ~> {
   if pred(value) {
     true_fn(value)
   } else {

@@ -9,7 +9,7 @@
 do {
   len_ := xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n]~> match xs {
+      [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -18,7 +18,7 @@ do {
 
   rev_ := xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -31,7 +31,7 @@ do {
       []: true,
       [h, ...t]: false
     },
-    push: [c, v]~> [...c, v],
+    push: [c, v] ~> [...c, v],
     pop: c ~> match c {
       []: error.raise("collection is empty"),
       [h, ...t]: match rev_(c) {

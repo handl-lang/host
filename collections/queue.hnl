@@ -9,7 +9,7 @@
 do {
   len_ := xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n]~> match xs {
+      [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -22,7 +22,7 @@ do {
       []: true,
       [h, ...t]: false
     },
-    enqueue: [c, v]~> [...c, v],
+    enqueue: [c, v] ~> [...c, v],
     dequeue: c ~> match c {
       []: error.raise("collection is empty"),
       [h, ...t]: t
