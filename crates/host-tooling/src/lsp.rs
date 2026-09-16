@@ -324,3 +324,49 @@ pub trait SignatureHelpPlugin: Send + Sync {
     /// Return signature information for the call enclosing `request.pos`.
     fn run(&self, request: &SignatureHelpRequest) -> Result<SignatureHelpResponse, PlatformError>;
 }
+
+/// A single LSP folding range.
+#[derive(Debug, Clone)]
+pub struct FoldingRange {
+    pub start_line: u32,
+    pub start_char: u32,
+    pub end_line: u32,
+    pub end_char: u32,
+    pub kind: String,
+}
+
+impl FoldingRange {
+    /// Create a new folding range with the given line/character bounds and kind.
+    pub fn new(
+        start_line: u32,
+        start_char: u32,
+        end_line: u32,
+        end_char: u32,
+        kind: impl Into<String>,
+    ) -> Self {
+        Self {
+            start_line,
+            start_char,
+            end_line,
+            end_char,
+            kind: kind.into(),
+        }
+    }
+}
+
+/// Request for `textDocument/foldingRange`.
+#[derive(Debug, Clone)]
+pub struct FoldingRangeRequest {
+    /// Source text of the document.
+    pub source: String,
+}
+
+/// Response for `textDocument/foldingRange`.
+#[derive(Debug, Clone)]
+pub struct FoldingRangeResponse(pub Vec<FoldingRange>);
+
+/// Plugin contract for `textDocument/foldingRange`.
+pub trait FoldingRangePlugin: Send + Sync {
+    /// Return folding ranges for the whole document.
+    fn run(&self, request: &FoldingRangeRequest) -> Result<FoldingRangeResponse, PlatformError>;
+}

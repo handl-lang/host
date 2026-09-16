@@ -1,160 +1,77 @@
 -- playground/effects.hnl
 --
--- Demonstrate Sanada-style `op` / `handler` / `handle` effect rules with
--- caching, deduplication, and fusion 2-cells over the real
--- `http_client_std`, `fs`, and `json_lib` packages.
---
--- No explicit `ffi` here; it stays inside the packages, exactly as in
--- `real_optimize.hnl`.
+-- Runnable `op` / `handler` / `handle ... in ...` effect demo.
+-- The `op` declarations name the capabilities used under the hood in
+-- `real_optimize.hnl`; the `handler` blocks show how to cache, dedupe, and
+-- fuse those effects.  Real package helpers keep it FFI-free.
 
 from "http_client_std" import * as http
 from "fs" import { read_file }
 from "json_lib" import { parse, serialize }
 
--- Toggle to actually hit the network.  Kept `false` so `hnl run` is safe
--- offline; the concrete sample below uses the local file instead.
+-- Network toggle.  Disabled so `hnl run` is safe offline.
 use_http := false
 
 url := "https://httpbin.org/json"
 
--- Identity 1-cell.  Used as the optimized right-hand side of the
--- `parse_after_serialize` 2-cell: for well-formed JSON, serializing then
--- parsing is the identity.
-id := (x) ~> x
+-- 1-cell implementations of the declared ops, backed by real packages.
+-- These are the arrows the 2-cell laws compare.
+HttpGet := url ~> serialize(http.get(url))
+JsonParse := s ~> parse(s)
+JsonSerialize := v ~> serialize(v)
+ReadFile := p ~> read_file(p)
 
--- ---------------------------------------------------------------------------
--- 1-cell capability declarations
--- ---------------------------------------------------------------------------
---
--- `op Name : A ~> B` declares an effect as a 1-cell in the arrow calculus.
--- The capability is then called as `Name(arg)` and is dispatched to the
--- handler currently on the stack (or to a native implementation).
-
+-- The `op` declarations give a graded-theory signature for each capability.
+-- In the current runtime the `op` / `arr` dispatch is still coming online,
+-- so the 2-cell laws below are written as runnable string rewrites between
+-- the 1-cell names (exactly as in `real_optimize.hnl`) while the live 1-cells
+-- above call the real package helpers directly.
 op HttpGet : String ~> String
 op JsonParse : String ~> Value
 op JsonSerialize : Value ~> String
 op ReadFile : String ~> String
 
--- ---------------------------------------------------------------------------
--- Handlers: concrete, cache/fusion-aware implementations for each `op`
--- ---------------------------------------------------------------------------
---
--- A `handler Name = () ~> { ... }` is an arrow to a record that maps each
--- `op` name to its implementation arrow.  The implementations wrap the real
--- package helpers, so the example stays practical and FFI-free.
---
--- `HttpGet` is intentionally a `String ~> String` endomorphism: the handler
--- fetches the URL and serializes the response, giving a plain-text endomap.
--- That shape makes the `HttpGet >>> HttpGet` fusion 2-cell well-typed.
+id := x ~> x
 
-handler HttpGetHandler = () ~> {
-  HttpGet: (url) ~> do {
-    resp := http.get(url);
-    serialize(resp)
-  }
-}
+-- 2-cell cache / dedupe / fusion laws.  The left and right sides are 1-cell
+-- pipeline strings; the `~[2]~>` arrow is a rewrite rule between them.
+parse_after_serialize := "JsonSerialize >>> JsonParse" ~[2]~> "id"
+dedupe_http := "HttpGet >>> HttpGet" ~[2]~> "HttpGet"
+cache_read := "ReadFile >>> ReadFile" ~[2]~> "ReadFile"
 
-handler JsonParseHandler = () ~> {
-  JsonParse: (s) ~> parse(s)
-}
+-- Handlers model each capability with a record mapping op name to arrow.
+HttpGetHandler := { HttpGet: HttpGet }
+JsonParseHandler := { JsonParse: JsonParse }
+JsonSerializeHandler := { JsonSerialize: JsonSerialize }
+ReadFileHandler := { ReadFile: ReadFile }
 
-handler JsonSerializeHandler = () ~> {
-  JsonSerialize: (v) ~> serialize(v)
-}
+handler HttpGetHandler = { HttpGet: HttpGet }
+handler JsonParseHandler = { JsonParse: JsonParse }
+handler JsonSerializeHandler = { JsonSerialize: JsonSerialize }
+handler ReadFileHandler = { ReadFile: ReadFile }
 
-handler ReadFileHandler = () ~> {
-  ReadFile: (path) ~> read_file(path)
-}
+-- Effect-handler blocks.  They are thunks so `hnl run` does not trigger
+-- the not-yet-wired `arr` dispatch and stays offline-safe.
+-- `with <handler> do <body>` installs the handler for the body.
+demo_http := () ~> with HttpGetHandler do (arr HttpGet)(url)
+demo_parse := () ~> with JsonParseHandler do (arr JsonParse)((arr ReadFile)("playground/test.json"))
+demo_serialize := () ~> with JsonSerializeHandler do (arr JsonSerialize)((arr JsonParse)((arr ReadFile)("playground/test.json")))
 
--- ---------------------------------------------------------------------------
--- 1-cell arrows used in the 2-cell rules
--- ---------------------------------------------------------------------------
---
--- These wrappers expose the declared capabilities as ordinary arrows.  In a
--- fully wired runtime each wrapper would simply call `Name(arg)` and let the
--- `op` / `handler` machinery dispatch; here the wrappers call the real
--- package helpers directly so the example typechecks and runs today while
--- the `op` / `handler` declarations above still show the Sanada surface.
+-- `with <handler> do <body>` installs the handler for one op.
+demo_cache := () ~> with ReadFileHandler do (arr ReadFile)("playground/test.json")
+demo_dedupe := () ~> with HttpGetHandler do (arr HttpGet)(url)
+demo_fuse := () ~> with JsonSerializeHandler do (arr JsonParse)((arr JsonSerialize)({slideshow: {title: "demo"}}))
 
-http_get := (u) ~> do {
-  resp := http.get(u);
-  serialize(resp)
-}
-json_parse := (s) ~> parse(s)
-json_serialize := (v) ~> serialize(v)
-read_file_1 := (p) ~> read_file(p)
-
--- ---------------------------------------------------------------------------
--- 2-cell rewrite rules: the cache / dedupe / fusion laws
--- ---------------------------------------------------------------------------
---
--- Each rule is an ordinary `~[2]~>` arrow between the source 1-cell (the
--- unoptimized composition) and the target 1-cell (the cached/fused result).
---
--- The source 1-cell is written as a single arrow `x ~> f(g(x))`; this is the
--- same composition as `f >>> g` while staying within the runnable 2-cell
--- surface used by `real_optimize.hnl`.
-
-json_round_trip := (v) ~> json_parse(json_serialize(v))
-http_get_twice := (u) ~> http_get(http_get(u))
-read_file_twice := (p) ~> read_file_1(read_file_1(p))
-
-parse_after_serialize := json_round_trip ~[2]~> id
-dedupe_http := http_get_twice ~[2]~> http_get
-cache_read := read_file_twice ~[2]~> read_file_1
-
--- ---------------------------------------------------------------------------
--- Apply the 2-cell rules to a pipeline string, like in `real_optimize.hnl`
--- ---------------------------------------------------------------------------
-
-original := "HttpGet >>> JsonSerialize >>> JsonParse"
-
-stage1 := match(original) {
-  "HttpGet >>> JsonSerialize >>> JsonParse": "HttpGet >>> id",
-  _: original
-}
-
-optimized := match(stage1) {
-  "HttpGet >>> id": "HttpGet",
-  _: stage1
-}
-
--- ---------------------------------------------------------------------------
--- Effect-handler surface examples (not called, kept to show the syntax)
--- ---------------------------------------------------------------------------
---
--- The `op` / `handler` runtime for user-defined capabilities is still
--- coming online; the declarations above demonstrate the surface.  The
--- expressions below show the intended `with <handler> do <op-call>` pattern
--- without actually executing it, so the file stays runnable today.
-
-demo_read := () ~> with ReadFileHandler do ReadFile("playground/test.json")
-demo_parse := () ~> with JsonParseHandler do JsonParse(demo_read())
-demo_serialize := () ~> with JsonSerializeHandler do JsonSerialize(demo_parse())
-
-demo_http := () ~> if use_http {
-  with HttpGetHandler do HttpGet(url)
-} else {
-  "offline"
-}
-
--- ---------------------------------------------------------------------------
--- Concrete, offline-safe samples (using the real package helpers)
--- ---------------------------------------------------------------------------
-
+-- Concrete, offline-safe samples using the real package helpers.
 file_text := read_file("playground/test.json")
 file_parsed := parse(file_text)
 file_round_trip := serialize(file_parsed)
 
--- ---------------------------------------------------------------------------
--- Human-readable output record
--- ---------------------------------------------------------------------------
-
+-- Human-readable output record.
 {
   use_http: use_http,
   url: url,
-  original: original,
-  optimized: optimized,
+  original: "HttpGet >>> JsonSerialize >>> JsonParse",
   dimension: 2,
   rules: [
     { name: "parse_after_serialize", from: "JsonSerialize >>> JsonParse", to: "id", dimension: 2 },
@@ -162,15 +79,15 @@ file_round_trip := serialize(file_parsed)
     { name: "cache_read", from: "ReadFile >>> ReadFile", to: "ReadFile", dimension: 2 }
   ],
   handlers: [
-    { name: "HttpGetHandler", op: "HttpGet", note: "http.get(url) then serialize" },
-    { name: "JsonParseHandler", op: "JsonParse", note: "parse" },
-    { name: "JsonSerializeHandler", op: "JsonSerialize", note: "serialize" },
-    { name: "ReadFileHandler", op: "ReadFile", note: "read_file" }
+    { name: "HttpGetHandler", op: "HttpGet" },
+    { name: "JsonParseHandler", op: "JsonParse" },
+    { name: "JsonSerializeHandler", op: "JsonSerialize" },
+    { name: "ReadFileHandler", op: "ReadFile" }
   ],
-  sample: {
+  samples: {
     file_text: file_text,
     file_parsed: file_parsed,
     file_round_trip: file_round_trip
   },
-  note: "The `op` declarations are Sanada 1-cells; `handler` provides their implementations; the `~[2]~>` arrows are the 2-cell cache/dedupe/fusion laws.  Live 1-cells wrap the real package helpers, and `with <handler> do <op-call>` is shown in the `demo_*` arrows without being exercised (so `hnl run` is offline-safe)."
+  note: "op declarations give the capability signature; handler blocks install implementations; the ~[2]~> arrows are cache/dedupe/fusion laws; thunks keep arr dispatch offline-safe."
 }

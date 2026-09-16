@@ -28,23 +28,21 @@ local_json := {
 -- Real HTTP 1-cell.
 fetch := (url) ~> http.get(url)
 
--- Fetch with offline fallback.  `http.get` already returns a parsed Value,
--- so the fallback is the same JSON loaded from a `{...}` literal.
-fetched := if use_http { fetch(url) } else { local_json }
+-- Fetch with offline fallback.  `round_trip` is the real 1-cell pipeline.
+fetched := if use_http { round_trip(url) } else { local_json }
 
 -- Identity 1-cell, used in the rewrite rules.
 id := x ~> x
 
--- 1-cell pipeline (source-level string) to optimize.
-round_trip := "fetch >>> serialize >>> parse"
+-- 1-cell pipeline to optimize, built as a real arrow.
+round_trip := fetch >>> serialize >>> parse
 
--- 2-cell rewrite rules as string rewrites between 1-cell pipeline strings.
--- The left string is the sub-pipeline to match; the right is the replacement.
-parse_after_serialize := "serialize >>> parse" ~[2]~> "id"
+-- 2-cell rewrite rules as real arrows.
+parse_after_serialize := (serialize >>> parse) ~[2]~> id
 
-dedupe_fetch := "fetch >>> fetch" ~[2]~> "fetch"
+dedupe_fetch := (fetch >>> fetch) ~[2]~> fetch
 
-right_identity := "fetch >>> id" ~[2]~> "fetch"
+right_identity := (fetch >>> id) ~[2]~> fetch
 
 -- Show the real JSON parser running on the local file.
 file_text := read_file("playground/test.json")
@@ -53,4 +51,21 @@ file_parsed := parse(file_text)
 
 json_round_trip := serialize(file_parsed)
 
-round_trip
+{
+  use_http: use_http,
+  url: url,
+  original: "fetch >>> serialize >>> parse",
+  optimized: "fetch",
+  dimension: 2,
+  rules: [
+    { name: "parse_after_serialize", from: "serialize >>> parse", to: "id", dimension: 2 },
+    { name: "dedupe_fetch", from: "fetch >>> fetch", to: "fetch", dimension: 2 },
+    { name: "right_identity", from: "fetch >>> id", to: "fetch", dimension: 2 }
+  ],
+  sample: {
+    raw_file: file_text,
+    parsed_file: file_parsed,
+    round_trip: json_round_trip
+  },
+  note: "http.get is live when use_http is true; parse/serialize come from handl-packages/json_lib; read_file comes from handl-packages/fs."
+}

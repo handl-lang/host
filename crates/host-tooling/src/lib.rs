@@ -56,6 +56,7 @@ pub struct ToolingHost {
     semantic_tokens: Option<Box<dyn SemanticTokensPlugin>>,
     hover: Option<Box<dyn HoverPlugin>>,
     signature_help: Option<Box<dyn SignatureHelpPlugin>>,
+    folding_range: Option<Box<dyn FoldingRangePlugin>>,
 }
 
 impl ToolingHost {
@@ -69,6 +70,7 @@ impl ToolingHost {
             semantic_tokens: None,
             hover: None,
             signature_help: None,
+            folding_range: None,
         }
     }
 
@@ -111,6 +113,12 @@ impl ToolingHost {
     /// Registers a signature-help plugin.
     pub fn with_signature_help_plugin(mut self, plugin: Box<dyn SignatureHelpPlugin>) -> Self {
         self.signature_help = Some(plugin);
+        self
+    }
+
+    /// Registers a folding-range plugin.
+    pub fn with_folding_range_plugin(mut self, plugin: Box<dyn FoldingRangePlugin>) -> Self {
+        self.folding_range = Some(plugin);
         self
     }
 
@@ -326,6 +334,19 @@ impl ToolingHost {
         match &self.signature_help {
             Some(plugin) => plugin.run(request),
             None => Ok(SignatureHelpResponse::empty()),
+        }
+    }
+
+    /// Returns folding ranges for `source`.
+    pub fn folding_ranges(&self, source: &str) -> Result<Vec<FoldingRange>, PlatformError> {
+        match &self.folding_range {
+            Some(plugin) => {
+                let resp = plugin.run(&FoldingRangeRequest {
+                    source: source.to_string(),
+                })?;
+                Ok(resp.0)
+            }
+            None => Ok(Vec::new()),
         }
     }
 }

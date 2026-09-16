@@ -7,8 +7,8 @@
 
 use handl_host_tooling::lsp::{
     CompletionRequest, CompletionResponse, DocumentSymbolsRequest, DocumentSymbolsResponse,
-    GotoDefRequest, GotoDefResponse, HoverRequest, HoverResponse, Location, SignatureHelpRequest,
-    SignatureHelpResponse,
+    FoldingRange, FoldingRangeRequest, FoldingRangeResponse, GotoDefRequest, GotoDefResponse,
+    HoverRequest, HoverResponse, Location, SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_language::{Language, LspDef};
 use std::collections::HashMap;
@@ -191,5 +191,30 @@ impl<'l> LspEngine<'l> {
         }
 
         SignatureHelpResponse::empty()
+    }
+
+    /// Evaluate `textDocument/foldingRange` against the language's rules.
+    pub fn folding_range(&self, request: &FoldingRangeRequest) -> FoldingRangeResponse {
+        let Some(def) = self.def else {
+            return FoldingRangeResponse(Vec::new());
+        };
+        let Some(rule_ids) = def.lsp.get("textDocument/foldingRange") else {
+            return FoldingRangeResponse(Vec::new());
+        };
+
+        let module = self.module_for(&request.source);
+
+        let mut out: Vec<FoldingRange> = Vec::new();
+        for rule_id in rule_ids {
+            let Some(rule) = def.rules.get(rule_id) else {
+                continue;
+            };
+            let Some(provider) = self.providers.get(&rule.kind) else {
+                continue;
+            };
+            out.extend(provider.folding_range(self.lang, def, &module, rule, request));
+        }
+
+        FoldingRangeResponse(out)
     }
 }

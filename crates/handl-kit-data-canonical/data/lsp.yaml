@@ -127,6 +127,12 @@
       match: !Match
         node_kind: ast.call
 
+    # Folding ranges for bracket pairs and comment blocks.
+    lsp.folding:
+      kind: folding_range
+      match: !Match
+        node_kind: ast.block
+
   lsp:
     textDocument/documentSymbol:
       - lsp.symbol.law
@@ -151,3 +157,6 @@
 
     textDocument/signatureHelp:
       - lsp.signature.call
+
+    textDocument/foldingRange:
+      - lsp.folding

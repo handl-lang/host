@@ -3705,13 +3705,14 @@ impl TreeWalkEngine {
                     ))
                 }
             }
-            // ADR-0074 follow-up #3: `>>>` (`flow`) — function application
-            // with a single input argument. Unlike `App` (used by `call`
-            // to unpack a `proj_rest` array of call args), `flow` passes
-            // the left operand through as one argument, only destructuring
-            // a categorical `Pair` (`***`) into multiple positional args.
-            // This lets list-argument combinators like `comb.converge`
-            // receive the list as their single `args` parameter.
+            // ADR-0119: `>>>` (`flow`) — categorical arrow composition.
+            // Build a composite arrow `g . f` whose body, when applied to
+            // an argument `x`, computes `g(f(x))`.  The component arrows
+            // (or host-function names) are captured in the closure env as
+            // `__left__` and `__right__`; the synthetic body is a pair of
+            // `call` nodes.  This makes `>>>` a true arrow constructor at
+            // every dimension: the components are not called at composition
+            // time.
             "flow" => {
                 if args.len() != 2 {
                     return Err(LangError::engine_node(
@@ -3719,19 +3720,48 @@ impl TreeWalkEngine {
                         current_node,
                     ));
                 }
-                let input = &args[0];
-                let callee = &args[1];
-                let actual_args: Vec<TaggedValue> = if matches!(input, TaggedValue::Pair(_)) {
-                    flatten_pair(input)
-                } else {
-                    vec![input.clone()]
+                let mut body_ast = Ast::new();
+                let arg_var = body_ast
+                    .push(AstNode::new("var").with_payload(Value::String("__arg__".to_string())));
+                let left_var = body_ast
+                    .push(AstNode::new("var").with_payload(Value::String("__left__".to_string())));
+                let left_call = body_ast.push(
+                    AstNode::new("call").with_payload(serde_json::json!({
+                        "children": [left_var.index() as u64, arg_var.index() as u64]
+                    })),
+                );
+                let right_var = body_ast.push(
+                    AstNode::new("var").with_payload(Value::String("__right__".to_string())),
+                );
+                let body_ref = body_ast.push(
+                    AstNode::new("call").with_payload(serde_json::json!({
+                        "children": [right_var.index() as u64, left_call.index() as u64]
+                    })),
+                );
+                let body_def = Rc::new(TaggedValue::from(handl_language::ast_value(&body_ast)));
+                let mut captured = FxHashMap::default();
+                if let Some(parent) = &env.captured {
+                    for (k, v) in parent.iter() {
+                        captured.insert(Rc::clone(k), v.clone());
+                    }
+                }
+                for scope in &env.scopes {
+                    for (k, v) in scope {
+                        captured.insert(Rc::clone(k), v.clone());
+                    }
+                }
+                captured.insert(Rc::from("__left__"), args[0].clone());
+                captured.insert(Rc::from("__right__"), args[1].clone());
+                let arrow = TaggedValue::Arrow {
+                    params: Rc::from(vec!["__arg__".to_string()]),
+                    rest: None,
+                    body: body_ref.index(),
+                    env: Rc::new(captured),
+                    home: None,
+                    array_pattern: false,
+                    body_def: Some(body_def),
                 };
-                let val = if let Some(name) = callee.as_str() {
-                    self.call_host_fn(name, &actual_args, current_node)?
-                } else {
-                    self.apply_app(callee, &actual_args, ast, lang, env)?
-                };
-                Ok((val, false))
+                Ok((arrow, false))
             }
             "record" => {
                 if args.len() % 2 != 0 {

@@ -33,7 +33,7 @@ do {
 
   rev :: xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -42,7 +42,7 @@ do {
 
   list_len :: xs ~> {
     while { xs: xs, n: 0 } {
-      [xs, n]~> match xs {
+      [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
@@ -56,9 +56,9 @@ do {
   last :: xs ~> head(rev(xs))
 
   -- drop the first n elements
-  drop :: [xs, n]~> {
+  drop :: [xs, n] ~> {
     while { xs: xs, n: n } {
-      [xs, n]~> if n <= 0 {
+      [xs, n] ~> if n <= 0 {
         { out: xs }
       } else {
         match xs {
@@ -70,9 +70,9 @@ do {
   }
 
   -- take the first n elements
-  take :: [xs, n]~> {
+  take :: [xs, n] ~> {
     while { xs: xs, n: n, acc: [] } {
-      [xs, n, acc]~> if n <= 0 {
+      [xs, n, acc] ~> if n <= 0 {
         { out: rev(acc) }
       } else {
         match xs {
@@ -84,7 +84,7 @@ do {
   }
 
   -- drop leading elements satisfying p
-  drop_while :: [xs, p]~> {
+  drop_while :: [xs, p] ~> {
     while xs {
       st ~> match st {
         []: { out: [] },
@@ -93,9 +93,9 @@ do {
     }
   }
 
-  map :: [xs, f]~> {
+  map :: [xs, f] ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: { state: { xs: t, acc: [f(h), ...acc] } }
       }
@@ -107,7 +107,7 @@ do {
   lower_str :: s ~> char.from_chars(map(char.chars(s), c ~> char.to_lower(c)))
   upper_str :: s ~> char.from_chars(map(char.chars(s), c ~> char.to_upper(c)))
 
-  all :: [xs, p]~> {
+  all :: [xs, p] ~> {
     while xs {
       st ~> match st {
         []: { out: true },
@@ -116,7 +116,7 @@ do {
     }
   }
 
-  member :: [x, xs]~> {
+  member :: [x, xs] ~> {
     while xs {
       st ~> match st {
         []: { out: false },
@@ -126,9 +126,9 @@ do {
   }
 
   -- append a onto the front of b's tail: append([1,2],[3]) = [1,2,3]
-  append :: [a, b]~> {
+  append :: [a, b] ~> {
     while { xs: rev(a), acc: b } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
@@ -136,9 +136,9 @@ do {
   }
 
   -- is ps a prefix of xs? (both char lists)
-  prefix_match :: [xs, ps]~> {
+  prefix_match :: [xs, ps] ~> {
     while { xs: xs, ps: ps } {
-      [xs, ps]~> match ps {
+      [xs, ps] ~> match ps {
         []: { out: true },
         [ph, ...pt]: match xs {
           []: { out: false },
@@ -153,13 +153,13 @@ do {
   }
 
   -- first index where ps matches xs, else -1 (empty ps matches at 0)
-  find_idx :: [xs, ps]~> {
+  find_idx :: [xs, ps] ~> {
     m :: list_len(ps)
     if m == 0 { 0 } else {
       n :: list_len(xs)
       if m > n { 0 - 1 } else {
         while { xs: xs, i: 0, limit: n - m } {
-          [xs, i, limit]~> if prefix_match(xs, ps) {
+          [xs, i, limit] ~> if prefix_match(xs, ps) {
             { out: i }
           } else {
             if i >= limit {
@@ -177,12 +177,12 @@ do {
   }
 
   -- join a list of strings with a separator
-  join_impl :: [xs, sep]~> {
+  join_impl :: [xs, sep] ~> {
     match xs {
       []: "",
       [h, ...t]: do {
         while { xs: t, acc: h } {
-          [xs, acc]~> match xs {
+          [xs, acc] ~> match xs {
             []: { out: acc },
             [h2, ...t2]: { state: { xs: t2, acc: acc + sep + h2 } }
           }
@@ -197,7 +197,7 @@ do {
   is_sep :: c ~> if c == "-" { true } else { if c == "_" { true } else { c == " " } }
 
   -- `cur` is a REVERSED char list (head = last char pushed).
-  push_word :: [cur, words]~> {
+  push_word :: [cur, words] ~> {
     if list_len(cur) == 0 { words } else {
       [char.from_chars(rev(cur)), ...words]
     }
@@ -205,7 +205,7 @@ do {
 
   split_words :: s ~> {
     r :: while { xs: char.chars(s), cur: [], words: [] } {
-      [xs, cur, words]~> match xs {
+      [xs, cur, words] ~> match xs {
         []: { out: { cur: cur, words: words } },
         [h, ...t]: if is_sep(h) {
           { state: { xs: t, cur: [], words: push_word(cur, words) } }
@@ -262,7 +262,7 @@ do {
     if char.length(s) == 0 { [""] } else {
       cs :: char.chars(s)
       pieces_rev :: while { xs: cs, cur: [], pieces: [] } {
-        [xs, cur, pieces]~> match xs {
+        [xs, cur, pieces] ~> match xs {
           []: { out: [char.from_chars(rev(cur)), ...pieces] },
           [h, ...t]: if h == "\n" {
             { state: { xs: t, cur: [], pieces: [char.from_chars(rev(cur)), ...pieces] } }
@@ -288,7 +288,7 @@ do {
   split_ws_impl :: s ~> {
     cs :: drop_while(char.chars(s), c ~> char.is_whitespace(c));
     while { xs: cs, cur: [], pieces: [] } {
-      [xs, cur, pieces]~> match xs {
+      [xs, cur, pieces] ~> match xs {
         []: if list_len(cur) == 0 {
           { out: rev(pieces) }
         } else {
@@ -308,7 +308,7 @@ do {
   }
 
   -- Levenshtein edit distance over char lists, two-row DP, O(m) space.
-  min3 :: [a, b, c]~> {
+  min3 :: [a, b, c] ~> {
     ab :: if a < b { a } else { b }
     if ab < c { ab } else { c }
   }
@@ -316,7 +316,7 @@ do {
   -- iota(n) = [0, 1, ..., n] -- the Levenshtein DP "row 0" (n+1 entries).
   iota :: n ~> {
     while { n: n, acc: [] } {
-      [n, acc]~> if n < 0 {
+      [n, acc] ~> if n < 0 {
         { out: acc }
       } else {
         { state: { n: n - 1, acc: [n, ...acc] } }
@@ -327,9 +327,9 @@ do {
   -- One DP row for a fixed `ach`: iterate `bcs` (with prev row and the
   -- reversed current row) producing the next row in forward order.
   -- `pr` is prev[j-1..], `currev` is the reversed current row (head = c[j-1]).
-  lev_row :: [ach, bcs, prev, i]~> {
+  lev_row :: [ach, bcs, prev, i] ~> {
     while { ys: bcs, pr: prev, currev: [i + 1] } {
-      [ys, pr, currev]~> match ys {
+      [ys, pr, currev] ~> match ys {
         []: { out: rev(currev) },
         [bch, ...bt]: match pr {
           [pjm1, ...pr1]: match pr1 {
@@ -344,13 +344,13 @@ do {
     }
   }
 
-  lev_impl :: [a, b]~> {
+  lev_impl :: [a, b] ~> {
     acs :: char.chars(a);
     bcs :: char.chars(b);
     m :: list_len(bcs);
     prev0 :: iota(m);
     r :: while { xs: acs, i: 0, prev: prev0 } {
-      [xs, i, prev]~> match xs {
+      [xs, i, prev] ~> match xs {
         []: { out: prev },
         [ach, ...at]: { state: { xs: at, i: i + 1, prev: lev_row(ach, bcs, prev, i) } }
       }
@@ -359,13 +359,13 @@ do {
   }
 
   -- pad `s` to `n` chars by cycling the chars of `p` (empty p is a no-op).
-  pad_to :: [s, n, p, is_left]~> {
+  pad_to :: [s, n, p, is_left] ~> {
     c :: char.length(s)
     if c >= n { s } else {
       if char.length(p) == 0 { s } else {
         orig :: char.chars(p)
         pad :: while { need: n - c, pcs: orig, acc: [] } {
-          [need, pcs, acc]~> if need <= 0 {
+          [need, pcs, acc] ~> if need <= 0 {
             { out: rev(acc) }
           } else {
             match pcs {
@@ -380,7 +380,7 @@ do {
     }
   }
 
-  truncate_impl :: [s, max_len, suf]~> {
+  truncate_impl :: [s, max_len, suf] ~> {
     c :: char.length(s)
     if c <= max_len { s } else {
       sl :: char.length(suf)
@@ -418,7 +418,7 @@ do {
       char.from_chars(rev(drop_while(rev(char.chars(s)), c ~> char.is_whitespace(c))))
     },
 
-    trim_matches: [s, set]~> {
+    trim_matches: [s, set] ~> {
       if char.length(set) == 0 { s } else {
         setc :: char.chars(set)
         in_set :: c ~> member(c, setc)
@@ -432,11 +432,11 @@ do {
 
     length: s ~> char.length(s),
 
-    concat: [a, b]~> a + b,
+    concat: [a, b] ~> a + b,
 
     is_empty: s ~> s == "",
 
-    equals: [a, b]~> a == b,
+    equals: [a, b] ~> a == b,
 
     is_alpha: s ~> {
       cs :: char.chars(s)
@@ -465,7 +465,7 @@ do {
 
     title_case: s ~> {
       out :: while { xs: char.chars(s), new_word: true, acc: [] } {
-        [xs, new_word, acc]~> match xs {
+        [xs, new_word, acc] ~> match xs {
           []: { out: rev(acc) },
           [h, ...t]: if char.is_whitespace(h) {
             { state: { xs: t, new_word: true, acc: [h, ...acc] } }
@@ -499,25 +499,25 @@ do {
 
     -- ---- search ----
 
-    contains: [s, pat]~> {
+    contains: [s, pat] ~> {
       find_idx(char.chars(s), char.chars(pat)) >= 0
     },
 
-    starts_with: [s, pat]~> {
+    starts_with: [s, pat] ~> {
       prefix_match(char.chars(s), char.chars(pat))
     },
 
-    ends_with: [s, pat]~> {
+    ends_with: [s, pat] ~> {
       prefix_match(rev(char.chars(s)), rev(char.chars(pat)))
     },
 
-    count: [s, pat]~> {
+    count: [s, pat] ~> {
       ps :: char.chars(pat)
       cs :: char.chars(s)
       m :: list_len(ps)
       if m == 0 { list_len(cs) + 1 } else {
         while { xs: cs, c: 0 } {
-          [xs, c]~> match xs {
+          [xs, c] ~> match xs {
             []: { out: c },
             [h, ...t]: if prefix_match(xs, ps) {
               { state: { xs: drop(xs, m), c: c + 1 } }
@@ -529,9 +529,9 @@ do {
       }
     },
 
-    find: [s, pat]~> find_idx(char.chars(s), char.chars(pat)),
+    find: [s, pat] ~> find_idx(char.chars(s), char.chars(pat)),
 
-    rfind: [s, pat]~> {
+    rfind: [s, pat] ~> {
       ps :: char.chars(pat)
       cs :: char.chars(s)
       m :: list_len(ps)
@@ -539,7 +539,7 @@ do {
       if m == 0 { n } else {
         if m > n { 0 - 1 } else {
           while { xs: cs, i: 0, limit: n - m, last_hit: 0 - 1 } {
-            [xs, i, limit, last_hit]~> {
+            [xs, i, limit, last_hit] ~> {
               hit :: if prefix_match(xs, ps) { i } else { last_hit }
               if i >= limit { { out: hit } } else {
                 match xs {
@@ -553,9 +553,9 @@ do {
       }
     },
 
-    levenshtein: [a, b]~> lev_impl(a, b),
+    levenshtein: [a, b] ~> lev_impl(a, b),
 
-    similarity: [a, b]~> {
+    similarity: [a, b] ~> {
       la :: char.length(a)
       lb :: char.length(b)
       mx :: if la > lb { la } else { lb }
@@ -567,7 +567,7 @@ do {
 
     -- ---- transform ----
 
-    split: [s, sep]~> {
+    split: [s, sep] ~> {
       cs :: char.chars(s)
       ss :: char.chars(sep)
       m :: list_len(ss)
@@ -576,7 +576,7 @@ do {
         append(["", ...cs], [""])
       } else {
         rev_out :: while { xs: cs, cur: [], pieces: [] } {
-          [xs, cur, pieces]~> match xs {
+          [xs, cur, pieces] ~> match xs {
             []: { out: [char.from_chars(rev(cur)), ...pieces] },
             [h, ...t]: if prefix_match(xs, ss) {
               { state: { xs: drop(xs, m), cur: [], pieces: [char.from_chars(rev(cur)), ...pieces] } }
@@ -589,16 +589,16 @@ do {
       }
     },
 
-    join: [xs, sep]~> join_impl(xs, sep),
+    join: [xs, sep] ~> join_impl(xs, sep),
 
-    replace: [s, old, to]~> {
+    replace: [s, old, to] ~> {
       cs :: char.chars(s)
       fs :: char.chars(old)
       m :: list_len(fs)
       if m == 0 {
         -- "abc".replace("", "-") -> "-a-b-c-"  (insert at each boundary)
         s2 :: while { xs: cs, acc: "" } {
-          [xs, acc]~> match xs {
+          [xs, acc] ~> match xs {
             []: { out: acc },
             [h, ...t]: { state: { xs: t, acc: acc + h + to } }
           }
@@ -606,7 +606,7 @@ do {
         to + s2
       } else {
         while { xs: cs, acc: "" } {
-          [xs, acc]~> match xs {
+          [xs, acc] ~> match xs {
             []: { out: acc },
             [h, ...t]: if prefix_match(xs, fs) {
               { state: { xs: drop(xs, m), acc: acc + to } }
@@ -618,7 +618,7 @@ do {
       }
     },
 
-    replace_first: [s, old, to]~> {
+    replace_first: [s, old, to] ~> {
       cs :: char.chars(s)
       fs :: char.chars(old)
       m :: list_len(fs)
@@ -633,9 +633,9 @@ do {
       }
     },
 
-    repeat: [s, n]~> {
+    repeat: [s, n] ~> {
       while { n: n, acc: "" } {
-        [n, acc]~> if n <= 0 {
+        [n, acc] ~> if n <= 0 {
           { out: acc }
         } else {
           { state: { n: n - 1, acc: acc + s } }
@@ -643,21 +643,21 @@ do {
       }
     },
 
-    char_at: [s, i]~> char.at(s, i),
+    char_at: [s, i] ~> char.at(s, i),
 
-    slice: [s, a, b]~> char.slice(s, a, b),
+    slice: [s, a, b] ~> char.slice(s, a, b),
 
-    pad_left: [s, n, p]~> pad_to(s, n, p, true),
+    pad_left: [s, n, p] ~> pad_to(s, n, p, true),
 
-    pad_right: [s, n, p]~> pad_to(s, n, p, false),
+    pad_right: [s, n, p] ~> pad_to(s, n, p, false),
 
-    strip_prefix: [s, p]~> {
+    strip_prefix: [s, p] ~> {
       cs :: char.chars(s)
       ps :: char.chars(p)
       if prefix_match(cs, ps) { char.from_chars(drop(cs, list_len(ps))) } else { s }
     },
 
-    strip_suffix: [s, p]~> {
+    strip_suffix: [s, p] ~> {
       cs :: char.chars(s)
       ps :: char.chars(p)
       rcs :: rev(cs)
@@ -667,7 +667,7 @@ do {
 
     lines: s ~> lines_impl(s),
 
-    split_at: [s, i]~> {
+    split_at: [s, i] ~> {
       n :: char.length(s)
       mid :: if i > n { n } else { i };
       [char.slice(s, 0, mid), char.slice(s, mid, n)]
@@ -675,12 +675,12 @@ do {
 
     split_whitespace: s ~> split_ws_impl(s),
 
-    truncate: [s, m]~> truncate_impl(s, m, "..."),
+    truncate: [s, m] ~> truncate_impl(s, m, "..."),
 
     slugify: s ~> {
       cs :: char.chars(lower_str(s))
       mapped :: while { xs: cs, acc: [] } {
-        [xs, acc]~> match xs {
+        [xs, acc] ~> match xs {
           []: { out: rev(acc) },
           [h, ...t]: if char.is_alnum(h) {
             { state: { xs: t, acc: [h, ...acc] } }
@@ -704,7 +704,7 @@ do {
       t1 :: drop_while(mapped, c ~> c == "-")
       t2 :: rev(drop_while(rev(t1), c ~> c == "-"))
       out :: while { xs: t2, prev_dash: false, acc: [] } {
-        [xs, prev_dash, acc]~> match xs {
+        [xs, prev_dash, acc] ~> match xs {
           []: { out: rev(acc) },
           [h, ...t]: if h == "-" {
             if prev_dash {
@@ -720,18 +720,18 @@ do {
       char.from_chars(out)
     },
 
-    word_wrap: [s, w]~> {
+    word_wrap: [s, w] ~> {
       if w < 1 { "" } else {
         ls :: lines_impl(s)
         out :: while { xs: ls, acc: "" } {
-          [xs, acc]~> match xs {
+          [xs, acc] ~> match xs {
             []: { out: acc },
             [ln, ...t]: if ln == "" {
               { state: { xs: t, acc: acc + "\n" } }
             } else {
               ws :: split_ws_impl(ln)
               line_out :: while { ys: ws, cur_len: 0, buf: "" } {
-                [ys, cur_len, buf]~> match ys {
+                [ys, cur_len, buf] ~> match ys {
                   []: { out: buf },
                   [word, ...wt]: do {
                     wl :: char.length(word)

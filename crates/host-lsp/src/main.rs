@@ -11,6 +11,7 @@ mod document_highlight;
 mod document_link;
 mod execute_command;
 mod file_watcher;
+#[cfg(test)]
 mod folding_ranges;
 mod formatting;
 mod handlers;
@@ -173,7 +174,8 @@ fn main() {
         .with_goto_def_plugin(Box::new(BasicLsp::new()))
         .with_document_symbols_plugin(Box::new(BasicLsp::new()))
         .with_hover_plugin(Box::new(BasicLsp::new()))
-        .with_signature_help_plugin(Box::new(BasicLsp::new()));
+        .with_signature_help_plugin(Box::new(BasicLsp::new()))
+        .with_folding_range_plugin(Box::new(BasicLsp::new()));
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
     let mut initialized = false;
 
@@ -234,7 +236,7 @@ fn main() {
                 handle_range_formatting(&mut writer, id, &msg, &store);
             }
             "textDocument/foldingRange" => {
-                handle_folding_ranges(&mut writer, id, &msg, &store);
+                handle_folding_ranges(&mut writer, id, &msg, &store, &host);
             }
             "textDocument/documentHighlight" => {
                 handle_document_highlight(&mut writer, id, &msg, &store);

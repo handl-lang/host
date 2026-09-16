@@ -2,10 +2,6 @@
 extends: canonical
 modules:
   - module-runtime
-  - os-std
   - utils
   - cmp
   - collections
-  - json
-  - toml
-  - yaml

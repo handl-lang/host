@@ -8,9 +8,9 @@
 
 use handl_host_tooling::lsp::{
     CompletionPlugin, CompletionRequest, CompletionResponse, DocumentSymbolsPlugin,
-    DocumentSymbolsRequest, DocumentSymbolsResponse, GotoDefPlugin, GotoDefRequest,
-    GotoDefResponse, HoverPlugin, HoverRequest, HoverResponse, SignatureHelpPlugin,
-    SignatureHelpRequest, SignatureHelpResponse,
+    DocumentSymbolsRequest, DocumentSymbolsResponse, FoldingRangePlugin, FoldingRangeRequest,
+    FoldingRangeResponse, GotoDefPlugin, GotoDefRequest, GotoDefResponse, HoverPlugin, HoverRequest,
+    HoverResponse, SignatureHelpPlugin, SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::Language;
@@ -81,5 +81,14 @@ impl SignatureHelpPlugin for BasicLsp {
         request: &SignatureHelpRequest,
     ) -> Result<SignatureHelpResponse, handl_platform::PlatformError> {
         Ok(LspEngine::new(&self.lang).signature_help(request))
+    }
+}
+
+impl FoldingRangePlugin for BasicLsp {
+    fn run(
+        &self,
+        request: &FoldingRangeRequest,
+    ) -> Result<FoldingRangeResponse, handl_platform::PlatformError> {
+        Ok(LspEngine::new(&self.lang).folding_range(request))
     }
 }

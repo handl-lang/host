@@ -7,12 +7,12 @@
 --- `f` is returned unchanged in that case.
 ---
 --- @example
---- `add3 :: [a, b, c]~> a + b + c`
+--- `add3 :: [a, b, c] ~> a + b + c`
 --- `add_from_10 :: [add3, [10, 20]] >>> comb.partial`
 --- `5 >>> add_from_10`
 --- -- => 35
 ---
-export partial :: [f, bound]~> match bound {
+export partial :: [f, bound] ~> match bound {
   [a]: x ~> f(a, x),
   [a, b]: x ~> f(a, b, x),
   [a, b, c]: x ~> f(a, b, c, x),

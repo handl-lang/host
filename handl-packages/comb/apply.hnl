@@ -7,7 +7,7 @@
 --- rather than written literally at the call site.
 ---
 --- @example
---- `[[x, y]~> x + y, [1, 2]] >>> comb.apply`
+--- `[[x, y] ~> x + y, [1, 2]] >>> comb.apply`
 --- -- => 3
 ---
-export apply :: [f, args]~> (args >>> f)
+export apply :: [f, args] ~> (args >>> f)

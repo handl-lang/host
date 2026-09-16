@@ -2191,61 +2191,18 @@
     source: Judgment
     lit: 1
 
-# `flow` — like `pipe`. `flow` has children [input(0), function(1)].
-# Eval is `App(callee=child[1], args=[child[0]])` — i.e., apply child 1
-# (function) to child 0 (input). Synth child 1 (the function)
-# → type.function{param, body}, check child 0 (the input) against `param`,
-# then return `body` (ADR-0054 legacy migration).
-#
-# ADR-0074 follow-up #3 note: at the higher (categorical) level `>>>` is
-# arrow *composition* (`f: A ~> B, g: B ~> C ⟹ f >>> g : A ~> C`), but the
-# v0.1 runtime eval scheme treats `>>>` as function *application*
-# (`input >>> function` → apply function to input). The type rule below
-# matches the actual eval semantics (application), so it is kept as-is.
-# Composition semantics is a higher-level desugaring that lowers to
-# application; when the eval scheme is updated to composition, this rule
-# should be updated to synth both children, extract `f.body`/`g.param`,
-# unify them, and return `type.function{param: f.param, body: g.body}`.
+# `flow` — categorical arrow composition `>>>` (ADR-0119).
+# Placeholder: the full rule (unify f.body with g.param and return
+# `type.function{param: f.param, body: g.body}`) requires NBE record
+# construction from bound fields.  Returning `type.unknown` keeps real
+# arrow pipelines typecheckable while the precise rule is developed.
 - id: type.flow
   node_kind: flow
-  synth: !Seq
-    fst: !Op
-      name: synth_child
-      args: []
-      source: Judgment
-      lit: 1
-    snd: !Seq
-      fst: !Op
-        name: bind
-        args: []
-        source: Judgment
-        lit: funtype
-      snd: !Seq
-        fst: !Op
-          name: check_child
-          args:
-            - !Op
-              name: type_field
-              args:
-                - !Op
-                  name: result
-                  args: []
-                  source: Judgment
-                  lit: funtype
-              source: Judgment
-              lit: param
-          source: Judgment
-          lit: 0
-        snd: !Op
-          name: type_field
-          args:
-            - !Op
-              name: result
-              args: []
-              source: Judgment
-              lit: funtype
-          source: Judgment
-          lit: body
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
 
 # `fanout` — categorical fanout `&&&` (ADR-0074 follow-up #3).
 # Disabled until the handl typecheck model supports it; without a rule the

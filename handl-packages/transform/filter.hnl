@@ -12,16 +12,16 @@
 export filter :: do {
   rev :: xs ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
       }
     }
   }
   ;
-  [xs, p]~> {
+  [xs, p] ~> {
     while { xs: xs, acc: [] } {
-      [xs, acc]~> match xs {
+      [xs, acc] ~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: { state: { xs: t, acc: if p(h) { [h, ...acc] } else { acc } } }
       }

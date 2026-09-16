@@ -5,8 +5,8 @@
 //! host LSP responses.
 
 use handl_host_tooling::lsp::{
-    CompletionItem, DocumentSymbol, Position, Range, SignatureHelpResponse, SignatureInformation,
-    SignatureParameter, TextEdit,
+    CompletionItem, DocumentSymbol, FoldingRange, Position, Range, SignatureHelpResponse,
+    SignatureInformation, SignatureParameter, TextEdit,
 };
 use handl_language::{
     Ast, AstNode, AstRef, LangError, Language, LspDef, LspMatch, LspRule, Span, Token, Tokens,
@@ -1086,6 +1086,10 @@ impl TokenClasses {
         self.is(kind, "comment") || self.is(kind, "doc-comment")
     }
 
+    fn is_doc_comment(&self, kind: &str) -> bool {
+        self.is(kind, "doc-comment")
+    }
+
     fn is_open_bracket(&self, kind: &str) -> bool {
         self.is(kind, "open-bracket")
     }
@@ -1101,6 +1105,121 @@ impl TokenClasses {
     fn pair_of(&self, kind: &str) -> Option<&str> {
         self.pairs.get(kind).map(String::as_str)
     }
+}
+
+/// Evaluate a single `kind: folding_range` rule and return folding ranges for
+/// the whole document.
+pub(crate) fn run_folding_range(
+    lang: &Language,
+    module: &ParsedModule,
+    _rule: &LspRule,
+) -> Vec<FoldingRange> {
+    let classes = TokenClasses::new(lang);
+    let mut ranges = Vec::new();
+
+    // Folding is driven by the raw token stream, not the parsed AST, so we
+    // re-lex the whole source directly (this also captures trivia such as
+    // comments that statement splitting may have discarded).
+    let Ok(tokens) = lex(lang, &module.src) else {
+        return Vec::new();
+    };
+    let tokens = tokens.0;
+
+    // Bracket-pair folding ranges.
+    let mut stack: Vec<(String, usize)> = Vec::new();
+    for t in &tokens {
+        let kind = t.kind.as_str();
+
+        if classes.is_open_bracket(kind) {
+            stack.push((kind.to_string(), t.start));
+            continue;
+        }
+
+        if classes.is_close_bracket(kind) {
+            while let Some((open_kind, open_offset)) = stack.last().cloned() {
+                if classes.pair_of(kind) == Some(open_kind.as_str()) {
+                    stack.pop();
+                    let Position {
+                        line: start_line,
+                        character: start_char,
+                    } = byte_to_position(&module.src, open_offset);
+                    let Position {
+                        line: end_line,
+                        character: end_char,
+                    } = byte_to_position(&module.src, t.end);
+                    if end_line > start_line {
+                        ranges.push(FoldingRange::new(
+                            start_line,
+                            start_char,
+                            end_line,
+                            end_char,
+                            "region",
+                        ));
+                    }
+                    break;
+                } else {
+                    stack.pop();
+                }
+            }
+        }
+    }
+
+    // Comment-block folding ranges.
+    let bytes = module.src.as_bytes();
+    let mut i = 0;
+    while i < tokens.len() {
+        let kind = tokens[i].kind.as_str();
+        if !classes.is_comment(kind) {
+            i += 1;
+            continue;
+        }
+
+        let is_doc = classes.is_doc_comment(kind);
+        let run_start = tokens[i].start;
+        let mut run_end = tokens[i].end;
+        let mut j = i;
+        while j < tokens.len() {
+            let kj = tokens[j].kind.as_str();
+            if !classes.is_comment(kj) || classes.is_doc_comment(kj) != is_doc {
+                break;
+            }
+            run_end = tokens[j].end;
+            j += 1;
+        }
+
+        while run_end > run_start
+            && bytes
+                .get(run_end - 1)
+                .map_or(false, |&b| b == b'\n' || b == b'\r')
+        {
+            run_end -= 1;
+        }
+
+        let Position {
+            line: start_line,
+            character: start_char,
+        } = byte_to_position(&module.src, run_start);
+        let Position {
+            line: end_line,
+            character: end_char,
+        } = byte_to_position(&module.src, run_end);
+        if end_line > start_line {
+            ranges.push(FoldingRange::new(
+                start_line,
+                start_char,
+                end_line,
+                end_char,
+                "comment",
+            ));
+        }
+
+        i = j;
+    }
+
+    ranges.sort_by(|a, b| {
+        (a.start_line, a.start_char).cmp(&(b.start_line, b.start_char))
+    });
+    ranges
 }
 
 /// Evaluate a single `kind: signature` rule and return structured signature

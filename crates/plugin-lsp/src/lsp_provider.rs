@@ -7,11 +7,11 @@
 
 use crate::providers::{
     ExportMatch, ParsedModule, run_export, run_exported_names, run_import_hover, run_import_name,
-    run_import_path, run_signature_help, run_symbol,
+    run_import_path, run_folding_range, run_signature_help, run_symbol,
 };
 use handl_host_tooling::lsp::{
-    CompletionItem, CompletionRequest, DocumentSymbol, DocumentSymbolsRequest, GotoDefRequest,
-    HoverRequest, SignatureHelpRequest, SignatureHelpResponse,
+    CompletionItem, CompletionRequest, DocumentSymbol, DocumentSymbolsRequest, FoldingRange,
+    FoldingRangeRequest, GotoDefRequest, HoverRequest, SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_language::{Language, LspDef, LspRule, Span};
 use std::collections::HashMap;
@@ -74,6 +74,17 @@ pub(crate) trait LspProvider: Send + Sync {
         _request: &SignatureHelpRequest,
     ) -> Option<SignatureHelpResponse> {
         None
+    }
+
+    fn folding_range(
+        &self,
+        _lang: &Language,
+        _def: &LspDef,
+        _module: &ParsedModule,
+        _rule: &LspRule,
+        _request: &FoldingRangeRequest,
+    ) -> Vec<FoldingRange> {
+        Vec::new()
     }
 }
 
@@ -189,6 +200,21 @@ impl LspProvider for SignatureHelpProvider {
     }
 }
 
+struct FoldingRangeProvider;
+
+impl LspProvider for FoldingRangeProvider {
+    fn folding_range(
+        &self,
+        lang: &Language,
+        _def: &LspDef,
+        module: &ParsedModule,
+        rule: &LspRule,
+        _request: &FoldingRangeRequest,
+    ) -> Vec<FoldingRange> {
+        run_folding_range(lang, module, rule)
+    }
+}
+
 /// Format an `ExportMatch` into the markdown shown on hover.
 fn format_export_hover(m: &ExportMatch) -> Option<String> {
     let mut md = String::new();
@@ -217,5 +243,6 @@ pub(crate) fn default_providers() -> HashMap<String, Box<dyn LspProvider + Send 
     providers.insert("import_hover".into(), Box::new(ImportHoverProvider));
     providers.insert("symbol".into(), Box::new(SymbolProvider));
     providers.insert("signature".into(), Box::new(SignatureHelpProvider));
+    providers.insert("folding_range".into(), Box::new(FoldingRangeProvider));
     providers
 }

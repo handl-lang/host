@@ -1,8 +1,11 @@
 -- 1-cell building blocks.
 -- These mirror the names in the rules file so the categorical rewrite matches.
 id := x ~> x
+
 fetch := x ~> x
+
 serialize := x ~> x
+
 parse := x ~> x
 
 -- 1-cell program to optimize.

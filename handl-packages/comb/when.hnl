@@ -10,7 +10,7 @@
 --- `[4, x ~> x % 2 == 0, x ~> x * 10] >>> comb.when`
 --- -- => 40
 ---
-export when :: [value, pred, fn]~> {
+export when :: [value, pred, fn] ~> {
   if pred(value) {
     fn(value)
   } else {

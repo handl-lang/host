@@ -4,4 +4,4 @@
 --- `list.push([2, 3], 1)`
 --- -- => [1, 2, 3]
 ---
-export push<T>: (List(T), T) ~[1]~> List(T) := [c, v]~> [v, ...c]
+export push<T>: (List(T), T) ~[1]~> List(T) := [c, v] ~> [v, ...c]
