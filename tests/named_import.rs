@@ -46,3 +46,33 @@ fn qualified_import_still_binds_the_module_object() {
     let out = call(&module, "length_of", &[serde_json::json!([1, 2, 3, 4])]);
     assert_eq!(out, serde_json::json!(4));
 }
+
+/// `from "bool" import { true, false }` binds real Bool values — `true`/`false`
+/// are *value exports* on the bool module (`values: &["true", "false"]`),
+/// not callable wire strings.
+#[test]
+fn named_import_binds_value_exports() {
+    const SRC: &str =
+        "from \"bool\" import { true, false, xor }\nexport check :: x ~> xor(true, false)";
+    let module = HandlModule::new("named_import_values_probe", SRC, &["check"])
+        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
+            DEFAULT_RESOLVER.clone(),
+        ))));
+    let out = call(&module, "check", &[serde_json::json!(7)]);
+    assert_eq!(out, serde_json::json!(true));
+}
+
+/// `from "bool" import *` splices both callable exports (wire strings) and
+/// value exports (real Bools) into scope.
+#[test]
+fn star_import_splices_value_exports() {
+    const SRC: &str = "from \"bool\" import *\nexport check :: x ~> not(true)";
+    let module = HandlModule::new("star_import_values_probe", SRC, &["check"])
+        .with_import_resolver(Arc::new(TableImportResolver::new()))
+        .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
+            DEFAULT_RESOLVER.clone(),
+        ))));
+    let out = call(&module, "check", &[serde_json::json!(0)]);
+    assert_eq!(out, serde_json::json!(false));
+}

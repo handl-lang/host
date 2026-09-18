@@ -262,6 +262,7 @@ fn transform_export_to_object(src: &str) -> String {
                 current = Some((name, expr_lines));
                 current_is_private = false;
             }
+            continue;
         } else if !line.starts_with(' ') && !line.starts_with('\t') {
             // Column-0 line that is not an import or `export` declaration.
             // Detect a *private* (non-exported) top-level binding so that
@@ -283,6 +284,7 @@ fn transform_export_to_object(src: &str) -> String {
                     }
                     current = Some((name, expr_lines));
                     current_is_private = true;
+                    continue;
                 }
             }
         }

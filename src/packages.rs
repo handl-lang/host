@@ -41,6 +41,11 @@ pub struct ModuleSpec {
     /// Op names dispatched to the `registry` builder (e.g. `"math.add"`).
     /// Local names are the segment after the last `.`.
     pub ops: &'static [&'static str],
+    /// Record-field value names exposed by the source — non-arrow exports
+    /// bound as evaluated values by `from "<mod>" import <name>` (e.g.
+    /// `bool`'s `true`/`false`). The names are explicit because telling
+    /// value fields from arrow fields requires evaluating the record.
+    pub values: &'static [&'static str],
     /// Builder for the op registry, or `None` for pure-handl modules.
     pub registry: Option<fn() -> OpRegistry>,
 }
@@ -70,6 +75,7 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     hnl: include_str!("../../../handl-packages/time-c/clock_gettime.hnl"),
     funcs: &["read_ns"],
     ops: &[],
+    values: &[],
     registry: None,
 };
 
@@ -78,6 +84,7 @@ const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
     hnl: include_str!("../../../handl-packages/rand-c/entropy.hnl"),
     funcs: &["next_u32"],
     ops: &[],
+    values: &[],
     registry: None,
 };
 
@@ -91,6 +98,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/bool.hnl"),
         funcs: &["and", "or", "not", "xor", "nand", "nor", "implies", "eq"],
         ops: &[],
+        values: &["true", "false"],
         registry: None,
     },
     ModuleSpec {
@@ -98,6 +106,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/math.hnl"),
         funcs: &[],
         ops: ops::math::MATH_OPS,
+        values: &[],
         registry: Some(ops::math::math_op_registry),
     },
     ModuleSpec {
@@ -105,6 +114,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/str.hnl"),
         funcs: &[],
         ops: ops::strs::STR_OPS,
+        values: &[],
         registry: Some(ops::strs::str_op_registry),
     },
     ModuleSpec {
@@ -112,6 +122,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/fn.hnl"),
         funcs: &[],
         ops: ops::combinators::COMBINATORS_OPS,
+        values: &[],
         registry: Some(ops::combinators::combinators_op_registry),
     },
     ModuleSpec {
@@ -119,6 +130,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/transform/transform.hnl"),
         funcs: &[],
         ops: ops::combinators::TRANSFORM_OPS,
+        values: &[],
         registry: Some(ops::combinators::transform_op_registry),
     },
     ModuleSpec {
@@ -126,6 +138,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/type.hnl"),
         funcs: &[],
         ops: ops::type_ops::TYPE_OPS,
+        values: &[],
         registry: Some(ops::type_ops::type_op_registry),
     },
     ModuleSpec {
@@ -133,6 +146,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/option/index.hnl"),
         funcs: &["Option", "some", "none"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -140,6 +154,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/mood.hnl"),
         funcs: &[],
         ops: ops::mood::MOOD_OPS,
+        values: &[],
         registry: Some(ops::mood::mood_op_registry),
     },
     ModuleSpec {
@@ -147,6 +162,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/encoding.hnl"),
         funcs: &[],
         ops: ops::encoding::ENCODING_OPS,
+        values: &[],
         registry: Some(ops::encoding::encoding_op_registry),
     },
     ModuleSpec {
@@ -154,6 +170,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/parse.hnl"),
         funcs: &[],
         ops: ops::parse::PARSE_OPS,
+        values: &[],
         registry: Some(ops::parse::parse_op_registry),
     },
     ModuleSpec {
@@ -161,6 +178,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/utils/serialize.hnl"),
         funcs: &[],
         ops: ops::serialize::SERIALIZE_OPS,
+        values: &[],
         registry: Some(ops::serialize::serialize_op_registry),
     },
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
@@ -169,6 +187,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/base64/base64.hnl"),
         funcs: &[],
         ops: ops::base64::BASE64_OPS,
+        values: &[],
         registry: Some(ops::base64::base64_op_registry),
     },
     ModuleSpec {
@@ -176,6 +195,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/hex/hex.hnl"),
         funcs: &[],
         ops: ops::hex::HEX_OPS,
+        values: &[],
         registry: Some(ops::hex::hex_op_registry),
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
@@ -184,6 +204,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/url_rfc/url_rfc.hnl"),
         funcs: &[],
         ops: ops::url_rfc::URL_RFC_OPS,
+        values: &[],
         registry: Some(ops::url_rfc::url_rfc_op_registry),
     },
     ModuleSpec {
@@ -191,6 +212,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/url_whatwg/url_whatwg.hnl"),
         funcs: &[],
         ops: ops::url_whatwg::URL_WHATWG_OPS,
+        values: &[],
         registry: Some(ops::url_whatwg::url_whatwg_op_registry),
     },
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
@@ -199,6 +221,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/cmp/cmp.hnl"),
         funcs: &[],
         ops: ops::cmp::CMP_OPS,
+        values: &[],
         registry: Some(ops::cmp::cmp_op_registry),
     },
     // ── collections (former plugin-lib-collections) ────────────────────
@@ -212,6 +235,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/vec.hnl"),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     ModuleSpec {
@@ -219,6 +243,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/index.hnl"),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     // `list` per-arrow modules (`collections/list/<name>.hnl`), mirroring
@@ -236,6 +261,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/len.hnl"),
         funcs: &["len"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -243,6 +269,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"),
         funcs: &["is_empty"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -250,6 +277,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/push.hnl"),
         funcs: &["push"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -257,6 +285,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"),
         funcs: &["peek"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -264,6 +293,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"),
         funcs: &["pop"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -271,6 +301,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
         funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     ModuleSpec {
@@ -278,6 +309,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/stack.hnl"),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     ModuleSpec {
@@ -294,6 +326,7 @@ pub static MODULES: &[ModuleSpec] = &[
             "peek_front",
         ],
         ops: ops::collections::DEQUE_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     // `hash_map`/`hash_set` stay mostly native (see the module .hnl docs);
@@ -313,6 +346,7 @@ pub static MODULES: &[ModuleSpec] = &[
             "clone_deep",
         ],
         ops: ops::collections::HASH_MAP_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     ModuleSpec {
@@ -320,6 +354,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/hash_set.hnl"),
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
+        values: &[],
         registry: Some(ops::collections::collections_op_registry),
     },
     // The `array` package is loaded from `handl-packages/collections/array/index.hnl`
@@ -330,6 +365,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/array/len.hnl"),
         funcs: &["len"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -337,6 +373,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"),
         funcs: &["contains"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
@@ -345,6 +382,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/stats/stats.hnl"),
         funcs: &["sum", "avg", "product", "min", "max", "median", "stddev"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── hello (former plugin-lib-hello) — pure handl demo greeting ────
@@ -362,6 +400,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ),
         funcs: &["greet"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── result (former plugin-lib-result) — pure handl over `tag.*` ───
@@ -378,6 +417,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/result/index.hnl"),
         funcs: &["Result", "ok", "err"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── obj (record introspection) ────────────────────────────────────
@@ -389,6 +429,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/obj/obj.hnl"),
         funcs: &[],
         ops: ops::obj::OBJ_OPS,
+        values: &[],
         registry: Some(ops::obj::obj_op_registry),
     },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
@@ -402,6 +443,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/error/error.hnl"),
         funcs: &[],
         ops: ops::error::ERROR_OPS,
+        values: &[],
         registry: Some(ops::error::error_op_registry),
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
@@ -414,6 +456,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/arrow_iter/arrow_iter.hnl"),
         funcs: &[],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── prim (former plugin-lib-prim) ──────────────────────────────────
@@ -424,6 +467,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/prim-handl/prim-handl.hnl"),
         funcs: &["add", "alloc", "or", "compare"],
         ops: &[],
+        values: &[],
         registry: None,
     },
     // ── archive / archive_tar (former plugin-lib-archive, plugin-lib-archive-tar)
@@ -435,6 +479,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/archive/archive.hnl"),
         funcs: &[],
         ops: &[],
+        values: &[],
         registry: None,
     },
     ModuleSpec {
@@ -442,6 +487,7 @@ pub static MODULES: &[ModuleSpec] = &[
         hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
         funcs: &[],
         ops: ops::tar::TAR_OPS,
+        values: &[],
         registry: Some(ops::tar::tar_op_registry),
     },
 ];
@@ -742,14 +788,7 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
             ))
         })?;
         let module = build_module(spec, Arc::clone(&self.resolver));
-        let mut obj = serde_json::Map::new();
-        for (fname, _f) in module.functions() {
-            obj.insert(
-                fname.to_string(),
-                serde_json::Value::String(format!("{}.{}", module.name(), fname)),
-            );
-        }
-        let value = Arc::new(serde_json::Value::Object(obj));
+        let value = Arc::new(handl_plugin_lib_handl::module_bindings_object(&module));
         if let Ok(mut cache) = self.cache.lock() {
             cache.insert(name, Arc::clone(&value));
         }
@@ -836,6 +875,7 @@ impl ModuleLookup for TableModuleLookup {
 pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
     let lookup = Arc::new(TableModuleLookup::new(Arc::clone(&resolver)));
     let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
+        .with_value_names(spec.values)
         .with_import_resolver(Arc::new(TableImportResolver::with_resolver(Arc::clone(
             &resolver,
         ))))
