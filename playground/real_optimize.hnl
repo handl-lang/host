@@ -28,8 +28,10 @@ local_json := {
 -- Real HTTP 1-cell.
 fetch := (url) ~> http.get(url)
 
--- Fetch with offline fallback.  `round_trip` is the real 1-cell pipeline.
-fetched := if use_http { round_trip(url) } else { local_json }
+-- `round_trip` is the real 1-cell pipeline; it is not executed here so the
+-- demo stays offline-safe.  Set `use_http := true` and call `round_trip(url)`
+-- to exercise the live path.
+fetched := local_json
 
 -- Identity 1-cell, used in the rewrite rules.
 id := x ~> x

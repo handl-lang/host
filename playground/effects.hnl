@@ -1,31 +1,42 @@
 -- playground/effects.hnl
 --
--- Runnable `op` / `handler` / `handle ... in ...` effect demo.
+-- Runnable `op` / `arr` / `handle ... with ...` effect demo.
 -- The `op` declarations name the capabilities used under the hood in
--- `real_optimize.hnl`; the `handler` blocks show how to cache, dedupe, and
--- fuse those effects.  Real package helpers keep it FFI-free.
+-- `real_optimize.hnl`; `handle X with P` installs a plain-arrow handler
+-- to cache, dedupe, and fuse those effects.  Real package helpers are
+-- wired in, but HTTP, JSON, and filesystem IO are gated so `hnl run` is
+-- safe offline.
 
 from "http_client_std" import * as http
 from "fs" import { read_file }
 from "json_lib" import { parse, serialize }
 
--- Network toggle.  Disabled so `hnl run` is safe offline.
+-- Capability toggles.  All disabled so `hnl run` is safe offline.
 use_http := false
+use_fs := false
+use_json := false
 
 url := "https://httpbin.org/json"
 
+-- Static sample text (same shape as `playground/test.json`) used as an
+-- offline-safe fallback for the `ReadFile` op.
+file_text := "{\"slideshow\":{\"author\":\"Yours Truly\",\"date\":\"date of publication\",\"slides\":[{\"title\":\"Wake up to WonderWidgets!\",\"type\":\"all\"},{\"title\":\"Overview\",\"type\":\"all\",\"items\":[\"Why <em>WonderWidgets<\/em> are great\",\"Who <em>buys<\/em> WonderWidgets\"]}],\"title\":\"Sample Slide Show\"}}"
+
+-- Offline-safe placeholder JSON value and its serialized form.
+file_value := { slideshow: { title: "Sample Slide Show" } }
+file_round_trip_placeholder := "{\"slideshow\":{\"title\":\"Sample Slide Show\"}}"
+
 -- 1-cell implementations of the declared ops, backed by real packages.
 -- These are the arrows the 2-cell laws compare.
-HttpGet := url ~> serialize(http.get(url))
-JsonParse := s ~> parse(s)
-JsonSerialize := v ~> serialize(v)
-ReadFile := p ~> read_file(p)
+-- All are gated so the demo stays offline-safe by default.
+http_get_real := url ~> serialize(http.get(url))
+http_disabled := url ~> "HTTP disabled (set use_http := true)"
+HttpGet := url ~> (if use_http { http_get_real } else { http_disabled })(url)
+JsonParse := s ~> if use_json { parse(s) } else { file_value }
+JsonSerialize := v ~> if use_json { serialize(v) } else { file_round_trip_placeholder }
+ReadFile := p ~> if use_fs { read_file(p) } else { file_text }
 
 -- The `op` declarations give a graded-theory signature for each capability.
--- In the current runtime the `op` / `arr` dispatch is still coming online,
--- so the 2-cell laws below are written as runnable string rewrites between
--- the 1-cell names (exactly as in `real_optimize.hnl`) while the live 1-cells
--- above call the real package helpers directly.
 op HttpGet : String ~> String
 op JsonParse : String ~> Value
 op JsonSerialize : Value ~> String
@@ -39,37 +50,32 @@ parse_after_serialize := "JsonSerialize >>> JsonParse" ~[2]~> "id"
 dedupe_http := "HttpGet >>> HttpGet" ~[2]~> "HttpGet"
 cache_read := "ReadFile >>> ReadFile" ~[2]~> "ReadFile"
 
--- Handlers model each capability with a record mapping op name to arrow.
+-- Handlers model each capability with a plain record mapping op name to
+-- arrow — a handler is a normal arrow value, no `handler` keyword.
 HttpGetHandler := { HttpGet: HttpGet }
 JsonParseHandler := { JsonParse: JsonParse }
 JsonSerializeHandler := { JsonSerialize: JsonSerialize }
 ReadFileHandler := { ReadFile: ReadFile }
+AllHandlers := { HttpGet: HttpGet, JsonParse: JsonParse, JsonSerialize: JsonSerialize, ReadFile: ReadFile }
 
-handler HttpGetHandler = { HttpGet: HttpGet }
-handler JsonParseHandler = { JsonParse: JsonParse }
-handler JsonSerializeHandler = { JsonSerialize: JsonSerialize }
-handler ReadFileHandler = { ReadFile: ReadFile }
-
--- Effect-handler blocks.  They are thunks so `hnl run` does not trigger
--- the not-yet-wired `arr` dispatch and stays offline-safe.
--- `with <handler> do <body>` installs the handler for the body.
-demo_http := () ~> with HttpGetHandler do (arr HttpGet)(url)
-demo_parse := () ~> with JsonParseHandler do (arr JsonParse)((arr ReadFile)("playground/test.json"))
-demo_serialize := () ~> with JsonSerializeHandler do (arr JsonSerialize)((arr JsonParse)((arr ReadFile)("playground/test.json")))
-
--- `with <handler> do <body>` installs the handler for one op.
-demo_cache := () ~> with ReadFileHandler do (arr ReadFile)("playground/test.json")
-demo_dedupe := () ~> with HttpGetHandler do (arr HttpGet)(url)
-demo_fuse := () ~> with JsonSerializeHandler do (arr JsonParse)((arr JsonSerialize)({slideshow: {title: "demo"}}))
+-- `handle <expr> with <handler>` installs the handler for the dynamic
+-- extent of the expression; `arr` dispatches to the innermost handler.
+demo_http := handle (arr HttpGet)(url) with HttpGetHandler
+demo_parse := handle (arr JsonParse)((arr ReadFile)("playground/test.json")) with { JsonParse: JsonParse, ReadFile: ReadFile }
+demo_serialize := handle (arr JsonSerialize)((arr JsonParse)((arr ReadFile)("playground/test.json"))) with AllHandlers
+demo_cache := handle (arr ReadFile)("playground/test.json") with ReadFileHandler
+demo_dedupe := handle (arr HttpGet)(url) with HttpGetHandler
+demo_fuse := handle (arr JsonParse)((arr JsonSerialize)({slideshow: {title: "demo"}})) with { JsonParse: JsonParse, JsonSerialize: JsonSerialize }
 
 -- Concrete, offline-safe samples using the real package helpers.
-file_text := read_file("playground/test.json")
-file_parsed := parse(file_text)
-file_round_trip := serialize(file_parsed)
+file_parsed := if use_json { parse(file_text) } else { file_value }
+file_round_trip := if use_json { serialize(file_parsed) } else { file_round_trip_placeholder }
 
 -- Human-readable output record.
 {
   use_http: use_http,
+  use_fs: use_fs,
+  use_json: use_json,
   url: url,
   original: "HttpGet >>> JsonSerialize >>> JsonParse",
   dimension: 2,
@@ -89,5 +95,13 @@ file_round_trip := serialize(file_parsed)
     file_parsed: file_parsed,
     file_round_trip: file_round_trip
   },
-  note: "op declarations give the capability signature; handler blocks install implementations; the ~[2]~> arrows are cache/dedupe/fusion laws; thunks keep arr dispatch offline-safe."
+  demos: {
+    http: demo_http,
+    parse: demo_parse,
+    serialize: demo_serialize,
+    cache: demo_cache,
+    dedupe: demo_dedupe,
+    fuse: demo_fuse
+  },
+  note: "op declarations give the capability signature; handle X with P installs a plain-arrow handler; the ~[2]~> arrows are cache/dedupe/fusion laws; arr dispatches to the innermost handler."
 }

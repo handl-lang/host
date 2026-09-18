@@ -37,7 +37,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use handl_language::{Ast, AstRef, LangError, Language};
-use handl_plugin_engine_transform::native::NativeRewrite;
+use handl_plugin_engine_transform::native::{NativeRewrite, RewriteCtx};
 use handl_plugin_engine_transform::output::{Rewrite, RewriteTrace, TransformOutput};
 use handl_plugin_engine_transform::request::{TransformMode, TransformRequest};
 use handl_plugin_engine_transform::source::{LanguageRuleSource, RuleSource};
@@ -343,12 +343,29 @@ impl RewriteEngine {
                 // rule for this pass may still rewrite via a wired native —
                 // a plan should show those sites too. (Only when NO
                 // declarative rule exists; a `when` miss is a pass-through,
-                // matching `PassRun::process`.)
-                matches.push(Match {
-                    at: AstRef::new(i),
-                    rule_id: format!("native:{name}"),
-                    bindings: Default::default(),
-                });
+                // matching `PassRun::process`.) When a registry is wired,
+                // fire the native on a scratch arena: a decline is not a
+                // match site.
+                let fires = match &self.natives {
+                    Some(natives) => {
+                        let mut scratch = Ast::new();
+                        let remap: Vec<Option<usize>> = (0..ast.len()).map(Some).collect();
+                        let mut ctx =
+                            RewriteCtx::new(lang, node, AstRef::new(i), ast, &mut scratch, &remap);
+                        natives
+                            .rewrite(name, &mut ctx)
+                            .map(|_| !ctx.declined())
+                            .unwrap_or(false)
+                    }
+                    None => true,
+                };
+                if fires {
+                    matches.push(Match {
+                        at: AstRef::new(i),
+                        rule_id: format!("native:{name}"),
+                        bindings: Default::default(),
+                    });
+                }
             }
         }
         matches

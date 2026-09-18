@@ -1,0 +1,87 @@
+-- 04_effects.hnl
+--
+-- Effects collapse into the same arrow calculus. `op` declares a
+-- capability, `handler` implements it, `with ... do ...` installs it,
+-- `arr` dispatches. And the effect laws are dimension-polymorphic:
+-- one `~[N]~>` law governs programs (N=2), proofs (N=4), and
+-- metaproofs (N=5). `g` is a pattern variable; `N` is a dimension
+-- variable.
+
+from "http_client_std" import * as http
+from "fs" import { read_file }
+from "json_lib" import { parse, serialize }
+
+-- Capability toggles. Everything is offline-safe by default.
+use_http := false
+use_fs := false
+use_json := false
+
+url := "https://httpbin.org/json"
+
+-- Offline-safe placeholder data.
+file_text := "{\"slideshow\":{\"author\":\"Yours Truly\",\"date\":\"date of publication\",\"slides\":[{\"title\":\"Wake up to WonderWidgets!\",\"type\":\"all\"},{\"title\":\"Overview\",\"type\":\"all\",\"items\":[\"Why <em>WonderWidgets</em> are great\",\"Who <em>buys</em> WonderWidgets\"]}],\"title\":\"Sample Slide Show\"}}"
+file_value := { slideshow: { title: "Sample Slide Show" } }
+file_round_trip_placeholder := "{\"slideshow\":{\"title\":\"Sample Slide Show\"}}"
+
+-- 1-cell implementations, gated so the demo stays offline-safe.
+http_get_real := (u) ~> serialize(http.get(u))
+http_disabled := (u) ~> "HTTP disabled (set use_http := true)"
+HttpGet := (u) ~> (if use_http { http_get_real } else { http_disabled })(u)
+
+JsonParse := (s) ~> if use_json { parse(s) } else { file_value }
+JsonSerialize := (v) ~> if use_json { serialize(v) } else { file_round_trip_placeholder }
+ReadFile := (p) ~> if use_fs { read_file(p) } else { file_text }
+
+-- Capability signatures (types) as first-class values.
+op HttpGet : String ~> String
+op JsonParse : String ~> Value
+op JsonSerialize : Value ~> String
+op ReadFile : String ~> String
+
+id := x ~> x
+
+-- ONE generic law. `g` is a pattern variable — it matches any cell.
+-- `N` is a dimension variable bound by the generic binding `dedupe<N>`
+-- (a generic entity is an arrow over its dimension) — the law holds at
+-- every level of the tower. No separate "rule language", no separate
+-- "proof language".
+dedupe<N> := (g >>> g) ~[N]~> g
+
+-- N=2: the law over 1-cell programs.
+http_chain := HttpGet >>> HttpGet
+
+-- N=4: the same law over 3-cell certificates about the effect.
+cert := (HttpGet >>> HttpGet) ~[3]~> HttpGet
+cert_chain := ((HttpGet >>> HttpGet) ~[3]~> HttpGet) >>> ((HttpGet >>> HttpGet) ~[3]~> HttpGet)
+
+-- N=5: the same law over 4-cell meta-laws.
+meta := (cert >>> cert) ~[4]~> cert
+meta_chain := ((cert >>> cert) ~[4]~> cert) >>> ((cert >>> cert) ~[4]~> cert)
+
+-- Handlers are just records mapping an op name to an arrow — no
+-- `handler` keyword, no special declaration form.
+HttpGetHandler := { HttpGet: HttpGet }
+JsonParseHandler := { JsonParse: JsonParse }
+JsonSerializeHandler := { JsonSerialize: JsonSerialize }
+ReadFileHandler := { ReadFile: ReadFile }
+
+-- `handle X with P` installs the handler P for the dynamic extent of
+-- the expression X. `arr` dispatches to the innermost handler.
+demo_http := handle (arr HttpGet)(url) with HttpGetHandler
+demo_cache := handle (arr ReadFile)("playground/test.json") with ReadFileHandler
+demo_parse := handle (arr JsonParse)((arr ReadFile)("playground/test.json")) with { JsonParse: JsonParse, ReadFile: ReadFile }
+demo_fuse := handle (arr JsonParse)((arr JsonSerialize)({ slideshow: { title: "demo" } })) with { JsonParse: JsonParse, JsonSerialize: JsonSerialize }
+
+{
+  note: "One generic ~[N]~> law. N=2 dedupes programs; N=4 dedupes proofs; N=5 dedupes metaproofs. op/arr/handle are just arrows too.",
+  law: "dedupe<N> := (g >>> g) ~[N]~> g",
+  at_2: http_chain,
+  at_4: cert_chain,
+  at_5: meta_chain,
+  demos: {
+    http: demo_http,
+    cache: demo_cache,
+    parse: demo_parse,
+    fuse: demo_fuse
+  }
+}

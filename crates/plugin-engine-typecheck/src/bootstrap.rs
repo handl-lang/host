@@ -40,6 +40,13 @@ use crate::{CheckError, TypecheckReport};
 // `Language`. They are read-only constants used to classify top-level
 // declarations and reference nodes; child positions are always resolved via
 // `Language::child_role_index` (ADR-0081), never by positional assumption.
+//
+// TECH DEBT (ADR-0105): module-scope binding semantics — which declaration
+// kinds bind names into scope (`stmt.import`, `data` ctors, `assign`
+// targets) — has no `AstShapeDef` vocabulary yet (there is no `binds`/`scope`
+// fragment). These constants classify *declaration categories*, not child
+// shapes; closing this debt means adding a scope-binding declaration to the
+// language schema and reading it here instead of matching kinds.
 
 /// The v0.1 surface kind for an import statement (`import x from "path"`).
 const KIND_IMPORT: &str = "stmt.import";
@@ -446,6 +453,28 @@ fn stmt_import_bound_names(ast: &Ast, root: &AstNode) -> Vec<String> {
     bound
 }
 
+/// Dimension parameters of a generic-binding target `name<D1, D2>`: the
+/// `dimension` node's `args` are dimension variables scoped over the
+/// bound value — `f<N> := body` means `f := N ~> body` (ADR-0106 §12).
+/// Identified by the `args` role (ADR-0081); a non-`dimension` target
+/// adds nothing.
+fn dim_param_names(lang: &Language, ast: &Ast, node_ref: AstRef, out: &mut HashSet<String>) {
+    let node = match ast.at(node_ref) {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+    let Some(args_idx) = lang.child_role_index(&node.kind, "args").ok().flatten() else {
+        return;
+    };
+    for &raw in children_of(node).iter().skip(args_idx) {
+        if let Ok(arg) = ast.at(AstRef::new(raw)) {
+            if let Some(name) = var_name(arg) {
+                out.insert(name);
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Expression checking
 // ---------------------------------------------------------------------------
@@ -524,7 +553,9 @@ fn pattern_bound_names(lang: &Language, ast: &Ast, node_ref: AstRef, out: &mut H
 ///
 /// `scope` is the set of names in scope (imports + bindings + function
 /// params). `references` accumulates every `var` reference seen (for
-/// unused-import detection).
+/// unused-import detection). `pattern` marks a quoted rule term (inside
+/// `~[N]~>`): an unbound `var` there is a pattern variable, not an
+/// unbound wire.
 fn check_expr(
     lang: &Language,
     src: &str,
@@ -534,6 +565,7 @@ fn check_expr(
     stmt: &Stmt,
     diags: &mut Vec<Diagnostic>,
     references: &mut HashSet<String>,
+    pattern: bool,
 ) {
     let node = match ast.at(node_ref) {
         Ok(n) => n,
@@ -547,7 +579,7 @@ fn check_expr(
             return;
         }
         references.insert(name.clone());
-        if !scope.contains(&name) {
+        if !scope.contains(&name) && !pattern {
             let span = name_span(src, stmt, &name);
             diags.push(Diagnostic::new(
                 "unbound-wire",
@@ -580,6 +612,7 @@ fn check_expr(
                 stmt,
                 diags,
                 references,
+                pattern,
             );
         }
         return;
@@ -613,6 +646,7 @@ fn check_expr(
                 stmt,
                 diags,
                 references,
+                pattern,
             );
         }
         return;
@@ -651,6 +685,7 @@ fn check_expr(
                         stmt,
                         diags,
                         references,
+                        pattern,
                     );
                 }
             }
@@ -698,6 +733,7 @@ fn check_expr(
                             stmt,
                             diags,
                             references,
+                            pattern,
                         );
                     }
                 }
@@ -721,6 +757,7 @@ fn check_expr(
                 stmt,
                 diags,
                 references,
+                pattern,
             );
         }
         return;
@@ -765,15 +802,22 @@ fn check_expr(
                     }
                 }
                 if let Some(&value_raw) = grandchildren.get(vi) {
+                    // A generic binding `f<N> := value` scopes `N` over
+                    // the value only — not over following siblings.
+                    let mut value_scope = block_scope.clone();
+                    if let Some(&target_raw) = grandchildren.get(ti) {
+                        dim_param_names(lang, ast, AstRef::new(target_raw), &mut value_scope);
+                    }
                     check_expr(
                         lang,
                         src,
                         ast,
                         AstRef::new(value_raw),
-                        &block_scope,
+                        &value_scope,
                         stmt,
                         diags,
                         references,
+                        pattern,
                     );
                 }
                 continue;
@@ -787,6 +831,32 @@ fn check_expr(
                 stmt,
                 diags,
                 references,
+                pattern,
+            );
+        }
+        return;
+    }
+
+    // Dimensioned arrow `A ~[N]~> B` — identified by its `dim` child role
+    // (ADR-0081), not a kind check. `source`/`target` are quoted rule
+    // terms, so their subtrees are checked in pattern mode where a free
+    // `var` is a pattern variable. The `dim` child is a dimension
+    // reference: a `var` there must be in scope — dimension variables
+    // come from generic bindings (`dedupe<N> := ...`, ADR-0106 §12) —
+    // except in pattern mode, where it is a dimension metavariable.
+    if let Ok(Some(dim_idx)) = lang.child_role_index(&node.kind, "dim") {
+        let children = children_of(node);
+        for (pos, &child_raw) in children.iter().enumerate() {
+            check_expr(
+                lang,
+                src,
+                ast,
+                AstRef::new(child_raw),
+                scope,
+                stmt,
+                diags,
+                references,
+                pattern || pos != dim_idx,
             );
         }
         return;
@@ -805,6 +875,7 @@ fn check_expr(
             stmt,
             diags,
             references,
+            pattern,
         );
     }
 }
@@ -886,6 +957,7 @@ fn check_pass(
             stmt,
             diags,
             &mut references,
+            false,
         );
     }
 
@@ -916,28 +988,34 @@ fn check_pass(
             .ok()
             .flatten()
             .unwrap_or(1);
+        let target_idx = lang
+            .child_role_index(&root.kind, "target")
+            .ok()
+            .flatten()
+            .unwrap_or(0);
         let children = children_of(root);
         if let Some(&value_raw) = children.get(value_idx) {
+            // A generic binding `f<N> := value` scopes `N` over the value.
+            let mut value_scope = module_scope.clone();
+            if let Some(&target_raw) = children.get(target_idx) {
+                dim_param_names(lang, &stmt.ast, AstRef::new(target_raw), &mut value_scope);
+            }
             check_expr(
                 lang,
                 src,
                 &stmt.ast,
                 AstRef::new(value_raw),
-                &module_scope,
+                &value_scope,
                 stmt,
                 diags,
                 &mut references,
+                false,
             );
         }
 
         // Chained binds (`a :: f = g` → `assign(assign(a, f), g)`): the
         // inner `value` children carry checkable expressions too — walk
         // each binding-shaped target's `value` subtree.
-        let target_idx = lang
-            .child_role_index(&root.kind, "target")
-            .ok()
-            .flatten()
-            .unwrap_or(0);
         let mut cursor = children.get(target_idx).copied();
         while let Some(raw) = cursor {
             let target_node = match stmt.ast.at(AstRef::new(raw)) {
@@ -956,15 +1034,20 @@ fn check_pass(
                 (Some(t2), Some(v2)) => {
                     let inner = children_of(target_node);
                     if let Some(&v_raw) = inner.get(v2) {
+                        let mut value_scope = module_scope.clone();
+                        if let Some(&t_raw) = inner.get(t2) {
+                            dim_param_names(lang, &stmt.ast, AstRef::new(t_raw), &mut value_scope);
+                        }
                         check_expr(
                             lang,
                             src,
                             &stmt.ast,
                             AstRef::new(v_raw),
-                            &module_scope,
+                            &value_scope,
                             stmt,
                             diags,
                             &mut references,
+                            false,
                         );
                     }
                     cursor = inner.get(t2).copied();

@@ -1,9 +1,11 @@
 //! Tests for the graded-theory declaration surface syntax (ADR-0098/0100).
 //!
-//! The canonical kit recognizes four declaration forms — `sort`, `grade`,
-//! `op`, and `handler` — plus the `~[N]~>` N-dimensional arrow
+//! The canonical kit recognizes three declaration forms — `sort`, `grade`,
+//! and `op` — plus the `~[N]~>` N-dimensional arrow
 //! (`token.dim_open` / `token.dim_close`). `law`/`rewrite`/`axiom` are
-//! removed; 2-cell rules are ordinary `~[2]~>` arrow bindings.
+//! removed; 2-cell rules are ordinary `~[2]~>` arrow bindings. `handler`
+//! is removed too — a handler is a plain arrow/record value installed
+//! with `handle <expr> with <handler>`.
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, AstNode, Language, Source};
@@ -67,7 +69,6 @@ fn graded_theory_tokens_exist() {
         "token.keyword.grade",
         "token.keyword.grades",
         "token.keyword.op",
-        "token.keyword.handler",
     ] {
         assert!(lang.tokens.get_by_id(id).is_some(), "missing {id}");
     }
@@ -80,7 +81,6 @@ fn graded_theory_grammar_rows_exist() {
         "grammar.sort.prefix",
         "grammar.grade.prefix",
         "grammar.op.prefix",
-        "grammar.handler.prefix",
         "grammar.dim_arrow.infix",
     ] {
         assert!(lang.grammar.get_by_id(id).is_some(), "missing {id}");
@@ -94,7 +94,6 @@ fn graded_theory_ast_shapes_exist() {
         ("ast.sort", vec!["name", "grades"]),
         ("ast.grade", vec!["name"]),
         ("ast.op", vec!["name", "signature"]),
-        ("ast.handler", vec!["name", "impl", "grades"]),
         ("ast.dim_arrow", vec!["source", "dim", "target"]),
     ] {
         let shape = lang
@@ -180,7 +179,6 @@ fn op_declaration_parses() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn op_with_dim_clause_parses() {
     let ast = parse("op add : (A, A) ~[1]~> A");
     let r = root(&ast);
@@ -192,25 +190,12 @@ fn op_with_dim_clause_parses() {
     assert_eq!(cs[1].kind, "dim_arrow");
 }
 
-#[test]
-fn handler_declaration_parses() {
-    let ast = parse("handler NumberHandler = () ~> Handler");
-    let r = root(&ast);
-    assert_eq!(r.kind, "handler");
-    assert_eq!(r.payload.get("name").unwrap(), "NumberHandler");
-    let cs = children(&ast, r);
-    assert_eq!(cs.len(), 2);
-    assert_eq!(cs[0].payload, serde_json::json!("NumberHandler"));
-    assert_eq!(cs[1].kind, "function");
-}
-
 // ---------------------------------------------------------------------------
 // N-dimensional arrow `A ~[N]~> B` (ADR-0119)
 // ---------------------------------------------------------------------------
 
 /// A one-dimensional arrow parses to the `dim_arrow` AST shape.
 #[test]
-#[ignore = "n-dim"]
 fn dim_arrow_parses() {
     let ast = parse("(A, A) ~[1]~> A");
     let r = root(&ast);

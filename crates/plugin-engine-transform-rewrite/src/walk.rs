@@ -182,12 +182,14 @@ impl<'a> PassRun<'a> {
             // Native fallback: only when no declarative rule exists for the
             // kind (mirrors `try_rust_desugar`'s position in the legacy
             // pass). A declining native pushes the remapped node itself via
-            // `RewriteCtx::pass_through`.
-            let new_idx = self
-                .fire_native(&name, node, out)
+            // `RewriteCtx::pass_through` — unchanged, so nothing is recorded.
+            let (new_idx, declined) = self
+                .fire_native(&name, i, node, out)
                 .map_err(|e| self.annotate(e, Some(name.as_str()), Some(node)))?;
             self.remap[i] = Some(new_idx);
-            self.record(i, new_idx, &format!("native:{name}"));
+            if !declined {
+                self.record(i, new_idx, &format!("native:{name}"));
+            }
             return Ok(());
         }
         let new_ref = out.push(remapped);
@@ -247,11 +249,13 @@ impl<'a> PassRun<'a> {
             }
         } else if let Some(name) = self.fallback_name(&node.kind) {
             self.visit_children(node, out)?;
-            let new_idx = self
-                .fire_native(&name, node, out)
+            let (new_idx, declined) = self
+                .fire_native(&name, idx, node, out)
                 .map_err(|e| self.annotate(e, Some(name.as_str()), Some(node)))?;
             self.remap[idx] = Some(new_idx);
-            self.record(idx, new_idx, &format!("native:{name}"));
+            if !declined {
+                self.record(idx, new_idx, &format!("native:{name}"));
+            }
             return Ok(new_idx);
         }
         // No rule fired: visit children, then push the remapped node.
@@ -349,7 +353,7 @@ impl<'a> PassRun<'a> {
         out: &mut Ast,
     ) -> Result<usize, LangError> {
         let new_idx = self
-            .fire_untraced(def, node, out)
+            .fire_untraced(def, i, node, out)
             .map_err(|e| self.annotate(e, Some(def.id.as_str()), Some(node)))?;
         self.record(i, new_idx, &def.id);
         Ok(new_idx)
@@ -361,6 +365,7 @@ impl<'a> PassRun<'a> {
     fn fire_untraced(
         &mut self,
         def: &'a TransformDef,
+        i: usize,
         node: &AstNode,
         out: &mut Ast,
     ) -> Result<usize, LangError> {
@@ -387,7 +392,7 @@ impl<'a> PassRun<'a> {
                 self.fresh_id = fresh_out;
                 Ok(r.index())
             }
-            TransformRule::Native(name) => self.fire_native(name, node, out),
+            TransformRule::Native(name) => self.fire_native(name, i, node, out).map(|(idx, _)| idx),
         }
     }
 
@@ -398,9 +403,10 @@ impl<'a> PassRun<'a> {
     fn fire_native(
         &mut self,
         name: &str,
+        at: usize,
         node: &AstNode,
         out: &mut Ast,
-    ) -> Result<usize, LangError> {
+    ) -> Result<(usize, bool), LangError> {
         let natives = match &self.natives {
             Some(n) => n.clone(),
             None => {
@@ -409,9 +415,9 @@ impl<'a> PassRun<'a> {
                 )));
             }
         };
-        let mut ctx = RewriteCtx::new(self.lang, node, self.ast, out, &self.remap);
+        let mut ctx = RewriteCtx::new(self.lang, node, AstRef::new(at), self.ast, out, &self.remap);
         let new_ref = natives.rewrite(name, &mut ctx)?;
-        Ok(new_ref.index())
+        Ok((new_ref.index(), ctx.declined()))
     }
 
     /// Record a rewrite in the trace and per-rule stats.
@@ -469,7 +475,7 @@ impl<'a> Resolver for PassRun<'a> {
             // any `RewriteCtx` the native consults.
             self.visit_or_process_children(node, out)?;
         }
-        let new_idx = self.fire_untraced(def, node, out)?;
+        let new_idx = self.fire_untraced(def, old_idx, node, out)?;
         self.record(old_idx, new_idx, &def.id);
         Ok(Some(new_idx))
     }

@@ -39,26 +39,41 @@ use serde_json::Value;
 ///
 /// The mutation is in-place: arena indices are preserved.
 pub fn apply_runtime_asserts(lang: &Language, ast: &mut Ast) {
+    // Resolve the canonical node kind ids from the `AstShapeDef` data
+    // rather than string-matching on hardcoded kind names (ADR-0081).
+    // If the language does not declare these shapes, fall back to the
+    // canonical ids.
+    let type_annot_kind = lang
+        .ast
+        .get_by_identity("type-annot")
+        .map(|s| s.node_kind.as_str())
+        .unwrap_or("type-annot");
+    let runtime_assert_kind = lang
+        .ast
+        .get_by_identity("runtime-assert")
+        .map(|s| s.node_kind.as_str())
+        .unwrap_or("runtime-assert");
+
     // Resolve type-annot child roles once (data-driven, ADR-0081).
     let subject_idx = lang
-        .child_role_index("type-annot", "subject")
+        .child_role_index(type_annot_kind, "subject")
         .ok()
         .flatten()
         .unwrap_or(0);
     let annot_idx = lang
-        .child_role_index("type-annot", "annot")
+        .child_role_index(type_annot_kind, "annot")
         .ok()
         .flatten()
         .unwrap_or(1);
 
     // Resolve runtime-assert child roles once.
     let pred_idx = lang
-        .child_role_index("runtime-assert", "predicate")
+        .child_role_index(runtime_assert_kind, "predicate")
         .ok()
         .flatten()
         .unwrap_or(0);
     let expr_idx = lang
-        .child_role_index("runtime-assert", "expr")
+        .child_role_index(runtime_assert_kind, "expr")
         .ok()
         .flatten()
         .unwrap_or(1);
@@ -67,7 +82,7 @@ pub fn apply_runtime_asserts(lang: &Language, ast: &mut Ast) {
         let node_ref = AstRef::new(i);
         let is_type_annot = ast
             .get(node_ref)
-            .map(|n| n.kind == "type-annot")
+            .map(|n| n.kind == type_annot_kind)
             .unwrap_or(false);
         if !is_type_annot {
             continue;
@@ -104,7 +119,7 @@ pub fn apply_runtime_asserts(lang: &Language, ast: &mut Ast) {
 
         // Mutate the node in-place: change kind + reorder children.
         if let Some(node) = ast.get_mut(node_ref) {
-            node.kind = "runtime-assert".to_string();
+            node.kind = runtime_assert_kind.to_string();
             if let Some(obj) = node.payload.as_object_mut() {
                 obj.insert("children".to_string(), Value::Array(new_children));
             } else {

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::document::{DocumentStore, resolve_document_text};
-use crate::protocol::{Message, send_response, send_error};
+use crate::protocol::{Message, send_error, send_response};
 use handl_host_tooling::{ToolingHost, lsp::FoldingRange};
 use serde_json::{Value, json};
 

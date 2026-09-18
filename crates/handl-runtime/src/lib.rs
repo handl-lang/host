@@ -706,14 +706,23 @@ impl Runtime {
     ///
     /// The caller is responsible for wiring host functions into this engine
     /// directly (e.g. calling `TreeWalkEngine::with_modules` before boxing).
-    /// The `Runtime` does not rewire a manually-set engine.
-    pub fn with_eval_engine(mut self, engine: Box<dyn EvalEngine>) -> Self {
+    /// The `Runtime` does not rewire a manually-set engine beyond seeding
+    /// the ambient globals declared by `Language::globals`.
+    pub fn with_eval_engine(mut self, mut engine: Box<dyn EvalEngine>) -> Self {
+        // Seed ambient globals declared by the language data
+        // (`Language::globals`) — a no-op for languages that declare none.
+        for (name, val) in &self.lang.globals {
+            engine = engine.with_global(name, val.clone());
+        }
         self.eval_engine = Some(engine);
         self
     }
 
     /// Attach a typecheck engine (builder style, ADR-0054).
-    pub fn with_typecheck_engine(mut self, engine: Box<dyn TypecheckEngine>) -> Self {
+    pub fn with_typecheck_engine(mut self, mut engine: Box<dyn TypecheckEngine>) -> Self {
+        for (name, val) in &self.lang.globals {
+            engine = engine.with_global(name, val.clone());
+        }
         self.typecheck_engine = Some(engine);
         self
     }
@@ -1191,6 +1200,18 @@ impl Runtime {
             )
         };
 
+        // Ambient value bindings declared by the language data
+        // (`Language::globals`, e.g. `true`/`false` from `globals.yaml`)
+        // seed every runtime's global scope; caller-supplied `globals`
+        // (e.g. `self`) take precedence on a name conflict.
+        let seed_globals = |engine: Box<dyn EvalEngine>| -> Box<dyn EvalEngine> {
+            let mut engine = engine;
+            for (name, val) in &lang.globals {
+                engine = engine.with_global(name, val.clone());
+            }
+            engine
+        };
+
         // Resolve eval engine (clone + wire modules/globals/resolver via
         // trait methods).
         let eval_engine: Option<Box<dyn EvalEngine>> = if config.eval.is_empty() {
@@ -1203,6 +1224,7 @@ impl Runtime {
                 Some(m) => reg_engine.with_modules(m),
                 None => reg_engine.box_clone(),
             };
+            engine = seed_globals(engine);
             if let Some(globals) = globals {
                 for (name, val) in globals {
                     engine = engine.with_global(name, val.clone());
@@ -1236,6 +1258,9 @@ impl Runtime {
                 Some(m) => reg_engine.with_modules(m),
                 None => reg_engine.box_clone(),
             };
+            for (name, val) in &lang.globals {
+                engine = engine.with_global(name, val.clone());
+            }
             if let Some(globals) = globals {
                 for (name, val) in globals {
                     engine = engine.with_global(name, val.clone());

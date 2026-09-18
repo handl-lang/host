@@ -28,13 +28,13 @@
 //! Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091). See
 //! [`lint_source`], [`check_source`], and [`fix_source`] for the public API.
 
-pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
 pub use handl_language::Language;
+pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
 
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-use handl_language::{LangError};
+use handl_language::LangError;
 use handl_plugin_engine_lint::{
     DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, canonical_lint_natives,
 };
@@ -248,8 +248,8 @@ fn fmt_rule(lang: &Language, src: &str) -> Vec<NativeHit> {
     match handl_plugin_ext_fmt::check_source_with_language(lang, src) {
         Ok(true) => Vec::new(),
         Ok(false) => {
-            let replacement = handl_plugin_ext_fmt::format_source_with_language(lang, src)
-                .unwrap_or_default();
+            let replacement =
+                handl_plugin_ext_fmt::format_source_with_language(lang, src).unwrap_or_default();
             vec![NativeHit {
                 args: Default::default(),
                 span: Some(handl_language::Span {

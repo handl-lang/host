@@ -1,4 +1,12 @@
 //! Shared canonical AST to arrow-calculus `Term` lowerer (ADR-0100).
+//!
+//! TECH DEBT (ADR-0105): `lower_node` still `match`es on canonical kind
+//! strings (`value`, `var`, `assign`, `bind`, `op`, `flow`, …) to pick the
+//! lowering combinator. The data-driven replacement is a `lower` scheme
+//! fragment per `AstShapeDef` — the same shape `lang.eval`/`lang.types`
+//! already use — so a renamed kind keeps lowering without an engine edit.
+//! Until that fragment exists, this `match` is the Arrow dialect's lowering
+//! table and new canonical constructs must add an arm here.
 
 use std::collections::HashMap;
 
@@ -21,7 +29,12 @@ fn lower_node(
         .ok_or_else(|| format!("AST index {} out of bounds", idx))?;
 
     match node.kind.as_str() {
-        "value" => Ok(Term::const_value(node.payload.clone())),
+        "value" | "lit" => Ok(Term::const_value(node.payload.clone())),
+
+        // `json` template node (ADR-0060): child 0 is the template leaf
+        // (`{"tag": "Succ", "pred": $0}`), children 1..N are the args that
+        // substitute `$i` holes. A leaf `json` parses its payload directly.
+        "json" => lower_json(ast, lang, node, env, params),
 
         "var" => {
             let name = node
@@ -68,6 +81,16 @@ fn lower_node(
             Ok(Term::seq(l, r))
         }
 
+        "array" => {
+            // Array literal: the native `array` op packs the evaluated
+            // element schemes into a single array value (eval.array).
+            let terms = children(node)
+                .iter()
+                .map(|&i| lower_node(ast, lang, i, env, params))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Term::op_native("array", terms))
+        }
+
         "object" => lower_object(ast, lang, node, env, params),
         "entry" => {
             // Entries are handled inside lower_object; this arm is a fallback.
@@ -94,8 +117,6 @@ fn lower_node(
         }
 
         "op" => lower_op(ast, lang, node, env, params),
-        "handler" => lower_handler(ast, lang, node, env, params),
-        "with" => lower_with(ast, lang, node, env, params),
         "handle" => lower_handle(ast, lang, node, env, params),
         "arr" => lower_arr(ast, lang, node, env, params),
         "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
@@ -109,6 +130,21 @@ fn lower_node(
             // lowerer only needs to emit the op and let the runtime fall
             // back to the AST engine.
             Ok(Term::op_native("assert", vec![]))
+        }
+
+        // ADR-0105: hardcoded `if` branch pending a data-driven `lower`
+        // scheme fragment. Lowered to `cond >>> tag >>> Choice(then, else)`.
+        "if" => lower_if(ast, lang, node, env, params),
+
+        // ADR-0074/ADR-0105: `rec` region — scoped bindings ending in the
+        // self-application produced by `desugar.data`'s recursor.
+        "rec" => lower_rec(ast, lang, node, env, params),
+
+        // ADR-0105: generic binary operator dispatch for the canonical
+        // `binary.<op>` family emitted by desugaring.
+        op if op.starts_with("binary.") => {
+            let bin_op = op.strip_prefix("binary.").unwrap_or(op);
+            lower_binary(ast, lang, node, env, params, bin_op)
         }
 
         other => Err(format!(
@@ -132,58 +168,15 @@ fn lower_block(
     }
 
     let mut last = None;
-    for &idx in &statements {
-        let child = ast
-            .get(AstRef::new(idx))
-            .ok_or_else(|| format!("block child {} out of bounds", idx))?;
-        if child.kind == "assign" {
-            let target_idx = child_at_role_or_pos(child, lang, "target", 0)
-                .ok_or_else(|| format!("assign at {} missing target child", idx))?;
-            let target = ast
-                .get(AstRef::new(target_idx))
-                .ok_or_else(|| format!("assign target {} out of bounds", target_idx))?;
-            let name = target
-                .payload
-                .as_str()
-                .ok_or_else(|| format!("assign target at {} is not a string", target_idx))?
-                .to_string();
-            let value_idx = child_at_role_or_pos(child, lang, "value", 1)
-                .ok_or_else(|| format!("assign at {} missing value child", idx))?;
-            if is_op_graded_arrow(ast, lang, value_idx)? {
-                let op = op_term_from_graded_arrow(ast, lang, &name, value_idx)?;
-                env.insert(name, op);
-            } else {
-                let value = lower_node(ast, lang, value_idx, &env, params)?;
-                env.insert(name, value);
-            }
-        } else if child.kind == "bind" {
-            let name = child
-                .payload
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("bind at {} missing payload.name", idx))?
-                .to_string();
-            let value_idx = child_at_role_or_pos(child, lang, "value", 0)
-                .or_else(|| children(child).first().copied())
-                .ok_or_else(|| format!("bind at {} missing value child", idx))?;
-            if is_op_graded_arrow(ast, lang, value_idx)? {
-                let op = op_term_from_graded_arrow(ast, lang, &name, value_idx)?;
-                env.insert(name, op);
-            } else {
-                let value = lower_node(ast, lang, value_idx, &env, params)?;
-                env.insert(name, value);
-            }
-        } else if child.kind == "op" || child.kind == "handler" {
-            let name = child
-                .payload
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("{} at {} missing payload.name", child.kind, idx))?
-                .to_string();
-            let value = lower_node(ast, lang, idx, &env, params)?;
-            env.insert(name, value);
-        } else {
-            last = Some(lower_node(ast, lang, idx, &env, params)?);
+    let count = statements.len();
+    for (i, &idx) in statements.iter().enumerate() {
+        match bind_stmt(ast, lang, idx, &mut env, params)? {
+            // `eval_block`: the block's value is the last statement's
+            // value — a trailing `assign`/`bind`/`op` yields its bound
+            // value, not null.
+            Some(term) if i + 1 == count => last = Some(term),
+            Some(_) => {}
+            None => last = Some(lower_node(ast, lang, idx, &env, params)?),
         }
     }
 
@@ -193,6 +186,131 @@ fn lower_block(
             node_index(node)
         )
     })
+}
+
+/// `rec` region (ADR-0074): a scoped sequence of bindings produced by
+/// `desugar.data` for recursor self-application. All but the last child
+/// bind into a private env; the node lowers to the last statement's value
+/// (the self-application `Type.rec = __rec_inner(__rec_inner)`).
+fn lower_rec(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let stmts = children(node);
+    let (last, init) = stmts
+        .split_last()
+        .ok_or_else(|| format!("rec at {} has no children", node_index(node)))?;
+    let mut env = env.clone();
+    for &idx in init {
+        if bind_stmt(ast, lang, idx, &mut env, params)?.is_none() {
+            lower_node(ast, lang, idx, &env, params)?;
+        }
+    }
+    lower_node(ast, lang, *last, &env, params)
+}
+
+/// Bind a `block`/`rec` child statement into `env` when it is a binding
+/// (`assign`, `bind`, `op`). Returns the bound value for bindings and
+/// `None` for non-binding statements.
+fn bind_stmt(
+    ast: &Ast,
+    lang: &Language,
+    idx: usize,
+    env: &mut HashMap<String, Term>,
+    params: &[String],
+) -> Result<Option<Term>, String> {
+    let child = ast
+        .get(AstRef::new(idx))
+        .ok_or_else(|| format!("block child {} out of bounds", idx))?;
+    if child.kind == "assign" {
+        let target_idx = child_at_role_or_pos(child, lang, "target", 0)
+            .ok_or_else(|| format!("assign at {} missing target child", idx))?;
+        let target = ast
+            .get(AstRef::new(target_idx))
+            .ok_or_else(|| format!("assign target {} out of bounds", target_idx))?;
+        let name = target
+            .payload
+            .as_str()
+            .ok_or_else(|| format!("assign target at {} is not a string", target_idx))?
+            .to_string();
+        let value_idx = child_at_role_or_pos(child, lang, "value", 1)
+            .ok_or_else(|| format!("assign at {} missing value child", idx))?;
+        let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
+            op_term_from_graded_arrow(ast, lang, &name, value_idx)?
+        } else {
+            lower_node(ast, lang, value_idx, env, params)?
+        };
+        env.insert(name, bound.clone());
+        Ok(Some(bound))
+    } else if child.kind == "bind" {
+        let name = child
+            .payload
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("bind at {} missing payload.name", idx))?
+            .to_string();
+        let value_idx = child_at_role_or_pos(child, lang, "value", 0)
+            .or_else(|| children(child).first().copied())
+            .ok_or_else(|| format!("bind at {} missing value child", idx))?;
+        let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
+            op_term_from_graded_arrow(ast, lang, &name, value_idx)?
+        } else {
+            lower_node(ast, lang, value_idx, env, params)?
+        };
+        env.insert(name, bound.clone());
+        Ok(Some(bound))
+    } else if child.kind == "op" {
+        let name = child
+            .payload
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{} at {} missing payload.name", child.kind, idx))?
+            .to_string();
+        let bound = lower_node(ast, lang, idx, env, params)?;
+        env.insert(name, bound.clone());
+        Ok(Some(bound))
+    } else {
+        Ok(None)
+    }
+}
+
+/// `json` template (ADR-0060): children `[template, arg0..argN]` — child 0
+/// is a leaf `json` node whose string payload is the template; the op
+/// substitutes evaluated args into `$i` holes and parses the result.
+fn lower_json(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let children = children(node);
+    let (template, arg_indices): (String, &[usize]) = if children.len() >= 2 {
+        let template_node = ast
+            .get(AstRef::new(children[0]))
+            .ok_or_else(|| format!("json template {} out of bounds", children[0]))?;
+        let template = template_node
+            .payload
+            .as_str()
+            .ok_or_else(|| format!("json template at {} is not a string", children[0]))?
+            .to_string();
+        (template, &children[1..])
+    } else {
+        let template = node
+            .payload
+            .as_str()
+            .ok_or_else(|| format!("json at {} has non-string payload", node_index(node)))?
+            .to_string();
+        (template, &[][..])
+    };
+    let mut args = Vec::with_capacity(arg_indices.len());
+    for &idx in arg_indices {
+        args.push(lower_node(ast, lang, idx, env, params)?);
+    }
+    Ok(Term::op_native_lit("json", args, Value::String(template)))
 }
 
 fn lower_call(
@@ -248,6 +366,18 @@ fn lower_call(
                 Term::op_native("array", arg_terms)
             };
             return Ok(Term::seq(pair, callee_term.clone()));
+        }
+
+        if let Some(pos) = params.iter().position(|p| p == name) {
+            // Parameter callee (`self(self)`, `f(x)` where `f` is a
+            // parameter): dynamic application — the callee value comes
+            // from the input tuple.
+            let callee_term = if params.len() == 1 {
+                Term::op_native("id", vec![])
+            } else {
+                Term::op_native_lit("proj_child", vec![], pos as i64)
+            };
+            return Ok(Term::app(callee_term, arg_terms));
         }
 
         // Unknown callee: treat as a native op call.
@@ -379,45 +509,6 @@ fn lower_op(
     })
 }
 
-fn lower_handler(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, Term>,
-    params: &[String],
-) -> Result<Term, String> {
-    let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
-        .ok_or_else(|| format!("handler at {} missing impl child", node_index(node)))?;
-    lower_node(ast, lang, impl_idx, env, params)
-}
-
-fn lower_with(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, Term>,
-    params: &[String],
-) -> Result<Term, String> {
-    let handler_idx = child_at_role_or_pos(node, lang, "handler", 0)
-        .ok_or_else(|| format!("with at {} missing handler child", node_index(node)))?;
-    let body_idx = child_at_role_or_pos(node, lang, "body", 1)
-        .ok_or_else(|| format!("with at {} missing body child", node_index(node)))?;
-    let impl_ = lower_node(ast, lang, handler_idx, env, params)?;
-    let body = lower_node(ast, lang, body_idx, env, params)?;
-    let target = if let Some(handler) = ast.get(AstRef::new(handler_idx)) {
-        if handler.kind == "var" {
-            handler.payload.as_str().unwrap_or("").to_string()
-        } else if let Some(name) = handler.payload.get("name").and_then(Value::as_str) {
-            name.to_string()
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
-    Ok(Term::handle(body, target, impl_))
-}
-
 fn lower_handle(
     ast: &Ast,
     lang: &Language,
@@ -425,42 +516,17 @@ fn lower_handle(
     env: &HashMap<String, Term>,
     params: &[String],
 ) -> Result<Term, String> {
-    let childs = children(node);
-    let (body_idx, impl_idx, target) = if childs.len() == 2 {
-        // `handle <arrow> with <handler>`: child 0 is the arrow to handle,
-        // child 1 is the handler record.
-        let body_idx = childs[0];
-        let impl_idx = childs[1];
-        let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
-            name.to_string()
-        } else {
-            let body = lower_node(ast, lang, body_idx, env, params)?;
-            op_target_name(&body).unwrap_or_default().to_string()
-        };
-        (body_idx, impl_idx, target)
-    } else if childs.len() >= 3 {
-        // Legacy `handle target = impl in body`.
-        let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
-            name.to_string()
-        } else if let Some(target_idx) = child_at_role_or_pos(node, lang, "target", 0) {
-            if let Some(target_node) = ast.get(AstRef::new(target_idx)) {
-                target_node.payload.as_str().unwrap_or("").to_string()
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
-        let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
-            .ok_or_else(|| format!("handle at {} missing impl child", node_index(node)))?;
-        let body_idx = child_at_role_or_pos(node, lang, "body", 2)
-            .ok_or_else(|| format!("handle at {} missing body child", node_index(node)))?;
-        (body_idx, impl_idx, target)
+    // `handle <target> with <impl>`: child 0 is the handled expression,
+    // child 1 is the handler record.
+    let body_idx = child_at_role_or_pos(node, lang, "target", 0)
+        .ok_or_else(|| format!("handle at {} missing target child", node_index(node)))?;
+    let impl_idx = child_at_role_or_pos(node, lang, "impl", 1)
+        .ok_or_else(|| format!("handle at {} missing impl child", node_index(node)))?;
+    let target = if let Some(name) = node.payload.get("name").and_then(Value::as_str) {
+        name.to_string()
     } else {
-        return Err(format!(
-            "handle at {} needs 2 or 3 children",
-            node_index(node)
-        ));
+        let body = lower_node(ast, lang, body_idx, env, params)?;
+        op_target_name(&body).unwrap_or_default().to_string()
     };
     let impl_ = lower_node(ast, lang, impl_idx, env, params)?;
     let body = lower_node(ast, lang, body_idx, env, params)?;
@@ -515,6 +581,29 @@ fn lower_bind(
         .or_else(|| children(node).first().copied())
         .ok_or_else(|| format!("bind at {} missing value child", node_index(node)))?;
     lower_node(ast, lang, value_idx, env, params)
+}
+
+fn lower_if(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, Term>,
+    params: &[String],
+) -> Result<Term, String> {
+    let cond_idx = child_at_role_or_pos(node, lang, "condition", 0)
+        .ok_or_else(|| format!("if at {} missing condition child", node_index(node)))?;
+    let then_idx = child_at_role_or_pos(node, lang, "then", 1)
+        .ok_or_else(|| format!("if at {} missing then child", node_index(node)))?;
+    let cond = lower_node(ast, lang, cond_idx, env, params)?;
+    let then_ = lower_node(ast, lang, then_idx, env, params)?;
+    let else_ = match child_at_role_or_pos(node, lang, "else", 2) {
+        Some(idx) => lower_node(ast, lang, idx, env, params)?,
+        None => Term::const_value(Value::Null),
+    };
+    Ok(Term::seq(
+        cond,
+        Term::seq(Term::op_native("tag", vec![]), Term::choice(then_, else_)),
+    ))
 }
 
 fn lower_field_access(

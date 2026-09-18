@@ -330,7 +330,10 @@ impl ToolingHost {
 
     /// Returns signature help for the call enclosing `request.pos` in
     /// `request.source`.
-    pub fn signature_help(&self, request: &SignatureHelpRequest) -> Result<SignatureHelpResponse, PlatformError> {
+    pub fn signature_help(
+        &self,
+        request: &SignatureHelpRequest,
+    ) -> Result<SignatureHelpResponse, PlatformError> {
         match &self.signature_help {
             Some(plugin) => plugin.run(request),
             None => Ok(SignatureHelpResponse::empty()),

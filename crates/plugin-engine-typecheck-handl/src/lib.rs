@@ -287,6 +287,20 @@ impl TypecheckEngine for HandlTypecheckEngine {
         lang: &Language,
         req: &TypecheckRequest,
     ) -> Result<TypecheckResult, LangError> {
+        // Circuit breaker: the Handl-authored typecheck model has O(n^2)
+        // tendencies and a fixed 50k fuel budget. On ASTs larger than a
+        // modest example it can take minutes to exhaust fuel and then
+        // degrade to the bootstrap checker anyway. Skip the model call
+        // entirely and fall back to the Rust bootstrap checker immediately.
+        const MAX_MODEL_NODES: usize = 1000;
+        let node_count = req.ast.nodes().len();
+        if node_count > MAX_MODEL_NODES {
+            eprintln!(
+                "handl-plugin-engine-typecheck-handl: AST has {node_count} nodes, exceeding model budget of {MAX_MODEL_NODES}; falling back to bootstrap"
+            );
+            return Err(LangError::NotImplemented);
+        }
+
         let model = self.ensure_model()?;
         let lang_ptr = lang as *const _ as usize;
         let lang_val = {
@@ -315,10 +329,13 @@ impl TypecheckEngine for HandlTypecheckEngine {
         let mut ctx = EvalContext::new();
         let result_val = match func.call(&args, &mut ctx) {
             Ok(v) => v,
-            Err(_) => {
+            Err(e) => {
                 // The model hit a construct it cannot evaluate. Degrade to
                 // NotImplemented so the host can fall back to the bootstrap
                 // checker instead of reporting an engine error.
+                eprintln!(
+                    "handl-plugin-engine-typecheck-handl: model call failed, falling back to bootstrap: {e}"
+                );
                 return Err(LangError::NotImplemented);
             }
         };

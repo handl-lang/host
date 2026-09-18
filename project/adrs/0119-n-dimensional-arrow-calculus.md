@@ -24,8 +24,8 @@ transformations as arrows. The pieces are in place but disconnected:
   redundant once every `Arr`/`Op` carries a dimension index.
 
 This ADR unifies those pieces into one **N-dimensional arrow calculus**. The
-goal is the principle stated in the design brief: *everything is an arrow, all
-the way up*. No separate rule, proof, or metaprogramming language is needed;
+goal is the principle stated in the design brief: _everything is an arrow, all
+the way up_. No separate rule, proof, or metaprogramming language is needed;
 each level uses the same arrow syntax and the same composition combinators.
 
 ## Decision
@@ -48,8 +48,8 @@ m : r ~[3]~> s      -- 3-cell: meta-transformation
 
 `N` is an ordinary object in the `Obj` world (ADR-0106 §1). It may be a literal
 natural number, a dimension variable, or any term that normalizes to a static
-grade. The default `A ~> B` means `A ~[1]~> B`. This is the *programmable
-dimensionality* requirement:
+grade. The default `A ~> B` means `A ~[1]~> B`. This is the _programmable
+dimensionality_ requirement:
 
 ```handl
 transform<N>(x: A ~[N]~> B)

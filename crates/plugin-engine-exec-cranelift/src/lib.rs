@@ -130,12 +130,13 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 }
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
+use handl_plugin_engine_exec::native_ops::{
+    self, NativeOpCtx, OpService, build_loop_step_args, is_truthy, loop_step_outcome,
+    step_decision, type_tag,
+};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
-use handl_value::{
-    TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
-    tagged_to_value,
-};
+use handl_value::{TaggedValue, tagged_to_value};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -153,6 +154,10 @@ use handl_value::{
 pub struct CraneliftEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// Global variables injected by the host, pre-populated into the root
+    /// scope on every eval call (e.g. `self`, and the `Language::globals`
+    /// ambient values like `true`/`false`).
+    globals: HashMap<String, Value>,
     /// The import resolver for `import "path"` statements (Phase 9.5).
     import_resolver: Option<Rc<dyn ImportResolver>>,
     /// FFI bindings for direct C ABI dispatch (ADR-0083 §4).
@@ -169,6 +174,7 @@ impl CraneliftEngine {
     pub fn new() -> Self {
         Self {
             modules: None,
+            globals: HashMap::new(),
             import_resolver: None,
             ffi_ops: HashMap::new(),
         }
@@ -178,9 +184,18 @@ impl CraneliftEngine {
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
             modules: Some(modules),
+            globals: HashMap::new(),
             import_resolver: None,
             ffi_ops: HashMap::new(),
         }
+    }
+
+    /// Inject a global variable visible to all eval calls (builder style).
+    /// Mirrors `TreeWalkEngine::with_global` — the value is pre-populated
+    /// into the scope stack's globals on every eval.
+    pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
+        self.globals.insert(name.into(), value);
+        self
     }
 
     /// Register an FFI binding for direct C ABI dispatch (ADR-0083 §4).
@@ -297,6 +312,7 @@ impl CraneliftEngine {
             self.modules.as_ref(),
             self.import_resolver.clone(),
             &self.ffi_ops,
+            &self.globals,
         )
     }
 }
@@ -335,6 +351,7 @@ impl EvalEngine for CraneliftEngine {
             self.modules.as_ref(),
             self.import_resolver.clone(),
             &self.ffi_ops,
+            &self.globals,
         )
     }
 
@@ -344,6 +361,10 @@ impl EvalEngine for CraneliftEngine {
 
     fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
         Box::new(CraneliftEngine::with_modules(modules))
+    }
+
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_global(name, val))
     }
 
     fn with_import_resolver(&self, resolver: Rc<dyn ImportResolver>) -> Box<dyn EvalEngine> {
@@ -377,6 +398,7 @@ fn run_native(
     modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
     import_resolver: Option<Rc<dyn ImportResolver>>,
     ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
+    globals: &HashMap<String, Value>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
     // Convert literals from serde_json::Value to TaggedValue at the boundary.
@@ -388,6 +410,14 @@ fn run_native(
     ffi_table.sort_by(|a, b| a.0.cmp(b.0));
     let ffi_table: Vec<handl_plugin_ffi::FfiOpFunction> =
         ffi_table.iter().map(|(_, op)| (*op).clone()).collect();
+
+    // Seed host-provided globals (`self`, language-data ambient values like
+    // `true`/`false`) into the scope stack's globals map — searched after
+    // local bindings so user code shadows them.
+    let global_scope: FxHashMap<Rc<str>, TaggedValue> = globals
+        .iter()
+        .map(|(name, val)| (Rc::from(name.as_str()), TaggedValue::from(val.clone())))
+        .collect();
 
     let mut ctx = EvalCtx {
         lang: lang as *const Language,
@@ -402,6 +432,7 @@ fn run_native(
         error: None,
         ffi_table,
     };
+    ctx.env.set_globals(Rc::new(global_scope));
 
     // Call the root node's compiled native function.
     // The root is the last node in the arena (Pratt convention).
@@ -604,6 +635,10 @@ impl PatternMatchCtx for EvalCtx {
         let val = eval_child_node(self, node_ref.index())?;
         Ok(tagged_to_value(&val))
     }
+
+    fn global_value(&self, name: &str) -> Option<Value> {
+        self.env.globals.get(name).map(tagged_to_value)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -629,6 +664,12 @@ struct ScopeStack {
     /// must not count as converged. Mirrors the tree-walk
     /// `ScopeStack::enclosing_updated`.
     enclosing_updated: bool,
+    /// Host-provided globals (e.g. `self` and language-data ambient values
+    /// like `true`/`false`), searched after local/captured bindings so
+    /// user-defined scopes shadow them. Held in a cheaply-cloned `Rc` so it
+    /// is excluded from `capture()` and shared across closure calls.
+    /// Mirrors the bytecode `ScopeStack::globals`.
+    globals: Rc<FxHashMap<Rc<str>, TaggedValue>>,
 }
 
 impl ScopeStack {
@@ -636,12 +677,24 @@ impl ScopeStack {
         Self {
             scopes: vec![Rc::new(FxHashMap::default())],
             enclosing_updated: false,
+            globals: Rc::new(FxHashMap::default()),
         }
     }
 
-    /// Look up a variable, searching innermost scope first.
+    /// Set the host-provided globals map (an `Rc` clone, cheap). Globals
+    /// are accessible via `lookup()` but excluded from `capture()`.
+    fn set_globals(&mut self, globals: Rc<FxHashMap<Rc<str>, TaggedValue>>) {
+        self.globals = globals;
+    }
+
+    /// Look up a variable, searching innermost scope first, then the
+    /// host-provided globals.
     fn lookup(&self, name: &str) -> Option<&TaggedValue> {
-        self.scopes.iter().rev().find_map(|s| s.get(name))
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|s| s.get(name))
+            .or_else(|| self.globals.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
@@ -712,128 +765,6 @@ impl ScopeStack {
             }
         }
         captured
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Number helpers (identical semantics to tree-walk)
-// ---------------------------------------------------------------------------
-
-/// A number that can be either integer or float.
-#[derive(Debug, Clone, Copy)]
-enum Num {
-    /// Integer value.
-    Int(i64),
-    /// Float value.
-    Float(f64),
-}
-
-impl Num {
-    /// Convert to f64.
-    fn to_f64(self) -> f64 {
-        match self {
-            Num::Int(i) => i as f64,
-            Num::Float(f) => f,
-        }
-    }
-}
-
-impl std::ops::Add for Num {
-    type Output = Num;
-    fn add(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a + b),
-            _ => Num::Float(self.to_f64() + other.to_f64()),
-        }
-    }
-}
-
-impl std::ops::Sub for Num {
-    type Output = Num;
-    fn sub(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a - b),
-            _ => Num::Float(self.to_f64() - other.to_f64()),
-        }
-    }
-}
-
-impl std::ops::Mul for Num {
-    type Output = Num;
-    fn mul(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a * b),
-            _ => Num::Float(self.to_f64() * other.to_f64()),
-        }
-    }
-}
-
-impl std::ops::Div for Num {
-    type Output = Num;
-    fn div(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => {
-                if b != 0 {
-                    Num::Int(a / b)
-                } else {
-                    Num::Float(self.to_f64() / other.to_f64())
-                }
-            }
-            _ => Num::Float(self.to_f64() / other.to_f64()),
-        }
-    }
-}
-
-impl std::ops::Rem for Num {
-    type Output = Num;
-    fn rem(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
-            _ => Num::Float(self.to_f64() % other.to_f64()),
-        }
-    }
-}
-
-impl PartialEq for Num {
-    fn eq(&self, other: &Num) -> bool {
-        self.to_f64() == other.to_f64()
-    }
-}
-
-impl PartialOrd for Num {
-    fn partial_cmp(&self, other: &Num) -> Option<std::cmp::Ordering> {
-        self.to_f64().partial_cmp(&other.to_f64())
-    }
-}
-
-/// Extract a number from a [`TaggedValue`].
-fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
-    match v {
-        TaggedValue::Int(i) => Ok(Num::Int(*i)),
-        TaggedValue::Float(f) => Ok(Num::Float(*f)),
-        _ => Err(LangError::engine(format!("expected number, got {:?}", v))),
-    }
-}
-
-/// Convert a [`Num`] back to a [`TaggedValue`].
-fn num_value(n: Num) -> TaggedValue {
-    match n {
-        Num::Int(i) => TaggedValue::Int(i),
-        Num::Float(f) => TaggedValue::Float(f),
-    }
-}
-
-/// Whether a [`TaggedValue`] is truthy.
-///
-/// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
-fn is_truthy(v: &TaggedValue) -> bool {
-    match v {
-        TaggedValue::Bool(b) => *b,
-        TaggedValue::Null => false,
-        TaggedValue::Int(i) => *i != 0,
-        TaggedValue::Float(f) => *f != 0.0,
-        TaggedValue::Str(s) => !s.is_empty(),
-        _ => true,
     }
 }
 
@@ -1529,30 +1460,6 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
     }
     // No clause matched — return the body value as-is.
     unsafe { box_value(body_val) }
-}
-
-/// Return the type tag string for a TaggedValue (ADR-0060).
-///
-/// Used by `route_on_type` and the `typeof` native op. Returns one of
-/// `"null"`, `"bool"`, `"number"`, `"string"`, `"array"`, `"object"`.
-fn type_tag(v: &TaggedValue) -> &'static str {
-    match v {
-        TaggedValue::Null => "null",
-        TaggedValue::Bool(_) => "bool",
-        TaggedValue::Int(_) | TaggedValue::Float(_) => "number",
-        TaggedValue::Str(_) => "string",
-        TaggedValue::Arr(_) => "array",
-        TaggedValue::Obj(_) => "object",
-        TaggedValue::Pair(..) => "object",
-        TaggedValue::EitherLeft(..) | TaggedValue::EitherRight(..) => "object",
-        TaggedValue::Arrow { .. } => "object",
-        // ADR-0083 §2.1: `Bytes` is a scalar type in `value_types.yaml`.
-        TaggedValue::Bytes(_) => "bytes",
-        // ADR-0083 §2.2: opaque foreign resource handle.
-        TaggedValue::Resource(_) => "resource",
-        // ADR-0106: nominal identity object (`sym()` / `sym(A)`).
-        TaggedValue::Sym(_) => "sym",
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2850,77 +2757,18 @@ fn prim_v2_loop_step(
     } else {
         state
     };
-    let call_args: Vec<TaggedValue> = match &current {
-        TaggedValue::Obj(obj_state) => {
-            if let TaggedValue::Arrow {
-                params,
-                array_pattern,
-                ..
-            } = &body_proc
-            {
-                if *array_pattern {
-                    if params.len() == 1 {
-                        vec![TaggedValue::Arr(Rc::from([current.clone()]))]
-                    } else {
-                        let arr: Vec<TaggedValue> = params
-                            .iter()
-                            .map(|p| {
-                                obj_state
-                                    .get::<str>(p.as_ref())
-                                    .cloned()
-                                    .unwrap_or(TaggedValue::Null)
-                            })
-                            .collect();
-                        vec![TaggedValue::Arr(Rc::from(arr))]
-                    }
-                } else if params.len() > 1 {
-                    params
-                        .iter()
-                        .map(|p| {
-                            obj_state
-                                .get::<str>(p.as_ref())
-                                .cloned()
-                                .unwrap_or(TaggedValue::Null)
-                        })
-                        .collect()
-                } else {
-                    vec![current]
-                }
-            } else {
-                vec![current]
-            }
-        }
-        _ => vec![current],
-    };
+    // The argument mapping and outcome semantics are shared
+    // (`build_loop_step_args`/`loop_step_outcome`); only the closure
+    // application is this backend's machinery.
+    let call_args = build_loop_step_args(&body_proc, &current);
     let result_ptr = apply_closure_value(ctx, body_proc, call_args);
     if result_ptr.is_null() {
         // Error already set on ctx by apply_closure_value.
         return std::ptr::null_mut();
     }
     let result = unsafe { take_value(result_ptr) };
-    // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
-    // Recognize bare values as exit signals, and { state: v } as continue.
-    // { out: v } is accepted for backward compatibility.
-    let either_ptr = match &result {
-        TaggedValue::Obj(obj) => {
-            if let Some(new_state) = obj.get("state") {
-                // Continue with new state.
-                unsafe { box_value(TaggedValue::EitherRight(Rc::new(new_state.clone()))) }
-            } else if let Some(out) = obj.get("out") {
-                // Exit with out value (backward compat).
-                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(out.clone()))) }
-            } else {
-                // Object without out/state keys — treat as exit value (return).
-                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result.clone()))) }
-            }
-        }
-        _ => {
-            // Non-object — exit with the value.
-            unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result.clone()))) }
-        }
-    };
-    drop(result);
-    either_ptr
+    let either = loop_step_outcome(result);
+    unsafe { box_value(either) }
 }
 
 /// Call a foreign (host) function (by name index).
@@ -3663,126 +3511,6 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) }
 }
 
-/// v2 `index` prim: index into an array or object.
-///
-/// `index { children: [target, index] }` — evaluates the two child nodes
-/// (target, then index), matching the v2 tree-walk's `index` dispatch.
-/// Falls back to legacy `payload.target`/`payload.index` for hand-built
-/// ASTs.
-///
-/// - `(Array, Number)` → `arr[i]`.
-/// - `(Object, String)` → `obj[key]`.
-fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
-    let node = match ctx.current_node() {
-        Ok(n) => n,
-        Err(e) => return ctx.set_error(e),
-    };
-    // Extract child indices (or legacy payload values) as owned data first
-    // so the `node` borrow ends before `eval_child_node` needs `&mut ctx`.
-    enum IndexSrc {
-        Children(usize, usize),
-        Legacy(TaggedValue, TaggedValue),
-    }
-    let src = if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
-        if children.len() < 2 {
-            return ctx.set_error(LangError::engine(
-                "index: expected at least 2 children".to_string(),
-            ));
-        }
-        let target_idx = match children[0].as_u64() {
-            Some(i) => i as usize,
-            None => {
-                return ctx.set_error(LangError::engine(
-                    "index: target index must be a number".to_string(),
-                ));
-            }
-        };
-        let index_idx = match children[1].as_u64() {
-            Some(i) => i as usize,
-            None => {
-                return ctx.set_error(LangError::engine(
-                    "index: index index must be a number".to_string(),
-                ));
-            }
-        };
-        IndexSrc::Children(target_idx, index_idx)
-    } else {
-        let target = match node.payload.get("target") {
-            Some(t) => t,
-            None => {
-                return ctx.set_error(LangError::engine(
-                    "index: missing target in payload".to_string(),
-                ));
-            }
-        };
-        let index = match node.payload.get("index") {
-            Some(i) => i,
-            None => {
-                return ctx.set_error(LangError::engine(
-                    "index: missing index in payload".to_string(),
-                ));
-            }
-        };
-        IndexSrc::Legacy(
-            TaggedValue::from(target.clone()),
-            TaggedValue::from(index.clone()),
-        )
-    };
-    let (target_t, index_t) = match src {
-        IndexSrc::Children(target_idx, index_idx) => {
-            let target = match eval_child_node(ctx, target_idx) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            let index = match eval_child_node(ctx, index_idx) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            (target, index)
-        }
-        IndexSrc::Legacy(t, i) => (t, i),
-    };
-    let result = match (&target_t, &index_t) {
-        (TaggedValue::Arr(arr), TaggedValue::Int(i)) => {
-            let idx = *i as usize;
-            match arr.get(idx) {
-                Some(v) => Ok(v.clone()),
-                None => Err(LangError::engine(format!(
-                    "index: index {} out of bounds",
-                    idx
-                ))),
-            }
-        }
-        (TaggedValue::Arr(arr), TaggedValue::Float(f)) => {
-            let idx = *f as usize;
-            match arr.get(idx) {
-                Some(v) => Ok(v.clone()),
-                None => Err(LangError::engine(format!(
-                    "index: index {} out of bounds",
-                    idx
-                ))),
-            }
-        }
-        (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
-            Some(v) => Ok(v.clone()),
-            None => match ctx.current_node() {
-                Ok(n) => Err(LangError::engine_node(
-                    format!("index: key '{}' not found", key),
-                    n,
-                )),
-                Err(e) => Err(e),
-            },
-        },
-        _ => Err(LangError::engine(
-            "index: target must be array/object and index must be number/string".to_string(),
-        )),
-    };
-    match result {
-        Ok(v) => unsafe { box_value(v) },
-        Err(e) => ctx.set_error(e),
-    }
-}
-
 /// v2 `assign` prim: evaluate and return the assigned value.
 ///
 /// ADR-0053: `assign { children: [var, value] }` — evaluate child 1 (the
@@ -3818,28 +3546,94 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut TaggedValue {
     }
 }
 
-/// Apply a v2 native op (shared logic). Mirrors the v2 tree-walk's
-/// `apply_native` exactly.
+/// The cranelift backend's [`NativeOpCtx`] — the engine-local globals the
+/// shared op table needs: the scope stack, AST-node evaluation (the
+/// interpreter fallback `eval_child_node`), and closure application. The
+/// op *semantics* live in `plugin-engine-exec::native_ops`; this struct
+/// only forwards services.
+struct ClCtx<'c> {
+    ctx: &'c mut EvalCtx,
+}
+
+impl NativeOpCtx for ClCtx<'_> {
+    fn supports(&self, _service: OpService) -> bool {
+        // Every declared service is available through the interpreter
+        // fallback helpers.
+        true
+    }
+
+    fn node_payload(&self) -> Option<&Value> {
+        self.ctx.current_node().ok().map(|n| &n.payload)
+    }
+
+    fn eval_node(&mut self, r: AstRef) -> Result<TaggedValue, LangError> {
+        eval_child_node(self.ctx, r.index())
+    }
+
+    fn env_lookup(&mut self, name: &str) -> Option<TaggedValue> {
+        self.ctx.env.lookup(name).cloned()
+    }
+
+    fn env_define(&mut self, name: &str, value: TaggedValue) {
+        self.ctx.env.define(name, value);
+    }
+
+    fn env_push(&mut self) {
+        self.ctx.env.push_scope();
+    }
+
+    fn env_pop(&mut self) {
+        self.ctx.env.pop_scope();
+    }
+
+    fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
+        Rc::new(self.ctx.env.capture())
+    }
+
+    fn apply_arrow(
+        &mut self,
+        f: &TaggedValue,
+        args: &[TaggedValue],
+    ) -> Result<TaggedValue, LangError> {
+        let ptr = apply_closure_value(self.ctx, f.clone(), args.to_vec());
+        if ptr.is_null() {
+            Err(self
+                .ctx
+                .error
+                .take()
+                .unwrap_or_else(|| LangError::engine("arrow application failed".to_string())))
+        } else {
+            // SAFETY: `ptr` was produced by `box_value` and is reclaimed
+            // exactly once here.
+            Ok(unsafe { take_value(ptr) })
+        }
+    }
+}
+
+/// Apply a v2 native op.
+///
+/// The op semantics are defined once in
+/// `plugin-engine-exec::native_ops` (ADR-0044 §7): this backend supplies
+/// only the globals — the `EvalCtx` scope stack, the AST-node interpreter
+/// fallback, and closure application — through [`ClCtx`]. The residual
+/// `match` below owns ops that still require this engine's machinery
+/// (imports, module calls, `eval_block`, closures, FFI) and are migrated
+/// to the shared table as their services are declared.
 fn apply_native_v2(
     ctx: &mut EvalCtx,
     op: &str,
     args: &[TaggedValue],
     incoming: Option<TaggedValue>,
 ) -> *mut TaggedValue {
-    let result = match op {
-        "id" => Ok(incoming
-            .or_else(|| args.first().cloned())
-            .unwrap_or(TaggedValue::Null)),
-        "tag" => {
-            let v = incoming
-                .or_else(|| args.first().cloned())
-                .unwrap_or(TaggedValue::Null);
-            if is_truthy(&v) {
-                Ok(TaggedValue::EitherLeft(Rc::new(v)))
-            } else {
-                Ok(TaggedValue::EitherRight(Rc::new(v)))
-            }
+    {
+        let mut cl = ClCtx { ctx: &mut *ctx };
+        match native_ops::apply_native_op(op, args, None, incoming.clone(), &mut cl) {
+            Ok(Some((v, _pushed))) => return unsafe { box_value(v) },
+            Ok(None) => {}
+            Err(e) => return ctx.set_error(e),
         }
+    }
+    let result = match op {
         "closure" => match resolve_closure_params_body(ctx) {
             Ok((params, rest, body, array_pattern)) => {
                 let captured = ctx.env.capture();
@@ -3859,92 +3653,26 @@ fn apply_native_v2(
         },
         "bind" => return prim_v2_bind(ctx),
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
-        "while_step" => {
+        // Derived step ops (ADR-0052 §"Derived forms"). This backend's
+        // interpretation is eager: compiled code re-evaluates the arg
+        // sub-programs per iteration and passes the results in `args`;
+        // the step *decision* is the shared [`step_decision`] semantics,
+        // with `eval_arg` reading the pre-evaluated args.
+        "while_step" | "for_step" | "fix_step" => {
             let inc = incoming.unwrap_or(TaggedValue::Null);
-            let (in_val, state) = match &inc {
-                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                _ => (TaggedValue::Null, TaggedValue::Null),
-            };
-            let current = if matches!(state, TaggedValue::Null) {
-                in_val
-            } else {
-                state
-            };
-            let cond_val = args.first().cloned().unwrap_or(TaggedValue::Null);
-            if is_truthy(&cond_val) {
-                let body_val = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-                Ok(TaggedValue::EitherRight(Rc::new(body_val)))
-            } else {
-                Ok(TaggedValue::EitherLeft(Rc::new(current)))
-            }
-        }
-        "for_step" => {
-            let inc = incoming.unwrap_or(TaggedValue::Null);
-            let (in_val, state) = match &inc {
-                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                _ => (TaggedValue::Null, TaggedValue::Null),
-            };
-            let (counter, acc) = if matches!(state, TaggedValue::Null) {
-                let (count, initial) = match &in_val {
-                    TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                    _ => (TaggedValue::Null, TaggedValue::Null),
+            let mut eval_arg =
+                |i: usize, _current: &TaggedValue| -> Result<TaggedValue, LangError> {
+                    args.get(i)
+                        .cloned()
+                        .ok_or_else(|| LangError::engine(format!("{op}: missing arg {i}")))
                 };
-                (count, initial)
-            } else {
-                let (c, a) = match &state {
-                    TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                    _ => (TaggedValue::Null, TaggedValue::Null),
-                };
-                (c, a)
-            };
-            let (count_i, count_f) = match &counter {
-                TaggedValue::Int(i) => (Some(*i), None),
-                TaggedValue::Float(f) => (None, Some(*f)),
-                _ => (None, None),
-            };
-            let still_going = match (count_i, count_f) {
-                (Some(i), _) => i > 0,
-                (None, Some(f)) => f > 0.0,
-                (None, None) => false,
-            };
-            if still_going {
-                let body_val = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let new_counter = match count_i {
-                    Some(i) => TaggedValue::Int(i - 1),
-                    None => TaggedValue::Float(count_f.unwrap_or(0.0) - 1.0),
-                };
-                let new_pair = TaggedValue::Pair(Rc::new((new_counter, body_val)));
-                Ok(TaggedValue::EitherRight(Rc::new(new_pair)))
-            } else {
-                Ok(TaggedValue::EitherLeft(Rc::new(acc)))
-            }
-        }
-        "fix_step" => {
-            let inc = incoming.unwrap_or(TaggedValue::Null);
-            let (in_val, state) = match &inc {
-                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                _ => (TaggedValue::Null, TaggedValue::Null),
-            };
-            let current = if matches!(state, TaggedValue::Null) {
-                in_val
-            } else {
-                state
-            };
-            let new_val = args.first().cloned().unwrap_or(TaggedValue::Null);
-            if handl_value::eq(&new_val, &current) {
-                Ok(TaggedValue::EitherLeft(Rc::new(new_val)))
-            } else {
-                Ok(TaggedValue::EitherRight(Rc::new(new_val)))
-            }
+            step_decision(op, &inc, &mut eval_arg)
         }
         "array" => {
             return prim_v2_array(ctx);
         }
         "object" => {
             return prim_v2_object(ctx);
-        }
-        "index" => {
-            return prim_v2_index(ctx);
         }
         "field_access" => {
             let target = args.first().cloned().unwrap_or(TaggedValue::Null);
@@ -4105,98 +3833,6 @@ fn apply_native_v2(
         // ADR-0074 follow-up #3: `>>>` (`flow`) — function application with
         // a single input argument (mirrors the v2 tree-walk's `flow` arm).
         "flow" => return prim_v2_flow(ctx, args),
-        "add" => bin_num_v2(args, |a, b| a + b),
-        "sub" => bin_num_v2(args, |a, b| a - b),
-        "mul" => bin_num_v2(args, |a, b| a * b),
-        "div" => {
-            let a = as_num(&args[0]);
-            let b = as_num(&args[1]);
-            match (a, b) {
-                (Ok(a), Ok(b)) => {
-                    if b.to_f64() == 0.0 {
-                        Err(LangError::engine("division by zero".to_string()))
-                    } else {
-                        Ok(num_value(a / b))
-                    }
-                }
-                (Err(e), _) | (_, Err(e)) => Err(e),
-            }
-        }
-        "mod" => {
-            let a = as_num(&args[0]);
-            let b = as_num(&args[1]);
-            match (a, b) {
-                (Ok(a), Ok(b)) => {
-                    if b.to_f64() == 0.0 {
-                        Err(LangError::engine("modulo by zero".to_string()))
-                    } else {
-                        Ok(num_value(match (a, b) {
-                            (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
-                            (a, b) => Num::Float(a.to_f64() % b.to_f64()),
-                        }))
-                    }
-                }
-                (Err(e), _) | (_, Err(e)) => Err(e),
-            }
-        }
-        "neg" => {
-            match as_num(&args[0]).map(|a| match a {
-                Num::Int(i) => num_value(Num::Int(-i)),
-                Num::Float(f) => num_value(Num::Float(-f)),
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
-        "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
-        "lt" => cmp_num_v2(args, |a, b| a < b),
-        "gt" => cmp_num_v2(args, |a, b| a > b),
-        "lte" => cmp_num_v2(args, |a, b| a <= b),
-        "gte" => cmp_num_v2(args, |a, b| a >= b),
-        "pow" => {
-            let a = match as_num(&args[0]) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            let b = match as_num(&args[1]) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            Ok(num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
-        }
-        "compare" => {
-            let a = match as_num(&args[0]) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            let b = match as_num(&args[1]) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            match a.to_f64().partial_cmp(&b.to_f64()) {
-                Some(cmp) => Ok(num_value(Num::Int(match cmp {
-                    std::cmp::Ordering::Less => -1,
-                    std::cmp::Ordering::Equal => 0,
-                    std::cmp::Ordering::Greater => 1,
-                }))),
-                None => Err(LangError::engine(
-                    "compare: incomparable values".to_string(),
-                )),
-            }
-        }
-        op if op.starts_with("route_on_type:") => {
-            let tag = &op["route_on_type:".len()..];
-            let val = incoming
-                .or_else(|| args.first().cloned())
-                .unwrap_or(TaggedValue::Null);
-            let actual_tag = type_tag(&val);
-            if actual_tag == tag {
-                Ok(TaggedValue::EitherLeft(Rc::new(val)))
-            } else {
-                Ok(TaggedValue::EitherRight(Rc::new(val)))
-            }
-        }
         "call_host" => {
             // Mirror the tree-walk/bytecode convention: the string callee
             // arrives as `incoming` (e.g. ADR-0060 `call` scheme after
@@ -4298,311 +3934,9 @@ fn apply_native_v2(
             ctx.current_ref = saved_ref;
             Ok(TaggedValue::Arr(Rc::from(vals)))
         }
-        "typeof" => {
-            let arg = args
-                .first()
-                .or(incoming.as_ref())
-                .unwrap_or(&TaggedValue::Null);
-            Ok(TaggedValue::Str(Rc::from(type_tag(arg))))
-        }
-        "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(TaggedValue::Bool(
-            is_truthy(&args[0]) && is_truthy(&args[1]),
-        )),
-        "or" => Ok(TaggedValue::Bool(
-            is_truthy(&args[0]) || is_truthy(&args[1]),
-        )),
-        "is_pos" => {
-            let v = incoming.unwrap_or(TaggedValue::Null);
-            match as_num(&v).map(|n| TaggedValue::Bool(n > Num::Int(0))) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "dec" => {
-            let v = incoming.unwrap_or(TaggedValue::Null);
-            match as_num(&v).map(|n| num_value(n - Num::Int(1))) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "inc" => {
-            let v = incoming.unwrap_or(TaggedValue::Null);
-            match as_num(&v).map(|n| num_value(n + Num::Int(1))) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "half_floor" => {
-            let v = incoming.unwrap_or(TaggedValue::Null);
-            match as_num(&v).map(|n| match n {
-                Num::Int(i) => num_value(Num::Int(i / 2)),
-                Num::Float(f) => num_value(Num::Float((f / 2.0).floor())),
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "inc_fst" => {
-            let inc = args
-                .first()
-                .cloned()
-                .or(incoming)
-                .unwrap_or(TaggedValue::Null);
-            match &inc {
-                TaggedValue::Pair(p) => {
-                    match as_num(&p.0).map(|a_n| {
-                        let new_a = num_value(a_n + Num::Int(1));
-                        TaggedValue::Pair(Rc::new((new_a, p.1.clone())))
-                    }) {
-                        Ok(v) => Ok(v),
-                        Err(e) => Err(e),
-                    }
-                }
-                _ => Err(LangError::engine(
-                    "inc_fst: input is not a pair".to_string(),
-                )),
-            }
-        }
-        "countdown_step" => {
-            let inc = args
-                .first()
-                .cloned()
-                .or(incoming)
-                .unwrap_or(TaggedValue::Null);
-            let (outer_a, b) = match &inc {
-                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                _ => (TaggedValue::Null, TaggedValue::Null),
-            };
-            let (result_val, initial) = match &outer_a {
-                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
-                _ => (TaggedValue::Null, TaggedValue::Null),
-            };
-            let state = if matches!(b, TaggedValue::Null) {
-                initial
-            } else {
-                b
-            };
-            match as_num(&state).map(|n| {
-                if n > Num::Int(0) {
-                    TaggedValue::EitherRight(Rc::new(num_value(n - Num::Int(1))))
-                } else {
-                    TaggedValue::EitherLeft(Rc::new(result_val))
-                }
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-        "infinite_step" => {
-            let inc = args
-                .first()
-                .cloned()
-                .or(incoming)
-                .unwrap_or(TaggedValue::Null);
-            let b = match &inc {
-                TaggedValue::Pair(p) => p.1.clone(),
-                _ => TaggedValue::Null,
-            };
-            Ok(TaggedValue::EitherRight(Rc::new(b)))
-        }
         "match" => return prim_match(ctx),
         "handle" => return prim_handle(ctx),
-        "product" => {
-            let left = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            Ok(TaggedValue::Pair(Rc::new((left, right))))
-        }
-        "nullish" => {
-            let left = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            if matches!(left, TaggedValue::Null) {
-                Ok(right)
-            } else if let TaggedValue::Obj(obj) = &left {
-                let tag = obj.get("_tag").and_then(|t| {
-                    if let TaggedValue::Str(s) = t {
-                        Some(s.as_ref())
-                    } else {
-                        None
-                    }
-                });
-                if tag == Some("Some") {
-                    Ok(obj.get("value").cloned().unwrap_or(TaggedValue::Null))
-                } else if tag == Some("None") {
-                    Ok(right)
-                } else {
-                    Ok(right)
-                }
-            } else {
-                Ok(right)
-            }
-        }
-        "opt_chain" => {
-            let input = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let field_name = match args.get(1) {
-                Some(TaggedValue::Str(s)) => s.to_string(),
-                _ => {
-                    return ctx.set_error(LangError::engine(
-                        "opt_chain: field name must be a string".to_string(),
-                    ));
-                }
-            };
-            if matches!(input, TaggedValue::Null) {
-                let mut m = FxHashMap::default();
-                m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
-                Ok(TaggedValue::Obj(Rc::new(m)))
-            } else if let TaggedValue::Obj(obj) = &input {
-                let tag = obj.get("_tag").and_then(|t| {
-                    if let TaggedValue::Str(s) = t {
-                        Some(s.as_ref())
-                    } else {
-                        None
-                    }
-                });
-                if tag == Some("Some") {
-                    let inner = obj.get("value").cloned().unwrap_or(TaggedValue::Null);
-                    let field_val = if let TaggedValue::Obj(inner_obj) = &inner {
-                        inner_obj
-                            .get(field_name.as_str())
-                            .cloned()
-                            .unwrap_or(TaggedValue::Null)
-                    } else {
-                        TaggedValue::Null
-                    };
-                    let mut m = FxHashMap::default();
-                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
-                    m.insert(Rc::from("value"), field_val);
-                    Ok(TaggedValue::Obj(Rc::new(m)))
-                } else if tag == Some("None") {
-                    let mut m = FxHashMap::default();
-                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
-                    Ok(TaggedValue::Obj(Rc::new(m)))
-                } else {
-                    let field_val = obj
-                        .get(field_name.as_str())
-                        .cloned()
-                        .unwrap_or(TaggedValue::Null);
-                    let mut m = FxHashMap::default();
-                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
-                    m.insert(Rc::from("value"), field_val);
-                    Ok(TaggedValue::Obj(Rc::new(m)))
-                }
-            } else {
-                let mut m = FxHashMap::default();
-                m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
-                m.insert(Rc::from("value"), TaggedValue::Null);
-                Ok(TaggedValue::Obj(Rc::new(m)))
-            }
-        }
-        "export" => Ok(args.first().cloned().unwrap_or(TaggedValue::Null)),
-        "desugar_error" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            let reason = node
-                .payload
-                .get("reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown desugar error");
-            let kind = node
-                .payload
-                .get("kind")
-                .and_then(|v| v.as_str())
-                .unwrap_or("desugar-error");
-            return ctx.set_error(LangError::engine_node(
-                format!("{}: {}", kind, reason),
-                node,
-            ));
-        }
-        "left" => {
-            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let input = incoming
-                .or_else(|| args.get(1).cloned())
-                .unwrap_or(TaggedValue::Null);
-            if matches!(input, TaggedValue::EitherLeft(_)) {
-                let v = match input {
-                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
-                        (*inner).clone()
-                    }
-                    _ => TaggedValue::Null,
-                };
-                let result_ptr = apply_closure_value(ctx, f, vec![v]);
-                if result_ptr.is_null() {
-                    return result_ptr;
-                }
-                let result = unsafe { take_value(result_ptr) };
-                Ok(TaggedValue::EitherLeft(Rc::new(result)))
-            } else if matches!(input, TaggedValue::EitherRight(_)) {
-                Ok(input)
-            } else {
-                Err(LangError::engine(
-                    "left: input is not an either".to_string(),
-                ))
-            }
-        }
-        "right" => {
-            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let input = incoming
-                .or_else(|| args.get(1).cloned())
-                .unwrap_or(TaggedValue::Null);
-            if matches!(input, TaggedValue::EitherRight(_)) {
-                let v = match input {
-                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
-                        (*inner).clone()
-                    }
-                    _ => TaggedValue::Null,
-                };
-                let result_ptr = apply_closure_value(ctx, f, vec![v]);
-                if result_ptr.is_null() {
-                    return result_ptr;
-                }
-                let result = unsafe { take_value(result_ptr) };
-                Ok(TaggedValue::EitherRight(Rc::new(result)))
-            } else if matches!(input, TaggedValue::EitherLeft(_)) {
-                Ok(input)
-            } else {
-                Err(LangError::engine(
-                    "right: input is not an either".to_string(),
-                ))
-            }
-        }
-        "sum" => {
-            let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let g = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            let input = incoming
-                .or_else(|| args.get(2).cloned())
-                .unwrap_or(TaggedValue::Null);
-            if matches!(input, TaggedValue::EitherLeft(_)) {
-                let v = match input {
-                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
-                        (*inner).clone()
-                    }
-                    _ => TaggedValue::Null,
-                };
-                let result_ptr = apply_closure_value(ctx, f, vec![v]);
-                if result_ptr.is_null() {
-                    return result_ptr;
-                }
-                let result = unsafe { take_value(result_ptr) };
-                Ok(TaggedValue::EitherLeft(Rc::new(result)))
-            } else if matches!(input, TaggedValue::EitherRight(_)) {
-                let v = match input {
-                    TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
-                        (*inner).clone()
-                    }
-                    _ => TaggedValue::Null,
-                };
-                let result_ptr = apply_closure_value(ctx, g, vec![v]);
-                if result_ptr.is_null() {
-                    return result_ptr;
-                }
-                let result = unsafe { take_value(result_ptr) };
-                Ok(TaggedValue::EitherRight(Rc::new(result)))
-            } else {
-                Err(LangError::engine("sum: input is not an either".to_string()))
-            }
-        }
+        // `export` and `record_proj` are owned by the shared table.
         "runtime_assert" => {
             let (pred_idx, expr_idx) = match ctx.current_node() {
                 Ok(node) => {
@@ -4644,90 +3978,6 @@ fn apply_native_v2(
         }
         // `paren` — parentheses/grouping: evaluate children from the current
         // node's payload, falling back to the supplied args/incoming.
-        "paren" => {
-            let children = ctx.current_node().ok().and_then(|n| {
-                n.payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .map(|a| a.clone())
-            });
-            if let Some(children) = children {
-                if children.is_empty() {
-                    Ok(incoming.unwrap_or(TaggedValue::Null))
-                } else if children.len() == 1 {
-                    let idx = match children[0].as_u64() {
-                        Some(i) => i as usize,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "paren: child index must be a number".to_string(),
-                            ));
-                        }
-                    };
-                    match eval_child_node(ctx, idx) {
-                        Ok(v) => Ok(v),
-                        Err(e) => return ctx.set_error(e),
-                    }
-                } else {
-                    let mut vals = Vec::with_capacity(children.len());
-                    for c in children {
-                        let idx = match c.as_u64() {
-                            Some(i) => i as usize,
-                            None => {
-                                return ctx.set_error(LangError::engine(
-                                    "paren: child index must be a number".to_string(),
-                                ));
-                            }
-                        };
-                        match eval_child_node(ctx, idx) {
-                            Ok(v) => vals.push(v),
-                            Err(e) => return ctx.set_error(e),
-                        }
-                    }
-                    Ok(TaggedValue::Arr(Rc::from(vals)))
-                }
-            } else if args.is_empty() {
-                Ok(incoming.unwrap_or(TaggedValue::Null))
-            } else if args.len() == 1 {
-                Ok(args[0].clone())
-            } else {
-                Ok(TaggedValue::Arr(Rc::from(args.to_vec())))
-            }
-        }
-        // Frontier: transport a value along a path.
-        "transport" => Ok(args.get(1).cloned().unwrap_or(TaggedValue::Null)),
-        // ADR-0104b: 2-cell runtime value helpers.
-        "cell2_id" => {
-            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_id(&arrow))
-        }
-        "cell2_comp_v" => {
-            let first = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let second = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_comp_v(&first, &second))
-        }
-        "cell2_whisker_left" => {
-            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let cell = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_whisker("Left", &arrow, &cell))
-        }
-        "cell2_whisker_right" => {
-            let arrow = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let cell = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_whisker("Right", &arrow, &cell))
-        }
-        "cell2_src" => {
-            let cell = args.first().cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_src(&cell))
-        }
-        "cell2_tgt" => {
-            let cell = args.first().cloned().unwrap_or(TaggedValue::Null);
-            Ok(cell2_tgt(&cell))
-        }
-        "record_proj" => {
-            let record = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let field = args.get(1).and_then(|v| v.as_str()).unwrap_or("");
-            Ok(record_proj(&record, field))
-        }
         _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
     };
 
@@ -4735,26 +3985,6 @@ fn apply_native_v2(
         Ok(v) => unsafe { box_value(v) },
         Err(e) => ctx.set_error(e),
     }
-}
-
-/// Binary numeric op helper (v2). Preserves int-int arithmetic.
-fn bin_num_v2<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
-where
-    F: FnOnce(Num, Num) -> Num,
-{
-    let a = as_num(&args[0])?;
-    let b = as_num(&args[1])?;
-    Ok(num_value(f(a, b)))
-}
-
-/// Numeric comparison helper (v2).
-fn cmp_num_v2<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
-where
-    F: FnOnce(Num, Num) -> bool,
-{
-    let a = as_num(&args[0])?;
-    let b = as_num(&args[1])?;
-    Ok(TaggedValue::Bool(f(a, b)))
 }
 
 #[cfg(test)]

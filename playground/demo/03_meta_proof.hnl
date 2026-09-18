@@ -1,0 +1,30 @@
+-- 03_meta_proof.hnl
+--
+-- A rule about rules. The 3-cell `certify_pipeline` certifies that
+-- composing the two small 2-cells yields one big 2-cell. Its target
+-- *is* the optimizer rule — proof-carrying code, not a comment.
+--
+-- `hnl run` extracts the certified 2-cell from inside the 3-cell and
+-- rewrites `pipeline` before executing. `hnl transform` does the same
+-- against any file that carries this certificate.
+
+from "http_client_std" import * as http
+from "json_lib" import { parse, serialize }
+
+fetch := (u) ~> http.get(u)
+
+id := x ~> x
+
+-- 1-cell program.
+pipeline := fetch >>> serialize >>> parse
+
+-- 2-cell rules.
+parse_after_serialize := (serialize >>> parse) ~[2]~> id
+
+right_identity := (fetch >>> id) ~[2]~> fetch
+
+-- 3-cell certificate: the two small rules, composed, justify the big rule.
+certify_pipeline := (parse_after_serialize >>> right_identity) ~[3]~> ((fetch >>> serialize >>> parse) ~[2]~> fetch)
+
+-- The certificate, as a value. Same syntax, one dimension up.
+certify_pipeline

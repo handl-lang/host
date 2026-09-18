@@ -1,1 +1,15 @@
-{"slideshow":{"author":"Yours Truly","date":"date of publication","slides":[{"title":"Wake up to WonderWidgets!","type":"all"},{"title":"Overview","type":"all","items":["Why <em>WonderWidgets</em> are great","Who <em>buys</em> WonderWidgets"]}],"title":"Sample Slide Show"}}
+{
+  "slideshow": {
+    "author": "Yours Truly",
+    "date": "date of publication",
+    "slides": [
+      { "title": "Wake up to WonderWidgets!", "type": "all" },
+      {
+        "title": "Overview",
+        "type": "all",
+        "items": ["Why <em>WonderWidgets</em> are great", "Who <em>buys</em> WonderWidgets"]
+      }
+    ],
+    "title": "Sample Slide Show"
+  }
+}

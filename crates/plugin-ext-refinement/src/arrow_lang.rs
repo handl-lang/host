@@ -89,10 +89,12 @@ pub fn arrow_language() -> &'static Language {
                         pair: Some(PairShape {
                             separator: "token.colon".into(),
                             node_kind: "entry".into(),
+                            record: true,
                         }),
                         open_is_operator_token: true,
                         flatten: true,
                         rest_token: None,
+                        newline_separator: false,
                     }),
                 )
                 .with_binding_power(0, 0)

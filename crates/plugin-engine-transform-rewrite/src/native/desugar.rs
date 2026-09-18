@@ -1614,6 +1614,52 @@ fn desugar_match_to_recursor(
 }
 
 // ---------------------------------------------------------------------------
+// Generic binding: `name<D1, D2, ...> := body` → `name := D1 ~> D2 ~> body`
+// (ADR-0106 §12 — a generic entity is an arrow over its dimension).
+// ---------------------------------------------------------------------------
+
+/// Desugar an `assign` whose `target` child is a `dimension` node:
+/// `f<N, M> := body` binds `f` to an arrow over the dimension
+/// parameters, `f := N ~> M ~> body`. `f<4>` then instantiates via the
+/// ordinary `dimension` → `call` lowering (application).
+///
+/// Declines (`None`) when the target is not a `dimension` node or a
+/// dimension argument is not a `var` — those pass through unchanged.
+fn desugar_generic_assign(
+    _lang: &Language,
+    original: &AstNode,
+    ast: &Ast,
+    out: &mut Ast,
+    remap: &[Option<usize>],
+) -> Option<AstRef> {
+    let value_idx = remap_child(original, remap, 1)?;
+    let old_target_idx = original
+        .payload
+        .get("children")?
+        .as_array()?
+        .first()?
+        .as_u64()? as usize;
+    let old_target = ast.get(AstRef::new(old_target_idx))?;
+    if old_target.kind != "dimension" {
+        return None;
+    }
+    let dim_children = old_target.payload.get("children")?.as_array()?;
+    let old_name_idx = dim_children.first()?.as_u64()? as usize;
+    let name_idx = remap.get(old_name_idx).copied().flatten()?;
+    let mut params = Vec::new();
+    for arg in dim_children.iter().skip(1) {
+        let arg_node = ast.get(AstRef::new(arg.as_u64()? as usize))?;
+        params.push(arg_node.payload.as_str()?.to_string());
+    }
+    // `f := N ~> M ~> body` — nested arrows, outermost param first.
+    let mut body = value_idx;
+    for param in params.iter().rev() {
+        body = push_function(out, &[param.as_str()], body);
+    }
+    Some(AstRef::new(push_node(out, "assign", vec![name_idx, body])))
+}
+
+// ---------------------------------------------------------------------------
 // Rust desugar dispatch (registry-based, ADR-0081 engine genericity)
 // ---------------------------------------------------------------------------
 
@@ -1670,6 +1716,9 @@ fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
         // matches (wildcard `_` or non-constructor patterns) — those pass
         // through unchanged and are evaluated by the `match` eval primitive.
         m.insert("match", desugar_match_to_recursor as DesugarFn);
+        // ADR-0106 §12: `f<N> := body` binds `f` to an arrow over its
+        // dimension — `assign` whose `target` is a `dimension` node.
+        m.insert("assign", desugar_generic_assign as DesugarFn);
         m
     })
 }
@@ -1689,6 +1738,7 @@ fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
 pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
     ("data", "desugar.data"),
     ("match", "desugar.match_recursor"),
+    ("assign", "desugar.generic_assign"),
 ];
 
 /// Adapt a [`DesugarFn`] (the moved legacy signature) into a
@@ -1733,7 +1783,7 @@ pub fn desugar_native_registry() -> NativeRewriteRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstDesugarChild, AstDesugarRule, AstShapeDef};
+    use handl_language::{AstDesugarChild, AstDesugarRule, AstShapeDef, ChildRoleSpec};
     use serde_json::json;
 
     /// Shim over the [`RewriteEngine`](crate::RewriteEngine) so the moved
@@ -3616,16 +3666,109 @@ mod tests {
     }
 
     #[test]
+    fn generic_assign_desugars_to_dimension_arrow() {
+        // `dedupe<N> := body` binds `dedupe` to `N ~> body` (ADR-0106
+        // §12 — a generic entity is an arrow over its dimension).
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
+                ChildRoleSpec {
+                    role: "target".into(),
+                    variadic: false,
+                },
+                ChildRoleSpec {
+                    role: "value".into(),
+                    variadic: false,
+                },
+            ]))
+            .unwrap();
+        lang.ast
+            .merge(
+                AstShapeDef::new("ast.dimension", "dimension").with_children(vec![
+                    ChildRoleSpec {
+                        role: "target".into(),
+                        variadic: false,
+                    },
+                    ChildRoleSpec {
+                        role: "args".into(),
+                        variadic: true,
+                    },
+                ]),
+            )
+            .unwrap();
+
+        let mut ast = Ast::new();
+        let name = ast.push(AstNode::new("var").with_payload(json!("dedupe")));
+        let dim_n = ast.push(AstNode::new("var").with_payload(json!("N")));
+        let target =
+            ast.push(AstNode::new("dimension").with_payload(json!({"children": [name, dim_n]})));
+        let body = ast.push(AstNode::new("var").with_payload(json!("g")));
+        ast.push(AstNode::new("assign").with_payload(json!({"children": [target, body]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "assign");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // Target is the plain `dedupe` var, value is `N ~> body`.
+        let new_target = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(new_target.kind, "var");
+        assert_eq!(new_target.payload.as_str().unwrap(), "dedupe");
+        let value = out
+            .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(value.kind, "function");
+        let params = value.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params[0], json!("N"));
+    }
+
+    #[test]
+    fn plain_assign_target_not_desugared() {
+        // `x := body` — a non-`dimension` target declines the native and
+        // passes through unchanged.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.assign", "assign").with_children(vec![
+                ChildRoleSpec {
+                    role: "target".into(),
+                    variadic: false,
+                },
+                ChildRoleSpec {
+                    role: "value".into(),
+                    variadic: false,
+                },
+            ]))
+            .unwrap();
+
+        let mut ast = Ast::new();
+        let target = ast.push(AstNode::new("var").with_payload(json!("x")));
+        let body = ast.push(AstNode::new("var").with_payload(json!("g")));
+        ast.push(AstNode::new("assign").with_payload(json!({"children": [target, body]})));
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "assign");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let new_target = out
+            .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(new_target.kind, "var");
+    }
+
+    #[test]
     fn desugar_registry_contains_expected_entries() {
-        // Only the two genuinely semantic forms remain native; the
+        // Only the genuinely semantic forms remain native; the
         // fixed-shape forms (`while`/`do-while`/`for`/`nullish`/`opt-chain`)
         // are declarative `TransformDef`s in `transforms.yaml`. `if` is
-        // intentionally NOT registered (see desugar_registry docs). This
-        // test guards against accidental removal of entries.
+        // intentionally NOT registered (see desugar_registry docs).
+        // `assign` handles generic bindings `f<N> := body` (ADR-0106 §12).
+        // This test guards against accidental removal of entries.
         let reg = desugar_registry();
         assert!(reg.contains_key("data"));
         assert!(reg.contains_key("match"));
-        assert_eq!(reg.len(), 2);
+        assert!(reg.contains_key("assign"));
+        assert_eq!(reg.len(), 3);
         // `if` is deliberately excluded — the typechecker has an `if`-specific
         // type rule that desugaring to `match` would bypass.
         assert!(

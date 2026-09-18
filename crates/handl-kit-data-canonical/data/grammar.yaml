@@ -14,8 +14,9 @@
 #   : type-annot (12/13), ~> arrow (10/9, right-assoc), = assign (5/6).
 # Retained: axiom token — grammar.axiom.prefix aliases it to a `law` node.
 # Added (graded-theory declarations, ADR-0098/0100): sort, grade, op,
-#   handler, rewrite prefixes; `law`/`axiom` re-shaped as 2-cells
-#   `name : source => target` (children [name, source, target]).
+#   rewrite prefixes; `law`/`axiom` re-shaped as 2-cells
+#   `name : source => target` (children [name, source, target]);
+#   `handler` removed — handlers are plain arrow/record values.
 #
 # NOTE (ADR-0053 scope boundary): several v0.1 constructs are NOT expressible
 # in a declarative Pratt grammar and require parser-level contextual
@@ -73,12 +74,6 @@
   child_shape:
     node_kind: unary.not
     arity: 1
-- id: grammar.value.bool
-  token: token.bool
-  position: Prefix
-  child_shape:
-    node_kind: value
-    arity: 0
 - id: grammar.type-annot.infix
   token: token.colon
   position: Infix
@@ -545,49 +540,10 @@
     payload_extract:
       - child: 0
         field: name
-# `handler Name = impl` — handler declaration: a model for one sort
-# (ADR-0098/0100). Two children: [name, impl]. The `=` (or `::`) binding
-# token is the separator — the name child parses at rbp 6 so it stops before
-# `token.bind` (lbp 5); the impl child is the model arrow expression
-# (e.g. `() ~> { ... }`). `payload.name` is extracted from the name child.
-- id: grammar.handler.prefix
-  token: token.keyword.handler
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: handler
-    arity: 2
-    child_binding_powers:
-      - 6
-      - 0
-    child_separators:
-      - !Required token.bind
-    payload_extract:
-      - child: 0
-        field: name
-# `with handler do body` — install a handler for the duration of `body`.
-# Two children: [handler, body]. The `do` keyword separates them.
-- id: grammar.with.prefix
-  token: token.keyword.with
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: with
-    arity: 2
-    child_binding_powers:
-      - 0
-      - 0
-    child_separators:
-      - !Required token.keyword.do
-# `handle <arrow> with <handler>` — install a handler for an op arrow.
-# Two children: [arrow, handler]. `payload.name` is extracted from the
-# arrow child (e.g. `read` in `handle read with Clock` or `arr read`).
-# A legacy three-child `handle target = impl in body` shape is also kept
-# for transitional ASTs.
+# `handle <expr> with <handler>` — install a handler for the dynamic
+# extent of an expression. Two children: [target, impl]. `payload.name`
+# is extracted from the target child (e.g. `read` in `handle read with
+# Clock` or `arr read`).
 - id: grammar.handle.prefix
   token: token.keyword.handle
   position: Prefix
@@ -769,9 +725,14 @@
       pair:
         separator: token.colon
         node_kind: entry
+        record: true
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
+      # `,` is a separator, not a terminator: entries may be newline-separated
+      # (`{ a: 1\n  b: 2 }`); the comma is required only between same-line
+      # entries (`{ a: 1, b: 2 }`) and tolerated before the closing `}`.
+      newline_separator: true
 # `a[i]` — subscript. The `[` is both the infix operator and the opening
 # delimiter (`open_is_operator_token`), so the delimited block parses the
 # subscript expression and consumes the closing `]` — without it the `]`

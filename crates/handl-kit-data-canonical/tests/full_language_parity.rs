@@ -99,7 +99,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.identifier.prefix",
         "grammar.value.number",
         "grammar.value.string",
-        "grammar.value.bool",
         "grammar.value.null",
         "grammar.add.infix",
         "grammar.sub.infix",
@@ -205,7 +204,6 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.colon",
         "token.dot",
         // Literals.
-        "token.bool",
         "token.null",
         "token.number",
         "token.string",

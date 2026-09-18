@@ -45,9 +45,11 @@ pub trait NativeRewrite: Send + Sync {
 pub struct RewriteCtx<'a> {
     lang: &'a Language,
     node: &'a AstNode,
+    node_ref: AstRef,
     ast: &'a Ast,
     out: &'a mut Ast,
     remap: &'a [Option<usize>],
+    declined: bool,
 }
 
 impl<'a> RewriteCtx<'a> {
@@ -55,6 +57,7 @@ impl<'a> RewriteCtx<'a> {
     pub fn new(
         lang: &'a Language,
         node: &'a AstNode,
+        node_ref: AstRef,
         ast: &'a Ast,
         out: &'a mut Ast,
         remap: &'a [Option<usize>],
@@ -62,10 +65,19 @@ impl<'a> RewriteCtx<'a> {
         Self {
             lang,
             node,
+            node_ref,
             ast,
             out,
             remap,
+            declined: false,
         }
+    }
+
+    /// Whether the native declined to rewrite via [`pass_through`](Self::pass_through).
+    /// The engine uses this to keep a decline out of the rewrite trace and
+    /// per-rule stats — a declined node is unchanged, not a match site.
+    pub fn declined(&self) -> bool {
+        self.declined
     }
 
     /// The [`Language`] the pass runs against (for role-based shape queries).
@@ -76,6 +88,13 @@ impl<'a> RewriteCtx<'a> {
     /// The input node (pre-remap).
     pub fn node(&self) -> &'a AstNode {
         self.node
+    }
+
+    /// The input arena position of the node being rewritten. Natives that
+    /// need to locate the node relative to the rest of the tree (e.g. to
+    /// detect that they are inside a quoted subterm) use this.
+    pub fn node_ref(&self) -> AstRef {
+        self.node_ref
     }
 
     /// The input arena.
@@ -143,8 +162,11 @@ impl<'a> RewriteCtx<'a> {
     ///
     /// This is the "decline" path for natives that decide — after inspecting
     /// the node — not to rewrite it (mirroring the legacy `try_rust_desugar`
-    /// `None` return, which fell through to pushing the remapped node).
+    /// `None` return, which fell through to pushing the remapped node). It
+    /// marks the context [`declined`](Self::declined) so the engine does not
+    /// record a rewrite for an unchanged node.
     pub fn pass_through(&mut self) -> AstRef {
+        self.declined = true;
         let mut payload = self.node.payload.clone();
         if let Some(children) = payload.get_mut("children").and_then(|c| c.as_array_mut()) {
             for child in children.iter_mut() {

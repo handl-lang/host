@@ -90,6 +90,7 @@ fn transform_export_to_object(src: &str) -> String {
                     expr_lines.push(expr_start.to_string());
                 }
                 current = Some((name, expr_lines));
+                continue;
             }
         } else if let Some((_, ref mut lines)) = current {
             if !line.trim().is_empty() {

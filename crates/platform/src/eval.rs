@@ -404,6 +404,28 @@ pub trait Module: 'static {
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
         Vec::new()
     }
+
+    /// Enumerate the names this module exports as plain (non-callable)
+    /// values.
+    ///
+    /// Modules whose source evaluates to a record may export value fields —
+    /// e.g. the `bool` package's `true`/`false` constants — alongside their
+    /// functions. `from "<mod>" import <name>` binds these as values, not as
+    /// string callees. The default is empty; function-only modules need no
+    /// changes.
+    fn value_names(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Resolve a value export (without the module prefix) to its evaluated
+    /// [`Value`].
+    ///
+    /// Returns `None` if `name` is not a value export of this module. The
+    /// default is `None`; see [`Module::value_names`].
+    fn value(&self, name: &str) -> Option<Value> {
+        let _ = name;
+        None
+    }
 }
 
 /// Lookup handle for qualified function names, held by [`EvalContext`].

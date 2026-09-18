@@ -1000,13 +1000,19 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
             documentation: "Compose two arrows.",
             parameters: &[
                 ("a (first arrow)", "the first arrow to run"),
-                ("b (second arrow)", "the second arrow, fed by the output of the first"),
+                (
+                    "b (second arrow)",
+                    "the second arrow, fed by the output of the first",
+                ),
             ],
         }),
         "first" => Some(CombinatorInfo {
             label: "first(inner)",
             documentation: "Run `inner` on the first component of a pair.",
-            parameters: &[("inner", "the arrow to apply to the first component of the pair")],
+            parameters: &[(
+                "inner",
+                "the arrow to apply to the first component of the pair",
+            )],
         }),
         "choice" => Some(CombinatorInfo {
             label: "choice(l, r)",
@@ -1073,9 +1079,7 @@ impl TokenClasses {
     }
 
     fn is(&self, kind: &str, category: &str) -> bool {
-        self.categories
-            .get(kind)
-            .map_or(false, |c| c == category)
+        self.categories.get(kind).map_or(false, |c| c == category)
     }
 
     fn is_identifier(&self, kind: &str) -> bool {
@@ -1149,11 +1153,7 @@ pub(crate) fn run_folding_range(
                     } = byte_to_position(&module.src, t.end);
                     if end_line > start_line {
                         ranges.push(FoldingRange::new(
-                            start_line,
-                            start_char,
-                            end_line,
-                            end_char,
-                            "region",
+                            start_line, start_char, end_line, end_char, "region",
                         ));
                     }
                     break;
@@ -1205,20 +1205,14 @@ pub(crate) fn run_folding_range(
         } = byte_to_position(&module.src, run_end);
         if end_line > start_line {
             ranges.push(FoldingRange::new(
-                start_line,
-                start_char,
-                end_line,
-                end_char,
-                "comment",
+                start_line, start_char, end_line, end_char, "comment",
             ));
         }
 
         i = j;
     }
 
-    ranges.sort_by(|a, b| {
-        (a.start_line, a.start_char).cmp(&(b.start_line, b.start_char))
-    });
+    ranges.sort_by(|a, b| (a.start_line, a.start_char).cmp(&(b.start_line, b.start_char)));
     ranges
 }
 
@@ -1272,14 +1266,9 @@ pub(crate) fn run_signature_help(
     let callee_span = callee.span?;
 
     // The callee must begin with an identifier (rules out keyword forms like `arr`).
-    let name_token = module
-        .tokens
-        .iter()
-        .find(|t| {
-            t.start >= callee_span.start
-                && t.end <= callee_span.end
-                && classes.is_identifier(&t.kind)
-        })?;
+    let name_token = module.tokens.iter().find(|t| {
+        t.start >= callee_span.start && t.end <= callee_span.end && classes.is_identifier(&t.kind)
+    })?;
     let name = &name_token.text;
 
     // Locate the opening `(` immediately after the callee.

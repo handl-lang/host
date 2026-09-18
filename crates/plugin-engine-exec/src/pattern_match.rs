@@ -48,6 +48,18 @@ pub trait PatternMatchCtx {
     ///
     /// Returns [`LangError`] on evaluation failure.
     fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<Value, LangError>;
+
+    /// Resolve an ambient global binding by name (the engine's `globals`
+    /// map — e.g. `true`/`false` seeded from `Language::globals`).
+    ///
+    /// A `var` pattern whose name resolves to a global is a *value
+    /// pattern*: it matches by `==` instead of binding (`match(v) { true:
+    /// "yes" }`). Only globals participate — a `var` bound in an ordinary
+    /// scope still binds (binders shadow). The default returns `None`:
+    /// engines without ambient globals keep bind-everything semantics.
+    fn global_value(&self, _name: &str) -> Option<Value> {
+        None
+    }
 }
 
 /// Whether a `var` name in pattern position is a wildcard (binds nothing).
@@ -83,6 +95,12 @@ pub fn try_pattern(
             if is_wildcard_name(name) {
                 // Wildcard — always matches, binds nothing.
                 return Ok(true);
+            }
+            // Value pattern — an ambient global (e.g. `true`/`false`
+            // seeded from `Language::globals`) matches by equality rather
+            // than binding.
+            if let Some(global) = ctx.global_value(name) {
+                return Ok(global == *scrut);
             }
             // Binder — always matches, binds name → scrutinee.
             ctx.define_binding(name, scrut.clone());

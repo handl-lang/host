@@ -4,8 +4,9 @@
 # Added: rec, while, for, return, law, trait, impl, infer, type,
 #   product, nullish, opt-chain.
 # Added (graded-theory declarations, ADR-0098/0100): sort, grade, op,
-#   handler, rewrite; `law`/`axiom` re-shaped as 2-cells
-#   [name, source, target].
+#   rewrite; `law`/`axiom` re-shaped as 2-cells
+#   [name, source, target]; `handler` removed — handlers are plain
+#   arrow/record values installed via `handle <expr> with <handler>`.
 - id: ast.apply
   node_kind: apply
   payload_schema:
@@ -82,6 +83,9 @@
     type: object
 - id: ast.binary.add
   node_kind: binary.add
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -95,6 +99,9 @@
     type: object
 - id: ast.binary.and
   node_kind: binary.and
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -124,6 +131,9 @@
     type: object
 - id: ast.binary.compare
   node_kind: binary.compare
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -137,6 +147,9 @@
     type: object
 - id: ast.binary.div
   node_kind: binary.div
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -150,6 +163,9 @@
     type: object
 - id: ast.binary.eq
   node_kind: binary.eq
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -163,6 +179,9 @@
     type: object
 - id: ast.binary.gt
   node_kind: binary.gt
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -176,6 +195,9 @@
     type: object
 - id: ast.binary.gte
   node_kind: binary.gte
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -221,6 +243,9 @@
     type: object
 - id: ast.binary.mod
   node_kind: binary.mod
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -234,6 +259,9 @@
     type: object
 - id: ast.binary.mul
   node_kind: binary.mul
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -247,6 +275,9 @@
     type: object
 - id: ast.binary.neq
   node_kind: binary.neq
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -260,6 +291,9 @@
     type: object
 - id: ast.binary.or
   node_kind: binary.or
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -273,6 +307,9 @@
     type: object
 - id: ast.binary.pow
   node_kind: binary.pow
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -286,6 +323,9 @@
     type: object
 - id: ast.binary.sub
   node_kind: binary.sub
+  children:
+    - role: left
+    - role: right
   payload_schema:
     properties:
       children:
@@ -645,6 +685,8 @@
     type: object
 - id: ast.unary.neg
   node_kind: unary.neg
+  children:
+    - role: operand
   payload_schema:
     properties:
       children:
@@ -658,6 +700,8 @@
     type: object
 - id: ast.unary.not
   node_kind: unary.not
+  children:
+    - role: operand
   payload_schema:
     properties:
       children:
@@ -884,65 +928,21 @@
     required:
       - children
     type: object
-# `handler` — handler declaration: a model for one sort (ADR-0098/0100).
-# Two or three children:
-#   0. `name` — the handler name (`var(Name)`).
-#   1. `impl` — the model arrow expression right of `=`/`::`.
-#   2. `grades` — optional grade list; missing means `[]` at runtime.
-# `payload.name` carries the extracted handler name.
-- id: ast.handler
-  node_kind: handler
+# `handle` — install a handler for the dynamic extent of an expression.
+# `handle <target> with <handler>` — two children: `target` (the
+# expression evaluated under the handler) and `impl` (the handler value,
+# an ordinary record or arrow).
+- id: ast.handle
+  node_kind: handle
   children:
-    - role: name
+    - role: target
     - role: impl
-    - role: grades
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 3
-        minItems: 2
-        type: array
-      name:
-        type: string
-    required:
-      - children
-    type: object
-# `with` — install a handler for the duration of `body`.
-# Two children: `handler` (the handler expression) and `body`.
-- id: ast.with
-  node_kind: with
-  children:
-    - role: handler
-    - role: body
   payload_schema:
     properties:
       children:
         items:
           type: integer
         maxItems: 2
-        minItems: 2
-        type: array
-    required:
-      - children
-    type: object
-# `handle` — install a handler for an op arrow.
-# Two or three children: `target` (the arrow), `impl` (the handler),
-# and an optional `body` for the legacy `handle target = impl in body`
-# transitional shape.
-- id: ast.handle
-  node_kind: handle
-  children:
-    - role: target
-    - role: impl
-    - role: body
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 3
         minItems: 2
         type: array
       name:

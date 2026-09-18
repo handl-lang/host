@@ -73,9 +73,9 @@ Inside `program`, every `Op` whose grade row includes `Query` is dispatched to
 The `query`, `command`, and `event` packages are not kernel concepts. They are
 Handl packages that export grades and operation arrows:
 
-* `Query` — a resumable request/response operation, possibly cacheable.
-* `Command` / `Mutate` — a state-changing request.
-* `Event` / `Emit` — a fire-and-forget notification.
+- `Query` — a resumable request/response operation, possibly cacheable.
+- `Command` / `Mutate` — a state-changing request.
+- `Event` / `Emit` — a fire-and-forget notification.
 
 All of them lower to `Term::Op` and `Term::Handle`. The runtime knows only the
 calculus; it never pattern-matches on the strings "query" or "event". The

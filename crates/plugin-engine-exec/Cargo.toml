@@ -6,7 +6,9 @@ edition.workspace = true
 [dependencies]
 handl-language = { path = "../handl-language" }
 handl-platform = { path = "../platform" }
+handl-value = { path = "../handl-value" }
 serde_json = { workspace = true }
+rustc-hash = "2"
 
 [dev-dependencies]
 handl-plugin-module = { path = "../plugin-module" }

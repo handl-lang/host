@@ -106,6 +106,10 @@ use handl_language::{
     ArrSource, Ast, AstNode, AstRef, LangError, Language, Term, Value, tag_value,
 };
 use handl_platform::{ModuleLookup, ValueCallable};
+use handl_plugin_engine_exec::native_ops::{
+    self, NativeOpCtx, OpService, build_loop_step_args, is_truthy, loop_step_outcome,
+    step_decision, type_tag,
+};
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{
@@ -160,6 +164,8 @@ thread_local! {
 /// Small by design: applications cycle through a handful of hot arrows, and
 /// the table is cleared (not evicted one-by-one) when it fills.
 const ARROW_ARENA_CACHE_CAP: usize = 64;
+/// Tag for first-class `arr <op>` dispatch objects (ADR-0103 value shape).
+const ARR_DISPATCH_TAG: &str = "__arr__";
 
 // ---------------------------------------------------------------------------
 // EvalFrame — arrow-value provenance across runtime boundaries
@@ -532,6 +538,10 @@ impl<'a> PatternMatchCtx for TreeWalkPatternCtx<'a> {
 
     fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
         self.engine.eval_node(ast, node_ref, self.lang, self.env)
+    }
+
+    fn global_value(&self, name: &str) -> Option<Value> {
+        self.engine.globals.get(name).cloned()
     }
 }
 
@@ -978,9 +988,16 @@ impl TreeWalkEngine {
                                 state.clone()
                             };
                             let step_args = build_loop_step_args(&closure_val, &current);
-                            let result =
-                                self.apply_app(&closure_val, &step_args, ast, lang, env)?;
-                            let either = interpret_loop_step_result(&result);
+                            let result = self.apply_app(
+                                &closure_val,
+                                &step_args,
+                                ast,
+                                lang,
+                                env,
+                                node_ref,
+                                current_node,
+                            )?;
+                            let either = loop_step_outcome(result);
                             if is_either_left(&either) {
                                 let out = either_value(&either).cloned().ok_or_else(|| {
                                     LangError::engine_node(
@@ -999,7 +1016,7 @@ impl TreeWalkEngine {
                                 })?;
                                 continue;
                             }
-                            // interpret_loop_step_result always returns
+                            // loop_step_outcome always returns
                             // an Either, so this is unreachable.
                             return Err(LangError::engine_node(
                                 "Loop: loop_step produced non-Either".to_string(),
@@ -1150,7 +1167,15 @@ impl TreeWalkEngine {
                 let val = if let Some(name) = callee_val.as_str() {
                     self.call_host_fn(name, &actual_args, current_node)?
                 } else {
-                    self.apply_app(&callee_val, &actual_args, ast, lang, env)?
+                    self.apply_app(
+                        &callee_val,
+                        &actual_args,
+                        ast,
+                        lang,
+                        env,
+                        node_ref,
+                        current_node,
+                    )?
                 };
                 Ok((val, false))
             }
@@ -1805,26 +1830,30 @@ impl TreeWalkEngine {
             }
             arg_vals.push(v);
         }
-        // Grade-based dynamic dispatch: for `Native` and `Foreign` ops,
-        // search the handler stack (and the incoming value's own `impls`)
-        // for a `Handler` implementation of the op before falling back to
-        // the static `source` dispatch below.
+        // Grade-based dynamic dispatch: for `Native` and `Foreign` ops that
+        // are not the surface `arr <op>` form, search the handler stack (and
+        // the incoming value's own `impls`) for a handler implementation.
+        // The `arr <op>` first-class form is handled below in the
+        // `from_payload` branch so it can return a dispatch object when no
+        // incoming value is present.
         let dispatch_name = match source {
             ArrSource::Native => Some(op.to_string()),
             ArrSource::Foreign(name) => Some(name.clone()),
             _ => None,
         };
-        if let Some(name) = dispatch_name {
-            if let Some(res) = self.dispatch_op(
-                &name,
-                incoming.as_ref(),
-                ast,
-                node_ref,
-                lang,
-                env,
-                current_node,
-            )? {
-                return Ok(res);
+        if !from_payload {
+            if let Some(name) = dispatch_name {
+                if let Some(res) = self.dispatch_op(
+                    &name,
+                    incoming.as_ref(),
+                    ast,
+                    node_ref,
+                    lang,
+                    env,
+                    current_node,
+                )? {
+                    return Ok(res);
+                }
             }
         }
         match source {
@@ -1838,24 +1867,26 @@ impl TreeWalkEngine {
                 if from_payload && arg_vals.is_empty() {
                     match &incoming {
                         Some(v) => {
-                            let op_args = flatten_pair(v);
-                            return self.apply_native(
+                            return self.arr_dispatch(
                                 op,
-                                &op_args,
-                                lit,
+                                v,
                                 ast,
                                 node_ref,
                                 lang,
                                 env,
                                 current_node,
-                                incoming,
                             );
                         }
                         None => {
-                            return Err(LangError::engine_node(
-                                format!("arr: op '{}' has no input value", op),
-                                current_node,
-                            ));
+                            // No incoming value: `arr <op>` is being used as
+                            // a first-class arrow (e.g. as a call callee or
+                            // bound to a variable).  Return a dispatch object
+                            // that `apply_app` can apply later.
+                            let mut map = FxHashMap::<Rc<str>, TaggedValue>::default();
+                            map.insert(Rc::from("op"), TaggedValue::Str(Rc::from(op)));
+                            let mut obj = FxHashMap::<Rc<str>, TaggedValue>::default();
+                            obj.insert(Rc::from(ARR_DISPATCH_TAG), TaggedValue::Obj(Rc::new(map)));
+                            return Ok((TaggedValue::Obj(Rc::new(obj)), false));
                         }
                     }
                 }
@@ -1937,9 +1968,18 @@ impl TreeWalkEngine {
         let Some(impl_json) = impl_json else {
             return Ok(None);
         };
+        // A handler implementation may be a first-class arrow (closure) or
+        // a serialized [`Term`].  Prefer the closure path so surface
+        // arrows (`url ~> ...`) work without a Term round-trip.
+        let impl_val = TaggedValue::from(impl_json.clone());
+        if let TaggedValue::Arrow { .. } = impl_val {
+            let inc = incoming.cloned().unwrap_or(TaggedValue::Null);
+            let val = self.apply_app(&impl_val, &[inc], ast, lang, env, node_ref, current_node)?;
+            return Ok(Some((val, false)));
+        }
         let impl_term: Term = serde_json::from_value(impl_json).map_err(|e| {
             LangError::engine_node(
-                format!("handler impl for op '{op}' is not a Term: {e}"),
+                format!("handler impl for op '{op}' is not a Term or arrow: {e}"),
                 current_node,
             )
         })?;
@@ -1956,14 +1996,21 @@ impl TreeWalkEngine {
     }
 
     /// Evaluate a derived-pattern composite step op
-    /// (`while_step`/`for_step`/`fix_step`). These are handler-interpreted
-    /// derived operations (ADR-0052 §"Derived forms"): the `Term`
-    /// description is built from primitives (`Loop` + `Arr`), and the
-    /// handler interprets the composite op by recursively evaluating the
-    /// carried sub-arrows (`cond`/`body`) with the *current value*
-    /// extracted from the incoming pair — not the pair itself. Each
-    /// returns an `Either` consumed by the multi-step `Loop` handler:
-    /// `left` terminates, `right` feeds the new state back.
+    /// (`while_step`/`for_step`/`fix_step`/`loop_step`). These are
+    /// handler-interpreted derived operations (ADR-0052 §"Derived
+    /// forms"): the `Term` description is built from primitives
+    /// (`Loop` + `Arr`), and the handler interprets the composite op by
+    /// recursively evaluating the carried sub-arrows (`cond`/`body`)
+    /// with the *current value* extracted from the incoming pair — not
+    /// the pair itself. Each returns an `Either` consumed by the
+    /// multi-step `Loop` handler: `left` terminates, `right` feeds the
+    /// new state back.
+    ///
+    /// This engine's interpretation is lazy: `eval_arg` evaluates the
+    /// carried sub-schemes only when the shared [`step_decision`]
+    /// semantics need them (e.g. `while_step` never runs `body` once the
+    /// condition fails). The decision itself is defined once in
+    /// `plugin-engine-exec::native_ops`.
     #[allow(clippy::too_many_arguments)]
     fn eval_derived_step(
         &self,
@@ -1977,172 +2024,64 @@ impl TreeWalkEngine {
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
         let inc = incoming.unwrap_or(TaggedValue::Null);
-        let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
-        let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
-        match op {
-            "while_step" => {
-                // args = [cond, body]. The current value is `in` on the
-                // first step (state is Null) and `state` thereafter. Run
-                // `cond` on it; if truthy, run `body` and continue with
-                // its result; else terminate with the current value.
-                let cond = raw_args.first().ok_or_else(|| {
-                    LangError::engine_node(
-                        "while_step: missing cond sub-arrow".to_string(),
-                        current_node,
-                    )
-                })?;
-                let body = raw_args.get(1).ok_or_else(|| {
-                    LangError::engine_node(
-                        "while_step: missing body sub-arrow".to_string(),
-                        current_node,
-                    )
-                })?;
-                let current = if state.is_null() { in_val } else { state };
-                let cond_val = self.eval_scheme_tagged_td(
-                    cond,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    Some(current.clone()),
-                )?;
-                if is_truthy(&cond_val) {
-                    let new_val = self.eval_scheme_tagged_td(
-                        body,
-                        ast,
-                        node_ref,
-                        lang,
-                        env,
-                        current_node,
-                        Some(current),
-                    )?;
-                    Ok((either_right(new_val), false))
-                } else {
-                    Ok((either_left(current), false))
-                }
-            }
-            "for_step" => {
-                // args = [body]. State is pair(counter, acc). On the first
-                // step (state Null), initialize from `in = pair(count,
-                // initial)`. While counter > 0, run `body` on `acc` and
-                // continue with pair(counter-1, new_acc); else terminate
-                // with `acc`.
-                let body = raw_args.first().ok_or_else(|| {
-                    LangError::engine_node(
-                        "for_step: missing body sub-arrow".to_string(),
-                        current_node,
-                    )
-                })?;
-                let (counter, acc) = if state.is_null() {
-                    let count = pair_fst(&in_val).cloned().ok_or_else(|| {
-                        LangError::engine_node(
-                            "for_step: input must be pair(count, initial) when state is Null"
-                                .to_string(),
-                            current_node,
-                        )
-                    })?;
-                    let initial = pair_snd(&in_val).cloned().unwrap_or(TaggedValue::Null);
-                    (count, initial)
-                } else {
-                    let c = pair_fst(&state).cloned().ok_or_else(|| {
-                        LangError::engine_node(
-                            "for_step: state must be pair(counter, acc)".to_string(),
-                            current_node,
-                        )
-                    })?;
-                    let a = pair_snd(&state).cloned().unwrap_or(TaggedValue::Null);
-                    (c, a)
-                };
-                let count_n = as_num(&counter).map_err(|e| e.with_node(current_node))?;
-                if count_n > Num::Int(0) {
-                    let new_acc = self.eval_scheme_tagged_td(
-                        body,
-                        ast,
-                        node_ref,
-                        lang,
-                        env,
-                        current_node,
-                        Some(acc),
-                    )?;
-                    let new_counter = num_value(count_n - Num::Int(1));
-                    Ok((either_right(pair(new_counter, new_acc)), false))
-                } else {
-                    Ok((either_left(acc), false))
-                }
-            }
-            "fix_step" => {
-                // args = [body]. The current value is `in` on the first
-                // step (state Null) and `state` thereafter. Run `body`; if
-                // the result equals the current value, the fixpoint is
-                // reached — terminate; else continue with the result.
-                let body = raw_args.first().ok_or_else(|| {
-                    LangError::engine_node(
-                        "fix_step: missing body sub-arrow".to_string(),
-                        current_node,
-                    )
-                })?;
-                let current = if state.is_null() { in_val } else { state };
-                let new_val = self.eval_scheme_tagged_td(
-                    body,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    Some(current.clone()),
-                )?;
-                if handl_value::eq(&new_val, &current) {
-                    Ok((either_left(new_val), false))
-                } else {
-                    Ok((either_right(new_val), false))
-                }
-            }
-            "loop_step" => {
-                // Ergonomic loop surface (ADR-0052). args = [body_proc].
-                // The current state is `in` on the first step (state is
-                // Null) and `state` thereafter. The body proc is applied to
-                // the current state; it returns:
-                //   { state: v }  → continue with new state v
-                //   { out: v }    → terminate with v (backward compat)
-                //   bare value    → terminate with the value (v0.1 `return v`)
-                //
-                // Param destructuring: if the body proc has multiple params
-                // and the current state is an object, bind each field to a
-                // param by name (e.g. `[n, acc] ~> ...` with state
-                // `{ n: 5, acc: 1 }` binds n=5, acc=1).
-                //
-                // NOTE: When `loop_step` is the direct body of a `Loop`
-                // combinator, the closure evaluation is hoisted outside
-                // the loop by the `Term::Loop` arm in `eval_inner` (see
-                // the optimization there). This path is only reached when
-                // `loop_step` appears in a non-hoisted position.
-                let body_proc = raw_args.first().ok_or_else(|| {
-                    LangError::engine_node("loop_step: missing body proc".to_string(), current_node)
-                })?;
-                let current = if state.is_null() { in_val } else { state };
-                let closure_val = self.eval_scheme_tagged_td(
-                    body_proc,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    None,
-                )?;
-                let args = build_loop_step_args(&closure_val, &current);
-                let result = self.apply_app(&closure_val, &args, ast, lang, env)?;
-                Ok((interpret_loop_step_result(&result), false))
-            }
-            _ => Err(LangError::engine_node(
-                format!("unknown derived step op: {}", op),
+        if op == "loop_step" {
+            // Ergonomic loop surface (ADR-0052). args = [body_proc]. The
+            // body proc is applied to the current state; the result maps
+            // through the shared `loop_step_outcome`.
+            //
+            // NOTE: When `loop_step` is the direct body of a `Loop`
+            // combinator, the closure evaluation is hoisted outside
+            // the loop by the `Term::Loop` arm in `eval_inner` (see
+            // the optimization there). This path is only reached when
+            // `loop_step` appears in a non-hoisted position.
+            let body_proc = raw_args.first().ok_or_else(|| {
+                LangError::engine_node("loop_step: missing body proc".to_string(), current_node)
+            })?;
+            let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+            let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
+            let current = if state.is_null() { in_val } else { state };
+            let closure_val = self.eval_scheme_tagged_td(
+                body_proc,
+                ast,
+                node_ref,
+                lang,
+                env,
                 current_node,
-            )),
+                None,
+            )?;
+            let args = build_loop_step_args(&closure_val, &current);
+            let result =
+                self.apply_app(&closure_val, &args, ast, lang, env, node_ref, current_node)?;
+            return Ok((loop_step_outcome(result), false));
         }
+        let mut eval_arg = |i: usize, current: &TaggedValue| -> Result<TaggedValue, LangError> {
+            let arg = raw_args.get(i).ok_or_else(|| {
+                LangError::engine_node(format!("{op}: missing sub-arrow {i}"), current_node)
+            })?;
+            self.eval_scheme_tagged_td(
+                arg,
+                ast,
+                node_ref,
+                lang,
+                env,
+                current_node,
+                Some(current.clone()),
+            )
+        };
+        let val = step_decision(op, &inc, &mut eval_arg).map_err(|e| e.with_node(current_node))?;
+        Ok((val, false))
     }
 
     /// Apply a native `arr` op. Returns the value and whether a scope was
     /// pushed (`extend_env` pushes).
+    ///
+    /// The op semantics are defined once in
+    /// `plugin-engine-exec::native_ops` (ADR-0044 §7): this engine supplies
+    /// only the globals — the `ScopeStack`, AST-node evaluation, and arrow
+    /// application — through [`TwCtx`]. The residual `match` below owns
+    /// ops that still require this engine's deeper machinery (imports,
+    /// module calls, `eval_block`, closures, FFI) and are migrated to the
+    /// shared table as their services are declared.
     #[allow(clippy::too_many_arguments)]
     fn apply_native(
         &self,
@@ -2150,192 +2089,28 @@ impl TreeWalkEngine {
         args: &[TaggedValue],
         lit: Option<&Value>,
         ast: &Ast,
-        _node_ref: AstRef,
+        node_ref: AstRef,
         lang: &Language,
         env: &mut ScopeStack,
         current_node: &AstNode,
         incoming: Option<TaggedValue>,
     ) -> Result<(TaggedValue, bool), LangError> {
+        {
+            let mut ctx = TwCtx {
+                engine: self,
+                ast,
+                node_ref,
+                lang,
+                env,
+                current_node,
+            };
+            match native_ops::apply_native_op(op, args, lit, incoming.clone(), &mut ctx) {
+                Ok(Some(result)) => return Ok(result),
+                Ok(None) => {}
+                Err(e) => return Err(e.with_node(current_node)),
+            }
+        }
         match op {
-            "const" => Ok((
-                TaggedValue::from(lit.cloned().unwrap_or(Value::Null)),
-                false,
-            )),
-            "desugar_error" => {
-                // Raise a LangError carrying the reason from the node's
-                // payload. This op is the eval scheme for the
-                // `desugar-error` node kind, which the desugar pass emits
-                // when a declaration fails a compile-time check (e.g.
-                // strict positivity violation in `data`). The op name and
-                // node kind are data-driven (declared in eval.yaml /
-                // ast.yaml), not hardcoded kind checks.
-                //
-                // The error message is read from `current_node.payload`
-                // (`kind`/`reason` fields) for `desugar-error` nodes, or
-                // falls back to the scheme's `lit` payload for nodes like
-                // `data` that carry their own payload shape (`name`/
-                // `children`) but still use the `desugar_error` op.
-                let (reason, kind) = if let Some(lit_obj) = lit.and_then(|v| v.as_object()) {
-                    let reason = current_node
-                        .payload
-                        .get("reason")
-                        .and_then(|v| v.as_str())
-                        .or_else(|| lit_obj.get("reason").and_then(|v| v.as_str()))
-                        .unwrap_or("unknown desugar error");
-                    let kind = current_node
-                        .payload
-                        .get("kind")
-                        .and_then(|v| v.as_str())
-                        .or_else(|| lit_obj.get("kind").and_then(|v| v.as_str()))
-                        .unwrap_or("desugar-error");
-                    (reason, kind)
-                } else {
-                    let reason = current_node
-                        .payload
-                        .get("reason")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown desugar error");
-                    let kind = current_node
-                        .payload
-                        .get("kind")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("desugar-error");
-                    (reason, kind)
-                };
-                Err(LangError::engine_node(
-                    format!("{}: {}", kind, reason),
-                    current_node,
-                ))
-            }
-            "id" => {
-                // Identity: return the incoming value, or the single arg.
-                Ok((
-                    incoming
-                        .or_else(|| args.first().cloned())
-                        .unwrap_or(TaggedValue::Null),
-                    false,
-                ))
-            }
-            "proj_env" => {
-                let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine_node(
-                        "proj_env: missing name literal".to_string(),
-                        current_node,
-                    )
-                })?;
-                let var_name = if name == "$payload" {
-                    current_node
-                        .payload
-                        .as_str()
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                "expected string payload for $payload proj_env".to_string(),
-                                current_node,
-                            )
-                        })?
-                        .to_string()
-                } else {
-                    name.to_string()
-                };
-                // Unbound → name as a string (allows identifiers like
-                // `eval` to flow into `App` host-function dispatch).
-                let val = env
-                    .lookup(&var_name)
-                    .cloned()
-                    .unwrap_or_else(|| TaggedValue::Str(Rc::from(var_name)));
-                Ok((val, false))
-            }
-            "proj_child" => {
-                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine_node(
-                        "proj_child: missing index literal".to_string(),
-                        current_node,
-                    )
-                })?;
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "proj_child: expected children array in payload".to_string(),
-                            current_node,
-                        )
-                    })?;
-                let arena_idx = children
-                    .get(idx as usize)
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            format!("proj_child: child {} not found", idx),
-                            current_node,
-                        )
-                    })?;
-                let target_ref = AstRef::new(arena_idx as usize);
-                let val = self.eval_node_inner(ast, target_ref, lang, env)?;
-                Ok((val, false))
-            }
-            "proj_child_or" => {
-                // Like `proj_child`, but tolerates an absent child (e.g. the
-                // missing `else` of a else-less `if`): when the child index
-                // is out of range the result is `Null` instead of an error.
-                let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine_node(
-                        "proj_child_or: missing index literal".to_string(),
-                        current_node,
-                    )
-                })?;
-                let arena_idx = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .and_then(|children| children.get(idx as usize))
-                    .and_then(|v| v.as_u64());
-                match arena_idx {
-                    Some(i) => {
-                        let val = self.eval_node_inner(ast, AstRef::new(i as usize), lang, env)?;
-                        Ok((val, false))
-                    }
-                    None => Ok((TaggedValue::Null, false)),
-                }
-            }
-            "extend_env" => {
-                let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine_node("extend_env: missing name literal", current_node)
-                })?;
-                let bind_name = if name == "$payload" {
-                    current_node
-                        .payload
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                "expected name in payload for $payload extend_env",
-                                current_node,
-                            )
-                        })?
-                        .to_string()
-                } else {
-                    name.to_string()
-                };
-                // Push a scope, bind the incoming value, return it so it
-                // flows through. The matching pop is the caller's
-                // responsibility (Seq or eval_scheme).
-                env.push_scope();
-                let val = incoming.unwrap_or(TaggedValue::Null);
-                env.define(&bind_name, val.clone());
-                Ok((val, true))
-            }
-            "tag" => {
-                // Branch lowering: truthy → left Either, falsy → right.
-                let v =
-                    incoming.unwrap_or_else(|| args.first().cloned().unwrap_or(TaggedValue::Null));
-                if is_truthy(&v) {
-                    Ok((either_left(v), false))
-                } else {
-                    Ok((either_right(v), false))
-                }
-            }
             "closure" => {
                 // Read params/body from the current node's payload (rich
                 // or Pratt-parsed shapes).
@@ -2632,48 +2407,6 @@ impl TreeWalkEngine {
             // evaluated children (the `index` node kind carries children,
             // not payload): array+int → element, object+string → value.
             // Unlike `field_access`, a missing object key is an error.
-            "index" => {
-                let target = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let index = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-                match (target, index) {
-                    (TaggedValue::Arr(arr), index) => {
-                        let i = index
-                            .as_f64()
-                            .filter(|n| *n >= 0.0 && n.fract() == 0.0)
-                            .map(|n| n as usize)
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "index: index must be a non-negative integer".to_string(),
-                                    current_node,
-                                )
-                            })?;
-                        arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
-                            LangError::engine_node(
-                                format!("index: index {} out of bounds", i),
-                                current_node,
-                            )
-                        })
-                    }
-                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => map
-                        .get(key.as_ref())
-                        .cloned()
-                        .map(|v| (v, false))
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                format!("index: key '{}' not found", key),
-                                current_node,
-                            )
-                        }),
-                    (target, index) => Err(LangError::engine_node(
-                        format!(
-                            "index: target must be array/object and index must be number/string; got {} and {}",
-                            type_tag(&target),
-                            type_tag(&index),
-                        ),
-                        current_node,
-                    )),
-                }
-            }
             "assign" => {
                 // ADR-0053: `assign { children: [var, value] }` or
                 // `assign { children: [var, value, body] }` —
@@ -2766,102 +2499,6 @@ impl TreeWalkEngine {
             // `bin_num`, `cmp_num`, `as_num`) produce span-less errors because
             // they only see `&[TaggedValue]`; attach the current node's span
             // here so type-mismatch diagnostics point at the offending source.
-            "add" => bin_add(args).map_err(|e| e.with_node(current_node)),
-            "sub" => bin_num(args, |a, b| a - b).map_err(|e| e.with_node(current_node)),
-            "mul" => bin_num(args, |a, b| a * b).map_err(|e| e.with_node(current_node)),
-            "div" => {
-                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
-                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::engine_node(
-                        "division by zero".to_string(),
-                        current_node,
-                    ));
-                }
-                Ok((num_value(a / b), false))
-            }
-            "mod" => {
-                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
-                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::engine_node(
-                        "modulo by zero".to_string(),
-                        current_node,
-                    ));
-                }
-                let val = match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => num_value(Num::Int(a % b)),
-                    (a, b) => num_value(Num::Float(a.to_f64() % b.to_f64())),
-                };
-                Ok((val, false))
-            }
-            "neg" => {
-                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
-                let val = match a {
-                    Num::Int(i) => num_value(Num::Int(-i)),
-                    Num::Float(f) => num_value(Num::Float(-f)),
-                };
-                Ok((val, false))
-            }
-            "eq" => Ok((
-                TaggedValue::Bool(handl_value::eq(&args[0], &args[1])),
-                false,
-            )),
-            "neq" => Ok((
-                TaggedValue::Bool(!handl_value::eq(&args[0], &args[1])),
-                false,
-            )),
-            "lt" => cmp_num(args, |a, b| a < b).map_err(|e| e.with_node(current_node)),
-            "gt" => cmp_num(args, |a, b| a > b).map_err(|e| e.with_node(current_node)),
-            "lte" => cmp_num(args, |a, b| a <= b).map_err(|e| e.with_node(current_node)),
-            "gte" => cmp_num(args, |a, b| a >= b).map_err(|e| e.with_node(current_node)),
-            "pow" => {
-                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
-                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
-                Ok((num_value(Num::Float(a.to_f64().powf(b.to_f64()))), false))
-            }
-            "compare" => {
-                let a = as_num(&args[0]).map_err(|e| e.with_node(current_node))?;
-                let b = as_num(&args[1]).map_err(|e| e.with_node(current_node))?;
-                let cmp = a.partial_cmp(&b).ok_or_else(|| {
-                    LangError::engine_node("compare: incomparable values".to_string(), current_node)
-                })?;
-                Ok((
-                    num_value(Num::Int(match cmp {
-                        std::cmp::Ordering::Less => -1,
-                        std::cmp::Ordering::Equal => 0,
-                        std::cmp::Ordering::Greater => 1,
-                    })),
-                    false,
-                ))
-            }
-            // ADR-0060: route_on_type — takes a value (from args or incoming)
-            // and a literal type tag. Returns either_left(value) if the
-            // type matches, either_right(value) otherwise.
-            "route_on_type" => {
-                let tag = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine_node(
-                        "route_on_type: missing type tag literal".to_string(),
-                        current_node,
-                    )
-                })?;
-                let val = args
-                    .first()
-                    .cloned()
-                    .or(incoming)
-                    .unwrap_or(TaggedValue::Null);
-                if type_tag(&val) == tag {
-                    Ok((either_left(val), false))
-                } else {
-                    Ok((either_right(val), false))
-                }
-            }
-            // ADR-0060: call_host — the callee string arrives via
-            // `incoming` (from route_on_type → Choice), and `args[0]` is
-            // the args array (from proj_rest). Looks up the callee in the
-            // module registry and invokes the host function with the array
-            // elements as individual arguments. If the callee is a declared
-            // graded `op`, dispatch it through the handler stack instead.
             "call_host" => {
                 let callee = incoming.as_ref().and_then(|v| v.as_str()).ok_or_else(|| {
                     LangError::engine_node(
@@ -2877,7 +2514,7 @@ impl TreeWalkEngine {
                     let (mut result, pushed) = self.eval_inner_td(
                         &op_td,
                         ast,
-                        _node_ref,
+                        node_ref,
                         lang,
                         env,
                         current_node,
@@ -3066,263 +2703,6 @@ impl TreeWalkEngine {
             // dependencies have values. This allows mutually-dependent
             // bindings to converge regardless of their textual order.
             "eval_rec" => self.prim_eval_rec(ast, lang, env, current_node),
-            "typeof" => {
-                let arg = args
-                    .first()
-                    .or(incoming.as_ref())
-                    .unwrap_or(&TaggedValue::Null);
-                Ok((TaggedValue::Str(Rc::from(type_tag(arg))), false))
-            }
-            "not" => Ok((TaggedValue::Bool(!is_truthy(&args[0])), false)),
-            "and" => Ok((
-                TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1])),
-                false,
-            )),
-            "or" => Ok((
-                TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1])),
-                false,
-            )),
-            // Utility unary numeric ops (used by derived-pattern tests in
-            // plugin-lib-stdlib's arrow_iter tests). These take the incoming value as
-            // their single operand.
-            "is_pos" => {
-                let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
-                Ok((TaggedValue::Bool(n > Num::Int(0)), false))
-            }
-            "dec" => {
-                let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
-                Ok((num_value(n - Num::Int(1)), false))
-            }
-            "inc" => {
-                let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
-                Ok((num_value(n + Num::Int(1)), false))
-            }
-            "half_floor" => {
-                let v = incoming.unwrap_or(TaggedValue::Null);
-                let n = as_num(&v).map_err(|e| e.with_node(current_node))?;
-                let result = match n {
-                    Num::Int(i) => Num::Int(i / 2),
-                    Num::Float(f) => Num::Float((f / 2.0).floor()),
-                };
-                Ok((num_value(result), false))
-            }
-            // Test helper: increment the first component of a pair,
-            // carrying the second through. Used by the Loop
-            // causal-single-step test.
-            "inc_fst" => {
-                let inc = args
-                    .first()
-                    .cloned()
-                    .or(incoming)
-                    .unwrap_or(TaggedValue::Null);
-                let a = pair_fst(&inc)
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "inc_fst: input is not a pair".to_string(),
-                            current_node,
-                        )
-                    })?
-                    .clone();
-                let b = pair_snd(&inc)
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "inc_fst: input is not a pair".to_string(),
-                            current_node,
-                        )
-                    })?
-                    .clone();
-                let a_n = as_num(&a).map_err(|e| e.with_node(current_node))?;
-                let new_a = num_value(a_n + Num::Int(1));
-                Ok((pair(new_a, b), false))
-            }
-            // Test helper: multi-step Loop countdown. Incoming is
-            // pair(in, state) where in = pair(result, initial_count). On
-            // the first step (state Null) the state is initialized to
-            // initial_count. Then: state > 0 -> either_right(state - 1)
-            // (continue); state == 0 -> either_left(result) (done).
-            "countdown_step" => {
-                let inc = args
-                    .first()
-                    .cloned()
-                    .or(incoming)
-                    .unwrap_or(TaggedValue::Null);
-                let a = pair_fst(&inc).cloned().ok_or_else(|| {
-                    LangError::engine_node(
-                        "countdown_step: input is not a pair".to_string(),
-                        current_node,
-                    )
-                })?;
-                let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
-                let result_val = pair_fst(&a).cloned().ok_or_else(|| {
-                    LangError::engine_node(
-                        "countdown_step: in must be pair(result, initial)".to_string(),
-                        current_node,
-                    )
-                })?;
-                let initial = pair_snd(&a).cloned().unwrap_or(TaggedValue::Null);
-                let state = if b.is_null() { initial } else { b };
-                let n = as_num(&state).map_err(|e| e.with_node(current_node))?;
-                if n > Num::Int(0) {
-                    Ok((either_right(num_value(n - Num::Int(1))), false))
-                } else {
-                    Ok((either_left(result_val), false))
-                }
-            }
-            // Test helper: a body that never terminates — always returns
-            // either_right(state), feeding the state back unchanged. Used
-            // to exercise the Loop max-iteration guard.
-            "infinite_step" => {
-                let inc = args
-                    .first()
-                    .cloned()
-                    .or(incoming)
-                    .unwrap_or(TaggedValue::Null);
-                let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
-                Ok((either_right(b), false))
-            }
-            // v0.1: `product` — categorical product `***` (ADR-0074).
-            // Receives the two evaluated child results [f_result, g_result]
-            // and pairs them.
-            "product" => {
-                let left = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-                Ok((pair(left, right), false))
-            }
-            // Arrow combinators (surface syntax: `first f`, `second f`,
-            // `left f`, `right f`, `f +++ g`, `f app x`). The sub-arrows
-            // arrive as evaluated args (`TaggedValue::Arrow`); the
-            // incoming `Pair`/`Either` is destructured and the sub-arrow
-            // applied via `apply_app`.
-            "first" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let input = incoming
-                    .or_else(|| args.get(1).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                let a = pair_fst(&input).cloned().ok_or_else(|| {
-                    LangError::engine_node("first: input is not a pair".to_string(), current_node)
-                })?;
-                let b = pair_snd(&input).cloned().unwrap_or(TaggedValue::Null);
-                let fa = self.apply_app(&f, &[a], ast, lang, env)?;
-                Ok((pair(fa, b), false))
-            }
-            "second" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let input = incoming
-                    .or_else(|| args.get(1).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                let a = pair_fst(&input).cloned().unwrap_or(TaggedValue::Null);
-                let b = pair_snd(&input).cloned().ok_or_else(|| {
-                    LangError::engine_node("second: input is not a pair".to_string(), current_node)
-                })?;
-                let fb = self.apply_app(&f, &[b], ast, lang, env)?;
-                Ok((pair(a, fb), false))
-            }
-            "left" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let input = incoming
-                    .or_else(|| args.get(1).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                if is_either_left(&input) {
-                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
-                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
-                    Ok((either_left(fv), false))
-                } else if is_either_right(&input) {
-                    Ok((input, false))
-                } else {
-                    Err(LangError::engine_node(
-                        "left: input is not an either".to_string(),
-                        current_node,
-                    ))
-                }
-            }
-            "right" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let input = incoming
-                    .or_else(|| args.get(1).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                if is_either_right(&input) {
-                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
-                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
-                    Ok((either_right(fv), false))
-                } else if is_either_left(&input) {
-                    Ok((input, false))
-                } else {
-                    Err(LangError::engine_node(
-                        "right: input is not an either".to_string(),
-                        current_node,
-                    ))
-                }
-            }
-            // `f +++ g` — categorical sum. `Left a` → `Left (f a)`;
-            // `Right b` → `Right (g b)`.
-            "sum" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let g = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-                let input = incoming
-                    .or_else(|| args.get(2).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                if is_either_left(&input) {
-                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
-                    let fv = self.apply_app(&f, &[v], ast, lang, env)?;
-                    Ok((either_left(fv), false))
-                } else if is_either_right(&input) {
-                    let v = either_value(&input).cloned().unwrap_or(TaggedValue::Null);
-                    let gv = self.apply_app(&g, &[v], ast, lang, env)?;
-                    Ok((either_right(gv), false))
-                } else {
-                    Err(LangError::engine_node(
-                        "sum: input is not an either".to_string(),
-                        current_node,
-                    ))
-                }
-            }
-            // `f app x` — arrow application: apply the arrow value
-            // (arg 0) to the argument (arg 1, or the incoming value).
-            "app" => {
-                let f = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let x = args
-                    .get(1)
-                    .cloned()
-                    .or(incoming)
-                    .unwrap_or(TaggedValue::Null);
-                let v = self.apply_app(&f, &[x], ast, lang, env)?;
-                Ok((v, false))
-            }
-            // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
-            // If left is some(v), return v; if left is none or null, return
-            // right; otherwise return right.
-            "nullish" => {
-                let left = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-                if left.is_null() {
-                    Ok((right, false))
-                } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                    let inner = left.get("value").cloned().unwrap_or(TaggedValue::Null);
-                    Ok((inner, false))
-                } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
-                    Ok((right, false))
-                } else {
-                    Ok((right, false))
-                }
-            }
-            // `field_access` — dynamic field access `target[field]`,
-            // native on `TaggedValue`. Keeping this in-engine matters: the
-            // `field-access` scheme is `Native`, so `a.b`/`a[i]` on a
-            // `TaggedValue::Obj`/`Arr` never crosses the `serde_json` host
-            // boundary. A record of closures (e.g. the module records
-            // `HandlModule` produces) would otherwise force each closure's
-            // captured env through `tagged_to_value`, whose recursive env
-            // serialization is exponential in the number of prior bindings
-            // and overflows on module-sized scopes.
-            //
-            // Semantics mirror `FieldAccessHostFn` (fp.rs): object+string
-            // → lookup, array+int → index, string+string → `a.b` concat
-            // (module-path construction: an unbound `mod` identifier
-            // evaluates to the string "mod", so `mod.f` yields "mod.f"
-            // which `apply_app` dispatches to the module registry).
             "field_access" => {
                 let target = args.first().cloned().unwrap_or(TaggedValue::Null);
                 let field = current_node
@@ -3509,37 +2889,6 @@ impl TreeWalkEngine {
             // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
             // args = [input, field_name]. If input is some(v), return
             // some(v[field_name]); if input is none or null, return none.
-            "opt_chain" => {
-                let input = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let field_name = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine_node(
-                        "opt_chain: field name must be a string".to_string(),
-                        current_node,
-                    )
-                })?;
-                if input.is_null() {
-                    // null → none
-                    Ok((handl_value::tval!({"_tag": "None"}), false))
-                } else if input.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                    // some(v) → some(v.field)
-                    let inner = input.get("value").cloned().unwrap_or(TaggedValue::Null);
-                    let field_val = inner.get(field_name).cloned().unwrap_or(TaggedValue::Null);
-                    Ok((
-                        handl_value::tval!({"_tag": "Some", "value": field_val}),
-                        false,
-                    ))
-                } else if input.get("_tag").and_then(|t| t.as_str()) == Some("None") {
-                    // none → none
-                    Ok((handl_value::tval!({"_tag": "None"}), false))
-                } else {
-                    // Non-option value: treat as some(value) and extract field
-                    let field_val = input.get(field_name).cloned().unwrap_or(TaggedValue::Null);
-                    Ok((
-                        handl_value::tval!({"_tag": "Some", "value": field_val}),
-                        false,
-                    ))
-                }
-            }
             "assert" => {
                 // ADR-0089 / ADR-0092 keyword assertion. The `assert`
                 // node's single `expr` child is evaluated. If the child is
@@ -3692,8 +3041,15 @@ impl TreeWalkEngine {
                     return Ok((expr_val, false));
                 }
                 // 4. Apply the closure to the value → bool.
-                let check_result =
-                    self.apply_app(&pred_val, &[expr_val.clone()], ast, lang, env)?;
+                let check_result = self.apply_app(
+                    &pred_val,
+                    &[expr_val.clone()],
+                    ast,
+                    lang,
+                    env,
+                    node_ref,
+                    current_node,
+                )?;
                 // 5. If true → return the value (pass-through).
                 //    If false → raise LangError.
                 if is_truthy(&check_result) {
@@ -3705,14 +3061,11 @@ impl TreeWalkEngine {
                     ))
                 }
             }
-            // ADR-0119: `>>>` (`flow`) — categorical arrow composition.
-            // Build a composite arrow `g . f` whose body, when applied to
-            // an argument `x`, computes `g(f(x))`.  The component arrows
-            // (or host-function names) are captured in the closure env as
-            // `__left__` and `__right__`; the synthetic body is a pair of
-            // `call` nodes.  This makes `>>>` a true arrow constructor at
-            // every dimension: the components are not called at composition
-            // time.
+            // ADR-0074 follow-up #3: `>>>` (`flow`) — function application
+            // with a single input argument. Pass the left operand through to
+            // the right callee, destructuring a categorical `Pair` (`***`)
+            // into multiple positional args. Mirrors the bytecode/cranelift
+            // `flow` arms and the `call` dispatch path.
             "flow" => {
                 if args.len() != 2 {
                     return Err(LangError::engine_node(
@@ -3720,48 +3073,28 @@ impl TreeWalkEngine {
                         current_node,
                     ));
                 }
-                let mut body_ast = Ast::new();
-                let arg_var = body_ast
-                    .push(AstNode::new("var").with_payload(Value::String("__arg__".to_string())));
-                let left_var = body_ast
-                    .push(AstNode::new("var").with_payload(Value::String("__left__".to_string())));
-                let left_call = body_ast.push(
-                    AstNode::new("call").with_payload(serde_json::json!({
-                        "children": [left_var.index() as u64, arg_var.index() as u64]
-                    })),
-                );
-                let right_var = body_ast.push(
-                    AstNode::new("var").with_payload(Value::String("__right__".to_string())),
-                );
-                let body_ref = body_ast.push(
-                    AstNode::new("call").with_payload(serde_json::json!({
-                        "children": [right_var.index() as u64, left_call.index() as u64]
-                    })),
-                );
-                let body_def = Rc::new(TaggedValue::from(handl_language::ast_value(&body_ast)));
-                let mut captured = FxHashMap::default();
-                if let Some(parent) = &env.captured {
-                    for (k, v) in parent.iter() {
-                        captured.insert(Rc::clone(k), v.clone());
-                    }
-                }
-                for scope in &env.scopes {
-                    for (k, v) in scope {
-                        captured.insert(Rc::clone(k), v.clone());
-                    }
-                }
-                captured.insert(Rc::from("__left__"), args[0].clone());
-                captured.insert(Rc::from("__right__"), args[1].clone());
-                let arrow = TaggedValue::Arrow {
-                    params: Rc::from(vec!["__arg__".to_string()]),
-                    rest: None,
-                    body: body_ref.index(),
-                    env: Rc::new(captured),
-                    home: None,
-                    array_pattern: false,
-                    body_def: Some(body_def),
+                let input = &args[0];
+                let callee = &args[1];
+                let actual_args: Vec<TaggedValue> = if matches!(input, TaggedValue::Pair(_)) {
+                    flatten_pair(input)
+                } else {
+                    vec![input.clone()]
                 };
-                Ok((arrow, false))
+                if let Some(name) = callee.as_str() {
+                    let val = self.call_host_fn(name, &actual_args, current_node)?;
+                    Ok((val, false))
+                } else {
+                    let val = self.apply_app(
+                        callee,
+                        &actual_args,
+                        ast,
+                        lang,
+                        env,
+                        node_ref,
+                        current_node,
+                    )?;
+                    Ok((val, false))
+                }
             }
             "record" => {
                 if args.len() % 2 != 0 {
@@ -3785,162 +3118,6 @@ impl TreeWalkEngine {
                 }
                 Ok((TaggedValue::from(Value::Object(map)), false))
             }
-            "paren" => {
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "paren: expected children array in payload".to_string(),
-                            current_node,
-                        )
-                    })?;
-                if children.is_empty() {
-                    Ok((TaggedValue::Null, false))
-                } else if children.len() == 1 {
-                    let idx = children[0].as_u64().ok_or_else(|| {
-                        LangError::engine_node(
-                            "paren: child index must be a number".to_string(),
-                            current_node,
-                        )
-                    })? as usize;
-                    let val = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
-                    Ok((val, false))
-                } else {
-                    let mut vals = Vec::with_capacity(children.len());
-                    for c in children {
-                        let idx = c.as_u64().ok_or_else(|| {
-                            LangError::engine_node(
-                                "paren: child index must be a number".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                        vals.push(self.eval_node_inner(ast, AstRef::new(idx), lang, env)?);
-                    }
-                    Ok((TaggedValue::Arr(Rc::from(vals)), false))
-                }
-            }
-            "tag.construct" => {
-                if args.len() != 2 {
-                    return Err(LangError::engine_node(
-                        format!(
-                            "tag.construct: expected 2 arguments (tag_name, payload), got {}",
-                            args.len()
-                        ),
-                        current_node,
-                    ));
-                }
-                let tag_name = args[0].as_str().ok_or_else(|| {
-                    LangError::engine_node(
-                        "tag.construct: tag_name must be a string".to_string(),
-                        current_node,
-                    )
-                })?;
-                let mut obj = match &args[1] {
-                    TaggedValue::Null => FxHashMap::default(),
-                    TaggedValue::Obj(map) => map.as_ref().clone(),
-                    _ => {
-                        return Err(LangError::engine_node(
-                            "tag.construct: payload must be an object or null".to_string(),
-                            current_node,
-                        ));
-                    }
-                };
-                if obj.contains_key("__tag__") || obj.contains_key("__registry__") {
-                    return Err(LangError::engine_node(
-                        "tag.construct: payload contains reserved __tag__ or __registry__ key"
-                            .to_string(),
-                        current_node,
-                    ));
-                }
-                obj.insert(Rc::from("__tag__"), TaggedValue::Str(Rc::from(tag_name)));
-                obj.insert(
-                    Rc::from("__registry__"),
-                    TaggedValue::Str(Rc::from("handl.canonical")),
-                );
-                Ok((TaggedValue::Obj(Rc::new(obj)), false))
-            }
-            "number_add" => {
-                // Collect the two addends from explicit args, from the
-                // second component of an incoming pair, or from an incoming
-                // array. This lets a handler `Term::Op { name: "number_add",
-                // args: [] }` consume the `(incoming, evaluated_args)` pair
-                // that `ValueModel::dispatch_op` passes.
-                let operands: Vec<TaggedValue> = if args.is_empty() {
-                    if let Some(inc) = incoming.as_ref() {
-                        if let Some(snd) = pair_snd(inc) {
-                            if let Some(arr) = snd.as_array() {
-                                arr.iter().cloned().collect()
-                            } else {
-                                vec![snd.clone()]
-                            }
-                        } else if let Some(arr) = inc.as_array() {
-                            arr.iter().cloned().collect()
-                        } else {
-                            vec![inc.clone()]
-                        }
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    args.iter().cloned().collect()
-                };
-
-                if operands.len() < 2 {
-                    return Err(LangError::engine_node(
-                        "number_add: expected at least two Number inputs".to_string(),
-                        current_node,
-                    ));
-                }
-
-                let a = &operands[0];
-                let b = &operands[1];
-
-                if a.get("__tag__").and_then(|t| t.as_str()) != Some("Number") {
-                    return Err(LangError::engine_node(
-                        "number_add: first input is not a Number".to_string(),
-                        current_node,
-                    ));
-                }
-                let a_value = a.get("value").ok_or_else(|| {
-                    LangError::engine_node(
-                        "number_add: first Number has no value".to_string(),
-                        current_node,
-                    )
-                })?;
-                let a_num = as_num(a_value).map_err(|e| e.with_node(current_node))?;
-
-                if b.get("__tag__").and_then(|t| t.as_str()) != Some("Number") {
-                    return Err(LangError::engine_node(
-                        "number_add: second input is not a Number".to_string(),
-                        current_node,
-                    ));
-                }
-                let b_value = b.get("value").ok_or_else(|| {
-                    LangError::engine_node(
-                        "number_add: second Number has no value".to_string(),
-                        current_node,
-                    )
-                })?;
-                let b_num = as_num(b_value).map_err(|e| e.with_node(current_node))?;
-
-                let sum = a_num + b_num;
-                let first_obj = tagged_to_value(a);
-                let mut payload = first_obj.as_object().cloned().unwrap_or_default();
-                payload.remove("__tag__");
-                payload.insert("value".to_string(), Value::from(num_value(sum)));
-                let result = tag_value("Number", &Value::Object(payload)).ok_or_else(|| {
-                    LangError::engine_node(
-                        "number_add: failed to mint Number result".to_string(),
-                        current_node,
-                    )
-                })?;
-                Ok((TaggedValue::from(result), false))
-            }
-            // Frontier: transport a value along a path. The path is already
-            // evaluated for effects; the runtime result is the value itself.
-            "transport" => Ok((args.get(1).cloned().unwrap_or(TaggedValue::Null), false)),
             _ => Err(LangError::engine_node(
                 format!("unknown v2 native op: {}", op),
                 current_node,
@@ -3989,7 +3166,25 @@ impl TreeWalkEngine {
         ast: &Ast,
         lang: &Language,
         env: &mut ScopeStack,
+        node_ref: AstRef,
+        current_node: &AstNode,
     ) -> Result<TaggedValue, LangError> {
+        // First-class `arr <op>` dispatch object: apply the op to the args.
+        if let Some(inner) = callee.get(ARR_DISPATCH_TAG) {
+            let op = inner.get("op").and_then(|v| v.as_str()).ok_or_else(|| {
+                LangError::engine_node(
+                    "arr: missing op in dispatch object".to_string(),
+                    current_node,
+                )
+            })?;
+            let incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let (val, pushed) =
+                self.arr_dispatch(op, &incoming, ast, node_ref, lang, env, current_node)?;
+            if pushed {
+                env.pop_scope();
+            }
+            return Ok(val);
+        }
         // Closure application — match on TaggedValue::Arrow directly.
         let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) =
             match callee {
@@ -4011,8 +3206,9 @@ impl TreeWalkEngine {
                     body_def.clone(),
                 ),
                 _ => {
-                    return Err(LangError::engine(
+                    return Err(LangError::engine_node(
                         "callee is not an arrow-value".to_string(),
+                        current_node,
                     ));
                 }
             };
@@ -4068,8 +3264,18 @@ impl TreeWalkEngine {
             if let Some(g) = &frame.globals {
                 frame_env.set_globals(Rc::clone(g));
             }
+            let call_node = AstNode::new("call");
+            let call_ref = AstRef::new(0);
             return frame.enter(|| {
-                engine.apply_app(&local_callee, args, &frame.ast, &frame.lang, &mut frame_env)
+                engine.apply_app(
+                    &local_callee,
+                    args,
+                    &frame.ast,
+                    &frame.lang,
+                    &mut frame_env,
+                    call_ref,
+                    &call_node,
+                )
             });
         }
         // Array-pattern arrows (`[x, y] ~> body`) consume a single array
@@ -4166,10 +3372,43 @@ impl TreeWalkEngine {
             Some(Rc::clone(&env.globals)),
         )?;
         while !rest.is_empty() {
-            val = self.apply_app(&val, rest, ast, lang, env)?;
+            val = self.apply_app(&val, rest, ast, lang, env, node_ref, current_node)?;
             rest = &[];
         }
         Ok(val)
+    }
+
+    /// Dispatch an `arr <op>` for a concrete incoming value.  First search
+    /// the runtime handler stack for an implementation of `op`, then fall
+    /// back to the native op implementation.
+    #[allow(clippy::too_many_arguments)]
+    fn arr_dispatch(
+        &self,
+        op: &str,
+        incoming: &TaggedValue,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(TaggedValue, bool), LangError> {
+        if let Some(res) =
+            self.dispatch_op(op, Some(incoming), ast, node_ref, lang, env, current_node)?
+        {
+            return Ok(res);
+        }
+        let op_args = flatten_pair(incoming);
+        self.apply_native(
+            op,
+            &op_args,
+            None,
+            ast,
+            node_ref,
+            lang,
+            env,
+            current_node,
+            Some(incoming.clone()),
+        )
     }
 
     /// Apply an arrow body: build a fresh env that **shares** the carried
@@ -5939,177 +5178,68 @@ impl TreeWalkCallable {
 // Numeric helpers
 // ---------------------------------------------------------------------------
 
-/// A number that tracks int-vs-float.
-#[derive(Debug, Clone, Copy)]
-enum Num {
-    /// Integer value.
-    Int(i64),
-    /// Float value.
-    Float(f64),
+/// The tree-walk engine's [`NativeOpCtx`] — the engine-local globals the
+/// shared op table needs: the `ScopeStack`, AST-node evaluation, and
+/// arrow application. The op *semantics* live in
+/// `plugin-engine-exec::native_ops`; this struct only forwards services.
+struct TwCtx<'e, 'a> {
+    engine: &'e TreeWalkEngine,
+    ast: &'a Ast,
+    node_ref: AstRef,
+    lang: &'a Language,
+    env: &'a mut ScopeStack,
+    current_node: &'a AstNode,
 }
 
-impl Num {
-    fn to_f64(self) -> f64 {
-        match self {
-            Num::Int(i) => i as f64,
-            Num::Float(f) => f,
-        }
+impl NativeOpCtx for TwCtx<'_, '_> {
+    fn supports(&self, _service: OpService) -> bool {
+        // The tree-walk interpreter can provide every declared service.
+        true
     }
-}
 
-impl std::ops::Add for Num {
-    type Output = Num;
-    fn add(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a + b),
-            _ => Num::Float(self.to_f64() + other.to_f64()),
-        }
+    fn node_payload(&self) -> Option<&Value> {
+        Some(&self.current_node.payload)
     }
-}
 
-impl std::ops::Sub for Num {
-    type Output = Num;
-    fn sub(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a - b),
-            _ => Num::Float(self.to_f64() - other.to_f64()),
-        }
+    fn eval_node(&mut self, r: AstRef) -> Result<TaggedValue, LangError> {
+        self.engine
+            .eval_node_inner(self.ast, r, self.lang, self.env)
     }
-}
 
-impl std::ops::Mul for Num {
-    type Output = Num;
-    fn mul(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(a * b),
-            _ => Num::Float(self.to_f64() * other.to_f64()),
-        }
+    fn env_lookup(&mut self, name: &str) -> Option<TaggedValue> {
+        self.env.lookup(name).cloned()
     }
-}
 
-impl std::ops::Div for Num {
-    type Output = Num;
-    fn div(self, other: Num) -> Num {
-        match (self, other) {
-            (Num::Int(a), Num::Int(b)) => {
-                if b != 0 {
-                    Num::Int(a / b)
-                } else {
-                    Num::Float(self.to_f64() / other.to_f64())
-                }
-            }
-            _ => Num::Float(self.to_f64() / other.to_f64()),
-        }
+    fn env_define(&mut self, name: &str, value: TaggedValue) {
+        self.env.define(name, value);
     }
-}
 
-impl PartialEq for Num {
-    fn eq(&self, other: &Num) -> bool {
-        self.to_f64() == other.to_f64()
+    fn env_push(&mut self) {
+        self.env.push_scope();
     }
-}
 
-impl PartialOrd for Num {
-    fn partial_cmp(&self, other: &Num) -> Option<std::cmp::Ordering> {
-        self.to_f64().partial_cmp(&other.to_f64())
+    fn env_pop(&mut self) {
+        self.env.pop_scope();
     }
-}
 
-/// Extract a number from a [`TaggedValue`].
-fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
-    match v {
-        TaggedValue::Int(i) => Ok(Num::Int(*i)),
-        TaggedValue::Float(f) => Ok(Num::Float(*f)),
-        _ => Err(LangError::engine(format!("expected number, got {:?}", v))),
+    fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
+        self.env.capture()
     }
-}
 
-/// Convert a [`Num`] back to a [`TaggedValue`].
-fn num_value(n: Num) -> TaggedValue {
-    match n {
-        Num::Int(i) => TaggedValue::Int(i),
-        Num::Float(f) => TaggedValue::Float(f),
-    }
-}
-
-/// Whether a [`TaggedValue`] is truthy.
-///
-/// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
-fn is_truthy(v: &TaggedValue) -> bool {
-    match v {
-        TaggedValue::Bool(b) => *b,
-        TaggedValue::Null => false,
-        TaggedValue::Int(i) => *i != 0,
-        TaggedValue::Float(f) => *f != 0.0,
-        TaggedValue::Str(s) => !s.is_empty(),
-        _ => true,
-    }
-}
-
-/// Binary numeric op helper.
-fn bin_num<F>(args: &[TaggedValue], f: F) -> Result<(TaggedValue, bool), LangError>
-where
-    F: FnOnce(Num, Num) -> Num,
-{
-    let a = as_num(&args[0])?;
-    let b = as_num(&args[1])?;
-    Ok((num_value(f(a, b)), false))
-}
-
-/// Addition helper. Supports string concatenation when both operands are
-/// strings, and numeric addition when both operands are numbers. Any other
-/// combination of types is a type-mismatch error.
-fn bin_add(args: &[TaggedValue]) -> Result<(TaggedValue, bool), LangError> {
-    let a = &args[0];
-    let b = &args[1];
-    match (a, b) {
-        (TaggedValue::Str(s1), TaggedValue::Str(s2)) => {
-            Ok((TaggedValue::Str(Rc::from(format!("{}{}", s1, s2))), false))
-        }
-        (TaggedValue::Str(_), _) | (_, TaggedValue::Str(_)) => Err(LangError::engine(format!(
-            "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
-            tagged_to_value(a),
-            tagged_to_value(b)
-        ))),
-        _ => bin_num(args, |x, y| x + y),
-    }
-}
-
-/// Numeric comparison helper.
-fn cmp_num<F>(args: &[TaggedValue], f: F) -> Result<(TaggedValue, bool), LangError>
-where
-    F: FnOnce(Num, Num) -> bool,
-{
-    let a = as_num(&args[0])?;
-    let b = as_num(&args[1])?;
-    Ok((TaggedValue::Bool(f(a, b)), false))
-}
-
-// ---------------------------------------------------------------------------
-// Pair / Either value-shape helpers
-// ---------------------------------------------------------------------------
-
-/// Return the type tag string for a TaggedValue (ADR-0060).
-///
-/// Used by `route_on_type` and the `typeof` native op. Returns one of
-/// `"null"`, `"bool"`, `"number"`, `"string"`, `"array"`, `"object"`.
-fn type_tag(v: &TaggedValue) -> &'static str {
-    match v {
-        TaggedValue::Null => "null",
-        TaggedValue::Bool(_) => "bool",
-        TaggedValue::Int(_) | TaggedValue::Float(_) => "number",
-        TaggedValue::Str(_) => "string",
-        TaggedValue::Arr(_) => "array",
-        TaggedValue::Obj(_) => "object",
-        TaggedValue::Pair(..) => "object",
-        TaggedValue::EitherLeft(_) | TaggedValue::EitherRight(_) => "object",
-        TaggedValue::Arrow { .. } => "object",
-        // ADR-0083 §2.1: `Bytes` is a scalar type in `value_types.yaml`.
-        TaggedValue::Bytes(_) => "bytes",
-        // ADR-0083 §2.2: opaque foreign resource handle.
-        TaggedValue::Resource(_) => "resource",
-        // ADR-0106: nominal identity object (`sym()` / `sym(A)`).
-        TaggedValue::Sym(_) => "sym",
+    fn apply_arrow(
+        &mut self,
+        f: &TaggedValue,
+        args: &[TaggedValue],
+    ) -> Result<TaggedValue, LangError> {
+        self.engine.apply_app(
+            f,
+            args,
+            self.ast,
+            self.lang,
+            self.env,
+            self.node_ref,
+            self.current_node,
+        )
     }
 }
 
@@ -6148,23 +5278,28 @@ fn flatten_pair(v: &TaggedValue) -> Vec<TaggedValue> {
     }
 }
 
-/// Extract the `impls[op]` implementation entry of a handler-like value.
+/// Extract the implementation entry for `op` from a handler-like value.
 ///
-/// A `Handler` value is a tagged object
-/// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}`; a graded
-/// incoming value may also embed an `impls` field. Returns the serialized
-/// [`Term`] JSON for `op`, or `None` when the value has no `impls` object
-/// or no entry for `op`.
+/// A canonical `handler` value is a tagged object
+/// `{"__tag__": "handler", "impls": {"<op>": <arrow or Term>, ...}}`.
+/// Surface handler records are plain objects whose keys are the operation
+/// names: `{"<op>": <arrow or Term>, ...}`.  Returns the JSON for `op`,
+/// or `None` when the value has no implementation for `op`.
 fn handler_impl(v: &TaggedValue, op: &str) -> Option<Value> {
-    v.get("impls")?.get(op).map(tagged_to_value)
+    v.get("impls")
+        .and_then(|impls| impls.get(op))
+        .or_else(|| v.get(op))
+        .map(tagged_to_value)
 }
 
 /// Construct a `left` Either value.
+#[cfg(test)]
 fn either_left(v: TaggedValue) -> TaggedValue {
     handl_value::either_left(v)
 }
 
 /// Construct a `right` Either value.
+#[cfg(test)]
 fn either_right(v: TaggedValue) -> TaggedValue {
     handl_value::either_right(v)
 }
@@ -6182,78 +5317,6 @@ fn is_either_right(v: &TaggedValue) -> bool {
 /// Extract the carried value from an Either.
 fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
     handl_value::either_value(v)
-}
-
-/// Build the argument list for a `loop_step` body proc application.
-///
-/// If the closure has multiple params and the current state is an
-/// object, bind each param to the corresponding field by name
-/// (destructuring). Otherwise, pass the current state as a single
-/// argument.
-fn build_loop_step_args(closure_val: &TaggedValue, current: &TaggedValue) -> Vec<TaggedValue> {
-    if let Some(obj_state) = current.as_object() {
-        if let TaggedValue::Arrow {
-            params,
-            array_pattern,
-            ..
-        } = closure_val
-        {
-            if *array_pattern {
-                if params.len() == 1 {
-                    // Single-param array-pattern arrow: pass the state
-                    // directly as the sole array element.
-                    return vec![TaggedValue::Arr(Rc::from([current.clone()]))];
-                }
-                // Multi-param array-pattern: destructure the object state
-                // by param name and pack into one array.
-                let arr: Vec<TaggedValue> = params
-                    .iter()
-                    .map(|p| {
-                        obj_state
-                            .get(p.as_str())
-                            .cloned()
-                            .unwrap_or(TaggedValue::Null)
-                    })
-                    .collect();
-                return vec![TaggedValue::Arr(Rc::from(arr))];
-            }
-            if params.len() > 1 {
-                // Destructure: bind each param to the
-                // corresponding field by name.
-                return params
-                    .iter()
-                    .map(|p| {
-                        obj_state
-                            .get(p.as_str())
-                            .cloned()
-                            .unwrap_or(TaggedValue::Null)
-                    })
-                    .collect();
-            }
-        }
-    }
-    vec![current.clone()]
-}
-
-/// Interpret the result of a `loop_step` body proc application,
-/// producing the `Either` value consumed by the `Loop` combinator.
-///
-/// - `{ state: v }`  → `right(v)` (continue with new state)
-/// - `{ out: v }`    → `left(v)` (terminate, backward compat)
-/// - bare object     → `left(result)` (terminate, `return v`)
-/// - non-object      → `left(result)` (terminate, `return v`)
-fn interpret_loop_step_result(result: &TaggedValue) -> TaggedValue {
-    if let Some(obj) = result.as_object() {
-        if let Some(new_state) = obj.get("state") {
-            return either_right(new_state.clone());
-        } else if let Some(out) = obj.get("out") {
-            return either_left(out.clone());
-        }
-        // Object without out/state keys — treat as exit value (return).
-        return either_left(result.clone());
-    }
-    // Non-object (number, string, bool, null, array) — exit with the value.
-    either_left(result.clone())
 }
 
 // ---------------------------------------------------------------------------
@@ -6380,6 +5443,7 @@ mod tests {
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
+    use handl_plugin_engine_exec::native_ops::Num;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 

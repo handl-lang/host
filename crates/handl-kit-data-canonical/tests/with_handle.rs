@@ -1,4 +1,4 @@
-//! Tests for the `with`/`handle` surface syntax.
+//! Tests for the `handle <expr> with <handler>` surface syntax.
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, AstNode, Language, Source};
@@ -46,66 +46,47 @@ fn children<'a>(ast: &'a Ast, node: &'a AstNode) -> Vec<&'a AstNode> {
 }
 
 #[test]
-fn with_handle_tokens_exist() {
+fn handle_tokens_exist() {
     let lang = full_language();
-    for id in ["token.keyword.with", "token.keyword.handle"] {
+    for id in ["token.keyword.handle", "token.keyword.with"] {
         assert!(lang.tokens.get_by_id(id).is_some(), "missing {id}");
     }
 }
 
 #[test]
-fn with_handle_grammar_rows_exist() {
+fn handle_grammar_row_exists() {
     let lang = full_language();
-    for id in ["grammar.with.prefix", "grammar.handle.prefix"] {
-        assert!(lang.grammar.get_by_id(id).is_some(), "missing {id}");
-    }
+    assert!(
+        lang.grammar.get_by_id("grammar.handle.prefix").is_some(),
+        "missing grammar.handle.prefix"
+    );
 }
 
 #[test]
-fn with_handle_ast_shapes_exist() {
+fn handle_ast_shape_exists() {
     let lang = full_language();
-    for (id, roles) in [
-        ("ast.with", vec!["handler", "body"]),
-        ("ast.handle", vec!["target", "impl", "body"]),
-    ] {
-        let shape = lang
-            .ast
-            .get_by_id(id)
-            .unwrap_or_else(|| panic!("missing {id}"));
-        let declared: Vec<&str> = shape
-            .children
-            .as_ref()
-            .expect("shape declares child roles")
-            .iter()
-            .map(|c| c.role.as_str())
-            .collect();
-        assert_eq!(declared, roles, "role mismatch for {id}");
-    }
+    let shape = lang
+        .ast
+        .get_by_id("ast.handle")
+        .unwrap_or_else(|| panic!("missing ast.handle"));
+    let declared: Vec<&str> = shape
+        .children
+        .as_ref()
+        .expect("shape declares child roles")
+        .iter()
+        .map(|c| c.role.as_str())
+        .collect();
+    assert_eq!(declared, vec!["target", "impl"]);
 }
 
 #[test]
-fn with_expression_parses() {
-    let ast = parse("with NumberHandler do add(1, 2)");
-    let r = root(&ast);
-    assert_eq!(r.kind, "with");
-    let cs = children(&ast, r);
-    assert_eq!(cs.len(), 2);
-    assert_eq!(cs[0].kind, "var");
-    assert_eq!(cs[0].payload, serde_json::json!("NumberHandler"));
-    assert_eq!(cs[1].kind, "call");
-}
-
-#[test]
-#[ignore = "n-dim: handle expression syntax is still stabilizing"]
 fn handle_expression_parses() {
-    let ast = parse("handle NumberHandler = () ~> { add(1, 2) } in add(1, 2)");
+    let ast = parse("handle add(1, 2) with NumberHandler");
     let r = root(&ast);
     assert_eq!(r.kind, "handle");
-    assert_eq!(r.payload.get("name").unwrap(), "NumberHandler");
     let cs = children(&ast, r);
-    assert_eq!(cs.len(), 3);
-    assert_eq!(cs[0].kind, "var");
-    assert_eq!(cs[0].payload, serde_json::json!("NumberHandler"));
-    assert_eq!(cs[1].kind, "function");
-    assert_eq!(cs[2].kind, "call");
+    assert_eq!(cs.len(), 2);
+    assert_eq!(cs[0].kind, "call");
+    assert_eq!(cs[1].kind, "var");
+    assert_eq!(cs[1].payload, serde_json::json!("NumberHandler"));
 }

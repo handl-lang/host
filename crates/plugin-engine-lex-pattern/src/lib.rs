@@ -76,9 +76,29 @@ pub fn lex(lang: &Language, src: &str) -> Result<Tokens, LangError> {
             .then_with(|| literal_len(b).cmp(&literal_len(a)))
     });
 
+    // Token kinds declared `category: open-bracket`/`close-bracket` (with a
+    // `pair` back-reference) drive a bracket stack: an opener pushes its
+    // kind, and a close-bracket rule only matches when the innermost open
+    // bracket's declared pair IS that close kind. This is what lets `]~>`
+    // be `token.dim_close` inside `~[ ... ]~>` while remaining `]` + `~>`
+    // inside `[a, b]~>` (a list-literal arrow parameter).
+    let open_bracket = |kind: &str| -> bool {
+        lang.token_kind(kind)
+            .and_then(|d| d.category.as_deref())
+            .map(|c| c == "open-bracket")
+            .unwrap_or(false)
+    };
+    let close_bracket = |kind: &str| -> bool {
+        lang.token_kind(kind)
+            .and_then(|d| d.category.as_deref())
+            .map(|c| c == "close-bracket")
+            .unwrap_or(false)
+    };
+
     let bytes = src.as_bytes();
     let mut pos: usize = 0;
     let mut tokens: Vec<Token> = Vec::new();
+    let mut brackets: Vec<String> = Vec::new();
 
     while pos < bytes.len() {
         // 2a. Skip whitespace.
@@ -89,23 +109,57 @@ pub fn lex(lang: &Language, src: &str) -> Result<Tokens, LangError> {
             }
         }
 
-        // 2b. Try each rule in priority order; first match wins.
+        // 2b. Try each rule in priority order; first match wins. A
+        // close-bracket candidate is *preferred* only when the innermost
+        // open bracket pairs with it (strict pass); if no rule matches
+        // under that constraint, a lenient pass accepts it anyway — a
+        // mismatched closer still lexes so the parser can report the
+        // error, matching pre-bracket-stack behaviour.
         let mut matched = false;
-        for rule in &rules {
-            if let Some((kind, text, next)) = try_rule(rule, src, pos, &literal_kinds) {
-                tokens.push(Token {
-                    kind: kind.to_string(),
-                    text,
-                    start: pos,
-                    end: next,
-                });
-                pos = next;
-                matched = true;
+        for strict in [true, false] {
+            for rule in &rules {
+                if let Some((kind, text, next)) = try_rule(rule, src, pos, &literal_kinds) {
+                    if strict && close_bracket(kind) {
+                        let pairs = brackets
+                            .last()
+                            .and_then(|open| lang.token_pair(open))
+                            .map(|p| p == kind)
+                            .unwrap_or(false);
+                        if !pairs {
+                            continue;
+                        }
+                    }
+                    if open_bracket(kind) {
+                        brackets.push(kind.to_string());
+                    } else if close_bracket(kind) {
+                        brackets.pop();
+                    }
+                    tokens.push(Token {
+                        kind: kind.to_string(),
+                        text,
+                        start: pos,
+                        end: next,
+                    });
+                    pos = next;
+                    matched = true;
+                    break;
+                }
+            }
+            if matched {
                 break;
             }
         }
 
         if !matched {
+            // Whitespace that no rule claims (e.g. `\n` in a language
+            // without a newline token rule) is skipped — same as before
+            // `layout` tokens existed, so third-party kits keep working.
+            if let Some(ch) = peek_char(src, pos) {
+                if ch.is_whitespace() {
+                    pos += ch.len_utf8();
+                    continue;
+                }
+            }
             return Err(LangError::LexError {
                 position: pos,
                 message: format!(
@@ -351,9 +405,12 @@ fn peek_char(src: &str, pos: usize) -> Option<char> {
     src[pos..].chars().next()
 }
 
-/// Whether `ch` is whitespace (skipped by the lexer).
+/// Whether `ch` is whitespace (skipped by the lexer). `\n` is *not* skipped:
+/// it lexes as a `layout` token (`TokenKindDef::layout` — `token.newline` in
+/// the canonical kit) so layout-aware constructs such as record literals can
+/// treat a line break as an element separator.
 fn is_whitespace(ch: char) -> bool {
-    matches!(ch, ' ' | '\t' | '\n' | '\r')
+    matches!(ch, ' ' | '\t' | '\r')
 }
 
 /// Check whether `ch` matches the character class `class`.

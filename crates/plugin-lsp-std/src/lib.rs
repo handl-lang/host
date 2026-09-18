@@ -9,8 +9,8 @@
 use handl_host_tooling::lsp::{
     CompletionPlugin, CompletionRequest, CompletionResponse, DocumentSymbolsPlugin,
     DocumentSymbolsRequest, DocumentSymbolsResponse, FoldingRangePlugin, FoldingRangeRequest,
-    FoldingRangeResponse, GotoDefPlugin, GotoDefRequest, GotoDefResponse, HoverPlugin, HoverRequest,
-    HoverResponse, SignatureHelpPlugin, SignatureHelpRequest, SignatureHelpResponse,
+    FoldingRangeResponse, GotoDefPlugin, GotoDefRequest, GotoDefResponse, HoverPlugin,
+    HoverRequest, HoverResponse, SignatureHelpPlugin, SignatureHelpRequest, SignatureHelpResponse,
 };
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::Language;

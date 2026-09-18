@@ -1075,55 +1075,8 @@
               - !Arr
                 value: "output"
     source: Native
-# `handler` — handler declaration: a model for one sort (ADR-0098/0100).
-- id: eval.handler
-  node_kind: handler
-  scheme: !Op
-    name: "tag.construct"
-    args:
-      - !Arr
-        value: "handler"
-      - !Op
-        name: "record"
-        source: Native
-        args:
-          - !Arr
-            value: "name"
-          - !Child
-            role: "name"
-          - !Arr
-            value: "impls"
-          - !Child
-            role: "impl"
-          - !Arr
-            value: "grades"
-          - !Seq
-            fst: !Child
-              role: "grades"
-            snd: !Seq
-              fst: !Op
-                name: tag
-                args: []
-                source: Native
-              snd: !Choice
-                l: !Op
-                  name: id
-                  args: []
-                  source: Native
-                r: !Arr
-                  value: []
-    source: Native
-# `with` — install a handler for the duration of `body`.
-- id: eval.with
-  node_kind: with
-  scheme: !Handle
-    body: !Child
-      role: "body"
-    target: ""
-    impl_: !Child
-      role: "handler"
-# `handle` — install a handler for an op arrow.
-# `handle <arrow> with <handler>` gives `arrow` as the body (role
+# `handle` — install a handler for the dynamic extent of an expression.
+# `handle <expr> with <handler>` gives `expr` as the body (role
 # `target`) and `handler` as the implementation (role `impl`).
 - id: eval.handle
   node_kind: handle

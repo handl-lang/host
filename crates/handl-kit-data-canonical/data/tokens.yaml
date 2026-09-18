@@ -4,7 +4,8 @@
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
 # Added (graded-theory declarations, ADR-0100): sort, grade, grades, op,
-#   handler, rewrite keywords and the `=>` 2-cell arrow (token.fat_arrow).
+#   rewrite keywords and the `=>` 2-cell arrow (token.fat_arrow);
+#   `handler` removed — handlers are plain arrow/record values.
 # Added (Option B frontier, ADR-0101 §2a): id2, where, cell_vcomp (=>>),
 #   cell_hcomp (=>|), at_left (<@), at_right (@>), sharp (#), cobind (?>).
 # Retained: axiom (compatible alias for law — grammar.axiom.prefix).
@@ -37,10 +38,6 @@
 - id: token.bang
   label: null
   category: operator
-- id: token.bool
-  label: bool
-  literal: Bool
-  category: bool
 - id: token.choice
   label: "|||"
   category: operator
@@ -159,14 +156,15 @@
   label: grades
   category: keyword
   doc: "**Grade list clause of a `sort` declaration** `grades`\n\n```\nsort `Name` grades `G1`, `G2`\n```"
-- id: token.keyword.handler
-  label: handler
-  category: keyword
-  doc: "**Handler declaration — a model for one sort** `handler`\n\n```\nhandler `Name` = `impl`\n```"
+- id: token.newline
+  label: newline
+  category: layout
+  layout: true
+  doc: "**Line break** `\\n` — emitted by the lexer and skipped transparently by the parser cursor; `DelimitedShape::newline_separator` constructs (record literals) treat it as an element separator."
 - id: token.keyword.handle
   label: handle
   category: keyword
-  doc: "**Handle expression — install a handler for a capability** `handle`\n\n```\nhandle `Name` = `impl` in `body`\n```"
+  doc: "**Handle expression — install a handler for a dynamic extent** `handle`\n\n```\nhandle `expr` with `handler`\n```"
 - id: token.keyword.if
   label: if
   category: keyword

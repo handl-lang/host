@@ -72,15 +72,23 @@ done < <(find handl-packages examples -name '*.hnl' -print0 | sort -z)
 
 echo "Canonical .hnl files: ${#canonical_files[@]}"
 
+# Parallelism for the slow phases. `nproc` is available on Linux; default
+# to 4 on macOS or minimal containers.
+JOBS=${HNL_DOGFOOD_JOBS:-$(nproc 2>/dev/null || echo 4)}
+# Batch size: enough to amortize the per-process Language/Kit assembly
+# (significant for typecheck/lint), small enough to keep many batches
+# running in parallel and finish within a reasonable tail.
+BATCH_SIZE=12
+
 echo
-echo "== hnl fmt --check =="
+echo "== hnl fmt --check (jobs: $JOBS) =="
 fmt_status=0
-for f in "${canonical_files[@]}"; do
-  if ! "$HNL" fmt --check "$f"; then
+if [ "${#canonical_files[@]}" -gt 0 ]; then
+  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n 1 "$HNL" fmt --check; then
     fmt_status=1
     status=1
   fi
-done
+fi
 if [ "$fmt_status" -eq 0 ]; then
   echo "PASS: fmt"
 else
@@ -88,14 +96,14 @@ else
 fi
 
 echo
-echo "== hnl lint =="
+echo "== hnl lint (jobs: $JOBS, batch: $BATCH_SIZE) =="
 lint_status=0
-for f in "${canonical_files[@]}"; do
-  if ! "$HNL" lint "$f"; then
+if [ "${#canonical_files[@]}" -gt 0 ]; then
+  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n "$BATCH_SIZE" "$HNL" lint; then
     lint_status=1
     status=1
   fi
-done
+fi
 if [ "$lint_status" -eq 0 ]; then
   echo "PASS: lint"
 else
@@ -103,10 +111,10 @@ else
 fi
 
 echo
-echo "== hnl typecheck =="
+echo "== hnl typecheck (jobs: $JOBS, batch: $BATCH_SIZE) =="
 tc_status=0
 if [ "${#canonical_files[@]}" -gt 0 ]; then
-  if ! "$HNL" typecheck "${canonical_files[@]}"; then
+  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n "$BATCH_SIZE" "$HNL" typecheck; then
     tc_status=1
     status=1
   fi
@@ -118,15 +126,13 @@ else
 fi
 
 echo
-echo "== hnl test =="
+echo "== hnl test (jobs: $JOBS) =="
 test_status=0
 if [ "${#canonical_files[@]}" -gt 0 ]; then
-  if ! "$HNL" test "${canonical_files[@]}"; then
+  if ! "$HNL" test --jobs "auto" "${canonical_files[@]}"; then
     test_status=1
     status=1
   fi
-else
-  echo "SKIP: no canonical test files"
 fi
 if [ "$test_status" -eq 0 ]; then
   echo "PASS: test"

@@ -1,11 +1,12 @@
-//! End-to-end `op` / `handler` / `with ... do ...` runtime test.
+//! End-to-end `op` / `handle ... with ...` runtime test.
 //!
 //! The `op` declaration is parsed, evaluated, and registered on the
-//! `Language`. The `handler` declaration is parsed; a concrete `Handler`
-//! value with an `add` implementation is then injected manually. The
-//! `with NumberHandler do add(1, 2)` surface expression is parsed and run
-//! through the tree-walk engine, exercising grade-based op dispatch from
-//! source.
+//! `Language`. A concrete `Handler` value with an `add` implementation is
+//! bound as an ordinary name — a handler is just a normal arrow/record
+//! value, no dedicated declaration keyword. The
+//! `handle add(1, 2) with NumberHandler` surface expression is parsed and
+//! run through the tree-walk engine, exercising grade-based op dispatch
+//! from source.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -42,14 +43,9 @@ fn op_handler_with_runs_end_to_end() {
     let op_value = runtime.eval(&op_ast).expect("eval op");
     runtime.lang_mut().register_op("add", op_value);
 
-    // Parse the `handler` declaration to exercise the surface syntax.
-    let handler_src = "handler NumberHandler = () ~> { 1 + 2 }";
-    let handler_toks = runtime.lex(&Source::new(handler_src)).expect("lex handler");
-    let _handler_ast = runtime.parse(&handler_toks).expect("parse handler");
-
     // Build a concrete Handler value: `add` returns a constant `Number`.
-    // In a full implementation the source `handler` would produce this map;
-    // for the end-to-end `with` test we insert it directly.
+    // A handler is an ordinary value bound with `:=` — here we inject the
+    // map directly for the end-to-end `handle` test.
     let add_impl = serde_json::to_value(
         &TermData::arr(json!(3.0))
             .to_term()
@@ -65,16 +61,16 @@ fn op_handler_with_runs_end_to_end() {
         }
     });
 
-    // Parse and run `with NumberHandler do add(1, 2)`.
-    let with_src = "with NumberHandler do add(1, 2)";
-    let with_toks = runtime.lex(&Source::new(with_src)).expect("lex with");
-    let with_ast = runtime.parse(&with_toks).expect("parse with");
+    // Parse and run `handle add(1, 2) with NumberHandler`.
+    let handle_src = "handle add(1, 2) with NumberHandler";
+    let handle_toks = runtime.lex(&Source::new(handle_src)).expect("lex handle");
+    let handle_ast = runtime.parse(&handle_toks).expect("parse handle");
 
     let mut globals = HashMap::new();
     globals.insert("NumberHandler".to_string(), handler_value);
     let result = runtime
-        .eval_with_globals(&with_ast, &globals)
-        .expect("with expression evaluates");
+        .eval_with_globals(&handle_ast, &globals)
+        .expect("handle expression evaluates");
 
     assert_eq!(result["__tag__"], "Number");
     assert_eq!(result["value"], 3.0);

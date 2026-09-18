@@ -105,6 +105,7 @@ fn arith_lang() -> Language {
                     open_is_operator_token: true,
                     flatten: true,
                     rest_token: None,
+                    newline_separator: false,
                 }),
             )
             .with_binding_power(0, 0),
@@ -145,6 +146,7 @@ fn arith_lang() -> Language {
                     open_is_operator_token: true,
                     flatten: true,
                     rest_token: None,
+                    newline_separator: false,
                 }),
             )
             .with_binding_power(0, 0),
@@ -406,10 +408,12 @@ fn format_match_arms_with_pairs() {
                     pair: Some(PairShape {
                         separator: "token.colon".into(),
                         node_kind: "arm".into(),
+                        record: false,
                     }),
                     open_is_operator_token: false,
                     flatten: false,
                     rest_token: None,
+                    newline_separator: false,
                 }),
             )
             .with_binding_power(0, 0),

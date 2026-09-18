@@ -162,17 +162,20 @@ fn lex_delimiters() {
 
 #[test]
 fn lex_bool_and_null() {
+    // `true`/`false` are no longer lexed as literals — they are ordinary
+    // identifiers bound as value exports of the `bool` package
+    // (`Language::globals` ambient bindings).
     let toks = lex("true false null");
     assert_eq!(
         toks,
         vec![
             Token {
-                kind: "token.bool".into(),
+                kind: "token.identifier".into(),
                 text: "true".into(),
                 ..Default::default()
             },
             Token {
-                kind: "token.bool".into(),
+                kind: "token.identifier".into(),
                 text: "false".into(),
                 ..Default::default()
             },

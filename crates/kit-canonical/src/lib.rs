@@ -390,14 +390,9 @@ impl ImportResolver for DedentImportResolver {
             "type" => std::sync::Arc::new(build_type_module()),
             _ => unreachable!(),
         });
-        let mut obj = serde_json::Map::new();
-        for (fname, _f) in module.functions() {
-            obj.insert(
-                fname.to_string(),
-                Value::String(format!("{}.{}", module.name(), fname)),
-            );
-        }
-        Ok(Value::Object(obj))
+        Ok(handl_plugin_lib_handl::module_bindings_object(
+            module.as_ref(),
+        ))
     }
 }
 
@@ -894,6 +889,18 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
             for (fname, _) in module.functions() {
                 names.insert(fname.to_string());
             }
+            // Value exports (`true`/`false` on `bool`) are in scope too —
+            // the typecheck prelude must match what eval resolves.
+            for vname in module.value_names() {
+                names.insert(vname);
+            }
+        }
+    }
+    // Ambient globals declared by the language data (`globals.yaml`) —
+    // seeded into every runtime's scope at build time.
+    if let Ok(lang) = handl_kit_data_canonical::language_from_yaml() {
+        for gname in lang.globals.keys() {
+            names.insert(gname.clone());
         }
     }
     // Package-table module names — resolvable through the resolver even
@@ -2124,10 +2131,16 @@ impl Kit {
             )
             .with_dependencies(dependencies),
         );
-        let loader_eval_engine = TreeWalkEngine::new()
+        let mut loader_eval_engine = TreeWalkEngine::new()
             .with_modules(Rc::clone(&meta_chain) as Rc<dyn handl_platform::ModuleLookup>)
             .with_global("self", handl_language::language_value(&lang))
             .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
+        // Ambient globals declared by the language data (`Language::globals`,
+        // e.g. `true`/`false`) must also be in scope inside imported modules
+        // — the loader evaluates them with this engine.
+        for (name, val) in &lang.globals {
+            loader_eval_engine = loader_eval_engine.with_global(name, val.clone());
+        }
         loader.set_eval_engine(Box::new(loader_eval_engine));
         let import_resolver: Rc<dyn ImportResolver> = Rc::clone(&loader) as Rc<dyn ImportResolver>;
 
@@ -2352,7 +2365,24 @@ impl Kit {
     /// [`LangError::NotImplemented`] if the `"handl"` engine is not
     /// registered or the model failed to load.
     pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
-        let ast = self.parse(input)?;
+        // The Pratt parser consumes one top-level expression per call, so
+        // wrap the source in a `do { ... }` block (same convention as
+        // `hnl run`). The model then sees a single `block` root whose
+        // `synth_block` rule checks statements in order — earlier bindings
+        // (e.g. `inc`) are in scope for later annotations
+        // (e.g. `f : inc(4) := 5`).
+        let trimmed = input.trim_start();
+        let is_block = trimmed == "do"
+            || trimmed.starts_with("do ")
+            || trimmed.starts_with("do{")
+            || trimmed.starts_with("do\n")
+            || trimmed.starts_with("do\r");
+        let wrapped = if is_block {
+            input.to_string()
+        } else {
+            format!("do {{\n{}\n}}", input)
+        };
+        let ast = self.parse(&wrapped)?;
         // Lazily initialize and reuse a single HandlTypecheckEngine so the
         // model is loaded once per Kit and the canonical Language is
         // marshaled at most once per engine (ADR-0105).

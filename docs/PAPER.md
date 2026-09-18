@@ -6,6 +6,14 @@
 > arrows, and `<>` dimensions). The graded arrow is written `A ~[R]~> B` in
 > both the ADR and the canonical grammar (the legacy `A ~R~> B` shorthand is
 > still accepted).
+>
+> The kernel presented here is the dimension-1 fragment of a more general
+> design: [the N-dimensional arrow calculus](../research/PAPER.md)
+> generalizes `A ~> B` to n-morphisms `A ~[n]~> B`, distinguishes morphism
+> dimension from composition axis (`>>>[k]` — the `>>>` of this paper is
+> `>>>[0]` at dimension 1), and treats laws and proofs as higher morphisms
+> rather than a separate rule language. None of the claims below change; the
+> n-dimensional paper is an upward extension, not a revision.
 
 ## Abstract
 

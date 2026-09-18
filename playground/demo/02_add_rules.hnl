@@ -1,0 +1,25 @@
+-- 02_add_rules.hnl
+--
+-- We did not add a new language. We added 2-cell arrows.
+-- A 2-cell is both a rewrite rule and a proof. `hnl run` now
+-- transforms the 1-cell before executing it.
+
+from "http_client_std" import * as http
+from "json_lib" import { parse, serialize }
+
+fetch := (u) ~> http.get(u)
+
+id := x ~> x
+
+-- 1-cell program with a redundant step.
+pipeline := fetch >>> serialize >>> parse
+
+-- 2-cell rules are just arrows one dimension up. Same syntax.
+parse_after_serialize := (serialize >>> parse) ~[2]~> id
+
+right_identity := (fetch >>> id) ~[2]~> fetch
+
+-- `hnl run` will apply the 2-cells above and rewrite `pipeline` to `fetch`.
+optimized := pipeline
+
+optimized

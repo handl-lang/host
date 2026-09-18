@@ -317,3 +317,13 @@
     target_kind: dim_arrow
     children:
       - !KeepRest 0
+
+# ---------------------------------------------------------------------------
+# N-dimensional 2-cell arrow optimization (ADR-0119).
+# Rewrites a 1-cell `flow` (`>>>`) chain using the module's `~[2]~>` rules
+# supplied to the `n_dim_arrow_opt` native by the host CLI.
+# ---------------------------------------------------------------------------
+- id: transform.n_dim_opt.flow
+  pass: n_dim_opt
+  node_kind: flow
+  rule: !Native "n_dim_arrow_opt"

@@ -44,13 +44,27 @@ impl TokenFormatter {
         let mut out = String::new();
         let mut at_line_start = true;
         let mut prev_cat: Option<TokenCat> = None;
+        // Byte offset where the last *emitted* token ended. `layout` tokens
+        // (e.g. `token.newline`) are skipped, so gaps are measured from the
+        // previous emitted token — the line break they represent lives in
+        // the recovered gap text.
+        let mut prev_end = 0;
 
         for (i, token) in tokens.iter().enumerate() {
+            // Skip layout tokens: the whitespace they encode is recovered
+            // from the gap to the previous emitted token (data-driven via
+            // `TokenKindDef::layout`, not a kind check — ADR-0044).
+            let is_layout = lang
+                .token_kind(&token.kind)
+                .map(|d| d.layout)
+                .unwrap_or(false);
+            if is_layout {
+                continue;
+            }
             let token_start = token.start;
             let gap = if i == 0 {
                 &src[0..token_start]
             } else {
-                let prev_end = tokens[i - 1].end;
                 &src[prev_end..token_start]
             };
             let has_newline = gap.contains('\n');
@@ -86,6 +100,7 @@ impl TokenFormatter {
                 out.push_str(&token.text);
                 at_line_start = token.text.ends_with('\n');
                 prev_cat = Some(cat);
+                prev_end = token.end;
                 continue;
             }
 
@@ -100,6 +115,7 @@ impl TokenFormatter {
             out.push_str(&token.text);
 
             prev_cat = Some(cat);
+            prev_end = token.end;
             at_line_start = false;
         }
 

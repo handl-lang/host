@@ -39,8 +39,8 @@
 //!
 //! Idempotence: `fmt(fmt(src)) == fmt(src)` — tested exhaustively.
 
-pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
 pub use handl_language::Language;
+pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
 pub use handl_plugin_engine_fmt::{
     CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule,
     TokenCat, TokenFormatter, canonical_post_process, classify_token, needs_space,

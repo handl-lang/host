@@ -54,16 +54,6 @@
   pattern: !Literal
     text: "!"
   priority: 20
-- id: lex.bool.false
-  token_kind: token.bool
-  pattern: !Literal
-    text: "false"
-  priority: 15
-- id: lex.bool.true
-  token_kind: token.bool
-  pattern: !Literal
-    text: "true"
-  priority: 15
 - id: lex.colon
   token_kind: token.colon
   pattern: !Literal
@@ -267,11 +257,6 @@
   token_kind: token.keyword.grades
   pattern: !Literal
     text: grades
-  priority: 15
-- id: lex.keyword.handler
-  token_kind: token.keyword.handler
-  pattern: !Literal
-    text: handler
   priority: 15
 - id: lex.keyword.handle
   token_kind: token.keyword.handle
@@ -586,3 +571,11 @@
     interpolation: true
     close_at_eof: false
   priority: 40
+# `\n` — a *layout* token (TokenKindDef::layout). The lexer emits it and the
+# parser cursor skips it transparently; `DelimitedShape::newline_separator`
+# constructs (record literals) treat it as an element separator.
+- id: lex.newline
+  token_kind: token.newline
+  pattern: !Literal
+    text: "\n"
+  priority: 1

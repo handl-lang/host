@@ -505,19 +505,28 @@ impl<'a> FormatCtx<'a> {
             .as_deref()
             .and_then(|s| self.token_label(s));
 
-        let is_object = open == "{"
-            && delimited
-                .pair
-                .as_ref()
-                .map_or(false, |p| p.node_kind == "entry");
+        // A `{`-delimited collection whose pairs are declared *record
+        // entries* (`PairShape::record` — `entry` in the canonical language)
+        // is an object/record literal; other pair forms (match arms) take
+        // the generic pair path below.
+        let pair_kind = delimited
+            .pair
+            .as_ref()
+            .filter(|p| p.record)
+            .map(|p| p.node_kind.as_str());
+        let is_object = open == "{" && pair_kind.is_some();
 
         // Object/record literals: keep small (1-2 pair) objects inline;
         // break larger ones one pair per line with a trailing comma.
         if is_object {
+            let pair_kind = pair_kind.expect("is_object implies a pair kind");
             if elements.len() <= 2
-                && elements
-                    .iter()
-                    .all(|r| self.ast.at(*r).map(|n| n.kind == "entry").unwrap_or(false))
+                && elements.iter().all(|r| {
+                    self.ast
+                        .at(*r)
+                        .map(|n| n.kind == pair_kind)
+                        .unwrap_or(false)
+                })
             {
                 let pair = delimited.pair.as_ref().expect("object has pair");
                 let pair_sep = self.token_label(&pair.separator).unwrap_or("");
@@ -550,7 +559,7 @@ impl<'a> FormatCtx<'a> {
             let mut lines: Vec<String> = Vec::new();
             for elem_ref in &elements {
                 let elem = self.ast.at(*elem_ref)?;
-                if elem.kind == "entry" {
+                if elem.kind == pair_kind {
                     let pair_children = self.children_of(elem);
                     if pair_children.len() == 2 {
                         let lhs = self.emit(pair_children[0], inner_indent)?;

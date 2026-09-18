@@ -86,6 +86,21 @@ const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
 const TRANSFORMS_YAML: &str = include_str!("../data/transforms.yaml");
 const LINTS_YAML: &str = include_str!("../data/lints.yaml");
 const LSP_YAML: &str = include_str!("../data/lsp.yaml");
+const GLOBALS_YAML: &str = include_str!("../data/globals.yaml");
+
+/// Merge ambient global value bindings (`globals.yaml`) into `lang`.
+///
+/// `globals.yaml` is a YAML mapping of `name: <literal value>` — the values
+/// are data (numbers, strings, booleans, records), not evaluated source, so
+/// no eval engine is needed at merge time. `Runtime` seeds them into the
+/// engines' global scope at build time (`Language::globals`).
+fn merge_globals(lang: &mut Language, globals_yaml: &str) -> Result<(), LangError> {
+    let globals: std::collections::BTreeMap<String, handl_language::Value> =
+        serde_yaml::from_str(globals_yaml)
+            .map_err(|e| LangError::engine(format!("globals.yaml: {}", e)))?;
+    lang.globals.extend(globals);
+    Ok(())
+}
 
 /// Build a [`Language`] from the 10 embedded YAML data files.
 ///
@@ -98,7 +113,7 @@ const LSP_YAML: &str = include_str!("../data/lsp.yaml");
 /// Returns [`LangError`] if any YAML file fails to deserialize or a merge
 /// fails (should not happen — the files are pre-resolved).
 pub fn language_from_yaml() -> Result<Language, LangError> {
-    merge_fragments(
+    let mut lang = merge_fragments(
         TOKENS_YAML,
         GRAMMAR_YAML,
         EVAL_YAML,
@@ -110,7 +125,9 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         TRANSFORMS_YAML,
         LINTS_YAML,
         LSP_YAML,
-    )
+    )?;
+    merge_globals(&mut lang, GLOBALS_YAML)?;
+    Ok(lang)
 }
 
 /// Merge the ten YAML fragment strings into a single [`Language`].
@@ -315,7 +332,15 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         Err(e) => return Err(LangError::engine(format!("lsp.yaml: {}", e))),
     };
 
-    merge_fragments(
+    // `globals.yaml` is optional: fragment directories written before
+    // ambient globals do not carry one.
+    let globals_yaml = match std::fs::read_to_string(dir.join("globals.yaml")) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "{}".to_string(),
+        Err(e) => return Err(LangError::engine(format!("globals.yaml: {}", e))),
+    };
+
+    let mut lang = merge_fragments(
         &tokens_yaml,
         &grammar_yaml,
         &eval_yaml,
@@ -327,7 +352,9 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
         &transforms_yaml,
         &lints_yaml,
         &lsp_yaml,
-    )
+    )?;
+    merge_globals(&mut lang, &globals_yaml)?;
+    Ok(lang)
 }
 
 // ---------------------------------------------------------------------------
@@ -502,7 +529,7 @@ mod tests {
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
         // +13 Term frontier type rules + 1 transport rule.
-        assert_eq!(lang.types.len(), 80);
+        assert_eq!(lang.types.len(), 78);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.
@@ -526,7 +553,8 @@ mod tests {
         // + 1 `desugar.dimension` (ADR-0106 §11/§12: `f<X>` lowers to the
         // application `f(X)` by re-tagging the node as a `call`).
         // + 1 `meta-transform` placeholder for N-dimensional arrows.
-        assert_eq!(lang.transforms.len(), 10);
+        // + 1 `n_dim_opt` flow rule.
+        assert_eq!(lang.transforms.len(), 11);
         assert_eq!(
             lang.transforms_for("desugar", "do-while")[0].id,
             "transform.desugar.do_while"
@@ -738,7 +766,7 @@ mod tests {
         let server = kit_module_names("server").unwrap();
         assert_eq!(server.first().unwrap(), "module-runtime");
         assert_eq!(server.last().unwrap(), "otlp-std");
-        assert_eq!(server.len(), 18);
+        assert_eq!(server.len(), 17);
     }
 
     #[test]

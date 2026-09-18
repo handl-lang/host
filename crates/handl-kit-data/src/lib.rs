@@ -551,6 +551,11 @@ fn merge_filtered(
             lang.lints.merge(frag.clone())?;
         }
     }
+    // Ambient globals (`globals.yaml`) are a plain value map, not a
+    // fragment set — union them unconditionally (later sources override).
+    for (name, value) in &fragment_lang.globals {
+        lang.globals.insert(name.clone(), value.clone());
+    }
     Ok(())
 }
 

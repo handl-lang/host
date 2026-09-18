@@ -50,7 +50,8 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-token-number".to_string(),
             "plugin-token-string".to_string(),
             "plugin-token-identifier".to_string(),
-            "plugin-token-bool".to_string(),
+            // `true`/`false` are no longer tokens — they are `bool` package
+            // value exports (`Language::globals` ambient bindings).
             "plugin-token-null".to_string(),
             "plugin-token-comment".to_string(),
             "plugin-token-delimiter".to_string(),

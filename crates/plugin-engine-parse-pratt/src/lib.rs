@@ -189,12 +189,21 @@ impl PrattEngine {
             Some(t) => t,
             None => return false,
         };
-        // (1) adjacency: no whitespace between the previous token and `<`.
-        let adjacent = cursor
-            .pos
-            .checked_sub(1)
-            .and_then(|p| cursor.tokens.get(p))
-            .map(|prev| prev.end == lt.start)
+        // (1) adjacency: no whitespace between the previous non-ignorable
+        // token and `<`. `f <` / `f\n<` are comparisons, never dimensions.
+        let lt_idx = cursor.peek_index();
+        let adjacent = lt_idx
+            .and_then(|i| {
+                let mut j = i;
+                while j > 0 {
+                    j -= 1;
+                    let prev = &cursor.tokens[j];
+                    if !cursor.ignorable(&prev.kind) {
+                        return Some(prev.end == lt.start);
+                    }
+                }
+                None
+            })
             .unwrap_or(false);
         if !adjacent {
             return false;
@@ -209,7 +218,7 @@ impl PrattEngine {
             _ => return false,
         }
         // (3) the bracket actually closes.
-        Self::dimension_closes(cursor.tokens, cursor.pos)
+        Self::dimension_closes(cursor.tokens, lt_idx.unwrap_or(cursor.pos))
     }
 
     /// Whether a `>` closes the dimension opened by the `<` at `pos`, at
@@ -331,23 +340,27 @@ impl ParserEngine for PrattEngine {
             return Ok(Ast::new());
         }
 
-        // ADR-0044: trivia tokens (e.g. `token.comment`, `token.doc_comment`)
-        // are flagged in `lang.tokens` data. They carry no syntactic meaning,
-        // so the Pratt loop never sees them — the lexer still emits them so
-        // tooling (LSP hover, semantic tokens) can surface comments. Filter
-        // them out of the token slice before driving the grammar. This is a
-        // data-driven decision (lookup in `lang.tokens`), not a hardcoded
-        // `kind == "token.comment"` check.
-        let filtered: Vec<Token> = filter_trivia(lang, raw);
-        if filtered.is_empty() {
+        // ADR-0044: trivia (e.g. `token.comment`) and layout (e.g.
+        // `token.newline`) token kinds are flagged in `lang.tokens` data.
+        // They carry no syntactic meaning, so the cursor skips them
+        // transparently — but they stay in the stream so a
+        // `DelimitedShape::newline_separator` construct can detect a line
+        // break between elements (a `--` comment consumes its closing
+        // newline; only the token knows a break happened). All lookups are
+        // data-driven `lang.tokens` flag checks, never hardcoded kinds.
+        let tokens = raw;
+        if !tokens.iter().any(|t| !is_ignorable(lang, &t.kind)) {
             return Ok(Ast::new());
         }
-        let tokens = filtered.as_slice();
 
         // Drive the Pratt loop from a local cursor. We do not use
         // ParserContext here because the engine owns the recursion; the
         // context is for external callers. We call expression directly.
-        let mut cursor = Cursor { tokens, pos: 0 };
+        let mut cursor = Cursor {
+            tokens,
+            pos: 0,
+            lang,
+        };
         let _root = self.expression_inner(lang, &mut cursor, 0)?;
 
         // Return the built arena. Root = last node pushed.
@@ -362,7 +375,11 @@ impl ParserEngine for PrattEngine {
         // Build a cursor from the context's remaining tokens.
         let tokens = ctx.tokens();
         let pos = ctx.pos();
-        let mut cursor = Cursor { tokens, pos };
+        let mut cursor = Cursor {
+            tokens,
+            pos,
+            lang: ctx.lang(),
+        };
         let result = self.expression_inner(ctx.lang(), &mut cursor, rbp)?;
         // Sync the context position.
         // We need to advance the context to match the cursor's consumed
@@ -376,40 +393,94 @@ impl ParserEngine for PrattEngine {
     }
 }
 
-/// Filter trivia tokens out of `tokens`.
-///
-/// A token is trivia when its kind is declared with `trivia: true` in
-/// `lang.tokens` (ADR-0044). The decision is data-driven: this performs a
-/// `lang.tokens` lookup per token, never a hardcoded kind-string check.
-fn filter_trivia(lang: &Language, tokens: &[Token]) -> Vec<Token> {
-    tokens
-        .iter()
-        .filter(|t| !is_trivia(lang, &t.kind))
-        .cloned()
-        .collect()
+/// Whether the token kind `kind` satisfies a `TokenKindDef` flag predicate —
+/// a data-driven `lang.tokens` lookup, never a hardcoded kind-string check
+/// (ADR-0044).
+fn lang_token_flag(
+    lang: &Language,
+    kind: &str,
+    flag: impl FnOnce(&handl_language::TokenKindDef) -> bool,
+) -> bool {
+    lang.tokens.get_by_identity(kind).map(flag).unwrap_or(false)
 }
 
-/// Whether `kind` is a trivia token kind (declared `trivia: true` in
-/// `lang.tokens`).
-fn is_trivia(lang: &Language, kind: &str) -> bool {
-    lang.tokens
-        .get_by_identity(kind)
-        .map(|def| def.trivia)
-        .unwrap_or(false)
+/// Whether `kind` is ignorable in the token stream — trivia (`trivia: true`,
+/// e.g. comments) or layout (`layout: true`, e.g. newlines).
+fn is_ignorable(lang: &Language, kind: &str) -> bool {
+    lang_token_flag(lang, kind, |d| d.trivia || d.layout)
 }
 
 /// A local cursor over a token slice, used internally by the Pratt loop.
+///
+/// The cursor skips *ignorable* tokens transparently — trivia
+/// (`TokenKindDef::trivia`, e.g. comments) and layout
+/// (`TokenKindDef::layout`, e.g. newlines) — so the grammar never sees them.
+/// Layout tokens stay in the stream so `DelimitedShape::newline_separator`
+/// constructs can detect a line break between elements via
+/// [`Cursor::layout_ahead`]; both flags are data-driven `lang.tokens`
+/// lookups, never hardcoded kind checks (ADR-0044).
 struct Cursor<'a> {
     tokens: &'a [Token],
     pos: usize,
+    lang: &'a Language,
 }
 
 impl<'a> Cursor<'a> {
+    /// Whether the token kind is ignorable in the token stream: trivia or
+    /// layout. Both flags come from `lang.tokens` data.
+    fn ignorable(&self, kind: &str) -> bool {
+        lang_token_flag(self.lang, kind, |d| d.trivia || d.layout)
+    }
+
+    /// Advance `pos` past any trivia/layout tokens at the cursor.
+    fn skip_ignorable(&mut self) {
+        while let Some(t) = self.tokens.get(self.pos) {
+            if !self.ignorable(&t.kind) {
+                break;
+            }
+            self.pos += 1;
+        }
+    }
+
+    /// The raw index of the next non-ignorable token (the one [`Cursor::peek`]
+    /// returns), for lookahead code that needs stream positions.
+    fn peek_index(&self) -> Option<usize> {
+        let mut i = self.pos;
+        while let Some(t) = self.tokens.get(i) {
+            if !self.ignorable(&t.kind) {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// The next non-ignorable token, without consuming anything.
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+        self.peek_index().and_then(|i| self.tokens.get(i))
+    }
+
+    /// Whether a line break lies between the last consumed token and the
+    /// next non-ignorable token: a `layout` token, or a trivia token whose
+    /// text contains `\n` (a `--` line comment consumes its closing
+    /// newline, and block comments may span lines).
+    fn layout_ahead(&self) -> bool {
+        let mut i = self.pos;
+        while let Some(t) = self.tokens.get(i) {
+            if !self.ignorable(&t.kind) {
+                return false;
+            }
+            let is_layout = lang_token_flag(self.lang, &t.kind, |d| d.layout);
+            if is_layout || t.text.contains('\n') {
+                return true;
+            }
+            i += 1;
+        }
+        false
     }
 
     fn advance(&mut self) -> Result<Token, LangError> {
+        self.skip_ignorable();
         match self.tokens.get(self.pos) {
             Some(t) => {
                 self.pos += 1;
@@ -531,6 +602,7 @@ impl PrattEngine {
                         open_is_operator_token: false,
                         flatten: false,
                         rest_token: None,
+                        newline_separator: false,
                     };
                     let result = self.parse_delimited_block(lang, cursor, &block_delim)?;
                     let idx = match result {
@@ -704,9 +776,17 @@ impl PrattEngine {
                     .unwrap_or(false);
                 let empty_bracket = bracketed
                     && cursor
-                        .tokens
-                        .get(cursor.pos + 1)
-                        .map(|t| t.kind.as_str() == "token.rbracket")
+                        .peek_index()
+                        .and_then(|i| {
+                            let mut j = i + 1;
+                            while let Some(t) = cursor.tokens.get(j) {
+                                if !cursor.ignorable(&t.kind) {
+                                    return Some(t.kind.as_str() == "token.rbracket");
+                                }
+                                j += 1;
+                            }
+                            None
+                        })
                         .unwrap_or(false);
                 if empty_bracket {
                     return Err(LangError::engine_at(
@@ -783,6 +863,7 @@ impl PrattEngine {
                         open_is_operator_token: false,
                         flatten: false,
                         rest_token: None,
+                        newline_separator: false,
                     };
                     let result = self.parse_delimited_block(lang, cursor, &block_delim)?;
                     let idx = match result {
@@ -1371,6 +1452,13 @@ impl PrattEngine {
                             }
                         }
                     }
+                    continue;
+                }
+                // `DelimitedShape::newline_separator` (record literals): a
+                // line break before the next token separates elements — the
+                // explicit separator is required only between same-line
+                // elements.
+                Some(_) if delim.newline_separator && cursor.layout_ahead() => {
                     continue;
                 }
                 Some(t) => {
@@ -2125,10 +2213,12 @@ mod tests {
                         pair: Some(handl_language::PairShape {
                             separator: "token.colon".into(),
                             node_kind: "arm".into(),
+                            record: false,
                         }),
                         open_is_operator_token: false,
                         flatten: false,
                         rest_token: None,
+                        newline_separator: false,
                     }),
                 )
                 .with_binding_power(0, 0),
@@ -2345,6 +2435,7 @@ mod tests {
                     open_is_operator_token: true,
                     flatten: true,
                     rest_token: Some("token.ellipsis".into()),
+                    newline_separator: false,
                 }),
             ))
             .unwrap();
@@ -2363,10 +2454,12 @@ mod tests {
                     pair: Some(handl_language::PairShape {
                         separator: "token.colon".into(),
                         node_kind: "entry".into(),
+                        record: true,
                     }),
                     open_is_operator_token: true,
                     flatten: true,
                     rest_token: Some("token.ellipsis".into()),
+                    newline_separator: true,
                 }),
             ))
             .unwrap();
@@ -2386,6 +2479,7 @@ mod tests {
                     open_is_operator_token: true,
                     flatten: true,
                     rest_token: None,
+                    newline_separator: false,
                 }),
             ))
             .unwrap();
@@ -2470,6 +2564,7 @@ mod tests {
                         open_is_operator_token: true,
                         flatten: true,
                         rest_token: None,
+                        newline_separator: false,
                     }),
                 )
                 .with_binding_power(90, 91),

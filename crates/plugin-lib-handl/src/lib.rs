@@ -169,6 +169,28 @@ impl DependencyImportResolver {
     }
 }
 
+/// Build the bindings object a [`resolve_import`] returns for a module:
+/// function exports as `mod.fn` string callees plus *value* exports
+/// ([`Module::value_names`]) as their evaluated values — so
+/// `from "bool" import true` binds a `Bool`, not the string `"bool.true"`.
+///
+/// [`resolve_import`]: ImportResolver::resolve_import
+pub fn module_bindings_object(module: &dyn Module) -> handl_language::Value {
+    let mut obj = serde_json::Map::new();
+    for (fname, _f) in module.functions() {
+        obj.insert(
+            fname.to_string(),
+            handl_language::Value::String(format!("{}.{}", module.name(), fname)),
+        );
+    }
+    for vname in module.value_names() {
+        if let Some(v) = module.value(&vname) {
+            obj.insert(vname, v);
+        }
+    }
+    handl_language::Value::Object(obj)
+}
+
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
         &self,
@@ -184,14 +206,7 @@ impl ImportResolver for DependencyImportResolver {
                     "import: no dependency module `{name}` (path `{path}`) is registered"
                 ))
             })?;
-        let mut obj = serde_json::Map::new();
-        for (fname, _f) in module.functions() {
-            obj.insert(
-                fname.to_string(),
-                handl_language::Value::String(format!("{}.{}", module.name(), fname)),
-            );
-        }
-        Ok(handl_language::Value::Object(obj))
+        Ok(module_bindings_object(module.as_ref()))
     }
 }
 
@@ -379,6 +394,7 @@ mod bootstrap {
                     }
                     current = Some((name, expr_lines));
                 }
+                continue;
                 // If no separator found, skip (not a valid export binding).
             } else if let Some((_, ref mut lines)) = current {
                 // Accumulate indented continuation lines (part of the export
@@ -1081,6 +1097,13 @@ thread_local! {
     /// cheap (`Rc` env captures), so the AST cache is the right seam.
     static AST_CACHE: RefCell<HashMap<(usize, String, usize), std::rc::Rc<handl_language::Ast>>> =
         RefCell::new(HashMap::new());
+
+    /// Per-thread cache of parsed `(source).<value-name>` projection ASTs
+    /// for [`Module::value`] — value exports (e.g. `bool`'s `true`/`false`)
+    /// project one field inside the module's own runtime so the record's
+    /// arrows never cross the serde boundary.
+    static VALUE_AST_CACHE: RefCell<HashMap<(usize, String), std::rc::Rc<handl_language::Ast>>> =
+        RefCell::new(HashMap::new());
 }
 
 /// Allocate a unique module ID (called at [`HandlModule`] construction time).
@@ -1409,6 +1432,18 @@ pub struct HandlModule {
     /// in the source. When `None`, `build_runtime` derives a
     /// [`DependencyImportResolver`] from the resolved dependencies.
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
+    /// The prepared `.hnl` source (for [`Module::value`] projections).
+    source: String,
+    /// The current runtime builder (rebuilt by `rebuild_functions`).
+    builder: RuntimeBuilder,
+    /// The current module ID — key into `RUNTIME_CACHE`/`AST_CACHE`/
+    /// `VALUE_AST_CACHE`; re-allocated by `rebuild_functions` so stale
+    /// caches are abandoned when the dependency set changes.
+    module_id: usize,
+    /// Names of the record's value (non-arrow) exports, declared by the
+    /// host via [`HandlModule::with_value_names`] — `from "<mod>" import
+    /// <name>` binds the evaluated value rather than a string callee.
+    value_names: Vec<String>,
 }
 
 impl HandlModule {
@@ -1456,6 +1491,10 @@ impl HandlModule {
             global_lookup: None,
             eval_name,
             import_resolver: None,
+            source,
+            builder,
+            module_id,
+            value_names: Vec::new(),
         }
     }
 
@@ -1496,6 +1535,10 @@ impl HandlModule {
             global_lookup: None,
             eval_name,
             import_resolver: None,
+            source,
+            builder,
+            module_id,
+            value_names: Vec::new(),
         }
     }
 
@@ -1621,6 +1664,55 @@ impl HandlModule {
             func.builder = Arc::clone(&builder);
             func.module_id = module_id;
         }
+        self.builder = builder;
+        self.module_id = module_id;
+    }
+
+    /// Declare `names` as value exports — record fields exposed as plain
+    /// evaluated values rather than string callees.
+    ///
+    /// `from "<mod>" import <name>` binds the field's value (e.g. `bool`'s
+    /// `true`/`false` bind `Bool`s), while function exports bind the
+    /// `mod.fn` string callee. The names are declared by the host because
+    /// distinguishing arrow fields from value fields requires evaluating
+    /// the record — explicit names keep enumeration cheap.
+    pub fn with_value_names(mut self, names: &[&str]) -> Self {
+        self.value_names = names.iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    /// Evaluate `(source).<name>` and return the field's value.
+    ///
+    /// Projection happens inside the module's own cached runtime: the
+    /// record is constructed in the engine and only the requested field
+    /// crosses the `serde_json::Value` boundary, so arrow fields never
+    /// materialize (the exponential-env blowup documented on `AST_CACHE`
+    /// only applies to whole-record eval).
+    fn eval_value(&self, name: &str) -> Option<serde_json::Value> {
+        let module_id = self.module_id;
+        let builder = Arc::clone(&self.builder);
+        let runtime = RUNTIME_CACHE.with(|cache| {
+            std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
+                std::rc::Rc::new(builder().expect("canonical kit assembly should not fail"))
+            }))
+        });
+        let ast_key = (module_id, name.to_string());
+        let ast = VALUE_AST_CACHE.with(|cache| cache.borrow().get(&ast_key).cloned());
+        let ast = match ast {
+            Some(ast) => ast,
+            None => {
+                let source = format!("({}).{}", self.source, name);
+                let toks = runtime.lex(&handl_language::Source::new(&source)).ok()?;
+                let parsed = std::rc::Rc::new(runtime.parse(&toks).ok()?);
+                VALUE_AST_CACHE.with(|cache| {
+                    cache
+                        .borrow_mut()
+                        .insert(ast_key, std::rc::Rc::clone(&parsed))
+                });
+                parsed
+            }
+        };
+        runtime.eval_shared_with_call_args(&ast, &[]).ok()
     }
 }
 
@@ -1650,6 +1742,17 @@ impl Module for HandlModule {
             }
         }
         result
+    }
+
+    fn value_names(&self) -> Vec<String> {
+        self.value_names.clone()
+    }
+
+    fn value(&self, name: &str) -> Option<serde_json::Value> {
+        if !self.value_names.iter().any(|n| n == name) {
+            return None;
+        }
+        self.eval_value(name)
     }
 }
 

@@ -1,0 +1,48 @@
+-- no_boundaries.hnl
+--
+-- A 1-cell is a program.  A 2-cell is a rule and a proof.  A 3-cell is a rule
+-- about rules.  A 4-cell is a proof about a proof.  All use the exact same
+-- `~[N]~>` and `>>>` syntax; the runtime and typechecker do not care which
+-- "level" you call it.
+
+from "http_client_std" import * as http
+from "json_lib" import { parse, serialize }
+
+-- 1-cell: the real JSON-over-HTTP pipeline we want to optimize.
+fetch := (url) ~> http.get(url)
+
+pipeline := fetch >>> serialize >>> parse
+
+id := x ~> x
+
+-- 2-cell optimization rules.  Each is both a rewrite and a proposition.
+parse_after_serialize := (serialize >>> parse) ~[2]~> id
+
+right_identity := (fetch >>> id) ~[2]~> fetch
+
+-- Another 2-cell that solves the whole pipeline in one shot.
+full_pipeline := (fetch >>> serialize >>> parse) ~[2]~> fetch
+
+-- 3-cell: the two small rules, composed, are the same as the big rule.
+-- This is a rule about rules.  Same syntax, one dimension higher.
+compose_rules := (parse_after_serialize >>> right_identity) ~[3]~> full_pipeline
+
+-- 4-cell: composing the 3-cell with itself is the same 3-cell (a proof about a proof).
+compose_rules_again := (compose_rules >>> compose_rules) ~[4]~> compose_rules
+
+-- `hnl run` will transform this 1-cell before executing, using the 2-cell rules.
+optimized := pipeline
+
+{
+  note: "No boundaries: 1-cell = program; 2-cell = rule & proof; 3-cell = rule about rules; 4-cell = proof about a proof. All are values. All use the same ~[N]~> and >>> syntax.",
+  original: "fetch >>> serialize >>> parse",
+  optimized: "fetch",
+  levels: [
+    { dimension: 1, name: "pipeline", kind: "program" },
+    { dimension: 2, name: "parse_after_serialize", kind: "rule / proof" },
+    { dimension: 2, name: "right_identity", kind: "rule / proof" },
+    { dimension: 2, name: "full_pipeline", kind: "rule / proof" },
+    { dimension: 3, name: "compose_rules", kind: "rule about rules" },
+    { dimension: 4, name: "compose_rules_again", kind: "proof about a proof" }
+  ]
+}

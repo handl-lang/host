@@ -2452,26 +2452,6 @@
     source: Judgment
     lit: type.op
 
-# `handler` — handler declaration: a model for one sort. Type:
-# `type.handler` carrying the declared name.
-- id: type.handler
-  node_kind: handler
-  synth: !Op
-    name: construct
-    args:
-      - !Op
-        name: field
-        args:
-          - !Op
-            name: payload_field
-            args: []
-            source: Judgment
-            lit: name
-        source: Judgment
-        lit: name
-    source: Judgment
-    lit: type.handler
-
 # `rewrite` — directed rewrite rule (2-cell, ADR-0100). Type:
 # `type.rewrite` carrying the declared name.
 - id: type.rewrite
@@ -2986,25 +2966,15 @@
     source: Judgment
     lit: type.unknown
 
-# `with` — install a handler for the duration of `body`.
-# Returns the type of `body` (child 1).
-- id: type.with
-  node_kind: with
-  synth: !Op
-    name: synth_child
-    args: []
-    source: Judgment
-    lit: 1
-
-# `handle` — bind a named handler implementation for `body`.
-# Returns the type of `body` (child 2).
+# `handle` — install a handler for the duration of the target expression.
+# `handle <expr> with <handler>`: returns the type of `target` (child 0).
 - id: type.handle
   node_kind: handle
   synth: !Op
     name: synth_child
     args: []
     source: Judgment
-    lit: 2
+    lit: 0
 # ---------------------------------------------------------------------------
 # Cell/cubical theory surface forms (Term frontier)
 # ---------------------------------------------------------------------------

@@ -1010,6 +1010,7 @@ dependencies = [
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-test",
+ "handl-plugin-engine-transform",
  "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
  "handl-plugin-ext-cli",
@@ -1300,6 +1301,8 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-module",
+ "handl-value",
+ "rustc-hash 2.1.3",
  "serde_json",
 ]
 

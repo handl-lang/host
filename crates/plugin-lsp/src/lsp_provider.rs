@@ -6,8 +6,8 @@
 //! registered in `default_providers`.
 
 use crate::providers::{
-    ExportMatch, ParsedModule, run_export, run_exported_names, run_import_hover, run_import_name,
-    run_import_path, run_folding_range, run_signature_help, run_symbol,
+    ExportMatch, ParsedModule, run_export, run_exported_names, run_folding_range, run_import_hover,
+    run_import_name, run_import_path, run_signature_help, run_symbol,
 };
 use handl_host_tooling::lsp::{
     CompletionItem, CompletionRequest, DocumentSymbol, DocumentSymbolsRequest, FoldingRange,

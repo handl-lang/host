@@ -169,7 +169,7 @@ mod tests {
         let mut output = Ast::new();
         let node = AstNode::new("lit");
         let remap: Vec<Option<usize>> = Vec::new();
-        let mut ctx = RewriteCtx::new(&lang, &node, &input, &mut output, &remap);
+        let mut ctx = RewriteCtx::new(&lang, &node, AstRef::new(0), &input, &mut output, &remap);
 
         let got = registry.rewrite("one", &mut ctx).unwrap();
         assert!(registry.rewrite("missing", &mut ctx).is_err());
