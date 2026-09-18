@@ -87,7 +87,10 @@ do {
     r
   }
 
-  at :: [xs, i]~> if i < 0 {
+  at :: [xs, i]~> if type_of(i) != "num" {
+    null
+  } else {
+    if i < 0 {
     null
   } else {
     do {
@@ -101,6 +104,7 @@ do {
       }
       out
     }
+  }
   }
 
   concat :: [a, b]~> do {
@@ -300,13 +304,13 @@ do {
   metas_new :: unit ~> []
 
   metas_solve :: [metas, id, val]~> if type_of(metas) != "arr" { [] } else {
-    concat(concat(take(metas, id), [val]), drop(metas, id + 1))
+    if type_of(id) == "num" { concat(concat(take(metas, id), [val]), drop(metas, id + 1)) } else { metas }
   }
 
   metas_lookup :: [metas, id]~> if type_of(metas) != "arr" {
     null
   } else {
-    if id < len(metas) { at(metas, id) } else { null }
+    if type_of(id) == "num" { if id < len(metas) { at(metas, id) } else { null } } else { null }
   }
 
   zonk_fields :: [self, zonk, val, metas, ks, result]~> if is_empty(ks) {
@@ -428,6 +432,12 @@ do {
     }
   }
 
+  is_host_arrow_ :: v ~> if type_of(v) == "obj" {
+    get_or(v, "__arrow__", false) == true
+  } else {
+    false
+  }
+
   normalize_value_ :: [self, funcs, env, v]~> if type_of(v) == "num" {
     v
   } else {
@@ -468,26 +478,34 @@ do {
               if type_of(total) == "num" {
                 total
               } else {
-                if type_of(callee_val) == "obj" && get_or(callee_val, "__arrow__", false) == true && len(arg_vals) <= len(get_or(callee_val, "params", [])) {
-                  do {
-                    raw :: if len(arg_vals) == 0 {
-                      callee_val()
-                    } else {
-                      if len(arg_vals) == 1 {
-                        callee_val(at(arg_vals, 0))
+                if is_host_arrow_(callee_val) {
+                  if type_of(arg_vals) == "arr" {
+                    if len(arg_vals) <= len(get_or(callee_val, "params", [])) {
+                    do {
+                      raw :: if len(arg_vals) == 0 {
+                        callee_val()
                       } else {
-                        if len(arg_vals) == 2 {
-                          callee_val(at(arg_vals, 0), at(arg_vals, 1))
+                        if len(arg_vals) == 1 {
+                          callee_val(at(arg_vals, 0))
                         } else {
-                          if len(arg_vals) == 3 {
-                            callee_val(at(arg_vals, 0), at(arg_vals, 1), at(arg_vals, 2))
+                          if len(arg_vals) == 2 {
+                            callee_val(at(arg_vals, 0), at(arg_vals, 1))
                           } else {
-                            v
+                            if len(arg_vals) == 3 {
+                              callee_val(at(arg_vals, 0), at(arg_vals, 1), at(arg_vals, 2))
+                            } else {
+                              v
+                            }
                           }
                         }
                       }
+                      self(self, funcs, env, raw)
                     }
-                    self(self, funcs, env, raw)
+                    } else {
+                      v
+                    }
+                  } else {
+                    v
                   }
                 } else {
                   v
@@ -495,7 +513,7 @@ do {
               }
             }
           } else {
-            if type_of(v) == "obj" && get_or(v, "__arrow__", false) == true {
+            if is_host_arrow_(v) {
               do {
                 params :: get_or(v, "params", [])
                 if len(params) == 0 {
@@ -624,7 +642,7 @@ do {
 
   node_children :: node ~> do {
     payload :: get_or(node, "payload", {})
-    get_or(payload, "children", [])
+    if type_of(payload) == "obj" { get_or(payload, "children", []) } else { [] }
   }
 
   node_payload :: node ~> get_or(node, "payload", {})
@@ -638,8 +656,8 @@ do {
   try_child_ref :: [ast, node_idx, idx]~> do {
     node :: ast_node(ast, node_idx)
     children :: node_children(node)
-    if idx < len(children) {
-      at(children, idx)
+    if type_of(idx) == "num" {
+      if idx < len(children) { at(children, idx) } else { null }
     } else {
       null
     }
@@ -687,7 +705,7 @@ do {
     }
   }
 
-  tc_new :: [ast, type_index, ast_index, prelude]~> ({
+  tc_new :: [ast, type_index, ast_index, prelude, globals]~> ({
     ast: ast,
     type_index: type_index,
     ast_index: ast_index,
@@ -698,7 +716,8 @@ do {
     diagnostics: [],
     fuel: 50000,
     exhausted: false,
-    prelude: if prelude == null { [] } else { prelude }
+    prelude: if prelude == null { [] } else { prelude },
+    globals: if globals == null { {} } else { globals }
   })
 
   prelude_contains :: [prelude, name]~> while { found: false, idx: 0 } {
@@ -903,7 +922,7 @@ do {
     kind :: node_kind(node)
     payload :: node_payload(node)
     if kind == "value" {
-      get_or(payload, "value", null)
+      if type_of(payload) == "obj" { get_or(payload, "value", null) } else { payload }
     } else {
       if kind == "var" {
         do {
@@ -921,7 +940,7 @@ do {
                 do {
                   child_idx :: first_value(st.remaining)
                   child_node :: ast_node(s.ast, child_idx)
-                  v :: if node_kind(child_node) == "value" { get_or(node_payload(child_node), "value", null) } else { null }
+                  v :: if node_kind(child_node) == "value" { do { p :: node_payload(child_node) if type_of(p) == "obj" { get_or(p, "value", null) } else { p } } } else { null }
                   { state: { result: if v == null { st.result } else { [...st.result, v] }, remaining: drop(st.remaining, 1) } }
                 }
               }
@@ -960,6 +979,7 @@ do {
       raw_fuel :: get_or(s, "fuel", 50000)
       raw_exhausted :: get_or(s, "exhausted", false)
       raw_prelude :: get_or(s, "prelude", [])
+      raw_globals :: get_or(s, "globals", {})
       ast :: if type_of(raw_ast) == "arr" { raw_ast } else { [] }
       type_index :: if is_obj(raw_type_index) { raw_type_index } else { {} }
       ast_index :: if is_obj(raw_ast_index) { raw_ast_index } else { {} }
@@ -971,11 +991,12 @@ do {
       fuel :: if type_of(raw_fuel) == "num" { raw_fuel } else { 50000 }
       exhausted :: if type_of(raw_exhausted) == "bool" { raw_exhausted } else { false }
       prelude :: if type_of(raw_prelude) == "arr" { raw_prelude } else { [] }
-      set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude)
+      globals :: if is_obj(raw_globals) { raw_globals } else { {} }
+      set(set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude), "globals", globals)
     }
   } else {
     do {
-      fallback :: { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [] }
+      fallback :: { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {} }
       if s == null {
         fallback
       } else {
@@ -985,6 +1006,124 @@ do {
   }
 
   --- Mutually recursive functions (funcs record breaks the cycle) ---
+
+  import_bound_names_ :: [s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    payload :: node_payload(node)
+    children :: node_children(node)
+    child_names :: if is_empty(children) {
+      []
+    } else {
+      do {
+        child_node :: ast_node(s.ast, first_value(children))
+        if node_kind(child_node) == "var" {
+          do {
+            cp :: node_payload(child_node)
+            n :: if type_of(cp) == "str" { cp } else { if type_of(cp) == "obj" { get_or(cp, "name", "") } else { "" } }
+            if n == "" { [] } else { [n] }
+          }
+        } else {
+          []
+        }
+      }
+    }
+    alias :: get_or(payload, "alias", "")
+    names_val :: get_or(payload, "names", null)
+    path :: get_or(payload, "path", "")
+    from_names :: if type_of(names_val) == "arr" {
+      while { result: [], remaining: names_val } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          do {
+            item :: first_value(st.remaining)
+            n :: if type_of(item) == "str" {
+              item
+            } else {
+              if type_of(item) == "obj" {
+                do {
+                  a :: get_or(item, "as", "")
+                  if a != "" { a } else { get_or(item, "name", "") }
+                }
+              } else {
+                ""
+              }
+            }
+            { state: { result: if n == "" { st.result } else { [...st.result, n] }, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      if type_of(names_val) == "str" {
+        if names_val == "*" {
+          if type_of(path) == "str" && path != "" { [path] } else { [] }
+        } else {
+          [names_val]
+        }
+      } else {
+        []
+      }
+    }
+    imported :: if alias != "" { [alias] } else { from_names }
+    concat(child_names, imported)
+  }
+
+  bind_imports_ :: [funcs, s, node_idx]~> while { state: s, remaining: import_bound_names_(s, node_idx) } {
+    [st]~> if is_empty(st.remaining) {
+      { out: st["state"] }
+    } else {
+      do {
+        n :: first_value(st.remaining)
+        extended :: tc_extend(st["state"], n, funcs.make_type("type.unknown", {}))
+        bound :: tc_bind_result(extended, n, funcs.make_type("var", set({}, "name", n)))
+        { state: { state: bound, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  collect_var_names_ :: [funcs, s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    kind :: node_kind(node)
+    payload :: node_payload(node)
+    children :: node_children(node)
+    own :: if kind == "var" {
+      n :: if type_of(payload) == "str" { payload } else { if type_of(payload) == "obj" { get_or(payload, "name", "") } else { "" } }
+      if n == "" { [] } else { [n] }
+    } else {
+      []
+    }
+    child_names :: while { result: [], remaining: children } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        { state: { result: concat(st.result, funcs.collect_var_names_(funcs, s, first_value(st.remaining))), remaining: drop(st.remaining, 1) } }
+      }
+    }
+    body_name :: if type_of(payload) == "obj" { get_or(payload, "body", null) } else { null }
+    body_names :: if type_of(body_name) == "num" { funcs.collect_var_names_(funcs, s, body_name) } else { [] }
+    concat(own, concat(child_names, body_names))
+  }
+
+  bind_pattern_vars_ :: [funcs, s, node_idx]~> while { state: s, remaining: funcs.collect_var_names_(funcs, s, node_idx) } {
+    [st]~> if is_empty(st.remaining) {
+      { out: st["state"] }
+    } else {
+      do {
+        n :: first_value(st.remaining)
+        already :: tc_lookup(st["state"], n)
+        in_prelude :: prelude_contains(get_or(st["state"], "prelude", []), n)
+        st2 :: if already != null || in_prelude {
+          st["state"]
+        } else {
+          do {
+            meta :: tc_fresh_meta(st["state"])
+            tc_extend(meta["state"], n, meta_value(meta.id))
+          }
+        }
+        { state: { state: st2, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
 
   synth_node_impl_ :: [funcs, s, node_idx]~> do {
     s :: tc_sanitize(s)
@@ -1027,6 +1166,7 @@ do {
       }
     } else {
       do {
+        s :: if kind == "dim_arrow" { funcs.bind_pattern_vars_(funcs, s, node_idx) } else { s }
         rule :: lang_type_rule(s, kind)
         if rule == null {
           if is_empty(s.ast) {
@@ -1043,10 +1183,15 @@ do {
               do {
                 result :: funcs.eval_scheme_(funcs, s, node_idx, synth_scheme, null)
                 new_state :: tc_record_node_type(result["state"], node_idx, result.val)
-                if result.val == null {
-                  { typ: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(new_state, "error", "synth rule returned null for kind: " + kind) }
+                bound_state :: if kind == "stmt.import" {
+                  bind_imports_(funcs, new_state, node_idx)
                 } else {
-                  { typ: result.val, state: new_state }
+                  new_state
+                }
+                if result.val == null {
+                  { typ: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(bound_state, "error", "synth rule returned null for kind: " + kind) }
+                } else {
+                  { typ: result.val, state: bound_state }
                 }
               }
             }
@@ -1057,6 +1202,18 @@ do {
   }
 
   check_node_impl_ :: [funcs, s, node_idx, expected]~> do {
+    is_value_ann :: expected != null && type_tag(expected) == "" && !is_meta(expected)
+    if is_value_ann {
+      do {
+        eval_result :: funcs.eval_node_(funcs, s, node_idx)
+        if eval_result.val == expected {
+          { ok: true, state: eval_result["state"] }
+        } else {
+          { ok: false, state: tc_add_diagnostic(eval_result["state"], "error", "check: value does not equal the annotation") }
+        }
+      }
+    } else {
+    do {
     node :: ast_node(s.ast, node_idx)
     kind :: node_kind(node)
     rule :: lang_type_rule(s, kind)
@@ -1087,6 +1244,8 @@ do {
           }
         }
       }
+    }
+    }
     }
   }
 
@@ -1413,8 +1572,25 @@ do {
         { val: typ, state: s }
       } else {
         do {
+          --- Language globals (`lang.globals`) carry runtime values, so a
+          --- global `var` gets the type of its bound value (same JSON-type
+          --- mapping as `json_type_construct`) instead of `type.unknown`.
+          gval :: get_or(get_or(s, "globals", {}), name, null)
           in_prelude :: prelude_contains(s.prelude, name)
-          if in_prelude {
+          if gval != null {
+            do {
+              tag :: match type_of(gval) {
+                "num": "type.number",
+                "str": "type.string",
+                "bool": "type.bool",
+                "null": "type.null",
+                "arr": "type.array",
+                "obj": "type.object",
+                _: "type.unknown"
+              }
+              { val: funcs.make_type(tag, {}), state: s }
+            }
+          } else if in_prelude {
             if name == "array" {
               do {
                 take_result :: array_take_type(s)
@@ -1732,23 +1908,29 @@ do {
       } else {
         do {
           children :: node_children(node)
-          if len(children) < 2 {
+          payload :: node_payload(node)
+          payload_params :: get_or(payload, "params", null)
+          payload_body :: get_or(payload, "body", null)
+          use_payload :: len(children) < 2 && type_of(payload_params) == "arr" && type_of(payload_body) == "num"
+          if len(children) < 2 && !use_payload {
             { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "function needs params and body") }
           } else {
             do {
-              params_node :: ast_node(s.ast, at(children, 0))
-              params_kind :: node_kind(params_node)
-              param_children :: if params_kind == "paren" { node_children(params_node) } else { [at(children, 0)] }
-              body_idx :: at(children, 1)
-              params_info :: while { result: [], remaining: param_children, state: s } {
+              params_node :: if use_payload { null } else { ast_node(s.ast, at(children, 0)) }
+              params_kind :: if use_payload { "" } else { node_kind(params_node) }
+              param_children :: if use_payload { [] } else { if params_kind == "paren" { node_children(params_node) } else { [at(children, 0)] } }
+              param_items :: if use_payload { payload_params } else { param_children }
+              body_idx :: if use_payload { payload_body } else { at(children, 1) }
+              params_info :: while { result: [], remaining: param_items, state: s } {
                 [st]~> if is_empty(st.remaining) {
                   { out: { params: st.result, state: st["state"] } }
                 } else {
                   do {
-                    p_idx :: first_value(st.remaining)
-                    p_node :: ast_node(st["state"].ast, p_idx)
-                    p_kind :: node_kind(p_node)
-                    p_payload :: node_payload(p_node)
+                    p_item :: first_value(st.remaining)
+                    p_idx :: if type_of(p_item) == "str" { null } else { p_item }
+                    p_node :: if p_idx == null { null } else { ast_node(st["state"].ast, p_idx) }
+                    p_kind :: if p_idx == null { "var" } else { node_kind(p_node) }
+                    p_payload :: if p_idx == null { p_item } else { node_payload(p_node) }
                     p_name :: if p_kind == "var" {
                       if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
                     } else {
@@ -2183,7 +2365,9 @@ do {
                 if annot_role == null {
                   do {
                     value_result :: funcs.synth_node_(funcs, s, value_node_idx)
-                    { val: funcs.make_type("type.unit", {}), state: tc_extend(value_result["state"], target_name, value_result.typ) }
+                    extended :: tc_extend(value_result["state"], target_name, value_result.typ)
+                    bound :: tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
+                    { val: funcs.make_type("type.unit", {}), state: bound }
                   }
                 } else {
                   do {
@@ -2191,7 +2375,11 @@ do {
                     ann :: funcs.synth_type_(funcs, s, annot_idx)
                     check_result :: funcs.check_node_(funcs, ann["state"], value_node_idx, ann.val)
                     if check_result.ok {
-                      { val: funcs.make_type("type.unit", {}), state: tc_extend(check_result["state"], target_name, ann.val) }
+                      do {
+                        extended :: tc_extend(check_result["state"], target_name, ann.val)
+                        bound :: tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
+                        { val: funcs.make_type("type.unit", {}), state: bound }
+                      }
                     } else {
                       { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(check_result["state"], "error", "assign: type annotation mismatch for " + target_name) }
                     }
@@ -2201,7 +2389,9 @@ do {
             } else {
               do {
                 value_result :: funcs.synth_node_(funcs, s, value_node_idx)
-                { val: funcs.make_type("type.unit", {}), state: tc_extend(value_result["state"], target_name, value_result.typ) }
+                extended :: tc_extend(value_result["state"], target_name, value_result.typ)
+                bound :: tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
+                { val: funcs.make_type("type.unit", {}), state: bound }
               }
             }
           }
@@ -2443,6 +2633,55 @@ do {
         }
       }
     },
+    "check_json_value": do {
+      node :: ast_node(s.ast, node_idx)
+      payload :: node_payload(node)
+      actual :: if is_obj(payload) { get_or(payload, "value", payload) } else { payload }
+      expected :: incoming
+      tag :: type_tag(expected)
+      ok :: if is_meta(expected) {
+        true
+      } else {
+        if tag == "type.number" {
+          type_of(actual) == "num"
+        } else {
+          if tag == "type.string" {
+            type_of(actual) == "str"
+          } else {
+            if tag == "type.bool" {
+              type_of(actual) == "bool"
+            } else {
+              if tag == "type.unit" || tag == "type.null" {
+                actual == null
+              } else {
+                if tag == "type.array" {
+                  type_of(actual) == "arr"
+                } else {
+                  if tag == "type.object" {
+                    type_of(actual) == "obj"
+                  } else {
+                    if tag == "type.unknown" {
+                      true
+                    } else {
+                      if tag == "" {
+                        actual == expected
+                      } else {
+                        false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      if ok {
+        { val: expected, state: s }
+      } else {
+        { val: expected, state: tc_add_diagnostic(s, "error", "check_json_value: literal does not satisfy the expected annotation") }
+      }
+    },
     _: { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "warning", "unknown judgment op: " + op_name) }
   }
   }
@@ -2452,10 +2691,7 @@ do {
     kind :: node_kind(node)
     payload :: node_payload(node)
     if kind == "value" {
-      do {
-        raw :: get_or(payload, "value", null)
-        if type_of(raw) == "num" { { val: raw, state: st } } else { { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: value annotation is not a number: " + kind) } }
-      }
+      { val: if type_of(payload) == "obj" { get_or(payload, "value", null) } else { payload }, state: st }
     } else {
       if kind == "var" {
         do {
@@ -2463,7 +2699,7 @@ do {
           if name == "List" {
             { val: funcs.make_type("type.constructor", set(set({}, "name", "List"), "make", [element, length]~> funcs.make_type("List", set(set({}, "element", element), "length", length)))), state: st }
           } else {
-            if name == "Int" || name == "Nat" {
+            if name == "Int" || name == "Nat" || name == "Number" {
               { val: funcs.make_type("type.number", {}), state: st }
             } else {
               if name == "Bool" {
@@ -2477,7 +2713,14 @@ do {
                   } else {
                     found :: tc_lookup(st, name)
                     if found == null {
-                      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unbound type variable: " + name) }
+                      do {
+                        bound :: tc_lookup_result(st, name)
+                        if bound == null {
+                          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unbound type variable: " + name) }
+                        } else {
+                          funcs.eval_term_(funcs, st, bound)
+                        }
+                      }
                     } else {
                       { val: found, state: st }
                     }
@@ -2541,6 +2784,18 @@ do {
                 do {
                   children :: node_children(node)
                   callee_idx :: at(children, callee_role)
+                  callee_node :: ast_node(st.ast, callee_idx)
+                  callee_payload :: node_payload(callee_node)
+                  callee_name :: if node_kind(callee_node) == "var" {
+                    if type_of(callee_payload) == "str" { callee_payload } else { get_or(callee_payload, "name", "") }
+                  } else {
+                    ""
+                  }
+                  bound_callee :: if callee_name != "" { tc_lookup_result(st, callee_name) } else { null }
+                  if bound_callee != null {
+                    funcs.eval_node_(funcs, st, node_idx)
+                  } else {
+                  do {
                   callee_type :: funcs.synth_type_(funcs, st, callee_idx)
                   arg_acc :: while { result: [], state: callee_type["state"], idx: args_role } {
                     [inner]~> if inner.idx >= len(children) {
@@ -2587,11 +2842,21 @@ do {
                   } else {
                     { val: funcs.make_type("App", set(set({}, "callee", callee_type.val), "args", arg_acc.vals)), state: arg_acc["state"] }
                   }
+                  }
                 }
               }
             }
+            }
           } else {
-            { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unsupported annotation kind: " + kind) }
+            do {
+              left_role :: child_role_index(st, kind, "left")
+              is_evaluable :: kind == "paren" || kind == "if" || kind == "array" || left_role != null
+              if is_evaluable {
+                funcs.eval_node_(funcs, st, node_idx)
+              } else {
+                { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unsupported annotation kind: " + kind) }
+              }
+            }
           }
         }
       }
@@ -2656,6 +2921,425 @@ do {
     }
   }
 
+  --- Ordered value annotations (ADR-0103): `x : T := v` treats `T` as a
+  --- normal expression evaluated against the bound-value environment
+  --- (`s.results`, populated by `assign` via `tc_bind_result`). A type
+  --- result means membership (`5 : Number`); a value result means
+  --- equality (`f : inc(4) := 5` checks `5 == inc(4)`). Evaluation is
+  --- fuel-bounded through `tc_burn_fuel`, so annotation evaluation is
+  --- guaranteed to terminate like every other checker recursion.
+  ---
+  --- `node_term_` lowers an AST node to a closed term; `eval_term_`
+  --- reduces terms; `apply_val_` applies `LamVal`/`CompVal` closures and
+  --- host `__arrow__` values; `eval_node_` composes the two.
+
+  node_term_ :: [funcs, s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    kind :: node_kind(node)
+    payload :: node_payload(node)
+    children :: node_children(node)
+    if kind == "value" {
+      if type_of(payload) == "obj" { get_or(payload, "value", null) } else { payload }
+    } else {
+      if kind == "var" {
+        do {
+          name :: if type_of(payload) == "str" { payload } else { get_or(payload, "name", "") }
+          funcs.make_type("var", set({}, "name", name))
+        }
+      } else {
+        if kind == "paren" {
+          if is_empty(children) {
+            null
+          } else {
+            funcs.node_term_(funcs, s, first_value(children))
+          }
+        } else {
+          if kind == "call" {
+            do {
+              callee_role :: child_role_index(s, kind, "callee")
+              args_role :: child_role_index(s, kind, "args")
+              if callee_role == null || args_role == null {
+                null
+              } else {
+                do {
+                  callee_t :: funcs.node_term_(funcs, s, at(children, callee_role))
+                  arg_ts :: while { result: [], idx: args_role } {
+                    [st]~> if st.idx >= len(children) {
+                      { out: st.result }
+                    } else {
+                      { state: { result: [...st.result, funcs.node_term_(funcs, s, at(children, st.idx))], idx: st.idx + 1 } }
+                    }
+                  }
+                  funcs.make_type("App", set(set({}, "callee", callee_t), "args", arg_ts))
+                }
+              }
+            }
+          } else {
+            if kind == "function" {
+              do {
+                payload_params :: get_or(payload, "params", null)
+                payload_body :: get_or(payload, "body", null)
+                if type_of(payload_params) == "arr" && type_of(payload_body) == "num" {
+                  funcs.make_type("Lam", set(set({}, "params", payload_params), "body", payload_body))
+                } else {
+                do {
+                params_role :: child_role_index(s, kind, "params")
+                body_role :: child_role_index(s, kind, "body")
+                if params_role == null || body_role == null {
+                  null
+                } else {
+                  do {
+                    params_idx :: at(children, params_role)
+                    params_node :: ast_node(s.ast, params_idx)
+                    param_children :: if node_kind(params_node) == "paren" { node_children(params_node) } else { [params_idx] }
+                    names :: while { result: [], remaining: param_children } {
+                      [st]~> if is_empty(st.remaining) {
+                        { out: st.result }
+                      } else {
+                        do {
+                          p_idx :: first_value(st.remaining)
+                          p_node :: ast_node(s.ast, p_idx)
+                          p_kind :: node_kind(p_node)
+                          p_payload :: node_payload(p_node)
+                          p_name :: if p_kind == "var" {
+                            if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
+                          } else {
+                            if p_kind == "type-annot" {
+                              do {
+                                subj_role :: child_role_index(s, p_kind, "subject")
+                                if subj_role == null {
+                                  ""
+                                } else {
+                                  do {
+                                    subj_node :: ast_node(s.ast, child_ref(s.ast, p_idx, subj_role))
+                                    subj_payload :: node_payload(subj_node)
+                                    if type_of(subj_payload) == "str" { subj_payload } else { get_or(subj_payload, "name", "") }
+                                  }
+                                }
+                              }
+                            } else {
+                              ""
+                            }
+                          }
+                          { state: { result: [...st.result, p_name], remaining: drop(st.remaining, 1) } }
+                        }
+                      }
+                    }
+                    funcs.make_type("Lam", set(set({}, "params", names), "body", at(children, body_role)))
+                  }
+                }
+                }
+                }
+              }
+            } else {
+              if kind == "if" {
+                do {
+                  cond_role :: child_role_index(s, kind, "condition")
+                  then_role :: child_role_index(s, kind, "then")
+                  else_role :: child_role_index(s, kind, "else")
+                  if cond_role == null || then_role == null {
+                    null
+                  } else {
+                    do {
+                      cond_t :: funcs.node_term_(funcs, s, at(children, cond_role))
+                      then_t :: funcs.node_term_(funcs, s, at(children, then_role))
+                      else_t :: if else_role == null || else_role >= len(children) {
+                        null
+                      } else {
+                        funcs.node_term_(funcs, s, at(children, else_role))
+                      }
+                      funcs.make_type("If", set(set(set({}, "cond", cond_t), "then", then_t), "else", else_t))
+                    }
+                  }
+                }
+              } else {
+                if kind == "array" {
+                  do {
+                    element_terms :: while { result: [], remaining: children } {
+                      [st]~> if is_empty(st.remaining) {
+                        { out: st.result }
+                      } else {
+                        { state: { result: [...st.result, funcs.node_term_(funcs, s, first_value(st.remaining))], remaining: drop(st.remaining, 1) } }
+                      }
+                    }
+                    funcs.make_type("ArrLit", set({}, "elements", element_terms))
+                  }
+                } else {
+                  do {
+                    left_role :: child_role_index(s, kind, "left")
+                    right_role :: child_role_index(s, kind, "right")
+                    operand_role :: child_role_index(s, kind, "operand")
+                    if left_role == null || right_role == null {
+                      if operand_role == null {
+                        null
+                      } else {
+                        funcs.make_type("Un", set(set({}, "op", kind), "operand", funcs.node_term_(funcs, s, at(children, operand_role))))
+                      }
+                    } else {
+                      do {
+                        l_t :: funcs.node_term_(funcs, s, at(children, left_role))
+                        r_t :: funcs.node_term_(funcs, s, at(children, right_role))
+                        if kind == "flow" {
+                          funcs.make_type("Comp", set(set({}, "l", l_t), "r", r_t))
+                        } else {
+                          funcs.make_type("Bin", set(set(set({}, "op", kind), "l", l_t), "r", r_t))
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  is_applicable_ :: [funcs, v]~> if type_tag(v) == "LamVal" || type_tag(v) == "CompVal" {
+    true
+  } else {
+    is_host_arrow_(v)
+  }
+
+  apply_val_ :: [funcs, s, f, args]~> do {
+    tag :: type_tag(f)
+    if tag == "LamVal" {
+      do {
+        params :: get_or(f, "params", [])
+        body_idx :: get_or(f, "body", 0)
+        env :: get_or(f, "env", {})
+        bound_env :: while { result: env, idx: 0 } {
+          [st]~> if st.idx >= len(args) || st.idx >= len(params) {
+            { out: st.result }
+          } else {
+            { state: { result: set(st.result, at(params, st.idx), at(args, st.idx)), idx: st.idx + 1 } }
+          }
+        }
+        s2 :: set(s, "results", bound_env)
+        body_result :: funcs.eval_node_(funcs, s2, body_idx)
+        { val: body_result.val, state: set(body_result["state"], "results", get_or(s, "results", {})) }
+      }
+    } else {
+      if tag == "CompVal" {
+        do {
+          inner :: funcs.apply_val_(funcs, s, get_or(f, "l", null), args)
+          funcs.apply_val_(funcs, inner["state"], get_or(f, "r", null), [inner.val])
+        }
+      } else {
+        if is_host_arrow_(f) {
+          do {
+            raw :: if len(args) == 0 {
+              f()
+            } else {
+              if len(args) == 1 {
+                f(at(args, 0))
+              } else {
+                if len(args) == 2 {
+                  f(at(args, 0), at(args, 1))
+                } else {
+                  f(at(args, 0), at(args, 1), at(args, 2))
+                }
+              }
+            }
+            { val: raw, state: s }
+          }
+        } else {
+          { val: funcs.make_type("App", set(set({}, "callee", f), "args", args)), state: s }
+        }
+      }
+    }
+  }
+
+  eval_bin_ :: [funcs, s, bin_op, l_term, r_term]~> do {
+    l_result :: funcs.eval_term_(funcs, s, l_term)
+    r_result :: funcs.eval_term_(funcs, l_result["state"], r_term)
+    lv :: l_result.val
+    rv :: r_result.val
+    both_num :: type_of(lv) == "num" && type_of(rv) == "num"
+    both_bool :: type_of(lv) == "bool" && type_of(rv) == "bool"
+    both_lit :: type_tag(lv) == "" && type_tag(rv) == ""
+    opaque :: funcs.make_type("Bin", set(set(set({}, "op", bin_op), "l", lv), "r", rv))
+    val :: if bin_op == "binary.add" {
+      if both_num { lv + rv } else { opaque }
+    } else {
+      if bin_op == "binary.sub" {
+        if both_num { lv - rv } else { opaque }
+      } else {
+        if bin_op == "binary.mul" {
+          if both_num { lv * rv } else { opaque }
+        } else {
+          if bin_op == "binary.div" {
+            if both_num && rv != 0 { lv / rv } else { opaque }
+          } else {
+            if bin_op == "binary.mod" {
+              if both_num && rv != 0 { lv % rv } else { opaque }
+            } else {
+              if bin_op == "binary.eq" {
+                if both_lit { lv == rv } else { opaque }
+              } else {
+                if bin_op == "binary.neq" {
+                  if both_lit { lv != rv } else { opaque }
+                } else {
+                  if bin_op == "binary.lt" {
+                    if both_num { lv < rv } else { opaque }
+                  } else {
+                    if bin_op == "binary.lte" {
+                      if both_num { lv <= rv } else { opaque }
+                    } else {
+                      if bin_op == "binary.gt" {
+                        if both_num { lv > rv } else { opaque }
+                      } else {
+                        if bin_op == "binary.gte" {
+                          if both_num { lv >= rv } else { opaque }
+                        } else {
+                          if bin_op == "binary.and" {
+                            if both_bool { lv && rv } else { opaque }
+                          } else {
+                            if bin_op == "binary.or" {
+                              if both_bool { lv || rv } else { opaque }
+                            } else {
+                              opaque
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    { val: val, state: r_result["state"] }
+  }
+
+  eval_term_ :: [funcs, s, term]~> do {
+    s :: tc_sanitize(s)
+    s :: tc_burn_fuel(s)
+    if tc_fuel_exhausted(s) {
+      { val: term, state: s }
+    } else {
+      do {
+        tag :: type_tag(term)
+        if tag == "var" {
+          do {
+            bound :: tc_lookup_result(s, get_or(term, "name", ""))
+            if bound == null {
+              { val: term, state: s }
+            } else {
+              funcs.eval_term_(funcs, s, bound)
+            }
+          }
+        } else {
+          if tag == "Lam" {
+            { val: funcs.make_type("LamVal", set(set(set({}, "params", get_or(term, "params", [])), "body", get_or(term, "body", 0)), "env", s.results)), state: s }
+          } else {
+            if tag == "App" {
+              do {
+                callee_result :: funcs.eval_term_(funcs, s, get_or(term, "callee", null))
+                arg_result :: while { result: [], state: callee_result["state"], remaining: get_or(term, "args", []) } {
+                  [st]~> if is_empty(st.remaining) {
+                    { out: { vals: st.result, state: st["state"] } }
+                  } else {
+                    do {
+                      av :: funcs.eval_term_(funcs, st["state"], first_value(st.remaining))
+                      { state: { result: [...st.result, av.val], state: av["state"], remaining: drop(st.remaining, 1) } }
+                    }
+                  }
+                }
+                funcs.apply_val_(funcs, arg_result["state"], callee_result.val, arg_result.vals)
+              }
+            } else {
+              if tag == "Comp" {
+                do {
+                  l_result :: funcs.eval_term_(funcs, s, get_or(term, "l", null))
+                  r_result :: funcs.eval_term_(funcs, l_result["state"], get_or(term, "r", null))
+                  l_val :: l_result.val
+                  r_val :: r_result.val
+                  if funcs.is_applicable_(funcs, r_val) && !funcs.is_applicable_(funcs, l_val) {
+                    funcs.apply_val_(funcs, r_result["state"], r_val, [l_val])
+                  } else {
+                    if funcs.is_applicable_(funcs, l_val) && funcs.is_applicable_(funcs, r_val) {
+                      { val: funcs.make_type("CompVal", set(set({}, "l", l_val), "r", r_val)), state: r_result["state"] }
+                    } else {
+                      { val: funcs.make_type("Comp", set(set({}, "l", l_val), "r", r_val)), state: r_result["state"] }
+                    }
+                  }
+                }
+              } else {
+                if tag == "Bin" {
+                  funcs.eval_bin_(funcs, s, get_or(term, "op", ""), get_or(term, "l", null), get_or(term, "r", null))
+                } else {
+                  if tag == "Un" {
+                    do {
+                      operand_result :: funcs.eval_term_(funcs, s, get_or(term, "operand", null))
+                      v :: operand_result.val
+                      un_op :: get_or(term, "op", "")
+                      if un_op == "unary.neg" && type_of(v) == "num" {
+                        { val: 0 - v, state: operand_result["state"] }
+                      } else {
+                        if un_op == "unary.not" && type_of(v) == "bool" {
+                          { val: !v, state: operand_result["state"] }
+                        } else {
+                          { val: funcs.make_type("Un", set(set({}, "op", un_op), "operand", v)), state: operand_result["state"] }
+                        }
+                      }
+                    }
+                  } else {
+                  if tag == "If" {
+                    do {
+                      cond_result :: funcs.eval_term_(funcs, s, get_or(term, "cond", null))
+                      if cond_result.val == true {
+                        funcs.eval_term_(funcs, cond_result["state"], get_or(term, "then", null))
+                      } else {
+                        if cond_result.val == false {
+                          funcs.eval_term_(funcs, cond_result["state"], get_or(term, "else", null))
+                        } else {
+                          { val: term, state: cond_result["state"] }
+                        }
+                      }
+                    }
+                  } else {
+                    if tag == "ArrLit" {
+                      do {
+                        element_result :: while { result: [], state: s, remaining: get_or(term, "elements", []), ok: true } {
+                          [st]~> if is_empty(st.remaining) {
+                            { out: { vals: st.result, state: st["state"], ok: st.ok } }
+                          } else {
+                            do {
+                              ev :: funcs.eval_term_(funcs, st["state"], first_value(st.remaining))
+                              { state: { result: [...st.result, ev.val], state: ev["state"], remaining: drop(st.remaining, 1), ok: st.ok && type_tag(ev.val) == "" } }
+                            }
+                          }
+                        }
+                        if element_result.ok {
+                          { val: element_result.vals, state: element_result["state"] }
+                        } else {
+                          { val: funcs.make_type("ArrLit", set({}, "elements", element_result.vals)), state: element_result["state"] }
+                        }
+                      }
+                    } else {
+                      { val: term, state: s }
+                    }
+                  }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  eval_node_ :: [funcs, s, node_idx]~> do {
+    term :: funcs.node_term_(funcs, s, node_idx)
+    funcs.eval_term_(funcs, s, term)
+  }
+
   --- funcs record: resolves the mutual recursion cycle ---
   --- Created after all four functions are defined so each can look ---
   --- up its siblings via funcs.fn_name(funcs, ...) at call time. ---
@@ -2665,6 +3349,14 @@ do {
     eval_scheme_: eval_scheme_,
     eval_judgment_: eval_judgment_,
     synth_type_: synth_type_,
+    node_term_: node_term_,
+    collect_var_names_: collect_var_names_,
+    bind_pattern_vars_: bind_pattern_vars_,
+    is_applicable_: is_applicable_,
+    apply_val_: apply_val_,
+    eval_bin_: eval_bin_,
+    eval_term_: eval_term_,
+    eval_node_: eval_node_,
     make_type: make_type,
     sanitize: tc_sanitize,
     add_diagnostic: tc_add_diagnostic,
@@ -2690,7 +3382,7 @@ do {
       ast_arr :: get_or(lang, "ast", [])
       type_index :: index_type_rules(types_arr)
       ast_index :: index_type_rules(ast_arr)
-      s :: tc_new(ast, type_index, ast_index, prelude)
+      s :: tc_new(ast, type_index, ast_index, prelude, get_or(lang, "globals", {}))
       result :: funcs.synth_node_(funcs, s, root_idx)
       zonked :: zonk(zonk, result.typ, result["state"].metas)
       final_state :: if zonked == null { funcs.add_diagnostic(result["state"], "warning", "typecheck result was null; defaulting to type.unknown") } else { result["state"] }
