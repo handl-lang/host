@@ -423,6 +423,27 @@
     required:
       - children
     type: object
+# `axis_flow` — axis-parameterized composition `a >>>[k] b` (ADR-0120
+# Phase 2). The middle child is the composition axis, an ordinary
+# expression position (literal, variable, or compound expression);
+# unindexed `>>>` parses to `flow` and is `>>>[0]`.
+- id: ast.axis_flow
+  node_kind: axis_flow
+  children:
+    - role: left
+    - role: axis
+    - role: right
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.forall
   node_kind: forall
   payload_schema:

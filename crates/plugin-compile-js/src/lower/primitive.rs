@@ -21,7 +21,8 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
             })
         }
         Term::Const { value } => lower_value(value),
-        Term::Seq { fst, snd } => {
+        Term::Seq { axis, fst, snd } => {
+            check_axis_zero(axis)?;
             let param = JsAst::Ident(INPUT_NAME.to_string());
             let body = lower_sub(snd, &lower_sub(fst, &param)?)?;
             Ok(JsAst::ArrowFn {
@@ -50,10 +51,28 @@ pub fn lower_applied(term: &Term, _input: &JsAst) -> Result<JsAst, CompileError>
             callee: Box::new(lower(term)?),
             args: vec![_input.clone()],
         }),
-        Term::Seq { fst, snd } => lower_sub(snd, &lower_sub(fst, _input)?),
+        Term::Seq { axis, fst, snd } => {
+            check_axis_zero(axis)?;
+            lower_sub(snd, &lower_sub(fst, _input)?)
+        }
         _ => Err(CompileError::Lower(format!(
             "primitive lowerer received non-primitive term: {term:?}"
         ))),
+    }
+}
+
+/// ADR-0120 Phase 2: `>>>` is `>>>[0]`. The JS backend only implements
+/// axis-0 composition; non-zero or non-literal axes are structurally valid
+/// but rejected here pending the multi-axis execution increment.
+fn check_axis_zero(axis: &Term) -> Result<(), CompileError> {
+    match axis.nat_literal() {
+        Some(0) => Ok(()),
+        Some(k) => Err(CompileError::Lower(format!(
+            "Seq: axis-{k} composition is not yet implemented (ADR-0120 Phase 2)"
+        ))),
+        None => Err(CompileError::Lower(
+            "Seq: non-literal composition axis is not yet supported (ADR-0120 Phase 2)".to_string(),
+        )),
     }
 }
 

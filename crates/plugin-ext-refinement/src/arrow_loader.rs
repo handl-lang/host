@@ -240,7 +240,8 @@ fn resolve_apps_inner_td(
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            TermData::seq(
+            TermData::seq_axis(
+                resolve_apps_inner_td(&td.axis(), graph_map, depth),
                 resolve_apps_inner_td(&fst, graph_map, depth),
                 resolve_apps_inner_td(&snd, graph_map, depth),
             )
@@ -799,7 +800,9 @@ fn has_unresolved_apps_td(td: &TermData, known_names: &HashSet<String>) -> bool 
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            has_unresolved_apps_td(&fst, known_names) || has_unresolved_apps_td(&snd, known_names)
+            has_unresolved_apps_td(&td.axis(), known_names)
+                || has_unresolved_apps_td(&fst, known_names)
+                || has_unresolved_apps_td(&snd, known_names)
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");
@@ -878,7 +881,9 @@ fn contains_module_ref_td(td: &TermData) -> bool {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            contains_module_ref_td(&fst) || contains_module_ref_td(&snd)
+            contains_module_ref_td(&td.axis())
+                || contains_module_ref_td(&fst)
+                || contains_module_ref_td(&snd)
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");
@@ -942,7 +947,9 @@ fn contains_project_td(td: &TermData) -> bool {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            contains_project_td(&fst) || contains_project_td(&snd)
+            contains_project_td(&td.axis())
+                || contains_project_td(&fst)
+                || contains_project_td(&snd)
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");
@@ -1032,7 +1039,11 @@ where
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            TermData::seq(transform_scheme_td(&fst, f), transform_scheme_td(&snd, f))
+            TermData::seq_axis(
+                transform_scheme_td(&td.axis(), f),
+                transform_scheme_td(&fst, f),
+                transform_scheme_td(&snd, f),
+            )
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");
@@ -1394,6 +1405,7 @@ fn collect_app_callee_names_td(td: &TermData, out: &mut HashSet<String>) {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
+            collect_app_callee_names_td(&td.axis(), out);
             collect_app_callee_names_td(&fst, out);
             collect_app_callee_names_td(&snd, out);
         }
@@ -1633,7 +1645,8 @@ fn resolve_all_apps_td(
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            TermData::seq(
+            TermData::seq_axis(
+                resolve_all_apps_td(&td.axis(), known, resolving),
                 resolve_all_apps_td(&fst, known, resolving),
                 resolve_all_apps_td(&snd, known, resolving),
             )

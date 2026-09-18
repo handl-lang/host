@@ -42,10 +42,7 @@ fn first(inner: Term) -> Term {
 
 /// Convenience: seq(fst, snd)
 fn seq(fst: Term, snd: Term) -> Term {
-    Term::Seq {
-        fst: Box::new(fst),
-        snd: Box::new(snd),
-    }
+    Term::seq(fst, snd)
 }
 
 /// Convenience: loop_feedback(body)

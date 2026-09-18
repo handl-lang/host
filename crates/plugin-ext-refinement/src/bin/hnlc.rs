@@ -204,8 +204,18 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
                 out
             }
         }
-        Term::Seq { fst, snd } => {
-            let mut out = format!("{}seq {{\n", indent);
+        Term::Seq { axis, fst, snd } => {
+            // `>>>` is `>>>[0]`; show `seq[k]` for non-default axes.
+            let head = match axis.nat_literal() {
+                Some(0) => "seq".to_string(),
+                Some(k) => format!("seq[{k}]"),
+                None => "seq[?]".to_string(),
+            };
+            let mut out = format!("{}{} {{\n", indent, head);
+            if !axis.is_default_axis() {
+                out.push_str(&pretty_scheme_inner(axis, depth + 1));
+                out.push('\n');
+            }
             out.push_str(&pretty_scheme_inner(fst, depth + 1));
             out.push('\n');
             out.push_str(&pretty_scheme_inner(snd, depth + 1));
@@ -268,6 +278,9 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
         }
 
         Term::Arr { value, .. } => format!("{}const({})", indent, value),
+        // `Const` literals appear in the `Seq` axis slot (`>>>[k]`,
+        // ADR-0120 Phase 2) — print them like `Arr` constants.
+        Term::Const { value } => format!("{}const({})", indent, value),
         Term::Child { role } => format!("{}child({})", indent, role),
         Term::Iter {
             fuel,

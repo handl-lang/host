@@ -121,7 +121,18 @@ fn infer_r_td(
 
         // seq(g, h) = comp(g, h): compose refinements (cut rule).
         // RGraph::Comp(g, h) maps to Term::Seq { fst: g, snd: h }.
+        // The cut rule is the axis-0 (`>>>`) composition law; at axis k > 0
+        // (or an unresolved axis) the operands compose along a different
+        // axis and the conjunction does not apply — fall back to the
+        // conservative identity (ADR-0120 Phase 2).
         "Seq" => {
+            if td.axis().nat_literal() != Some(0) {
+                return Ok((
+                    RefTy::Plain(BaseTy::Var("a".to_string())),
+                    RefTy::Plain(BaseTy::Var("b".to_string())),
+                    Pred::True,
+                ));
+            }
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
             let (gi, _go, gp) = infer_r_td(&fst, registry, loop_invs)?;
@@ -252,11 +263,22 @@ fn format_scheme_td(td: &TermData) -> String {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            format!(
-                "seq({}, {})",
-                format_scheme_td(&fst),
-                format_scheme_td(&snd)
-            )
+            let axis = td.axis();
+            if axis.nat_literal() == Some(0) {
+                format!(
+                    "seq({}, {})",
+                    format_scheme_td(&fst),
+                    format_scheme_td(&snd)
+                )
+            } else {
+                // Axis-parameterized composition `>>>[k]` (ADR-0120 Phase 2).
+                format!(
+                    "seq_axis({}, {}, {})",
+                    format_scheme_td(&axis),
+                    format_scheme_td(&fst),
+                    format_scheme_td(&snd)
+                )
+            }
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");
@@ -281,6 +303,10 @@ fn format_scheme_td(td: &TermData) -> String {
             format!("handle({}, {})", format_scheme_td(&body), target)
         }
         "Arr" => {
+            let value = td.get("value").cloned().unwrap_or(serde_json::Value::Null);
+            format!("const({})", value)
+        }
+        "Const" => {
             let value = td.get("value").cloned().unwrap_or(serde_json::Value::Null);
             format!("const({})", value)
         }

@@ -177,6 +177,21 @@
   child_shape:
     node_kind: flow
     arity: 2
+# `axis_flow.infix` — axis-parameterized composition `a >>>[k] b`
+# (ADR-0120 Phase 2). The infix operator is `>>>[`; `]` (token.rbracket)
+# separates the axis expression from the right operand, mirroring
+# `dim_arrow`'s `~[ N ]~>` bracket capture.
+- id: grammar.axis_flow.infix
+  token: token.flow_axis_open
+  position: Infix
+  binding_power:
+    - 25
+    - 26
+  child_shape:
+    node_kind: axis_flow
+    arity: 3
+    child_separators:
+      - !Required token.rbracket
 - id: grammar.product.infix
   token: token.product
   position: Infix

@@ -2204,6 +2204,117 @@
     source: Judgment
     lit: type.unknown
 
+# `axis_flow` — axis-parameterized composition `a >>>[k] b` (ADR-0120
+# Phase 2). Structural portion implemented here:
+#   * the axis child (index 1) is checked against `type.number` — the
+#     composition axis is a natural-number expression position;
+#   * the axis-0 boundary condition `tgt_0(a) = src_0(b)` is expressed in
+#     `type.function` coordinates as `unify(a.body, b.param)`, and the
+#     composite synthesizes `type.function{param: a.param, body: b.body}`.
+# Remaining gap (documented in ADR-0120): for k > 0 the globular check is
+# `tgt_k(a) = src_k(b)` on the k-th boundaries, but the current type
+# vocabulary exposes only the 0-boundaries of a `type.function` — there is
+# no `src_k`/`tgt_k` type projection. The axis-0 rule below is exact; for
+# k > 0 the same 0-boundary unification is the closest expressible
+# approximation until the type model grows k-indexed boundary fields.
+- id: type.axis_flow
+  node_kind: axis_flow
+  synth: !Seq
+    fst: !Op
+      name: check_child
+      args:
+        - !Op
+          name: construct
+          args: []
+          source: Judgment
+          lit: type.number
+      source: Judgment
+      lit: 1
+    snd: !Seq
+      fst: !Op
+        name: synth_child
+        args: []
+        source: Judgment
+        lit: 0
+      snd: !Seq
+        fst: !Op
+          name: bind
+          args: []
+          source: Judgment
+          lit: ftype
+        snd: !Seq
+          fst: !Op
+            name: synth_child
+            args: []
+            source: Judgment
+            lit: 2
+          snd: !Seq
+            fst: !Op
+              name: bind
+              args: []
+              source: Judgment
+              lit: gtype
+            snd: !Seq
+              fst: !Op
+                name: unify
+                args:
+                  - !Op
+                    name: type_field
+                    args:
+                      - !Op
+                        name: result
+                        args: []
+                        source: Judgment
+                        lit: ftype
+                    source: Judgment
+                    lit: body
+                  - !Op
+                    name: type_field
+                    args:
+                      - !Op
+                        name: result
+                        args: []
+                        source: Judgment
+                        lit: gtype
+                    source: Judgment
+                    lit: param
+                source: Judgment
+              snd: !Op
+                name: construct
+                args:
+                  - !Op
+                    name: field
+                    args:
+                      - !Op
+                        name: type_field
+                        args:
+                          - !Op
+                            name: result
+                            args: []
+                            source: Judgment
+                            lit: ftype
+                        source: Judgment
+                        lit: param
+                    source: Judgment
+                    lit: param
+                  - !Op
+                    name: field
+                    args:
+                      - !Op
+                        name: type_field
+                        args:
+                          - !Op
+                            name: result
+                            args: []
+                            source: Judgment
+                            lit: gtype
+                        source: Judgment
+                        lit: body
+                    source: Judgment
+                    lit: body
+                source: Judgment
+                lit: type.function
+
 # `fanout` — categorical fanout `&&&` (ADR-0074 follow-up #3).
 # Disabled until the handl typecheck model supports it; without a rule the
 # driver falls back to `type.unknown` with a warning.

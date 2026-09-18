@@ -55,7 +55,19 @@ fn analyze_termination_td(td: &TermData, registry: &ContractRegistry) -> Termina
         }
 
         "Seq" => {
-            // Composition: both parts must terminate.
+            // Composition: both parts must terminate. This is the axis-0
+            // (`>>>`) rule — at axis k > 0 (or an unresolved axis) the
+            // composition semantics are not yet implemented, so termination
+            // cannot be guaranteed (ADR-0120 Phase 2).
+            if td.axis().nat_literal() != Some(0) {
+                return TerminationResult {
+                    terminates: false,
+                    measure: Measure::None,
+                    reason: "higher-axis composition — multi-axis execution not implemented; \
+                         termination not guaranteed (ADR-0120 Phase 2)"
+                        .to_string(),
+                };
+            }
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
             let tg = analyze_termination_td(&fst, registry);
@@ -189,8 +201,19 @@ fn analyze_loop_termination_td(td: &TermData, registry: &ContractRegistry) -> Te
 
         // --- Case 2/3/4/5: Composition body ---
         // loop(seq(left, right)): `right` is what updates C. We inspect right
-        // to discover the measure on C.
+        // to discover the measure on C. This decomposition is the axis-0
+        // (`>>>`) wiring; a higher-axis `seq[k]` does not feed `left` into
+        // `right` along C, so no measure can be derived (ADR-0120 Phase 2).
         "Seq" => {
+            if td.axis().nat_literal() != Some(0) {
+                return TerminationResult {
+                    terminates: false,
+                    measure: Measure::None,
+                    reason: "loop(seq[k](...)): higher-axis composition provides no \
+                             sequential decreasing measure on C (ADR-0120 Phase 2)"
+                        .to_string(),
+                };
+            }
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
             analyze_comp_loop_termination_td(&fst, &snd, registry)
@@ -408,8 +431,19 @@ fn analyze_comp_loop_termination_td(
         }
 
         // right is a composition: seq(G, seq(h1, h2)). Recurse into the
-        // right composition to find the measure on C.
+        // right composition to find the measure on C. The recursion is only
+        // valid for axis-0 (`>>>`) composition — a higher-axis right side
+        // does not wire h1 into h2 along C (ADR-0120 Phase 2).
         "Seq" => {
+            if right_td.axis().nat_literal() != Some(0) {
+                return TerminationResult {
+                    terminates: false,
+                    measure: Measure::None,
+                    reason: "seq(_, seq[k](_, _)): higher-axis right side provides no \
+                             sequential decreasing measure on C (ADR-0120 Phase 2)"
+                        .to_string(),
+                };
+            }
             let h1 = right_td.get_term("fst").expect("Seq: missing fst");
             let h2 = right_td.get_term("snd").expect("Seq: missing snd");
             // The rightmost part (h2) is closest to C. Analyze seq(h1, h2)
@@ -551,6 +585,12 @@ fn find_decreasing_measure_in_td(
             }
         }
         "Seq" => {
+            // A decreasing measure inside a `Seq` only reaches C through
+            // axis-0 (`>>>`) sequential wiring; at axis k > 0 the operands
+            // do not compose along C (ADR-0120 Phase 2).
+            if td.axis().nat_literal() != Some(0) {
+                return None;
+            }
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
             find_decreasing_measure_in_td(&fst, registry)

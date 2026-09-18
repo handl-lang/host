@@ -96,6 +96,14 @@
 - id: token.flow
   label: ">>>"
   category: operator
+# `>>>[ k ]` — axis-parameterized composition (ADR-0120 Phase 2). The
+# bracketed segment carries the composition axis (an ordinary expression);
+# unindexed `>>>` is `>>>[0]`. Lexed as a single `>>>[` opener so the axis
+# is captured like `~[ N ]~>`; the axis closes with `token.rbracket`.
+- id: token.flow_axis_open
+  label: ">>>["
+  category: open-bracket
+  pair: token.rbracket
 - id: token.gt
   label: ">"
   category: operator

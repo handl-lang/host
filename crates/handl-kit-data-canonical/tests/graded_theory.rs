@@ -348,3 +348,112 @@ fn empty_dimension_bracket_rejected_through_real_lexer() {
         "diagnostic should name the empty bracket: {err:?}",
     );
 }
+
+// ---------------------------------------------------------------------------
+// Axis-parameterized composition `a >>>[k] b` (ADR-0120 Phase 2)
+// ---------------------------------------------------------------------------
+//
+// `>>>` is `>>>[0]`; the bracketed middle child is an ordinary expression
+// position carrying the composition axis. The axis is lexed as part of the
+// `>>>[` opener (like `~[ N ]~>`) and closed by `token.rbracket`.
+
+/// `a >>>[1] b` parses to a ternary `axis_flow` node whose children are
+/// `[left, axis, right]` — the roles declared by `ast.axis_flow`.
+#[test]
+fn axis_flow_parses() {
+    let ast = parse("a >>>[1] b");
+    let r = root(&ast);
+    assert_eq!(r.kind, "axis_flow");
+    let cs = children(&ast, r);
+    assert_eq!(cs.len(), 3, "axis flow is ternary: [left, axis, right]");
+    assert_eq!(cs[0].payload, serde_json::json!("a"));
+    assert_eq!(
+        cs[1].payload,
+        serde_json::json!(1),
+        "the axis child is a number"
+    );
+    assert_eq!(cs[2].payload, serde_json::json!("b"));
+}
+
+/// The axis is an ordinary expression position: an identifier axis parses
+/// to a `var` child, not a special token payload.
+#[test]
+fn axis_flow_variable_axis_parses() {
+    let ast = parse("a >>>[k] b");
+    let r = root(&ast);
+    assert_eq!(r.kind, "axis_flow");
+    let cs = children(&ast, r);
+    assert_eq!(cs[1].kind, "var");
+    assert_eq!(cs[1].payload, serde_json::json!("k"));
+}
+
+/// Unindexed `>>>` still parses to the binary `flow` node — `a >>> b` is
+/// `>>>[0]` semantically, but the surface form keeps its own shape so the
+/// canonical pipeline syntax is unchanged.
+#[test]
+fn unindexed_flow_still_parses_as_flow() {
+    let ast = parse("a >>> b");
+    let r = root(&ast);
+    assert_eq!(r.kind, "flow");
+    let cs = children(&ast, r);
+    assert_eq!(cs.len(), 2, "flow is binary: [left, right]");
+}
+
+/// `>>>[` shares `>>>`'s binding power, so `a >>>[k] b >>> c` chains
+/// left-associatively: `flow(axis_flow(a, k, b), c)`.
+#[test]
+fn axis_flow_chains_with_flow() {
+    let ast = parse("a >>>[0] b >>> c");
+    let r = root(&ast);
+    assert_eq!(r.kind, "flow");
+    let cs = children(&ast, r);
+    assert_eq!(cs[0].kind, "axis_flow");
+    assert_eq!(cs[1].payload, serde_json::json!("c"));
+}
+
+/// `>>>[` lexes ahead of `>>>` on maximal munch, mirroring `]~>` vs `]`.
+#[test]
+fn axis_flow_opener_lexes_as_single_token() {
+    let rt = full_runtime();
+    let toks = rt.lex(&Source::new("a >>>[0] b")).expect("lex");
+    let kinds: Vec<&str> = toks.0.iter().map(|t| t.kind.as_str()).collect();
+    assert!(kinds.contains(&"token.flow_axis_open"), "tokens: {kinds:?}");
+    assert!(
+        !kinds.contains(&"token.flow"),
+        "the four-character opener must win over `>>>`: {kinds:?}"
+    );
+}
+
+/// Axis 0 evaluates exactly like `>>>` — the canonical eval scheme runs the
+/// axis child for validation, then flows left into right.
+#[test]
+fn axis_flow_zero_evaluates_like_flow() {
+    let rt = full_runtime();
+    let eval = |src: &str| {
+        let toks = rt.lex(&Source::new(src)).expect("lex");
+        let ast = rt.parse(&toks).expect("parse");
+        rt.eval(&ast).expect("eval")
+    };
+    let plain = eval("do { inc :: x ~> x + 1; 41 >>> inc }");
+    let indexed = eval("do { inc :: x ~> x + 1; 41 >>>[0] inc }");
+    assert_eq!(indexed, plain, "`>>>[0]` must evaluate exactly like `>>>`");
+}
+
+/// A nonzero literal axis is a hard eval error — canonical execution must
+/// not silently degrade `>>>[k]` to `>>>` (ADR-0120 Phase 2).
+#[test]
+fn axis_flow_nonzero_axis_eval_errors() {
+    let rt = full_runtime();
+    let toks = rt
+        .lex(&Source::new("do { inc :: x ~> x + 1; 41 >>>[1] inc }"))
+        .expect("lex");
+    let ast = rt.parse(&toks).expect("parse");
+    let err = rt
+        .eval(&ast)
+        .expect_err("axis 1 must not evaluate like >>>");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("axis") || msg.contains("not yet implemented"),
+        "error should name the unimplemented axis: {msg}"
+    );
+}

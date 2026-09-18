@@ -55,10 +55,16 @@ impl HughesEmitter {
                     }
                 }
             },
-            Term::Seq { fst, snd } => {
+            Term::Seq { axis, fst, snd } => {
                 let fst_s = self.emit_arrow(fst, params);
                 let snd_s = self.emit_arrow(snd, params);
-                format!("{} >>> {}", fst_s, snd_s)
+                // `>>>` is `>>>[0]`; emit the axis bracket only for
+                // non-default axes (ADR-0120 Phase 2).
+                if axis.is_default_axis() {
+                    format!("{} >>> {}", fst_s, snd_s)
+                } else {
+                    format!("{} >>>[{}] {}", fst_s, self.emit_expr(axis, params), snd_s)
+                }
             }
             _ => "<term>".to_string(),
         }

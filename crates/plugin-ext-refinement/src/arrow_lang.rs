@@ -17,7 +17,8 @@ use std::sync::OnceLock;
 
 use handl_language::ArrSource;
 use handl_language::{
-    AstShapeRef, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow, Language, PairShape,
+    AstShapeRef, ChildSeparator, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow,
+    Language, PairShape,
 };
 use plugin_engine::TermData;
 
@@ -51,6 +52,24 @@ pub fn arrow_language() -> &'static Language {
                 .with_replaces(vec!["grammar.flow.infix".to_string()]),
             )
             .expect("override flow grammar row");
+
+        // Override `>>>[k]` (axis_flow) binding power to match `>>>` in the
+        // arrow dialect (20, 21). The canonical row (25, 26) is replaced; the
+        // `]` separator still captures the axis expression (ADR-0120 Phase 2).
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.axis_flow.infix.arrow",
+                    "token.flow_axis_open",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("axis_flow", 3).with_child_separators(vec![
+                        ChildSeparator::Required("token.rbracket".to_string()),
+                    ]),
+                )
+                .with_binding_power(20, 21)
+                .with_replaces(vec!["grammar.axis_flow.infix".to_string()]),
+            )
+            .expect("override axis_flow grammar row");
 
         // Override `|||` (choice) binding power: raise it so it binds
         // tighter than `>>>`. Canonical is (20, 21); arrow needs (25, 26).
@@ -128,6 +147,40 @@ pub fn arrow_language() -> &'static Language {
                     .with_replaces(vec!["eval.flow".to_string()]),
             )
             .expect("override flow eval scheme");
+
+        // `a >>>[k] b` (axis_flow): materialize to `Term::Seq` whose axis
+        // slot carries the materialized axis expression (child 1), with the
+        // left (0) and right (2) operands as `fst`/`snd` — the same
+        // proj_child template substitution the `flow` scheme uses
+        // (ADR-0120 Phase 2).
+        let axis_flow = TermData::seq_axis(
+            TermData::op(
+                "proj_child".to_string(),
+                vec![],
+                &ArrSource::Native,
+                Some(serde_json::Value::from(1u64)),
+            ),
+            TermData::op(
+                "proj_child".to_string(),
+                vec![],
+                &ArrSource::Native,
+                Some(serde_json::Value::from(0u64)),
+            ),
+            TermData::op(
+                "proj_child".to_string(),
+                vec![],
+                &ArrSource::Native,
+                Some(serde_json::Value::from(2u64)),
+            ),
+        )
+        .to_term()
+        .expect("arrow_lang: axis_flow TermData -> Term failed");
+        lang.eval
+            .merge(
+                EvalSchemeDef::new("eval.axis_flow.arrow", "axis_flow", axis_flow)
+                    .with_replaces(vec!["eval.axis_flow".to_string()]),
+            )
+            .expect("override axis_flow eval scheme");
 
         let bin_lt = TermData::app(
             TermData::op("lt".to_string(), vec![], &ArrSource::Native, None),

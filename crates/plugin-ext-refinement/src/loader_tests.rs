@@ -1617,7 +1617,7 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
             // main should be Seq { App(module_ref("collection/sort")), arr("id") }
-            if let Term::Seq { fst, snd } = main {
+            if let Term::Seq { fst, snd, .. } = main {
                 let path =
                     is_module_ref(fst).expect("fst should be module_ref(\"collection/sort\")");
                 assert_eq!(path, "collection/sort");
@@ -1692,7 +1692,7 @@ fn test_rewrite_imports_app_callee_rewritten() {
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
-            if let Term::Seq { fst, snd } = main {
+            if let Term::Seq { fst, snd, .. } = main {
                 let (path, field) = is_project_of_module_ref(fst)
                     .expect("fst should be App { callee: project(module_ref(path), \"sort\") }");
                 assert_eq!(path, "collection/sort");

@@ -109,8 +109,19 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             }
             id
         }
-        Term::Seq { fst, snd } => {
-            let id = e.node("Seq");
+        Term::Seq { axis, fst, snd } => {
+            // `>>>` is `>>>[0]`; draw the axis edge only for non-default
+            // axes (ADR-0120 Phase 2).
+            let label = match axis.nat_literal() {
+                Some(0) => "Seq".to_string(),
+                Some(k) => format!("Seq[{k}]"),
+                None => "Seq[?]".to_string(),
+            };
+            let id = e.node(&label);
+            if !axis.is_default_axis() {
+                let ac = emit_term(axis, e);
+                e.edge(id, ac, "axis");
+            }
             let c1 = emit_term(fst, e);
             let c2 = emit_term(snd, e);
             e.edge(id, c1, "fst");

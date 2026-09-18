@@ -24,13 +24,16 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // record entries (`DelimitedShape::newline_separator`).
     // `token.bool` removed — `true`/`false` are ordinary identifiers
     // resolved to `bool` package value exports (`globals.yaml`).
-    assert_eq!(lang.tokens.len(), 103);
+    // +1 `token.flow_axis_open` for `>>>[` axis composition (ADR-0120
+    // Phase 2).
+    assert_eq!(lang.tokens.len(), 104);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
     // +1 `lex.newline` for the layout newline token.
     // `lex.bool.{true,false}` removed — booleans are imported values.
-    assert_eq!(lang.lexer_rules.len(), 100);
+    // +1 `lex.flow_axis_open` for `>>>[` (ADR-0120 Phase 2).
+    assert_eq!(lang.lexer_rules.len(), 101);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -45,7 +48,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `grammar.dim_arrow.infix` for `~[N]~>`.
     // +9 Option B infix/id2 rows - 8 removed call-style rows = +1.
     // `grammar.value.bool` removed — `true`/`false` parse as `var`.
-    assert_eq!(lang.grammar.len(), 83);
+    // +1 `grammar.axis_flow.infix` for `>>>[k]` (ADR-0120 Phase 2).
+    assert_eq!(lang.grammar.len(), 84);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -54,7 +58,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `eval.{with,handler}` removed with the dedicated surface forms.
     // +2 `eval.{loop,json}` (ADR-0120 Phase 1): the ArrowLoop fold node
     // and the `json` template op used by generated fold machines.
-    assert_eq!(lang.eval.len(), 79);
+    // +1 `eval.axis_flow` for `>>>[k]` (ADR-0120 Phase 2).
+    assert_eq!(lang.eval.len(), 80);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -72,7 +77,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0106 §11 — the bracketed spelling adjacent to a name-like
     // target, distinguishable from the `<` comparison operator).
     // +1 `ast.loop` (ADR-0120 Phase 1) — the ArrowLoop fold node shape.
-    assert_eq!(lang.ast.len(), 89);
+    // +1 `ast.axis_flow` for `>>>[k]` (ADR-0120 Phase 2).
+    assert_eq!(lang.ast.len(), 90);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -109,8 +115,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 103);
-    assert_eq!(rt.lang().grammar.len(), 83);
+    assert_eq!(rt.lang().tokens.len(), 104);
+    assert_eq!(rt.lang().grammar.len(), 84);
 }
 
 #[test]

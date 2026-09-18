@@ -176,9 +176,75 @@ fn test_parse_id() {
 fn test_parse_comp() {
     let scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             assert!(matches!(*fst, Term::Op { name: ref op, .. } if op == "a"));
             assert!(matches!(*snd, Term::Op { name: ref op, .. } if op == "b"));
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Axis-parameterized composition `a >>>[k] b` (ADR-0120 Phase 2)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_parse_infix_comp_defaults_axis_zero() {
+    // `a >>> b` is `>>>[0]`: the materialized Seq carries the default axis.
+    let scheme = parse_arrow_expr("a >>> b").expect("parse >>>");
+    match scheme {
+        Term::Seq { axis, fst, snd } => {
+            assert!(
+                axis.is_default_axis(),
+                "unindexed >>> must default to axis 0, got {axis:?}"
+            );
+            assert!(matches!(*fst, Term::App { .. }), "fst: {fst:?}");
+            assert!(matches!(*snd, Term::App { .. }), "snd: {snd:?}");
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_axis_flow_literal_axis() {
+    // `a >>>[1] b` materializes the axis expression into the Seq axis slot.
+    let scheme = parse_arrow_expr("a >>>[1] b").expect("parse >>>[1]");
+    match scheme {
+        Term::Seq { axis, fst, snd } => {
+            assert_eq!(
+                axis.nat_literal(),
+                Some(1),
+                "axis slot must carry literal 1, got {axis:?}"
+            );
+            assert!(matches!(*fst, Term::App { .. }), "fst: {fst:?}");
+            assert!(matches!(*snd, Term::App { .. }), "snd: {snd:?}");
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_axis_flow_zero_equiv_unindexed() {
+    // `a >>>[0] b` materializes identically to `a >>> b`.
+    let indexed = parse_arrow_expr("a >>>[0] b").expect("parse >>>[0]");
+    let plain = parse_arrow_expr("a >>> b").expect("parse >>>");
+    assert_eq!(indexed, plain, ">>>[0] and >>> must lower to the same Seq");
+}
+
+#[test]
+fn test_parse_axis_flow_variable_axis() {
+    // The axis is an ordinary expression position: a bare `k` lowers like
+    // any other reference, not a literal.
+    let scheme = parse_arrow_expr("a >>>[k] b").expect("parse >>>[k]");
+    match scheme {
+        Term::Seq { axis, fst, snd } => {
+            assert!(
+                axis.nat_literal().is_none(),
+                "variable axis must not collapse to a literal, got {axis:?}"
+            );
+            assert!(!axis.is_default_axis());
+            assert!(matches!(*fst, Term::App { .. }), "fst: {fst:?}");
+            assert!(matches!(*snd, Term::App { .. }), "snd: {snd:?}");
         }
         other => panic!("expected Seq, got {:?}", other),
     }
@@ -225,7 +291,7 @@ fn test_parse_nested_loop_comp() {
     match scheme {
         Term::Loop { body } => {
             match body.as_ref() {
-                Term::Seq { fst, snd } => {
+                Term::Seq { fst, snd, .. } => {
                     // insert is a bare identifier -> App reference
                     assert!(
                         matches!(fst.as_ref(), Term::App { .. }),
@@ -276,7 +342,7 @@ fn test_parse_seq_operator() {
     // a >>> b should produce Seq(a, b) -- same as comp(a, b)
     let scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "b"));
         }
@@ -303,12 +369,12 @@ fn test_parse_seq_operator_left_assoc() {
     let scheme =
         parse_arrow_expr(r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             // snd should be arr("c")
             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
             // fst should be Seq(arr("a"), arr("b"))
             match fst.as_ref() {
-                Term::Seq { fst, snd } => {
+                Term::Seq { fst, snd, .. } => {
                     assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
                     assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "b"));
                 }
@@ -348,7 +414,7 @@ fn test_parse_mixed_precedence() {
     let scheme =
         parse_arrow_expr(r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
             match snd.as_ref() {
                 Term::Choice { l, r } => {
@@ -367,7 +433,7 @@ fn test_parse_operator_with_parens() {
     // (a ||| b) >>> c should parse as Seq(Choice(a, b), c)
     let scheme = parse_arrow_expr(r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
             match fst.as_ref() {
                 Term::Choice { l, r } => {
@@ -423,13 +489,13 @@ fn test_parse_operator_complex_backtrack() {
     let scheme = parse_arrow_expr(r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#)
         .expect("parse complex backtrack");
     match scheme {
-        Term::Seq { fst, snd } => {
+        Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
             match snd.as_ref() {
                 Term::Choice { l, r } => {
                     assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "b"));
                     match r.as_ref() {
-                        Term::Seq { fst, snd } => {
+                        Term::Seq { fst, snd, .. } => {
                             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "c"));
                             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "d"));
                         }
@@ -498,7 +564,7 @@ fn test_parse_insert_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "prim.compare"),
                         "fst should be prim.compare"
@@ -523,7 +589,7 @@ fn test_parse_sort_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     // fst should be App(insert) -- a reference to the insert arrow
                     assert!(
                         matches!(fst.as_ref(), Term::App { .. }),
@@ -574,7 +640,7 @@ fn test_parse_filter_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "filter_step"),
                         "fst should be filter_step"
@@ -622,7 +688,7 @@ fn test_parse_scan_rich_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
                         "fst should be fold_step"
@@ -653,7 +719,7 @@ fn test_parse_take_rich_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "list.head"),
                         "fst should be list.head"
@@ -688,7 +754,7 @@ fn test_parse_drop_rich_hnl() {
             assert!(matches!(scheme, Term::Loop { .. }));
             if let Term::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Term::Seq { .. }));
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "list.tail"),
                         "fst should be list.tail"
@@ -833,7 +899,7 @@ fn test_parse_zip_rich_hnl() {
                     matches!(body.as_ref(), Term::Seq { .. }),
                     "body should be Seq"
                 );
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     // fst should be First(list.head)
                     assert!(
                         matches!(fst.as_ref(), Term::First { .. }),
@@ -850,7 +916,7 @@ fn test_parse_zip_rich_hnl() {
                         matches!(snd.as_ref(), Term::Seq { .. }),
                         "snd should be Seq"
                     );
-                    if let Term::Seq { fst, snd } = snd.as_ref() {
+                    if let Term::Seq { fst, snd, .. } = snd.as_ref() {
                         assert!(
                             matches!(fst.as_ref(), Term::First { .. }),
                             "snd.fst should be First"
@@ -917,7 +983,7 @@ fn test_parse_reduce_rich_hnl() {
                     "body should be Seq, got {:?}",
                     body
                 );
-                if let Term::Seq { fst, snd } = body.as_ref() {
+                if let Term::Seq { fst, snd, .. } = body.as_ref() {
                     assert!(
                         matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "fold_step"),
                         "fst should be fold_step"

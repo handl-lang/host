@@ -80,6 +80,8 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
         "dim_arrow",
+        // Axis-parameterized composition (ADR-0120 Phase 2)
+        "axis_flow",
         // Option B transport (ADR-0101)
         "transport",
     ];
@@ -151,6 +153,8 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.type.prefix",
         // Graded arrow syntax (ADR-0098)
         "grammar.dim_arrow.infix",
+        // Axis-parameterized composition (ADR-0120 Phase 2)
+        "grammar.axis_flow.infix",
     ];
     for id in grammar_ids {
         assert!(
@@ -232,6 +236,8 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.keyword.infer",
         "token.keyword.type",
         "token.keyword.from",
+        // Axis-parameterized composition opener (ADR-0120 Phase 2).
+        "token.flow_axis_open",
         // Tokens declared only by grammar/eval emitters (not the foundation).
         "token.if",
         "token.bang",
@@ -298,6 +304,8 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "opt-chain",
         // Graded arrow syntax (ADR-0098)
         "dim_arrow",
+        // Axis-parameterized composition (ADR-0120 Phase 2)
+        "axis_flow",
         // Option B transport (ADR-0101)
         "transport",
     ];

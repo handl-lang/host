@@ -153,6 +153,23 @@ fn lower_node(
             Ok(Term::seq(unquote_term(l), unquote_term(r)))
         }
 
+        "axis_flow" => {
+            // `x >>>[k] f` — composition along axis `k` (ADR-0120 Phase 2).
+            // The axis is an ordinary expression position lowered like any
+            // other expression; the operands sit in arrow position and
+            // unquote like `flow`.
+            let l_idx = child_at_role_or_pos(node, lang, "left", 0)
+                .ok_or_else(|| format!("axis_flow at {idx} missing left child"))?;
+            let axis_idx = child_at_role_or_pos(node, lang, "axis", 1)
+                .ok_or_else(|| format!("axis_flow at {idx} missing axis child"))?;
+            let r_idx = child_at_role_or_pos(node, lang, "right", 2)
+                .ok_or_else(|| format!("axis_flow at {idx} missing right child"))?;
+            let l = lower_node(ast, lang, l_idx, env, params)?;
+            let axis = lower_node(ast, lang, axis_idx, env, params)?;
+            let r = lower_node(ast, lang, r_idx, env, params)?;
+            Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
+        }
+
         "array" => {
             // Array literal — two payload shapes (mirrors `prim array`):
             // `{"elements": [v1, v2, ...]}` holds literal values;

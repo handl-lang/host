@@ -86,7 +86,19 @@ pub fn lower_term<'ctx>(
         Term::Arr { .. } => primitive::lower_arr(ctx, input),
         Term::Const { .. } => primitive::lower_const(ctx, term),
         Term::Op { .. } => primitive::lower_op(ctx, input, term),
-        Term::Seq { fst, snd } => primitive::lower_seq(ctx, input, fst, snd),
+        // ADR-0120 Phase 2: `>>>` is `>>>[0]`. Only axis-0 composition lowers;
+        // non-zero or non-literal axes are rejected pending the multi-axis
+        // execution increment.
+        Term::Seq { axis, fst, snd } => match axis.nat_literal() {
+            Some(0) => primitive::lower_seq(ctx, input, fst, snd),
+            Some(k) => Err(CompileError::Lower(format!(
+                "Seq: axis-{k} composition is not yet implemented (ADR-0120 Phase 2)"
+            ))),
+            None => Err(CompileError::Lower(
+                "Seq: non-literal composition axis is not yet supported (ADR-0120 Phase 2)"
+                    .to_string(),
+            )),
+        },
         Term::First { inner } => control::lower_first(ctx, inner, input),
         Term::Choice { l, r } => control::lower_choice(ctx, l, r, input),
         Term::Loop { body } => control::lower_loop(ctx, body, input),

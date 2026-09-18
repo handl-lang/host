@@ -193,7 +193,15 @@ fn weakest_precondition_td(td: &TermData, registry: &ContractRegistry, post: &Pr
         }
 
         // seq(g, h): wp(seq(g, h), I) = wp(g, wp(h, I))  (backwards composition)
+        //
+        // This is the axis-0 (`>>>`) composition law; at axis k > 0 (or an
+        // unresolved axis) the operands compose along a different globular
+        // axis and the rule does not apply — fall back to the conservative
+        // identity (ADR-0120 Phase 2).
         "Seq" => {
+            if td.axis().nat_literal() != Some(0) {
+                return post.clone();
+            }
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
             let wp_snd = weakest_precondition_td(&snd, registry, post);
@@ -255,6 +263,9 @@ fn collect_guarantees_td(td: &TermData, registry: &ContractRegistry, out: &mut V
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
+            // The composition axis is an ordinary expression position
+            // (ADR-0120 Phase 2) — traverse it like the operands.
+            collect_guarantees_td(&td.axis(), registry, out);
             collect_guarantees_td(&fst, registry, out);
             collect_guarantees_td(&snd, registry, out);
         }
@@ -327,7 +338,11 @@ fn graph_contains_td(td: &TermData, op: &str) -> bool {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            graph_contains_td(&fst, op) || graph_contains_td(&snd, op)
+            // The composition axis is an ordinary expression position
+            // (ADR-0120 Phase 2) — traverse it like the operands.
+            graph_contains_td(&td.axis(), op)
+                || graph_contains_td(&fst, op)
+                || graph_contains_td(&snd, op)
         }
         "First" => {
             let inner = td.get_term("inner").expect("First: missing inner");

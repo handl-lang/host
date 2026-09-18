@@ -48,7 +48,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_value::{TaggedValue, resource, tagged_to_value};
-use plugin_engine::TermData;
+use plugin_engine::{Term, TermData};
 use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
 
@@ -277,11 +277,17 @@ fn env_captured_resource_round_trips_lossily() {
 // ---------------------------------------------------------------------------
 
 /// Composition is represented as the `Seq` **term** — `{"__tag__": "Seq",
-/// "fst": <a>, "snd": <b>}` — a plain serializable tagged record with only its
-/// two components; the encoder adds nothing else. (At the v0.1 runtime, `>>>`
-/// surface syntax is actually *application*, not composition — see
-/// `handl-kit-data-canonical/data/types.yaml:2158-2166` — so no composed-arrow
-/// *value* with hidden state is produced today.
+/// "axis": 0, "fst": <a>, "snd": <b>}` — a plain serializable tagged record
+/// with only its axis slot and two components; the encoder adds nothing
+/// else. (At the v0.1 runtime, `>>>` surface syntax is actually
+/// *application*, not composition — see
+/// `handl-kit-data-canonical/data/types.yaml` `type.flow` — so no
+/// composed-arrow *value* with hidden state is produced today.
+///
+/// The `axis` field is the composition axis (`>>>[k]`, ADR-0120 Phase 2);
+/// `>>>` is `>>>[0]`. Serialized `Seq` records written before Phase 2 (no
+/// `axis` key) still decode with the default axis 0 — see
+/// `legacy_seq_record_without_axis_decodes` below.
 ///
 /// TODO(ADR-0106): when `>>>` lowers to genuine arrow composition (ADR-0106
 /// §3), add a test that the composed arrow value (if any) carries no captured
@@ -300,8 +306,14 @@ fn composed_seq_term_has_only_component_fields() {
     keys.sort_unstable();
     assert_eq!(
         keys,
-        ["__tag__", "fst", "snd"],
-        "the Seq composition record must carry only its two components",
+        ["__tag__", "axis", "fst", "snd"],
+        "the Seq composition record must carry only its axis and two components",
+    );
+    // `>>>` is `>>>[0]`: the default axis encodes as the `Const 0` term.
+    assert_eq!(
+        obj["axis"],
+        json!({"__tag__": "Const", "value": 0}),
+        "default Seq axis is the Const 0 term",
     );
     // The components are themselves the (serializable) arrow records, each
     // wrapped as the `value` of an `Arr` term.
@@ -309,6 +321,48 @@ fn composed_seq_term_has_only_component_fields() {
     assert_eq!(obj["snd"]["value"]["__arrow__"], json!(true));
     // And the whole record round-trips unchanged.
     assert_eq!(round_trip(seq.0.clone()), seq.0);
+}
+
+/// A `Seq` record serialized before ADR-0120 Phase 2 — `{__tag__, fst,
+/// snd}` with no `axis` — decodes with the default composition axis 0.
+#[test]
+fn legacy_seq_record_without_axis_decodes() {
+    let legacy = json!({
+        "__tag__": "Seq",
+        "fst": {"__tag__": "Const", "value": 1},
+        "snd": {"__tag__": "Const", "value": 2}
+    });
+    let term = TermData(legacy).to_term().expect("legacy Seq decodes");
+    match term {
+        Term::Seq { axis, fst, snd } => {
+            assert!(axis.is_default_axis(), "missing axis defaults to 0");
+            assert!(matches!(*fst, Term::Const { .. }));
+            assert!(matches!(*snd, Term::Const { .. }));
+        }
+        other => panic!("expected Seq, got {other:?}"),
+    }
+}
+
+/// `seq_axis` writes the axis slot; a `Seq` carrying axis `k` round-trips
+/// with the axis intact (ADR-0120 Phase 2).
+#[test]
+fn seq_axis_record_round_trips_with_axis() {
+    let seq = TermData::seq_axis(
+        TermData::const_value(2),
+        TermData::arr(json!({"__arrow__": true, "params": ["x"], "body": 0, "env": {}})),
+        TermData::arr(json!({"__arrow__": true, "params": ["y"], "body": 0, "env": {}})),
+    );
+    let term = seq.to_term().expect("seq_axis decodes");
+    match term {
+        Term::Seq { axis, .. } => {
+            assert_eq!(
+                axis.nat_literal(),
+                Some(2),
+                "axis 2 survives the round trip"
+            );
+        }
+        other => panic!("expected Seq, got {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -162,6 +162,14 @@
   pattern: !Literal
     text: "|||"
   priority: 10
+# `>>>[` — axis-parameterized composition opener (ADR-0120 Phase 2).
+# Priority 9 runs before `>>>` (10) so the four-character operator wins
+# on maximal munch, exactly as `]~>` beats `]` for `dim_arrow`.
+- id: lex.flow_axis_open
+  token_kind: token.flow_axis_open
+  pattern: !Literal
+    text: ">>>["
+  priority: 9
 - id: lex.flow
   token_kind: token.flow
   pattern: !Literal

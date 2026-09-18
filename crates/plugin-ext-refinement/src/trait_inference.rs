@@ -213,7 +213,8 @@ fn uses_first_td(td: &TermData) -> bool {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            uses_first_td(&fst) || uses_first_td(&snd)
+            // The axis slot is an ordinary subterm (ADR-0120 Phase 2).
+            uses_first_td(&td.axis()) || uses_first_td(&fst) || uses_first_td(&snd)
         }
         "Loop" => {
             let body = td.get_term("body").expect("Loop: missing body");
@@ -309,7 +310,8 @@ fn uses_left_td(td: &TermData) -> bool {
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            uses_left_td(&fst) || uses_left_td(&snd)
+            // The axis slot is an ordinary subterm (ADR-0120 Phase 2).
+            uses_left_td(&td.axis()) || uses_left_td(&fst) || uses_left_td(&snd)
         }
         "Loop" => {
             let body = td.get_term("body").expect("Loop: missing body");

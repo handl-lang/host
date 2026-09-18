@@ -72,8 +72,11 @@ fn emit(term: &Term, out: &mut String) {
             }
             out.push(')');
         }
-        Term::Seq { fst, snd } => {
+        Term::Seq { axis, fst, snd } => {
+            // `(seq axis fst snd)` — `>>>` carries `axis 0` (ADR-0120 Phase 2).
             out.push_str("(seq ");
+            emit(axis, out);
+            out.push(' ');
             emit(fst, out);
             out.push(' ');
             emit(snd, out);

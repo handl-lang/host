@@ -592,7 +592,8 @@ fn rewrite_scheme_td(
         "Seq" => {
             let fst = td.get_term("fst").expect("Seq: missing fst");
             let snd = td.get_term("snd").expect("Seq: missing snd");
-            TermData::seq(
+            TermData::seq_axis(
+                rewrite_scheme_td(&td.axis(), import_map, local_names),
                 rewrite_scheme_td(&fst, import_map, local_names),
                 rewrite_scheme_td(&snd, import_map, local_names),
             )
@@ -1667,7 +1668,12 @@ fn walk_scheme_td(
         "Seq" => {
             let fst = td.get_term("fst").ok_or("Seq: missing fst")?;
             let snd = td.get_term("snd").ok_or("Seq: missing snd")?;
-            Ok(TermData::seq(
+            // The axis slot is an ordinary subterm (ADR-0120 Phase 2): a
+            // `proj_child` in axis position materializes the axis
+            // expression, exactly like the operand positions.
+            let axis = td.axis();
+            Ok(TermData::seq_axis(
+                walk_scheme_td(&axis, ast, node, lang)?,
                 walk_scheme_td(&fst, ast, node, lang)?,
                 walk_scheme_td(&snd, ast, node, lang)?,
             ))
@@ -1714,6 +1720,13 @@ fn walk_scheme_td(
         "Arr" => {
             let value = td.get("value").cloned().unwrap_or(Value::Null);
             Ok(TermData::arr(value))
+        }
+        // `Const` literals in a scheme template (e.g. the default `axis 0`
+        // on `Seq`, ADR-0120 Phase 2) materialize to themselves — they are
+        // leaves with no placeholders to substitute.
+        "Const" => {
+            let value = td.get("value").cloned().unwrap_or(Value::Null);
+            Ok(TermData::const_value(value))
         }
         "Child" => Err("child projection not supported".to_string()),
         "Iter" => {

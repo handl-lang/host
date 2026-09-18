@@ -838,6 +838,49 @@ impl TreeWalkEngine {
             "Seq" => {
                 let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
                 let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
+                // ADR-0120 Phase 2: `>>>` is `>>>[0]`. Resolve the axis —
+                // literals read directly; expression axes evaluate against
+                // the incoming value. Axis 0 keeps sequential semantics;
+                // higher axes are structurally valid but their execution is
+                // a later increment.
+                let axis_td = td.axis();
+                let axis_index = match axis_td.nat_literal() {
+                    Some(k) => k,
+                    None => {
+                        let (axis_val, axis_pushed) = self.eval_inner_td(
+                            &axis_td,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            incoming.clone(),
+                        )?;
+                        if axis_pushed {
+                            env.pop_scope();
+                        }
+                        axis_val
+                            .as_f64()
+                            .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                            .map(|n| n as u64)
+                            .ok_or_else(|| {
+                                LangError::engine_node(
+                                    format!(
+                                        "Seq: axis evaluated to a non-natural value: {axis_val:?}"
+                                    ),
+                                    current_node,
+                                )
+                            })?
+                    }
+                };
+                if axis_index != 0 {
+                    return Err(LangError::engine_node(
+                        format!(
+                            "Seq: axis-{axis_index} composition is not yet implemented (ADR-0120 Phase 2)"
+                        ),
+                        current_node,
+                    ));
+                }
                 let (fst_val, fst_pushed) = self.eval_inner_td(
                     &fst,
                     ast,
@@ -4762,6 +4805,26 @@ impl Model for ValueModel {
             "Seq" => {
                 let fst = td.get_term("fst").expect("Seq term missing 'fst' field");
                 let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
+                // ADR-0120 Phase 2: `>>>` is `>>>[0]`. Resolve the axis —
+                // literals read directly; expression axes evaluate against
+                // the incoming value. Axis 0 keeps sequential semantics;
+                // higher axes are structurally valid but their execution is
+                // a later increment.
+                let axis_td = td.axis();
+                let axis_index = match axis_td.nat_literal() {
+                    Some(k) => Some(k),
+                    None => {
+                        let axis_term = axis_td
+                            .to_term()
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        let axis_val = self.run(&axis_term, incoming.clone(), ctx)?;
+                        axis_val.as_u64()
+                    }
+                }
+                .ok_or(plugin_engine::LangError::NotImplemented)?;
+                if axis_index != 0 {
+                    return Err(plugin_engine::LangError::NotImplemented);
+                }
                 let fst_term = fst
                     .to_term()
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
