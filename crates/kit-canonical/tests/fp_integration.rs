@@ -867,7 +867,11 @@ fn data_vec_parses_and_desugars_from_source() {
             .unwrap()
     };
 
-    // Vec predicate is a function with parameters [n, a, v].
+    // Vec predicate is a `(n, a, __v) -> loop(...)` function: it keeps
+    // the family's declared arity so `Vec(n, a, v)` binds positionally,
+    // and reconstructs the flat `__in` tuple `[n, a, __v]` as the fold
+    // machine's loop input (ADR-0120 Phase 1 — `Term::Loop` feedback, no
+    // self-application).
     let pred = assign_value(0);
     assert_eq!(pred.kind, "function");
     let pred_params = pred
@@ -875,7 +879,13 @@ fn data_vec_parses_and_desugars_from_source() {
         .get("params")
         .and_then(|p| p.as_array())
         .unwrap();
-    assert_eq!(pred_params, json!(["n", "a", "v"]).as_array().unwrap());
+    assert_eq!(pred_params, json!(["n", "a", "__v"]).as_array().unwrap());
+    let pred_body = pred.payload.get("body").and_then(|b| b.as_u64()).unwrap() as usize;
+    assert_eq!(
+        ast.get(AstRef::new(pred_body)).unwrap().kind,
+        "loop",
+        "predicate body must be the fold machine's `loop` node"
+    );
 
     // Nil is a nullary constructor (literal object).
     let nil = assign_value(1);

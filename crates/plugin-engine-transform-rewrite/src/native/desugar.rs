@@ -862,53 +862,6 @@ impl TypeExprParser {
     }
 }
 
-/// Convert a `TypeExpr` into an AST node index in the output arena.
-///
-/// Used to embed index expressions (e.g. `n - 1`, `0`, `a`) inside the
-/// generated predicate and recursor bodies.
-fn type_expr_to_ast(out: &mut Ast, expr: &TypeExpr) -> usize {
-    match expr {
-        TypeExpr::Atom(s) => {
-            if let Ok(n) = s.parse::<i64>() {
-                push_leaf(out, "value", Value::from(n))
-            } else if s.parse::<f64>().is_ok() {
-                push_leaf(out, "value", Value::from(s.as_str()))
-            } else {
-                push_leaf(out, "var", Value::from(s.clone()))
-            }
-        }
-        TypeExpr::App(name, args) => {
-            let callee = push_leaf(out, "var", Value::from(name.clone()));
-            let mut children = vec![callee];
-            for arg in args {
-                children.push(type_expr_to_ast(out, arg));
-            }
-            push_node(out, "call", children)
-        }
-        TypeExpr::Func(domain, codomain) => {
-            // Function types do not occur as index expressions; build an
-            // application of `->` as a last-resort placeholder.
-            let arrow = push_leaf(out, "var", Value::from("->"));
-            let lhs = type_expr_to_ast(out, domain);
-            let rhs = type_expr_to_ast(out, codomain);
-            push_node(out, "call", vec![arrow, lhs, rhs])
-        }
-        TypeExpr::Op(op, lhs, rhs) => {
-            let kind = match op.as_str() {
-                "+" => "binary.add",
-                "-" => "binary.sub",
-                "*" => "binary.mul",
-                "/" => "binary.div",
-                "%" => "binary.mod",
-                _ => "binary.add",
-            };
-            let left = type_expr_to_ast(out, lhs);
-            let right = type_expr_to_ast(out, rhs);
-            push_node(out, kind, vec![left, right])
-        }
-    }
-}
-
 /// Recursively check strict positivity: the type being defined must not
 /// occur in the domain of any function type (Coq-style strict positivity).
 ///
@@ -983,21 +936,28 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
 
     let mut stmts: Vec<usize> = Vec::new();
 
-    // 1. Predicate: Type = (params..., v) -> <checks>
-    let mut pred_param_refs: Vec<&str> = params.iter().map(|p| p.name.as_str()).collect();
-    pred_param_refs.push("v");
-    let v_var = push_leaf(out, "var", Value::from("v"));
-    let self_var = push_leaf(out, "var", Value::from("self"));
-    let pred_body = build_predicate_body(out, &type_name, &params, &constructors, v_var, self_var);
-    let inner_fn = push_function(out, &pred_param_refs, pred_body);
-    let outer_fn = push_function(out, &["self"], inner_fn);
-    let self_app = push_node(out, "call", vec![outer_fn, outer_fn]);
-    let mut pred_call_children: Vec<usize> = vec![self_app];
-    for p in &pred_param_refs {
-        pred_call_children.push(push_leaf(out, "var", Value::from(*p)));
-    }
-    let pred_body_call = push_node(out, "call", pred_call_children);
-    let pred_fn = push_function(out, &pred_param_refs, pred_body_call);
+    // 1. Predicate: Type = (params.., __v) -> loop(__in, pred_step)
+    //
+    // The predicate keeps the family's declared arity so a call
+    // `Type(p.., v)` binds positionally (`apply_app` curries surplus args,
+    // so a single `__in` parameter would capture only the first). The
+    // loop input is the flat `__in` tuple `[params.., v]` the fold
+    // machine indexes — or the bare `__v` for parameter-free types. The
+    // fold machine — see `build_fold_step_fn` — replaces the former
+    // `self(self)` recursive predicate with `Term::Loop` feedback.
+    let pred_step =
+        build_fold_step_fn(out, FoldMode::Predicate, &type_name, &params, &constructors);
+    let mut pred_params: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
+    pred_params.push("__v".to_string());
+    let pred_loop_in = if params.is_empty() {
+        push_var_node(out, "__v")
+    } else {
+        let elems: Vec<usize> = pred_params.iter().map(|n| push_var_node(out, n)).collect();
+        push_node(out, "array", elems)
+    };
+    let pred_loop = push_node(out, "loop", vec![pred_loop_in, pred_step]);
+    let pred_param_refs: Vec<&str> = pred_params.iter().map(|s| s.as_str()).collect();
+    let pred_fn = push_function(out, &pred_param_refs, pred_loop);
     let pred_target = push_leaf(out, "var", Value::from(type_name.clone()));
     let pred_assign = push_node(out, "assign", vec![pred_target, pred_fn]);
     stmts.push(pred_assign);
@@ -1033,23 +993,48 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
         stmts.push(cons_assign);
     }
 
-    // 3. Recursor with optional motive parameter:
-    //    Type.rec = (motive, c0, ..., c_{N-1}) -> (params..., v) -> dispatch
+    // 3. Recursor (ADR-0120 Phase 1 — `Term::Loop` feedback, no
+    //    self-application):
+    //    Type.rec = rec {
+    //      __rec_inner_T = (motive, c0, ..., c_{N-1}) ->
+    //        { "__term__": (__in) -> loop(rec_step),
+    //          "__bound__": [motive, c0, ..., c_{N-1}] },
+    //      __rec_inner_T
+    //    }
+    //    The `{__term__, __bound__}` record is a *bound arrow*: applying it
+    //    runs `__term__` on `__bound__ ++ args`, so the two-stage call
+    //    `Type.rec(m, c0..)(params.., v)` feeds the dispatch the flat tuple
+    //    `[motive, c0.., params.., v]` — products, not currying.
     let rec_name = format!("{}.rec", type_name);
     let rec_target = push_leaf(out, "var", Value::from(rec_name.clone()));
-    let rec_inner_fn = build_recursor(out, &type_name, &params, &constructors);
+
+    let rec_step = build_fold_step_fn(out, FoldMode::Recursor, &type_name, &params, &constructors);
+    let dispatch_in = push_var_node(out, "__in");
+    let rec_loop = push_node(out, "loop", vec![dispatch_in, rec_step]);
+    let decreasing_arg = 1 + constructors.len() + params.len();
+    let dispatch_fn = match find_first_recursive_field(&constructors, &type_name) {
+        Some(field) => {
+            push_function_with_termination(out, &["__in"], rec_loop, decreasing_arg, &field)
+        }
+        None => push_function(out, &["__in"], rec_loop),
+    };
+
+    let mut bound_elems = vec![push_var_node(out, "motive")];
+    for i in 0..constructors.len() {
+        bound_elems.push(push_var_node(out, &format!("c{}", i)));
+    }
+    let bound_arr = push_node(out, "array", bound_elems);
+    let rec_obj = push_object_node(out, &[("__term__", dispatch_fn), ("__bound__", bound_arr)]);
+
+    let mut rec_params: Vec<&str> = vec!["motive"];
+    let c_names: Vec<String> = (0..constructors.len()).map(|i| format!("c{}", i)).collect();
+    rec_params.extend(c_names.iter().map(|s| s.as_str()));
+    let rec_fn = push_function(out, &rec_params, rec_obj);
 
     let inner_name = format!("__rec_inner_{}", type_name);
-    let inner_target = push_leaf(out, "var", Value::from(inner_name.clone()));
-    let inner_assign = push_node(out, "assign", vec![inner_target, rec_inner_fn]);
-
-    let inner_var1 = push_leaf(out, "var", Value::from(inner_name.clone()));
-    let inner_var2 = push_leaf(out, "var", Value::from(inner_name));
-    let self_app = push_node(out, "call", vec![inner_var1, inner_var2]);
-    let rec_inner_target = push_leaf(out, "var", Value::from(rec_name));
-    let rec_inner_assign = push_node(out, "assign", vec![rec_inner_target, self_app]);
-
-    let rec_region = push_node(out, "rec", vec![inner_assign, rec_inner_assign]);
+    let inner_assign = push_assign_node(out, &inner_name, rec_fn);
+    let inner_var = push_var_node(out, &inner_name);
+    let rec_region = push_node(out, "rec", vec![inner_assign, inner_var]);
     let rec_assign = push_node(out, "assign", vec![rec_target, rec_region]);
     stmts.push(rec_assign);
 
@@ -1057,268 +1042,564 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
     Some(AstRef::new(block))
 }
 
-/// Build the predicate dispatch body for the inner function `(params..., v) -> ...`.
-///
-/// The predicate must be able to call itself recursively, but it is built before
-/// the top-level `Type` binding is available in the environment. We use the
-/// `self` parameter of the enclosing fixed-point function: `self(self)` yields
-/// the same inner predicate, which can be applied to the recursive argument.
-///
-/// The dispatch is an `if` chain so that only the matching constructor's branch
-/// is evaluated (the `binary.or`/`binary.and` primitives are not short-circuiting).
-fn build_predicate_body(
+// ---------------------------------------------------------------------------
+// Fold-machine codegen (ADR-0120 Phase 1)
+//
+// Data-type predicates and recursors are compiled to a first-order,
+// defunctionalized *fold machine* — an explicit work stack `W` of tasks
+// and a results stack `R` — iterated by a `loop` node whose step arrow
+// has the shape `(in, state) -> Either(result, next_state)`. This replaces
+// the former `self(self)` fixed-point encoding: recursion is `Term::Loop`
+// feedback, not application.
+//
+// State: `{W: cons-list | null, R: cons-list}` where a cons cell is
+// `{h: v, t: next}` and the empty list is `null`.
+//
+// Work items:
+// - `{"k": "f", "p": [param values], "v": value}` — fold `value`; the `p`
+//   field carries the family's index values (predicate only).
+// - `{"k": "a", "i": cons_idx, "a": [ctor arg values]}` — recursor apply
+//   frame: once the ctor's recursive results sit on `R`, apply `c_i`.
+// - `{"k": "n", "i": cons_idx}` — predicate combine frame: AND the ctor's
+//   recursive results.
+//
+// `in` layout — predicate: `[params.., v]` (the bare `v` for
+// parameter-free types); recursor: `[motive, c0..c_{N-1}, params.., v]`
+// delivered by the `{__term__, __bound__}` bound-arrow record.
+// ---------------------------------------------------------------------------
+
+/// Which fold machine to generate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FoldMode {
+    /// `Type` predicate: fold results are booleans ANDed per constructor.
+    Predicate,
+    /// `Type.rec` recursor: fold results are produced by applying the
+    // per-constructor handlers `c_i`.
+    Recursor,
+}
+
+/// `var` leaf.
+fn push_var_node(out: &mut Ast, name: &str) -> usize {
+    push_leaf(out, "var", Value::from(name))
+}
+
+/// `lit` leaf.
+fn push_lit_node(out: &mut Ast, v: Value) -> usize {
+    push_leaf(out, "lit", v)
+}
+
+/// `lit null` leaf.
+fn push_null_node(out: &mut Ast) -> usize {
+    push_leaf(out, "lit", Value::Null)
+}
+
+/// `field-access(target, "field")` — object field lookup.
+fn push_fa(out: &mut Ast, target: usize, field: &str) -> usize {
+    let f = push_leaf(out, "lit", Value::from(field));
+    push_node(out, "field-access", vec![target, f])
+}
+
+/// `field-access(target, i)` — positional index into an array value.
+fn push_fai(out: &mut Ast, target: usize, index: usize) -> usize {
+    let f = push_leaf(out, "value", Value::from(index as i64));
+    push_node(out, "field-access", vec![target, f])
+}
+
+/// `object` node from `(key, value-child)` pairs; keys are `var` leaves so
+/// the entry shape's `key` role is satisfied.
+fn push_object_node(out: &mut Ast, fields: &[(&str, usize)]) -> usize {
+    let entries: Vec<usize> = fields
+        .iter()
+        .map(|(k, v)| {
+            let key = push_leaf(out, "var", Value::from(*k));
+            push_node(out, "entry", vec![key, *v])
+        })
+        .collect();
+    push_node(out, "object", entries)
+}
+
+/// `{"__either__": "left"|"right", "value": v}` — the Either encoding the
+/// `Term::Loop`/`fold_step` protocol consumes.
+fn push_either(out: &mut Ast, left: bool, value: usize) -> usize {
+    let side = push_lit_node(out, Value::from(if left { "left" } else { "right" }));
+    push_object_node(out, &[("__either__", side), ("value", value)])
+}
+
+/// Cons cell `{h: head, t: tail}` — the work/results list node.
+fn push_cell(out: &mut Ast, h: usize, t: usize) -> usize {
+    push_object_node(out, &[("h", h), ("t", t)])
+}
+
+/// `assign name = value`.
+fn push_assign_node(out: &mut Ast, name: &str, value: usize) -> usize {
+    let target = push_var_node(out, name);
+    push_node(out, "assign", vec![target, value])
+}
+
+/// `if cond then t else e` (3-child `if`).
+fn push_if_node(out: &mut Ast, cond: usize, then_: usize, else_: usize) -> usize {
+    push_node(out, "if", vec![cond, then_, else_])
+}
+
+/// `binary.eq(l, r)`.
+fn push_eq_node(out: &mut Ast, l: usize, r: usize) -> usize {
+    push_node(out, "binary.eq", vec![l, r])
+}
+
+/// Left-nested `binary.and` over `parts`; `lit true` when empty.
+fn push_and_node(out: &mut Ast, parts: Vec<usize>) -> usize {
+    parts
+        .into_iter()
+        .reduce(|acc, p| push_node(out, "binary.and", vec![acc, p]))
+        .unwrap_or_else(|| push_lit_node(out, Value::Bool(true)))
+}
+
+/// Chain `n` `.t` field accesses off `base` — `base.t.t…` — used to walk
+/// down the results stack.
+fn push_t_chain(out: &mut Ast, base: usize, n: usize) -> usize {
+    let mut idx = base;
+    for _ in 0..n {
+        idx = push_fa(out, idx, "t");
+    }
+    idx
+}
+
+/// The positions of a constructor's recursive arguments: arguments whose
+/// type expression is the type being defined (`Atom` or `App`).
+fn recursive_arg_positions(type_name: &str, cons: &DataConstructor) -> Vec<(usize, TypeExpr)> {
+    cons.args
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (_, arg_type))| {
+            let mut parser = TypeExprParser::new(arg_type);
+            let expr = parser.parse()?;
+            let is_recursive = matches!(
+                &expr,
+                TypeExpr::Atom(name) | TypeExpr::App(name, _) if name == type_name
+            );
+            is_recursive.then_some((i, expr))
+        })
+        .collect()
+}
+
+/// `type_expr_to_ast` variant that resolves family-parameter atoms to
+/// positional lookups `tp[j]` in the current fold task's `p` field.
+/// `tp` is a `var` node bound to the parameter array; `None` lowers
+/// parameter atoms to plain `var` nodes (legacy behavior).
+fn type_expr_to_ast_indexed(
     out: &mut Ast,
+    expr: &TypeExpr,
+    params: &[DataParam],
+    tp: Option<usize>,
+) -> usize {
+    match expr {
+        TypeExpr::Atom(s) => {
+            if let Ok(n) = s.parse::<i64>() {
+                push_leaf(out, "value", Value::from(n))
+            } else if s.parse::<f64>().is_ok() {
+                push_leaf(out, "value", Value::from(s.as_str()))
+            } else {
+                match (tp, params.iter().position(|p| p.name == *s)) {
+                    (Some(tp_idx), Some(pos)) => push_fai(out, tp_idx, pos),
+                    _ => push_leaf(out, "var", Value::from(s.clone())),
+                }
+            }
+        }
+        TypeExpr::App(name, args) => {
+            let callee = push_leaf(out, "var", Value::from(name.clone()));
+            let mut children = vec![callee];
+            for arg in args {
+                children.push(type_expr_to_ast_indexed(out, arg, params, tp));
+            }
+            push_node(out, "call", children)
+        }
+        TypeExpr::Func(domain, codomain) => {
+            let arrow = push_leaf(out, "var", Value::from("->"));
+            let lhs = type_expr_to_ast_indexed(out, domain, params, tp);
+            let rhs = type_expr_to_ast_indexed(out, codomain, params, tp);
+            push_node(out, "call", vec![arrow, lhs, rhs])
+        }
+        TypeExpr::Op(op, lhs, rhs) => {
+            let kind = match op.as_str() {
+                "+" => "binary.add",
+                "-" => "binary.sub",
+                "*" => "binary.mul",
+                "/" => "binary.div",
+                "%" => "binary.mod",
+                _ => "binary.add",
+            };
+            let left = type_expr_to_ast_indexed(out, lhs, params, tp);
+            let right = type_expr_to_ast_indexed(out, rhs, params, tp);
+            push_node(out, kind, vec![left, right])
+        }
+    }
+}
+
+/// Build the fold-machine step function `(__in, __st) -> Either(...)`.
+fn build_fold_step_fn(
+    out: &mut Ast,
+    mode: FoldMode,
     type_name: &str,
     params: &[DataParam],
     constructors: &[DataConstructor],
-    v_idx: usize,
-    self_idx: usize,
 ) -> usize {
-    if constructors.is_empty() {
-        return push_leaf(out, "lit", Value::Bool(false));
+    // if __st == null → Right({W: {h: task0, t: null}, R: null})
+    let task0 = build_fold_task0(out, mode, params, constructors);
+    let w_nil = push_null_node(out);
+    let w0 = push_cell(out, task0, w_nil);
+    let r0 = push_null_node(out);
+    let init_state = push_object_node(out, &[("W", w0), ("R", r0)]);
+    let init_branch = push_either(out, false, init_state);
+
+    // elif __st.W == null → Left(__st.R.h)
+    let st_var = push_var_node(out, "__st");
+    let st_r = push_fa(out, st_var, "R");
+    let done_val = push_fa(out, st_r, "h");
+    let done_branch = push_either(out, true, done_val);
+
+    // else → dispatch on the head work item
+    let dispatch = build_fold_dispatch(out, mode, type_name, params, constructors);
+
+    let st_var2 = push_var_node(out, "__st");
+    let st_null = push_null_node(out);
+    let st_is_null = push_eq_node(out, st_var2, st_null);
+    let st_var3 = push_var_node(out, "__st");
+    let w_field = push_fa(out, st_var3, "W");
+    let w_nil2 = push_null_node(out);
+    let w_is_null = push_eq_node(out, w_field, w_nil2);
+    let inner_if = push_if_node(out, w_is_null, done_branch, dispatch);
+    let body = push_if_node(out, st_is_null, init_branch, inner_if);
+    push_function(out, &["__in", "__st"], body)
+}
+
+/// The initial work item pushed when the fold starts.
+fn build_fold_task0(
+    out: &mut Ast,
+    mode: FoldMode,
+    params: &[DataParam],
+    constructors: &[DataConstructor],
+) -> usize {
+    match mode {
+        FoldMode::Predicate => {
+            let mut p_elems: Vec<usize> = Vec::with_capacity(params.len());
+            for j in 0..params.len() {
+                let in_v = push_var_node(out, "__in");
+                p_elems.push(push_fai(out, in_v, j));
+            }
+            let p_arr = push_node(out, "array", p_elems);
+            let v0 = if params.is_empty() {
+                push_var_node(out, "__in")
+            } else {
+                let in_v = push_var_node(out, "__in");
+                push_fai(out, in_v, params.len())
+            };
+            let k = push_lit_node(out, Value::from("f"));
+            push_object_node(out, &[("k", k), ("p", p_arr), ("v", v0)])
+        }
+        FoldMode::Recursor => {
+            // `__in` = [motive, c0..c_{N-1}, params.., v]
+            let v_idx = 1 + constructors.len() + params.len();
+            let in_v = push_var_node(out, "__in");
+            let v0 = push_fai(out, in_v, v_idx);
+            let k = push_lit_node(out, Value::from("f"));
+            push_object_node(out, &[("k", k), ("v", v0)])
+        }
     }
+}
 
-    // self(self) gives the recursive predicate closure.
-    let rec_app = push_node(out, "call", vec![self_idx, self_idx]);
+/// The `else` branch of the step: bind the head work item's components in
+/// a block, then dispatch on its `k` tag.
+fn build_fold_dispatch(
+    out: &mut Ast,
+    mode: FoldMode,
+    type_name: &str,
+    params: &[DataParam],
+    constructors: &[DataConstructor],
+) -> usize {
+    let mut stmts: Vec<usize> = Vec::new();
+    let st_var = push_var_node(out, "__st");
+    let w_field = push_fa(out, st_var, "W");
+    stmts.push(push_assign_node(out, "__w", w_field));
+    let w_var = push_var_node(out, "__w");
+    let w_h = push_fa(out, w_var, "h");
+    stmts.push(push_assign_node(out, "__wh", w_h));
+    let w_var2 = push_var_node(out, "__w");
+    let w_t = push_fa(out, w_var2, "t");
+    stmts.push(push_assign_node(out, "__wt", w_t));
+    let st_var2 = push_var_node(out, "__st");
+    let st_r = push_fa(out, st_var2, "R");
+    stmts.push(push_assign_node(out, "__r", st_r));
 
-    let mut else_branch = push_leaf(out, "lit", Value::Bool(false));
-    for cons in constructors.iter().rev() {
-        let condition = build_constructor_condition(out, params, cons, v_idx);
-        let then_branch =
-            build_constructor_predicate_check(out, type_name, params, cons, v_idx, rec_app);
-        else_branch = push_node(out, "if", vec![condition, then_branch, else_branch]);
+    let fold_chain = build_fold_chain(out, mode, type_name, params, constructors);
+
+    let frame_key = match mode {
+        FoldMode::Recursor => "a",
+        FoldMode::Predicate => "n",
+    };
+    let frame_chain = build_frame_chain(out, mode, type_name, constructors);
+
+    let wh_var = push_var_node(out, "__wh");
+    let wh_k = push_fa(out, wh_var, "k");
+    let key_lit = push_lit_node(out, Value::from(frame_key));
+    let is_frame = push_eq_node(out, wh_k, key_lit);
+    let dispatch = push_if_node(out, is_frame, frame_chain, fold_chain);
+    stmts.push(dispatch);
+    push_node(out, "block", stmts)
+}
+
+/// `if`-chain over `{"k": frame_key, "i": cons_idx}` frames: pop the k_i
+/// recursive results off `R` and combine them — `call(c_i, args, r1..rk)`
+/// for the recursor, `and(r1..rk)` for the predicate.
+fn build_frame_chain(
+    out: &mut Ast,
+    mode: FoldMode,
+    type_name: &str,
+    constructors: &[DataConstructor],
+) -> usize {
+    let null_lit = push_null_node(out);
+    let mut else_branch = push_either(out, true, null_lit);
+    for i in (0..constructors.len()).rev() {
+        let recs = recursive_arg_positions(type_name, &constructors[i]);
+        let k = recs.len();
+        if k == 0 {
+            continue;
+        }
+        let wh_var = push_var_node(out, "__wh");
+        let wh_i = push_fa(out, wh_var, "i");
+        let i_lit = push_lit_node(out, Value::from(i as i64));
+        let cond = push_eq_node(out, wh_i, i_lit);
+
+        let mut stmts: Vec<usize> = Vec::new();
+        let wh_var2 = push_var_node(out, "__wh");
+        let wh_a = push_fa(out, wh_var2, "a");
+        stmts.push(push_assign_node(out, "__a", wh_a));
+        let res = match mode {
+            FoldMode::Recursor => {
+                let in_v = push_var_node(out, "__in");
+                let mut call_children = vec![push_fai(out, in_v, 1 + i)];
+                for j in 0..constructors[i].args.len() {
+                    let a_var = push_var_node(out, "__a");
+                    call_children.push(push_fai(out, a_var, j));
+                }
+                for j in 1..=k {
+                    let r_var = push_var_node(out, "__r");
+                    let tail = push_t_chain(out, r_var, k - j);
+                    call_children.push(push_fa(out, tail, "h"));
+                }
+                push_node(out, "call", call_children)
+            }
+            FoldMode::Predicate => {
+                let mut parts: Vec<usize> = Vec::with_capacity(k);
+                for j in 1..=k {
+                    let r_var = push_var_node(out, "__r");
+                    let tail = push_t_chain(out, r_var, k - j);
+                    parts.push(push_fa(out, tail, "h"));
+                }
+                push_and_node(out, parts)
+            }
+        };
+        stmts.push(push_assign_node(out, "__res", res));
+
+        let r_var = push_var_node(out, "__r");
+        let popped = push_t_chain(out, r_var, k);
+        let res_var = push_var_node(out, "__res");
+        let r_new = push_cell(out, res_var, popped);
+        let wt_var = push_var_node(out, "__wt");
+        let st_new = push_object_node(out, &[("W", wt_var), ("R", r_new)]);
+        stmts.push(push_either(out, false, st_new));
+        let then_branch = push_node(out, "block", stmts);
+
+        else_branch = push_if_node(out, cond, then_branch, else_branch);
     }
     else_branch
 }
 
-/// Build the guard for a constructor: `v.tag == "ConsName"` plus any
-/// non-tautological result-index equalities. These checks are safe to evaluate
-/// eagerly because they do not recursively inspect the value.
-fn build_constructor_condition(
+/// `if`-chain over the constructors on `__wh.v.tag`: fold the value.
+fn build_fold_chain(
     out: &mut Ast,
-    params: &[DataParam],
-    cons: &DataConstructor,
-    v_idx: usize,
-) -> usize {
-    let tag_lit = push_leaf(out, "lit", Value::from("tag"));
-    let tag_access = push_node(out, "field-access", vec![v_idx, tag_lit]);
-    let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
-    let mut condition = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
-
-    for (i, param) in params.iter().enumerate() {
-        if let Some(index_expr) = cons.result_indices.get(i).and_then(|r| r.as_ref()) {
-            let mut parser = TypeExprParser::new(index_expr);
-            if let Some(idx_expr) = parser.parse() {
-                let idx_ast = type_expr_to_ast(out, &idx_expr);
-                // Skip tautological checks like `n == n`.
-                if let Some(idx_node) = out.get(AstRef::new(idx_ast)) {
-                    if idx_node.kind == "var"
-                        && idx_node.payload.as_str() == Some(param.name.as_str())
-                    {
-                        continue;
-                    }
-                }
-                let param_var = push_leaf(out, "var", Value::from(param.name.clone()));
-                let eq = push_node(out, "binary.eq", vec![param_var, idx_ast]);
-                condition = push_node(out, "binary.and", vec![condition, eq]);
-            }
-        }
-    }
-
-    // For parameters typed as `Nat`, ensure the requested index is
-    // non-negative. This keeps well-founded indexed families such as `Fin`
-    // from accepting values whose recursive index has dropped below zero
-    // (e.g. `Fin(0, FS(FZ))` requires `Fin(-1, FZ)`, which must be empty).
-    for param in params {
-        if param.typ == "Nat" {
-            let param_var = push_leaf(out, "var", Value::from(param.name.clone()));
-            let zero = push_leaf(out, "value", Value::from(0));
-            let gte = push_node(out, "binary.gte", vec![param_var, zero]);
-            condition = push_node(out, "binary.and", vec![condition, gte]);
-        }
-    }
-
-    condition
-}
-
-/// Build the then-branch of a constructor's predicate check: a conjunction of
-/// recursive predicate calls, one for each recursive constructor argument.
-/// Because this is used inside the `then` branch of an `if`, the tag is known
-/// to match, so field accesses are safe.
-fn build_constructor_predicate_check(
-    out: &mut Ast,
-    type_name: &str,
-    _params: &[DataParam],
-    cons: &DataConstructor,
-    v_idx: usize,
-    rec_app: usize,
-) -> usize {
-    let mut expr = push_leaf(out, "lit", Value::Bool(true));
-    let mut had_recursive = false;
-
-    for (arg_name, arg_type) in &cons.args {
-        let mut parser = TypeExprParser::new(arg_type);
-        if let Some(type_expr) = parser.parse() {
-            let is_recursive = match &type_expr {
-                TypeExpr::Atom(name) => name == type_name,
-                TypeExpr::App(name, _) => name == type_name,
-                _ => false,
-            };
-            if is_recursive {
-                had_recursive = true;
-                let arg_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-                let field_access = push_node(out, "field-access", vec![v_idx, arg_lit]);
-
-                let call = match type_expr {
-                    TypeExpr::App(_, index_exprs) => {
-                        let mut call_children = vec![rec_app];
-                        for idx_expr in &index_exprs {
-                            call_children.push(type_expr_to_ast(out, idx_expr));
-                        }
-                        call_children.push(field_access);
-                        push_node(out, "call", call_children)
-                    }
-                    _ => push_node(out, "call", vec![rec_app, field_access]),
-                };
-                expr = push_node(out, "binary.and", vec![expr, call]);
-            }
-        }
-    }
-
-    if had_recursive {
-        expr
-    } else {
-        push_leaf(out, "lit", Value::Bool(true))
-    }
-}
-
-/// Build the recursor inner function (self-application form):
-///   (self) -> (motive, c0, ..., c_{N-1}) -> (params..., v) -> dispatch
-///
-/// `motive` is the first method argument; it is carried through recursive
-/// calls but is not used by the runtime dispatch. The desugar pass fills it
-/// with a user-supplied return motive for `match` expressions, or `null`
-/// for bare recursor calls.
-fn build_recursor(
-    out: &mut Ast,
+    mode: FoldMode,
     type_name: &str,
     params: &[DataParam],
     constructors: &[DataConstructor],
 ) -> usize {
-    let self_var = push_leaf(out, "var", Value::from("self"));
-    let motive_var = push_leaf(out, "var", Value::from("motive"));
-
-    let param_names: Vec<String> = (0..constructors.len()).map(|i| format!("c{}", i)).collect();
-    let param_vars: Vec<usize> = param_names
-        .iter()
-        .map(|name| push_leaf(out, "var", Value::from(name.clone())))
-        .collect();
-
-    let mut inner_param_names: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
-    inner_param_names.push("v".to_string());
-    let v_var = push_leaf(out, "var", Value::from("v"));
-
-    let dispatch = build_recursor_dispatch(
-        out,
-        type_name,
-        params,
-        constructors,
-        v_var,
-        motive_var,
-        &param_vars,
-        self_var,
-    );
-
-    let inner_param_refs: Vec<&str> = inner_param_names.iter().map(|s| s.as_str()).collect();
-    let inner_fn = match find_first_recursive_field(constructors, type_name) {
-        Some(field) => {
-            let decreasing_arg = params.len();
-            push_function_with_termination(out, &inner_param_refs, dispatch, decreasing_arg, &field)
+    // A value matching no constructor yields `null` (recursor) / `false`
+    // (predicate), mirroring the former dispatch else-branches.
+    let default = match mode {
+        FoldMode::Recursor => {
+            let n = push_null_node(out);
+            push_result_state(out, n)
         }
-        None => push_function(out, &inner_param_refs, dispatch),
+        FoldMode::Predicate => {
+            let f = push_lit_node(out, Value::Bool(false));
+            push_result_state(out, f)
+        }
+    };
+    let mut else_branch = default;
+    for i in (0..constructors.len()).rev() {
+        let wh_var = push_var_node(out, "__wh");
+        let wh_v = push_fa(out, wh_var, "v");
+        let tag = push_fa(out, wh_v, "tag");
+        let name_lit = push_lit_node(out, Value::from(constructors[i].name.clone()));
+        let cond = push_eq_node(out, tag, name_lit);
+        let then_branch = build_fold_ctor_branch(out, mode, type_name, params, constructors, i);
+        else_branch = push_if_node(out, cond, then_branch, else_branch);
+    }
+    else_branch
+}
+
+/// `Right({W: __wt, R: {h: <res>, t: __r}})` — pop the finished task and
+/// push a fold result.
+fn push_result_state(out: &mut Ast, res: usize) -> usize {
+    let r_var = push_var_node(out, "__r");
+    let r_new = push_cell(out, res, r_var);
+    let wt_var = push_var_node(out, "__wt");
+    let st_new = push_object_node(out, &[("W", wt_var), ("R", r_new)]);
+    push_either(out, false, st_new)
+}
+
+/// The `then` branch of one constructor's fold dispatch.
+fn build_fold_ctor_branch(
+    out: &mut Ast,
+    mode: FoldMode,
+    type_name: &str,
+    params: &[DataParam],
+    constructors: &[DataConstructor],
+    i: usize,
+) -> usize {
+    let cons = &constructors[i];
+    let recs = recursive_arg_positions(type_name, cons);
+
+    let mut stmts: Vec<usize> = Vec::new();
+    let wh_var = push_var_node(out, "__wh");
+    let wh_v = push_fa(out, wh_var, "v");
+    stmts.push(push_assign_node(out, "__v", wh_v));
+    if mode == FoldMode::Predicate {
+        let wh_var2 = push_var_node(out, "__wh");
+        let wh_p = push_fa(out, wh_var2, "p");
+        stmts.push(push_assign_node(out, "__tp", wh_p));
+    }
+
+    // Push the fold sub-tasks (one per recursive arg) plus the
+    // apply/combine frame onto `W`; returns `Right({W: W', R: __r})`.
+    let subtasks_and_frame = |out: &mut Ast| -> usize {
+        let frame = match mode {
+            FoldMode::Recursor => {
+                let mut arg_elems: Vec<usize> = Vec::with_capacity(cons.args.len());
+                for (name, _) in &cons.args {
+                    let v_var = push_var_node(out, "__v");
+                    arg_elems.push(push_fa(out, v_var, name));
+                }
+                let args_arr = push_node(out, "array", arg_elems);
+                let k = push_lit_node(out, Value::from("a"));
+                let i_lit = push_lit_node(out, Value::from(i as i64));
+                push_object_node(out, &[("k", k), ("i", i_lit), ("a", args_arr)])
+            }
+            FoldMode::Predicate => {
+                let k = push_lit_node(out, Value::from("n"));
+                let i_lit = push_lit_node(out, Value::from(i as i64));
+                push_object_node(out, &[("k", k), ("i", i_lit)])
+            }
+        };
+        let wt_var = push_var_node(out, "__wt");
+        let mut acc = push_cell(out, frame, wt_var);
+        for (pos, expr) in recs.iter().rev() {
+            let arg_name = cons.args[*pos].0.clone();
+            let v_var = push_var_node(out, "__v");
+            let sub_v = push_fa(out, v_var, &arg_name);
+            let sub = match mode {
+                FoldMode::Recursor => {
+                    let k = push_lit_node(out, Value::from("f"));
+                    push_object_node(out, &[("k", k), ("v", sub_v)])
+                }
+                FoldMode::Predicate => {
+                    let p_elems: Vec<usize> = match expr {
+                        TypeExpr::App(_, index_exprs) => {
+                            let mut elems = Vec::with_capacity(index_exprs.len());
+                            for e in index_exprs {
+                                let tp_var = push_var_node(out, "__tp");
+                                elems.push(type_expr_to_ast_indexed(out, e, params, Some(tp_var)));
+                            }
+                            elems
+                        }
+                        _ => Vec::new(),
+                    };
+                    let p_arr = push_node(out, "array", p_elems);
+                    let k = push_lit_node(out, Value::from("f"));
+                    push_object_node(out, &[("k", k), ("p", p_arr), ("v", sub_v)])
+                }
+            };
+            acc = push_cell(out, sub, acc);
+        }
+        let r_var = push_var_node(out, "__r");
+        let st_new = push_object_node(out, &[("W", acc), ("R", r_var)]);
+        push_either(out, false, st_new)
     };
 
-    let mut mid_param_names = vec!["motive"];
-    mid_param_names.extend(param_names.iter().map(|s| s.as_str()));
-    let mid_fn = push_function(out, &mid_param_names, inner_fn);
-    push_function(out, &["self"], mid_fn)
-}
-
-/// Build the recursor dispatch.
-fn build_recursor_dispatch(
-    out: &mut Ast,
-    type_name: &str,
-    _params: &[DataParam],
-    constructors: &[DataConstructor],
-    v_idx: usize,
-    motive_var: usize,
-    param_vars: &[usize],
-    self_idx: usize,
-) -> usize {
-    if constructors.is_empty() {
-        return push_leaf(out, "lit", Value::Null);
-    }
-
-    let self_self = push_node(out, "call", vec![self_idx, self_idx]);
-    let mut rec_app_children = vec![self_self, motive_var];
-    rec_app_children.extend(param_vars.iter().copied());
-    let rec_app = push_node(out, "call", rec_app_children);
-
-    let mut else_branch = push_leaf(out, "lit", Value::Null);
-
-    for i in (0..constructors.len()).rev() {
-        let cons = &constructors[i];
-
-        let tag_lit = push_leaf(out, "lit", Value::from("tag"));
-        let n_tag = push_node(out, "field-access", vec![v_idx, tag_lit]);
-        let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
-        let tag_eq = push_node(out, "binary.eq", vec![n_tag, cons_name_lit]);
-
-        let then_branch = if cons.args.is_empty() {
-            param_vars[i]
-        } else {
-            let mut call_children = vec![param_vars[i]];
-            // Pass all constructor args.
-            for (arg_name, _) in &cons.args {
-                let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-                let n_arg = push_node(out, "field-access", vec![v_idx, arg_name_lit]);
-                call_children.push(n_arg);
+    let body = match mode {
+        FoldMode::Recursor => {
+            if recs.is_empty() {
+                let res = if cons.args.is_empty() {
+                    // Nullary constructor: `c_i` is the base value.
+                    let in_v = push_var_node(out, "__in");
+                    push_fai(out, in_v, 1 + i)
+                } else {
+                    let in_v = push_var_node(out, "__in");
+                    let mut call_children = vec![push_fai(out, in_v, 1 + i)];
+                    for (arg_name, _) in &cons.args {
+                        let v_var = push_var_node(out, "__v");
+                        call_children.push(push_fa(out, v_var, arg_name));
+                    }
+                    push_node(out, "call", call_children)
+                };
+                push_result_state(out, res)
+            } else {
+                subtasks_and_frame(out)
             }
-            // Pass recursive results for each recursive arg.
-            for (arg_name, arg_type) in &cons.args {
-                let mut parser = TypeExprParser::new(arg_type);
-                if let Some(type_expr) = parser.parse() {
-                    let is_recursive = match &type_expr {
-                        TypeExpr::Atom(name) => name == type_name,
-                        TypeExpr::App(name, _) => name == type_name,
-                        _ => false,
-                    };
-                    if is_recursive {
-                        let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-                        let n_arg = push_node(out, "field-access", vec![v_idx, arg_name_lit]);
-
-                        let rec_full = match type_expr {
-                            TypeExpr::App(_, index_exprs) => {
-                                let mut rec_children = vec![rec_app];
-                                for idx_expr in &index_exprs {
-                                    rec_children.push(type_expr_to_ast(out, idx_expr));
-                                }
-                                rec_children.push(n_arg);
-                                push_node(out, "call", rec_children)
-                            }
-                            _ => push_node(out, "call", vec![rec_app, n_arg]),
-                        };
-                        call_children.push(rec_full);
+        }
+        FoldMode::Predicate => {
+            // local_ok: non-tautological result-index equalities plus the
+            // `Nat`-typed index non-negativity check.
+            let mut checks: Vec<usize> = Vec::new();
+            for (j, param) in params.iter().enumerate() {
+                if let Some(index_expr) = cons.result_indices.get(j).and_then(|r| r.as_ref()) {
+                    let mut parser = TypeExprParser::new(index_expr);
+                    if let Some(idx_expr) = parser.parse() {
+                        let is_tautology =
+                            matches!(&idx_expr, TypeExpr::Atom(name) if name == &param.name);
+                        if !is_tautology {
+                            let tp_var = push_var_node(out, "__tp");
+                            let lhs = push_fai(out, tp_var, j);
+                            let tp_var2 = push_var_node(out, "__tp");
+                            let rhs =
+                                type_expr_to_ast_indexed(out, &idx_expr, params, Some(tp_var2));
+                            checks.push(push_eq_node(out, lhs, rhs));
+                        }
                     }
                 }
             }
-            push_node(out, "call", call_children)
-        };
+            for (j, param) in params.iter().enumerate() {
+                if param.typ == "Nat" {
+                    let tp_var = push_var_node(out, "__tp");
+                    let lhs = push_fai(out, tp_var, j);
+                    let zero = push_leaf(out, "value", Value::from(0));
+                    checks.push(push_node(out, "binary.gte", vec![lhs, zero]));
+                }
+            }
+            let local_ok = push_and_node(out, checks);
 
-        else_branch = push_node(out, "if", vec![tag_eq, then_branch, else_branch]);
-    }
-
-    else_branch
+            let on_ok = if recs.is_empty() {
+                let t = push_lit_node(out, Value::Bool(true));
+                push_result_state(out, t)
+            } else {
+                subtasks_and_frame(out)
+            };
+            let f = push_lit_node(out, Value::Bool(false));
+            let on_fail = push_result_state(out, f);
+            push_if_node(out, local_ok, on_ok, on_fail)
+        }
+    };
+    stmts.push(body);
+    push_node(out, "block", stmts)
 }
 
 // ---------------------------------------------------------------------------
@@ -2428,8 +2709,11 @@ mod tests {
     // ADR-0082 step 3: Termination metadata on recursor's inner function
     // -----------------------------------------------------------------------
 
-    /// Helper: walk the recursor's function chain to find the inner function
-    /// `(n) -> dispatch`. Returns the inner function node.
+    /// Helper: walk the recursor's bound-arrow record to find the dispatch
+    /// function `(__in) -> loop(rec_step)` — the function that carries the
+    /// `termination` payload (ADR-0120 Phase 1 fold machine). Path:
+    /// assign → rec → assign[0] → function → body(object) →
+    /// entry[0](`__term__`) → children[1] → function.
     fn recursor_inner_fn<'a>(out: &'a Ast, block_children: &[Value]) -> Option<&'a AstNode> {
         let rec_assign_idx = block_children.last()?.as_u64()? as usize;
         let rec_assign = out.get(AstRef::new(rec_assign_idx))?;
@@ -2442,17 +2726,26 @@ mod tests {
         let inner_children = inner_assign.payload.get("children")?.as_array()?;
         let outer_fn_idx = inner_children.get(1)?.as_u64()? as usize;
         let outer_fn = out.get(AstRef::new(outer_fn_idx))?;
-        let mid_fn_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
-        let mid_fn = out.get(AstRef::new(mid_fn_idx))?;
-        let inner_fn_idx = mid_fn.payload.get("body")?.as_u64()? as usize;
-        out.get(AstRef::new(inner_fn_idx))
+        let obj_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
+        let obj = out.get(AstRef::new(obj_idx))?;
+        let entry_idx = obj.payload.get("children")?.as_array()?.first()?.as_u64()? as usize;
+        let entry = out.get(AstRef::new(entry_idx))?;
+        let term_fn_idx = entry
+            .payload
+            .get("children")?
+            .as_array()?
+            .get(1)?
+            .as_u64()? as usize;
+        out.get(AstRef::new(term_fn_idx))
     }
 
     #[test]
     fn data_nat_recursor_has_termination_metadata() {
-        // ADR-0082 step 3: the recursor's inner function `(n) -> dispatch`
-        // should carry a `termination` payload field with decreasing_arg=0
-        // and decreasing_field="pred".
+        // ADR-0082 step 3 + ADR-0120 Phase 1: the recursor's dispatch
+        // function `(__in) -> loop(rec_step)` should carry a `termination`
+        // payload field. `decreasing_arg` is the index of the folded
+        // value `v` in the flat `__in` tuple `[motive, c0, c1, v]` = 3;
+        // `decreasing_field` names the first recursive constructor field.
         let mut lang = Language::new();
         lang.ast
             .merge(AstShapeDef::new("ast.data", "data"))
@@ -2472,7 +2765,7 @@ mod tests {
             .payload
             .get("termination")
             .expect("termination metadata");
-        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
+        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(3));
         assert_eq!(term.get("decreasing_field").unwrap(), &json!("pred"));
     }
 
@@ -2523,7 +2816,8 @@ mod tests {
             .payload
             .get("termination")
             .expect("termination metadata");
-        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(0));
+        // `v` sits at index 3 in `[motive, c0, c1, v]` (Leaf + Node).
+        assert_eq!(term.get("decreasing_arg").unwrap(), &json!(3));
         assert_eq!(term.get("decreasing_field").unwrap(), &json!("left"));
     }
 
@@ -2935,14 +3229,13 @@ mod tests {
         Some(count_kind_from(out, body, "if"))
     }
 
-    /// Extract the recursor's middle-function constructor-param count from a
-    /// desugared `data` block. The recursor is the last `assign` in the
-    /// block; its value is a `rec` region whose first binding
-    /// (`__rec_inner_<T>`) holds the outer function
-    /// `(self) -> (motive, c0, ..., c_{N-1}) -> (n) -> ...`. We walk down:
-    /// assign → rec → assign[0] → function → body(function) → function
-    /// (middle) → params.len() - 1 (the leading `motive` param is not a
-    /// constructor argument).
+    /// Extract the recursor's constructor-param count from a desugared
+    /// `data` block. The recursor is the last `assign` in the block; its
+    /// value is a `rec` region whose first binding (`__rec_inner_<T>`)
+    /// holds the outer function `(motive, c0, ..., c_{N-1}) ->
+    /// {__term__, __bound__}` (ADR-0120 Phase 1). We walk down:
+    /// assign → rec → assign[0] → function → params.len() - 1 (the
+    /// leading `motive` param is not a constructor argument).
     fn recursor_param_count(out: &Ast, block_children: &[Value]) -> Option<usize> {
         let rec_assign_idx = block_children.last()?.as_u64()? as usize;
         let rec_assign = out.get(AstRef::new(rec_assign_idx))?;
@@ -2957,10 +3250,7 @@ mod tests {
         let outer_fn_idx = inner_children.get(1)?.as_u64()? as usize;
         let outer_fn = out.get(AstRef::new(outer_fn_idx))?;
         assert_eq!(outer_fn.kind, "function");
-        let mid_fn_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
-        let mid_fn = out.get(AstRef::new(mid_fn_idx))?;
-        assert_eq!(mid_fn.kind, "function");
-        let params = mid_fn.payload.get("params")?.as_array()?;
+        let params = outer_fn.payload.get("params")?.as_array()?;
         Some(params.len().saturating_sub(1))
     }
 
@@ -2993,11 +3283,14 @@ mod tests {
         let nparams = recursor_param_count(&out, children).expect("recursor params");
         assert_eq!(nparams, 3, "RGB recursor should take 3 constructor params");
 
-        // The dispatch should produce 3 `if` nodes (one per constructor).
+        // The fold machine's dispatch produces: 2 step-prologue `if`s
+        // (state-null / work-null) + 1 frame-dispatch `if` + 3 fold-chain
+        // `if`s (one per constructor) + 0 frame `if`s (no recursive
+        // constructors) = 6.
         let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
         assert_eq!(
-            if_count, 3,
-            "RGB recursor dispatch should have 3 if nodes, got {}",
+            if_count, 6,
+            "RGB recursor fold machine should have 6 if nodes, got {}",
             if_count
         );
 
@@ -3039,9 +3332,14 @@ mod tests {
         let nparams = recursor_param_count(&out, children).expect("recursor params");
         assert_eq!(nparams, 3, "Nat3 recursor should take 3 constructor params");
 
-        // 3 if nodes in the dispatch.
+        // Fold-machine `if` count: 2 step-prologue + 1 frame-dispatch +
+        // 3 fold-chain (one per constructor) + 2 frame (Succ1, Succ2 are
+        // recursive) = 8.
         let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
-        assert_eq!(if_count, 3, "Nat3 recursor dispatch should have 3 if nodes");
+        assert_eq!(
+            if_count, 8,
+            "Nat3 recursor fold machine should have 8 if nodes"
+        );
 
         // Every if node has 3 children.
         for node in out.nodes() {
@@ -3080,14 +3378,19 @@ mod tests {
         let nparams = recursor_param_count(&out, children).expect("recursor params");
         assert_eq!(nparams, 2, "Tree recursor should take 2 constructor params");
 
-        // 2 if nodes in the dispatch.
+        // Fold-machine `if` count: 2 step-prologue + 1 frame-dispatch +
+        // 2 fold-chain (Leaf, Node) + 1 frame (Node is recursive) = 6.
         let if_count = recursor_dispatch_if_count(&out, children).expect("recursor if count");
-        assert_eq!(if_count, 2, "Tree recursor dispatch should have 2 if nodes");
+        assert_eq!(
+            if_count, 6,
+            "Tree recursor fold machine should have 6 if nodes"
+        );
 
-        // The Node branch's step call should have:
-        //   c1 (callee) + 2 args (n.left, n.right) + 2 recursive results = 5 children.
-        // Find the `call` node whose first child is a var named "c1" and
-        // which has 5 children (the Node step call).
+        // The Node frame's apply call should have:
+        //   __in[2] (callee c1) + 2 args (__a[0], __a[1]) + 2 recursive
+        //   results (r.h, r.t.h) = 5 children.
+        // Find the `call` node whose first child is a `field-access` into
+        // `__in` at index 2 and which has 5 children.
         let mut found_node_step = false;
         for node in out.nodes() {
             if node.kind != "call" {
@@ -3100,28 +3403,46 @@ mod tests {
             if kids.len() < 2 {
                 continue;
             }
-            // First child should be a var "c1".
+            // First child should be `field-access(__in, 2)` — the bound
+            // constructor argument c1 (index 1 + ctor 1 in the flat
+            // `__in` tuple).
             let callee_idx = kids[0].as_u64().map(|v| v as usize);
             if let Some(ci) = callee_idx {
                 if let Some(callee) = out.get(AstRef::new(ci)) {
-                    if callee.kind == "var" && callee.payload == json!("c1") {
-                        // This is the Node step call. It should have 5 children:
-                        // [c1, n.left, n.right, rec(left), rec(right)]
-                        assert_eq!(
-                            kids.len(),
-                            5,
-                            "Node step call should have 5 children (callee + 2 args + 2 rec results), got {}: payload={}",
-                            kids.len(),
-                            node.payload
-                        );
-                        found_node_step = true;
+                    if callee.kind == "field-access" {
+                        let fa_kids = callee
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .cloned()
+                            .unwrap_or_default();
+                        let target_ok = fa_kids
+                            .first()
+                            .and_then(|v| v.as_u64())
+                            .and_then(|i| out.get(AstRef::new(i as usize)))
+                            .is_some_and(|t| t.kind == "var" && t.payload == json!("__in"));
+                        let index_ok = fa_kids
+                            .get(1)
+                            .and_then(|v| v.as_u64())
+                            .and_then(|i| out.get(AstRef::new(i as usize)))
+                            .is_some_and(|f| f.payload == json!(2));
+                        if target_ok && index_ok {
+                            assert_eq!(
+                                kids.len(),
+                                5,
+                                "Node frame apply call should have 5 children (callee + 2 args + 2 rec results), got {}: payload={}",
+                                kids.len(),
+                                node.payload
+                            );
+                            found_node_step = true;
+                        }
                     }
                 }
             }
         }
         assert!(
             found_node_step,
-            "did not find the Node step call with 5 children"
+            "did not find the Node frame apply call with 5 children"
         );
     }
 

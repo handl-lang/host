@@ -491,6 +491,12 @@
         source: Native
         lit: 1
     source: Native
+- id: eval.json
+  node_kind: json
+  scheme: !Op
+    name: json
+    args: []
+    source: Native
 - id: eval.block
   node_kind: block
   scheme: !Op
@@ -694,6 +700,28 @@
     snd: !Loop
       body: !Op
         name: loop_step
+        args:
+          - !Op
+            name: proj_child
+            args: []
+            source: Native
+            lit: 1
+        source: Native
+# `loop` — arrow fold node (ADR-0120 Phase 1). Children: [input(0),
+# step-fn(1)]. Each iteration applies the step closure to the pair
+# (loop-input, state); `left(result)` terminates, `right(next_state)`
+# continues — the `fold_step` native op implements the ArrowLoop protocol.
+- id: eval.loop
+  node_kind: loop
+  scheme: !Seq
+    fst: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Loop
+      body: !Op
+        name: fold_step
         args:
           - !Op
             name: proj_child

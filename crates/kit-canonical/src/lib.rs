@@ -913,8 +913,22 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
     // Ambient globals injected by `build_kit` (`self` = the canonical
     // Language value, `hello` = the module object) plus the fixed
     // host-function wires of the `HelloHostFunctions`/`FpHostFunctions`
-    // lookup-chain segments layered over the registry.
-    for extra in ["self", "hello", "greet", "field_access"] {
+    // lookup-chain segments layered over the registry. The meta-chain
+    // modules (`lex`/`parse`/`eval`/`typecheck`/`compile`/`run_compiled`)
+    // are resolvable through `ModuleLookup` at eval time, so the
+    // typecheck prelude must name them too.
+    for extra in [
+        "self",
+        "hello",
+        "greet",
+        "field_access",
+        "eval",
+        "lex",
+        "parse",
+        "typecheck",
+        "compile",
+        "run_compiled",
+    ] {
         names.insert(extra.to_string());
     }
 

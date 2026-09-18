@@ -960,6 +960,62 @@ impl TreeWalkEngine {
                 if body.tag() == "Op" {
                     let op = body.get_str("name").unwrap_or("");
                     let source = body.arr_source().unwrap_or(ArrSource::Native);
+                    // `fold_step` — the ArrowLoop protocol used by the
+                    // `loop` fold node (ADR-0120 Phase 1). args =
+                    // [step_proc]; each iteration applies the step closure
+                    // to the pair (loop-input, state); the step result is
+                    // itself the Either — `left(result)` terminates,
+                    // `right(next_state)` feeds back. Hoisted like
+                    // `loop_step` so the step closure evaluates once.
+                    if source == ArrSource::Native && op == "fold_step" {
+                        let args = body.get_term_list("args");
+                        let body_proc = args.first().ok_or_else(|| {
+                            LangError::engine_node(
+                                "fold_step: missing step proc".to_string(),
+                                current_node,
+                            )
+                        })?;
+                        let closure_val = self.eval_scheme_tagged_td(
+                            body_proc,
+                            ast,
+                            node_ref,
+                            lang,
+                            env,
+                            current_node,
+                            None,
+                        )?;
+                        let inc = incoming.unwrap_or(TaggedValue::Null);
+                        let mut state = TaggedValue::Null;
+                        const MAX_ITERS: usize = 100_000;
+                        for _ in 0..MAX_ITERS {
+                            let step_args = vec![inc.clone(), state.clone()];
+                            let result = self.apply_app(
+                                &closure_val,
+                                &step_args,
+                                ast,
+                                lang,
+                                env,
+                                node_ref,
+                                current_node,
+                            )?;
+                            if let Some(out) = either_left_val(&result) {
+                                return Ok((out, false));
+                            }
+                            if let Some(next) = either_right_val(&result) {
+                                state = next;
+                                continue;
+                            }
+                            // Plain pair → (result, state) terminates.
+                            if let Some(out) = pair_fst(&result) {
+                                return Ok((out.clone(), false));
+                            }
+                            return Ok((result, false));
+                        }
+                        return Err(LangError::engine_node(
+                            "Loop: exceeded max iterations".to_string(),
+                            current_node,
+                        ));
+                    }
                     if source == ArrSource::Native && op == "loop_step" {
                         let args = body.get_term_list("args");
                         let body_proc = args.first().ok_or_else(|| {
@@ -1800,7 +1856,10 @@ impl TreeWalkEngine {
         // new kernel primitive — `while_step` is an `Arr` op (one of the
         // six primitives); its interpretation is the derived pattern.
         if matches!(source, ArrSource::Native)
-            && matches!(op, "while_step" | "for_step" | "fix_step" | "loop_step")
+            && matches!(
+                op,
+                "while_step" | "for_step" | "fix_step" | "loop_step" | "fold_step"
+            )
         {
             return self.eval_derived_step(
                 op,
@@ -2053,6 +2112,33 @@ impl TreeWalkEngine {
             let result =
                 self.apply_app(&closure_val, &args, ast, lang, env, node_ref, current_node)?;
             return Ok((loop_step_outcome(result), false));
+        }
+        if op == "fold_step" {
+            // ArrowLoop step for the `loop` fold node (ADR-0120 Phase 1).
+            // args = [step_proc]. The step closure is applied to the pair
+            // (loop-input, state); its result is itself the Either —
+            // `left(result)` terminates, `right(next_state)` feeds back.
+            // Non-hoisted position only: the `Term::Loop` arm hoists the
+            // closure evaluation when `fold_step` is the direct body.
+            let step_proc = raw_args.first().ok_or_else(|| {
+                LangError::engine_node("fold_step: missing step proc".to_string(), current_node)
+            })?;
+            let closure_val = self.eval_scheme_tagged_td(
+                step_proc,
+                ast,
+                node_ref,
+                lang,
+                env,
+                current_node,
+                None,
+            )?;
+            let args = vec![
+                pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null),
+                pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null),
+            ];
+            let result =
+                self.apply_app(&closure_val, &args, ast, lang, env, node_ref, current_node)?;
+            return Ok((result, false));
         }
         let mut eval_arg = |i: usize, current: &TaggedValue| -> Result<TaggedValue, LangError> {
             let arg = raw_args.get(i).ok_or_else(|| {
@@ -3184,6 +3270,29 @@ impl TreeWalkEngine {
                 env.pop_scope();
             }
             return Ok(val);
+        }
+        // Bound-arrow record `{__term__, __bound__}` (ADR-0120 Phase 1 —
+        // generated by `desugar.data` for `Type.rec`): applying it runs
+        // `__term__` on `__bound__ ++ args`, so the two-stage call
+        // `Type.rec(m, c0..)(params.., v)` feeds the dispatch the flat
+        // tuple `[motive, c0.., params.., v]` — products, not currying.
+        if let TaggedValue::Obj(map) = callee {
+            if let Some(term_val) = map.get("__term__") {
+                let mut elems: Vec<TaggedValue> = Vec::new();
+                if let Some(bound) = map.get("__bound__") {
+                    match bound {
+                        TaggedValue::Arr(items) => {
+                            elems.extend(items.iter().cloned());
+                        }
+                        other => elems.push(other.clone()),
+                    }
+                }
+                elems.extend(args.iter().cloned());
+                // `__term__` is a unary arrow over the flat `__in` tuple —
+                // deliver bound ++ applied as ONE array argument.
+                let tuple = TaggedValue::Arr(Rc::from(elems));
+                return self.apply_app(term_val, &[tuple], ast, lang, env, node_ref, current_node);
+            }
         }
         // Closure application — match on TaggedValue::Arrow directly.
         let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) =
@@ -5317,6 +5426,34 @@ fn is_either_right(v: &TaggedValue) -> bool {
 /// Extract the carried value from an Either.
 fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
     handl_value::either_value(v)
+}
+
+/// `left` Either payload — recognizes both `TaggedValue::EitherLeft` and
+/// the `{"__either__": "left", "value": v}` JSON encoding produced by
+/// generated `object` nodes (`fold_step` step results, ADR-0120).
+fn either_left_val(v: &TaggedValue) -> Option<TaggedValue> {
+    if let TaggedValue::EitherLeft(inner) = v {
+        return Some(inner.as_ref().clone());
+    }
+    if let TaggedValue::Obj(map) = v {
+        if map.get("__either__").and_then(|s| s.as_str()) == Some("left") {
+            return map.get("value").cloned();
+        }
+    }
+    None
+}
+
+/// `right` Either payload — see [`either_left_val`].
+fn either_right_val(v: &TaggedValue) -> Option<TaggedValue> {
+    if let TaggedValue::EitherRight(inner) = v {
+        return Some(inner.as_ref().clone());
+    }
+    if let TaggedValue::Obj(map) = v {
+        if map.get("__either__").and_then(|s| s.as_str()) == Some("right") {
+            return map.get("value").cloned();
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------

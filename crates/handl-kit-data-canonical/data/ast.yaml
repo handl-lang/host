@@ -751,6 +751,25 @@
     required:
       - children
     type: object
+# `loop` — arrow fold node (ADR-0120 Phase 1). Children: [input, step].
+# `step` is a function `(in, state) -> Either(result, next_state)` run as
+# `Term::Loop` feedback; `input` is the value the fold runs over.
+- id: ast.loop
+  node_kind: loop
+  children:
+    - role: input
+    - role: step
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
 # `while` — pre-test loop (2 children: condition + body).
 - id: ast.while
   node_kind: while
