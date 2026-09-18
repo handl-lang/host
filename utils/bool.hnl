@@ -22,6 +22,10 @@
 --- bool.nor -- negated disjunction (not-or) of two booleans.
 --- bool.implies -- logical implication (a implies b).
 --- bool.eq -- test whether two booleans are equal.
+--- bool.true -- the canonical truthy boolean value.
+--- bool.false -- the canonical falsy boolean value.
+cap "bool.true"
+cap "bool.false"
 cap "bool.and"
 cap "bool.or"
 cap "bool.not"
@@ -31,6 +35,8 @@ cap "bool.nor"
 cap "bool.implies"
 cap "bool.eq"
 {
+  "true": 1 == 1,
+  "false": 1 != 1,
   and: [a, b] ~> a && b,
   or: [a, b] ~> a || b,
   not: a ~> !a,

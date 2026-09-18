@@ -12,7 +12,7 @@ from "./deep_flatten" export deep_flatten
 from "./drop" export drop
 from "./enumerate" export enumerate
 from "./fill" export fill
-from "./first" export first_impl
+from "./first" export first
 from "./flatten" export flatten
 from "./index_of" export index_of
 from "./insert_at" export insert_at
