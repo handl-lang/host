@@ -103,10 +103,10 @@ f >>>[0] g        -- plain `f >>> g` is shorthand for the default axis
 
 At dimension 2 there are already two. Given `α : M[2]<F, F'>` and `β : M[2]<G, G'>`:
 
-- **Vertical** composition stacks transformations along the morphism direction — `F ~[2]~> F' ~[2]~> F''` — written `α >>>[0] α'`.
-- **Horizontal** composition pairs transformations across composition of their boundary morphisms — `F ~[2]~> F'` together with `G ~[2]~> G'` yields a 2-morphism between the composites `F >>> G` and `F' >>> G'` — written `α >>>[1] β`.
+- **Horizontal** composition pairs transformations across composition of their boundary morphisms — `F ~[2]~> F'` together with `G ~[2]~> G'` yields a 2-morphism between the composites `F >>> G` and `F' >>> G'` — written `α >>>[0] β` (`∘₀`).
+- **Vertical** composition stacks transformations along the morphism direction — `F ~[2]~> F' ~[2]~> F''` — written `α >>>[1] α'` (`∘₁`).
 
-Spatially: axis 0 composes cells _along_ a structure; axis 1 composes them _across_ it. Higher dimensions add further compositional directions, and the coherence conditions between them.
+Spatially: `>>>[k]` pastes cells along their shared `k`-boundary — axis 0 composes cells _across_ a structure (meeting at an object), axis 1 composes them _along_ it (meeting at a morphism). Higher dimensions add further compositional directions, and the coherence conditions between them.
 
 The general form is `compose[k](a, b)` or `a >>>[k] b`, with axes `Nat`-indexed: `>>>[0]`, `>>>[1]`, `>>>[2]`, .... Unannotated `>>>` is shorthand for the default, inferred axis.
 
@@ -175,7 +175,7 @@ An implementation is selected through a handler:
 handle Store with DatabaseStore
 ```
 
-Thus abstraction and implementation remain separate while the compiler retains the algebraic structure necessary for effect reasoning. Effect annotations are independent of morphism dimension — an effect-tracked computation is still a 1-morphism; whether the grade bracket (`~[R]~>` in the object/arrow kernel) and the dimension bracket share one syntax is an open question (§13).
+Thus abstraction and implementation remain separate while the compiler retains the algebraic structure necessary for effect reasoning. Effect annotations are independent of morphism dimension — an effect-tracked computation is still a 1-morphism. The grade bracket (`~[R]~>` in the object/arrow kernel) and the dimension bracket share one slot: a grade is a _named_ dimension, and handler routing is dimension-typed (§12).
 
 ## 7. Rules as Programs
 
@@ -304,45 +304,61 @@ Dimensions do not introduce new programming languages. They identify the level a
 
 ## 12. Implementation Alignment
 
-The architecture is largely realized in spirit by the existing kernel; what remains is formalization rather than new machinery.
+The architecture is realized by the kernel: the calculus described above is the running implementation, not a target.
 
-The repository's `Term` calculus (`crates/plugin-engine/src/term.rs`) already embodies _dimension-as-expression_: the arrow formers `Arr` and `Op` carry `dim: Box<Term>` (defaulting to the constant `1`), so dimension is data inside the calculus rather than a static annotation. `Src`/`Tgt` project the boundary faces of a 2-cell, and `Rewrite` records a witnessed transformation — a precursor of `M[2]` inhabitants. The law-inference pass (`crates/handl-language/src/law_inference.rs`) already normalizes `Term` graphs to a fixpoint and decides law equality by comparing normal forms — a prototype of 2-morphism checking for the structural fragment.
+The repository's `Term` calculus (`crates/plugin-engine/src/term.rs`) embodies _dimension-as-expression_: the arrow formers `Arr` and `Op` carry `dim: Box<Term>` (defaulting to the constant `1`), so dimension is data inside the calculus rather than a static annotation. `Src`/`Tgt` project the boundary faces of a 2-cell, and `Seq{axis, fst, snd}` carries the composition axis. The law-inference pass (`crates/handl-language/src/law_inference.rs`) normalizes `Term` graphs to a fixpoint and decides law equality by comparing normal forms — the strict fast-path for 2-morphism checking.
 
-Four engineering prerequisites remain before the `Term` kernel is literally the n-dimensional calculus:
+The four engineering prerequisites previously identified have all landed:
 
-1. **Arrows as values** — quoting, `App`, and currying must let morphisms be constructed, inspected, and applied as ordinary data.
-2. **Axis slot on `Seq`** — `Term::Seq` currently carries only `fst`/`snd`; it must acquire the axis parameter of `>>>[k]`.
-3. **Source/target tracking in types** — the type layer must record morphism boundaries so `M[n]<A, B>` can be checked.
-4. **One dimension concept** — the effect-grade `dim` and the morphism dimension `n` must be merged, or explicitly separated.
+1. **Arrows as values** — a `function` in value position lowers to a quoted `Arr{value: Term}`; `call(f, x)` lowers to `pair(quote f, x) >>> app`. An inner function that references enclosing parameters lowers to a bound-arrow record `{__term__, __bound__}` — a product encoding, not a closure. `desugar.data` compiles recursors to `loop` fold machines over explicit defunctionalized work stacks rather than self-application (`ast.loop`/`eval.loop` data shapes).
+2. **Axis slot on `Seq`** — `Term::Seq` carries `axis` (serde-defaulted to `0`); `f >>> g` is `>>>[0]`. `>>>[k]` surface syntax is pure YAML: `ast.axis_flow` (`left`/`axis`/`right` roles), `eval.axis_flow`, `type.axis_flow`.
+3. **Source/target tracking in types** — `A ~[N]~> B` synthesizes `Arrow{inputs, grade, output, dim}` (`synth_dim_arrow`); `cell_boundary_`/`cell_paste_` in the typecheck model project and recompose k-indexed globular boundaries, so `a >>>[k] b` enforces `tgt_k(a) = src_k(b)` (`synth_axis_flow`). At the value level `>>>[k]` for `k > 0` executes as globular pasting `∘ₖ` via `cell2_comp_axis` with the same `tgt_k = src_k` enforcement; `Term::globular_dim` gates `k < dim`, and all execution/compile backends are dimension-aware.
+4. **One dimension concept** — the grade bracket and the dimension bracket are one slot. A grade is a _named_ dimension (`Const "S"`); handler routing is dimension-typed (`substitute_capability` matches dims). `ArrSource::Foreign` is strictly the host-function boundary — a module-registry key, not a dimension.
+
+Beyond the prerequisites, the surface layer is implemented as well:
+
+- **Laws as `M[2]` terms** — `f ~[2]~> g` mints a genuine dimension-2 `Op` and feeds `law_inference`/`quantified_laws` directly; there is no separate laws fragment. The former frontier ops are derived schemes over `Seq{axis}` in `eval.yaml`: `cell_comp_h`/`cell_comp_v` are `>>>[0]`/`>>>[1]` at dimension 2, `whisker_*` is `id₂ ∘₀ α`, and `cell_id` is `id`. Unrecognized derived operators fold to `Term::Opaque` tagged records, making the `Term`/surface conversion total.
+- **Dependent structure** — `Family`/`Π`/`Σ`/`Forall` are recognized in type-expression position; `reindex` is ordinary composition (`reindex := (f, P) ~> f >>> P`); the `Σ_f ⊣ f* ⊣ Π_f` unit/counit laws are `~[2]~>` terms (`handl-packages/type/dependent.hnl`). `data` declarations bind `type.family`/`type.family_app`; constructor signatures (`type.ctor_sig`) instantiate per use, so `Succ(3)` is rejected; index terms normalize computationally (`Vec(1 + 1)` ≡ `Vec(2)`, commutative canonicalization, ring identities, linear solving); `match` patterns bind constructor fields.
+- **Scheme-driven lowering** — `lower_via_scheme`/`instantiate_scheme` instantiate `EvalSchemeDef` `Term`s directly: YAML-declared constructs lower with zero Rust arms (`input_faithful` tracking, `seq_pastes` globular pasting). `pattern_role`/`pattern_role_is` drive kind dispatch in pattern matching and all execution engines via `AstShapeDef` roles.
+
+The remaining gaps are documented approximations rather than missing machinery; they are enumerated in §13.
 
 ## 13. Open Questions
 
-The design is settled architecturally; the open work is formalization.
+The design is settled architecturally and the core mechanics are implemented (§12); the open work is metatheory plus a small list of documented approximations.
 
 **Cells and composition**
 
-1. What exactly is `M[n]` — a type former, a judgment, or a family of categories?
-2. What are the typing rules for `>>>[k]`?
-3. Which axes exist for a given `n`?
-4. What identity and associativity structures exist at every level?
-5. How are horizontal and vertical composition related, and which interchange and coherence laws hold between axes?
+1. What exactly is `M[n]` — partially answered by the implementation: at the value level an n-morphism is a `Term` whose `dim` slot denotes `n` (a dimension-2 `Op`, or a `Cell2` tagged record for computed 2-cells); at the type level `M[n]<A, B>` is `Arrow{inputs, grade, output, dim}`. Whether that suffices as a family of categories is a metatheory question, not an engineering one.
+2. What are the typing rules for `>>>[k]`? — answered: `tgt_k(a) = src_k(b)`, enforced statically by `synth_axis_flow` (`cell_boundary_`/`cell_paste_`) and dynamically by `cell2_comp_axis`.
+3. Which axes exist for a given `n`? — answered operationally: `k < dim` is required and checked. The value model carries a single cell shape (`Cell2`, dimension 2) whose only representable boundary sits at level 1, so axes 0 and 1 execute meaningfully and `k ≥ 2` is rejected by the typechecker (and fails `k < dim` at the value level for ordinary operands). Generalizing the value model beyond 2-cells is open.
+4. What identity and associativity structures exist at every level? — `id` is dimension-polymorphic through the `dim` slot and `cell_id` derives to `id`; higher associativity and unitor structure as inhabited cells remain open.
+5. How are horizontal and vertical composition related, and which interchange and coherence laws hold between axes? — open.
 
 **Strictness and shape**
 
-6. Are higher laws strict equalities or genuine higher morphisms? Note that `M[n]<A, B>` with `A, B ∈ M[n-1]` is already the **globular** presentation — the syntax implies globular shape; strict-vs-weak is the remaining choice.
-7. What categorical structure results overall — strict, weak, globular, cubical?
+6. Are higher laws strict equalities or genuine higher morphisms? — resolved: weak (proof-relevant). `~[2]~>` cells are first-class values composable via `>>>[k]`; `law_inference` remains as the strict fast-path where a canonical form suffices. `M[n]<A, B>` with `A, B ∈ M[n-1]` is the **globular** presentation, confirmed by the syntax.
+7. What categorical structure results overall — strict, weak, globular, cubical? — resolved for the implemented fragment: weak globular. Cubical Kan structure (`hcomp`, `transport`, `Equiv` computing equality) is deliberately deferred and would arrive as a cube-diagram fragment rather than a rewrite of the directed calculus.
 
 **Interaction with the rest of the language**
 
-8. How do `Family`, `Π`, and `Σ` interact with higher morphisms (e.g. families indexed by `M[2]` cells)?
-9. Is there a real distinction between computation cells and proof/law cells, or only between how they are consumed?
-10. How does Sanada's operational semantics lift through dimensions?
+8. How do `Family`, `Π`, and `Σ` interact with higher morphisms? — the structural fragment is implemented (§12); the adjunction laws are `~[2]~>` terms. Still open: families indexed by `M[2]` cells, and dependent elimination — refining a scrutinee's family index per `match` arm. True dependent elimination needs an equality type/proof term (`v ≡ Ctor …`) to rewrite the index under each arm, machinery the structural fragment deliberately does not carry.
+9. Is there a real distinction between computation cells and proof/law cells? — partially answered: one mechanism. Law cells are dimension-2 `Op`s and derived operators fold to `Term::Opaque` records; the computation/proof distinction lives in the consumers (eval engines vs `law_inference`), not in the calculus.
+10. How does Sanada's operational semantics lift through dimensions? — partially answered: `op`/`handle` ride the unified dimension slot (a grade is a named dimension; routing is dimension-typed). The full dimensional lift of the operational semantics remains open.
 
 **Metatheory**
 
-11. Which dimension expressions are statically normalizable?
-12. Under what conditions can higher-dimensional transformations safely rewrite programs?
-13. How can generic rewriting remain terminating and decidable?
-14. What computational power and practical benefits arise from programmable dimensionality?
+11. Which dimension expressions are statically normalizable? — open; only literal axes and dimensions resolve today (a non-literal axis falls back to the 0-boundary with a warning).
+12. Under what conditions can higher-dimensional transformations safely rewrite programs? — open.
+13. How can generic rewriting remain terminating and decidable? — open.
+14. What computational power and practical benefits arise from programmable dimensionality? — open.
+
+**Documented approximations** (implementation debt, not design questions)
+
+- `unify` on `type.function` is shallow (field-wise); dependent-aware unification lives in `unify_dependent_`, and a composite `f >>> P` of dependent operands flattens to `type.function` — no AST body exists to carry a `body_closure` across composition.
+- `cell_boundary_` assumes globularity: the globe condition `src_j(inputs) = src_j(output)` is assumed, not verified.
+- `AstShapeDef` declares a single `pattern_role` per shape; optional-role support for `match`/`assign` optional children is still needed — they carry bespoke handling.
+- `desugar.data`/`desugar.match_recursor` remain semantic natives (per-constructor iteration, strict positivity, arena search) — genuinely semantic work awaiting a macro system rather than a rewrite step.
+- The arrow lowerer's `match node.kind` table is reduced but not eliminated: the env/substitution constructs (`function`, `call`, `assign`, `flow`, …) keep Rust arms; only YAML-declared schemes lower generically.
 
 The goal is a language in which **computation and reasoning about computation are expressed by the same calculus**, recursively and statically.
