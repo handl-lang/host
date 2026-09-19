@@ -3426,7 +3426,10 @@ fn resolve_closure_params_body(
 /// Two payload shapes for `array`:
 /// - Rich: `{"elements": [v1, v2, ...]}` — literal values, returned as-is.
 /// - Pratt-parsed: `{"children": [elem_idx, ...]}` — each element is an arena
-///   index evaluated via [`eval_child_node`].
+///   index evaluated via [`eval_child_node`]. A `rest`-roled child
+///   (`pattern_role: rest`; from `...expr` syntax) is a spread element: its
+///   evaluated value is flattened into the result when it is an array, and
+///   pushed as-is otherwise (mirrors the tree-walk and bytecode prims).
 fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
@@ -3459,8 +3462,30 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
     };
     let mut result = Vec::with_capacity(indices.len());
     for idx in indices {
+        // Spread: if the child is a `rest`-roled node (`pattern_role: rest`;
+        // from `...expr` syntax), flatten its value into the array if it's
+        // an array. `kind == "rest"` is the role-less fallback (ADR-0081).
+        // Mirrors the tree-walk and bytecode array prims.
+        let is_rest = ctx
+            .ast_at(AstRef::new(idx))
+            .map(|n| {
+                ctx.lang()
+                    .and_then(|l| l.pattern_role_is(&n.kind, "rest"))
+                    .unwrap_or_else(|| n.kind == "rest")
+            })
+            .unwrap_or(false);
         match eval_child_node(ctx, idx) {
-            Ok(v) => result.push(v),
+            Ok(v) => {
+                if is_rest {
+                    if let TaggedValue::Arr(arr) = v {
+                        result.extend(arr.iter().cloned());
+                    } else {
+                        result.push(v);
+                    }
+                } else {
+                    result.push(v);
+                }
+            }
             Err(e) => return ctx.set_error(e),
         }
     }
@@ -3527,6 +3552,23 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Ok(Some(i)) => i,
         Ok(None) | Err(_) => 0,
     };
+    let ast = unsafe { &*ctx.ast };
+    // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs `{ key: val }`
+    // (object). When ALL children from the `entries` role are non-`entry`
+    // nodes (bare expressions), treat as a block: evaluate each and return
+    // the last value. When any child is an `entry` node, treat as an
+    // object. `kind == "entry"` is the role-less fallback (ADR-0081).
+    // Mirrors the v2 tree-walk's object prim.
+    let all_bare = children.iter().skip(start).all(|c| {
+        c.as_u64()
+            .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
+            .map(|n| {
+                !lang
+                    .pattern_role_is(&n.kind, "entry")
+                    .unwrap_or_else(|| n.kind == "entry")
+            })
+            .unwrap_or(true)
+    });
     // Collect entry indices, then for each entry collect (key_idx, val_idx),
     // releasing borrows before evaluating children.
     let entry_indices: Vec<usize> = match children
@@ -3542,15 +3584,47 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             ));
         }
     };
-    let ast = unsafe { &*ctx.ast };
-    // Collect (key_idx, val_idx, direct_key) for each entry. Releasing
-    // borrows before evaluating children below.
-    let mut entries: Vec<(usize, usize, Option<String>)> = Vec::with_capacity(entry_indices.len());
+    if all_bare && !children.is_empty() {
+        // Block semantics: evaluate all, return last.
+        let mut last = TaggedValue::Null;
+        for idx in &entry_indices {
+            last = match eval_child_node(ctx, *idx) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+        }
+        return unsafe { box_value(last) };
+    }
+    /// One collected `object` child: either a spread element (a non-`entry`
+    /// node evaluated and merged into the object) or a regular `entry`
+    /// node's (key, value, literal-key) resolution.
+    enum ObjectChild {
+        /// `...expr` spread — evaluate the child and merge its fields when
+        /// the value is an object.
+        Spread(usize),
+        /// `key: value` entry — `direct_key` is `Some` when the key child is
+        /// declared literal (its payload is the key text, not evaluated).
+        Entry(usize, usize, Option<String>),
+    }
+    // Collect each child's resolution. Releasing borrows before evaluating
+    // children below.
+    let mut specs: Vec<ObjectChild> = Vec::with_capacity(entry_indices.len());
     for entry_idx in &entry_indices {
         let entry_node = match ast.at(AstRef::new(*entry_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
+        // Spread entry: if the child is not an `entry`-roled node, evaluate
+        // it and merge its fields into the object. This implements
+        // `{ ...s, field: val }` syntax. `kind == "entry"` is the role-less
+        // fallback (ADR-0081). Mirrors the v2 tree-walk's object prim.
+        let is_entry = lang
+            .pattern_role_is(&entry_node.kind, "entry")
+            .unwrap_or_else(|| entry_node.kind == "entry");
+        if !is_entry {
+            specs.push(ObjectChild::Spread(*entry_idx));
+            continue;
+        }
         let entry_children = match entry_node
             .payload
             .get("children")
@@ -3610,10 +3684,28 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         } else {
             None
         };
-        entries.push((key_idx, val_idx, direct_key));
+        specs.push(ObjectChild::Entry(key_idx, val_idx, direct_key));
     }
     let mut obj = FxHashMap::default();
-    for (key_idx, val_idx, direct_key) in entries {
+    for spec in specs {
+        let (key_idx, val_idx, direct_key) = match spec {
+            // Spread element: evaluate the child and merge its fields into
+            // the object when the value is an object; a non-object value is
+            // skipped (mirrors the v2 tree-walk's object prim).
+            ObjectChild::Spread(idx) => {
+                let spread_val = match eval_child_node(ctx, idx) {
+                    Ok(v) => v,
+                    Err(e) => return ctx.set_error(e),
+                };
+                if let Some(spread_obj) = spread_val.as_object() {
+                    for (k, v) in spread_obj {
+                        obj.insert(Rc::clone(k), v.clone());
+                    }
+                }
+                continue;
+            }
+            ObjectChild::Entry(k, v, d) => (k, v, d),
+        };
         let key = match direct_key {
             Some(k) => k,
             None => {
