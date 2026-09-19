@@ -1,0 +1,8 @@
+--- types/c/stddef — transparent aliases for `stddef.h` vocabulary.
+--- @details
+--- Transparent aliases (see `types/c/stdint` for the rationale): they
+--- document intent; the adapter's marshal descriptors enforce ABI width.
+
+from "../../type" import { Nat }
+
+export Size := Nat

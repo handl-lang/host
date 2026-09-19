@@ -1,0 +1,16 @@
+--- types/c/sys — transparent aliases for `sys/types.h` vocabulary.
+--- @details
+--- POSIX typedefs that are pointer-width or fixed on all supported
+--- targets; genuinely platform-variable C types (`long`, `off_t` on
+--- 32-bit) stay lowered to `Int`/`Nat` in generated ports instead.
+--- `Fd` is a Handl-side alias — C spells file descriptors `int`.
+
+from "../../type" import { Int, Nat }
+
+export SSize := Int
+export Pid := Int
+export Uid := Nat
+export Gid := Nat
+export Mode := Nat
+export Off := Int
+export Fd := Int
