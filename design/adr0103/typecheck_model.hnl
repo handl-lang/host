@@ -552,7 +552,11 @@ do {
     do {
       key :: first_value(keys)
       rest_keys :: drop(keys, 1)
-      is_structural :: key == "__tag__" || key == "__registry__" || key == "body_closure"
+      --- `param_name` is alpha-level bookkeeping (the bound name is not
+      --- part of the function type's identity); `ctor` is constructor-
+      --- signature provenance from `synth_data`. Neither participates
+      --- in type equality.
+      is_structural :: key == "__tag__" || key == "__registry__" || key == "body_closure" || key == "param_name" || key == "ctor"
       if is_structural {
         unify_fields(self, funcs, a, b, metas, rest_keys)
       } else {
@@ -565,6 +569,81 @@ do {
           } else {
             { ok: false, metas: metas, path: null }
           }
+        }
+      }
+    }
+  }
+
+  --- Element-wise unification for arrays (index lists, `type.array`
+  --- elements, `family_app` arg tuples): same length required, then
+  --- pairwise `unify` accumulating the meta solution. Before this,
+  --- arrays only compared by `==`, so a metavariable nested inside an
+  --- array could never solve. `self` is `unify_` — element recursion
+  --- goes through full unification.
+  unify_list_ :: [self, funcs, xs, ys, metas]~> if len(xs) != len(ys) {
+    { ok: false, metas: metas, path: null }
+  } else {
+    do {
+      walk :: while { ok: true, metas: metas, remaining: xs, rest: ys } {
+        [st]~> if is_empty(st.remaining) || !st.ok {
+          { out: { ok: st.ok, metas: st.metas } }
+        } else {
+          do {
+            r :: self(self, funcs, first_value(st.remaining), first_value(st.rest), st.metas)
+            { state: { ok: r.ok, metas: r.metas, remaining: drop(st.remaining, 1), rest: drop(st.rest, 1) } }
+          }
+        }
+      }
+      { ok: walk.ok, metas: walk.metas, path: funcs.make_type("Path", set(set({}, "frm", xs), "to", ys)) }
+    }
+  }
+
+  --- One-step linear solving for opaque `Bin` index terms against a
+  --- numeric target: `X + c = t`, `X - c = t`, `c - X = t`, `X * c = t`
+  --- (and their mirror images) solve `X` directly; nested `Bin`s
+  --- recurse, so `(X - 1) + 1 = t` resolves through the canonical form.
+  --- This is definitional equality for the linear fragment of index
+  --- arithmetic — `Vec(n + 1)` accepts a `Vec(4)` scrutinee index by
+  --- solving `n := 3`. Non-linear shapes still fail (structural
+  --- shadow, not an arithmetic solver).
+  solve_linear_ :: [self, term, target, metas]~> do {
+    t :: zonk(zonk, term, metas)
+    if type_of(t) == "num" {
+      { ok: t == target, metas: metas }
+    } else {
+      if is_meta(t) {
+        do {
+          tid :: meta_id(t)
+          if occurs_in(occurs_in, tid, target) {
+            { ok: false, metas: metas }
+          } else {
+            { ok: true, metas: metas_solve(metas, tid, target) }
+          }
+        }
+      } else {
+        if type_tag(t) == "Bin" {
+          do {
+            bop :: get_or(t, "op", "")
+            l :: zonk(zonk, get_or(t, "l", null), metas)
+            r :: zonk(zonk, get_or(t, "r", null), metas)
+            l_num :: type_of(l) == "num"
+            r_num :: type_of(r) == "num"
+            if bop == "binary.add" {
+              if r_num { self(self, l, target - r, metas) } else { if l_num { self(self, r, target - l, metas) } else { { ok: false, metas: metas } } }
+            } else {
+              if bop == "binary.sub" {
+                if r_num { self(self, l, target + r, metas) } else { if l_num { self(self, r, l - target, metas) } else { { ok: false, metas: metas } } }
+              } else {
+                if bop == "binary.mul" {
+                  if r_num && r != 0 { self(self, l, target / r, metas) } else { if l_num && l != 0 { self(self, r, target / l, metas) } else { { ok: false, metas: metas } } }
+                } else {
+                  { ok: false, metas: metas }
+                }
+              }
+            }
+          }
+        } else {
+          { ok: false, metas: metas }
         }
       }
     }
@@ -623,7 +702,29 @@ do {
                 }
               }
             } else {
-              { ok: false, metas: metas, path: null }
+              --- Different tags (or untagged values): arrays unify
+              --- element-wise, and an opaque `Bin` index term solves
+              --- linearly against a numeric literal — the definitional-
+              --- equality fragment documented on `eval_bin_`.
+              if type_of(a_norm) == "arr" && type_of(b_norm) == "arr" {
+                unify_list_(self, funcs, a_norm, b_norm, metas)
+              } else {
+                if tag_a == "Bin" && type_of(b_norm) == "num" {
+                  do {
+                    r :: solve_linear_(solve_linear_, a_norm, b_norm, metas)
+                    { ok: r.ok, metas: r.metas, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
+                  }
+                } else {
+                  if tag_b == "Bin" && type_of(a_norm) == "num" {
+                    do {
+                      r :: solve_linear_(solve_linear_, b_norm, a_norm, metas)
+                      { ok: r.ok, metas: r.metas, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
+                    }
+                  } else {
+                    { ok: false, metas: metas, path: null }
+                  }
+                }
+              }
             }
           }
         }
@@ -892,7 +993,23 @@ do {
                 make_type("type.function", set(set(set({}, "param", new_param), "body", new_body), "param_name", get_or(term, "param_name", "")))
               }
             } else {
-              term
+              --- Generic field walk for every other tagged record
+              --- (`type.family_app`, `Bin`, `Un`, `Comp`, `If`, ...):
+              --- substituting inside index terms lets a constructor
+              --- result like `Foo(x)` pick up the applied argument.
+              --- `var`/`App`/`List`/`type.function` are handled by the
+              --- earlier cases; non-JSON fields pass through untouched.
+              while { result: term, remaining: keys(term) } {
+                [st]~> if is_empty(st.remaining) {
+                  { out: st.result }
+                } else {
+                  do {
+                    k :: first_value(st.remaining)
+                    new_v :: self(self, get_or(term, k, null), name, replacement)
+                    { state: { result: set(st.result, k, new_v), remaining: drop(st.remaining, 1) } }
+                  }
+                }
+              }
             }
           }
         }
@@ -1684,10 +1801,14 @@ do {
     } else {
     if tag_a == "type.family_app" && tag_b == "type.family_app" {
       --- Saturated family applications: same head name and pairwise-
-      --- unifiable index arguments. Index args carry metavariables for
-      --- constructor results (`synth_data`), so `MkVec(...) : Vec(3,
-      --- Bool)` accepts structurally — indices are not yet checked for
-      --- definitional equality (documented Phase-4 limitation).
+      --- unifiable index arguments. Each index arg is zonked against
+      --- the current meta solution and re-evaluated before comparison
+      --- — `Bin{add, ?n, 1}` with `?n` solved to `0` normalizes to `1`,
+      --- so `Vec(n + 1)` with `n := 0` is definitionally `Vec(1)`. The
+      --- surviving opaque shapes (`Bin` with a symbolic head, `var`
+      --- terms, metavariables) then unify by the ordinary rules —
+      --- metas solve, syntactically-equal terms match, and
+      --- `Bin{add, X, c}` against a literal solves `X` linearly.
       if get_or(a, "name", "") != get_or(b, "name", "") {
         { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: " + get_or(a, "name", "?") + " is not " + get_or(b, "name", "?")) }
       } else {
@@ -1699,8 +1820,10 @@ do {
               { out: { ok: st.ok && st.i >= len(args_a) && st.i >= len(args_b), state: st["state"] } }
             } else {
               do {
-                u :: unify(funcs, at(args_a, st.i), at(args_b, st.i), st["state"].metas)
-                { state: { state: set(st["state"], "metas", u.metas), ok: u.ok, i: st.i + 1 } }
+                na :: funcs.eval_term_(funcs, st["state"], zonk(zonk, at(args_a, st.i), st["state"].metas))
+                nb :: funcs.eval_term_(funcs, na["state"], zonk(zonk, at(args_b, st.i), na["state"].metas))
+                u :: unify(funcs, na.val, nb.val, nb["state"].metas)
+                { state: { state: set(nb["state"], "metas", u.metas), ok: u.ok, i: st.i + 1 } }
               }
             }
           }
@@ -1837,6 +1960,301 @@ do {
     }
     }
     }
+  }
+
+  --- Family parameters of a `data` declaration, from its `type` child:
+  --- `call(var F, p…)` yields one `{name, node, nat}` descriptor per
+  --- parameter — `node` is the `n : Nat`-style annotation child (or
+  --- `null` for a bare `var`), `nat` marks an annotation spelled
+  --- exactly `Nat` (the canonical base index the desugar assigns to
+  --- result-less `var` constructors). A bare `var F` head yields `[]`.
+  data_params_from_ :: [s, type_idx]~> do {
+    n :: ast_node(s.ast, type_idx)
+    kind :: node_kind(n)
+    if kind == "call" {
+      do {
+        children :: node_children(n)
+        args_role :: child_role_index(s, "call", "args")
+        if args_role == null {
+          []
+        } else {
+          while { result: [], idx: args_role } {
+            [st]~> if st.idx >= len(children) {
+              { out: st.result }
+            } else {
+              do {
+                p_idx :: at(children, st.idx)
+                p_node :: ast_node(s.ast, p_idx)
+                p_kind :: node_kind(p_node)
+                p :: if p_kind == "type-annot" {
+                  do {
+                    p_children :: node_children(p_node)
+                    subj_role :: child_role_index(s, "type-annot", "subject")
+                    annot_role :: child_role_index(s, "type-annot", "annot")
+                    if subj_role == null || annot_role == null {
+                      { name: "", node: null, nat: false }
+                    } else {
+                      do {
+                        s_node :: ast_node(s.ast, at(p_children, subj_role))
+                        s_payload :: node_payload(s_node)
+                        nm :: if type_of(s_payload) == "str" { s_payload } else { get_or(s_payload, "name", "") }
+                        an_idx :: at(p_children, annot_role)
+                        an_node :: ast_node(s.ast, an_idx)
+                        an_payload :: node_payload(an_node)
+                        an_name :: if node_kind(an_node) == "var" {
+                          if type_of(an_payload) == "str" { an_payload } else { get_or(an_payload, "name", "") }
+                        } else {
+                          ""
+                        }
+                        { name: nm, node: an_idx, nat: an_name == "Nat" }
+                      }
+                    }
+                  }
+                } else {
+                  if p_kind == "var" {
+                    do {
+                      p_payload :: node_payload(p_node)
+                      nm :: if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
+                      { name: nm, node: null, nat: false }
+                    }
+                  } else {
+                    { name: "", node: null, nat: false }
+                  }
+                }
+                { state: { result: [...st.result, p], idx: st.idx + 1 } }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      []
+    }
+  }
+
+  --- Constructor signatures of a `data` declaration: walk the `alt`
+  --- tree (or a single/`paren`/`type-annot` leaf) collecting
+  --- `{name, args, result, bare}` specs. `args` is a list of
+  --- `{name, node}` domain descriptors — `name` is the bound argument
+  --- name (from `x : T`; `""` for a bare domain) and `node` the domain
+  --- AST child; `result` is the `C : Fam(idx…)` annotation child or
+  --- `null`; `bare` marks a `var` leaf (desugar's canonical-base-index
+  --- convention applies). Each spec is stored verbatim in gamma and
+  --- re-elaborated per use by `instantiate_ctor_`, so every lookup
+  --- gets fresh index metas.
+  collect_ctor_specs_ :: [funcs, s, node_idx, acc]~> do {
+    n :: ast_node(s.ast, node_idx)
+    kind :: node_kind(n)
+    children :: node_children(n)
+    if kind == "alt" {
+      do {
+        l_acc :: funcs.collect_ctor_specs_(funcs, s, first_value(children), acc)
+        funcs.collect_ctor_specs_(funcs, s, at(children, 1), l_acc)
+      }
+    } else {
+    if kind == "paren" {
+      if is_empty(children) {
+        acc
+      } else {
+        funcs.collect_ctor_specs_(funcs, s, first_value(children), acc)
+      }
+    } else {
+    if kind == "type-annot" {
+      do {
+        subj_role :: child_role_index(s, "type-annot", "subject")
+        annot_role :: child_role_index(s, "type-annot", "annot")
+        if subj_role == null {
+          acc
+        } else {
+          do {
+            result_idx :: if annot_role == null { null } else { at(children, annot_role) }
+            leaf_specs :: funcs.collect_ctor_specs_(funcs, s, at(children, subj_role), [])
+            while { result: acc, remaining: leaf_specs } {
+              [st]~> if is_empty(st.remaining) {
+                { out: st.result }
+              } else {
+                do {
+                  spec :: first_value(st.remaining)
+                  { state: { result: [...st.result, set(spec, "result", result_idx)], remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+    if kind == "call" {
+      do {
+        callee_role :: child_role_index(s, "call", "callee")
+        args_role :: child_role_index(s, "call", "args")
+        if callee_role == null || args_role == null {
+          acc
+        } else {
+          do {
+            callee_node :: ast_node(s.ast, at(children, callee_role))
+            callee_payload :: node_payload(callee_node)
+            cname :: if node_kind(callee_node) == "var" {
+              if type_of(callee_payload) == "str" { callee_payload } else { get_or(callee_payload, "name", "") }
+            } else {
+              ""
+            }
+            args :: while { result: [], idx: args_role } {
+              [st]~> if st.idx >= len(children) {
+                { out: st.result }
+              } else {
+                do {
+                  a_idx :: at(children, st.idx)
+                  a_node :: ast_node(s.ast, a_idx)
+                  a_kind :: node_kind(a_node)
+                  desc :: if a_kind == "type-annot" {
+                    do {
+                      a_children :: node_children(a_node)
+                      subj_role :: child_role_index(s, "type-annot", "subject")
+                      annot_role :: child_role_index(s, "type-annot", "annot")
+                      if subj_role == null || annot_role == null {
+                        { name: "", node: a_idx }
+                      } else {
+                        do {
+                          sn :: ast_node(s.ast, at(a_children, subj_role))
+                          sp :: node_payload(sn)
+                          nm :: if type_of(sp) == "str" { sp } else { get_or(sp, "name", "") }
+                          { name: nm, node: at(a_children, annot_role) }
+                        }
+                      }
+                    }
+                  } else {
+                    { name: "", node: a_idx }
+                  }
+                  { state: { result: [...st.result, desc], idx: st.idx + 1 } }
+                }
+              }
+            }
+            if cname == "" {
+              acc
+            } else {
+              [...acc, { name: cname, args: args, result: null, bare: false }]
+            }
+          }
+        }
+      }
+    } else {
+    if kind == "var" {
+      do {
+        p :: node_payload(n)
+        nm :: if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+        if nm == "" {
+          acc
+        } else {
+          [...acc, { name: nm, args: [], result: null, bare: true }]
+        }
+      }
+    } else {
+      acc
+    }
+    }
+    }
+    }
+    }
+  }
+
+  --- Instantiate a `type.ctor_sig` spec into a fresh `type.function`
+  --- chain ending in `type.family_app`. One index metavariable is
+  --- minted per family parameter and bound to the parameter name in
+  --- *both* gamma (so `xs : Vec(n, a)` synthesizes `Vec(?n, ?a)`) and
+  --- results (so a result index like `n + 1` evaluates to
+  --- `Bin{add, ?n, 1}` — the same meta, so unifying the argument
+  --- determines the result index). Constructor argument names
+  --- self-bind to `var{name}` terms so later domains can mention
+  --- earlier arguments (`p : P(x)` → `App{P, [var{x}]}`, which
+  --- `subst_term_` rewrites with the applied term). The env is
+  --- restored afterwards — only the freshly minted metas escape.
+  instantiate_ctor_ :: [funcs, s, spec]~> do {
+    mark :: tc_mark(s)
+    old_results :: get_or(s, "results", {})
+    params :: get_or(spec, "params", [])
+    p_acc :: while { state: s, remaining: params, metas: [] } {
+      [st]~> if is_empty(st.remaining) {
+        { out: { state: st["state"], metas: st.metas } }
+      } else {
+        do {
+          p :: first_value(st.remaining)
+          pname :: get_or(p, "name", "")
+          m :: tc_fresh_meta(st["state"])
+          st1 :: if pname == "" { m["state"] } else { tc_extend(m["state"], pname, meta_value(m.id)) }
+          st2 :: if pname == "" { st1 } else { tc_bind_result(st1, pname, meta_value(m.id)) }
+          { state: { state: st2, metas: [...st.metas, meta_value(m.id)], remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    spec_args :: get_or(spec, "args", [])
+    a_env :: while { state: p_acc["state"], remaining: spec_args } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st["state"] }
+      } else {
+        do {
+          a :: first_value(st.remaining)
+          aname :: get_or(a, "name", "")
+          st1 :: if aname == "" { st["state"] } else { tc_bind_result(st["state"], aname, funcs.make_type("var", set({}, "name", aname))) }
+          { state: { state: st1, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    d_acc :: while { state: a_env, remaining: spec_args, tys: [] } {
+      [st]~> if is_empty(st.remaining) {
+        { out: { state: st["state"], tys: st.tys } }
+      } else {
+        do {
+          a :: first_value(st.remaining)
+          a_node :: get_or(a, "node", null)
+          ty :: if a_node == null {
+            { val: funcs.make_type("type.unknown", {}), state: st["state"] }
+          } else {
+            funcs.synth_type_(funcs, st["state"], a_node)
+          }
+          { state: { state: ty["state"], tys: [...st.tys, ty.val], remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    result_idx :: get_or(spec, "result", null)
+    res :: if result_idx == null {
+      if get_or(spec, "bare", false) && !is_empty(params) {
+        --- Result-less `var` constructor: `0` for the first `Nat`
+        --- parameter (canonical base index), param metas elsewhere —
+        --- mirrors `desugar.data`'s bootstrap convention.
+        do {
+          idx_args :: while { result: [], i: 0, used: false } {
+            [st]~> if st.i >= len(params) {
+              { out: st.result }
+            } else {
+              do {
+                p :: at(params, st.i)
+                v :: if get_or(p, "nat", false) && !st.used { 0 } else { at(p_acc.metas, st.i) }
+                { state: { result: [...st.result, v], i: st.i + 1, used: st.used || get_or(p, "nat", false) } }
+              }
+            }
+          }
+          { val: funcs.make_type("type.family_app", set(set({}, "name", get_or(spec, "family", "")), "args", idx_args)), state: d_acc["state"] }
+        }
+      } else {
+        { val: funcs.make_type("type.family_app", set(set({}, "name", get_or(spec, "family", "")), "args", p_acc.metas)), state: d_acc["state"] }
+      }
+    } else {
+      funcs.synth_type_(funcs, d_acc["state"], result_idx)
+    }
+    fn_ty :: while { idx: len(spec_args), body: res.val } {
+      [st]~> if st.idx == 0 {
+        { out: st.body }
+      } else {
+        do {
+          a :: at(spec_args, st.idx - 1)
+          ty :: at(d_acc.tys, st.idx - 1)
+          new_body :: funcs.make_type("type.function", set(set(set({}, "param", ty), "body", st.body), "param_name", get_or(a, "name", "")))
+          { state: { idx: st.idx - 1, body: new_body } }
+        }
+      }
+    }
+    restored :: set(tc_restore(res["state"], mark), "results", old_results)
+    { val: fn_ty, state: restored }
   }
 
   --- Composition `f >>> g` in `type.function` coordinates (used by the
@@ -2198,11 +2616,11 @@ do {
   }
 
   --- Pattern binding collection for match arms ---
-  collect_pattern_bindings :: [s, pattern_idx, expected_type]~> do {
+  collect_pattern_bindings :: [funcs, s, pattern_idx, expected_type]~> do {
     initial_task :: [pattern_idx, expected_type]
-    while { stack: [initial_task], bindings: [] } {
+    while { stack: [initial_task], bindings: [], state: s } {
       [st]~> if is_empty(st.stack) {
-        { out: st.bindings }
+        { out: { bindings: st.bindings, state: st["state"] } }
       } else {
         do {
           task :: first_value(st.stack)
@@ -2215,8 +2633,70 @@ do {
           if pat_kind == "var" {
             do {
               pattern_name :: if type_of(pat_payload) == "str" { pat_payload } else { get_or(pat_payload, "name", "") }
-              new_bindings :: if pattern_name != "" { [...st.bindings, set(set({}, "name", pattern_name), "type", expected)] } else { st.bindings }
-              { state: { stack: rest_stack, bindings: new_bindings } }
+              --- A `var` naming a `data` constructor is a nullary
+              --- constructor *pattern*, not a binder — `match n { Zero:
+              --- ... }` must not bind a variable `Zero`. Anything else
+              --- binds at the expected type.
+              is_ctor :: type_tag(tc_lookup(st["state"], pattern_name)) == "type.ctor_sig"
+              new_bindings :: if pattern_name != "" && !is_ctor { [...st.bindings, set(set({}, "name", pattern_name), "type", expected)] } else { st.bindings }
+              { state: { stack: rest_stack, bindings: new_bindings, state: st["state"] } }
+            }
+          } else {
+          if pat_kind == "paren" {
+            do {
+              p_children :: node_children(pat_node)
+              new_stack :: if is_empty(p_children) { rest_stack } else { [[first_value(p_children), expected], ...rest_stack] }
+              { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
+            }
+          } else {
+          if pat_kind == "call" {
+            --- Constructor pattern `C(a0, …)`: instantiate the stored
+            --- `type.ctor_sig` (fresh index metas per arm) and bind
+            --- each argument pattern at the corresponding domain.
+            --- This gives `Succ(p)` → `p : Nat` and `VCons(x, xs)` →
+            --- `x : ?a, xs : Vec(?n, ?a)` — the domains the
+            --- constructor declares. What it does *not* give is index
+            --- refinement of the scrutinee in the branch (no equality
+            --- type — see `dependent.hnl`); the instantiated metas
+            --- stay flexible and solve on use.
+            do {
+              callee_role :: child_role_index(st["state"], "call", "callee")
+              args_role :: child_role_index(st["state"], "call", "args")
+              if callee_role == null || args_role == null {
+                { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
+              } else {
+                do {
+                  pat_children :: node_children(pat_node)
+                  callee_node :: ast_node(s.ast, at(pat_children, callee_role))
+                  callee_payload :: node_payload(callee_node)
+                  cname :: if node_kind(callee_node) == "var" {
+                    if type_of(callee_payload) == "str" { callee_payload } else { get_or(callee_payload, "name", "") }
+                  } else {
+                    ""
+                  }
+                  sig :: if cname == "" { null } else { tc_lookup(st["state"], cname) }
+                  if type_tag(sig) != "type.ctor_sig" {
+                    { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
+                  } else {
+                    do {
+                      inst :: funcs.instantiate_ctor_(funcs, st["state"], sig)
+                      peeled :: while { cur: inst.val, result: [], idx: args_role } {
+                        [inner]~> if inner.idx >= len(pat_children) {
+                          { out: inner.result }
+                        } else {
+                          do {
+                            arg_idx :: at(pat_children, inner.idx)
+                            dom :: if type_tag(inner.cur) == "type.function" { get_or(inner.cur, "param", make_type("type.unknown", {})) } else { make_type("type.unknown", {}) }
+                            nxt :: if type_tag(inner.cur) == "type.function" { get_or(inner.cur, "body", null) } else { null }
+                            { state: { cur: nxt, result: [...inner.result, [arg_idx, dom]], idx: inner.idx + 1 } }
+                          }
+                        }
+                      }
+                      { state: { stack: concat(peeled, rest_stack), bindings: st.bindings, state: inst["state"] } }
+                    }
+                  }
+                }
+              }
             }
           } else {
             if pat_kind == "rest" || pat_kind == "optional" {
@@ -2226,7 +2706,7 @@ do {
                 subj_payload :: node_payload(subj_node)
                 name :: if type_of(subj_payload) == "str" { subj_payload } else { get_or(subj_payload, "name", "") }
                 new_bindings :: if name != "" { [...st.bindings, set(set({}, "name", name), "type", expected)] } else { st.bindings }
-                { state: { stack: rest_stack, bindings: new_bindings } }
+                { state: { stack: rest_stack, bindings: new_bindings, state: st["state"] } }
               }
             } else {
               if pat_kind == "array" {
@@ -2245,7 +2725,7 @@ do {
                       }
                     }
                   }
-                  { state: { stack: new_stack, bindings: st.bindings } }
+                  { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
                 }
               } else {
                 if pat_kind == "object" {
@@ -2279,13 +2759,15 @@ do {
                         }
                       }
                     }
-                    { state: { stack: new_stack, bindings: st.bindings } }
+                    { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
                   }
                 } else {
-                  { state: { stack: rest_stack, bindings: st.bindings } }
+                  { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
                 }
               }
             }
+          }
+          }
           }
         }
       }
@@ -2415,7 +2897,15 @@ do {
       name :: if type_of(raw_name) == "str" { raw_name } else { get_or(raw_name, "name", "") }
       typ :: tc_lookup(s, name)
       if typ != null {
-        { val: typ, state: s }
+        --- A `data` constructor is stored as a `type.ctor_sig` spec;
+        --- each use re-elaborates it so the index metas are fresh
+        --- (`Succ(Zero)` and a second `Succ` call do not share
+        --- solutions).
+        if type_tag(typ) == "type.ctor_sig" {
+          funcs.instantiate_ctor_(funcs, s, typ)
+        } else {
+          { val: typ, state: s }
+        }
       } else {
         do {
           --- Language globals (`lang.globals`) carry runtime values, so a
@@ -2677,8 +3167,9 @@ do {
                     pattern_idx :: first_value(arm_children)
                     body_idx :: at(arm_children, 1)
                     mark :: tc_mark(st["state"])
-                    bindings :: collect_pattern_bindings(st["state"], pattern_idx, scrutinee_type)
-                    extended :: while { state: st["state"], remaining: bindings } {
+                    pat_res :: collect_pattern_bindings(funcs, st["state"], pattern_idx, scrutinee_type)
+                    bindings :: pat_res.bindings
+                    extended :: while { state: pat_res["state"], remaining: bindings } {
                       [est]~> if is_empty(est.remaining) {
                         { out: est["state"] }
                       } else {
@@ -2693,7 +3184,19 @@ do {
                     restored :: tc_restore(body_result["state"], mark)
                     pat_node :: ast_node(st["state"].ast, pattern_idx)
                     pat_kind :: node_kind(pat_node)
-                    is_catchall :: pat_kind == "var"
+                    pat_name :: if pat_kind == "var" {
+                      do {
+                        pp :: node_payload(pat_node)
+                        if type_of(pp) == "str" { pp } else { get_or(pp, "name", "") }
+                      }
+                    } else {
+                      ""
+                    }
+                    --- A `var` that names a `data` constructor is a
+                    --- nullary ctor pattern, not a catchall — `Zero` in
+                    --- `match n { Zero: …, Succ(p): … }` must not
+                    --- terminate arm unification.
+                    is_catchall :: pat_kind == "var" && type_tag(tc_lookup(st["state"], pat_name)) != "type.ctor_sig"
                     next :: if is_catchall {
                       { result: body_result.typ, failed: true, state: restored }
                     } else {
@@ -2704,11 +3207,11 @@ do {
                           { result: st.result, failed: st.failed, state: restored }
                         } else {
                           do {
-                            u :: unify(funcs, st.result, body_result.typ, restored.metas)
+                            u :: funcs.unify_dependent_(funcs, st.result, body_result.typ, restored)
                             if u.ok {
-                              { result: st.result, failed: st.failed, state: set(restored, "metas", u.metas) }
+                              { result: st.result, failed: st.failed, state: u["state"] }
                             } else {
-                              { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(set(restored, "metas", u.metas), "warning", "match arm type mismatch") }
+                              { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(u["state"], "warning", "match arm type mismatch") }
                             }
                           }
                         }
@@ -2863,11 +3366,14 @@ do {
             }
           } else {
             do {
-              unify_result :: unify(funcs, expr_result.typ, ann_resolved, ann["state"].metas)
+              --- `unify_dependent_` (not shallow `unify`) so indexed
+              --- annotations get index-term normalization — `v : Vec(2)`
+              --- accepts a `Vec(1 + 1)` synthesized type.
+              unify_result :: funcs.unify_dependent_(funcs, expr_result.typ, ann_resolved, ann["state"])
               if unify_result.ok {
-                { val: ann_resolved, state: set(ann["state"], "metas", unify_result.metas) }
+                { val: ann_resolved, state: unify_result["state"] }
               } else {
-                { val: ann_resolved, state: tc_add_diagnostic(ann["state"], "error", "type annotation mismatch: expected " + type_tag(ann_resolved) + ", got " + type_tag(expr_result.typ)) }
+                { val: ann_resolved, state: tc_add_diagnostic(unify_result["state"], "error", "type annotation mismatch: expected " + type_tag(ann_resolved) + ", got " + type_tag(expr_result.typ)) }
               }
             }
           }
@@ -3310,11 +3816,14 @@ do {
             }
           }
           else_state :: funcs.sanitize(else_result["state"])
-          unified :: unify(funcs, then_result.typ, else_result.typ, else_state.metas)
+          --- Branch join goes through `unify_dependent_` so family
+          --- applications compare index terms with normalization, not
+          --- shallow field equality.
+          unified :: funcs.unify_dependent_(funcs, then_result.typ, else_result.typ, else_state)
           if unified.ok {
-            { val: then_result.typ, state: funcs.set(else_state, "metas", unified.metas) }
+            { val: then_result.typ, state: unified["state"] }
           } else {
-            { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(else_state, "error", "if: then and else branches do not unify") }
+            { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(unified["state"], "error", "if: then and else branches do not unify") }
           }
         }
       }
@@ -3611,59 +4120,77 @@ do {
       }
     },
     --- `synth_data` — inductive family declaration `data Name(params)
-    --- :: ctors` (ADR-0082 / ADR-0120 Phase 4). Binds `Name` to
-    --- `type.family{name, base}` where `base` is a `type.array` of one
-    --- fresh metavariable per index parameter (the payload carries only
-    --- parameter *names* — index types are not declared), and binds each
-    --- constructor name (collected from the `alt` tree by
-    --- `collect_ctor_names_`) to `type.family_app{name, args}` with
-    --- fresh metavariable indices — a constructor produces the family
-    --- at *some* indices. Strict positivity, constructor argument
-    --- types, and index-level guarantees remain runtime/desugar
-    --- concerns; this rule is the structural shadow that keeps
-    --- `data` declarations and indexed annotations checkable.
+    --- :: ctors` (ADR-0082 / ADR-0120 Phase 4). The `type` child gives
+    --- the parameter list (`call(var Name, p…)`: `n : Nat`, `a : Type`,
+    --- or a bare `var`): `Name` binds to `type.family{name, base}` with
+    --- `base` a `type.array` of the declared parameter *sorts* (the
+    --- annotation synthesized, a fresh meta for a bare `var`). Each
+    --- constructor binds to a `type.ctor_sig` spec — its domain and
+    --- result-index AST children, plus the parameter names — which
+    --- `instantiate_ctor_` re-elaborates on every lookup into a
+    --- `type.function` chain ending in `type.family_app`. Applying a
+    --- constructor therefore *checks* its arguments against the
+    --- declared domains and produces the family at the result indices,
+    --- with parameter metas shared between the two. Strict positivity
+    --- remains the native `desugar.data` pass's concern; dependent
+    --- elimination (`match` index refinement) is documented in
+    --- `handl-packages/type/dependent.hnl`.
     "synth_data": do {
       node :: ast_node(s.ast, node_idx)
       payload :: node_payload(node)
       children :: node_children(node)
       name :: get_or(payload, "name", "")
-      params :: get_or(payload, "params", [])
-      safe_params :: if type_of(params) == "arr" { params } else { [] }
-      idx_acc :: while { elems: [], state: s, remaining: safe_params } {
+      type_role :: child_role_index(s, "data", "type")
+      cons_role :: child_role_index(s, "data", "constructors")
+      --- (`&&`/`||` evaluate eagerly — keep the null check structural.)
+      type_idx :: if type_role == null {
+        if len(children) >= 2 { first_value(children) } else { null }
+      } else {
+        if type_role < len(children) { at(children, type_role) } else { if len(children) >= 2 { first_value(children) } else { null } }
+      }
+      cons_idx :: if cons_role == null {
+        if len(children) >= 2 { at(children, 1) } else { if len(children) == 1 { first_value(children) } else { null } }
+      } else {
+        if cons_role < len(children) { at(children, cons_role) } else { if len(children) >= 2 { at(children, 1) } else { null } }
+      }
+      params :: if type_idx == null { [] } else { data_params_from_(s, type_idx) }
+      base_acc :: while { elems: [], state: s, remaining: params } {
         [st]~> if is_empty(st.remaining) {
           { out: { elems: st.elems, state: st["state"] } }
         } else {
           do {
-            m :: tc_fresh_meta(st["state"])
-            { state: { elems: [...st.elems, meta_value(m.id)], state: m["state"], remaining: drop(st.remaining, 1) } }
+            p :: first_value(st.remaining)
+            p_node :: get_or(p, "node", null)
+            el :: if p_node == null {
+              do {
+                m :: tc_fresh_meta(st["state"])
+                { val: meta_value(m.id), state: m["state"] }
+              }
+            } else {
+              funcs.synth_type_(funcs, st["state"], p_node)
+            }
+            { state: { elems: [...st.elems, el.val], state: el["state"], remaining: drop(st.remaining, 1) } }
           }
         }
       }
-      base :: funcs.make_type("type.array", set({}, "elements", idx_acc.elems))
+      base :: funcs.make_type("type.array", set({}, "elements", base_acc.elems))
       fam_type :: funcs.make_type("type.family", set(set({}, "name", name), "base", base))
-      extended :: if name == "" { idx_acc["state"] } else { tc_extend(idx_acc["state"], name, fam_type) }
-      ctor_names :: if len(children) >= 2 {
-        funcs.collect_ctor_names_(funcs, extended, at(children, 1), [])
-      } else {
+      extended :: if name == "" { base_acc["state"] } else { tc_extend(base_acc["state"], name, fam_type) }
+      ctor_specs :: if cons_idx == null {
         []
+      } else {
+        funcs.collect_ctor_specs_(funcs, extended, cons_idx, [])
       }
-      bound :: while { state: extended, remaining: ctor_names } {
+      bound :: while { state: extended, remaining: ctor_specs } {
         [st]~> if is_empty(st.remaining) {
           { out: st["state"] }
         } else {
           do {
-            meta_acc :: while { elems: [], state: st["state"], remaining: safe_params } {
-              [mst]~> if is_empty(mst.remaining) {
-                { out: { elems: mst.elems, state: mst["state"] } }
-              } else {
-                do {
-                  m :: tc_fresh_meta(mst["state"])
-                  { state: { elems: [...mst.elems, meta_value(m.id)], state: m["state"], remaining: drop(mst.remaining, 1) } }
-                }
-              }
-            }
-            ctor_ty :: funcs.make_type("type.family_app", set(set({}, "name", name), "args", meta_acc.elems))
-            { state: { state: tc_extend(meta_acc["state"], first_value(st.remaining), ctor_ty), remaining: drop(st.remaining, 1) } }
+            spec :: first_value(st.remaining)
+            cname :: get_or(spec, "name", "")
+            sig :: set(set(set(set(set(set({}, "__tag__", "type.ctor_sig"), "ctor", true), "family", name), "params", params), "args", get_or(spec, "args", [])), "result", get_or(spec, "result", null))
+            sig_bare :: set(sig, "bare", get_or(spec, "bare", false))
+            { state: { state: if cname == "" { st["state"] } else { tc_extend(st["state"], cname, sig_bare) }, remaining: drop(st.remaining, 1) } }
           }
         }
       }
@@ -3683,6 +4210,34 @@ do {
       if kind == "var" {
         do {
           name :: if type_of(payload) == "str" { payload } else { get_or(payload, "name", "") }
+          --- A `data`-declared family or constructor shadows the
+          --- builtin spelling — after `data Nat :: Zero | Succ`, the
+          --- `Nat` in `Succ(pred : Nat)` means the declared family,
+          --- not `type.number`. When nothing is declared, the builtin
+          --- chain below handles `Nat`/`Bool`/… as before.
+          found_first :: tc_lookup(st, name)
+          --- `if`, not `&&`: `&&` evaluates both operands eagerly, and
+          --- `get_or` on a null/non-object lookup result is a type error.
+          shadow_family :: if type_tag(found_first) == "type.family" { get_or(found_first, "name", "") != "" } else { false }
+          if type_tag(found_first) == "type.ctor_sig" {
+            funcs.instantiate_ctor_(funcs, st, found_first)
+          } else {
+          if shadow_family {
+            do {
+              base_elems :: get_or(get_or(found_first, "base", {}), "elements", [])
+              app_acc :: while { args: [], state: st, remaining: base_elems } {
+                [w]~> if is_empty(w.remaining) {
+                  { out: { args: w.args, state: w["state"] } }
+                } else {
+                  do {
+                    m :: tc_fresh_meta(w["state"])
+                    { state: { args: [...w.args, meta_value(m.id)], state: m["state"], remaining: drop(w.remaining, 1) } }
+                  }
+                }
+              }
+              { val: funcs.make_type("type.family_app", set(set({}, "name", name), "args", app_acc.args)), state: app_acc["state"] }
+            }
+          } else {
           if name == "List" {
             { val: funcs.make_type("type.constructor", set(set({}, "name", "List"), "make", [element, length]~> funcs.make_type("List", set(set({}, "element", element), "length", length)))), state: st }
           } else {
@@ -3722,12 +4277,19 @@ do {
                         }
                       }
                     } else {
+                      --- A `data` constructor in type position
+                      --- (`x : Succ` is unusual but legal) instantiates
+                      --- its signature like a term-position lookup.
+                      if type_tag(found) == "type.ctor_sig" {
+                        funcs.instantiate_ctor_(funcs, st, found)
+                      } else {
                       --- A `data`-declared name in type position is the
                       --- saturated family — `Vec` alone means `Vec` at
                       --- unknown indices (`type.family_app` with fresh
                       --- metavariables). The `type.family` former itself
                       --- (`Family(A)`, or `f : Family(A)`) stays a former.
-                      if type_tag(found) == "type.family" && get_or(found, "name", "") != "" {
+                      named_family :: if type_tag(found) == "type.family" { get_or(found, "name", "") != "" } else { false }
+                      if named_family {
                         do {
                           base_elems :: get_or(get_or(found, "base", {}), "elements", [])
                           app_acc :: while { args: [], state: st, remaining: base_elems } {
@@ -3745,6 +4307,7 @@ do {
                       } else {
                         { val: found, state: st }
                       }
+                      }
                     }
                   }
                 }
@@ -3753,6 +4316,8 @@ do {
           }
         }
         }
+          }
+          }
       }
       } else {
         if kind == "field-access" {
@@ -4213,6 +4778,49 @@ do {
     }
   }
 
+  --- Merge `(<X op₁ c> op₂ k)` into `<X op' c'>` when the inner right
+  --- operand is a literal — keeps iterated index arithmetic (`(n-1)+1`,
+  --- `n+1+1`) in a canonical two-level form so unification sees equal
+  --- terms. Returns `{op, l, r}` or `null` when no merge applies.
+  merge_bin_ :: [bin_op, l, r]~> do {
+    inner_op :: get_or(l, "op", "")
+    inner_l :: get_or(l, "l", null)
+    inner_r :: get_or(l, "r", null)
+    --- `l` is only passed when its tag is `Bin`, but the inner right
+    --- operand can still be symbolic (`(1 - n) + 1`) — bail without a
+    --- numeric inner literal. (`&&` evaluates eagerly here, so the
+    --- guard must be structural, not conjunctive.)
+    if type_of(inner_r) != "num" {
+      null
+    } else {
+    if bin_op == "binary.add" {
+      if inner_op == "binary.add" {
+        set(set(set({}, "op", "binary.add"), "l", inner_l), "r", inner_r + r)
+      } else {
+        if inner_op == "binary.sub" {
+          set(set(set({}, "op", "binary.sub"), "l", inner_l), "r", inner_r - r)
+        } else {
+          null
+        }
+      }
+    } else {
+      if bin_op == "binary.sub" {
+        if inner_op == "binary.add" {
+          set(set(set({}, "op", "binary.add"), "l", inner_l), "r", inner_r - r)
+        } else {
+          if inner_op == "binary.sub" {
+            set(set(set({}, "op", "binary.sub"), "l", inner_l), "r", inner_r + r)
+          } else {
+            null
+          }
+        }
+      } else {
+        null
+      }
+    }
+    }
+  }
+
   eval_bin_ :: [funcs, s, bin_op, l_term, r_term]~> do {
     l_result :: funcs.eval_term_(funcs, s, l_term)
     r_result :: funcs.eval_term_(funcs, l_result["state"], r_term)
@@ -4221,7 +4829,70 @@ do {
     both_num :: type_of(lv) == "num" && type_of(rv) == "num"
     both_bool :: type_of(lv) == "bool" && type_of(rv) == "bool"
     both_lit :: type_tag(lv) == "" && type_tag(rv) == ""
-    opaque :: funcs.make_type("Bin", set(set(set({}, "op", bin_op), "l", lv), "r", rv))
+    --- Index-term normalization (ADR-0120 Phase 4 deepening): opaque
+    --- `Bin` terms are put in a canonical form before construction so
+    --- computationally-equal index terms compare equal — this is the
+    --- model's numeric definitional-equality fragment (`+`/`*` only
+    --- compute on numbers in this evaluator, so reordering is sound;
+    --- string concatenation is not modeled):
+    ---   * commutative ops put a numeric literal on the right, so
+    ---     `1 + n` and `n + 1` share the normal form `Bin{add, n, 1}`;
+    ---   * ring identities reduce outright — `n+0`/`0+n`/`n*1`/`1*n`
+    ---     → `n`, `n*0`/`0*n` → `0`, `n-0` → `n`, `n-n` → `0`,
+    ---     `n/1` → `n`, `n==n` → `true`, `n!=n` → `false`;
+    ---   * a nested `Bin` with a literal right merges — `(n-1)+1` →
+    ---     `Bin{sub, n, 0}` → `n`, `n+1+1` → `Bin{add, n, 2}`.
+    commutative :: bin_op == "binary.add" || bin_op == "binary.mul" || bin_op == "binary.eq" || bin_op == "binary.neq"
+    canon :: commutative && !both_num && type_of(lv) == "num" && type_of(rv) != "num"
+    cl :: if canon { rv } else { lv }
+    cr :: if canon { lv } else { rv }
+    simp :: if both_num || both_bool {
+      null
+    } else {
+      if bin_op == "binary.add" {
+        if cr == 0 { cl } else { null }
+      } else {
+        if bin_op == "binary.sub" {
+          if cr == 0 { cl } else { if cl == cr { 0 } else { null } }
+        } else {
+          if bin_op == "binary.mul" {
+            if cr == 1 { cl } else { if cr == 0 { 0 } else { null } }
+          } else {
+            if bin_op == "binary.div" {
+              if cr == 1 { cl } else { null }
+            } else {
+              if bin_op == "binary.eq" {
+                if cl == cr { true } else { null }
+              } else {
+                if bin_op == "binary.neq" {
+                  if cl == cr { false } else { null }
+                } else {
+                  null
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    merged :: if type_of(cr) == "num" && type_tag(cl) == "Bin" {
+      --- `merge_bin_` itself guards the inner-right literal — `&&`
+      --- evaluates eagerly in this model, so `get_or(cl, "r")` must not
+      --- appear in the condition (it would hit a non-object `cl`).
+      merge_bin_(bin_op, cl, cr)
+    } else {
+      null
+    }
+    merged_val :: if merged == null {
+      null
+    } else {
+      if get_or(merged, "r", 1) == 0 && (get_or(merged, "op", "") == "binary.add" || get_or(merged, "op", "") == "binary.sub") {
+        get_or(merged, "l", null)
+      } else {
+        funcs.make_type("Bin", merged)
+      }
+    }
+    opaque :: if simp != null { simp } else { if merged_val != null { merged_val } else { funcs.make_type("Bin", set(set(set({}, "op", bin_op), "l", cl), "r", cr)) } }
     val :: if bin_op == "binary.add" {
       if both_num { lv + rv } else { opaque }
     } else {
@@ -4289,7 +4960,12 @@ do {
         if tag == "var" {
           do {
             bound :: tc_lookup_result(s, get_or(term, "name", ""))
-            if bound == null {
+            --- A self-referential binding (`x ↦ var{x}` — the symbolic
+            --- parameter binding used by `check_pi_intro_` and by
+            --- `instantiate_ctor_` for dependent constructor domains)
+            --- must stay symbolic: recursing on it would spin until the
+            --- fuel breaker trips, poisoning every later judgment.
+            if bound == null || bound == term {
               { val: term, state: s }
             } else {
               funcs.eval_term_(funcs, s, bound)
@@ -4432,6 +5108,8 @@ do {
     unify_fn_pi_: unify_fn_pi_,
     unify_dep_bodies_: unify_dep_bodies_,
     collect_ctor_names_: collect_ctor_names_,
+    collect_ctor_specs_: collect_ctor_specs_,
+    instantiate_ctor_: instantiate_ctor_,
     flow_cod_: flow_cod_,
     flow_compose_: flow_compose_,
     cell_dom_: cell_dom_,
