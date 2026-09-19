@@ -550,6 +550,10 @@ impl<'a> PatternMatchCtx for TreeWalkPatternCtx<'a> {
     fn global_value(&self, name: &str) -> Option<Value> {
         self.engine.globals.get(name).cloned()
     }
+
+    fn lang(&self) -> Option<&Language> {
+        Some(self.lang)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2386,18 +2390,33 @@ impl TreeWalkEngine {
                         .map(String::from);
                     (p_names, rest_name, b as usize, false)
                 } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
-                    let param_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::engine_node(
-                            "closure: missing param child".to_string(),
-                            current_node,
-                        )
-                    })? as usize;
-                    let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::engine_node(
-                            "closure: missing body child".to_string(),
-                            current_node,
-                        )
-                    })? as usize;
+                    // `params`/`body` child positions resolve by named
+                    // role (ADR-0081); positional 0/1 is the role-less
+                    // fallback.
+                    let params_role = lang
+                        .child_role_index(&current_node.kind, "params")?
+                        .unwrap_or(0);
+                    let body_role = lang
+                        .child_role_index(&current_node.kind, "body")?
+                        .unwrap_or(1);
+                    let param_idx = children
+                        .get(params_role)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                "closure: missing param child".to_string(),
+                                current_node,
+                            )
+                        })? as usize;
+                    let body_idx = children
+                        .get(body_role)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::engine_node(
+                                "closure: missing body child".to_string(),
+                                current_node,
+                            )
+                        })? as usize;
                     let param_node = ast.at(AstRef::new(param_idx))?;
                     // `param_names` resolves the fixed params and an
                     // optional rest param (`...name`) data-driven via
@@ -2458,10 +2477,19 @@ impl TreeWalkEngine {
                             )
                         })? as usize;
                         let child_ref = AstRef::new(idx);
-                        // Spread: if the child is a `rest` node (from
-                        // `...expr` syntax), flatten its value into the
-                        // array if it's an array.
-                        if ast.get(child_ref).map(|n| n.kind.as_str()) == Some("rest") {
+                        // Spread: if the child is a `rest`-roled node
+                        // (`pattern_role: rest`; from `...expr` syntax),
+                        // flatten its value into the array if it's an
+                        // array. `kind == "rest"` is the role-less
+                        // fallback (ADR-0081).
+                        let is_rest = ast
+                            .get(child_ref)
+                            .map(|n| {
+                                lang.pattern_role_is(&n.kind, "rest")
+                                    .unwrap_or_else(|| n.kind == "rest")
+                            })
+                            .unwrap_or(false);
+                        if is_rest {
                             let val = self.eval_node_inner(ast, child_ref, lang, env)?;
                             if let Some(arr) = val.as_array() {
                                 result.extend(arr.iter().cloned());
@@ -2530,7 +2558,11 @@ impl TreeWalkEngine {
                     let all_bare = children.iter().skip(start).all(|c| {
                         c.as_u64()
                             .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
-                            .map(|n| n.kind != "entry")
+                            .map(|n| {
+                                !lang
+                                    .pattern_role_is(&n.kind, "entry")
+                                    .unwrap_or_else(|| n.kind == "entry")
+                            })
                             .unwrap_or(true)
                     });
                     if all_bare && !children.is_empty() {
@@ -2556,10 +2588,15 @@ impl TreeWalkEngine {
                             )
                         })? as usize;
                         let entry_node = ast.at(AstRef::new(entry_idx))?;
-                        // Spread entry: if the child is not an `entry` node,
-                        // evaluate it and merge its fields into the object.
-                        // This implements `{ ...s, field: val }` syntax.
-                        if entry_node.kind != "entry" {
+                        // Spread entry: if the child is not an
+                        // `entry`-roled node, evaluate it and merge its
+                        // fields into the object. This implements
+                        // `{ ...s, field: val }` syntax. `kind == "entry"`
+                        // is the role-less fallback (ADR-0081).
+                        let is_entry = lang
+                            .pattern_role_is(&entry_node.kind, "entry")
+                            .unwrap_or_else(|| entry_node.kind == "entry");
+                        if !is_entry {
                             let spread_val =
                                 self.eval_node_inner(ast, AstRef::new(entry_idx), lang, env)?;
                             if let Some(spread_obj) = spread_val.as_object() {
@@ -2656,50 +2693,51 @@ impl TreeWalkEngine {
             // not payload): array+int → element, object+string → value.
             // Unlike `field_access`, a missing object key is an error.
             "assign" => {
-                // ADR-0053: `assign { children: [var, value] }` or
-                // `assign { children: [var, value, body] }` —
-                // evaluate value, optionally bind var in a new scope and
-                // evaluate body, or just return the value.
-                // Falls back to legacy `payload.value` for hand-built ASTs.
+                // ADR-0053: `assign { children: [target, value] }` or
+                // `assign { children: [target, value, body] }` —
+                // evaluate `value`, optionally bind `target` in a new
+                // scope and evaluate body, or just return the value.
+                // `target`/`value` positions resolve by named role
+                // (ADR-0081); the optional third (body) child has no
+                // declared role on the `assign` shape, so it stays
+                // positional. Falls back to legacy `payload.value` for
+                // hand-built ASTs.
                 if let Some(children) = current_node
                     .payload
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
                     if children.len() >= 2 {
-                        let value_idx = children[1].as_u64().ok_or_else(|| {
-                            LangError::engine_node(
-                                "assign: value index must be a number".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                        if children.len() == 3 {
-                            // `x = y in body` — bind and evaluate body.
-                            let var_idx = children[0].as_u64().ok_or_else(|| {
+                        let value_idx = role_child_arena(lang, current_node, "value")
+                            .or_else(|| children[1].as_u64().map(|i| i as usize))
+                            .ok_or_else(|| {
                                 LangError::engine_node(
-                                    "assign: var index must be a number".to_string(),
+                                    "assign: value index must be a number".to_string(),
                                     current_node,
                                 )
-                            })? as usize;
+                            })?;
+                        if children.len() == 3 {
+                            // `x = y in body` — bind and evaluate body.
+                            let var_idx = role_child_arena(lang, current_node, "target")
+                                .or_else(|| children[0].as_u64().map(|i| i as usize))
+                                .ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "assign: var index must be a number".to_string(),
+                                        current_node,
+                                    )
+                                })?;
                             let body_idx = children[2].as_u64().ok_or_else(|| {
                                 LangError::engine_node(
                                     "assign: body index must be a number".to_string(),
                                     current_node,
                                 )
                             })? as usize;
-                            let var_name = {
-                                let var_node = ast.at(AstRef::new(var_idx))?;
-                                var_node.payload.as_str().ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "assign: LHS must be an identifier".to_string(),
-                                        current_node,
-                                    )
-                                })?
-                            };
+                            let var_name =
+                                binding_target_name(lang, ast, var_idx, "assign", current_node)?;
                             let value =
                                 self.eval_node_inner(ast, AstRef::new(value_idx), lang, env)?;
                             env.push_scope();
-                            env.define(var_name, value);
+                            env.define(&var_name, value);
                             let result =
                                 self.eval_node_inner(ast, AstRef::new(body_idx), lang, env);
                             env.pop_scope();
@@ -3269,8 +3307,8 @@ impl TreeWalkEngine {
                             current_node,
                         )
                     })?;
-                let pred_idx = role_index_of(lang, "runtime-assert", "predicate").unwrap_or(0);
-                let expr_idx = role_index_of(lang, "runtime-assert", "expr").unwrap_or(1);
+                let pred_idx = role_index_of(lang, &current_node.kind, "predicate").unwrap_or(0);
+                let expr_idx = role_index_of(lang, &current_node.kind, "expr").unwrap_or(1);
                 let pred_arena =
                     children
                         .get(pred_idx)
@@ -4115,24 +4153,34 @@ impl TreeWalkEngine {
                         current_node,
                     )
                 })?;
-            let pattern_idx = arm_children
-                .get(0)
-                .and_then(|v| v.as_u64())
+            // `pattern`/`body` positions resolve by named role
+            // (ADR-0081); positional 0/1 is the role-less fallback.
+            let pattern_idx = role_child_arena(lang, arm_node, "pattern")
+                .or_else(|| {
+                    arm_children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .map(|i| i as usize)
+                })
                 .ok_or_else(|| {
                     LangError::engine_node(
                         "match: arm missing pattern child".to_string(),
                         current_node,
                     )
-                })? as usize;
-            let body_idx = arm_children
-                .get(1)
-                .and_then(|v| v.as_u64())
+                })?;
+            let body_idx = role_child_arena(lang, arm_node, "body")
+                .or_else(|| {
+                    arm_children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .map(|i| i as usize)
+                })
                 .ok_or_else(|| {
                     LangError::engine_node(
                         "match: arm missing body child".to_string(),
                         current_node,
                     )
-                })? as usize;
+                })?;
 
             // Interpret the pattern node structurally (ADR-0061: shared
             // pattern matching logic).
@@ -4183,12 +4231,23 @@ impl TreeWalkEngine {
                     current_node,
                 )
             })?;
-        let body_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("handle: missing body child".to_string(), current_node)
-        })? as usize;
-        let block_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("handle: missing block child".to_string(), current_node)
-        })? as usize;
+        // `target`/`impl` positions resolve by named role (ADR-0081);
+        // positional 0/1 is the role-less fallback.
+        let body_idx = role_child_arena(lang, current_node, "target")
+            .or_else(|| {
+                children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            })
+            .ok_or_else(|| {
+                LangError::engine_node("handle: missing body child".to_string(), current_node)
+            })?;
+        let block_idx = role_child_arena(lang, current_node, "impl")
+            .or_else(|| children.get(1).and_then(|v| v.as_u64()).map(|i| i as usize))
+            .ok_or_else(|| {
+                LangError::engine_node("handle: missing block child".to_string(), current_node)
+            })?;
 
         // Evaluate the body.
         let body_val = self.eval_node_inner(ast, AstRef::new(body_idx), lang, env)?;
@@ -4227,24 +4286,34 @@ impl TreeWalkEngine {
                         current_node,
                     )
                 })?;
-            let pattern_idx = clause_children
-                .get(0)
-                .and_then(|v| v.as_u64())
+            // `pattern`/`body` (the handler position) resolve by named
+            // role (ADR-0081); positional 0/1 is the role-less fallback.
+            let pattern_idx = role_child_arena(lang, clause_node, "pattern")
+                .or_else(|| {
+                    clause_children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .map(|i| i as usize)
+                })
                 .ok_or_else(|| {
                     LangError::engine_node(
                         "handle: clause missing pattern child".to_string(),
                         current_node,
                     )
-                })? as usize;
-            let handler_idx = clause_children
-                .get(1)
-                .and_then(|v| v.as_u64())
+                })?;
+            let handler_idx = role_child_arena(lang, clause_node, "body")
+                .or_else(|| {
+                    clause_children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .map(|i| i as usize)
+                })
                 .ok_or_else(|| {
                     LangError::engine_node(
                         "handle: clause missing handler child".to_string(),
                         current_node,
                     )
-                })? as usize;
+                })?;
 
             env.push_scope();
             let mut ctx = TreeWalkPatternCtx {

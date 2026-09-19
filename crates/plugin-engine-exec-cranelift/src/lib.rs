@@ -639,6 +639,13 @@ impl PatternMatchCtx for EvalCtx {
     fn global_value(&self, name: &str) -> Option<Value> {
         self.env.globals.get(name).map(tagged_to_value)
     }
+
+    fn lang(&self) -> Option<&Language> {
+        // SAFETY: `self.lang` is a valid pointer for the duration of
+        // evaluation (run_native); it is null for the standalone driver,
+        // which then keeps the role-less kind-name fallbacks.
+        unsafe { self.lang.as_ref() }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1296,16 +1303,36 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 ));
             }
         };
-        let pattern_idx = match arm_children.get(0).and_then(|v| v.as_u64()) {
-            Some(i) => i as usize,
+        // `pattern`/`body` positions resolve by named role (ADR-0081);
+        // positional 0/1 is the role-less fallback.
+        let pattern_idx = match ctx
+            .role_child_arena(arm_node, "pattern")
+            .ok()
+            .flatten()
+            .or_else(|| {
+                arm_children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            }) {
+            Some(i) => i,
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm missing pattern child".to_string(),
                 ));
             }
         };
-        let body_idx = match arm_children.get(1).and_then(|v| v.as_u64()) {
-            Some(i) => i as usize,
+        let body_idx = match ctx
+            .role_child_arena(arm_node, "body")
+            .ok()
+            .flatten()
+            .or_else(|| {
+                arm_children
+                    .get(1)
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            }) {
+            Some(i) => i,
             None => {
                 return ctx.set_error(LangError::engine(
                     "match: arm missing body child".to_string(),
@@ -1356,8 +1383,19 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             ));
         }
     };
-    let body_idx = match children.get(0).and_then(|v| v.as_u64()) {
-        Some(i) => i as usize,
+    // `target`/`impl` positions resolve by named role (ADR-0081);
+    // positional 0/1 is the role-less fallback.
+    let body_idx = match ctx
+        .role_child_arena(node, "target")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            children
+                .first()
+                .and_then(|v| v.as_u64())
+                .map(|i| i as usize)
+        }) {
+        Some(i) => i,
         None => {
             return ctx.set_error(LangError::engine_node(
                 "handle: missing body child".to_string(),
@@ -1365,8 +1403,13 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             ));
         }
     };
-    let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
-        Some(i) => i as usize,
+    let block_idx = match ctx
+        .role_child_arena(node, "impl")
+        .ok()
+        .flatten()
+        .or_else(|| children.get(1).and_then(|v| v.as_u64()).map(|i| i as usize))
+    {
+        Some(i) => i,
         None => {
             return ctx.set_error(LangError::engine_node(
                 "handle: missing block child".to_string(),
@@ -1422,16 +1465,36 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 ));
             }
         };
-        let pattern_idx = match clause_children.get(0).and_then(|v| v.as_u64()) {
-            Some(i) => i as usize,
+        // `pattern`/`body` (the handler position) resolve by named role
+        // (ADR-0081); positional 0/1 is the role-less fallback.
+        let pattern_idx = match ctx
+            .role_child_arena(clause_node, "pattern")
+            .ok()
+            .flatten()
+            .or_else(|| {
+                clause_children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            }) {
+            Some(i) => i,
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause missing pattern child".to_string(),
                 ));
             }
         };
-        let handler_idx = match clause_children.get(1).and_then(|v| v.as_u64()) {
-            Some(i) => i as usize,
+        let handler_idx = match ctx
+            .role_child_arena(clause_node, "body")
+            .ok()
+            .flatten()
+            .or_else(|| {
+                clause_children
+                    .get(1)
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            }) {
+            Some(i) => i,
             None => {
                 return ctx.set_error(LangError::engine(
                     "handle: clause missing handler child".to_string(),
@@ -3326,14 +3389,25 @@ fn resolve_closure_params_body(
         .ok_or_else(|| {
             LangError::engine_node("closure: missing params/body in payload".to_string(), node)
         })?;
-    let param_idx =
-        children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("closure: missing param child".to_string(), node)
-        })? as usize;
-    let body_idx =
-        children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("closure: missing body child".to_string(), node)
-        })? as usize;
+    // `params`/`body` child positions resolve by named role (ADR-0081);
+    // positional 0/1 is the role-less fallback.
+    let param_idx = ctx
+        .role_child_arena(node, "params")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            children
+                .first()
+                .and_then(|v| v.as_u64())
+                .map(|i| i as usize)
+        })
+        .ok_or_else(|| LangError::engine_node("closure: missing param child".to_string(), node))?;
+    let body_idx = ctx
+        .role_child_arena(node, "body")
+        .ok()
+        .flatten()
+        .or_else(|| children.get(1).and_then(|v| v.as_u64()).map(|i| i as usize))
+        .ok_or_else(|| LangError::engine_node("closure: missing body child".to_string(), node))?;
     let ast = unsafe { &*ctx.ast };
     let lang = unsafe { &*ctx.lang };
     let param_node = ast.at(AstRef::new(param_idx))?;
@@ -3580,8 +3654,15 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut TaggedValue {
     };
     if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
         if children.len() >= 2 {
-            let value_idx = match children[1].as_u64() {
-                Some(idx) => idx as usize,
+            // The `value` child position resolves by named role
+            // (ADR-0081); index 1 is the role-less fallback.
+            let value_idx = match ctx
+                .role_child_arena(node, "value")
+                .ok()
+                .flatten()
+                .or_else(|| children[1].as_u64().map(|i| i as usize))
+            {
+                Some(idx) => idx,
                 None => {
                     return ctx.set_error(LangError::engine(
                         "assign: value index must be a number".to_string(),

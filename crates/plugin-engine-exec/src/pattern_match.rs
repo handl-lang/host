@@ -22,7 +22,7 @@
 //! lives here, eliminating the 3x duplication across tree-walk, bytecode,
 //! and cranelift engines.
 
-use handl_language::{Ast, AstRef, LangError, Value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 
 /// Engine-specific context for pattern matching (ADR-0061).
 ///
@@ -60,6 +60,51 @@ pub trait PatternMatchCtx {
     fn global_value(&self, _name: &str) -> Option<Value> {
         None
     }
+
+    /// The language whose `AstShapeDef`s resolve pattern roles and child
+    /// roles (ADR-0081).
+    ///
+    /// `None` — the default, e.g. a context with no language wired (the
+    /// standalone cranelift driver) — keeps the legacy kind-name
+    /// fallbacks.
+    fn lang(&self) -> Option<&Language> {
+        None
+    }
+}
+
+/// Whether `node` plays `role` in pattern position (ADR-0081).
+///
+/// The shape's declared `pattern_role` is authoritative when one is
+/// declared; a shape with no `pattern_role` — or a context with no
+/// language wired — falls back to the legacy `kind == legacy_kind`
+/// check, the same convention [`Language::literal_child`] uses for
+/// role-less shapes.
+fn pattern_role_is(lang: Option<&Language>, node: &AstNode, role: &str, legacy_kind: &str) -> bool {
+    lang.and_then(|l| l.pattern_role_is(&node.kind, role))
+        .unwrap_or_else(|| node.kind == legacy_kind)
+}
+
+/// Whether `node` is a leaf binder pattern — `pattern_role: leaf`
+/// (canonical `var`), falling back to `kind == "var"` for role-less
+/// shapes.
+fn is_binder_node(lang: Option<&Language>, node: &AstNode) -> bool {
+    pattern_role_is(lang, node, "leaf", "var")
+}
+
+/// Whether `node` is a tag pattern — its shape declares a `callee`
+/// child role (canonical `call`; ADR-0081), falling back to
+/// `kind == "call"` for role-less shapes.
+fn is_tag_pattern_node(lang: Option<&Language>, node: &AstNode) -> bool {
+    lang.map(|l| matches!(l.child_role_index(&node.kind, "callee"), Ok(Some(_))))
+        .unwrap_or(false)
+        || node.kind == "call"
+}
+
+/// A node's child index for `role` — the declared role index when the
+/// language is wired and declares it, `legacy` otherwise.
+fn child_idx(lang: Option<&Language>, node: &AstNode, role: &str, legacy: usize) -> usize {
+    lang.and_then(|l| l.child_role_index(&node.kind, role).ok().flatten())
+        .unwrap_or(legacy)
 }
 
 /// Whether a `var` name in pattern position is a wildcard (binds nothing).
@@ -89,8 +134,10 @@ pub fn try_pattern(
     ctx: &mut impl PatternMatchCtx,
 ) -> Result<bool, LangError> {
     let pattern_node = ast.at(pattern_ref)?;
-    // `var` node (identifier pattern).
-    if pattern_node.kind == "var" {
+    let lang = ctx.lang();
+    // Leaf binder pattern — `pattern_role: leaf` (canonical `var`; the
+    // `var` kind name is the role-less fallback).
+    if is_binder_node(lang, pattern_node) {
         if let Some(name) = pattern_node.payload.as_str() {
             if is_wildcard_name(name) {
                 // Wildcard — always matches, binds nothing.
@@ -107,18 +154,19 @@ pub fn try_pattern(
             return Ok(true);
         }
     }
-    // Array destructuring pattern: [a, b, ...rest]
-    if pattern_node.kind == "array" {
+    // Array destructuring pattern (`pattern_role: sequence`): [a, b, ...rest]
+    if pattern_role_is(lang, pattern_node, "sequence", "array") {
         return try_array_pattern(ast, pattern_ref, scrut, ctx);
     }
-    // Object destructuring pattern: { x: a, y: b, ...rest }
-    if pattern_node.kind == "object" {
+    // Object destructuring pattern (`pattern_role: entries`):
+    // { x: a, y: b, ...rest }
+    if pattern_role_is(lang, pattern_node, "entries", "object") {
         return try_object_pattern(ast, pattern_ref, scrut, ctx);
     }
-    // Tag pattern: `tag_name(binder1, binder2, ...)` — parsed as a `call`
-    // node with a `var` callee. Dispatch on `__tag__` identity, bind args
-    // to payload fields (ADR-0077).
-    if pattern_node.kind == "call" {
+    // Tag pattern: `tag_name(binder1, binder2, ...)` — a callee-roled
+    // node (canonical `call`) with a `var` callee. Dispatch on `__tag__`
+    // identity, bind args to payload fields (ADR-0077).
+    if is_tag_pattern_node(lang, pattern_node) {
         return try_tag_pattern(ast, pattern_ref, scrut, ctx);
     }
     // Literal pattern — evaluate and compare by equality.
@@ -131,7 +179,11 @@ pub fn try_pattern(
 /// Returns `Some(name)` if the rest node binds a name, or `None` if it's
 /// a wildcard rest (`..._` or `..._*`). Returns `Err` if the rest node is
 /// malformed.
-fn rest_binder_name(ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangError> {
+fn rest_binder_name(
+    ast: &Ast,
+    lang: Option<&Language>,
+    rest_ref: AstRef,
+) -> Result<Option<String>, LangError> {
     let rest_node = ast.at(rest_ref)?;
     let children = rest_node
         .payload
@@ -140,11 +192,16 @@ fn rest_binder_name(ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangE
         .ok_or_else(|| {
             LangError::engine_node("rest pattern: missing children".to_string(), &rest_node)
         })?;
-    let var_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
-        LangError::engine_node("rest pattern: missing binder".to_string(), &rest_node)
-    })?;
+    // The binder sits at the `subject` role (index 0 on canonical `rest`).
+    let subject_idx = child_idx(lang, rest_node, "subject", 0);
+    let var_idx = children
+        .get(subject_idx)
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            LangError::engine_node("rest pattern: missing binder".to_string(), &rest_node)
+        })?;
     let var_node = ast.at(AstRef::new(var_idx as usize))?;
-    if var_node.kind == "var" {
+    if is_binder_node(lang, var_node) {
         if let Some(name) = var_node.payload.as_str() {
             if is_wildcard_name(name) {
                 return Ok(None); // Wildcard rest — binds nothing.
@@ -190,7 +247,7 @@ fn try_array_pattern(
             LangError::engine_node("array pattern: bad child index".to_string(), &pattern_node)
         })? as usize;
         let child_node = ast.at(AstRef::new(idx))?;
-        if child_node.kind == "rest" {
+        if pattern_role_is(ctx.lang(), child_node, "rest", "rest") {
             if rest_idx.is_some() {
                 return Err(LangError::engine_node(
                     "array pattern: multiple rest patterns".to_string(),
@@ -220,7 +277,7 @@ fn try_array_pattern(
 
     // Bind remaining elements to the rest binder.
     if let Some(ridx) = rest_idx {
-        if let Some(name) = rest_binder_name(ast, AstRef::new(ridx))? {
+        if let Some(name) = rest_binder_name(ast, ctx.lang(), AstRef::new(ridx))? {
             let rest_vals: Vec<Value> = scrut_arr[n..].to_vec();
             ctx.define_binding(&name, Value::Array(rest_vals));
         }
@@ -266,31 +323,45 @@ fn try_object_pattern(
             .ok_or_else(|| LangError::engine("object pattern: bad child index".to_string()))?
             as usize;
         let child_node = ast.at(AstRef::new(idx))?;
-        if child_node.kind == "rest" {
+        if pattern_role_is(ctx.lang(), child_node, "rest", "rest") {
             if rest_idx.is_some() {
                 return Err(LangError::engine(
                     "object pattern: multiple rest patterns".to_string(),
                 ));
             }
             rest_idx = Some(idx);
-        } else if child_node.kind == "entry" {
+        } else if pattern_role_is(ctx.lang(), child_node, "entry", "entry") {
             let entry_children = child_node
                 .payload
                 .get("children")
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| LangError::engine("object pattern: malformed entry".to_string()))?;
-            let key_idx = entry_children[0].as_u64().ok_or_else(|| {
-                LangError::engine("object pattern: bad entry key index".to_string())
-            })? as usize;
-            let val_idx = entry_children[1].as_u64().ok_or_else(|| {
-                LangError::engine("object pattern: bad entry val index".to_string())
-            })? as usize;
+            // The key and value-pattern sit at the entry shape's
+            // `key`/`value` roles (indexes 0/1 on canonical `entry`).
+            let key_idx = entry_children
+                .get(child_idx(ctx.lang(), child_node, "key", 0))
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::engine("object pattern: bad entry key index".to_string())
+                })? as usize;
+            let val_idx = entry_children
+                .get(child_idx(ctx.lang(), child_node, "value", 1))
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::engine("object pattern: bad entry val index".to_string())
+                })? as usize;
             let key_node = ast.at(AstRef::new(key_idx))?;
-            // Key can be a `var` (identifier) or a `value` (string literal).
-            let key = if key_node.kind == "var" {
+            // A literal `key` child (declared via `literal_children`,
+            // canonical `var`/`string`) carries the field name in its
+            // payload; any other key expression is evaluated to get the
+            // field name. `kind == "var"` is the role-less fallback.
+            let is_literal_key = ctx
+                .lang()
+                .and_then(|l| l.literal_child(&child_node.kind, "key", &key_node.kind))
+                .unwrap_or_else(|| key_node.kind == "var");
+            let key = if is_literal_key {
                 key_node.payload.as_str().unwrap_or("").to_string()
             } else {
-                // Evaluate the key expression to get the field name.
                 let key_val = ctx.eval_pattern_node(ast, AstRef::new(key_idx))?;
                 key_val.as_str().unwrap_or("").to_string()
             };
@@ -314,7 +385,7 @@ fn try_object_pattern(
 
     // Bind remaining keys to the rest binder.
     if let Some(ridx) = rest_idx {
-        if let Some(name) = rest_binder_name(ast, AstRef::new(ridx))? {
+        if let Some(name) = rest_binder_name(ast, ctx.lang(), AstRef::new(ridx))? {
             let rest_obj: serde_json::Map<String, Value> = scrut_obj
                 .iter()
                 .filter(|(k, _)| !matched_keys.contains(k))
@@ -352,10 +423,14 @@ fn try_tag_pattern(
         .ok_or_else(|| {
             LangError::engine_node("tag pattern: missing children".to_string(), &pattern_node)
         })?;
-    // child 0 = callee (var with tag name), child 1.. = args (binders)
-    let callee_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
-        LangError::engine_node("tag pattern: missing callee".to_string(), &pattern_node)
-    })? as usize;
+    // The `callee` role (index 0 on canonical `call`) carries the tag
+    // name; the `args` role (index 1) and onward are the binders.
+    let callee_idx = children
+        .get(child_idx(ctx.lang(), pattern_node, "callee", 0))
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            LangError::engine_node("tag pattern: missing callee".to_string(), &pattern_node)
+        })? as usize;
     let callee_node = ast.at(AstRef::new(callee_idx))?;
     let tag_name = callee_node.payload.as_str().ok_or_else(|| {
         LangError::engine_node(
@@ -380,10 +455,11 @@ fn try_tag_pattern(
         .filter(|(k, _)| k.as_str() != "__tag__")
         .collect();
     payload_fields.sort_by(|a, b| a.0.cmp(b.0));
-    // Collect binder nodes (children 1..).
+    // Collect binder nodes (the `args` role onward; index 1 on canonical
+    // `call`).
     let binder_indices: Vec<usize> = children
         .iter()
-        .skip(1)
+        .skip(child_idx(ctx.lang(), pattern_node, "args", 1))
         .map(|c| -> Result<usize, LangError> {
             let idx = c.as_u64().ok_or_else(|| {
                 LangError::engine_node("tag pattern: bad binder index".to_string(), &pattern_node)
@@ -396,7 +472,7 @@ fn try_tag_pattern(
     if binder_indices.len() == 1 && payload_fields.len() == 1 {
         let binder_idx = binder_indices[0];
         let binder_node = ast.at(AstRef::new(binder_idx))?;
-        if binder_node.kind == "var" {
+        if is_binder_node(ctx.lang(), binder_node) {
             if let Some(name) = binder_node.payload.as_str() {
                 if is_wildcard_name(name) {
                     return Ok(true); // Wildcard
@@ -409,7 +485,7 @@ fn try_tag_pattern(
     // General case: positional binding of payload fields to binders.
     for (i, &binder_idx) in binder_indices.iter().enumerate() {
         let binder_node = ast.at(AstRef::new(binder_idx))?;
-        if binder_node.kind == "var" {
+        if is_binder_node(ctx.lang(), binder_node) {
             if let Some(name) = binder_node.payload.as_str() {
                 if is_wildcard_name(name) {
                     continue; // Wildcard
