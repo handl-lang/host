@@ -36,6 +36,12 @@
     required:
       - elements
     type: object
+- id: ast.absurd
+  node_kind: absurd
+  # Arity-0 marker for an explicitly-impossible `match` arm body
+  # (`Ctor: absurd`, ADR-0120 dependent elimination). No children; no
+  # type rule — meaningful only as an `arm` body, where the model checks
+  # the branch's index equations are decided-unsatisfiable.
 - id: ast.arm
   node_kind: arm
   children:

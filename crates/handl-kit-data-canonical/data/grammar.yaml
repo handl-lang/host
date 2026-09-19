@@ -401,6 +401,23 @@
         node_kind: arm
       open_is_operator_token: false
       flatten: false
+# `absurd` — the explicitly-impossible match arm body (ADR-0120 dependent
+# elimination). It parses as an arity-0 expression so `Ctor: absurd` is an
+# ordinary `arm` pair; the typecheck model's `synth_match_arms` accepts it
+# only when the arm's index equations are decided-unsatisfiable (the
+# constructor cannot produce the scrutinee's refined index) and rejects a
+# reachable — or merely stuck — `absurd` arm. Outside an arm body it has
+# no type rule: synthesis warns and yields `type.unknown`, which then
+# fails any checked position.
+- id: grammar.absurd.prefix
+  token: token.keyword.absurd
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: absurd
+    arity: 0
 # `rec` introduces a recursive region (ADR-0074 Correction 2).
 # Like `do-block` but with recursive feedback semantics.
 # ADR-0079: changed to arrow's `rec { state } ( body )` syntax (arity 2).

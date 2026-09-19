@@ -574,6 +574,170 @@ fn j_eliminates_branch_path_through_motive() {
     );
 }
 
+/// Bounded nonlinear index solving: `c * X ≡ t` solves `X` by exact
+/// division. The `Dbl` family's constructor lands at `Dbl(2 * n)` —
+/// commutative canonicalization already normalizes it to
+/// `Bin{mul, ?n, 2}` — so checking `MkDbl` against `Dbl(6)` solves
+/// `?n := 3` through the product, and matching a `Dbl(6)` scrutinee
+/// refines the arm under `?k := 3`. A non-divisible target (`Dbl(5)`)
+/// has no Nat solution: the equation is a *decided* failure, not stuck.
+#[test]
+fn nonlinear_product_solves_by_exact_division() {
+    let lang = canonical_lang();
+    let decl = "data Dbl(n : Nat) :: MkDbl(x : Nat) : Dbl(2 * n)";
+
+    let good = parse_block(
+        &lang,
+        &[
+            decl,
+            "d : Dbl(6) = MkDbl(7)",
+            "r : Nat = match d { MkDbl(x): x }",
+        ],
+    );
+    let result = typecheck(&lang, good);
+    assert!(
+        !has_error(&result),
+        "2 * ?n ≡ 6 should solve ?n := 3 (in the annotation and per arm), got {:?}",
+        diags_of(&result)
+    );
+
+    let bad = parse_block(&lang, &[decl, "d : Dbl(5) = MkDbl(7)"]);
+    let result = typecheck(&lang, bad);
+    assert!(
+        has_error(&result),
+        "2 * ?n ≡ 5 has no Nat solution — a decided failure, not stuck"
+    );
+}
+
+/// The square and small-power cases: `X * X ≡ t` (structurally equal
+/// operands) solves by integer square root, and `X ** k ≡ t` for a
+/// literal exponent solves by integer root. `Sq(9)` gives `?n := 3`
+/// and `Cube(8)` gives `?n := 2`; `Sq(8)` and `Cube(9)` have no integer
+/// root and are decided failures.
+#[test]
+fn nonlinear_square_and_pow_solve_by_integer_root() {
+    let lang = canonical_lang();
+    let sq = "data Sq(n : Nat) :: MkSq(x : Nat) : Sq(n * n)";
+    let cube = "data Cube(n : Nat) :: MkCube(x : Nat) : Cube(n ** 3)";
+
+    let good = parse_block(
+        &lang,
+        &[sq, cube, "s : Sq(9) = MkSq(7)", "c : Cube(8) = MkCube(1)"],
+    );
+    let result = typecheck(&lang, good);
+    assert!(
+        !has_error(&result),
+        "?n * ?n ≡ 9 and ?n ** 3 ≡ 8 should solve by integer root, got {:?}",
+        diags_of(&result)
+    );
+
+    let bad_sq = parse_block(&lang, &[sq, "s : Sq(8) = MkSq(7)"]);
+    let result = typecheck(&lang, bad_sq);
+    assert!(
+        has_error(&result),
+        "?n * ?n ≡ 8 has no integer root — decided failure"
+    );
+
+    let bad_cube = parse_block(&lang, &[cube, "c : Cube(9) = MkCube(1)"]);
+    let result = typecheck(&lang, bad_cube);
+    assert!(
+        has_error(&result),
+        "?n ** 3 ≡ 9 has no integer root — decided failure"
+    );
+}
+
+/// `Ctor: absurd` is the explicit dismissal of a decided-impossible arm:
+/// `VNil : Vec(0, ?a)` can never produce a `Vec(2, Bool)` scrutinee, so
+/// `VNil: absurd` is *discharged* — no unreachable-branch diagnostic —
+/// while the reachable `VCons` arm checks normally and contributes the
+/// join. `Dbl`'s constructor lands at `Dbl(2 * ?k)`, so on a `Dbl(5)`
+/// scrutinee the arm is decided-impossible by the nonlinear solver and
+/// `MkDbl(x): absurd` is accepted the same way.
+#[test]
+fn absurd_discharges_decided_impossible_arm() {
+    let lang = canonical_lang();
+    let vec = "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)";
+    let dbl = "data Dbl(n : Nat) :: MkDbl(x : Nat) : Dbl(2 * n)";
+
+    let ast = parse_block(
+        &lang,
+        &[
+            vec,
+            "v : Vec(2, Bool) = VCons(true, VCons(false, VNil))",
+            "x : Bool = match v { VNil: absurd, VCons(h, t): h }",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "VNil: absurd on a Vec(2) scrutinee should be discharged, got {:?}",
+        diags_of(&result)
+    );
+
+    let nonlinear = parse_block(
+        &lang,
+        &[
+            dbl,
+            "f : Pi(Dbl(5), d ~> Nat) = d ~> match d { MkDbl(x): absurd, y: 0 }",
+        ],
+    );
+    let result = typecheck(&lang, nonlinear);
+    assert!(
+        !has_error(&result),
+        "2 * ?k ≡ 5 is decided-unsatisfiable — the absurd arm should be discharged, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// `absurd` is only justified on a decided-impossible arm: marking a
+/// *reachable* arm `absurd` is rejected. `VCons` on a `Vec(2)` scrutinee
+/// solves `?k + 1 ≡ 2`, `VNil` on `Vec(0)` unifies outright, and a
+/// rigid-index scrutinee (`v : Vec(n + 0, Bool)` — `n ≡ 0` binds under
+/// the arm rather than failing) is reachable too, so all three `absurd`
+/// arms error as reachable.
+#[test]
+fn absurd_rejects_reachable_arm() {
+    let lang = canonical_lang();
+    let vec = "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)";
+
+    let reachable = parse_block(
+        &lang,
+        &[
+            vec,
+            "v : Vec(2, Bool) = VCons(true, VCons(false, VNil))",
+            "bad : Bool = match v { VCons(x, xs): absurd }",
+        ],
+    );
+    let result = typecheck(&lang, reachable);
+    assert!(
+        has_error(&result),
+        "VCons: absurd on a Vec(2) scrutinee is reachable — must be rejected"
+    );
+
+    let exact = parse_block(
+        &lang,
+        &[vec, "v0 : Vec(0, Bool) = VNil", "bad : Bool = match v0 { VNil: absurd }"],
+    );
+    let result = typecheck(&lang, exact);
+    assert!(
+        has_error(&result),
+        "VNil: absurd on a Vec(0) scrutinee is reachable — must be rejected"
+    );
+
+    let rigid = parse_block(
+        &lang,
+        &[
+            vec,
+            "f : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Bool)) = n ~> v ~> match v { VNil: absurd, VCons(x, xs): x }",
+        ],
+    );
+    let result = typecheck(&lang, rigid);
+    assert!(
+        has_error(&result),
+        "on Vec(n + 0) the VNil arm refines n ≡ 0 rather than failing — absurd must be rejected"
+    );
+}
+
 /// `handl-packages/type/dependent.hnl` — the packaged Phase-4 data — must
 /// parse statement-by-statement and typecheck without errors.
 #[test]

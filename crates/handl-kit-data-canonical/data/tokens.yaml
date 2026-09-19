@@ -116,6 +116,10 @@
 - id: token.if
   label: null
   category: keyword
+- id: token.keyword.absurd
+  label: absurd
+  category: keyword
+  doc: "**Absurd match arm — dismiss a decided-impossible branch** `absurd`\n\n```\nmatch `x` { `Ctor`: absurd, `pat`: `body` }\n```"
 - id: token.keyword.app
   label: app
   category: keyword

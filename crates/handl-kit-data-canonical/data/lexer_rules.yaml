@@ -198,6 +198,11 @@
     start_chars: a-zA-Z_α-ωΑ-Ω
     continue_chars: a-zA-Z0-9_α-ωΑ-Ω
   priority: 50
+- id: lex.keyword.absurd
+  token_kind: token.keyword.absurd
+  pattern: !Literal
+    text: absurd
+  priority: 15
 - id: lex.keyword.app
   token_kind: token.keyword.app
   pattern: !Literal
