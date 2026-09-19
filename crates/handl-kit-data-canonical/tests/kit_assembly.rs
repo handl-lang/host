@@ -237,3 +237,79 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.caps.get_by_id("parse").is_some());
     assert!(lang.caps.get_by_id("textmate").is_some());
 }
+
+/// ADR-0081 optional-role extension: the canonical `match` shape declares
+/// `[scrutinee, {motive, optional}, block]` and `assign` declares
+/// `[target, value, {body, optional}]`. Arity-aware resolution via
+/// `Language::child_role_index_for` must pick the right `block`/`body`
+/// position on concrete nodes; the kind-only `child_role_index` keeps its
+/// full-form meaning.
+#[test]
+fn optional_child_roles_resolve_arity_aware() {
+    use handl_language::AstNode;
+    use serde_json::json;
+
+    let kit = handl_kit_data_canonical::assemble().expect("assembly should succeed");
+    let lang = kit.lang();
+
+    // --- match ---
+    // Full-form (kind-only) indices: every declared role occupies a slot.
+    assert_eq!(
+        lang.child_role_index("match", "scrutinee").unwrap(),
+        Some(0)
+    );
+    assert_eq!(lang.child_role_index("match", "motive").unwrap(), Some(1));
+    assert_eq!(lang.child_role_index("match", "block").unwrap(), Some(2));
+
+    // `match s { arms }` — no motive: `block` at index 1.
+    let match_no_motive = AstNode::new("match").with_payload(json!({"children": [10, 11]}));
+    assert_eq!(
+        lang.child_role_index_for(&match_no_motive, "block")
+            .unwrap(),
+        Some(1)
+    );
+    assert_eq!(
+        lang.child_role_index_for(&match_no_motive, "motive")
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        lang.child_role_index_for(&match_no_motive, "scrutinee")
+            .unwrap(),
+        Some(0)
+    );
+
+    // `match s return m with { arms }` — motive present: `block` at 2.
+    let match_motive = AstNode::new("match").with_payload(json!({"children": [10, 12, 11]}));
+    assert_eq!(
+        lang.child_role_index_for(&match_motive, "motive").unwrap(),
+        Some(1)
+    );
+    assert_eq!(
+        lang.child_role_index_for(&match_motive, "block").unwrap(),
+        Some(2)
+    );
+
+    // --- assign ---
+    // `x = v` — no body.
+    let assign_plain = AstNode::new("assign").with_payload(json!({"children": [1, 2]}));
+    assert_eq!(
+        lang.child_role_index_for(&assign_plain, "target").unwrap(),
+        Some(0)
+    );
+    assert_eq!(
+        lang.child_role_index_for(&assign_plain, "value").unwrap(),
+        Some(1)
+    );
+    assert_eq!(
+        lang.child_role_index_for(&assign_plain, "body").unwrap(),
+        None
+    );
+
+    // `x = v in body` — optional trailing body at index 2.
+    let assign_let = AstNode::new("assign").with_payload(json!({"children": [1, 2, 3]}));
+    assert_eq!(
+        lang.child_role_index_for(&assign_let, "body").unwrap(),
+        Some(2)
+    );
+}

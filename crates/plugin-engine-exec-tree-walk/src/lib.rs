@@ -1487,7 +1487,9 @@ impl TreeWalkEngine {
             // behavior of `proj_child_or`.
             "Child" => {
                 let role = td.get_str("role").unwrap_or("");
-                let idx = match lang.child_role_index(&current_node.kind, role) {
+                // Arity-aware resolution: roles after an `optional` slot
+                // shift when the slot is absent (ADR-0081 optional roles).
+                let idx = match lang.child_role_index_for(current_node, role) {
                     Ok(Some(idx)) => idx,
                     _ => {
                         return Ok((TaggedValue::Null, false));
@@ -2697,11 +2699,11 @@ impl TreeWalkEngine {
                 // `assign { children: [target, value, body] }` —
                 // evaluate `value`, optionally bind `target` in a new
                 // scope and evaluate body, or just return the value.
-                // `target`/`value` positions resolve by named role
-                // (ADR-0081); the optional third (body) child has no
-                // declared role on the `assign` shape, so it stays
-                // positional. Falls back to legacy `payload.value` for
-                // hand-built ASTs.
+                // `target`/`value`/`body` positions resolve by named role
+                // (ADR-0081); `body` is an `optional` role so its presence
+                // resolves arity-aware (`child_role_index_for`), with the
+                // `children.len() == 3` check as the role-less fallback.
+                // Falls back to legacy `payload.value` for hand-built ASTs.
                 if let Some(children) = current_node
                     .payload
                     .get("children")
@@ -2716,7 +2718,27 @@ impl TreeWalkEngine {
                                     current_node,
                                 )
                             })?;
-                        if children.len() == 3 {
+                        let body_idx = match lang
+                            .child_role_index_for(current_node, "body")
+                            .ok()
+                            .flatten()
+                        {
+                            Some(pos) => children.get(pos),
+                            // Role-less fallback: a third positional child is
+                            // the body.
+                            None if children.len() == 3 => children.get(2),
+                            None => None,
+                        }
+                        .map(|v| {
+                            v.as_u64().map(|i| i as usize).ok_or_else(|| {
+                                LangError::engine_node(
+                                    "assign: body index must be a number".to_string(),
+                                    current_node,
+                                )
+                            })
+                        })
+                        .transpose()?;
+                        if let Some(body_idx) = body_idx {
                             // `x = y in body` — bind and evaluate body.
                             let var_idx = role_child_arena(lang, current_node, "target")
                                 .or_else(|| children[0].as_u64().map(|i| i as usize))
@@ -2726,12 +2748,6 @@ impl TreeWalkEngine {
                                         current_node,
                                     )
                                 })?;
-                            let body_idx = children[2].as_u64().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "assign: body index must be a number".to_string(),
-                                    current_node,
-                                )
-                            })? as usize;
                             let var_name =
                                 binding_target_name(lang, ast, var_idx, "assign", current_node)?;
                             let value =
@@ -4105,16 +4121,30 @@ impl TreeWalkEngine {
                     current_node,
                 )
             })?;
-        let scrut_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
-            LangError::engine_node("match: missing scrutinee child".to_string(), current_node)
-        })? as usize;
-        let has_motive = children.len() >= 3;
-        let block_idx = children
-            .get(if has_motive { 2 } else { 1 })
-            .and_then(|v| v.as_u64())
+        // `scrutinee`/`block` positions resolve by named role, arity-aware:
+        // the optional `motive` slot (ADR-0081 optional roles) shifts
+        // `block` to index 2 when present. Positional 0 / `len >= 3 ? 2 : 1`
+        // is the role-less fallback.
+        let scrut_idx = role_child_arena(lang, current_node, "scrutinee")
+            .or_else(|| {
+                children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            })
+            .ok_or_else(|| {
+                LangError::engine_node("match: missing scrutinee child".to_string(), current_node)
+            })?;
+        let block_idx = role_child_arena(lang, current_node, "block")
+            .or_else(|| {
+                children
+                    .get(if children.len() >= 3 { 2 } else { 1 })
+                    .and_then(|v| v.as_u64())
+                    .map(|i| i as usize)
+            })
             .ok_or_else(|| {
                 LangError::engine_node("match: missing block child".to_string(), current_node)
-            })? as usize;
+            })?;
 
         // Evaluate the scrutinee.
         let scrut_val = self.eval_node_inner(ast, AstRef::new(scrut_idx), lang, env)?;
@@ -5104,9 +5134,19 @@ impl Model for ValueModel {
                     .ast
                     .node_kind(ctx.node_ref)
                     .ok_or(plugin_engine::LangError::NotImplemented)?;
+                // Arity-aware resolution through `LanguageView`: probe the
+                // node's child count so `optional` roles (e.g. `match`'s
+                // motive slot) shift later roles correctly (ADR-0081).
+                let arity = {
+                    let mut n = 0usize;
+                    while ctx.ast.node_child(ctx.node_ref, n).is_some() {
+                        n += 1;
+                    }
+                    n
+                };
                 let child_idx = ctx
                     .lang
-                    .child_role_index(kind, role)
+                    .child_role_index_at(kind, role, arity)
                     .ok_or(plugin_engine::LangError::NotImplemented)?;
                 let child_ref = ctx
                     .ast
@@ -5793,10 +5833,16 @@ fn role_declared(lang: &Language, node_kind: &str, role: &str) -> bool {
 
 /// Project the child arena index at `role` from `node`'s payload children.
 ///
-/// `None` = no such role declared or no children payload; callers fall back
-/// to the positional index.
+/// Resolution is **arity-aware** (`Language::child_role_index_for`): roles
+/// declared after an `optional` slot shift when the slot is absent — e.g.
+/// `match`'s `block` resolves to index 1 on a 2-child node and 2 on a
+/// 3-child (motive) node.
+///
+/// `None` = no such role declared, the role's optional slot is absent at
+/// this arity, or no children payload; callers fall back to the positional
+/// index.
 fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize> {
-    let idx = role_index_of(lang, &node.kind, role)?;
+    let idx = lang.child_role_index_for(node, role).ok().flatten()?;
     let arena = node
         .payload
         .get("children")?
@@ -7857,6 +7903,7 @@ mod tests {
                 AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
                     role: "body".into(),
                     variadic: true,
+                    optional: false,
                 }]),
             )
             .unwrap();
@@ -7865,6 +7912,7 @@ mod tests {
                 AstShapeDef::new("ast.array", "array").with_children(vec![ChildRoleSpec {
                     role: "elements".into(),
                     variadic: true,
+                    optional: false,
                 }]),
             )
             .unwrap();
@@ -8422,10 +8470,12 @@ mod tests {
                 ChildRoleSpec {
                     role: "target".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "value".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]))
             .unwrap();
@@ -8434,6 +8484,7 @@ mod tests {
                 AstShapeDef::new("ast.return", "return").with_children(vec![ChildRoleSpec {
                     role: "value".into(),
                     variadic: false,
+                    optional: false,
                 }]),
             )
             .unwrap();

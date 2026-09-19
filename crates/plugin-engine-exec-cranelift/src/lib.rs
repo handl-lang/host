@@ -553,14 +553,18 @@ impl EvalCtx {
     }
 
     /// Resolve a child arena index for the named role on `node`, using the
-    /// language's declared child roles. Returns `Ok(None)` when the role is
-    /// not declared or the payload is malformed.
+    /// language's declared child roles. Resolution is **arity-aware**
+    /// (`Language::child_role_index_for`): roles declared after an
+    /// `optional` slot shift when the slot is absent — e.g. `match`'s
+    /// `block` resolves to index 1 without a motive and 2 with one.
+    /// Returns `Ok(None)` when the role is not declared, its optional slot
+    /// is absent at this arity, or the payload is malformed.
     fn role_child_arena(&self, node: &AstNode, role: &str) -> Result<Option<usize>, LangError> {
         if self.lang.is_null() {
             return Ok(None);
         }
         // SAFETY: self.lang is a valid pointer for the duration of run_native.
-        let idx = unsafe { (*self.lang).child_role_index(&node.kind, role)? };
+        let idx = unsafe { (*self.lang).child_role_index_for(node, role)? };
         let Some(idx) = idx else {
             return Ok(None);
         };
@@ -1244,16 +1248,38 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
             ));
         }
     };
-    let scrut_idx = match children.get(0).and_then(|v| v.as_u64()) {
-        Some(i) => i as usize,
+    // `scrutinee`/`block` positions resolve by named role, arity-aware:
+    // the optional `motive` slot (ADR-0081 optional roles) shifts `block`
+    // to index 2 when present. Positional 0 / `len >= 3 ? 2 : 1` is the
+    // role-less fallback.
+    let scrut_idx = match ctx
+        .role_child_arena(node, "scrutinee")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            children
+                .first()
+                .and_then(|v| v.as_u64())
+                .map(|i| i as usize)
+        }) {
+        Some(i) => i,
         None => {
             return ctx.set_error(LangError::engine(
                 "match: missing scrutinee child".to_string(),
             ));
         }
     };
-    let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
-        Some(i) => i as usize,
+    let block_idx = match ctx
+        .role_child_arena(node, "block")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            children
+                .get(if children.len() >= 3 { 2 } else { 1 })
+                .and_then(|v| v.as_u64())
+                .map(|i| i as usize)
+        }) {
+        Some(i) => i,
         None => {
             return ctx.set_error(LangError::engine_node(
                 "match: missing block child".to_string(),

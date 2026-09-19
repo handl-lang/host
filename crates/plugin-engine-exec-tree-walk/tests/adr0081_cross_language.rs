@@ -71,10 +71,12 @@ fn renamed_language() -> Language {
             ChildRoleSpec {
                 role: "target".into(),
                 variadic: false,
+                optional: false,
             },
             ChildRoleSpec {
                 role: "value".into(),
                 variadic: false,
+                optional: false,
             },
         ]))
         .unwrap();
@@ -92,6 +94,7 @@ fn renamed_language() -> Language {
             AstShapeDef::new("ast.block2", "block2").with_children(vec![ChildRoleSpec {
                 role: "statements".into(),
                 variadic: true,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -109,6 +112,7 @@ fn renamed_language() -> Language {
             AstShapeDef::new("ast.ret", "ret").with_children(vec![ChildRoleSpec {
                 role: "value".into(),
                 variadic: false,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -126,6 +130,7 @@ fn renamed_language() -> Language {
             AstShapeDef::new("ast.params2", "params2").with_children(vec![ChildRoleSpec {
                 role: "body".into(),
                 variadic: true,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -143,10 +148,12 @@ fn renamed_language() -> Language {
             ChildRoleSpec {
                 role: "params".into(),
                 variadic: false,
+                optional: false,
             },
             ChildRoleSpec {
                 role: "body".into(),
                 variadic: false,
+                optional: false,
             },
         ]))
         .unwrap();

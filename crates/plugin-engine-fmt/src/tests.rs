@@ -162,10 +162,12 @@ fn arith_lang() -> Language {
                 ChildRoleSpec {
                     role: "lhs".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "rhs".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]),
         )
@@ -176,10 +178,12 @@ fn arith_lang() -> Language {
                 ChildRoleSpec {
                     role: "lhs".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "rhs".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]),
         )
@@ -189,6 +193,7 @@ fn arith_lang() -> Language {
             AstShapeDef::new("ast.unary.neg", "unary.neg").with_children(vec![ChildRoleSpec {
                 role: "operand".into(),
                 variadic: false,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -197,6 +202,7 @@ fn arith_lang() -> Language {
             AstShapeDef::new("ast.let", "let").with_children(vec![ChildRoleSpec {
                 role: "body".into(),
                 variadic: false,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -205,6 +211,7 @@ fn arith_lang() -> Language {
             AstShapeDef::new("ast.block", "block").with_children(vec![ChildRoleSpec {
                 role: "statements".into(),
                 variadic: true,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -424,10 +431,12 @@ fn format_match_arms_with_pairs() {
             ChildRoleSpec {
                 role: "scrutinee".into(),
                 variadic: false,
+                optional: false,
             },
             ChildRoleSpec {
                 role: "arms".into(),
                 variadic: false,
+                optional: false,
             },
         ]))
         .unwrap();
@@ -436,10 +445,12 @@ fn format_match_arms_with_pairs() {
             ChildRoleSpec {
                 role: "pattern".into(),
                 variadic: false,
+                optional: false,
             },
             ChildRoleSpec {
                 role: "body".into(),
                 variadic: false,
+                optional: false,
             },
         ]))
         .unwrap();

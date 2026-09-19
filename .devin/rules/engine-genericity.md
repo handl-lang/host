@@ -22,6 +22,7 @@ recompile.
 
 - Resolve AST **child positions** by **named role** from `AstShapeDef` — `lang.child_role_index(node.kind, "target")` / `AstShapeDef::role_index` — **never** by positional child index or `kind == "assign"/"block"/"paren"/"return"/"type-annot"` shape heuristics.
 - Roles are declared as `AstShapeDef.children` in `data/ast.yaml` (e.g. `assign` → `target`/`value`, `block` → `statements`). A new language is a **data change**, not an engine edit: renamed kinds (`set`/`params`/`body`) must run the untouched engines.
+- **Optional roles**: a `ChildRoleSpec` may declare `optional: true` (e.g. `match`'s `motive`, `assign`'s trailing `body`), making positions arity-dependent. Resolve a concrete node via `lang.child_role_index_for(node, role)` / `AstShapeDef::role_index_at(role, arity)`; `child_role_index(kind, role)` returns the **full-form** index (all optional slots present) and is only safe for roles declared before the first optional slot or for existence checks.
 - Keeping a `kind ==` shape check in an engine after roles exist = a regression. Use the role; fall back to positional only for shapes that declare no roles.
 
 Refs: ADR-0044, ADR-0052, ADR-0054, ADR-0081, `crates/handl-language/src/language.rs`.

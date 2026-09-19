@@ -357,7 +357,7 @@ The design is settled architecturally and the core mechanics are implemented (§
 
 - `unify` on `type.function` is shallow (field-wise); dependent-aware unification lives in `unify_dependent_`, and a composite `f >>> P` of dependent operands flattens to `type.function` — no AST body exists to carry a `body_closure` across composition.
 - `cell_boundary_` assumes globularity: the globe condition `src_j(inputs) = src_j(output)` is assumed, not verified.
-- `AstShapeDef` declares a single `pattern_role` per shape; optional-role support for `match`/`assign` optional children is still needed — they carry bespoke handling.
+- `AstShapeDef` declares a single `pattern_role` per shape; optional child roles (`optional: true` on a `ChildRoleSpec`, resolved arity-aware via `child_role_index_for`/`role_index_at`) now cover `match`'s motive slot and `assign`'s trailing body — remaining bespoke handling is unrelated to child positions.
 - `desugar.data`/`desugar.match_recursor` remain semantic natives (per-constructor iteration, strict positivity, arena search) — genuinely semantic work awaiting a macro system rather than a rewrite step.
 - The arrow lowerer's `match node.kind` table is reduced but not eliminated: the env/substitution constructs (`function`, `call`, `assign`, `flow`, …) keep Rust arms; only YAML-declared schemes lower generically.
 

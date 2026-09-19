@@ -101,6 +101,7 @@ fn native_registry_is_wired() {
         ChildRoleSpec {
             role: "statements".into(),
             variadic: true,
+            optional: false,
         },
     ]))
     .unwrap();

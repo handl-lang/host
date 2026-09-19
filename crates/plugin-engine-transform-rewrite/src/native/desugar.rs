@@ -1706,14 +1706,31 @@ fn desugar_match_to_recursor(
         return None;
     }
 
-    let has_motive = children.len() >= 3;
-    let scrutinee = remap_child(original, remap, 0)?;
-    let motive_idx = if has_motive {
-        Some(remap_child(original, remap, 1)?)
-    } else {
-        None
+    // `scrutinee`/`motive`/`block` positions resolve by named role,
+    // arity-aware: `motive` is an `optional` role (ADR-0081 optional
+    // roles), absent on a 2-child node. The `children.len() >= 3` test is
+    // the role-less positional fallback.
+    let scrut_pos = lang
+        .child_role_index_for(original, "scrutinee")
+        .ok()
+        .flatten()
+        .unwrap_or(0);
+    let block_pos = lang
+        .child_role_index_for(original, "block")
+        .ok()
+        .flatten()
+        .unwrap_or(if children.len() >= 3 { 2 } else { 1 });
+    let motive_pos = lang
+        .child_role_index_for(original, "motive")
+        .ok()
+        .flatten()
+        .or_else(|| (children.len() >= 3).then_some(1));
+    let scrutinee = remap_child(original, remap, scrut_pos)?;
+    let motive_idx = match motive_pos {
+        Some(pos) => Some(remap_child(original, remap, pos)?),
+        None => None,
     };
-    let block_idx = remap_child(original, remap, if has_motive { 2 } else { 1 })?;
+    let block_idx = remap_child(original, remap, block_pos)?;
 
     let block_node = out.get(AstRef::new(block_idx))?;
     let arm_indices: Vec<usize> = block_node
@@ -3996,10 +4013,12 @@ mod tests {
                 ChildRoleSpec {
                     role: "target".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "value".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]))
             .unwrap();
@@ -4009,10 +4028,12 @@ mod tests {
                     ChildRoleSpec {
                         role: "target".into(),
                         variadic: false,
+                        optional: false,
                     },
                     ChildRoleSpec {
                         role: "args".into(),
                         variadic: true,
+                        optional: false,
                     },
                 ]),
             )
@@ -4054,10 +4075,12 @@ mod tests {
                 ChildRoleSpec {
                     role: "target".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "value".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]))
             .unwrap();

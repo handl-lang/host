@@ -185,6 +185,7 @@ mod tests {
                 AstShapeDef::new("ast.old", "old").with_children(vec![ChildRoleSpec {
                     role: "only".into(),
                     variadic: false,
+                    optional: false,
                 }]),
             )
             .unwrap();

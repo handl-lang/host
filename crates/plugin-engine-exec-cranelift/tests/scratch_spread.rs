@@ -25,12 +25,7 @@ fn op_native(name: &str, args: Vec<TermData>) -> TermData {
 }
 
 fn child(i: u64) -> TermData {
-    TermData::op(
-        "proj_child",
-        vec![],
-        &ArrSource::Native,
-        Some(json!(i)),
-    )
+    TermData::op("proj_child", vec![], &ArrSource::Native, Some(json!(i)))
 }
 
 fn lang() -> Language {
@@ -76,6 +71,7 @@ fn lang() -> Language {
             AstShapeDef::new("ast.object", "object").with_children(vec![ChildRoleSpec {
                 role: "entries".into(),
                 variadic: true,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -85,12 +81,12 @@ fn lang() -> Language {
 /// `[1, ...[10, 20], 30]` → expect `[1, 10, 20, 30]`.
 fn spread_array_ast() -> Ast {
     make_ast(vec![
-        AstNode::new("value").with_payload(json!(1)),   // 0
-        AstNode::new("value").with_payload(json!(10)),  // 1
-        AstNode::new("value").with_payload(json!(20)),  // 2
+        AstNode::new("value").with_payload(json!(1)),  // 0
+        AstNode::new("value").with_payload(json!(10)), // 1
+        AstNode::new("value").with_payload(json!(20)), // 2
         AstNode::new("array").with_payload(json!({"children": [1, 2]})), // 3
         AstNode::new("rest").with_payload(json!({"children": [3]})), // 4: ...[10,20]
-        AstNode::new("value").with_payload(json!(30)),  // 5
+        AstNode::new("value").with_payload(json!(30)), // 5
         AstNode::new("array").with_payload(json!({"children": [0, 4, 5]})), // 6
     ])
 }

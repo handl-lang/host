@@ -222,9 +222,10 @@ fn lower_node(
             // Let-form `assign(target, value, body)` (3+ children): bind
             // the target name in a private compile-time env and lower the
             // body under it — the same substitution `bind_stmt` performs
-            // for `block`/`rec` children.
-            if children(node).len() >= 3 {
-                let body_idx = children(node)[2];
+            // for `block`/`rec` children. `body` is an `optional` role
+            // (ADR-0081), so its presence resolves arity-aware; positional
+            // index 2 is the role-less fallback.
+            if let Some(body_idx) = child_at_role_or_pos(node, lang, "body", 2) {
                 let mut env = env.clone();
                 let mut local = HashSet::new();
                 bind_stmt(ast, lang, idx, &mut env, &mut local, params)?;
@@ -1714,8 +1715,11 @@ fn children(node: &AstNode) -> Vec<usize> {
 }
 
 fn child_at_role_or_pos(node: &AstNode, lang: &Language, role: &str, pos: usize) -> Option<usize> {
+    // Arity-aware resolution (`child_role_index_for`): roles declared after
+    // an `optional` slot shift when the slot is absent — e.g. `match`'s
+    // `block`, `assign`'s trailing `body` (ADR-0081 optional roles).
     let index = lang
-        .child_role_index(&node.kind, role)
+        .child_role_index_for(node, role)
         .ok()
         .flatten()
         .unwrap_or(pos);

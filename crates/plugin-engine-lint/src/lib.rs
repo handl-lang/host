@@ -484,6 +484,7 @@ mod tests {
                 AstShapeDef::new("ast.block", "block").with_children(vec![ChildRoleSpec {
                     role: "statements".into(),
                     variadic: true,
+                    optional: false,
                 }]),
             )
             .unwrap();
@@ -497,10 +498,12 @@ mod tests {
                         ChildRoleSpec {
                             role: "value".into(),
                             variadic: false,
+                            optional: false,
                         },
                         ChildRoleSpec {
                             role: "body".into(),
                             variadic: false,
+                            optional: false,
                         },
                     ]),
             )
@@ -548,6 +551,7 @@ mod tests {
                 AstShapeDef::new("ast.block", "block").with_children(vec![ChildRoleSpec {
                     role: "statements".into(),
                     variadic: true,
+                    optional: false,
                 }]),
             )
             .unwrap();
@@ -762,6 +766,7 @@ mod tests {
                 AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
                     role: "body".into(),
                     variadic: false,
+                    optional: false,
                 }]),
             )
             .unwrap();

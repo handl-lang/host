@@ -71,6 +71,9 @@
   children:
     - role: target
     - role: value
+    # `x = v in body` (3-child let-form) carries an optional trailing body.
+    - role: body
+      optional: true
   payload_schema:
     properties:
       target:
@@ -602,6 +605,14 @@
     type: object
 - id: ast.match
   node_kind: match
+  # children = [scrutinee, (motive,) block] — the motive is an optional
+  # middle slot (`match s return m with { .. }`), so `block`'s position is
+  # arity-dependent: resolve via `Language::child_role_index_for`.
+  children:
+    - role: scrutinee
+    - role: motive
+      optional: true
+    - role: block
   payload_schema:
     properties:
       arms:

@@ -39,10 +39,12 @@ fn test_lang() -> Language {
         ChildRoleSpec {
             role: "target".into(),
             variadic: false,
+            optional: false,
         },
         ChildRoleSpec {
             role: "value".into(),
             variadic: false,
+            optional: false,
         },
     ]))
     .unwrap();

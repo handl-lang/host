@@ -105,6 +105,7 @@ fn merge_roles(lang: &mut Language, kind: &str, roles: &[&str]) {
                     .map(|r| ChildRoleSpec {
                         role: (*r).into(),
                         variadic: false,
+                        optional: false,
                     })
                     .collect(),
             ),
