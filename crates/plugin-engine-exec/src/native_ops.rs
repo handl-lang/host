@@ -260,6 +260,19 @@ pub trait NativeOpCtx {
     /// `$payload` resolution). `None` when no node context is available.
     fn node_payload(&self) -> Option<&Value>;
 
+    /// The payload of an arbitrary arena node — a *read*, not evaluation
+    /// (`json`'s template child is a raw string leaf; evaluating it would
+    /// run its own `json` scheme and parse the template prematurely).
+    /// Engines that report [`OpService::EvalNode`] have the arena.
+    fn node_payload_at(&mut self, r: AstRef) -> Option<Value>;
+
+    /// Resolve the named child `role` of the node whose scheme is running
+    /// to its position in the node's `children` array (ADR-0081 —
+    /// `Language::child_role_index` semantics). `None` when the shape
+    /// declares no such role or the engine has no `Language`; the op then
+    /// applies its documented positional default.
+    fn child_role_index(&mut self, role: &str) -> Option<usize>;
+
     /// Evaluate the AST node at `r`.
     ///
     /// # Errors
@@ -477,6 +490,30 @@ pub fn apply_native_op(
                 }
                 Ok((TaggedValue::Arr(Rc::from(vals)), false))
             }
+        }
+        // ADR-0060: `proj_rest` — evaluate all children after index 0 and
+        // return them as an array. `eval.call` uses it to collect the
+        // variable-arity argument list into a single array value.
+        "proj_rest" => {
+            if !ctx.supports(OpService::EvalNode) {
+                return Ok(None);
+            }
+            let children = ctx
+                .node_payload()
+                .and_then(|p| p.get("children"))
+                .and_then(|c| c.as_array())
+                .cloned()
+                .ok_or_else(|| {
+                    LangError::engine("proj_rest: expected children array in payload".to_string())
+                })?;
+            let mut vals = Vec::new();
+            for entry in children.iter().skip(1) {
+                let idx = entry.as_u64().ok_or_else(|| {
+                    LangError::engine("proj_rest: child index must be a number".to_string())
+                })? as usize;
+                vals.push(ctx.eval_node(AstRef::new(idx))?);
+            }
+            Ok((TaggedValue::Arr(Rc::from(vals)), false))
         }
         // --- arithmetic / comparison -------------------------------------
         "add" => bin_add(args).map(|v| (v, false)),
@@ -799,6 +836,13 @@ pub fn apply_native_op(
         }
         // --- option / field ops -------------------------------------------
         "nullish" => {
+            // `a ?? b`: `null`/`None` coalesce to `b`, `Some(v)` unwraps
+            // to `v`, and any other (non-null) value passes through as
+            // itself. The final arm used to return `right` — `3 ?? 7`
+            // yielded `7` — contradicting the `eval.nullish` scheme,
+            // which routes a truthy left through `tag`/`Choice` back to
+            // `proj_child 0`, i.e. `a` itself. Pass-through is the
+            // intended semantics; `None` still coalesces (restored arm).
             let left = args.first().cloned().unwrap_or(TaggedValue::Null);
             let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
             if left.is_null() {
@@ -806,8 +850,10 @@ pub fn apply_native_op(
             } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
                 let inner = left.get("value").cloned().unwrap_or(TaggedValue::Null);
                 Ok((inner, false))
-            } else {
+            } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
                 Ok((right, false))
+            } else {
+                Ok((left, false))
             }
         }
         "opt_chain" => {
@@ -901,6 +947,230 @@ pub fn apply_native_op(
                     type_tag(&target),
                     type_tag(&index),
                 ))),
+            }
+        }
+        // `field_access` — dynamic field access `target.field` /
+        // `target[i]` (ADR-0060). The field resolves from the node's
+        // `payload.field` first (the `field-access` surface), then the
+        // second evaluated arg (`eval.field-access`'s `proj_child 1`),
+        // then the op literal (the arrow-lowered
+        // `op_native_lit("field_access", [target], field)` surface —
+        // backends that cannot carry `lit` simply never reach that arm).
+        // Unlike `index`, a missing object key yields `null`; the
+        // pair/either/arrow projections expose the wire shapes' named
+        // views (tree-walk semantics — canonical).
+        "field_access" => {
+            let target = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let field = ctx
+                .node_payload()
+                .and_then(|p| p.get("field"))
+                .and_then(|v| v.as_str())
+                .map(|s| TaggedValue::Str(Rc::from(s)))
+                .or_else(|| args.get(1).cloned())
+                .or_else(|| lit.cloned().map(TaggedValue::from))
+                .unwrap_or(TaggedValue::Null);
+            match (target, field) {
+                (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
+                    let v = map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null);
+                    Ok((v, false))
+                }
+                (TaggedValue::Arr(arr), field) => {
+                    let i = field
+                        .as_f64()
+                        .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                        .map(|n| n as usize)
+                        .ok_or_else(|| {
+                            LangError::engine(
+                                "field_access: array index must be a non-negative integer"
+                                    .to_string(),
+                            )
+                        })?;
+                    arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
+                        LangError::engine(format!(
+                            "field_access: index {i} out of bounds (len {})",
+                            arr.len()
+                        ))
+                    })
+                }
+                (TaggedValue::Pair(p), TaggedValue::Str(key)) => match key.as_ref() {
+                    "first" => Ok((p.0.clone(), false)),
+                    "second" => Ok((p.1.clone(), false)),
+                    "_tag" => Ok((TaggedValue::Str(Rc::from("Pair")), false)),
+                    _ => Ok((TaggedValue::Null, false)),
+                },
+                (TaggedValue::EitherLeft(v), TaggedValue::Str(key)) => match key.as_ref() {
+                    "_tag" | "tag" => Ok((TaggedValue::Str(Rc::from("left")), false)),
+                    "value" => Ok((v.as_ref().clone(), false)),
+                    _ => Ok((TaggedValue::Null, false)),
+                },
+                (TaggedValue::EitherRight(v), TaggedValue::Str(key)) => match key.as_ref() {
+                    "_tag" | "tag" => Ok((TaggedValue::Str(Rc::from("right")), false)),
+                    "value" => Ok((v.as_ref().clone(), false)),
+                    _ => Ok((TaggedValue::Null, false)),
+                },
+                (
+                    TaggedValue::Arrow {
+                        params,
+                        rest,
+                        body,
+                        env,
+                        home,
+                        array_pattern,
+                        ..
+                    },
+                    TaggedValue::Str(key),
+                ) => match key.as_ref() {
+                    "__arrow__" => Ok((TaggedValue::Bool(true), false)),
+                    "params" => {
+                        let arr: Vec<TaggedValue> = params
+                            .iter()
+                            .map(|p| TaggedValue::Str(Rc::from(p.as_str())))
+                            .collect();
+                        Ok((TaggedValue::Arr(Rc::from(arr)), false))
+                    }
+                    "rest" => match rest {
+                        Some(r) => Ok((TaggedValue::Str(r.clone()), false)),
+                        None => Ok((TaggedValue::Null, false)),
+                    },
+                    "body" => Ok((TaggedValue::Int(body as i64), false)),
+                    "env" => Ok((TaggedValue::Obj(Rc::clone(&env)), false)),
+                    "home" => match home {
+                        Some(id) => Ok((TaggedValue::Int(id as i64), false)),
+                        None => Ok((TaggedValue::Null, false)),
+                    },
+                    "array_pattern" => Ok((TaggedValue::Bool(array_pattern), false)),
+                    _ => Ok((TaggedValue::Null, false)),
+                },
+                (TaggedValue::Str(s), TaggedValue::Str(key)) => {
+                    let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
+                    Ok((TaggedValue::Str(joined), false))
+                }
+                (target, field) => Err(LangError::engine(format!(
+                    "field_access: target must be object/array, field must be string/number; got {} and {}",
+                    type_tag(&target),
+                    type_tag(&field),
+                ))),
+            }
+        }
+        // ADR-0060 `json` — template substitution: `$i` holes in the
+        // template string are replaced by the JSON serialization of the
+        // argument values, then the result parses as JSON. Two surfaces,
+        // one semantics:
+        // - node form (`eval.json` scheme): the node's `payload.children`
+        //   hold `[template_leaf, arg…]`; the template is the leaf's
+        //   *payload string* (read, not evaluated), the args are
+        //   evaluated via `EvalNode`.
+        // - term form (arrow-lowered `op_native_lit("json", args, t)`):
+        //   `lit` is the template and `args` are already evaluated —
+        //   the `term_interpreter` convention.
+        // With neither, a string payload parses directly.
+        "json" => {
+            if let Some(template) = lit.and_then(|v| v.as_str()) {
+                let mut s = template.to_string();
+                for (i, arg) in args.iter().enumerate() {
+                    let replacement = serde_json::to_string(&handl_value::tagged_to_value(arg))
+                        .map_err(|e| LangError::engine(format!("json: {}", e)))?;
+                    s = s.replace(&format!("${}", i), &replacement);
+                }
+                return serde_json::from_str::<Value>(&s)
+                    .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
+                    .map(|v| Some((TaggedValue::from(v), false)));
+            }
+            let children = ctx
+                .node_payload()
+                .and_then(|p| p.get("children"))
+                .and_then(|c| c.as_array())
+                .cloned();
+            if let Some(children) = children {
+                if children.len() >= 2 {
+                    if !ctx.supports(OpService::EvalNode) {
+                        return Ok(None);
+                    }
+                    let template_idx = children[0].as_u64().ok_or_else(|| {
+                        LangError::engine("json: child index must be a number".to_string())
+                    })? as usize;
+                    let template = ctx
+                        .node_payload_at(AstRef::new(template_idx))
+                        .and_then(|p| p.as_str().map(str::to_string))
+                        .ok_or_else(|| {
+                            LangError::engine("json: template payload must be a string".to_string())
+                        })?;
+                    let mut s = template;
+                    for (i, entry) in children[1..].iter().enumerate() {
+                        let idx = entry.as_u64().ok_or_else(|| {
+                            LangError::engine("json: child index must be a number".to_string())
+                        })? as usize;
+                        let val = ctx.eval_node(AstRef::new(idx))?;
+                        let replacement =
+                            serde_json::to_string(&handl_value::tagged_to_value(&val))
+                                .map_err(|e| LangError::engine(format!("json: {}", e)))?;
+                        s = s.replace(&format!("${}", i), &replacement);
+                    }
+                    return serde_json::from_str::<Value>(&s)
+                        .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
+                        .map(|v| Some((TaggedValue::from(v), false)));
+                }
+            }
+            let expr = ctx
+                .node_payload()
+                .and_then(|p| p.as_str())
+                .ok_or_else(|| LangError::engine("json: payload must be a string".to_string()))?;
+            serde_json::from_str::<Value>(expr)
+                .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
+                .map(|v| (TaggedValue::from(v), false))
+        }
+        // ADR-0068 `runtime_assert` — graduated guarantees: the runtime
+        // backstop for predicate annotations the typechecker could not
+        // normalize statically (`Verdict::Blocked`). The node carries two
+        // children — `predicate` (a closure over the expr's value
+        // returning bool) and `expr` — whose positions resolve by named
+        // role (`ctx.child_role_index`), falling back to positional
+        // [0, 1] for role-less shapes. A non-arrow predicate passes the
+        // value through unchecked (the typechecker already accepted it
+        // statically).
+        "runtime_assert" => {
+            if !ctx.supports(OpService::EvalNode) || !ctx.supports(OpService::ApplyArrow) {
+                return Ok(None);
+            }
+            let children = ctx
+                .node_payload()
+                .and_then(|p| p.get("children"))
+                .and_then(|c| c.as_array())
+                .cloned()
+                .ok_or_else(|| {
+                    LangError::engine(
+                        "runtime_assert: expected children array in payload".to_string(),
+                    )
+                })?;
+            let pred_idx = ctx.child_role_index("predicate").unwrap_or(0);
+            let expr_idx = ctx.child_role_index("expr").unwrap_or(1);
+            let pred_arena = children
+                .get(pred_idx)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::engine(format!(
+                        "runtime_assert: predicate child {} not found",
+                        pred_idx
+                    ))
+                })? as usize;
+            let expr_arena = children
+                .get(expr_idx)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::engine(format!("runtime_assert: expr child {} not found", expr_idx))
+                })? as usize;
+            let pred_val = ctx.eval_node(AstRef::new(pred_arena))?;
+            let expr_val = ctx.eval_node(AstRef::new(expr_arena))?;
+            if !matches!(pred_val, TaggedValue::Arrow { .. }) {
+                return Ok(Some((expr_val, false)));
+            }
+            let check_result = ctx.apply_arrow(&pred_val, &[expr_val.clone()])?;
+            if is_truthy(&check_result) {
+                Ok((expr_val, false))
+            } else {
+                Err(LangError::engine(
+                    "runtime_assert: assertion failed — predicate returned false".to_string(),
+                ))
             }
         }
         op if op == "route_on_type" || op.starts_with("route_on_type:") => {

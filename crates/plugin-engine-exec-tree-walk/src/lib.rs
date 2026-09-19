@@ -108,7 +108,7 @@ use handl_language::{
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_exec::native_ops::{
     self, NativeOpCtx, OpService, build_loop_step_args, is_truthy, loop_step_outcome,
-    step_decision, type_tag,
+    step_decision,
 };
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
@@ -2792,7 +2792,6 @@ impl TreeWalkEngine {
             }
             "match" => self.prim_match(ast, lang, env, current_node),
             "handle" => self.prim_handle(ast, lang, env, current_node),
-            "json" => self.prim_json(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
             // Phase 9.5: import/export. The eval schemes for `stmt.import`
             // and `stmt.export` are `Arr { op: import/export, source: Native }`,
@@ -2882,32 +2881,6 @@ impl TreeWalkEngine {
                     .call(&call_args, &mut pctx)
                     .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
                 Ok((TaggedValue::from(val), false))
-            }
-            // ADR-0060: proj_rest — evaluate all children after index 0 and
-            // return them as a JSON array. Used by eval.call to collect the
-            // variable-arity argument list into a single array value.
-            "proj_rest" => {
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "proj_rest: expected children array in payload".to_string(),
-                            current_node,
-                        )
-                    })?;
-                let mut vals = Vec::new();
-                for entry in children.iter().skip(1) {
-                    let idx = entry.as_u64().ok_or_else(|| {
-                        LangError::engine_node(
-                            "proj_rest: child index must be a number".to_string(),
-                            current_node,
-                        )
-                    })? as usize;
-                    vals.push(self.eval_node_inner(ast, AstRef::new(idx), lang, env)?);
-                }
-                Ok((TaggedValue::Arr(Rc::from(vals)), false))
             }
             // ADR-0079: `eval_let` removed (let keyword deleted, graph blocks
             // replace it). The `eval_block` handler now handles assign children.
@@ -3029,107 +3002,6 @@ impl TreeWalkEngine {
             // dependencies have values. This allows mutually-dependent
             // bindings to converge regardless of their textual order.
             "eval_rec" => self.prim_eval_rec(ast, lang, env, current_node),
-            "field_access" => {
-                let target = args.first().cloned().unwrap_or(TaggedValue::Null);
-                let field = current_node
-                    .payload
-                    .get("field")
-                    .and_then(|v| v.as_str())
-                    .map(|s| TaggedValue::Str(Rc::from(s)))
-                    .or_else(|| args.get(1).cloned())
-                    .unwrap_or(TaggedValue::Null);
-                match (target, field) {
-                    (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
-                        let v = map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null);
-                        Ok((v, false))
-                    }
-                    (TaggedValue::Arr(arr), field) => {
-                        let i = field
-                            .as_f64()
-                            .filter(|n| *n >= 0.0 && n.fract() == 0.0)
-                            .map(|n| n as usize)
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "field_access: array index must be a non-negative integer"
-                                        .to_string(),
-                                    current_node,
-                                )
-                            })?;
-                        arr.get(i).cloned().map(|v| (v, false)).ok_or_else(|| {
-                            LangError::engine_node(
-                                format!(
-                                    "field_access: index {i} out of bounds (len {})",
-                                    arr.len()
-                                ),
-                                current_node,
-                            )
-                        })
-                    }
-                    (TaggedValue::Pair(p), TaggedValue::Str(key)) => match key.as_ref() {
-                        "first" => Ok((p.0.clone(), false)),
-                        "second" => Ok((p.1.clone(), false)),
-                        "_tag" => Ok((TaggedValue::Str(Rc::from("Pair")), false)),
-                        _ => Ok((TaggedValue::Null, false)),
-                    },
-                    (TaggedValue::EitherLeft(v), TaggedValue::Str(key)) => match key.as_ref() {
-                        "_tag" => Ok((TaggedValue::Str(Rc::from("left")), false)),
-                        "tag" => Ok((TaggedValue::Str(Rc::from("left")), false)),
-                        "value" => Ok((v.as_ref().clone(), false)),
-                        _ => Ok((TaggedValue::Null, false)),
-                    },
-                    (TaggedValue::EitherRight(v), TaggedValue::Str(key)) => match key.as_ref() {
-                        "_tag" => Ok((TaggedValue::Str(Rc::from("right")), false)),
-                        "tag" => Ok((TaggedValue::Str(Rc::from("right")), false)),
-                        "value" => Ok((v.as_ref().clone(), false)),
-                        _ => Ok((TaggedValue::Null, false)),
-                    },
-                    (
-                        TaggedValue::Arrow {
-                            params,
-                            rest,
-                            body,
-                            env,
-                            home,
-                            array_pattern,
-                            ..
-                        },
-                        TaggedValue::Str(key),
-                    ) => match key.as_ref() {
-                        "__arrow__" => Ok((TaggedValue::Bool(true), false)),
-                        "params" => {
-                            let arr: Vec<TaggedValue> = params
-                                .iter()
-                                .map(|p| TaggedValue::Str(Rc::from(p.as_str())))
-                                .collect();
-                            Ok((TaggedValue::Arr(Rc::from(arr)), false))
-                        }
-                        "rest" => match rest {
-                            Some(r) => Ok((TaggedValue::Str(r), false)),
-                            None => Ok((TaggedValue::Null, false)),
-                        },
-                        "body" => Ok((TaggedValue::Int(body as i64), false)),
-                        "env" => Ok((TaggedValue::Obj(Rc::clone(&env)), false)),
-                        "home" => match home {
-                            Some(id) => Ok((TaggedValue::Int(id as i64), false)),
-                            None => Ok((TaggedValue::Null, false)),
-                        },
-                        "array_pattern" => Ok((TaggedValue::Bool(array_pattern), false)),
-                        _ => Ok((TaggedValue::Null, false)),
-                    },
-                    (TaggedValue::Str(s), TaggedValue::Str(key)) => {
-                        let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
-                        Ok((TaggedValue::Str(joined), false))
-                    }
-                    (target, field) => Err(LangError::engine_node(
-                        format!(
-                            "field_access: target must be object/array, field must be string/number; got {} and {}",
-                            type_tag(&target),
-                            type_tag(&field),
-                        ),
-                        current_node,
-                    )),
-                }
-            }
             // `arrow_field` — extract `inputs`/`grade`/`output` from an arrow value.
             // Handles both tagged `Arrow` records produced by `graded_arrow` and
             // `TaggedValue::Arrow` closures produced by ungraded `~>`.
@@ -3306,85 +3178,6 @@ impl TreeWalkEngine {
                         };
                         Ok((err_value(failure), false))
                     }
-                }
-            }
-            "runtime_assert" => {
-                // ADR-0068 graduated guarantees: runtime backstop for
-                // predicate annotations the typechecker could not normalize
-                // statically (`Verdict::Blocked`). The `runtime-assert` node
-                // has two children — `predicate` (a closure that takes the
-                // expr's value and returns bool) and `expr` (the expression
-                // to check). The op evaluates the predicate, evaluates the
-                // expr, applies the predicate to the expr value, and either
-                // returns the value (pass-through) or raises a `LangError`.
-                //
-                // Child positions are resolved by named role
-                // (`lang.child_role_index`), falling back to positional
-                // [0, 1] when the shape declares no roles (engine-genericity
-                // rule, ADR-0081).
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::engine_node(
-                            "runtime_assert: expected children array in payload".to_string(),
-                            current_node,
-                        )
-                    })?;
-                let pred_idx = role_index_of(lang, &current_node.kind, "predicate").unwrap_or(0);
-                let expr_idx = role_index_of(lang, &current_node.kind, "expr").unwrap_or(1);
-                let pred_arena =
-                    children
-                        .get(pred_idx)
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                format!("runtime_assert: predicate child {} not found", pred_idx),
-                                current_node,
-                            )
-                        })? as usize;
-                let expr_arena =
-                    children
-                        .get(expr_idx)
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                format!("runtime_assert: expr child {} not found", expr_idx),
-                                current_node,
-                            )
-                        })? as usize;
-                // 1. Evaluate the predicate child → closure.
-                let pred_val = self.eval_node_inner(ast, AstRef::new(pred_arena), lang, env)?;
-                // 2. Evaluate the expr child → value.
-                let expr_val = self.eval_node_inner(ast, AstRef::new(expr_arena), lang, env)?;
-                // 3. If the predicate is not a closure (e.g. a plain type
-                //    tag from a non-predicate annotation that was wrapped
-                //    by the over-eager lowering pass), pass through without
-                //    checking — the typechecker already accepted it
-                //    statically.
-                if !matches!(pred_val, TaggedValue::Arrow { .. }) {
-                    return Ok((expr_val, false));
-                }
-                // 4. Apply the closure to the value → bool.
-                let check_result = self.apply_app(
-                    &pred_val,
-                    &[expr_val.clone()],
-                    ast,
-                    lang,
-                    env,
-                    node_ref,
-                    current_node,
-                )?;
-                // 5. If true → return the value (pass-through).
-                //    If false → raise LangError.
-                if is_truthy(&check_result) {
-                    Ok((expr_val, false))
-                } else {
-                    Err(LangError::engine_node(
-                        "runtime_assert: assertion failed — predicate returned false".to_string(),
-                        current_node,
-                    ))
                 }
             }
             // ADR-0074 follow-up #3: `>>>` (`flow`) — function application
@@ -4372,76 +4165,6 @@ impl TreeWalkEngine {
 
         // No clause matched — return the body value as-is.
         Ok((body_val, false))
-    }
-
-    /// `json` op: parse a JSON template string from the node payload.
-    ///
-    /// The payload is a JSON string (produced by `LiteralKind::StripAffix`
-    /// from the `json{...}` token text, ADR-0053). When the `json` node has
-    /// children (i.e. `json{...}(args)` desugared by ADR-0060), child 0 is
-    /// the original `json` template node and children 1..N are the argument
-    /// expressions. This prim evaluates the args and performs $0/$1/…
-    /// placeholder substitution into the template string before parsing.
-    fn prim_json(
-        &self,
-        ast: &Ast,
-        lang: &Language,
-        env: &mut ScopeStack,
-        current_node: &AstNode,
-    ) -> Result<(TaggedValue, bool), LangError> {
-        // ADR-0060: if the json node has children (desugared from
-        // json{...}(args)), child 0 is the template node, children 1..N
-        // are the args. Evaluate args and substitute $0, $1, … into the
-        // template string.
-        if let Some(children) = current_node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-        {
-            if children.len() >= 2 {
-                // Child 0 is the original json template node.
-                let template_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine_node(
-                        "json: child index must be a number".to_string(),
-                        current_node,
-                    )
-                })? as usize;
-                let template_node = ast.at(AstRef::new(template_idx))?;
-                let template = template_node.payload.as_str().ok_or_else(|| {
-                    LangError::engine_node(
-                        "json: template payload must be a string".to_string(),
-                        current_node,
-                    )
-                })?;
-                let mut s = template.to_string();
-                for (i, arg_entry) in children[1..].iter().enumerate() {
-                    let idx = arg_entry.as_u64().ok_or_else(|| {
-                        LangError::engine_node(
-                            "json: child index must be a number".to_string(),
-                            current_node,
-                        )
-                    })? as usize;
-                    let val = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
-                    let replacement =
-                        serde_json::to_string(&tagged_to_value(&val)).map_err(|e| {
-                            LangError::engine_node(format!("json: {}", e), current_node)
-                        })?;
-                    s = s.replace(&format!("${}", i), &replacement);
-                }
-                return serde_json::from_str::<Value>(&s)
-                    .map_err(|e| {
-                        LangError::engine_node(format!("json: parse error: {}", e), current_node)
-                    })
-                    .map(|v| (TaggedValue::from(v), false));
-            }
-        }
-        // No children: parse the payload string as JSON directly.
-        let expr = current_node.payload.as_str().ok_or_else(|| {
-            LangError::engine_node("json: payload must be a string".to_string(), current_node)
-        })?;
-        serde_json::from_str::<Value>(expr)
-            .map_err(|e| LangError::engine_node(format!("json: parse error: {}", e), current_node))
-            .map(|v| (TaggedValue::from(v), false))
     }
 
     /// `eval_rec` op: recursive computation region (ADR-0074).
@@ -5675,6 +5398,14 @@ impl NativeOpCtx for TwCtx<'_, '_> {
 
     fn node_payload(&self) -> Option<&Value> {
         Some(&self.current_node.payload)
+    }
+
+    fn node_payload_at(&mut self, r: AstRef) -> Option<Value> {
+        self.ast.at(r).ok().map(|n| n.payload.clone())
+    }
+
+    fn child_role_index(&mut self, role: &str) -> Option<usize> {
+        role_index_of(self.lang, &self.current_node.kind, role)
     }
 
     fn eval_node(&mut self, r: AstRef) -> Result<TaggedValue, LangError> {

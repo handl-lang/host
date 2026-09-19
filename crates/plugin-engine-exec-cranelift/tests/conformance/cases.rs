@@ -955,11 +955,24 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("nullish", vec![lit(3), lit(7)]),
         None,
+        engines_ok(json!(3)),
+        "fixed in Phase B batch (a): a non-null, non-option left operand \
+         passes through (`3 ?? 7` → 3), matching the `eval.nullish` \
+         `tag`/`Choice` scheme. `null`/`None` still coalesce to `right` \
+         and `Some(v)` unwraps.",
+    ));
+    out.push(case(
+        "nullish_none",
+        cat,
+        op(
+            "nullish",
+            vec![lit(json!({"_tag": "None"})), lit(7)],
+        ),
+        None,
         engines_ok(json!(7)),
-        "SUSPECTED BUG (native_ops, all engines agree): `3 ?? 7` yields \
-         7 — a non-null, non-`Some` left operand falls into the final \
-         `else` and returns `right`. Consensus-correct by construction \
-         (shared op table), likely wrong semantics — expected `left` = 3.",
+        "`None ?? 7` → 7 — the `None` arm was restored with the \
+         pass-through fix (it had been dropped in the original \
+         migration).",
     ));
     out.push(case(
         "opt_chain",
@@ -1313,6 +1326,179 @@ pub fn cases() -> Vec<Case> {
          op at all — a coverage gap on the compiled backends.",
     ));
 
+    // ================= Phase B batch (a): ops migrated to native_ops ====
+    let cat = "batch-a";
+    out.push(case(
+        "field_access_obj",
+        cat,
+        op("field_access", vec![lit(json!({"a": 5, "b": 6})), lit("b")]),
+        None,
+        [
+            Expect::Val(json!(6)),
+            Expect::Val(json!(6)),
+            Expect::Val(json!(6)),
+            Expect::DivErr("field literal"),
+        ],
+        "args form (`eval.field-access`): engines resolve the field as \
+         `payload.field → args[1] → lit`. term-interp's `field_access` \
+         only takes the field as `lit` — a surface split, not a \
+         semantics split.",
+    ));
+    out.push(case(
+        "field_access_missing_key",
+        cat,
+        op("field_access", vec![lit(json!({"a": 5})), lit("zzz")]),
+        None,
+        [
+            Expect::Val(Value::Null),
+            Expect::Val(Value::Null),
+            Expect::Val(Value::Null),
+            Expect::DivErr("field literal"),
+        ],
+        "unlike `index`, a missing object key yields `null` (not an \
+         error) — tree-walk semantics, now shared.",
+    ));
+    out.push(case(
+        "field_access_arr",
+        cat,
+        op("field_access", vec![lit(json!([10, 20, 30])), lit(2)]),
+        None,
+        [
+            Expect::Val(json!(30)),
+            Expect::Val(json!(30)),
+            Expect::Val(json!(30)),
+            Expect::DivErr("field literal"),
+        ],
+        "array + integer field → element access.",
+    ));
+    out.push(case(
+        "field_access_pair",
+        cat,
+        op("field_access", vec![lit(pairv(1, 2)), lit("first")]),
+        None,
+        [
+            Expect::Val(json!(1)),
+            Expect::Val(json!(1)),
+            Expect::Val(json!(1)),
+            Expect::DivErr("field literal"),
+        ],
+        "categorical `Pair` named views (`first`/`second`/`_tag`) — the \
+         compiled backends gained these arms via unification; only \
+         tree-walk had them before.",
+    ));
+    out.push(case(
+        "field_access_str_join",
+        cat,
+        op("field_access", vec![lit("str"), lit("length")]),
+        None,
+        [
+            Expect::Val(json!("str.length")),
+            Expect::Val(json!("str.length")),
+            Expect::Val(json!("str.length")),
+            Expect::DivErr("field literal"),
+        ],
+        "string target joins `s.field` — the `str.length`-style host-path \
+         convention.",
+    ));
+    out.push(case(
+        "field_access_lit",
+        cat,
+        TermData::op(
+            "field_access",
+            vec![lit(json!({"a": 9}))],
+            &ArrSource::Native,
+            Some(json!("a")),
+        ),
+        None,
+        [
+            Expect::Val(json!(9)),
+            Expect::DivErr("string/number"),
+            Expect::DivErr("string/number"),
+            Expect::Val(json!(9)),
+        ],
+        "lit form (arrow-lowered `op_native_lit` surface): tree-walk and \
+         term-interp read the field from `lit`; bytecode/clif `NativeOp` \
+         cannot carry `lit`, so the field arrives `null` — documented \
+         plumbing gap, unchanged by the migration.",
+    ));
+    out.push(case(
+        "proj_rest",
+        cat,
+        op("proj_rest", vec![]),
+        None,
+        engines_ok(json!([5, "x"])),
+        "EvalNode-gated: evaluates children 1..N into an array — \
+         `eval.call`'s variadic argument packing. term-interp has no \
+         `proj_rest` arm.",
+    ));
+    out.push(case(
+        "json_node_form",
+        cat,
+        op("json", vec![]),
+        None,
+        [
+            Expect::Val(json!({"a": 5, "b": "x"})),
+            Expect::Val(json!({"a": 5, "b": "x"})),
+            Expect::Val(json!({"a": 5, "b": "x"})),
+            Expect::DivErr("missing template literal"),
+        ],
+        "`eval.json` surface: `payload.children` = [template leaf, \
+         args…]; the template is the leaf's raw payload (read via \
+         `node_payload_at`, not evaluated) and `$i` holes take the \
+         evaluated children. term-interp only knows the lit form.",
+    ));
+    out.push(case(
+        "json_term_form",
+        cat,
+        TermData::op(
+            "json",
+            vec![lit(7)],
+            &ArrSource::Native,
+            Some(json!("{\"v\": $0}")),
+        ),
+        None,
+        all_ok(json!({"v": 7})),
+        "term form (arrow-lowered surface): `lit` is the template, args \
+         are pre-evaluated — tree-walk/term-interp take it directly; \
+         bytecode/clif drop `lit` at compile and reach the same result \
+         via the node form (probe children carry an identical template \
+         leaf).",
+    ));
+    out.push(case(
+        "runtime_assert_pass",
+        cat,
+        op("runtime_assert", vec![]),
+        None,
+        engines_ok(json!(5)),
+        "children [predicate, expr]: the `x ~> x > 0` closure applied to \
+         5 returns truthy → pass-through. term-interp has no \
+         `runtime_assert` arm.",
+    ));
+    out.push(case(
+        "runtime_assert_fail",
+        cat,
+        op("runtime_assert", vec![]),
+        None,
+        [
+            Expect::Err("assertion failed"),
+            Expect::Err("assertion failed"),
+            Expect::Err("assertion failed"),
+            Expect::Unsupported,
+        ],
+        "predicate `x ~> x > 0` applied to -1 → false → LangError on all \
+         three engines.",
+    ));
+    out.push(case(
+        "runtime_assert_passthrough",
+        cat,
+        op("runtime_assert", vec![]),
+        None,
+        engines_ok(json!(8)),
+        "a non-arrow predicate (a plain value — e.g. a type tag the \
+         lowering wrapped anyway) passes the expr value through \
+         unchecked.",
+    ));
+
     // Wire up the probe nodes every case needs (indices referenced by
     // `arrow`/`arrow_pat` body fields):
     //
@@ -1356,6 +1542,49 @@ pub fn cases() -> Vec<Case> {
         if case.name == "child_role" {
             case.nodes = vec![leaf(json!(33))];
             case.roles = vec!["value"];
+        }
+        if case.name == "proj_rest" {
+            // children[1..] are the evaluated varargs — child 0 is
+            // skipped (call position).
+            case.nodes = vec![leaf(json!(0)), leaf(json!(5)), leaf(json!("x"))];
+        }
+        if case.name == "json_node_form" {
+            // children[0] is the template leaf (raw payload — NOT
+            // evaluated); children[1..] evaluate to the `$i` arguments.
+            case.nodes = vec![
+                leaf(json!("{\"a\": $0, \"b\": $1}")),
+                leaf(json!(5)),
+                leaf(json!("x")),
+            ];
+        }
+        if case.name == "json_term_form" {
+            // bytecode/clif drop the `lit` template at compile — the same
+            // template is also provided as a leaf so the node form
+            // produces the identical value.
+            case.nodes = vec![leaf(json!("{\"v\": $0}")), leaf(json!(7))];
+        }
+        if case.name == "runtime_assert_pass" || case.name == "runtime_assert_fail" {
+            // children[0] = predicate producer (evaluates to the arrow
+            // `x ~> x > 0`, whose body is arena index 2);
+            // children[1] = the expr under test.
+            let expr = if case.name == "runtime_assert_pass" {
+                json!(5)
+            } else {
+                json!(-1)
+            };
+            case.nodes = vec![
+                schemed("fn.pred_wrap", lit(arrow(&["x"], 2))),
+                leaf(expr),
+                schemed(
+                    "fn.gt0",
+                    op("gt", vec![op_lit("proj_env", json!("x")), lit(0)]),
+                ),
+            ];
+        }
+        if case.name == "runtime_assert_passthrough" {
+            // children[0] evaluates to a non-arrow value — the shared op
+            // skips application and passes the expr value through.
+            case.nodes = vec![leaf(json!(true)), leaf(json!(8))];
         }
     }
 

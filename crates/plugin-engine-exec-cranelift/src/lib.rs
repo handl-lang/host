@@ -132,7 +132,7 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Term, Value};
 use handl_plugin_engine_exec::native_ops::{
     self, NativeOpCtx, OpService, build_loop_step_args, is_truthy, loop_step_outcome,
-    step_decision, type_tag,
+    step_decision,
 };
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
@@ -4093,6 +4093,21 @@ impl NativeOpCtx for ClCtx<'_> {
         self.ctx.current_node().ok().map(|n| &n.payload)
     }
 
+    fn node_payload_at(&mut self, r: AstRef) -> Option<Value> {
+        self.ctx.ast_at(r).ok().map(|n| n.payload.clone())
+    }
+
+    fn child_role_index(&mut self, role: &str) -> Option<usize> {
+        if self.ctx.lang.is_null() {
+            return None;
+        }
+        let node = self.ctx.current_node().ok()?;
+        // SAFETY: ctx.lang is a valid pointer for the duration of run_native.
+        unsafe { (*self.ctx.lang).child_role_index(&node.kind, role) }
+            .ok()
+            .flatten()
+    }
+
     fn eval_node(&mut self, r: AstRef) -> Result<TaggedValue, LangError> {
         eval_child_node(self.ctx, r.index())
     }
@@ -4202,152 +4217,8 @@ fn apply_native_v2(
         "object" => {
             return prim_v2_object(ctx);
         }
-        "field_access" => {
-            let target = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let field = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            match (target, field) {
-                (TaggedValue::Obj(map), TaggedValue::Str(key)) => {
-                    Ok(map.get(key.as_ref()).cloned().unwrap_or(TaggedValue::Null))
-                }
-                (TaggedValue::Arr(arr), field) => {
-                    let i = match field
-                        .as_f64()
-                        .filter(|n| *n >= 0.0 && n.fract() == 0.0)
-                        .map(|n| n as usize)
-                    {
-                        Some(i) => i,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "field_access: array index must be a non-negative integer"
-                                    .to_string(),
-                            ));
-                        }
-                    };
-                    arr.get(i).cloned().ok_or_else(|| {
-                        LangError::engine(format!(
-                            "field_access: index {i} out of bounds (len {})",
-                            arr.len()
-                        ))
-                    })
-                }
-                (TaggedValue::Str(s), TaggedValue::Str(key)) => {
-                    let joined: Rc<str> = Rc::from(format!("{}.{}", s.as_ref(), key.as_ref()));
-                    Ok(TaggedValue::Str(joined))
-                }
-                (target, field) => Err(LangError::engine(format!(
-                    "field_access: target must be object/array, field must be string/number; got {} and {}",
-                    type_tag(&target),
-                    type_tag(&field),
-                ))),
-            }
-        }
         "assign" => {
             return prim_v2_assign(ctx);
-        }
-        "json" => {
-            let node = match ctx.current_node() {
-                Ok(n) => n,
-                Err(e) => return ctx.set_error(e),
-            };
-            let children_opt = node
-                .payload
-                .get("children")
-                .and_then(|c| c.as_array())
-                .cloned();
-            let payload_str = node.payload.as_str().map(|s| s.to_string());
-            if let Some(children) = children_opt {
-                if children.len() >= 2 {
-                    let template_idx = match children[0].as_u64() {
-                        Some(v) => v as usize,
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "json: child index must be a number".to_string(),
-                            ));
-                        }
-                    };
-                    let template_node = match ctx.ast_at(AstRef::new(template_idx)) {
-                        Ok(n) => n,
-                        Err(e) => return ctx.set_error(e),
-                    };
-                    let template = match template_node.payload.as_str() {
-                        Some(s) => s.to_string(),
-                        None => {
-                            return ctx.set_error(LangError::engine(
-                                "json: template payload must be a string".to_string(),
-                            ));
-                        }
-                    };
-                    let mut s = template;
-                    let saved_ref = ctx.current_ref;
-                    for (i, entry) in children[1..].iter().enumerate() {
-                        let idx = match entry.as_u64() {
-                            Some(v) => v as usize,
-                            None => {
-                                ctx.current_ref = saved_ref;
-                                return ctx.set_error(LangError::engine(
-                                    "json: child index must be a number".to_string(),
-                                ));
-                            }
-                        };
-                        let func = match ctx.compiled.get(&idx).copied() {
-                            Some(f) => f,
-                            None => {
-                                ctx.current_ref = saved_ref;
-                                return ctx.set_error(LangError::engine(format!(
-                                    "json: no compiled function for node {}",
-                                    idx
-                                )));
-                            }
-                        };
-                        ctx.current_ref = idx;
-                        let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
-                        let result_ptr =
-                            unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
-                        if result_ptr.is_null() {
-                            ctx.current_ref = saved_ref;
-                            let err = ctx.error.take().unwrap_or_else(|| {
-                                LangError::engine("json: child returned null".to_string())
-                            });
-                            return ctx.set_error(err);
-                        }
-                        // SAFETY: result_ptr is non-null and was boxed by the
-                        // child function via box_value. Clone the value then
-                        // reclaim the box to avoid leaking it.
-                        let val = unsafe { (*result_ptr).clone() };
-                        unsafe {
-                            let _ = take_value(result_ptr);
-                        }
-                        let val_json = handl_value::tagged_to_value(&val);
-                        let replacement = match serde_json::to_string(&val_json) {
-                            Ok(r) => r,
-                            Err(e) => {
-                                ctx.current_ref = saved_ref;
-                                return ctx.set_error(LangError::engine(format!("json: {}", e)));
-                            }
-                        };
-                        s = s.replace(&format!("${}", i), &replacement);
-                    }
-                    ctx.current_ref = saved_ref;
-                    return match serde_json::from_str::<Value>(&s) {
-                        Ok(v) => unsafe { box_value(TaggedValue::from(v)) },
-                        Err(e) => {
-                            ctx.set_error(LangError::engine(format!("json: parse error: {}", e)))
-                        }
-                    };
-                }
-            }
-            match payload_str {
-                Some(expr) => match serde_json::from_str::<Value>(&expr) {
-                    Ok(v) => Ok(TaggedValue::from(v)),
-                    Err(e) => Err(LangError::engine_node(
-                        format!("json: parse error: {}", e),
-                        node,
-                    )),
-                },
-                None => Err(LangError::engine(
-                    "json: payload must be a string".to_string(),
-                )),
-            }
         }
         // Phase 9.5: `import "path"` loads a module via the configured
         // resolver and binds its top-level exports into the current scope.
@@ -4406,104 +4277,9 @@ fn apply_native_v2(
                 .map(TaggedValue::from)
                 .map_err(|e| LangError::engine(e.to_string()))
         }
-        "proj_rest" => {
-            let children = match ctx.current_node() {
-                Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
-                    Some(c) => c.clone(),
-                    None => {
-                        return ctx.set_error(LangError::engine(
-                            "proj_rest: expected children array in payload".to_string(),
-                        ));
-                    }
-                },
-                Err(e) => return ctx.set_error(e),
-            };
-            let mut vals = Vec::new();
-            let saved_ref = ctx.current_ref;
-            for entry in children.iter().skip(1) {
-                let idx = match entry.as_u64() {
-                    Some(i) => i as usize,
-                    None => {
-                        ctx.current_ref = saved_ref;
-                        return ctx.set_error(LangError::engine(
-                            "proj_rest: child index must be a number".to_string(),
-                        ));
-                    }
-                };
-                let func = match ctx.compiled.get(&idx).copied() {
-                    Some(f) => f,
-                    None => {
-                        ctx.current_ref = saved_ref;
-                        return ctx.set_error(LangError::engine(format!(
-                            "proj_rest: no compiled function for node {}",
-                            idx
-                        )));
-                    }
-                };
-                ctx.current_ref = idx;
-                let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
-                let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
-                if result_ptr.is_null() {
-                    ctx.current_ref = saved_ref;
-                    let err = ctx.error.take().unwrap_or_else(|| {
-                        LangError::engine("proj_rest: child returned null".to_string())
-                    });
-                    return ctx.set_error(err);
-                }
-                // SAFETY: result_ptr is non-null and was boxed by the child
-                // function via box_value. Clone the value then reclaim the
-                // box to avoid leaking it.
-                let val = unsafe { (*result_ptr).clone() };
-                unsafe {
-                    let _ = take_value(result_ptr);
-                }
-                vals.push(val);
-            }
-            ctx.current_ref = saved_ref;
-            Ok(TaggedValue::Arr(Rc::from(vals)))
-        }
         "match" => return prim_match(ctx),
         "handle" => return prim_handle(ctx),
         // `export` and `record_proj` are owned by the shared table.
-        "runtime_assert" => {
-            let (pred_idx, expr_idx) = match ctx.current_node() {
-                Ok(node) => {
-                    let pred = ctx
-                        .role_child_arena(node, "predicate")
-                        .unwrap_or_default()
-                        .unwrap_or(0);
-                    let expr = ctx
-                        .role_child_arena(node, "expr")
-                        .unwrap_or_default()
-                        .unwrap_or(1);
-                    (pred, expr)
-                }
-                Err(e) => return ctx.set_error(e),
-            };
-            let pred_val = match eval_child_node(ctx, pred_idx) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            let expr_val = match eval_child_node(ctx, expr_idx) {
-                Ok(v) => v,
-                Err(e) => return ctx.set_error(e),
-            };
-            if !matches!(pred_val, TaggedValue::Arrow { .. }) {
-                return unsafe { box_value(expr_val) };
-            }
-            let result_ptr = apply_closure_value(ctx, pred_val, vec![expr_val.clone()]);
-            if result_ptr.is_null() {
-                return result_ptr;
-            }
-            let check_result = unsafe { take_value(result_ptr) };
-            if is_truthy(&check_result) {
-                Ok(expr_val)
-            } else {
-                Err(LangError::engine(
-                    "runtime_assert: assertion failed — predicate returned false".to_string(),
-                ))
-            }
-        }
         // `paren` — parentheses/grouping: evaluate children from the current
         // node's payload, falling back to the supplied args/incoming.
         _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),

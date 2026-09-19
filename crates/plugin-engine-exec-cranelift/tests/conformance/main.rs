@@ -38,10 +38,10 @@
 //!   requires a stack-carried incoming — a top-level `Loop` with no
 //!   input crashes (`loop_no_incoming`); the other paths treat missing
 //!   incoming as `null`.
-//! * **`native_ops::nullish`**: a non-null, non-`Some` left operand
-//!   returns `right` (`3 ?? 7` → `7`, `nullish_value`). All three
-//!   engines agree because they share the table — drift-free but
-//!   suspect semantics (expected `left`).
+//! * **`native_ops::nullish`** (FIXED in Phase B batch (a)): a non-null,
+//!   non-`Some` left operand used to return `right` (`3 ?? 7` → `7`,
+//!   `nullish_value`); the shared op now returns `left`, matching the
+//!   `eval.nullish` `tag`/`Choice` scheme.
 //!
 //! ## Representation splits (pinned; Phase-B unification targets)
 //!
