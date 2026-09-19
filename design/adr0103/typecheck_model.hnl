@@ -1213,6 +1213,36 @@ do {
         }
       }
     } else {
+    is_arrow_ann :: expected != null && funcs.is_applicable_(funcs, expected)
+    if is_arrow_ann {
+      --- Fiber membership (ADR-0120 Phase 4): `v : P` where `P`
+      --- evaluated to an arrow value — e.g. the `Bool`-valued
+      --- characteristic function `Vec(3, a)` of an indexed data
+      --- family — checks `P(v)`, not `v == P`. A literal `false`
+      --- rejects; `true` accepts; an undecidable (opaque/null) result
+      --- accepts with a warning because `desugar.data` predicates are
+      --- `loop` fold machines outside the model's evaluable fragment
+      --- (hand-written predicates reduce fully).
+      do {
+        eval_result :: funcs.eval_node_(funcs, s, node_idx)
+        applied :: funcs.apply_val_(funcs, eval_result["state"], expected, [eval_result.val])
+        if applied.val == false {
+          { ok: false, state: tc_add_diagnostic(applied["state"], "error", "check: value is not a member of the indexed family") }
+        } else {
+          undecidable :: applied.val == null || type_tag(applied.val) != ""
+          if undecidable {
+            { ok: true, state: tc_add_diagnostic(applied["state"], "warning", "check: family membership is symbolic — the predicate did not decide") }
+          } else {
+            { ok: true, state: applied["state"] }
+          }
+        }
+      }
+    } else {
+    dep_tag :: if expected == null { "" } else { type_tag(expected) }
+    is_dep_intro :: dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall"
+    if is_dep_intro {
+      funcs.check_dependent_(funcs, s, node_idx, expected)
+    } else {
     do {
     node :: ast_node(s.ast, node_idx)
     kind :: node_kind(node)
@@ -1231,20 +1261,638 @@ do {
         } else {
           do {
             synth_result :: funcs.synth_node_(funcs, s, node_idx)
-            unify_result :: unify(funcs, synth_result.typ, expected, synth_result["state"].metas)
-            if unify_result.ok {
+            dep_u :: funcs.unify_dependent_(funcs, synth_result.typ, expected, synth_result["state"])
+            if dep_u.ok {
               do {
-                new_metas :: set(synth_result["state"], "metas", unify_result.metas)
-                recorded :: tc_record_node_type(new_metas, node_idx, synth_result.typ)
+                recorded :: tc_record_node_type(dep_u["state"], node_idx, synth_result.typ)
                 { ok: true, state: recorded }
               }
             } else {
-              { ok: false, state: tc_add_diagnostic(synth_result["state"], "error", "type mismatch") }
+              { ok: false, state: tc_add_diagnostic(dep_u["state"], "error", "type mismatch") }
             }
           }
         }
       }
     }
+    }
+    }
+    }
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- ADR-0120 Phase 4: dependent structure
+  --- ------------------------------------------------------------------
+  ---
+  --- `Family(A)`, `Pi(A, f)`, `Sigma(A, f)`, `Forall(K, f)` are the
+  --- surface call-forms of the dependent type formers:
+  ---   Π (x:A). B(x)   ≡   Pi(A, x ~> B(x))
+  ---   Σ (x:A). P(x)   ≡   Sigma(A, x ~> P(x))
+  ---   ∀ (x:K). B(x)   ≡   Forall(K, x ~> B(x))
+  ---   A ↝ Type        ≡   Family(A)   (multi-index: Family(A, B, …))
+  --- They mint `type.pi`/`type.sigma`/`type.forall`/`type.family` type
+  --- values whose `body_closure` keeps the binder name and the body
+  --- child's arena index — the body is only synthesized when the
+  --- closure is applied (same lazy discipline as `construct_pi`'s
+  --- canonical `pi` nodes).
+  ---
+  --- Checking is structural, not full dependent elaboration:
+  ---   * `function` vs `type.pi`    — Π-intro: bind each parameter to
+  ---     the Pi's `param`, apply the body closure with the bound
+  ---     variable as its own term, check the body against the residual;
+  ---   * `[a, p]` vs `type.sigma`   — Σ-intro: check `a` against
+  ---     `param`, bind `a`'s term so `P(a)` uses the actual first
+  ---     component (value-level dependency), then check `p`;
+  ---   * arrow vs `type.family`     — Family-intro: an inhabitant of
+  ---     `Family(A₁,…,Aₙ)` is an arrow `A₁ ~> … ~> Aₙ ~> *`; the
+  ---     codomain (`Type`, or the `Bool`-valued predicate encoding that
+  ---     `desugar.data` generates) is intentionally unconstrained —
+  ---     Prop ≈ Bool ≈ Type₀.
+
+  --- Parameter names + body child index of a `function` node (shared by
+  --- Π-intro; mirrors `synth_function`'s extraction).
+  function_params_ :: [funcs, s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    children :: node_children(node)
+    payload :: node_payload(node)
+    payload_params :: get_or(payload, "params", null)
+    payload_body :: get_or(payload, "body", null)
+    use_payload :: len(children) < 2 && type_of(payload_params) == "arr" && type_of(payload_body) == "num"
+    if use_payload {
+      { names: payload_params, body_idx: payload_body }
+    } else {
+      do {
+        params_node :: ast_node(s.ast, at(children, 0))
+        params_kind :: node_kind(params_node)
+        param_children :: if params_kind == "paren" { node_children(params_node) } else { [at(children, 0)] }
+        names :: while { result: [], remaining: param_children } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              p_idx :: first_value(st.remaining)
+              p_node :: ast_node(s.ast, p_idx)
+              p_kind :: node_kind(p_node)
+              p_payload :: node_payload(p_node)
+              p_name :: if p_kind == "var" {
+                if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
+              } else {
+                if p_kind == "type-annot" {
+                  do {
+                    subj_role :: child_role_index(s, p_kind, "subject")
+                    if subj_role == null {
+                      ""
+                    } else {
+                      do {
+                        subj_node :: ast_node(s.ast, child_ref(s.ast, p_idx, subj_role))
+                        subj_payload :: node_payload(subj_node)
+                        if type_of(subj_payload) == "str" { subj_payload } else { get_or(subj_payload, "name", "") }
+                      }
+                    }
+                  }
+                } else {
+                  ""
+                }
+              }
+              { state: { result: [...st.result, p_name], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        { names: names, body_idx: at(children, 1) }
+      }
+    }
+  }
+
+  --- Extract a `{var_name, body_child_idx}` closure from a `Pi`/`Sigma`/
+  --- `Forall` body argument. A `function` (or paren-wrapped `function`)
+  --- contributes its first parameter name and body child; anything else
+  --- is a non-dependent body (`var_name == ""` applies without binding).
+  dep_closure_from_ :: [funcs, s, arg_idx]~> do {
+    n :: ast_node(s.ast, arg_idx)
+    kind :: node_kind(n)
+    if kind == "paren" {
+      do {
+        inner_children :: node_children(n)
+        if is_empty(inner_children) {
+          set(set({}, "var_name", ""), "body_child_idx", arg_idx)
+        } else {
+          funcs.dep_closure_from_(funcs, s, first_value(inner_children))
+        }
+      }
+    } else {
+      if kind == "function" {
+        do {
+          pinfo :: funcs.function_params_(funcs, s, arg_idx)
+          vname :: if is_empty(pinfo.names) { "" } else { first_value(pinfo.names) }
+          set(set({}, "var_name", vname), "body_child_idx", pinfo.body_idx)
+        }
+      } else {
+        set(set({}, "var_name", ""), "body_child_idx", arg_idx)
+      }
+    }
+  }
+
+  --- Surface former application `Former(args...)` in annotation position.
+  synth_dep_former_ :: [funcs, st, node_idx, former_name]~> do {
+    node :: ast_node(st.ast, node_idx)
+    children :: node_children(node)
+    args_role :: child_role_index(st, "call", "args")
+    if args_role == null || args_role >= len(children) {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: " + former_name + " needs a domain argument") }
+    } else {
+      if former_name == "Family" {
+        do {
+          acc :: while { result: [], state: st, idx: args_role } {
+            [w]~> if w.idx >= len(children) {
+              { out: { vals: w.result, state: w["state"] } }
+            } else {
+              do {
+                t :: funcs.synth_type_(funcs, w["state"], at(children, w.idx))
+                { state: { result: [...w.result, t.val], state: t["state"], idx: w.idx + 1 } }
+              }
+            }
+          }
+          base :: if len(acc.vals) == 1 {
+            first_value(acc.vals)
+          } else {
+            funcs.make_type("type.array", set({}, "elements", acc.vals))
+          }
+          { val: funcs.make_type("type.family", set({}, "base", base)), state: acc["state"] }
+        }
+      } else {
+        do {
+          dom_result :: funcs.synth_type_(funcs, st, at(children, args_role))
+          body_idx :: if args_role + 1 < len(children) { at(children, args_role + 1) } else { null }
+          closure :: if body_idx == null {
+            set(set({}, "var_name", ""), "body_child_idx", null)
+          } else {
+            funcs.dep_closure_from_(funcs, dom_result["state"], body_idx)
+          }
+          tag_name :: if former_name == "Pi" {
+            "type.pi"
+          } else {
+            if former_name == "Sigma" { "type.sigma" } else { "type.forall" }
+          }
+          field_name :: if former_name == "Forall" { "kind" } else { "param" }
+          payload :: set(set({}, field_name, dom_result.val), "body_closure", closure)
+          { val: funcs.make_type(tag_name, payload), state: dom_result["state"] }
+        }
+      }
+    }
+  }
+
+  --- Apply a dependent `body_closure` to an argument *type* and *term*:
+  --- the binder's gamma entry carries `arg_type` while its result entry
+  --- carries `arg_term`, so a `Vec(n, a)` body both binds `n` at type
+  --- level and substitutes the argument at value level (the indexed-
+  --- family predicate evaluates through `synth_type_`'s bound-callee →
+  --- `eval_node_` path). `synth_type_` is used for the body — the
+  --- call-form body is annotation position (unlike `apply_type_closure`
+  --- on canonical `pi` nodes, where child 1 is a term).
+  apply_dep_closure_ :: [funcs, type_val, arg_type, arg_term, s]~> do {
+    closure :: get_or(type_val, "body_closure", {})
+    var_name :: get_or(closure, "var_name", "")
+    body_idx :: get_or(closure, "body_child_idx", null)
+    mark :: tc_mark(s)
+    old_results :: get_or(s, "results", {})
+    extended :: if var_name == "" { s } else { tc_extend(s, var_name, arg_type) }
+    bound :: if var_name == "" || arg_term == null { extended } else { tc_bind_result(extended, var_name, arg_term) }
+    body_result :: if body_idx == null {
+      { val: funcs.make_type("type.unknown", {}), state: bound }
+    } else {
+      funcs.synth_type_(funcs, bound, body_idx)
+    }
+    restored :: set(tc_restore(body_result["state"], mark), "results", old_results)
+    { val: body_result.val, state: restored }
+  }
+
+  --- Π-introduction: check a `function` node against `type.pi`. Each
+  --- parameter binds the Pi's domain; the body closure is applied with
+  --- the bound variable as its own term (`var p_name`), so the residual
+  --- type mentions the parameter symbolically. A `Pi` nest is consumed
+  --- one binder per function parameter; extra parameters get fresh
+  --- metas (a plain function tail).
+  check_pi_intro_ :: [funcs, s, node_idx, expected]~> do {
+    pinfo :: funcs.function_params_(funcs, s, node_idx)
+    mark :: tc_mark(s)
+    old_results :: get_or(s, "results", {})
+    walk :: while { cur: expected, state: s, remaining: pinfo.names } {
+      [st]~> if is_empty(st.remaining) {
+        { out: { cur: st.cur, state: st["state"] } }
+      } else {
+        do {
+          p_name :: first_value(st.remaining)
+          if type_tag(st.cur) == "type.pi" {
+            do {
+              ptype :: get_or(st.cur, "param", null)
+              extended :: if p_name == "" { st["state"] } else { tc_extend(st["state"], p_name, ptype) }
+              arg_term :: if p_name == "" { null } else { funcs.make_type("var", set({}, "name", p_name)) }
+              applied :: funcs.apply_dep_closure_(funcs, st.cur, ptype, arg_term, extended)
+              { state: { cur: applied.val, state: applied["state"], remaining: drop(st.remaining, 1) } }
+            }
+          } else {
+            do {
+              m :: tc_fresh_meta(st["state"])
+              extended :: if p_name == "" { m["state"] } else { tc_extend(m["state"], p_name, meta_value(m.id)) }
+              { state: { cur: st.cur, state: extended, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    }
+    if pinfo.body_idx == null {
+      { ok: false, state: tc_add_diagnostic(set(tc_restore(walk["state"], mark), "results", old_results), "error", "check: function has no body to check against the Pi type") }
+    } else {
+      do {
+        res :: funcs.check_node_(funcs, walk["state"], pinfo.body_idx, walk.cur)
+        restored :: set(tc_restore(res["state"], mark), "results", old_results)
+        { ok: res.ok, state: restored }
+      }
+    }
+  }
+
+  --- Σ-introduction: check a pair literal `[a, p]` against `type.sigma`.
+  --- The first component's term binds the closure variable so `P(a)`
+  --- is the fiber at the actual `a`; right-nested pairs `[a, [b, p]]`
+  --- cover iterated Σ.
+  check_sigma_intro_ :: [funcs, s, node_idx, expected]~> do {
+    node :: ast_node(s.ast, node_idx)
+    children :: node_children(node)
+    e0 :: first_value(children)
+    e1 :: at(children, 1)
+    param_type :: get_or(expected, "param", null)
+    c0 :: funcs.check_node_(funcs, s, e0, param_type)
+    if !c0.ok {
+      { ok: false, state: c0["state"] }
+    } else {
+      do {
+        t0 :: funcs.synth_node_(funcs, c0["state"], e0)
+        closure :: get_or(expected, "body_closure", {})
+        var_name :: get_or(closure, "var_name", "")
+        body_idx :: get_or(closure, "body_child_idx", null)
+        mark :: tc_mark(t0["state"])
+        old_results :: get_or(t0["state"], "results", {})
+        extended :: if var_name == "" { t0["state"] } else { tc_extend(t0["state"], var_name, t0.typ) }
+        bound :: if var_name == "" { extended } else { tc_bind_result(extended, var_name, funcs.node_term_(funcs, t0["state"], e0)) }
+        body_result :: if body_idx == null {
+          { val: funcs.make_type("type.unknown", {}), state: bound }
+        } else {
+          funcs.synth_type_(funcs, bound, body_idx)
+        }
+        c1 :: funcs.check_node_(funcs, body_result["state"], e1, body_result.val)
+        restored :: set(tc_restore(c1["state"], mark), "results", old_results)
+        { ok: c1.ok, state: restored }
+      }
+    }
+  }
+
+  --- Family-introduction: `type.family{base}` accepts an arrow whose
+  --- parameter chain matches the index list `base` (a single type, or
+  --- `type.array{elements}` for multi-index families). A same-tag
+  --- `type.family` unifies bases. Any other shape is not a family
+  --- inhabitant.
+  check_family_arrow_ :: [funcs, s, typ, expected]~> do {
+    base :: get_or(expected, "base", null)
+    elems :: if type_tag(base) == "type.array" { get_or(base, "elements", []) } else { [base] }
+    walk :: while { cur: typ, state: s, remaining: elems, ok: true } {
+      [st]~> if is_empty(st.remaining) || !st.ok {
+        { out: { state: st["state"], ok: st.ok } }
+      } else {
+        do {
+          e :: first_value(st.remaining)
+          ctag :: type_tag(st.cur)
+          if ctag == "type.function" {
+            do {
+              u :: unify(funcs, get_or(st.cur, "param", null), e, st["state"].metas)
+              if u.ok {
+                { state: { cur: get_or(st.cur, "body", null), state: set(st["state"], "metas", u.metas), remaining: drop(st.remaining, 1), ok: true } }
+              } else {
+                { state: { cur: st.cur, state: tc_add_diagnostic(st["state"], "error", "check: family index domain mismatch"), remaining: drop(st.remaining, 1), ok: false } }
+              }
+            }
+          } else {
+            if ctag == "type.pi" {
+              do {
+                u :: unify(funcs, get_or(st.cur, "param", null), e, st["state"].metas)
+                if u.ok {
+                  do {
+                    m :: tc_fresh_meta(set(st["state"], "metas", u.metas))
+                    applied :: funcs.apply_dep_closure_(funcs, st.cur, meta_value(m.id), null, m["state"])
+                    { state: { cur: applied.val, state: applied["state"], remaining: drop(st.remaining, 1), ok: true } }
+                  }
+                } else {
+                  { state: { cur: st.cur, state: tc_add_diagnostic(st["state"], "error", "check: family index domain mismatch"), remaining: drop(st.remaining, 1), ok: false } }
+                }
+              }
+            } else {
+              if ctag == "type.family" {
+                do {
+                  u :: unify(funcs, get_or(st.cur, "base", null), base, st["state"].metas)
+                  { state: { cur: st.cur, state: set(st["state"], "metas", u.metas), remaining: [], ok: u.ok } }
+                }
+              } else {
+                if is_meta(st.cur) {
+                  { state: { cur: st.cur, state: st["state"], remaining: [], ok: true } }
+                } else {
+                  { state: { cur: st.cur, state: tc_add_diagnostic(st["state"], "error", "check: family inhabitant is not an arrow"), remaining: [], ok: false } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    { ok: walk.ok, state: walk["state"] }
+  }
+
+  --- Dispatch on the expected dependent former (ADR-0120 Phase 4).
+  check_dependent_ :: [funcs, s, node_idx, expected]~> do {
+    node :: ast_node(s.ast, node_idx)
+    kind :: node_kind(node)
+    tag :: type_tag(expected)
+    if tag == "type.pi" {
+      if kind == "function" {
+        funcs.check_pi_intro_(funcs, s, node_idx, expected)
+      } else {
+        funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+      }
+    } else {
+    if tag == "type.sigma" {
+      do {
+        children :: node_children(node)
+        if kind == "array" && len(children) >= 2 {
+          funcs.check_sigma_intro_(funcs, s, node_idx, expected)
+        } else {
+          funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+        }
+      }
+    } else {
+    if tag == "type.family" {
+      do {
+        r :: funcs.synth_node_(funcs, s, node_idx)
+        fam :: funcs.check_family_arrow_(funcs, r["state"], r.typ, expected)
+        if fam.ok {
+          { ok: true, state: tc_record_node_type(fam["state"], node_idx, r.typ) }
+        } else {
+          { ok: false, state: fam["state"] }
+        }
+      }
+    } else {
+      --- `type.forall` has no term-level introduction form yet —
+      --- synthesis + dependent unification only.
+      funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+    }
+    }
+    }
+  }
+
+  check_dependent_fallback_ :: [funcs, s, node_idx, expected]~> do {
+    synth_result :: funcs.synth_node_(funcs, s, node_idx)
+    u :: funcs.unify_dependent_(funcs, synth_result.typ, expected, synth_result["state"])
+    if u.ok {
+      { ok: true, state: tc_record_node_type(u["state"], node_idx, synth_result.typ) }
+    } else {
+      { ok: false, state: tc_add_diagnostic(u["state"], "error", "type mismatch") }
+    }
+  }
+
+  --- Dependent unification: `unify` extended across the dependent
+  --- formers. Same-tag Pi/Sigma/Forall bodies are compared under a
+  --- shared fresh metavariable (`body_closure` indices are arena
+  --- positions — field-wise equality would wrongly compare node
+  --- indices, not types); a `type.function` matches a `type.pi` by
+  --- applying the closure at the function's domain; an arrow matches
+  --- `type.family` by the Family-intro walk; a tuple `type.array`
+  --- matches `type.sigma` component-wise.
+  unify_dependent_ :: [funcs, a, b, s]~> do {
+    tag_a :: type_tag(a)
+    tag_b :: type_tag(b)
+    if tag_a == "type.pi" && tag_b == "type.pi" {
+      funcs.unify_dep_bodies_(funcs, a, b, s, "param")
+    } else {
+    if tag_a == "type.sigma" && tag_b == "type.sigma" {
+      funcs.unify_dep_bodies_(funcs, a, b, s, "param")
+    } else {
+    if tag_a == "type.forall" && tag_b == "type.forall" {
+      funcs.unify_dep_bodies_(funcs, a, b, s, "kind")
+    } else {
+    if tag_a == "type.family" && tag_b == "type.family" {
+      do {
+        u :: unify(funcs, get_or(a, "base", null), get_or(b, "base", null), s.metas)
+        { ok: u.ok, state: set(s, "metas", u.metas) }
+      }
+    } else {
+    if tag_a == "type.family_app" && tag_b == "type.family_app" {
+      --- Saturated family applications: same head name and pairwise-
+      --- unifiable index arguments. Index args carry metavariables for
+      --- constructor results (`synth_data`), so `MkVec(...) : Vec(3,
+      --- Bool)` accepts structurally — indices are not yet checked for
+      --- definitional equality (documented Phase-4 limitation).
+      if get_or(a, "name", "") != get_or(b, "name", "") {
+        { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: " + get_or(a, "name", "?") + " is not " + get_or(b, "name", "?")) }
+      } else {
+        do {
+          args_a :: get_or(a, "args", [])
+          args_b :: get_or(b, "args", [])
+          walk :: while { state: s, ok: true, i: 0 } {
+            [st]~> if st.i >= len(args_a) || st.i >= len(args_b) || !st.ok {
+              { out: { ok: st.ok && st.i >= len(args_a) && st.i >= len(args_b), state: st["state"] } }
+            } else {
+              do {
+                u :: unify(funcs, at(args_a, st.i), at(args_b, st.i), st["state"].metas)
+                { state: { state: set(st["state"], "metas", u.metas), ok: u.ok, i: st.i + 1 } }
+              }
+            }
+          }
+          walk
+        }
+      }
+    } else {
+    if tag_a == "type.function" && tag_b == "type.pi" {
+      funcs.unify_fn_pi_(funcs, a, b, s)
+    } else {
+    if tag_a == "type.pi" && tag_b == "type.function" {
+      funcs.unify_fn_pi_(funcs, b, a, s)
+    } else {
+    if tag_a == "type.function" && tag_b == "type.family" {
+      funcs.check_family_arrow_(funcs, s, a, b)
+    } else {
+    if tag_a == "type.array" && tag_b == "type.sigma" {
+      do {
+        elems :: get_or(a, "elements", [])
+        if len(elems) < 2 {
+          { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: tuple is not a dependent pair") }
+        } else {
+          do {
+            u :: unify(funcs, first_value(elems), get_or(b, "param", null), s.metas)
+            if u.ok {
+              do {
+                s2 :: set(s, "metas", u.metas)
+                applied :: funcs.apply_dep_closure_(funcs, b, first_value(elems), null, s2)
+                u2 :: unify(funcs, at(elems, 1), applied.val, applied["state"].metas)
+                { ok: u2.ok, state: set(applied["state"], "metas", u2.metas) }
+              }
+            } else {
+              { ok: false, state: set(s, "metas", u.metas) }
+            }
+          }
+        }
+      }
+    } else {
+      do {
+        u :: unify(funcs, a, b, s.metas)
+        { ok: u.ok, state: set(s, "metas", u.metas) }
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+
+  unify_fn_pi_ :: [funcs, fn_t, pi_t, s]~> do {
+    u :: unify(funcs, get_or(fn_t, "param", null), get_or(pi_t, "param", null), s.metas)
+    if u.ok {
+      do {
+        s2 :: set(s, "metas", u.metas)
+        pname :: get_or(fn_t, "param_name", "")
+        arg_term :: if pname == "" { null } else { funcs.make_type("var", set({}, "name", pname)) }
+        applied :: funcs.apply_dep_closure_(funcs, pi_t, get_or(fn_t, "param", null), arg_term, s2)
+        u2 :: unify(funcs, get_or(fn_t, "body", null), applied.val, applied["state"].metas)
+        { ok: u2.ok, state: set(applied["state"], "metas", u2.metas) }
+      }
+    } else {
+      { ok: false, state: set(s, "metas", u.metas) }
+    }
+  }
+
+  unify_dep_bodies_ :: [funcs, a, b, s, dom_field]~> do {
+    u :: unify(funcs, get_or(a, dom_field, null), get_or(b, dom_field, null), s.metas)
+    if u.ok {
+      do {
+        m :: tc_fresh_meta(set(s, "metas", u.metas))
+        ba :: funcs.apply_dep_closure_(funcs, a, meta_value(m.id), null, m["state"])
+        bb :: funcs.apply_dep_closure_(funcs, b, meta_value(m.id), null, ba["state"])
+        u2 :: unify(funcs, ba.val, bb.val, bb["state"].metas)
+        { ok: u2.ok, state: set(bb["state"], "metas", u2.metas) }
+      }
+    } else {
+      { ok: false, state: set(s, "metas", u.metas) }
+    }
+  }
+
+  --- Constructor names of a `data` declaration: walk the `alt` tree (or
+  --- single/`call`/`paren`/`type-annot` leaf) collecting bindable names.
+  collect_ctor_names_ :: [funcs, s, node_idx, acc]~> do {
+    n :: ast_node(s.ast, node_idx)
+    kind :: node_kind(n)
+    children :: node_children(n)
+    if kind == "alt" {
+      do {
+        l_acc :: funcs.collect_ctor_names_(funcs, s, first_value(children), acc)
+        funcs.collect_ctor_names_(funcs, s, at(children, 1), l_acc)
+      }
+    } else {
+    if kind == "paren" {
+      if is_empty(children) {
+        acc
+      } else {
+        funcs.collect_ctor_names_(funcs, s, first_value(children), acc)
+      }
+    } else {
+    if kind == "type-annot" {
+      do {
+        subj_role :: child_role_index(s, "type-annot", "subject")
+        if subj_role == null {
+          acc
+        } else {
+          funcs.collect_ctor_names_(funcs, s, at(children, subj_role), acc)
+        }
+      }
+    } else {
+    if kind == "call" {
+      do {
+        callee_role :: child_role_index(s, "call", "callee")
+        if callee_role == null {
+          acc
+        } else {
+          funcs.collect_ctor_names_(funcs, s, at(children, callee_role), acc)
+        }
+      }
+    } else {
+    if kind == "var" {
+      do {
+        p :: node_payload(n)
+        nm :: if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+        if nm == "" { acc } else { [...acc, nm] }
+      }
+    } else {
+      acc
+    }
+    }
+    }
+    }
+    }
+  }
+
+  --- Composition `f >>> g` in `type.function` coordinates (used by the
+  --- `synth_flow` judgment): unify the boundary `f.body ~ g.param` and
+  --- synthesize `type.function{param: f.param, body: g.body}`. A
+  --- `type.pi`/`type.forall` operand contributes its domain and its
+  --- body closure applied at that domain; the composite flattens to
+  --- `type.function` because a `body_closure` needs an AST body the
+  --- composite does not have — the documented structural
+  --- approximation. Non-arrow operands yield `type.unknown` with a
+  --- warning (matching the old placeholder's permissiveness).
+  flow_cod_ :: [funcs, t, s]~> do {
+    tag :: type_tag(t)
+    dom :: get_or(t, "param", get_or(t, "kind", null))
+    if tag == "type.pi" || tag == "type.forall" {
+      funcs.apply_dep_closure_(funcs, t, dom, null, s)
+    } else {
+      { val: get_or(t, "body", null), state: s }
+    }
+  }
+
+  flow_compose_ :: [funcs, f, g, s]~> do {
+    ft :: type_tag(f)
+    gt :: type_tag(g)
+    f_arrow :: ft == "type.function" || ft == "type.pi" || ft == "type.forall"
+    g_arrow :: gt == "type.function" || gt == "type.pi" || gt == "type.forall" || gt == "type.family"
+    f_open :: is_meta(f) || ft == "type.unknown"
+    g_open :: is_meta(g) || gt == "type.unknown"
+    if f_open || g_open {
+      --- Underdetermined operand — no boundary evidence either way.
+      { val: funcs.make_type("type.unknown", {}), state: s }
+    } else {
+    if !f_arrow || !g_arrow {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "flow: operand is not an arrow") }
+    } else {
+      do {
+        f_dom :: get_or(f, "param", get_or(f, "kind", null))
+        g_dom :: if gt == "type.family" { get_or(g, "base", null) } else { get_or(g, "param", get_or(g, "kind", null)) }
+        f_cod_res :: funcs.flow_cod_(funcs, f, s)
+        boundary :: funcs.unify_dependent_(funcs, f_cod_res.val, g_dom, f_cod_res["state"])
+        if boundary.ok {
+          if gt == "type.family" {
+            --- Reindexing is ordinary composition: `f >>> P` is the
+            --- pullback family `f* P : A ↝ Type` — no dedicated
+            --- primitive; the composite is a family over `f`'s source.
+            { val: funcs.make_type("type.family", set({}, "base", f_dom)), state: boundary["state"] }
+          } else {
+            do {
+              g_cod_res :: funcs.flow_cod_(funcs, g, boundary["state"])
+              { val: funcs.make_type("type.function", set(set({}, "param", f_dom), "body", g_cod_res.val)), state: g_cod_res["state"] }
+            }
+          }
+        } else {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(boundary["state"], "error", "flow: composition boundary mismatch (tgt of left does not match src of right)") }
+        }
+      }
     }
     }
   }
@@ -2122,6 +2770,14 @@ do {
       payload :: set(set({}, "kind", kind), "body_closure", closure)
       { val: funcs.make_type("type.forall", payload), state: s }
     },
+    --- `construct_family` — mint `type.family{base}` from a `family`
+    --- node (single child: the index/base type expression). Mirrors the
+    --- `Family(A)` surface former in `synth_dep_former_` for the internal
+    --- `family` node kind.
+    "construct_family": do {
+      base :: if is_empty(args) { incoming } else { eval_first_arg(funcs, s, node_idx, args, incoming).val }
+      { val: funcs.make_type("type.family", set({}, "base", base)), state: s }
+    },
     "forall_apply": do {
       forall_result :: funcs.eval_scheme_(funcs, s, node_idx, first_value(args), incoming)
       forall_val :: forall_result.val
@@ -2458,7 +3114,23 @@ do {
             [st]~> if st.idx >= len(children) {
               { out: { current: st["current"], state: st["state"] } }
             } else {
-              if is_obj(st["current"]) {
+              do {
+              cur_tag :: type_tag(st["current"])
+              if cur_tag == "type.pi" || cur_tag == "type.forall" {
+                --- Dependent application (ADR-0120 Phase 4): `f(a)` with
+                --- `f : Π (x:A). B(x)` checks `a : A` and yields `B(a)`
+                --- — the body closure is applied with the argument's
+                --- term so value-level dependency is preserved.
+                do {
+                  param :: get_or(st["current"], "param", get_or(st["current"], "kind", null))
+                  arg_idx :: at(children, st.idx)
+                  arg_check :: funcs.check_node_(funcs, st["state"], arg_idx, param)
+                  arg_term :: arg_term_from_node(arg_check["state"], arg_idx)
+                  applied :: funcs.apply_dep_closure_(funcs, st["current"], param, arg_term, arg_check["state"])
+                  { state: { current: applied.val, state: applied["state"], idx: st.idx + 1 } }
+                }
+              } else {
+              if is_obj(st["current"]) || cur_tag == "type.function" {
                 do {
                   param :: get_or(st["current"], "param", null)
                   body :: get_or(st["current"], "body", null)
@@ -2481,6 +3153,8 @@ do {
                 }
               } else {
                 { out: { current: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st["state"], "warning", "call: callee is not a function type") } }
+              }
+              }
               }
             }
           }
@@ -2539,6 +3213,12 @@ do {
       op_name :: lit
       { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "error", "foreign_type: no module registry available for: " + op_name) }
     },
+    --- `export` — a module-level `export name := value` is an ordinary
+    --- binding whose child is an `assign`: delegate to the same judgment
+    --- (which extracts the target name, checks any annotation, and binds
+    --- it into gamma). The earlier `take`-shaped special case forced
+    --- every export to unify with `List(T,N) -> N -> List(T)` — a demo
+    --- path, not a general rule.
     "export": do {
       node :: ast_node(s.ast, node_idx)
       children :: node_children(node)
@@ -2553,81 +3233,8 @@ do {
             { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "warning", "export: expected an assignment for local export") }
           } else {
             do {
-              target_role :: child_role_index(s, child_kind, "target")
-              value_role :: child_role_index(s, child_kind, "value")
-              if target_role == null || value_role == null {
-                { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "export: assignment missing target/value") }
-              } else {
-                do {
-                  target_idx :: child_ref(s.ast, child_idx, target_role)
-                  value_idx :: child_ref(s.ast, child_idx, value_role)
-                  target_node :: ast_node(s.ast, target_idx)
-                  target_kind :: node_kind(target_node)
-                  name :: if target_kind == "var" {
-                    do {
-                      tp :: node_payload(target_node)
-                      if type_of(tp) == "str" { tp } else { get_or(tp, "name", "") }
-                    }
-                  } else {
-                    ""
-                  }
-                  export_name :: if name == "" { "export" } else { name }
-                  s_type :: while { result: s, remaining: ["T", "N"], names: ["T", "N"] } {
-                    [st]~> if is_empty(st.remaining) {
-                      { out: st.result }
-                    } else {
-                      do {
-                        tv :: first_value(st.remaining)
-                        fresh :: tc_fresh_meta(st.result)
-                        new_s :: tc_extend(fresh["state"], tv, meta_value(fresh.id))
-                        { state: { result: new_s, remaining: drop(st.remaining, 1), names: st.names } }
-                      }
-                    }
-                  }
-                  t_meta :: tc_lookup(s_type, "T")
-                  n_meta :: tc_lookup(s_type, "N")
-                  ann_type :: if t_meta == null || n_meta == null {
-                    funcs.make_type("type.unknown", {})
-                  } else {
-                    do {
-                      value_node :: ast_node(s.ast, value_idx)
-                      value_children :: node_children(value_node)
-                      params_idx :: at(value_children, 0)
-                      params_node :: ast_node(s.ast, params_idx)
-                      params_kind :: node_kind(params_node)
-                      param_children :: if params_kind == "paren" { node_children(params_node) } else { [params_idx] }
-                      pv_names :: while { result: [], remaining: param_children } {
-                        [st]~> if is_empty(st.remaining) {
-                          { out: st.result }
-                        } else {
-                          do {
-                            p_idx :: first_value(st.remaining)
-                            p_node :: ast_node(s.ast, p_idx)
-                            p_payload :: node_payload(p_node)
-                            p_name :: if node_kind(p_node) == "var" {
-                              if type_of(p_payload) == "str" { p_payload } else { get_or(p_payload, "name", "") }
-                            } else {
-                              ""
-                            }
-                            { state: { result: [...st.result, p_name], remaining: drop(st.remaining, 1) } }
-                          }
-                        }
-                      }
-                      xs_name :: if len(pv_names) > 0 { at(pv_names, 0) } else { "xs" }
-                      n_name :: if len(pv_names) > 1 { at(pv_names, 1) } else { "n" }
-                      build_take_type(t_meta, n_meta, xs_name, n_name)
-                    }
-                  }
-                  val_result :: funcs.synth_node_(funcs, s, value_idx)
-                  unify_result :: unify(funcs, ann_type, val_result.typ, val_result["state"].metas)
-                  record :: set({}, export_name, ann_type)
-                  if unify_result.ok {
-                    { val: record, state: set(val_result["state"], "metas", unify_result.metas) }
-                  } else {
-                    { val: record, state: tc_add_diagnostic(set(val_result["state"], "metas", unify_result.metas), "error", "export: value does not match declared type for " + export_name) }
-                  }
-                }
-              }
+              child_result :: funcs.synth_node_(funcs, s, child_idx)
+              { val: funcs.make_type("type.unit", {}), state: child_result["state"] }
             }
           }
         }
@@ -2682,6 +3289,89 @@ do {
         { val: expected, state: tc_add_diagnostic(s, "error", "check_json_value: literal does not satisfy the expected annotation") }
       }
     },
+    --- `synth_flow` — categorical composition `f >>> g` (ADR-0119 /
+    --- ADR-0120 Phase 4). Boundary condition `tgt(f) = src(g)` in
+    --- `type.function` coordinates is `unify(f.body, g.param)`; the
+    --- composite is `type.function{param: f.param, body: g.body}` — the
+    --- same axis-0 rule `type.axis_flow` expresses in the scheme
+    --- vocabulary. When an operand is a `type.pi`/`type.forall` its
+    --- body closure is applied at its own domain to read the boundary;
+    --- the composite flattens to `type.function` (the dependent form is
+    --- not reconstructible — there is no body node for the composite —
+    --- so this is the documented structural approximation). Reindexing
+    --- needs no rule here: `P >>> f` is exactly this composition.
+    "synth_flow": do {
+      node :: ast_node(s.ast, node_idx)
+      children :: node_children(node)
+      if len(children) < 2 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "flow: missing operands") }
+      } else {
+        do {
+          f_result :: funcs.synth_node_(funcs, s, first_value(children))
+          g_result :: funcs.synth_node_(funcs, f_result["state"], at(children, 1))
+          funcs.flow_compose_(funcs, f_result.typ, g_result.typ, g_result["state"])
+        }
+      }
+    },
+    --- `synth_data` — inductive family declaration `data Name(params)
+    --- :: ctors` (ADR-0082 / ADR-0120 Phase 4). Binds `Name` to
+    --- `type.family{name, base}` where `base` is a `type.array` of one
+    --- fresh metavariable per index parameter (the payload carries only
+    --- parameter *names* — index types are not declared), and binds each
+    --- constructor name (collected from the `alt` tree by
+    --- `collect_ctor_names_`) to `type.family_app{name, args}` with
+    --- fresh metavariable indices — a constructor produces the family
+    --- at *some* indices. Strict positivity, constructor argument
+    --- types, and index-level guarantees remain runtime/desugar
+    --- concerns; this rule is the structural shadow that keeps
+    --- `data` declarations and indexed annotations checkable.
+    "synth_data": do {
+      node :: ast_node(s.ast, node_idx)
+      payload :: node_payload(node)
+      children :: node_children(node)
+      name :: get_or(payload, "name", "")
+      params :: get_or(payload, "params", [])
+      safe_params :: if type_of(params) == "arr" { params } else { [] }
+      idx_acc :: while { elems: [], state: s, remaining: safe_params } {
+        [st]~> if is_empty(st.remaining) {
+          { out: { elems: st.elems, state: st["state"] } }
+        } else {
+          do {
+            m :: tc_fresh_meta(st["state"])
+            { state: { elems: [...st.elems, meta_value(m.id)], state: m["state"], remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+      base :: funcs.make_type("type.array", set({}, "elements", idx_acc.elems))
+      fam_type :: funcs.make_type("type.family", set(set({}, "name", name), "base", base))
+      extended :: if name == "" { idx_acc["state"] } else { tc_extend(idx_acc["state"], name, fam_type) }
+      ctor_names :: if len(children) >= 2 {
+        funcs.collect_ctor_names_(funcs, extended, at(children, 1), [])
+      } else {
+        []
+      }
+      bound :: while { state: extended, remaining: ctor_names } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st["state"] }
+        } else {
+          do {
+            meta_acc :: while { elems: [], state: st["state"], remaining: safe_params } {
+              [mst]~> if is_empty(mst.remaining) {
+                { out: { elems: mst.elems, state: mst["state"] } }
+              } else {
+                do {
+                  m :: tc_fresh_meta(mst["state"])
+                  { state: { elems: [...mst.elems, meta_value(m.id)], state: m["state"], remaining: drop(mst.remaining, 1) } }
+                }
+              }
+            }
+            ctor_ty :: funcs.make_type("type.family_app", set(set({}, "name", name), "args", meta_acc.elems))
+            { state: { state: tc_extend(meta_acc["state"], first_value(st.remaining), ctor_ty), remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+      { val: funcs.make_type("type.unit", {}), state: bound }
+    },
     _: { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "warning", "unknown judgment op: " + op_name) }
   }
   }
@@ -2699,6 +3389,19 @@ do {
           if name == "List" {
             { val: funcs.make_type("type.constructor", set(set({}, "name", "List"), "make", [element, length]~> funcs.make_type("List", set(set({}, "element", element), "length", length)))), state: st }
           } else {
+            if name == "Type" || name == "Universe" || name == "Type0" {
+              --- `Type` is the lowest type universe (Prop ≈ Bool ≈ Type₀ —
+              --- the predicate encoding used by `desugar.data` lives here).
+              { val: funcs.make_type("type.universe", set({}, "level", 0)), state: st }
+            } else {
+            if name == "Family" || name == "Pi" || name == "Sigma" || name == "Forall" {
+              --- Bare dependent former names (ADR-0120 Phase 4): opaque
+              --- constructors. `Family(A)` / `Pi(A, f)` / `Sigma(A, f)` /
+              --- `Forall(K, f)` applications are handled in the `call`
+              --- branch, which needs the argument AST nodes (a body
+              --- closure captures the binder and its arena index).
+              { val: funcs.make_type("type.constructor", set({}, "name", name)), state: st }
+            } else {
             if name == "Int" || name == "Nat" || name == "Number" {
               { val: funcs.make_type("type.number", {}), state: st }
             } else {
@@ -2722,7 +3425,29 @@ do {
                         }
                       }
                     } else {
-                      { val: found, state: st }
+                      --- A `data`-declared name in type position is the
+                      --- saturated family — `Vec` alone means `Vec` at
+                      --- unknown indices (`type.family_app` with fresh
+                      --- metavariables). The `type.family` former itself
+                      --- (`Family(A)`, or `f : Family(A)`) stays a former.
+                      if type_tag(found) == "type.family" && get_or(found, "name", "") != "" {
+                        do {
+                          base_elems :: get_or(get_or(found, "base", {}), "elements", [])
+                          app_acc :: while { args: [], state: st, remaining: base_elems } {
+                            [w]~> if is_empty(w.remaining) {
+                              { out: { args: w.args, state: w["state"] } }
+                            } else {
+                              do {
+                                m :: tc_fresh_meta(w["state"])
+                                { state: { args: [...w.args, meta_value(m.id)], state: m["state"], remaining: drop(w.remaining, 1) } }
+                              }
+                            }
+                          }
+                          { val: funcs.make_type("type.family_app", set(set({}, "name", name), "args", app_acc.args)), state: app_acc["state"] }
+                        }
+                      } else {
+                        { val: found, state: st }
+                      }
                     }
                   }
                 }
@@ -2730,6 +3455,8 @@ do {
             }
           }
         }
+        }
+      }
       } else {
         if kind == "field-access" {
           do {
@@ -2792,6 +3519,35 @@ do {
                     ""
                   }
                   bound_callee :: if callee_name != "" { tc_lookup_result(st, callee_name) } else { null }
+                  --- Dependent former application (ADR-0120 Phase 4):
+                  --- `Family(A)`, `Pi(A, f)`, `Sigma(A, f)`, `Forall(K, f)`
+                  --- — plus the `type.`-namespaced spellings — mint
+                  --- `type.family`/`type.pi`/`type.sigma`/`type.forall`
+                  --- type values with a lazy `body_closure`.
+                  former_name :: if callee_name == "Family" || callee_name == "Pi" || callee_name == "Sigma" || callee_name == "Forall" {
+                    callee_name
+                  } else {
+                    if node_kind(callee_node) == "field-access" {
+                      do {
+                        fa_role :: child_role_index(st, "field-access", "field")
+                        if fa_role == null {
+                          ""
+                        } else {
+                          do {
+                            fa_node :: ast_node(st.ast, child_ref(st.ast, callee_idx, fa_role))
+                            fa_payload :: node_payload(fa_node)
+                            fa_name :: if type_of(fa_payload) == "str" { fa_payload } else { get_or(fa_payload, "name", "") }
+                            if fa_name == "Family" || fa_name == "Pi" || fa_name == "Sigma" || fa_name == "Forall" { fa_name } else { "" }
+                          }
+                        }
+                      }
+                    } else {
+                      ""
+                    }
+                  }
+                  if former_name != "" {
+                    funcs.synth_dep_former_(funcs, st, node_idx, former_name)
+                  } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
                   } else {
@@ -2807,7 +3563,14 @@ do {
                       }
                     }
                   }
-                  if type_tag(callee_type.val) == "type.constructor" {
+                  callee_tag :: type_tag(callee_type.val)
+                  if callee_tag == "type.family" || callee_tag == "type.family_app" {
+                    --- Indexed-family application in type position
+                    --- (ADR-0120 Phase 4): `Vec(3, Bool)` is the
+                    --- saturated fiber `type.family_app{name, args}`.
+                    { val: funcs.make_type("type.family_app", set(set({}, "name", get_or(callee_type.val, "name", "")), "args", arg_acc.vals)), state: arg_acc["state"] }
+                  } else {
+                  if callee_tag == "type.constructor" {
                     do {
                       cname :: get_or(callee_type.val, "name", "")
                       make :: get_or(callee_type.val, "make", null)
@@ -2843,8 +3606,10 @@ do {
                     { val: funcs.make_type("App", set(set({}, "callee", callee_type.val), "args", arg_acc.vals)), state: arg_acc["state"] }
                   }
                   }
+                  }
                 }
               }
+            }
             }
             }
           } else {
@@ -3357,6 +4122,21 @@ do {
     eval_bin_: eval_bin_,
     eval_term_: eval_term_,
     eval_node_: eval_node_,
+    function_params_: function_params_,
+    dep_closure_from_: dep_closure_from_,
+    synth_dep_former_: synth_dep_former_,
+    apply_dep_closure_: apply_dep_closure_,
+    check_pi_intro_: check_pi_intro_,
+    check_sigma_intro_: check_sigma_intro_,
+    check_family_arrow_: check_family_arrow_,
+    check_dependent_: check_dependent_,
+    check_dependent_fallback_: check_dependent_fallback_,
+    unify_dependent_: unify_dependent_,
+    unify_fn_pi_: unify_fn_pi_,
+    unify_dep_bodies_: unify_dep_bodies_,
+    collect_ctor_names_: collect_ctor_names_,
+    flow_cod_: flow_cod_,
+    flow_compose_: flow_compose_,
     make_type: make_type,
     sanitize: tc_sanitize,
     add_diagnostic: tc_add_diagnostic,
