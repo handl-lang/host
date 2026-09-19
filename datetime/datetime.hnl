@@ -183,49 +183,202 @@ op "datetime.end_of_year" : String -> String
 op "datetime.is_valid" : String -> Bool
   guarantee: True
 
-handle "datetime.from_unix" with rust_datetime_from_unix
-handle "datetime.to_unix" with rust_datetime_to_unix
-handle "datetime.from_components" with rust_datetime_from_components
-handle "datetime.format" with rust_datetime_format
-handle "datetime.parse" with rust_datetime_parse
-handle "datetime.to_timezone" with rust_datetime_to_timezone
-handle "datetime.to_utc" with rust_datetime_to_utc
-handle "datetime.year" with rust_datetime_year
-handle "datetime.month" with rust_datetime_month
-handle "datetime.day" with rust_datetime_day
-handle "datetime.hour" with rust_datetime_hour
-handle "datetime.minute" with rust_datetime_minute
-handle "datetime.second" with rust_datetime_second
-handle "datetime.weekday" with rust_datetime_weekday
-handle "datetime.day_of_year" with rust_datetime_day_of_year
-handle "datetime.week_of_year" with rust_datetime_week_of_year
-handle "datetime.quarter" with rust_datetime_quarter
-handle "datetime.is_leap_year" with rust_datetime_is_leap_year
-handle "datetime.is_weekend" with rust_datetime_is_weekend
-handle "datetime.add_seconds" with rust_datetime_add_seconds
-handle "datetime.add_minutes" with rust_datetime_add_minutes
-handle "datetime.add_hours" with rust_datetime_add_hours
-handle "datetime.add_days" with rust_datetime_add_days
-handle "datetime.add_weeks" with rust_datetime_add_weeks
-handle "datetime.add_months" with rust_datetime_add_months
-handle "datetime.add_years" with rust_datetime_add_years
-handle "datetime.compare" with rust_datetime_compare
-handle "datetime.is_before" with rust_datetime_is_before
-handle "datetime.is_after" with rust_datetime_is_after
-handle "datetime.is_equal" with rust_datetime_is_equal
-handle "datetime.is_between" with rust_datetime_is_between
-handle "datetime.is_between_inclusive" with rust_datetime_is_between_inclusive
-handle "datetime.duration_between" with rust_datetime_duration_between
-handle "datetime.duration_seconds" with rust_datetime_duration_seconds
-handle "datetime.duration_minutes" with rust_datetime_duration_minutes
-handle "datetime.duration_hours" with rust_datetime_duration_hours
-handle "datetime.duration_days" with rust_datetime_duration_days
-handle "datetime.start_of_day" with rust_datetime_start_of_day
-handle "datetime.end_of_day" with rust_datetime_end_of_day
-handle "datetime.start_of_hour" with rust_datetime_start_of_hour
-handle "datetime.end_of_hour" with rust_datetime_end_of_hour
-handle "datetime.start_of_month" with rust_datetime_start_of_month
-handle "datetime.end_of_month" with rust_datetime_end_of_month
-handle "datetime.start_of_year" with rust_datetime_start_of_year
-handle "datetime.end_of_year" with rust_datetime_end_of_year
-handle "datetime.is_valid" with rust_datetime_is_valid
+
+-- ---------------------------------------------------------------------------
+-- Implementation (pure handl)
+-- ---------------------------------------------------------------------------
+-- Moved from the deleted `plugin-lib-datetime` Rust crate (ADR-0077 Phase 4 /
+-- ADR-0083). Every op below is a pure function of its arguments: there is no
+-- clock access and no host `handle` dispatch. Civil-calendar conversion uses
+-- the standard days-from-civil / civil-from-days integer algorithms, so the
+-- module needs only `math` / `str` / `char` / `typeof` / `error` in scope.
+--
+-- Instants are represented internally as a `{ sec, ns }` record: `sec` is an
+-- integer number of seconds since the Unix epoch (UTC) and `ns` the
+-- non-negative nanosecond remainder.
+from "math" import * as math
+from "str" import * as str
+from "char" import * as char
+from "typeof" import * as typeof
+from "error" import * as error
+
+do {
+  -- ===== calendar helpers =====
+
+  is_leap :: [y] ~> do {
+    if math.mod(y, 4) != 0 { false } else {
+      if math.mod(y, 100) != 0 { true } else { math.mod(y, 400) == 0 }
+    }
+  }
+
+  days_in_month :: [y, m] ~> do {
+    if m == 2 {
+      if is_leap(y) { 29 } else { 28 }
+    } else {
+      if m == 4 { 30 } else {
+        if m == 6 { 30 } else {
+          if m == 9 { 30 } else {
+            if m == 11 { 30 } else { 31 }
+          }
+        }
+      }
+    }
+  }
+
+  days_from_civil :: [y, m, d] ~> do {
+    yy :: if m <= 2 { y - 1 } else { y }
+    era :: math.floor_div(yy, 400)
+    yoe :: yy - era * 400
+    mp :: if m > 2 { m - 3 } else { m + 9 }
+    doy :: math.floor_div(153 * mp + 2, 5) + d - 1
+    doe :: yoe * 365 + math.floor_div(yoe, 4) - math.floor_div(yoe, 100) + doy
+    era * 146097 + doe - 719468
+  }
+
+  civil_from_days :: [z] ~> do {
+    zz :: z + 719468
+    era :: math.floor_div(zz, 146097)
+    doe :: zz - era * 146097
+    yoe :: math.floor_div(doe - math.floor_div(doe, 1460) + math.floor_div(doe, 36524) - math.floor_div(doe, 146096), 365)
+    y0 :: yoe + era * 400
+    doy :: doe - (365 * yoe + math.floor_div(yoe, 4) - math.floor_div(yoe, 100))
+    mp :: math.floor_div(5 * doy + 2, 153)
+    dd :: doy - math.floor_div(153 * mp + 2, 5) + 1
+    mm :: if mp < 10 { mp + 3 } else { mp - 9 }
+    yc :: if mm <= 2 { y0 + 1 } else { y0 }
+    { y: yc, m: mm, d: dd }
+  }
+
+  -- ===== string / stamp helpers =====
+
+  pad2 :: [n] ~> do {
+    s :: typeof.to_string(n)
+    if str.length(s) >= 2 { s } else { "0" + s }
+  }
+
+  pad4 :: [n] ~> do {
+    s :: typeof.to_string(n)
+    if str.length(s) >= 4 { s } else { str.pad_left(s, 4, "0") }
+  }
+
+  all_digits :: [s] ~> do {
+    while { xs: char.chars(s), ok: true } {
+      [xs, ok] ~> match xs {
+        []: { out: ok },
+        [h, ...t]: {
+          nok :: if char.is_numeric(h) { ok } else { false }
+          { state: { xs: t, ok: nok } }
+        }
+      }
+    }
+  }
+
+  bad :: [s] ~> error.raise("invalid datetime: " + s)
+
+  num_at :: [s, i, j] ~> do {
+    part :: str.slice(s, i, j)
+    if all_digits(part) { typeof.to_number(part) } else { bad(s) }
+  }
+
+  stamp_of :: [y, mo, d, hh, mi, ss, ns, off] ~> do {
+    days :: days_from_civil(y, mo, d)
+    { sec: days * 86400 + hh * 3600 + mi * 60 + ss - off, ns: ns }
+  }
+
+  off_seconds :: [sign, p] ~> do {
+    h :: str.slice(p, 0, 2)
+    mn :: str.slice(p, 3, 5)
+    hv :: if all_digits(h) { typeof.to_number(h) } else { 0 }
+    mv :: if all_digits(mn) { typeof.to_number(mn) } else { 0 }
+    sign * (hv * 3600 + mv * 60)
+  }
+
+  frac_nanos :: [p] ~> do {
+    if str.length(p) < 2 { 0 } else {
+      ds :: str.slice(p, 1, str.length(p))
+      nd :: str.length(ds)
+      if nd == 0 { 0 } else {
+        d2 :: if nd > 9 { str.slice(ds, 0, 9) } else { ds }
+        if all_digits(d2) { typeof.to_number(str.pad_right(d2, 9, "0")) } else { 0 }
+      }
+    }
+  }
+
+  parse_stamp :: [s] ~> do {
+    n :: str.length(s)
+    if n < 10 { bad(s) } else {
+      if str.char_at(s, 4) == "-" {
+        if str.char_at(s, 7) == "-" {
+          y :: num_at(s, 0, 4)
+          mo :: num_at(s, 5, 7)
+          dd :: num_at(s, 8, 10)
+          if mo < 1 { bad(s) } else {
+            if mo > 12 { bad(s) } else {
+              if dd < 1 { bad(s) } else {
+                if dd > days_in_month(y, mo) { bad(s) } else {
+                  if n == 10 { stamp_of(y, mo, dd, 0, 0, 0, 0, 0) } else { parse_time(s, n, y, mo, dd) }
+                }
+              }
+            }
+          }
+        } else { bad(s) }
+      } else { bad(s) }
+    }
+  }
+
+  parse_time :: [s, n, y, mo, dd] ~> do {
+    if n < 19 { bad(s) } else {
+      if str.char_at(s, 10) == "T" {
+        if str.char_at(s, 13) == ":" {
+          if str.char_at(s, 16) == ":" {
+            hh :: num_at(s, 11, 13)
+            mi :: num_at(s, 14, 16)
+            ss :: num_at(s, 17, 19)
+            rest :: str.slice(s, 19, n)
+            plus :: str.find(rest, "+")
+            minus :: str.find(rest, "-")
+            has_off :: if plus >= 0 { true } else { minus >= 0 }
+            signpos :: if plus >= 0 { plus } else { minus }
+            body :: if has_off { str.slice(rest, 0, signpos) } else { rest }
+            offpart :: if has_off { str.slice(rest, signpos + 1, str.length(rest)) } else { "" }
+            sgn :: if plus >= 0 { 1 } else { 0 - 1 }
+            off :: if has_off { off_seconds(sgn, offpart) } else { 0 }
+            tb :: if str.ends_with(body, "Z") { str.slice(body, 0, str.length(body) - 1) } else { body }
+            ns :: frac_nanos(tb)
+            if hh > 23 { bad(s) } else {
+              if mi > 59 { bad(s) } else {
+                if ss > 60 { bad(s) } else { stamp_of(y, mo, dd, hh, mi, ss, ns, off) }
+              }
+            }
+          } else { bad(s) }
+        } else { bad(s) }
+      } else { bad(s) }
+    }
+  }
+
+  trim_zeros :: [s] ~> do {
+    while { t: s } {
+      [t] ~> if str.ends_with(t, "0") {
+        if str.length(t) > 1 { { state: { t: str.slice(t, 0, str.length(t) - 1) } } } else { { out: t } }
+      } else { { out: t } }
+    }
+  }
+
+  frac_str :: [ns] ~> do {
+    s0 :: str.pad_left(typeof.to_string(ns), 9, "0")
+    "." + trim_zeros(s0)
+  }
+
+  fmt_stamp :: [sec, ns] ~> do {
+    days :: math.floor_div(sec, 86400)
+    sod :: sec - days * 86400
+    c :: civil_from_days(days)
+    hh :: math.floor_div(sod, 3600)
+    mi :: math.floor_div(sod - hh * 3600, 60)
+    ss :: sod - hh * 3600 - mi * 60
+    base :: pad4(c.y) + "-" + pad2(c.m) + "-" + pad2(c.d) + "T" + pad2(hh) + ":" + pad2(mi) + ":" + pad2(ss)
+    if ns > 0 { base + frac_str(ns) + "Z" } else { base + "Z" }
+  }
+
+  stamp_seconds :: [st] ~> st.sec + st.ns / 1000000000
+
