@@ -2342,12 +2342,12 @@ impl TreeWalkEngine {
             // shape data through the `TwCtx` services
             // (`pattern_role_at`/`literal_child_at`/
             // `closure_params_at`/`closure_body_def`).
-            // Phase 9.5: import/export. The eval schemes for `stmt.import`
-            // and `stmt.export` are `Arr { op: import/export, source: Native }`,
-            // so they dispatch here. The engine stays generic: it delegates
-            // module loading to the configured `ImportResolver` trait object
-            // (no hardcoded kind checks — the op names come from eval.yaml).
-            "import" => self.prim_import(args, current_node, env),
+            // Phase 9.5: `import`/`export` are owned by the shared op table
+            // (native_ops) — `import` resolves the module through
+            // `TwCtx::import_resolver` (the configured `ImportResolver`
+            // trait object; the engine stays generic — the op names come
+            // from eval.yaml) and splices/projects/binds the exports via
+            // `env_define`.
             "export" => {
                 // Bootstrap pass-through: evaluate the child expression (already
                 // computed as `args[0]` via `proj_child(0)`) and return it.
@@ -3146,141 +3146,6 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         self.eval_node(ast, node_ref, lang, env)
-    }
-
-    /// `bind` op: arrow-calculus env extension (ADR-0052).
-    ///
-    /// `x = y in body` → `bind { name: "x", children: [y, body] }`.
-    /// Evaluates `y` in the current env, pushes a scope with `x = y`,
-    /// evaluates `body` in the extended env, pops the scope. No closure
-    /// creation, no env capture — just env extension via `Seq` semantics.
-    /// `import` op (Phase 9.5): load a module via the configured
-    /// [`ImportResolver`] and bind its top-level bindings into the current
-    /// scope.
-    ///
-    /// The `stmt.import` eval scheme is
-    /// `Arr { op: import, args: [proj_child(0)], source: Native }`, so
-    /// `args[0]` is the evaluated path expression (a string literal). As a
-    /// fallback, the path is also read from `current_node.payload["path"]`
-    /// (the `ast.import` shape declares a `path` field).
-    ///
-    /// The resolver returns a `Value::Object` of `{name: value, ...}`. The
-    /// node's `payload.names`/`payload.alias` (set by the `from "path"
-    /// import ...` grammar tail) select the binding mode: a named import
-    /// projects a single export, `* as alias` binds the whole object, and
-    /// `*`/bare `import "path"` splices each export into the current
-    /// (innermost) scope via [`ScopeStack::define`]. No new scope is pushed
-    /// (`did_push = false`): imported bindings share the importer's scope.
-    ///
-    /// If no resolver is configured, the op errors gracefully.
-    fn prim_import(
-        &self,
-        args: &[TaggedValue],
-        current_node: &AstNode,
-        env: &mut ScopeStack,
-    ) -> Result<(TaggedValue, bool), LangError> {
-        // Resolve the module path: prefer the evaluated child (`args[0]`),
-        // fall back to the node's `path` payload field.
-        let path: String = args
-            .first()
-            .and_then(|v| v.as_str())
-            .map(String::from)
-            .or_else(|| {
-                current_node
-                    .payload
-                    .get("path")
-                    .and_then(|v| v.as_str())
-                    .map(String::from)
-            })
-            .ok_or_else(|| {
-                LangError::engine_node(
-                    "import: missing module path (expected string argument or 'path' payload)"
-                        .to_string(),
-                    current_node,
-                )
-            })?;
-        let resolver = self.import_resolver.as_ref().ok_or_else(|| {
-            LangError::engine_node(
-                "import: no import resolver configured".to_string(),
-                current_node,
-            )
-        })?;
-        let bindings = resolver.resolve_import(&path).map_err(|e| {
-            // Annotate with the import node for diagnostics if the error
-            // is a bare engine error.
-            LangError::engine_node(format!("import \"{}\": {}", path, e), current_node)
-        })?;
-        // Binding semantics (`payload.names` / `payload.alias`, ADR-0096):
-        // - `import "path"` / `from "path" import *` (no alias): splice each
-        //   top-level export into the current scope.
-        // - `from "path" import * as alias`: bind the whole module object to
-        //   `alias`.
-        // - `from "path" import name [as alias]`: project `name` out of the
-        //   module's exports and bind it under `alias` (or `name`).
-        // - `from "path" import { a, b as x }`: project each named export and
-        //   bind it under the local name (with optional `as` alias).
-        let names_val = current_node.payload.get("names");
-        let alias = current_node.payload.get("alias").and_then(|v| v.as_str());
-        if let Some(arr) = names_val.and_then(|v| v.as_array()) {
-            for item in arr {
-                let (imported, local) = match item {
-                    Value::String(s) => (s.as_str(), s.as_str()),
-                    Value::Object(obj) => {
-                        let n = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-                            LangError::engine_node(
-                                "import: missing 'name' in braced import entry".to_string(),
-                                current_node,
-                            )
-                        })?;
-                        let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
-                        (n, a)
-                    }
-                    _ => {
-                        return Err(LangError::engine_node(
-                            "import: invalid braced import entry".to_string(),
-                            current_node,
-                        ));
-                    }
-                };
-                if imported == "*" {
-                    return Err(LangError::engine_node(
-                        "import: cannot use '*' inside a braced import list".to_string(),
-                        current_node,
-                    ));
-                }
-                let exported = match &bindings {
-                    Value::Object(map) => map.get(imported).cloned(),
-                    _ => None,
-                };
-                let value = exported.ok_or_else(|| {
-                    LangError::engine_node(
-                        format!("import \"{}\": module has no export `{}`", path, imported),
-                        current_node,
-                    )
-                })?;
-                env.define(local, TaggedValue::from(value));
-            }
-        } else if let Some(imported) = names_val.and_then(|v| v.as_str()).filter(|n| *n != "*") {
-            let exported = match &bindings {
-                Value::Object(map) => map.get(imported).cloned(),
-                _ => None,
-            };
-            let value = exported.ok_or_else(|| {
-                LangError::engine_node(
-                    format!("import \"{}\": module has no export `{}`", path, imported),
-                    current_node,
-                )
-            })?;
-            env.define(alias.unwrap_or(imported), TaggedValue::from(value));
-        } else if let Some(alias) = alias {
-            env.define(alias, TaggedValue::from(bindings.clone()));
-        } else if let Value::Object(map) = bindings {
-            for (name, val) in map {
-                env.define(&name, TaggedValue::from(val));
-            }
-        }
-        // `import` is a statement; it produces no value.
-        Ok((TaggedValue::Null, false))
     }
 }
 
@@ -4425,6 +4290,10 @@ impl NativeOpCtx for TwCtx<'_, '_> {
             self.node_ref,
             self.current_node,
         )
+    }
+
+    fn import_resolver(&self) -> Option<&dyn ImportResolver> {
+        self.engine.import_resolver.as_deref()
     }
 }
 

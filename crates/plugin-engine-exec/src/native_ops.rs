@@ -18,14 +18,16 @@
 //! had already drifted apart (e.g. string `add`, `countdown_step` int
 //! preservation, `Arith` f64 round-tripping).
 //!
-//! Ops that genuinely require deep engine machinery (imports, module
-//! calls, `eval_block`, `closure` capture shapes, FFI) stay behind
-//! [`NativeOpCtx`] services — or remain backend arms until their service
-//! is declared. [`apply_native_op`] returns `Ok(None)` for op names it
-//! does not own, so backends compose it ahead of their residual arms.
+//! Ops that genuinely require deep engine machinery (module calls, FFI)
+//! stay behind [`NativeOpCtx`] services — or remain backend arms until
+//! their service is declared (imports moved behind
+//! [`NativeOpCtx::import_resolver`] in Phase B). [`apply_native_op`]
+//! returns `Ok(None)` for op names it does not own, so backends compose
+//! it ahead of their residual arms.
 
 use std::rc::Rc;
 
+use crate::ImportResolver;
 use handl_language::{AstRef, LangError, Value};
 use handl_value::{
     TaggedValue, cell_comp_axis, cell_compose, cell2_comp_v, cell2_id, cell2_src, cell2_tgt,
@@ -247,6 +249,12 @@ pub enum OpService {
     /// their own [`crate::pattern_match::PatternMatchCtx`] impl; engines
     /// without pattern support decline the `match`/`handle` ops.
     Pattern,
+    /// Module import resolution — the `import` op (ADR-0096) resolves the
+    /// specifier through [`NativeOpCtx::import_resolver`]. Engines that
+    /// cannot host an [`ImportResolver`] decline the `import` op; an
+    /// engine that supports the service but has no resolver configured
+    /// reports the canonical "no import resolver configured" error.
+    Import,
 }
 
 /// Engine-specific globals the shared ops need.
@@ -415,6 +423,20 @@ pub trait NativeOpCtx {
         f: &TaggedValue,
         args: &[TaggedValue],
     ) -> Result<TaggedValue, LangError>;
+
+    /// The [`ImportResolver`] wired into this engine for the `import` op
+    /// (Phase 9.5, ADR-0096), or `None` when no resolver is configured —
+    /// the op then fails with the canonical "no import resolver
+    /// configured" error.
+    ///
+    /// The resolver is an engine-side trait object: the shared `import`
+    /// op invokes it from inside the engine's own dispatch — for
+    /// cranelift, inside the `helper_v2_apply_native` Rust helper that
+    /// already holds `&mut EvalCtx` — so it never crosses the JIT
+    /// boundary as a callback pointer.
+    fn import_resolver(&self) -> Option<&dyn ImportResolver> {
+        None
+    }
 }
 
 // ===========================================================================
@@ -1903,6 +1925,126 @@ pub fn apply_native_op(
                 TaggedValue::Str(Rc::from("handl.canonical")),
             );
             Ok((TaggedValue::Obj(Rc::new(obj)), false))
+        }
+        // --- Phase 9.5 import (ADR-0096 unified import model) ----------
+        // `import "<spec>"` resolves the module through the engine's
+        // `ImportResolver` and binds its exports per the node's
+        // `payload.names`/`payload.alias`:
+        // - `import "path"` / `from "path" import *` (no alias): splice
+        //   each top-level export into the current (innermost) scope.
+        // - `from "path" import * as alias`: bind the whole module
+        //   object to `alias`.
+        // - `from "path" import name [as alias]`: project `name` out of
+        //   the module's exports and bind it under `alias` (or `name`).
+        // - `from "path" import { a, b as x }` (`names` array): project
+        //   each named export under its local name.
+        // The op pushes no scope (`did_push = false`): imported bindings
+        // share the importer's scope.
+        "import" => {
+            if !ctx.supports(OpService::Env) || !ctx.supports(OpService::Import) {
+                return Ok(None);
+            }
+            // Clone the payload fields up front — `env_define` mutably
+            // borrows `ctx` below.
+            let (path_payload, names_val, alias) = {
+                let payload = ctx.node_payload();
+                (
+                    payload
+                        .and_then(|p| p.get("path"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    payload.and_then(|p| p.get("names")).cloned(),
+                    payload
+                        .and_then(|p| p.get("alias"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                )
+            };
+            // Resolve the module path: prefer the evaluated child
+            // (`args[0]`), fall back to the node's `path` payload field.
+            let path: String = args
+                .first()
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or(path_payload)
+                .ok_or_else(|| {
+                    LangError::engine(
+                        "import: missing module path (expected string argument or 'path' payload)"
+                            .to_string(),
+                    )
+                })?;
+            let resolver = ctx.import_resolver().ok_or_else(|| {
+                LangError::engine("import: no import resolver configured".to_string())
+            })?;
+            let bindings = resolver.resolve_import(&path).map_err(|e| {
+                LangError::engine(format!("import \"{}\": {}", path, e))
+            })?;
+            if let Some(arr) = names_val.as_ref().and_then(|v| v.as_array()) {
+                for item in arr {
+                    let (imported, local) = match item {
+                        Value::String(s) => (s.as_str(), s.as_str()),
+                        Value::Object(obj) => {
+                            let n =
+                                obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+                                    LangError::engine(
+                                        "import: missing 'name' in braced import entry"
+                                            .to_string(),
+                                    )
+                                })?;
+                            let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
+                            (n, a)
+                        }
+                        _ => {
+                            return Err(LangError::engine(
+                                "import: invalid braced import entry".to_string(),
+                            ));
+                        }
+                    };
+                    if imported == "*" {
+                        return Err(LangError::engine(
+                            "import: cannot use '*' inside a braced import list".to_string(),
+                        ));
+                    }
+                    let exported = match &bindings {
+                        Value::Object(map) => map.get(imported).cloned(),
+                        _ => None,
+                    };
+                    let value = exported.ok_or_else(|| {
+                        LangError::engine(format!(
+                            "import \"{}\": module has no export `{}`",
+                            path, imported
+                        ))
+                    })?;
+                    ctx.env_define(local, TaggedValue::from(value));
+                }
+            } else if let Some(imported) = names_val
+                .as_ref()
+                .and_then(|v| v.as_str())
+                .filter(|n| *n != "*")
+            {
+                let exported = match &bindings {
+                    Value::Object(map) => map.get(imported).cloned(),
+                    _ => None,
+                };
+                let value = exported.ok_or_else(|| {
+                    LangError::engine(format!(
+                        "import \"{}\": module has no export `{}`",
+                        path, imported
+                    ))
+                })?;
+                ctx.env_define(
+                    alias.as_deref().unwrap_or(imported),
+                    TaggedValue::from(value),
+                );
+            } else if let Some(alias) = alias {
+                ctx.env_define(&alias, TaggedValue::from(bindings.clone()));
+            } else if let Value::Object(map) = &bindings {
+                for (name, val) in map {
+                    ctx.env_define(name, TaggedValue::from(val.clone()));
+                }
+            }
+            // `import` is a statement; it produces no value.
+            Ok((TaggedValue::Null, false))
         }
         "transport" => Ok((args.get(1).cloned().unwrap_or(TaggedValue::Null), false)),
         "export" => {

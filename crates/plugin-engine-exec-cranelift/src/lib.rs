@@ -1857,130 +1857,6 @@ fn prim_v2_flow(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
     }
 }
 
-/// `import` native op (Phase 9.5): load a module via the configured
-/// [`ImportResolver`] and bind its top-level exports into the current
-/// scope. Mirrors the v2 tree-walk's `prim_import` and the bytecode VM's
-/// `prim_v2_import`.
-fn prim_v2_import(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
-    let node = match ctx.current_node() {
-        Ok(n) => n.clone(),
-        Err(e) => return ctx.set_error(e),
-    };
-
-    let path: String = match args
-        .first()
-        .and_then(|v| v.as_str())
-        .map(String::from)
-        .or_else(|| {
-            node.payload
-                .get("path")
-                .and_then(|v| v.as_str())
-                .map(String::from)
-        }) {
-        Some(p) => p,
-        None => {
-            return ctx.set_error(LangError::engine_node(
-                "import: missing module path (expected string argument or 'path' payload)"
-                    .to_string(),
-                &node,
-            ));
-        }
-    };
-
-    let resolver = match ctx.import_resolver.as_ref() {
-        Some(r) => r,
-        None => {
-            return ctx.set_error(LangError::engine_node(
-                "import: no import resolver configured".to_string(),
-                &node,
-            ));
-        }
-    };
-
-    let bindings = match resolver.resolve_import(&path) {
-        Ok(v) => TaggedValue::from(v),
-        Err(e) => {
-            return ctx.set_error(LangError::engine_node(
-                format!("import \"{}\": {}", path, e),
-                &node,
-            ));
-        }
-    };
-
-    // Binding semantics mirror the tree-walk `prim_import` (ADR-0096):
-    // `names` (non-"*") projects a single export, `alias` alone binds the
-    // whole module object, otherwise each export is spliced into scope.
-    // A `names` array supports braced import lists such as
-    // `from "p" import { a, b as x }`.
-    let names_val = node.payload.get("names");
-    let alias = node.payload.get("alias").and_then(|v| v.as_str());
-    if let Some(arr) = names_val.and_then(|v| v.as_array()) {
-        for item in arr {
-            let (imported, local) = match item {
-                Value::String(s) => (s.as_str(), s.as_str()),
-                Value::Object(obj) => {
-                    let n = match obj.get("name").and_then(|v| v.as_str()) {
-                        Some(s) => s,
-                        None => {
-                            return ctx.set_error(LangError::engine_node(
-                                "import: missing 'name' in braced import entry".to_string(),
-                                &node,
-                            ));
-                        }
-                    };
-                    let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
-                    (n, a)
-                }
-                _ => {
-                    return ctx.set_error(LangError::engine_node(
-                        "import: invalid braced import entry".to_string(),
-                        &node,
-                    ));
-                }
-            };
-            if imported == "*" {
-                return ctx.set_error(LangError::engine_node(
-                    "import: cannot use '*' inside a braced import list".to_string(),
-                    &node,
-                ));
-            }
-            let exported = bindings
-                .as_object()
-                .and_then(|map| map.get(imported).cloned());
-            match exported {
-                Some(value) => ctx.env.define(local, value),
-                None => {
-                    return ctx.set_error(LangError::engine_node(
-                        format!("import \"{}\": module has no export `{}`", path, imported),
-                        &node,
-                    ));
-                }
-            }
-        }
-    } else if let Some(imported) = names_val.and_then(|v| v.as_str()).filter(|n| *n != "*") {
-        let exported = bindings
-            .as_object()
-            .and_then(|map| map.get(imported).cloned());
-        match exported {
-            Some(value) => ctx.env.define(alias.unwrap_or(imported), value),
-            None => {
-                return ctx.set_error(LangError::engine_node(
-                    format!("import \"{}\": module has no export `{}`", path, imported),
-                    &node,
-                ));
-            }
-        }
-    } else if let Some(alias) = alias {
-        ctx.env.define(alias, bindings);
-    } else if let Some(map) = bindings.as_object() {
-        for (name, val) in map.iter() {
-            ctx.env.define(name.as_ref(), val.clone());
-        }
-    }
-
-    unsafe { box_value(TaggedValue::Null) }
-}
-
 /// `loop_step` derived step op (ADR-0052 §"Derived forms"): the ergonomic
 /// `loop` surface lowering. `args = [body_proc]` is the body closure
 /// (evaluated from the carried sub-scheme arg); `incoming` is the loop pair
@@ -2822,6 +2698,13 @@ impl NativeOpCtx for ClCtx<'_> {
             Ok(unsafe { take_value(ptr) })
         }
     }
+
+    fn import_resolver(&self) -> Option<&dyn ImportResolver> {
+        // The resolver `Rc` lives inside `EvalCtx`, so the shared `import`
+        // op invokes it here — inside the `helper_v2_apply_native` Rust
+        // helper — rather than across the JIT boundary.
+        self.ctx.import_resolver.as_deref()
+    }
 }
 
 /// Apply a v2 native op.
@@ -2844,7 +2727,17 @@ fn apply_native_v2(
         match native_ops::apply_native_op(op, args, None, incoming.clone(), &mut cl) {
             Ok(Some((v, _pushed))) => return unsafe { box_value(v) },
             Ok(None) => {}
-            Err(e) => return ctx.set_error(e),
+            // Shared-op errors carry no node context; attach the current
+            // node here, matching the tree-walk/bytecode
+            // `.with_node(node)` call sites (`with_node` is idempotent
+            // on already-annotated errors).
+            Err(e) => {
+                let e = match ctx.current_node() {
+                    Ok(n) => e.with_node(n),
+                    Err(_) => e,
+                };
+                return ctx.set_error(e);
+            }
         }
     }
     let result = match op {
@@ -2871,9 +2764,10 @@ fn apply_native_v2(
                 };
             step_decision(op, &inc, &mut eval_arg)
         }
-        // Phase 9.5: `import "path"` loads a module via the configured
-        // resolver and binds its top-level exports into the current scope.
-        "import" => return prim_v2_import(ctx, args),
+        // Phase 9.5: `import "path"` is owned by the shared op table
+        // (native_ops) — it resolves the module through
+        // `ClCtx::import_resolver` and binds the exports into the current
+        // scope via `env_define`.
         // ADR-0074 follow-up #3: `>>>` (`flow`) — function application with
         // a single input argument (mirrors the v2 tree-walk's `flow` arm).
         "flow" => return prim_v2_flow(ctx, args),
