@@ -5,9 +5,13 @@
 //! reindexing-as-composition (`f >>> P`), and the `Σ_f ⊣ f* ⊣ Π_f`
 //! adjunction law terms against the Handl-authored typecheck model.
 //!
-//! These tests pin *structural* support only: index definitional
-//! equality, strict positivity, constructor argument checking, and
-//! dependent elimination are documented limitations, not asserted here.
+//! These tests pin *structural* support: index definitional equality on
+//! computable terms (`Vec(1 + 1)` ≡ `Vec(2)`), constructor argument
+//! checking through freshly instantiated `type.ctor_sig` signatures, and
+//! constructor-pattern binding in `match`. Strict positivity is enforced
+//! by the desugar native; *dependent elimination* (branch-local index
+//! refinement via equality proofs) is a documented limitation, not
+//! asserted here.
 
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::{Ast, AstNode, AstRef, Language};
@@ -169,6 +173,130 @@ fn adjunction_laws_are_2cell_terms() {
     assert!(
         !has_error(&result),
         "adjunction law terms should check cleanly, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// Index terms compute: `1 + 1`, `2 - 0`, `2 * 1` all normalize to `2`,
+/// so a literal `Vec(2, Bool)` accepts a value constructed at those
+/// indices. Constructor uses are freshly instantiated, so two uses of
+/// `VCons` do not share solved metavariables.
+#[test]
+fn dependent_indices_compute_definitionally() {
+    let lang = canonical_lang();
+    let ast = parse_block(
+        &lang,
+        &[
+            "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)",
+            "v1 : Vec(1 + 1, Bool) = VCons(true, VCons(false, VNil))",
+            "v2 : Vec(2 - 0, Bool) = VCons(true, VCons(false, VNil))",
+            "v3 : Vec(2 * 1, Bool) = VCons(true, VCons(false, VNil))",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "computable index terms should be definitionally equal, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// A `data`-declared family shadows the builtin spelling, so
+/// `Succ(pred : Nat)` takes the declared `Nat` family — `Succ(Zero)`
+/// checks and `Succ(3)` does not.
+#[test]
+fn dependent_constructors_check_arguments() {
+    let lang = canonical_lang();
+    let good = parse_block(
+        &lang,
+        &[
+            "data Nat :: Zero | Succ(pred : Nat)",
+            "x : Nat = Succ(Zero)",
+            "y : Nat = Succ(Succ(Zero))",
+        ],
+    );
+    let result = typecheck(&lang, good);
+    assert!(
+        !has_error(&result),
+        "constructor applications at the right types should check, got {:?}",
+        diags_of(&result)
+    );
+
+    let bad = parse_block(
+        &lang,
+        &["data Nat :: Zero | Succ(pred : Nat)", "x : Nat = Succ(3)"],
+    );
+    let result = typecheck(&lang, bad);
+    assert!(
+        has_error(&result),
+        "Succ(3) should be rejected — pred : Nat, not Nat-number"
+    );
+}
+
+/// Indexed constructors validate both the length index and the element
+/// type: a 2-vector at `Vec(3, Bool)` and a string element at
+/// `Vec(_, Bool)` are both rejected.
+#[test]
+fn dependent_constructors_reject_wrong_indices() {
+    let lang = canonical_lang();
+    let decl = "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)";
+
+    let wrong_len = parse_block(
+        &lang,
+        &[decl, "v : Vec(3, Bool) = VCons(true, VCons(false, VNil))"],
+    );
+    let result = typecheck(&lang, wrong_len);
+    assert!(
+        has_error(&result),
+        "a 2-element vector should not check at Vec(3, Bool)"
+    );
+
+    let wrong_elem = parse_block(&lang, &[decl, "v : Vec(2, Bool) = VCons(\"s\", VNil)"]);
+    let result = typecheck(&lang, wrong_elem);
+    assert!(
+        has_error(&result),
+        "a string element should not check at Vec(1, Bool)"
+    );
+}
+
+/// Dependent unification recurses through `type.function`: a family
+/// application in the codomain still gets computational index equality.
+#[test]
+fn dependent_family_unifies_inside_function() {
+    let lang = canonical_lang();
+    let ast = parse_block(
+        &lang,
+        &[
+            "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)",
+            "f : Nat ~> Vec(1 + 1, Bool) = n ~> VCons(true, VCons(false, VNil))",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "family_app in a codomain should unify by normalized indices, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// Constructor patterns in `match` bind their fields against the
+/// instantiated constructor domains. The scrutinee's index is NOT
+/// refined per branch — that requires equality-type machinery the
+/// structural shadow does not carry (documented in dependent.hnl).
+#[test]
+fn match_constructor_patterns_bind_arguments() {
+    let lang = canonical_lang();
+    let ast = parse_block(
+        &lang,
+        &[
+            "data Nat :: Zero | Succ(pred : Nat)",
+            "f = v ~> match v { Zero: Zero, Succ(p): p }",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "constructor patterns should check cleanly, got {:?}",
         diags_of(&result)
     );
 }

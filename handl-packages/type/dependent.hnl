@@ -15,8 +15,24 @@
 ---   Type / Universe / Type0 -- the universe (level 0)
 ---
 --- `data Name(i...) :: Ctor | ...` declares an inductive family: `Name`
---- binds a `type.family` and each constructor a `type.family_app` at
---- fresh index metavariables.
+--- binds a `type.family` and each constructor a `type.ctor_sig` that is
+--- freshly instantiated per use -- a `type.function` chain over the
+--- constructor domains ending in a `type.family_app` at the declared
+--- result indices. A declared family shadows the builtin spelling, so
+--- `data Nat :: Zero | Succ(pred : Nat)` makes `Nat` the inductive
+--- family and `Succ(Zero)` checks while `Succ(3)` does not.
+---
+--- ## Index terms compute
+---
+--- Family indices are normalized before unification: closed arithmetic
+--- evaluates (`Vec(1 + 1)` is `Vec(2)`), commutative operands
+--- canonicalize (`1 + n` ≡ `n + 1`), the ring identities apply
+--- (`n + 0`, `n * 1`, `n - 0`, `n / 1`, `n * 0`), nested literal bins
+--- merge (`(n - 1) + 1` ≡ `n`), and reflexive comparisons fold
+--- (`n == n` ≡ `true`). Symbolic indices that stay unequal do not unify
+--- -- `Vec(n)` and `Vec(n + 1)` differ -- and `Bin`-vs-literal
+--- unification solves only the linear fragment (`X + c = t`, `X - c = t`,
+--- `X * c = t`, and mirrors).
 ---
 --- ## Reindexing is composition
 ---
@@ -47,11 +63,22 @@ export pi_counit := (Q, f, Pi_f) ~> (f >>> Pi_f(Q)) ~[2]~> Q
 
 --- ## Scope of the structural fragment
 ---
---- This is a structural shadow, not full dependent type checking:
---- index terms unify by metavariable/syntactic equality only (no
---- definitional equality), strict positivity is checked by the
---- `desugar.data` native rather than the typechecker, constructor
---- argument checking and dependent elimination are incomplete, and a
---- composite `f >>> P` of dependent operands flattens to `type.function`
---- because no AST body exists to carry a `body_closure` across
---- composition.
+--- This is a structural shadow, not full dependent type checking.
+--- Index terms DO compute (see "Index terms compute" above) and
+--- constructor arguments ARE checked through freshly instantiated
+--- `type.ctor_sig` signatures, including dependent domains like
+--- `VCons(x : a, xs : Vec(n, a))`. The remaining limitations:
+---
+---   * strict positivity is checked by the `desugar.data` native
+---     rather than the typechecker;
+---   * `match` binds constructor-pattern fields against the
+---     instantiated constructor domains, but does NOT refine the
+---     scrutinee's family index per branch -- writing
+---     `match v { VNil: ..., VCons(x, xs): ... }` does not teach the
+---     checker that `v : Vec(0, a)` in the first arm. True dependent
+---     elimination needs an equality type/proof term (`v ≡ Ctor ...`)
+---     to rewrite the index under each arm, machinery the structural
+---     shadow deliberately does not carry;
+---   * a composite `f >>> P` of dependent operands flattens to
+---     `type.function` because no AST body exists to carry a
+---     `body_closure` across composition.
