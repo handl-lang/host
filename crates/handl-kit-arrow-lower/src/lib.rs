@@ -1,17 +1,20 @@
 //! Shared canonical AST to arrow-calculus `Term` lowerer (ADR-0100).
 //!
-//! TECH DEBT (ADR-0105): `lower_node` still `match`es on canonical kind
-//! strings (`value`, `var`, `assign`, `bind`, `op`, `flow`, …) to pick the
-//! lowering combinator. The data-driven replacement is a `lower` scheme
-//! fragment per `AstShapeDef` — the same shape `lang.eval`/`lang.types`
-//! already use — so a renamed kind keeps lowering without an engine edit.
-//! Until that fragment exists, this `match` is the Arrow dialect's lowering
-//! table and new canonical constructs must add an arm here.
+//! Data-driven lowering (ADR-0105/ADR-0120 §"Known debt"): `lower_node`
+//! keeps Rust arms only for kinds whose lowering is compile-time
+//! binding/env machinery the `lang.eval` schemes do not carry — env/param
+//! resolution (`var`), quoting (`function`), `App` disambiguation
+//! (`call`), env threading (`assign`/`block`/`bind`/`rec`), signature and
+//! handler machinery (`op`/`handle`/`arr`/`graded_arrow`), and the
+//! arrow-position forms (`flow`/`axis_flow`/`loop`/`if`) whose eval
+//! schemes are value-level approximations. Every other kind delegates to
+//! [`lower_via_scheme`], which instantiates the `EvalSchemeDef` `Term`
+//! from `lang.eval[kind]` over the node's lowered children — a language
+//! construct added via a YAML `eval.*` scheme lowers with no Rust arm.
 
 use std::collections::{HashMap, HashSet};
 
 use handl_language::{ArrSource, Ast, AstNode, AstRef, Language, Term, Value};
-use serde_json::json;
 
 /// A compile-time env binding: the lowered `Term` plus call metadata.
 ///
@@ -136,16 +139,14 @@ fn lower_node(
 
         "call" => lower_call(ast, lang, node, env, params),
 
-        "binary.add" => lower_binary(ast, lang, node, env, params, "add"),
-        "binary.mul" => lower_binary(ast, lang, node, env, params, "mul"),
-        "binary.sub" => lower_binary(ast, lang, node, env, params, "sub"),
-        "binary.div" => lower_binary(ast, lang, node, env, params, "div"),
-
-        "product" => lower_pair_combinator(ast, lang, node, env, params, "product"),
-        "fanout" => {
-            let (l, r) = lower_two_children(ast, lang, node, env, params)?;
-            Ok(Term::op_foreign("fn.fanout_fn", vec![l, r]))
-        }
+        // `flow`/`axis_flow`/`loop`/`if` keep Rust arms: their eval
+        // schemes are value-level approximations for the env-based
+        // engines, not the arrow-dialect lowering.
+        //
+        // `eval.flow` is `Op{flow, [proj_child 0, proj_child 1]}` — the
+        // `flow` native op composes two *evaluated* arrow values. The
+        // arrow lowering instead composes the operand `Term`s directly
+        // (`Seq`), unquoting arrow values back into body schemes.
         "flow" => {
             // `x >>> f` is sequential composition `seq(x, f)`. Both sides
             // sit in arrow position, so quoted arrow values are unquoted
@@ -154,6 +155,10 @@ fn lower_node(
             Ok(Term::seq(unquote_term(l), unquote_term(r)))
         }
 
+        // `eval.axis_flow` implements only axis 0 for the canonical
+        // engines (a checked `eq` + `flow` + `desugar_error` scheme); its
+        // own comment notes the arrow dialect materializes `Term::Seq`
+        // with the axis slot populated — which is this arm.
         "axis_flow" => {
             // `x >>>[k] f` — composition along axis `k` (ADR-0120 Phase 2).
             // The axis is an ordinary expression position lowered like any
@@ -171,6 +176,12 @@ fn lower_node(
             Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
         }
 
+        // `eval.array`/`eval.object`/`eval.json`/`eval.paren` are
+        // zero-placeholder op stubs: the tree-walk `array`/`object`/
+        // `json`/`paren` ops re-read `payload.children` through the
+        // `EvalNode` engine service. Instantiated naively they would drop
+        // the children (or, for `array`, silently evaluate to `[]`), so
+        // the payload/children packing stays in Rust.
         "array" => {
             // Array literal — two payload shapes (mirrors `prim array`):
             // `{"elements": [v1, v2, ...]}` holds literal values;
@@ -199,6 +210,9 @@ fn lower_node(
             lower_node(ast, lang, value_idx, env, params)
         }
 
+        // `eval.field-access` passes the field child as a second op
+        // *argument*; the arrow `field_access` op convention carries the
+        // field/index in `lit` instead, so this stays in Rust.
         "field-access" => lower_field_access(ast, lang, node, env, params),
 
         "block" => lower_block(ast, lang, node, env, params),
@@ -247,15 +261,7 @@ fn lower_node(
         "handle" => lower_handle(ast, lang, node, env, params),
         "arr" => lower_arr(ast, lang, node, env, params),
         "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
-        "dim_arrow" => lower_dim_arrow(ast, lang, node, env, params),
         "bind" => lower_bind(ast, lang, node, env, params),
-
-        // ADR-0119 §7 / ADR-0120 Phase 5: the Option B frontier cells are
-        // derived forms over `Seq{axis}` — no `cell_*`/`whisker_*`
-        // primitives. These arms emit the same generic `Seq`/`id`/record
-        // shapes as the `eval.cell_*` schemes in `data/eval.yaml`.
-        "cell_comp_h" | "cell_comp_v" | "whisker_left" | "whisker_right" | "cell_id"
-        | "witness" | "refine" => lower_frontier_cell(ast, lang, node, env, params),
 
         "assert" => {
             // Keyword assertion (ADR-0089/0092). In the arrow/compiled
@@ -266,32 +272,489 @@ fn lower_node(
             Ok(Term::op_native("assert", vec![]))
         }
 
-        // ADR-0105: hardcoded `if` branch pending a data-driven `lower`
-        // scheme fragment. Lowered to `cond >>> tag >>> Choice(then, else)`.
+        // `eval.if` is `cond >>> tag >>> Choice(then, else_or_null)`: the
+        // `tag` Either wraps the *condition value* and `Choice` feeds it
+        // to the branch sub-schemes — correct for the env-based engines,
+        // where `proj_child` placeholders ignore their incoming value.
+        // The arrow lowering must instead feed the branches the
+        // *original input* (branch bodies project `id`/`proj_child`
+        // parameters), hence the `product`/`pair_tag` shape below.
         "if" => lower_if(ast, lang, node, env, params),
 
         // ADR-0074/ADR-0105: `rec` region — scoped bindings ending in the
         // self-application produced by `desugar.data`'s recursor.
         "rec" => lower_rec(ast, lang, node, env, params),
 
+        // `eval.loop` runs the `fold_step` value protocol over an
+        // *evaluated* step arrow; the arrow lowering needs the step as a
+        // `Term` — unquoted — plus the bound-arrow-record case, so it
+        // stays in Rust.
         // `loop` node (ADR-0120 Phase 1): children `[input, step]` lower to
         // `seq(input, Loop(unquote step))`. `step` is the feedback body —
         // an arrow `(in, state) -> Either(result, next_state)` — so a
         // quoted step function is unquoted back into its body scheme.
         "loop" => lower_loop(ast, lang, node, env, params),
 
-        // ADR-0105: generic binary operator dispatch for the canonical
-        // `binary.<op>` family emitted by desugaring.
-        op if op.starts_with("binary.") => {
-            let bin_op = op.strip_prefix("binary.").unwrap_or(op);
-            lower_binary(ast, lang, node, env, params, bin_op)
-        }
-
-        other => Err(format!(
-            "lower: unsupported node kind `{}` at {}",
-            other, idx
+        // `return` is early-exit control flow the substitution model
+        // cannot express. `eval.return` declares only the plain value
+        // path (`proj_child 0`) — the early exit lives in `eval_rec`'s
+        // interception of `return` children, which compile-time env
+        // threading cannot reproduce. Decline so the runtime falls back
+        // to the AST engine and keeps its interception semantics.
+        "return" => Err(format!(
+            "lower: `return` is early-exit control flow the substitution model cannot express"
         )),
+
+        // ------------------------------------------------------------------
+        // Data-driven lowering (ADR-0105/0120): every remaining kind
+        // consults `lang.eval[kind]` — the `EvalSchemeDef` `Term` is a
+        // template whose `proj_child`/`Child` placeholders are
+        // instantiated with the node's lowered children. This covers the
+        // `binary.*`/`product`/`fanout` op-argument shapes and the
+        // ADR-0119 §7 frontier cells (`eval.cell_*`/`eval.dim_arrow`/
+        // `eval.witness`/`eval.refine`), and any construct added to the
+        // language purely via YAML eval schemes.
+        _ => lower_via_scheme(ast, lang, node, idx, env, params),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Data-driven lowering — `lang.eval` scheme instantiation (ADR-0105/0120)
+// ---------------------------------------------------------------------------
+
+/// Instantiation context for [`lower_via_scheme`]: the node being lowered
+/// plus the surrounding compile-time state shared with [`lower_node`].
+struct SchemeCtx<'a> {
+    ast: &'a Ast,
+    lang: &'a Language,
+    node: &'a AstNode,
+    env: &'a HashMap<String, EnvEntry>,
+    params: &'a [String],
+}
+
+/// Lower `node` by instantiating its `lang.eval[kind]` [`Term`] over the
+/// node's lowered children.
+///
+/// The eval scheme is a `Term` template: `proj_child i` / `proj_child_or
+/// i` / `proj_rest` ops and `Child{role}` terms are placeholders for the
+/// node's children; `$payload` sentinels resolve to the node payload.
+/// Everything else — op names, sources, `lit` operands, combinator
+/// structure — is carried through verbatim, so the scheme's `Op`/`Seq`/
+/// `Choice`/`App` shape *is* the lowered shape.
+///
+/// `Err` means the scheme cannot be instantiated honestly (a placeholder
+/// in a non-input position, an unresolvable role, a missing child) or no
+/// scheme exists — the caller propagates it so the runtime falls back to
+/// the AST eval engine, preserving today's behavior.
+fn lower_via_scheme(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    idx: usize,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let def = lang
+        .eval
+        .get_by_identity(&node.kind)
+        .ok_or_else(|| format!("lower: unsupported node kind `{}` at {}", node.kind, idx))?;
+    let ctx = SchemeCtx {
+        ast,
+        lang,
+        node,
+        env,
+        params,
+    };
+    instantiate_scheme(&def.scheme, true, &ctx)
+}
+
+/// Instantiate a scheme subterm.
+///
+/// `input_faithful` tracks whether this position receives the node's own
+/// input value when the term runs as an arrow. A child placeholder is
+/// only honest where it does: in the eval engines a `proj_child`/`Child`
+/// placeholder re-evaluates the AST child in the ambient env — it
+/// *ignores* its incoming value. The lowered child, by contrast, is an
+/// arrow that consumes its incoming value, so substituting it at a
+/// position fed by a computed value (a sequential `Seq.snd`, a `Choice`
+/// branch, `Loop` body, `First`, `Handle.impl_`, `Iter`, `Rewrite`)
+/// would hand it a value the scheme never intended. Instantiation
+/// declines there — which is exactly how the canonical `Seq`/`Choice`/
+/// `Loop` eval schemes (`eval.if`, `eval.ternary`, `eval.nullish`,
+/// `eval.while`, `eval.call`, `eval.axis_flow`, `eval.type-annot`,
+/// `eval.dimension`) stay out of the arrow path: their placeholders all
+/// sit in non-input positions. A `Seq.snd` that *pastes* (`k <
+/// dim(fst)`, ADR-0120 Phase 5) is the exception — both `∘ₖ` operands
+/// run on the same input, so the `eval.cell_*` frontier schemes do
+/// instantiate.
+fn instantiate_scheme(
+    term: &Term,
+    input_faithful: bool,
+    ctx: &SchemeCtx<'_>,
+) -> Result<Term, String> {
+    match term {
+        Term::Arr { dim, value } => Ok(Term::Arr {
+            dim: Box::new(instantiate_dim(dim, input_faithful, ctx)?),
+            value: value.clone(),
+        }),
+        Term::Const { .. } | Term::Opaque { .. } => Ok(term.clone()),
+        Term::Op {
+            dim,
+            name,
+            args,
+            source,
+            lit,
+        } => instantiate_op(dim, name, args, source, lit.as_ref(), input_faithful, ctx),
+        Term::Seq { axis, fst, snd } => {
+            // `>>>[k]` has two regimes (ADR-0120 Phase 5): `axis 0` on
+            // 1-cells is sequential composition (`snd` is fed `fst`'s
+            // output), while `k < dim(fst)` is globular pasting `∘ₖ`
+            // (both operands run on the *same* incoming value). `snd`
+            // placeholders are therefore input-faithful exactly when the
+            // Seq pastes — this is what lets the `eval.cell_*` frontier
+            // schemes instantiate: their dim-2 operands always take the
+            // pasting branch.
+            let snd_faithful = input_faithful && seq_pastes(axis, fst);
+            Ok(Term::Seq {
+                // The axis is an ordinary expression position (ADR-0120
+                // Phase 2), evaluated against the same incoming as `fst`.
+                axis: Box::new(instantiate_scheme(axis, input_faithful, ctx)?),
+                fst: Box::new(instantiate_scheme(fst, input_faithful, ctx)?),
+                snd: Box::new(instantiate_scheme(snd, snd_faithful, ctx)?),
+            })
+        }
+        Term::First { inner } => Ok(Term::First {
+            inner: Box::new(instantiate_scheme(inner, false, ctx)?),
+        }),
+        Term::Choice { l, r } => Ok(Term::Choice {
+            l: Box::new(instantiate_scheme(l, false, ctx)?),
+            r: Box::new(instantiate_scheme(r, false, ctx)?),
+        }),
+        Term::Loop { body } => Ok(Term::Loop {
+            body: Box::new(instantiate_scheme(body, false, ctx)?),
+        }),
+        Term::App { callee, args } => Ok(Term::App {
+            callee: Box::new(instantiate_scheme(callee, input_faithful, ctx)?),
+            args: args
+                .iter()
+                .map(|a| instantiate_scheme(a, input_faithful, ctx))
+                .collect::<Result<_, _>>()?,
+        }),
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => Ok(Term::Iter {
+            // The iteration protocol threads state pairs, not the node
+            // input — placeholders anywhere inside are not input-faithful.
+            fuel: Box::new(instantiate_scheme(fuel, false, ctx)?),
+            predicate: Box::new(instantiate_scheme(predicate, false, ctx)?),
+            step: Box::new(instantiate_scheme(step, false, ctx)?),
+            initial: Box::new(instantiate_scheme(initial, false, ctx)?),
+        }),
+        Term::Child { role } => {
+            if !input_faithful {
+                return Err(format!(
+                    "lower: `Child` placeholder for role `{role}` sits in a non-input position"
+                ));
+            }
+            lower_role_child(role, ctx)
+        }
+        Term::Handle {
+            body,
+            target,
+            impl_,
+        } => Ok(Term::Handle {
+            body: Box::new(instantiate_scheme(body, input_faithful, ctx)?),
+            target: target.clone(),
+            // `impl_` evaluates on a constant input, not the node input.
+            impl_: Box::new(instantiate_scheme(impl_, false, ctx)?),
+        }),
+        Term::Rewrite {
+            source,
+            target,
+            witness,
+        } => Ok(Term::Rewrite {
+            // Conservative: rewrite operands are not ordinary expression
+            // positions the arrow model shares placeholder semantics with.
+            source: Box::new(instantiate_scheme(source, false, ctx)?),
+            target: Box::new(instantiate_scheme(target, false, ctx)?),
+            witness: witness.clone(),
+        }),
+        Term::Src { cell } => Ok(Term::Src {
+            cell: Box::new(instantiate_scheme(cell, input_faithful, ctx)?),
+        }),
+        Term::Tgt { cell } => Ok(Term::Tgt {
+            cell: Box::new(instantiate_scheme(cell, input_faithful, ctx)?),
+        }),
+        Term::RecordProj { record, field } => Ok(Term::RecordProj {
+            record: Box::new(instantiate_scheme(record, input_faithful, ctx)?),
+            field: field.clone(),
+        }),
+        Term::RecordWith {
+            record,
+            field,
+            value,
+        } => Ok(Term::RecordWith {
+            record: Box::new(instantiate_scheme(record, input_faithful, ctx)?),
+            field: field.clone(),
+            value: Box::new(instantiate_scheme(value, input_faithful, ctx)?),
+        }),
+        Term::Tag { tag, value } => Ok(Term::Tag {
+            tag: tag.clone(),
+            value: Box::new(instantiate_scheme(value, input_faithful, ctx)?),
+        }),
+        Term::Cobind { grade, body } => Ok(Term::Cobind {
+            // The grade is a label/dimension position, like `Op.dim`.
+            grade: Box::new(instantiate_dim(grade, input_faithful, ctx)?),
+            body: Box::new(instantiate_scheme(body, input_faithful, ctx)?),
+        }),
+    }
+}
+
+/// Whether `Seq{axis, fst, _}` takes the globular-pasting branch —
+/// `∘ₖ` on n-cells (n > k), where both operands run on the same incoming
+/// value. Mirrors the exec backends' discriminator: `axis 0` pastes only
+/// when `fst` is a higher-dimensional cell (`dim > 1`); `axis k > 0`
+/// pastes when `k < dim(fst)`. A non-literal axis cannot be resolved at
+/// instantiate time, so it conservatively reports no pasting.
+fn seq_pastes(axis: &Term, fst: &Term) -> bool {
+    let d = scheme_dim(fst);
+    match axis.nat_literal() {
+        Some(0) => d > 1,
+        Some(k) => k < d,
+        None => false,
+    }
+}
+
+/// The globular dimension of a scheme term (ADR-0120 Phase 5) — the same
+/// structural estimate the exec backends use to pick the
+/// sequential-vs-pasting `Seq` branch (`term_interpreter::term_dim`):
+/// the `dim` slot when it is a numeric literal, otherwise the greatest
+/// dimension among a composite's parts. Defaults to `1` — an ordinary
+/// 1-cell.
+fn scheme_dim(t: &Term) -> u64 {
+    if let Term::Arr { dim, .. } | Term::Op { dim, .. } = t {
+        if let Some(d) = dim.nat_literal() {
+            return d.max(1);
+        }
+    }
+    match t {
+        Term::Seq { fst, snd, .. } => scheme_dim(fst).max(scheme_dim(snd)),
+        Term::First { inner } => scheme_dim(inner),
+        Term::Choice { l, r } => scheme_dim(l).max(scheme_dim(r)),
+        Term::Loop { body } | Term::Handle { body, .. } | Term::Cobind { body, .. } => {
+            scheme_dim(body)
+        }
+        Term::App { callee, .. } => scheme_dim(callee),
+        Term::Iter { step, .. } => scheme_dim(step),
+        Term::RecordProj { record, .. } | Term::RecordWith { record, .. } => scheme_dim(record),
+        Term::Tag { value, .. } => scheme_dim(value),
+        Term::Src { cell } | Term::Tgt { cell } => scheme_dim(cell),
+        Term::Rewrite { target, .. } => scheme_dim(target),
+        _ => 1,
+    }
+}
+
+/// Instantiate an `Op` scheme node: child-projection ops are the
+/// placeholders; any other op is copied with its `dim`, args, `name`,
+/// and `lit` instantiated/resolved.
+fn instantiate_op(
+    dim: &Term,
+    name: &str,
+    args: &[Term],
+    source: &ArrSource,
+    lit: Option<&Value>,
+    input_faithful: bool,
+    ctx: &SchemeCtx<'_>,
+) -> Result<Term, String> {
+    match name {
+        "proj_child" | "proj_child_or" => {
+            if !input_faithful {
+                return Err(format!(
+                    "lower: `{name}` placeholder sits in a non-input position"
+                ));
+            }
+            let i = lit
+                .and_then(Value::as_u64)
+                .ok_or_else(|| format!("lower: `{name}` missing index literal"))?
+                as usize;
+            let term = match children(ctx.node).get(i).copied() {
+                Some(child_idx) => lower_node(ctx.ast, ctx.lang, child_idx, ctx.env, ctx.params)?,
+                None if name == "proj_child_or" => Term::const_value(Value::Null),
+                None => {
+                    return Err(format!(
+                        "lower: `{}` missing child {i} for `{name}`",
+                        ctx.node.kind
+                    ));
+                }
+            };
+            lift_to_dim(term, dim, input_faithful, ctx)
+        }
+        "proj_rest" => {
+            if !input_faithful {
+                return Err("lower: `proj_rest` placeholder sits in a non-input position".into());
+            }
+            // Pack children 1..N into one array value, mirroring the
+            // `proj_rest` eval op: each lowered child runs on the input
+            // and `array` packs the results.
+            let terms = children(ctx.node)
+                .iter()
+                .skip(1)
+                .map(|&i| lower_node(ctx.ast, ctx.lang, i, ctx.env, ctx.params))
+                .collect::<Result<Vec<_>, _>>()?;
+            lift_to_dim(Term::op_native("array", terms), dim, input_faithful, ctx)
+        }
+        _ => {
+            let dim = instantiate_dim(dim, input_faithful, ctx)?;
+            let name = if name == "$payload" {
+                payload_sentinel(ctx.node)?
+                    .as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| format!("lower: `{}` `$payload` is not a name", ctx.node.kind))?
+            } else {
+                name.to_string()
+            };
+            let lit = match lit {
+                Some(Value::String(s)) if s == "$payload" => Some(payload_sentinel(ctx.node)?),
+                other => other.cloned(),
+            };
+            let args = args
+                .iter()
+                .map(|a| instantiate_scheme(a, input_faithful, ctx))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Term::Op {
+                dim: Box::new(dim),
+                name,
+                args,
+                source: source.clone(),
+                lit,
+            })
+        }
+    }
+}
+
+/// A child placeholder declared at dimension `dim` (`Op{dim, name:
+/// "proj_child"}`) lifts the lowered child to that dimension: the
+/// composite `child >>> id_{dim}` has `dim` as its dimension (the maximum
+/// of its parts), so `Seq{axis: k}` sees it as a cell of dimension `dim`
+/// — the same operand the eval engines' dimension-typed `proj_child`
+/// produces for the ADR-0119 §7 frontier schemes (`eval.cell_comp_h`,
+/// `eval.whisker_*`, `eval.witness`, …). A dimension-1 placeholder is an
+/// ordinary child position and lifts to itself.
+fn lift_to_dim(
+    term: Term,
+    dim: &Term,
+    input_faithful: bool,
+    ctx: &SchemeCtx<'_>,
+) -> Result<Term, String> {
+    if dim.nat_literal() == Some(1) {
+        return Ok(term);
+    }
+    Ok(Term::seq(
+        term,
+        Term::Op {
+            dim: Box::new(instantiate_dim(dim, input_faithful, ctx)?),
+            name: "id".to_string(),
+            args: vec![],
+            source: ArrSource::Native,
+            lit: None,
+        },
+    ))
+}
+
+/// Instantiate a *dimension slot* (`Op.dim`, `Arr.dim`, `Cobind.grade`):
+/// placeholders there denote dimension expressions, so a `var` child is
+/// a *named* dimension label (`Const "S"`) and a literal is a numeric
+/// dimension — [`lower_dim_term`]'s contract, matching how
+/// `eval.dim_arrow`/`eval.witness` read these children as labels.
+/// Non-placeholder dimension terms instantiate as ordinary expressions
+/// (the `Seq.axis` slot is handled by [`instantiate_scheme`] itself).
+fn instantiate_dim(term: &Term, input_faithful: bool, ctx: &SchemeCtx<'_>) -> Result<Term, String> {
+    match term {
+        Term::Child { role } => {
+            if !input_faithful {
+                return Err(format!(
+                    "lower: `Child` dim placeholder for role `{role}` sits in a non-input position"
+                ));
+            }
+            let child_idx = role_child_index(role, ctx)?;
+            lower_dim_term(ctx.ast, ctx.lang, child_idx, ctx.env, ctx.params)
+        }
+        Term::Op {
+            name,
+            lit: Some(lit),
+            ..
+        } if name == "proj_child" || name == "proj_child_or" => {
+            if !input_faithful {
+                return Err(format!(
+                    "lower: `{name}` dim placeholder sits in a non-input position"
+                ));
+            }
+            let i = lit
+                .as_u64()
+                .ok_or_else(|| format!("lower: `{name}` missing index literal"))?
+                as usize;
+            match children(ctx.node).get(i).copied() {
+                Some(child_idx) => {
+                    lower_dim_term(ctx.ast, ctx.lang, child_idx, ctx.env, ctx.params)
+                }
+                None if name == "proj_child_or" => Ok(Term::const_value(Value::Null)),
+                None => Err(format!(
+                    "lower: `{}` missing child {i} for `{name}`",
+                    ctx.node.kind
+                )),
+            }
+        }
+        _ => instantiate_scheme(term, input_faithful, ctx),
+    }
+}
+
+/// Instantiate a `Child{role}` placeholder in expression position.
+///
+/// Roles that name *label positions* — `dim`, `grade`, `name` — lower via
+/// [`lower_dim_term`] (a `var` child denotes its name, matching how the
+/// `eval.dim_arrow`/`eval.witness`/`eval.sort`-family schemes read these
+/// children as label strings). Every other role is an ordinary
+/// expression position and lowers via [`lower_node`].
+fn lower_role_child(role: &str, ctx: &SchemeCtx<'_>) -> Result<Term, String> {
+    let child_idx = role_child_index(role, ctx)?;
+    if matches!(role, "dim" | "grade" | "name") {
+        lower_dim_term(ctx.ast, ctx.lang, child_idx, ctx.env, ctx.params)
+    } else {
+        lower_node(ctx.ast, ctx.lang, child_idx, ctx.env, ctx.params)
+    }
+}
+
+/// Resolve a `Child{role}` placeholder's arena index via the node's
+/// `AstShapeDef` child roles (ADR-0081).
+fn role_child_index(role: &str, ctx: &SchemeCtx<'_>) -> Result<usize, String> {
+    let pos = ctx
+        .lang
+        .child_role_index(&ctx.node.kind, role)
+        .map_err(|e| format!("lower: role `{role}` on `{}`: {e}", ctx.node.kind))?
+        .ok_or_else(|| format!("lower: `{}` declares no `{role}` child role", ctx.node.kind))?;
+    children(ctx.node).get(pos).copied().ok_or_else(|| {
+        format!(
+            "lower: `{}` missing `{role}` child at position {pos}",
+            ctx.node.kind
+        )
+    })
+}
+
+/// Resolve the `$payload` sentinel used by eval schemes: a string payload
+/// is itself the datum (the `proj_env "$payload"` convention); an object
+/// payload's `name` field is (the `extend_env "$payload"` convention).
+fn payload_sentinel(node: &AstNode) -> Result<Value, String> {
+    if let Some(s) = node.payload.as_str() {
+        return Ok(Value::String(s.to_string()));
+    }
+    node.payload
+        .get("name")
+        .filter(|v| v.is_string())
+        .cloned()
+        .ok_or_else(|| format!("lower: `{}` payload cannot resolve `$payload`", node.kind))
 }
 
 fn lower_block(
@@ -687,30 +1150,6 @@ fn sequential_app(callee: Term, args: Vec<Term>) -> Term {
         app = Term::app(app, vec![a]);
     }
     app
-}
-
-fn lower_binary(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, EnvEntry>,
-    params: &[String],
-    op: &str,
-) -> Result<Term, String> {
-    let (l, r) = lower_two_children(ast, lang, node, env, params)?;
-    Ok(Term::op_native(op, vec![l, r]))
-}
-
-fn lower_pair_combinator(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, EnvEntry>,
-    params: &[String],
-    op: &str,
-) -> Result<Term, String> {
-    let (l, r) = lower_two_children(ast, lang, node, env, params)?;
-    Ok(Term::op_native(op, vec![l, r]))
 }
 
 fn lower_object(
@@ -1258,228 +1697,6 @@ fn op_target_name(term: &Term) -> Option<&str> {
             ..
         } if args.is_empty() => Some(name),
         _ => None,
-    }
-}
-
-fn lower_dim_arrow(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, EnvEntry>,
-    params: &[String],
-) -> Result<Term, String> {
-    let source_idx = child_at_role_or_pos(node, lang, "source", 0)
-        .ok_or_else(|| format!("dim_arrow at {} missing source child", node_index(node)))?;
-    let dim_idx = child_at_role_or_pos(node, lang, "dim", 1)
-        .ok_or_else(|| format!("dim_arrow at {} missing dim child", node_index(node)))?;
-    let target_idx = child_at_role_or_pos(node, lang, "target", 2)
-        .ok_or_else(|| format!("dim_arrow at {} missing target child", node_index(node)))?;
-
-    let source = lower_node(ast, lang, source_idx, env, params)?;
-    // The `dim` child is a dimension term (ADR-0120 Phase 3): a `var`
-    // is a *named* dimension label (`Const "S"`), matching how
-    // `eval.dim_arrow` evaluates a var child to its name string.
-    let dim = lower_dim_term(ast, lang, dim_idx, env, params)?;
-    let target = lower_node(ast, lang, target_idx, env, params)?;
-
-    let tag = Term::Arr {
-        dim: Term::default_dim(),
-        value: "Arrow".into(),
-    };
-    let record = Term::op_native(
-        "record",
-        vec![
-            Term::Arr {
-                dim: Term::default_dim(),
-                value: "inputs".into(),
-            },
-            source,
-            Term::Arr {
-                dim: Term::default_dim(),
-                value: "grade".into(),
-            },
-            dim.clone(),
-            Term::Arr {
-                dim: Term::default_dim(),
-                value: "output".into(),
-            },
-            target,
-        ],
-    );
-    // ADR-0120 Phase 5: `f ~[N]~> g` is a genuine dimension-N `Op` — the
-    // minting op's `dim` slot is the declared dimension term, so
-    // dimension-typed terms feed `law_inference`/`quantified_laws`
-    // directly (laws are ordinary higher-dimensional morphisms).
-    Ok(Term::Op {
-        dim: Box::new(dim),
-        name: "tag.construct".into(),
-        args: vec![tag, record],
-        source: ArrSource::Native,
-        lit: None,
-    })
-}
-
-// ---------------------------------------------------------------------------
-// Option B frontier cells — derived forms over `Seq{axis}` (ADR-0119 §7,
-// ADR-0120 Phase 5)
-// ---------------------------------------------------------------------------
-
-/// `id₂` — the identity 2-cell as a native `id` op at dimension 2.
-fn id2() -> Term {
-    Term::Op {
-        dim: Box::new(Term::Const {
-            value: Value::from(2),
-        }),
-        name: "id".into(),
-        args: vec![],
-        source: ArrSource::Native,
-        lit: None,
-    }
-}
-
-/// Lift a 1-cell term to a dimension-2 operand without changing its
-/// value: `t >>> id₂`. The composite's `dim` is 2 (the maximum of its
-/// parts), so `Seq{axis: k}` sees it as a 2-cell for globular pasting.
-fn lift2(t: Term) -> Term {
-    Term::Seq {
-        axis: Term::default_axis(),
-        fst: Box::new(t),
-        snd: Box::new(id2()),
-    }
-}
-
-/// The identity 2-cell over `t`'s value as a `Cell2` record — used for
-/// the whisker derivations `id_f ∘₀ α` / `α ∘₀ id_f` so the identity
-/// side supplies no witness of its own.
-fn id_cell(t: Term) -> Term {
-    let key = |s: &str| Term::Arr {
-        dim: Term::default_dim(),
-        value: s.into(),
-    };
-    Term::Op {
-        dim: Box::new(Term::Const {
-            value: Value::from(2),
-        }),
-        name: "record".into(),
-        args: vec![
-            key("__tag__"),
-            key("Cell2"),
-            key("__src__"),
-            t.clone(),
-            key("__tgt__"),
-            t.clone(),
-            key("value"),
-            t,
-        ],
-        source: ArrSource::Native,
-        lit: None,
-    }
-}
-
-/// Axis-`k` composition of two lowered 2-cell operands: `∘ₖ` via
-/// `Seq{axis: k}` over dimension-lifted operands.
-fn seq_axis(axis: u64, fst: Term, snd: Term) -> Term {
-    Term::Seq {
-        axis: Box::new(Term::Const {
-            value: Value::from(axis),
-        }),
-        fst: Box::new(fst),
-        snd: Box::new(snd),
-    }
-}
-
-/// Lower the Option B frontier surface forms to generic axis-parameterized
-/// `Seq`/`id` terms (ADR-0119 §7): `=>|` is `∘₀`, `=>>` is `∘₁` projected
-/// to its witness, `<@`/`@>` are `id_f ∘₀ α` / `α ∘₀ id_f`, `id2` is the
-/// identity 2-cell, `v as G` is a proof op at dimension `G`, and
-/// `v where p` is `v >>> guard(p)` (`Seq{Seq{app p, tag}, Choice{v, err}}`).
-fn lower_frontier_cell(
-    ast: &Ast,
-    lang: &Language,
-    node: &AstNode,
-    env: &HashMap<String, EnvEntry>,
-    params: &[String],
-) -> Result<Term, String> {
-    let kind = node.kind.as_str();
-    let lower_child = |pos: usize| -> Result<Term, String> {
-        let idx = children(node)
-            .get(pos)
-            .copied()
-            .ok_or_else(|| format!("{kind} at {} missing child {pos}", node_index(node)))?;
-        lower_node(ast, lang, idx, env, params)
-    };
-    match kind {
-        "cell_comp_h" => Ok(seq_axis(0, lift2(lower_child(0)?), lift2(lower_child(1)?))),
-        "cell_comp_v" => Ok(Term::RecordProj {
-            record: Box::new(seq_axis(1, lift2(lower_child(0)?), lift2(lower_child(1)?))),
-            field: "value".into(),
-        }),
-        // `arrow <@ cell` derives to `id_arrow ∘₀ cell`.
-        "whisker_left" => Ok(seq_axis(
-            0,
-            id_cell(lower_child(0)?),
-            lift2(lower_child(1)?),
-        )),
-        // `cell @> arrow` derives to `cell ∘₀ id_arrow`.
-        "whisker_right" => Ok(seq_axis(
-            0,
-            lift2(lower_child(0)?),
-            id_cell(lower_child(1)?),
-        )),
-        "cell_id" => Ok(Term::Seq {
-            axis: Term::default_axis(),
-            fst: Box::new(lower_child(0)?),
-            snd: Box::new(id2()),
-        }),
-        // `proof as G` — a witness is a proof op at the grade's
-        // dimension; the grade term rides the `dim` slot.
-        "witness" => {
-            let grade_idx = children(node)
-                .first()
-                .copied()
-                .ok_or_else(|| format!("witness at {} missing grade child", node_index(node)))?;
-            let dim = lower_dim_term(ast, lang, grade_idx, env, params)?;
-            let proof = lower_child(1)?;
-            Ok(Term::Seq {
-                axis: Term::default_axis(),
-                fst: Box::new(proof),
-                snd: Box::new(Term::Op {
-                    dim: Box::new(dim),
-                    name: "id".into(),
-                    args: vec![],
-                    source: ArrSource::Native,
-                    lit: None,
-                }),
-            })
-        }
-        "refine" => {
-            let sort = lower_child(0)?;
-            let predicate = lower_child(1)?;
-            Ok(Term::Seq {
-                axis: Term::default_axis(),
-                fst: Box::new(sort.clone()),
-                snd: Box::new(Term::Seq {
-                    axis: Term::default_axis(),
-                    fst: Box::new(Term::Seq {
-                        axis: Term::default_axis(),
-                        fst: Box::new(Term::op_native("app", vec![predicate])),
-                        snd: Box::new(Term::op_native("tag", vec![])),
-                    }),
-                    snd: Box::new(Term::Choice {
-                        l: Box::new(sort),
-                        r: Box::new(Term::op_native_lit(
-                            "desugar_error",
-                            vec![],
-                            json!({
-                                "kind": "refine-predicate-error",
-                                "reason": "where: refinement predicate not satisfied"
-                            }),
-                        )),
-                    }),
-                }),
-            })
-        }
-        other => Err(format!("lower: unsupported frontier cell `{other}`")),
     }
 }
 
