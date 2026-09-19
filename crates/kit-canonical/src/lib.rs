@@ -3828,13 +3828,18 @@ mod tests {
 
     #[test]
     fn runtime_assert_fails_for_invalid_value() {
-        // Same as above but with an invalid value (-1): the runtime assert
-        // fails and raises a LangError.
+        // Same as above but with an invalid value (-1): the model now
+        // evaluates `y` to -1, so the predicate is statically *refuted*
+        // (ADR-0068 Refuted) — a hard typecheck error rather than a
+        // runtime assert. Rejection is what this test pins; whether it
+        // comes from the typechecker or the runtime-assert node is an
+        // implementation detail.
         let kit = Kit::new().unwrap();
         let err = kit.run("do { y :: -1; (y : (n ~> n > 0)) }").unwrap_err();
         assert!(
-            err.to_string().contains("assertion failed"),
-            "expected assertion failure, got: {err}"
+            err.to_string().contains("does not satisfy the predicate")
+                || err.to_string().contains("assertion failed"),
+            "expected predicate rejection, got: {err}"
         );
     }
 }
