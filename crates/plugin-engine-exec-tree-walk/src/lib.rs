@@ -113,8 +113,8 @@ use handl_plugin_engine_exec::native_ops::{
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{
-    TaggedValue, cell2_comp_axis, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker,
-    record_proj, tagged_to_value,
+    TaggedValue, cell_comp_axis, cell_dim, cell2_comp_v, cell2_id, cell2_src, cell2_tgt,
+    cell2_whisker, record_proj, tagged_to_value,
 };
 use plugin_engine::{Model, ModelCtx, RewriteResult, TermData, is_hott_tag};
 
@@ -899,10 +899,15 @@ impl TreeWalkEngine {
                 // along the k-th globular axis. When both operands are
                 // 1-cells (`dim ≤ 1`) axis 0 is ordinary sequential
                 // composition (piping); when the operands are n-cells
-                // with n > k (`dim` slot carries the cell dimension) they
-                // compose by pasting along the k-boundary: ∘₀ horizontal,
-                // ∘₁ vertical, … — both sides see the same incoming
-                // value, and their results compose at the value level.
+                // with n > k they compose by pasting along the
+                // k-boundary: ∘₀ horizontal, ∘₁ vertical, … — both sides
+                // see the same incoming value, and their results compose
+                // at the value level. The *effective* dimension is the
+                // greater of the declared term dimension (the eval
+                // scheme's static lift) and the evaluated values' cell
+                // dimensions — a `Cell`/`__dim__` record pastes at its
+                // own height, so `>>>[2]` runs on 3-cell values even
+                // through the dimension-2 surface scheme.
                 let fst_dim = term_dim(&fst);
                 if axis_index == 0 && fst_dim <= 1 {
                     let (fst_val, fst_pushed) = self.eval_inner_td(
@@ -931,7 +936,7 @@ impl TreeWalkEngine {
                     // (the Bind lowering shape) is popped by the *enclosing*
                     // Seq after its own snd completes.
                     Ok((snd_val, snd_pushed))
-                } else if axis_index < fst_dim {
+                } else {
                     let (fst_val, fst_pushed) = self.eval_inner_td(
                         &fst,
                         ast,
@@ -949,16 +954,20 @@ impl TreeWalkEngine {
                     if snd_pushed {
                         env.pop_scope();
                     }
-                    let composed = cell2_comp_axis(axis_index, &fst_val, &snd_val)
+                    let eff_dim = fst_dim
+                        .max(cell_dim(&fst_val))
+                        .max(cell_dim(&snd_val));
+                    if axis_index >= eff_dim {
+                        return Err(LangError::engine_node(
+                            format!(
+                                "Seq: axis-{axis_index} composition requires cells of dimension > {axis_index} (fst has dim {fst_dim})"
+                            ),
+                            current_node,
+                        ));
+                    }
+                    let composed = cell_comp_axis(axis_index, eff_dim, &fst_val, &snd_val)
                         .map_err(|e| LangError::engine_node(e, current_node))?;
                     Ok((composed, false))
-                } else {
-                    return Err(LangError::engine_node(
-                        format!(
-                            "Seq: axis-{axis_index} composition requires cells of dimension > {axis_index} (fst has dim {fst_dim})"
-                        ),
-                        current_node,
-                    ));
                 }
             }
             "First" => {
@@ -5077,23 +5086,29 @@ impl Model for ValueModel {
                     .to_term()
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 // ADR-0120 Phase 5: `∘ₖ` on n-cells (n > k) pastes at the
-                // value level; axis 0 on 1-cells stays sequential.
+                // value level; axis 0 on 1-cells stays sequential. The
+                // effective dimension lifts to the evaluated values' own
+                // cell dimensions (`Cell`/`__dim__` records), so `>>>[2]`
+                // runs on 3-cell values.
                 let fst_dim = term_dim(&fst);
                 if axis_index == 0 && fst_dim <= 1 {
                     let fst_val = self.run(&fst_term, incoming, ctx)?;
                     self.run(&snd_term, fst_val, ctx)
-                } else if axis_index < fst_dim {
+                } else {
                     let fst_val = self.run(&fst_term, incoming.clone(), ctx)?;
                     let snd_val = self.run(&snd_term, incoming, ctx)?;
-                    let composed = cell2_comp_axis(
-                        axis_index,
-                        &TaggedValue::from(fst_val),
-                        &TaggedValue::from(snd_val),
-                    )
-                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                    let fst_tv = TaggedValue::from(fst_val);
+                    let snd_tv = TaggedValue::from(snd_val);
+                    let eff_dim = fst_dim
+                        .max(cell_dim(&fst_tv))
+                        .max(cell_dim(&snd_tv));
+                    if axis_index >= eff_dim {
+                        return Err(plugin_engine::LangError::NotImplemented);
+                    }
+                    let composed =
+                        cell_comp_axis(axis_index, eff_dim, &fst_tv, &snd_tv)
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                     Ok(tagged_to_value(&composed))
-                } else {
-                    Err(plugin_engine::LangError::NotImplemented)
                 }
             }
             "Rewrite" => {

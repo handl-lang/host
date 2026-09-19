@@ -28,7 +28,8 @@ use std::rc::Rc;
 
 use handl_language::{AstRef, LangError, Value};
 use handl_value::{
-    TaggedValue, cell2_comp_axis, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker,
+    TaggedValue, cell_comp_axis, cell_compose, cell2_comp_v, cell2_id, cell2_src, cell2_tgt,
+    cell2_whisker,
     either_left, either_right, is_either_left, is_either_right, pair, pair_fst, pair_snd,
     record_proj,
 };
@@ -996,26 +997,42 @@ pub fn apply_native_op(
             let cell = args.get(1).unwrap_or(&TaggedValue::Null);
             Ok((cell2_whisker(side, arrow, cell), false))
         }
-        op if op == "cell2_comp_axis" || op.starts_with("cell2_comp_axis:") => {
+        // `compose(diagram)` — generalized pasting/Kan filling
+        // (ADR-0120): the n-ary generalization of `Seq{axis}`. The
+        // diagram is an array of `{axis, cell}` steps (a bare cell is
+        // axis 0); the first element seeds the composite. A single array
+        // argument is the diagram; several arguments are the steps
+        // themselves; with no args the incoming value is the diagram.
+        "compose" => {
+            let diagram = match args.len() {
+                0 => incoming.unwrap_or(TaggedValue::Null),
+                1 => args[0].clone(),
+                _ => TaggedValue::Arr(Rc::from(args.to_vec())),
+            };
+            cell_compose(&diagram)
+                .map(|v| (v, false))
+                .map_err(LangError::engine)
+        }
+        op if cell_axis_op_dim(op).is_some() => {
             // `Seq{axis: k}` in the pasting regime (`k < dim(fst)`) lowers
             // to this op on the compiled backends: args are
             // `[axis, fst, snd]`, all evaluated on the same incoming —
             // the `∘ₖ` globular paste at the value level. The declared
             // cell dimension arrives as the op literal, or baked into the
-            // op name (`cell2_comp_axis:<dim>`) on backends that cannot
-            // pass `lit` — the `route_on_type` convention. It defaults to
-            // `2`, the only cell shape (`Cell2`) the value model carries.
-            let dim = lit
-                .and_then(|v| v.as_u64())
-                .or_else(|| {
-                    op.strip_prefix("cell2_comp_axis:")
-                        .and_then(|d| d.parse::<u64>().ok())
-                })
-                .unwrap_or(2)
-                .max(1);
+            // op name (`cell_comp_axis:<dim>`; the legacy
+            // `cell2_comp_axis:<dim>` spelling is accepted too) on
+            // backends that cannot pass `lit` — the `route_on_type`
+            // convention. It defaults to `2`, the canonical surface lift.
+            // `cell_comp_axis` itself resolves the *effective* dimension
+            // as `max(declared, cell_dim(fst), cell_dim(snd))` — values
+            // carrying a higher dimension (`Cell`/`__dim__` records)
+            // paste at their own height.
+            let dim = lit.and_then(|v| v.as_u64()).unwrap_or_else(|| {
+                cell_axis_op_dim(op).unwrap_or(2)
+            });
             if args.len() != 3 {
                 return Err(LangError::engine(format!(
-                    "cell2_comp_axis: expected 3 arguments (axis, fst, snd), got {}",
+                    "cell_comp_axis: expected 3 arguments (axis, fst, snd), got {}",
                     args.len()
                 )));
             }
@@ -1029,12 +1046,7 @@ pub fn apply_native_op(
                         args[0]
                     ))
                 })?;
-            if k >= dim {
-                return Err(LangError::engine(format!(
-                    "Seq: axis-{k} composition requires cells of dimension > {k} (fst has dim {dim})"
-                )));
-            }
-            cell2_comp_axis(k, &args[1], &args[2])
+            cell_comp_axis(k, dim, &args[1], &args[2])
                 .map(|v| (v, false))
                 .map_err(LangError::engine)
         }
@@ -1055,6 +1067,22 @@ fn opt_some(v: TaggedValue) -> TaggedValue {
     obj.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
     obj.insert(Rc::from("value"), v);
     TaggedValue::Obj(Rc::new(obj))
+}
+
+/// The declared operand dimension baked into a `cell_comp_axis[:N]` op
+/// name (the legacy `cell2_comp_axis[:N]` spelling is accepted too).
+/// Bare `cell_comp_axis`/`cell2_comp_axis` declare dimension 2 — the
+/// canonical `>>>[k]` surface lift. Returns `None` for unrelated ops.
+fn cell_axis_op_dim(op: &str) -> Option<u64> {
+    for prefix in ["cell_comp_axis", "cell2_comp_axis"] {
+        if op == prefix {
+            return Some(2);
+        }
+        if let Some(suffix) = op.strip_prefix(prefix).and_then(|s| s.strip_prefix(':')) {
+            return suffix.parse::<u64>().ok().map(|d| d.max(1));
+        }
+    }
+    None
 }
 
 // ===========================================================================

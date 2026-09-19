@@ -427,12 +427,14 @@
 # (index 1) is evaluated and compared to `0`; on equality the
 # composition runs exactly like `flow` on the left (0) and right (2)
 # operands, so `>>>[0]` and `>>>` share one path. A nonzero axis lowers
-# to `Seq{axis: k}` directly — the operands are lifted to dimension 2
-# (`Cell2` is the only n > 1 cell shape the value model carries — the
-# same lift the derived cell ops use) and the shared executor performs
-# the `∘ₖ` globular paste: both operands see the same incoming, the
-# `k < dim` dimension law and the `tgt/src` boundary law are enforced,
-# and violations surface as structural errors. Arrow-dialect
+# to `Seq{axis: k}` directly — the operands declare dimension 2 (the
+# surface lift the derived cell ops use) and the shared executor
+# performs the `∘ₖ` globular paste: both operands see the same
+# incoming, the `k < dim` dimension law and the `tgt/src` boundary law
+# are enforced, and violations surface as structural errors. The
+# dimension-2 declaration is a floor — operands evaluating to
+# higher-dimensional cells (`Cell`/`__dim__`/`dim_arrow` records) paste
+# at their own height, so `>>>[2]` runs on 3-cell values. Arrow-dialect
 # materialization overrides this scheme to emit `Term::Seq` with the
 # materialized axis/operand terms.
 - id: eval.axis_flow

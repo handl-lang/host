@@ -3337,6 +3337,7 @@ dependencies = [
 name = "plugin-engine"
 version = "0.1.0"
 dependencies = [
+ "handl-value",
  "serde",
  "serde_json",
 ]
