@@ -113,6 +113,9 @@ fn leaf(payload: Value) -> ProbeNode {
         payload,
         scheme: None,
         roles: Vec::new(),
+        variadic_roles: Vec::new(),
+        pattern_role: None,
+        literal_children: Vec::new(),
     }
 }
 
@@ -123,6 +126,24 @@ fn schemed(kind: &'static str, scheme: TermData) -> ProbeNode {
         payload: Value::Null,
         scheme: Some(scheme),
         roles: Vec::new(),
+        variadic_roles: Vec::new(),
+        pattern_role: None,
+        literal_children: Vec::new(),
+    }
+}
+
+/// Probe node for an object `entry` child (`k: v`): `key`/`value` roles,
+/// `pattern_role: entry`, and `literal_children: {key: [lit]}` so `lit`
+/// key children are read as literal key text (ADR-0081 metadata, not a
+/// kind check). `key_idx`/`val_idx` are absolute arena indices.
+fn entry_node(key_idx: usize, val_idx: usize) -> ProbeNode {
+    ProbeNode {
+        kind: "pb.entry",
+        payload: json!({"children": [key_idx, val_idx]}),
+        roles: vec![("key", false), ("value", false)],
+        pattern_role: Some("entry"),
+        literal_children: vec![("key", vec!["lit"])],
+        ..leaf(Value::Null)
     }
 }
 
@@ -1529,6 +1550,79 @@ pub fn cases() -> Vec<Case> {
          reaches the trailing leaf.",
     ));
 
+    let cat = "batch-c";
+    out.push(case(
+        "array_literal",
+        cat,
+        op("array", vec![]),
+        None,
+        [
+            Expect::Val(json!([10, 20, 30])),
+            Expect::Val(json!([10, 20, 30])),
+            Expect::Val(json!([10, 20, 30])),
+            Expect::DivVal(json!([])),
+        ],
+        "`[a, b, c]` children form: each child evaluates to an element. \
+         term-interp has an `array` arm but no AST arena — it folds the \
+         op's (empty) arg list, so it pins `[]`.",
+    ));
+    out.push(case(
+        "array_spread",
+        cat,
+        op("array", vec![]),
+        None,
+        [
+            Expect::Val(json!([1, 7, 8, 9])),
+            Expect::Val(json!([1, 7, 8, 9])),
+            Expect::Val(json!([1, 7, 8, 9])),
+            Expect::DivVal(json!([])),
+        ],
+        "`[1, ...r, 9]`: the middle child is `rest`-roled \
+         (`pattern_role: rest`) and evaluates to `[7, 8]` — flattened \
+         into the result. Same term-interp gap as `array_literal`.",
+    ));
+    out.push(case(
+        "object_literal",
+        cat,
+        op("object", vec![]),
+        None,
+        engines_ok(json!({"a": 5, "b": 6})),
+        "`{a: 5, b: 6}`: `entry`-roled children resolve `key`/`value` by \
+         named role; the key child kind is declared literal for `key` \
+         (`literal_children`), so its payload is the key text. \
+         term-interp has no `object` arm.",
+    ));
+    out.push(case(
+        "object_block",
+        cat,
+        op("object", vec![]),
+        None,
+        engines_ok(json!(4)),
+        "ADR-0074 bare-block: every child is non-`entry` (bare leaves) — \
+         block semantics evaluate each and return the last → 4.",
+    ));
+    out.push(case(
+        "object_spread",
+        cat,
+        op("object", vec![]),
+        None,
+        engines_ok(json!({"p": 1, "q": 2})),
+        "`{ ...src, q: 2 }`: a non-`entry` child in the `entries` range \
+         is a spread — evaluated (`{p: 1}` via a nested `object` op) and \
+         field-merged ahead of the `entry` child.",
+    ));
+    out.push(case(
+        "closure_apply",
+        cat,
+        op("app", vec![op("closure", vec![]), lit(41)]),
+        None,
+        engines_ok(json!(51)),
+        "`x ~> x + 10` applied to 41: the `closure` op resolves `params`/`\
+         body` children by named role, `param_names` extracts `x`, the \
+         minted `TaggedValue::Arrow` captures the (empty) env and `app` \
+         applies it → 51. term-interp has neither op.",
+    ));
+
     // Wire up the probe nodes every case needs (indices referenced by
     // `arrow`/`arrow_pat` body fields):
     //
@@ -1655,8 +1749,8 @@ pub fn cases() -> Vec<Case> {
                 ProbeNode {
                     kind: "pb.assign",
                     payload: json!({"children": [0, 1]}),
-                    scheme: None,
                     roles: vec![("target", false), ("value", false)],
+                    ..leaf(Value::Null)
                 },
                 schemed(
                     "fn.block_last",
@@ -1672,8 +1766,8 @@ pub fn cases() -> Vec<Case> {
                 ProbeNode {
                     kind: "pr.assign",
                     payload: json!({"children": [0, 1]}),
-                    scheme: None,
                     roles: vec![("target", false), ("value", false)],
+                    ..leaf(Value::Null)
                 },
                 schemed(
                     "fn.rec_last",
@@ -1690,17 +1784,81 @@ pub fn cases() -> Vec<Case> {
                 ProbeNode {
                     kind: "pr.assign",
                     payload: json!({"children": [0, 1]}),
-                    scheme: None,
                     roles: vec![("target", false), ("value", false)],
+                    ..leaf(Value::Null)
                 },
                 ProbeNode {
                     kind: "pr.ret",
                     payload: json!({"children": [4]}),
-                    scheme: None,
                     roles: vec![("value", false)],
+                    ..leaf(Value::Null)
                 },
                 leaf(json!(99)),
             ];
+        }
+        if case.name == "array_literal" {
+            // children [10, 20, 30] — bare leaves evaluate to themselves.
+            case.nodes = vec![leaf(json!(10)), leaf(json!(20)), leaf(json!(30))];
+        }
+        if case.name == "array_spread" {
+            // children [1, rest-node, 9] — the `pb.rest` kind declares
+            // `pattern_role: rest`; its scheme evaluates to `[7, 8]` and
+            // the `array` op flattens it.
+            case.nodes = vec![
+                leaf(json!(1)),
+                ProbeNode {
+                    kind: "pb.rest",
+                    scheme: Some(lit(json!([7, 8]))),
+                    pattern_role: Some("rest"),
+                    ..leaf(Value::Null)
+                },
+                leaf(json!(9)),
+            ];
+        }
+        if case.name == "object_literal" {
+            // children [k, v, k, v, entry{0,1}, entry{2,3}] — the leading
+            // leaves occupy dummy roles so `entries` (index 4) ranges
+            // over exactly the two `entry` nodes.
+            case.nodes = vec![
+                leaf(json!("a")),
+                leaf(json!(5)),
+                leaf(json!("b")),
+                leaf(json!(6)),
+                entry_node(0, 1),
+                entry_node(2, 3),
+            ];
+            case.roles = vec!["k.a", "v.a", "k.b", "v.b", "entries"];
+        }
+        if case.name == "object_block" {
+            // children [3, 4] — all non-`entry` leaves → bare-block
+            // semantics (evaluate each, return the last).
+            case.nodes = vec![leaf(json!(3)), leaf(json!(4))];
+        }
+        if case.name == "object_spread" {
+            // children [k, v, spread-src, entry{0,1}] — `entries` (index
+            // 2) covers [spread, entry]. The spread child evaluates to
+            // `{p: 1, q: 1}` via a nested `object` op on its rich
+            // `entries` payload; the `entry` child then overwrites `q`.
+            case.nodes = vec![
+                leaf(json!("q")),
+                leaf(json!(2)),
+                ProbeNode {
+                    kind: "pb.obj",
+                    payload: json!({"entries": [{"key": "p", "value": 1}, {"key": "q", "value": 1}]}),
+                    scheme: Some(op("object", vec![])),
+                    ..leaf(Value::Null)
+                },
+                entry_node(0, 1),
+            ];
+            case.roles = vec!["k", "v", "entries"];
+        }
+        if case.name == "closure_apply" {
+            // children [params-leaf("x"), body] — `params`/`body` roles
+            // on the probe root resolve positions 0/1 (ADR-0081). The
+            // params leaf is a single-param node (no variadic role →
+            // `param_names` returns `["x"]`).
+            case.nodes = vec![leaf(json!("x")), schemed("fn.body_x10", inc10_scheme())];
+            case.roles = vec!["params", "body"];
         }
     }
 

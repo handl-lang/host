@@ -77,6 +77,21 @@ pub struct ProbeNode {
     /// shape (`eval_block`/`eval_rec` binding detection, `assign`'s
     /// optional `body`).
     pub roles: Vec<(&'static str, bool)>,
+    /// Subset of `roles` declared **variadic** (ADR-0081) — e.g. the
+    /// params-list/`elements` role a `closure`/`array` node's children
+    /// occupy. Feeds `has_variadic_role`, which `param_names` and
+    /// `is_array_pattern` dispatch on.
+    pub variadic_roles: Vec<&'static str>,
+    /// `AstShapeDef::pattern_role` tag for this node's kind (ADR-0081) —
+    /// `rest` (spread element), `entry` (object field), `sequence`
+    /// (array-destructuring params), …, read by the constructor ops via
+    /// `pattern_role_at`.
+    pub pattern_role: Option<&'static str>,
+    /// `AstShapeDef::literal_children` entries as `(role, kinds)` pairs
+    /// (ADR-0081) — e.g. `("key", ["lit"])` on an `entry` shape marks the
+    /// key child's payload as the literal key text rather than an
+    /// expression to evaluate.
+    pub literal_children: Vec<(&'static str, Vec<&'static str>)>,
 }
 
 /// A single conformance case: one [`TermData`] body run on all four
@@ -225,21 +240,30 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
                 ))
                 .expect("merge probe node scheme");
         }
-        if !n.roles.is_empty() {
-            lang.ast
-                .merge(
-                    AstShapeDef::new(format!("ast.probe.{i}"), n.kind).with_children(
-                        n.roles
-                            .iter()
-                            .map(|(r, optional)| ChildRoleSpec {
-                                role: (*r).to_string(),
-                                variadic: false,
-                                optional: *optional,
-                            })
-                            .collect(),
-                    ),
-                )
-                .expect("merge probe node roles");
+        if !n.roles.is_empty() || n.pattern_role.is_some() || !n.literal_children.is_empty() {
+            let mut shape = AstShapeDef::new(format!("ast.probe.{i}"), n.kind);
+            if !n.roles.is_empty() {
+                shape = shape.with_children(
+                    n.roles
+                        .iter()
+                        .map(|(r, optional)| ChildRoleSpec {
+                            role: (*r).to_string(),
+                            variadic: n.variadic_roles.contains(r),
+                            optional: *optional,
+                        })
+                        .collect(),
+                );
+            }
+            if let Some(pr) = n.pattern_role {
+                shape = shape.with_pattern_role(pr);
+            }
+            for (role, kinds) in &n.literal_children {
+                shape.literal_children.insert(
+                    (*role).to_string(),
+                    kinds.iter().map(|k| (*k).to_string()).collect(),
+                );
+            }
+            lang.ast.merge(shape).expect("merge probe node shape");
         }
     }
     let mut root_payload = json!({ "children": child_ids });

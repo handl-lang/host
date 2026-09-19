@@ -341,6 +341,47 @@ pub trait NativeOpCtx {
     /// Capture the visible environment for a closure.
     fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>>;
 
+    /// The `kind` of the node at `r` — the `kind == "rest"`/`"entry"`
+    /// role-less fallbacks (ADR-0081) in `array`/`object` read this.
+    /// `None` for a missing node or an engine without arena access.
+    fn node_kind_at(&mut self, r: AstRef) -> Option<String>;
+
+    /// `Language::pattern_role_is` on the node at `r` — `Some(bool)` when
+    /// the kind's `AstShapeDef` declares a `pattern_role` (`rest`,
+    /// `entry`, `sequence`, …), `None` when undeclared, shape-less, or
+    /// the engine has no `Language`; the op applies its documented
+    /// `kind == role` fallback.
+    fn pattern_role_at(&mut self, r: AstRef, role: &str) -> Option<bool>;
+
+    /// `Language::literal_child` between the nodes at `parent` and
+    /// `child` — whether the child's kind is declared a literal occupant
+    /// of `role` on the parent's kind (the `object` op's static-vs-
+    /// computed key decision). `None` = undeclared, missing node, or no
+    /// `Language`; the op applies its payload heuristic.
+    fn literal_child_at(&mut self, parent: AstRef, role: &str, child: AstRef) -> Option<bool>;
+
+    /// `Language::param_names` + `Language::is_array_pattern` on the
+    /// params-pattern node at `r` — the `closure` op's resolution of a
+    /// `params` child into `(fixed_names, rest_name, is_array_pattern)`
+    /// (ADR-0081 data-driven via `pattern_role`/variadic metadata).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the node is missing, the engine has no
+    /// `Language`, or the params shape is unresolvable.
+    fn closure_params_at(
+        &mut self,
+        r: AstRef,
+    ) -> Result<(Vec<String>, Option<String>, bool), LangError>;
+
+    /// The `body_def` a minted `closure` carries (ADR-0106 item 2 step
+    /// 1): the body subtree as a self-describing `{"__ast__": <Ast>}`
+    /// value. Engines whose arrow `body` is not an AST arena index
+    /// (compiled instruction references) keep the default `None`.
+    fn closure_body_def(&mut self, _body: AstRef) -> Option<TaggedValue> {
+        None
+    }
+
     /// Apply an arrow value to `args`.
     ///
     /// # Errors
@@ -734,6 +775,280 @@ pub fn apply_native_op(
             let region = eval_rec_region(ctx, &children);
             ctx.env_pop();
             region.map(|v| (v, false))
+        }
+        // --- constructor ops ---------------------------------------------
+        // `closure` — mint a `TaggedValue::Arrow` (the bound-arrow
+        // `{__term__, __bound__}`-feeding value shape). Two payload
+        // shapes:
+        // - Rich: `{"params": ["x", ...], "body": <idx>, "rest"?}` —
+        //   params are literal strings; a non-string param is an error
+        //   (tree-walk semantics — canonical; cranelift's silent `""`
+        //   fallback was drift).
+        // - Pratt-parsed: `{"children": [params_idx, body_idx]}` — the
+        //   `params`/`body` positions resolve by named role (ADR-0081)
+        //   with positional 0/1 fallback; the params node resolves via
+        //   `closure_params_at` (`param_names` + `is_array_pattern`).
+        // The minted arrow captures the current env (`env_capture`) and
+        // optionally a self-describing `body_def` (`closure_body_def` —
+        // `None` on engines whose `body` is not an AST index).
+        "closure" => {
+            if !ctx.supports(OpService::Env) {
+                return Ok(None);
+            }
+            let payload = ctx.node_payload().cloned().unwrap_or(Value::Null);
+            let (params, rest, body, array_pattern) = if let (Some(p), Some(b)) = (
+                payload.get("params").and_then(|v| v.as_array()),
+                payload.get("body").and_then(|v| v.as_u64()),
+            ) {
+                let p_names: Vec<String> = p
+                    .iter()
+                    .map(|v| {
+                        v.as_str()
+                            .ok_or_else(|| {
+                                LangError::engine("closure: param must be a string".to_string())
+                            })
+                            .map(String::from)
+                    })
+                    .collect::<Result<_, _>>()?;
+                let rest_name = payload
+                    .get("rest")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                (p_names, rest_name, b as usize, false)
+            } else if let Some(children) =
+                payload.get("children").and_then(|c| c.as_array())
+            {
+                let params_role = ctx.child_role_index("params").unwrap_or(0);
+                let body_role = ctx.child_role_index("body").unwrap_or(1);
+                let param_idx = children
+                    .get(params_role)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine("closure: missing param child".to_string())
+                    })? as usize;
+                let body_idx = children
+                    .get(body_role)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine("closure: missing body child".to_string())
+                    })? as usize;
+                let (param_names, rest_name, array_pattern) =
+                    ctx.closure_params_at(AstRef::new(param_idx))?;
+                (param_names, rest_name, body_idx, array_pattern)
+            } else {
+                return Err(LangError::engine(
+                    "closure: missing params/body in payload".to_string(),
+                ));
+            };
+            let captured = ctx.env_capture();
+            let body_def = ctx.closure_body_def(AstRef::new(body)).map(Rc::new);
+            Ok((
+                TaggedValue::Arrow {
+                    params: Rc::from(params),
+                    rest: rest.map(Rc::from),
+                    body,
+                    env: captured,
+                    home: None,
+                    array_pattern,
+                    body_def,
+                },
+                false,
+            ))
+        }
+        // `array` — literal array construction. Two payload shapes:
+        // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
+        // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each element
+        //   is an arena index evaluated in order; a `rest`-roled child
+        //   (`...expr`) flattens its evaluated value into the result when
+        //   it is an array, and pushes it as-is otherwise.
+        "array" => {
+            let payload = ctx.node_payload().cloned().unwrap_or(Value::Null);
+            if let Some(elements) = payload.get("elements") {
+                return Ok(Some((TaggedValue::from(elements.clone()), false)));
+            }
+            let Some(children) = payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .cloned()
+            else {
+                return Err(LangError::engine(
+                    "array: missing elements/children in payload".to_string(),
+                ));
+            };
+            if !ctx.supports(OpService::EvalNode) {
+                return Ok(None);
+            }
+            let mut result = Vec::with_capacity(children.len());
+            for entry in &children {
+                let idx = entry.as_u64().ok_or_else(|| {
+                    LangError::engine("array: element index must be a number".to_string())
+                })? as usize;
+                let child = AstRef::new(idx);
+                // Spread: a `rest`-roled child (`pattern_role: rest`,
+                // from `...expr`) flattens an array value into the
+                // result; `kind == "rest"` is the role-less fallback
+                // (ADR-0081).
+                let is_rest = ctx
+                    .pattern_role_at(child, "rest")
+                    .unwrap_or_else(|| ctx.node_kind_at(child).as_deref() == Some("rest"));
+                let val = ctx.eval_node(child)?;
+                if is_rest {
+                    if let Some(arr) = val.as_array() {
+                        result.extend(arr.iter().cloned());
+                    } else {
+                        result.push(val);
+                    }
+                } else {
+                    result.push(val);
+                }
+            }
+            Ok((TaggedValue::Arr(Rc::from(result)), false))
+        }
+        // `object` — literal object construction. Two payload shapes:
+        // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
+        // - Pratt-parsed: `{"children": [entry_idx, ...]}` — each
+        //   `entry`-roled child has `{"children": [key_idx, value_idx]}`.
+        // ADR-0074 v0.1: when ALL children from the `entries` role are
+        // non-`entry` nodes the node is a bare-expression block —
+        // evaluate each and return the last value. Otherwise a
+        // non-`entry` child is a spread (`{ ...s, k: v }`): evaluated and
+        // field-merged when the value is an object.
+        "object" => {
+            let payload = ctx.node_payload().cloned().unwrap_or(Value::Null);
+            if let Some(entries) = payload.get("entries").and_then(|v| v.as_array()) {
+                let mut obj = FxHashMap::default();
+                for entry in entries {
+                    let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
+                        LangError::engine("object: entry missing key".to_string())
+                    })?;
+                    let value = entry.get("value").ok_or_else(|| {
+                        LangError::engine("object: entry missing value".to_string())
+                    })?;
+                    if handl_language::is_reserved_value_key(key) {
+                        return Err(LangError::engine(format!(
+                            "object: key '{}' is reserved",
+                            key
+                        )));
+                    }
+                    obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
+                }
+                return Ok(Some((TaggedValue::Obj(Rc::new(obj)), false)));
+            }
+            let Some(children) = payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .cloned()
+            else {
+                return Err(LangError::engine(
+                    "object: missing entries/children in payload".to_string(),
+                ));
+            };
+            if !ctx.supports(OpService::EvalNode) {
+                return Ok(None);
+            }
+            let start = ctx.child_role_index("entries").unwrap_or(0);
+            let all_bare = children.iter().skip(start).all(|c| {
+                c.as_u64()
+                    .map(|idx| {
+                        let r = AstRef::new(idx as usize);
+                        !ctx.pattern_role_at(r, "entry")
+                            .unwrap_or_else(|| ctx.node_kind_at(r).as_deref() == Some("entry"))
+                    })
+                    .unwrap_or(true)
+            });
+            if all_bare && !children.is_empty() {
+                // Block semantics: evaluate all, return last.
+                let mut last = TaggedValue::Null;
+                for entry in children.iter().skip(start) {
+                    let idx = entry.as_u64().ok_or_else(|| {
+                        LangError::engine("object: entry index must be a number".to_string())
+                    })? as usize;
+                    last = ctx.eval_node(AstRef::new(idx))?;
+                }
+                return Ok(Some((last, false)));
+            }
+            let mut obj = FxHashMap::default();
+            for entry in children.iter().skip(start) {
+                let entry_idx = entry.as_u64().ok_or_else(|| {
+                    LangError::engine("object: entry index must be a number".to_string())
+                })? as usize;
+                let entry_ref = AstRef::new(entry_idx);
+                // Spread entry: a non-`entry`-roled child is evaluated
+                // and its fields merged into the object; `kind ==
+                // "entry"` is the role-less fallback (ADR-0081).
+                let is_entry = ctx
+                    .pattern_role_at(entry_ref, "entry")
+                    .unwrap_or_else(|| ctx.node_kind_at(entry_ref).as_deref() == Some("entry"));
+                if !is_entry {
+                    let spread_val = ctx.eval_node(entry_ref)?;
+                    if let Some(spread_obj) = spread_val.as_object() {
+                        for (k, v) in spread_obj {
+                            obj.insert(Rc::clone(k), v.clone());
+                        }
+                    }
+                    continue;
+                }
+                let entry_children = node_children(ctx, entry_ref).ok_or_else(|| {
+                    LangError::engine("object: entry node missing children".to_string())
+                })?;
+                let key_role = ctx.child_role_index_at(entry_ref, "key").unwrap_or(0);
+                let val_role = ctx.child_role_index_at(entry_ref, "value").unwrap_or(1);
+                let key_idx = entry_children
+                    .get(key_role)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine("object: entry missing key child".to_string())
+                    })? as usize;
+                let val_idx = entry_children
+                    .get(val_role)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::engine("object: entry missing value child".to_string())
+                    })? as usize;
+                let key_ref = AstRef::new(key_idx);
+                // Static vs computed key: the `entry` shape's
+                // `literal_children` list for `key` (ADR-0081) names the
+                // child kinds whose payload IS the key text — don't
+                // evaluate them. Otherwise (computed key) evaluate the
+                // key expression; `[expr]:` desugars to `paren` before
+                // eval (ADR-0058), so it falls into the `else` branch.
+                // Role-less shapes fall back to the string-payload
+                // heuristic (tree-walk semantics — canonical; the
+                // compiled backends' `var`/`string` kind check was
+                // equivalent on canonical shapes).
+                let is_literal_key = ctx
+                    .literal_child_at(entry_ref, "key", key_ref)
+                    .unwrap_or_else(|| {
+                        ctx.node_payload_at(key_ref)
+                            .map(|p| p.is_string())
+                            .unwrap_or(false)
+                    });
+                let key = if is_literal_key {
+                    ctx.node_payload_at(key_ref)
+                        .and_then(|p| p.as_str().map(str::to_string))
+                        .ok_or_else(|| {
+                            LangError::engine(
+                                "object: literal key missing string payload".to_string(),
+                            )
+                        })?
+                } else {
+                    let key_val = ctx.eval_node(key_ref)?;
+                    if let Some(s) = key_val.as_str() {
+                        s.to_string()
+                    } else {
+                        handl_value::tagged_to_value(&key_val).to_string()
+                    }
+                };
+                let value = ctx.eval_node(AstRef::new(val_idx))?;
+                if handl_language::is_reserved_value_key(&key) {
+                    return Err(LangError::engine(format!(
+                        "object: key '{}' is reserved",
+                        key
+                    )));
+                }
+                obj.insert(Rc::from(key.as_str()), value);
+            }
+            Ok((TaggedValue::Obj(Rc::new(obj)), false))
         }
         // --- child projection ops ---------------------------------------
         "proj_child" | "proj_child_or" => {

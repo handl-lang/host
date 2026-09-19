@@ -2371,333 +2371,11 @@ impl TreeWalkEngine {
             }
         }
         match op {
-            "closure" => {
-                // Read params/body from the current node's payload (rich
-                // or Pratt-parsed shapes).
-                let payload = &current_node.payload;
-                let (params, rest, body, array_pattern) = if let (Some(p), Some(b)) = (
-                    payload.get("params").and_then(|v| v.as_array()),
-                    payload.get("body").and_then(|v| v.as_u64()),
-                ) {
-                    let p_names: Vec<String> = p
-                        .iter()
-                        .map(|v| {
-                            v.as_str()
-                                .ok_or_else(|| {
-                                    LangError::engine_node(
-                                        "closure: param must be a string".to_string(),
-                                        current_node,
-                                    )
-                                })
-                                .map(String::from)
-                        })
-                        .collect::<Result<_, _>>()?;
-                    let rest_name = payload
-                        .get("rest")
-                        .and_then(|v| v.as_str())
-                        .map(String::from);
-                    (p_names, rest_name, b as usize, false)
-                } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
-                    // `params`/`body` child positions resolve by named
-                    // role (ADR-0081); positional 0/1 is the role-less
-                    // fallback.
-                    let params_role = lang
-                        .child_role_index(&current_node.kind, "params")?
-                        .unwrap_or(0);
-                    let body_role = lang
-                        .child_role_index(&current_node.kind, "body")?
-                        .unwrap_or(1);
-                    let param_idx = children
-                        .get(params_role)
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                "closure: missing param child".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                    let body_idx = children
-                        .get(body_role)
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::engine_node(
-                                "closure: missing body child".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                    let param_node = ast.at(AstRef::new(param_idx))?;
-                    // `param_names` resolves the fixed params and an
-                    // optional rest param (`...name`) data-driven via
-                    // `pattern_role`/variadic-role metadata (ADR-0081).
-                    let (param_names, rest_name) = lang
-                        .param_names(ast, param_node)
-                        .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
-                    let array_pattern = lang.is_array_pattern(param_node);
-                    (param_names, rest_name, body_idx, array_pattern)
-                } else {
-                    return Err(LangError::engine_node(
-                        "closure: missing params/body in payload".to_string(),
-                        current_node,
-                    ));
-                };
-                let captured = env.capture();
-                // ADR-0106 item 2 (step 1): carry the body as explicit,
-                // serializable structure so the arrow is self-describing.
-                // `Ast::subtree` extracts a standalone arena for the body
-                // (children remapped) and `ast_value` wraps it as
-                // `{"__ast__": <Ast>}` — the same encoding used for vau-bound
-                // unevaluated expressions. Additive only: the apply path
-                // still uses `body`/`home`, and extraction failure degrades
-                // to `None` rather than failing the closure creation.
-                let body_def = ast
-                    .subtree(AstRef::new(body))
-                    .ok()
-                    .map(|sub| Rc::new(TaggedValue::from(handl_language::ast_value(&sub))));
-                let closure = TaggedValue::Arrow {
-                    params: Rc::from(params),
-                    rest: rest.map(Rc::from),
-                    body,
-                    env: captured,
-                    home: None,
-                    array_pattern,
-                    body_def,
-                };
-                Ok((closure, false))
-            }
-            "array" => {
-                // Two payload shapes:
-                // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
-                // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
-                //   element is an arena index to evaluate.
-                if let Some(elements) = current_node.payload.get("elements") {
-                    Ok((TaggedValue::from(elements.clone()), false))
-                } else if let Some(children) = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                {
-                    let mut result = Vec::with_capacity(children.len());
-                    for entry in children {
-                        let idx = entry.as_u64().ok_or_else(|| {
-                            LangError::engine_node(
-                                "array: element index must be a number".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                        let child_ref = AstRef::new(idx);
-                        // Spread: if the child is a `rest`-roled node
-                        // (`pattern_role: rest`; from `...expr` syntax),
-                        // flatten its value into the array if it's an
-                        // array. `kind == "rest"` is the role-less
-                        // fallback (ADR-0081).
-                        let is_rest = ast
-                            .get(child_ref)
-                            .map(|n| {
-                                lang.pattern_role_is(&n.kind, "rest")
-                                    .unwrap_or_else(|| n.kind == "rest")
-                            })
-                            .unwrap_or(false);
-                        if is_rest {
-                            let val = self.eval_node_inner(ast, child_ref, lang, env)?;
-                            if let Some(arr) = val.as_array() {
-                                result.extend(arr.iter().cloned());
-                            } else {
-                                result.push(val);
-                            }
-                        } else {
-                            result.push(self.eval_node_inner(ast, child_ref, lang, env)?);
-                        }
-                    }
-                    Ok((TaggedValue::Arr(Rc::from(result)), false))
-                } else {
-                    Err(LangError::engine_node(
-                        "array: missing elements/children in payload".to_string(),
-                        current_node,
-                    ))
-                }
-            }
-            "object" => {
-                // Two payload shapes:
-                // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
-                // - Pratt-parsed: `{"children": [entry_idx, ...]}` where
-                //   each entry node has `{"children": [key_idx,
-                //   value_idx]}`.
-                if let Some(entries) = current_node
-                    .payload
-                    .get("entries")
-                    .and_then(|v| v.as_array())
-                {
-                    let mut obj = FxHashMap::default();
-                    for entry in entries {
-                        let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
-                            LangError::engine_node(
-                                "object: entry missing key".to_string(),
-                                current_node,
-                            )
-                        })?;
-                        let value = entry.get("value").ok_or_else(|| {
-                            LangError::engine_node(
-                                "object: entry missing value".to_string(),
-                                current_node,
-                            )
-                        })?;
-                        if handl_language::is_reserved_value_key(key) {
-                            return Err(LangError::engine_node(
-                                format!("object: key '{}' is reserved", key),
-                                current_node,
-                            ));
-                        }
-                        obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
-                    }
-                    Ok((TaggedValue::Obj(Rc::new(obj)), false))
-                } else if let Some(children) = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                {
-                    let start = lang
-                        .child_role_index(&current_node.kind, "entries")?
-                        .unwrap_or(0);
-                    // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs
-                    // `{ key: val }` (object). When ALL children from the
-                    // `entries` role are non-`entry` nodes (bare expressions),
-                    // treat as a block: evaluate each and return the last value.
-                    // When any child is an `entry` node, treat as an object.
-                    let all_bare = children.iter().skip(start).all(|c| {
-                        c.as_u64()
-                            .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
-                            .map(|n| {
-                                !lang
-                                    .pattern_role_is(&n.kind, "entry")
-                                    .unwrap_or_else(|| n.kind == "entry")
-                            })
-                            .unwrap_or(true)
-                    });
-                    if all_bare && !children.is_empty() {
-                        // Block semantics: evaluate all, return last.
-                        let mut last = TaggedValue::Null;
-                        for entry in children.iter().skip(start) {
-                            let idx = entry.as_u64().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "object: entry index must be a number".to_string(),
-                                    current_node,
-                                )
-                            })? as usize;
-                            last = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
-                        }
-                        return Ok((last, false));
-                    }
-                    let mut obj = FxHashMap::default();
-                    for entry in children.iter().skip(start) {
-                        let entry_idx = entry.as_u64().ok_or_else(|| {
-                            LangError::engine_node(
-                                "object: entry index must be a number".to_string(),
-                                current_node,
-                            )
-                        })? as usize;
-                        let entry_node = ast.at(AstRef::new(entry_idx))?;
-                        // Spread entry: if the child is not an
-                        // `entry`-roled node, evaluate it and merge its
-                        // fields into the object. This implements
-                        // `{ ...s, field: val }` syntax. `kind == "entry"`
-                        // is the role-less fallback (ADR-0081).
-                        let is_entry = lang
-                            .pattern_role_is(&entry_node.kind, "entry")
-                            .unwrap_or_else(|| entry_node.kind == "entry");
-                        if !is_entry {
-                            let spread_val =
-                                self.eval_node_inner(ast, AstRef::new(entry_idx), lang, env)?;
-                            if let Some(spread_obj) = spread_val.as_object() {
-                                for (k, v) in spread_obj {
-                                    obj.insert(Rc::clone(k), v.clone());
-                                }
-                            }
-                            continue;
-                        }
-                        let entry_children = entry_node
-                            .payload
-                            .get("children")
-                            .and_then(|c| c.as_array())
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "object: entry node missing children".to_string(),
-                                    current_node,
-                                )
-                            })?;
-                        let key_role = lang.child_role_index(&entry_node.kind, "key")?.unwrap_or(0);
-                        let val_role = lang
-                            .child_role_index(&entry_node.kind, "value")?
-                            .unwrap_or(1);
-                        let key_idx = entry_children
-                            .get(key_role)
-                            .and_then(|v| v.as_u64())
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "object: entry missing key child".to_string(),
-                                    current_node,
-                                )
-                            })? as usize;
-                        let val_idx = entry_children
-                            .get(val_role)
-                            .and_then(|v| v.as_u64())
-                            .ok_or_else(|| {
-                                LangError::engine_node(
-                                    "object: entry missing value child".to_string(),
-                                    current_node,
-                                )
-                            })? as usize;
-                        let key_node = ast.at(AstRef::new(key_idx))?;
-                        // Static vs computed key is declared data-driven:
-                        // the `entry` shape's `literal_children` list for
-                        // the `key` role (ADR-0081) names the child kinds
-                        // whose payload is the key text — don't evaluate
-                        // them. This makes `{ n: 5 }` use key "n" and
-                        // `{ "s": 5 }` use key "s". Otherwise (computed
-                        // key), evaluate the key expression and use its
-                        // string representation. Bracket computed keys
-                        // `[expr]:` are desugared to `paren { expr }`
-                        // before eval (ADR-0058), so they fall into the
-                        // `else` branch. Role-less shapes fall back to the
-                        // legacy string-payload heuristic.
-                        let is_literal_key = lang
-                            .literal_child(&entry_node.kind, "key", &key_node.kind)
-                            .unwrap_or_else(|| key_node.payload.is_string());
-                        let key = if is_literal_key {
-                            let key_text = key_node.payload.as_str().ok_or_else(|| {
-                                LangError::engine_node(
-                                    "object: literal key missing string payload".to_string(),
-                                    current_node,
-                                )
-                            })?;
-                            key_text.to_string()
-                        } else {
-                            let key_val =
-                                self.eval_node_inner(ast, AstRef::new(key_idx), lang, env)?;
-                            if let Some(s) = key_val.as_str() {
-                                s.to_string()
-                            } else {
-                                tagged_to_value(&key_val).to_string()
-                            }
-                        };
-                        let value = self.eval_node_inner(ast, AstRef::new(val_idx), lang, env)?;
-                        if handl_language::is_reserved_value_key(&key) {
-                            return Err(LangError::engine_node(
-                                format!("object: key '{}' is reserved", key),
-                                current_node,
-                            ));
-                        }
-                        obj.insert(Rc::from(key.as_str()), value);
-                    }
-                    Ok((TaggedValue::Obj(Rc::new(obj)), false))
-                } else {
-                    Err(LangError::engine_node(
-                        "object: missing entries/children in payload".to_string(),
-                        current_node,
-                    ))
-                }
-            }
-            // `assign` is owned by the shared op table (native_ops) —
-            // EvalNode + Env gated.
+            // `closure`, `array`, `object`, and `assign` are owned by the
+            // shared op table (native_ops) — EvalNode + Env gated; the
+            // constructor ops resolve node shape data through the `TwCtx`
+            // services (`pattern_role_at`/`literal_child_at`/
+            // `closure_params_at`/`closure_body_def`).
             "match" => self.prim_match(ast, lang, env, current_node),
             "handle" => self.prim_handle(ast, lang, env, current_node),
             // Phase 9.5: import/export. The eval schemes for `stmt.import`
@@ -4972,6 +4650,46 @@ impl NativeOpCtx for TwCtx<'_, '_> {
 
     fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
         self.env.capture()
+    }
+
+    fn node_kind_at(&mut self, r: AstRef) -> Option<String> {
+        self.ast.get(r).map(|n| n.kind.clone())
+    }
+
+    fn pattern_role_at(&mut self, r: AstRef, role: &str) -> Option<bool> {
+        self.ast
+            .get(r)
+            .and_then(|n| self.lang.pattern_role_is(&n.kind, role))
+    }
+
+    fn literal_child_at(&mut self, parent: AstRef, role: &str, child: AstRef) -> Option<bool> {
+        let parent_kind = self.ast.get(parent)?.kind.clone();
+        let child_kind = self.ast.get(child)?.kind.clone();
+        self.lang.literal_child(&parent_kind, role, &child_kind)
+    }
+
+    fn closure_params_at(
+        &mut self,
+        r: AstRef,
+    ) -> Result<(Vec<String>, Option<String>, bool), LangError> {
+        let node = self.ast.at(r)?;
+        let (names, rest) = self.lang.param_names(self.ast, node)?;
+        Ok((names, rest, self.lang.is_array_pattern(node)))
+    }
+
+    fn closure_body_def(&mut self, body: AstRef) -> Option<TaggedValue> {
+        // ADR-0106 item 2 (step 1): carry the body as explicit,
+        // serializable structure so the arrow is self-describing.
+        // `Ast::subtree` extracts a standalone arena for the body
+        // (children remapped) and `ast_value` wraps it as
+        // `{"__ast__": <Ast>}` — the same encoding used for vau-bound
+        // unevaluated expressions. Additive only: the apply path still
+        // uses `body`/`home`, and extraction failure degrades to `None`
+        // rather than failing the closure creation.
+        self.ast
+            .subtree(body)
+            .ok()
+            .map(|sub| TaggedValue::from(handl_language::ast_value(&sub)))
     }
 
     fn apply_arrow(
