@@ -166,7 +166,8 @@ pub fn lower_term<'ctx>(
         | Term::RecordProj { .. }
         | Term::RecordWith { .. }
         | Term::Tag { .. }
-        | Term::Cobind { .. } => Ok(()),
+        | Term::Cobind { .. }
+        | Term::Opaque { .. } => Ok(()),
         Term::First { inner } => control::lower_first(ctx, inner, ()),
         Term::Choice { l, r } => control::lower_choice(ctx, l, r, ()),
         Term::Loop { body } => control::lower_loop(ctx, body, ()),

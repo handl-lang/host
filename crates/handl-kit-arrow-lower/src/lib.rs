@@ -11,6 +11,7 @@
 use std::collections::{HashMap, HashSet};
 
 use handl_language::{ArrSource, Ast, AstNode, AstRef, Language, Term, Value};
+use serde_json::json;
 
 /// A compile-time env binding: the lowered `Term` plus call metadata.
 ///
@@ -248,6 +249,13 @@ fn lower_node(
         "graded_arrow" => lower_graded_arrow(ast, lang, node, env, params),
         "dim_arrow" => lower_dim_arrow(ast, lang, node, env, params),
         "bind" => lower_bind(ast, lang, node, env, params),
+
+        // ADR-0119 §7 / ADR-0120 Phase 5: the Option B frontier cells are
+        // derived forms over `Seq{axis}` — no `cell_*`/`whisker_*`
+        // primitives. These arms emit the same generic `Seq`/`id`/record
+        // shapes as the `eval.cell_*` schemes in `data/eval.yaml`.
+        "cell_comp_h" | "cell_comp_v" | "whisker_left" | "whisker_right" | "cell_id"
+        | "witness" | "refine" => lower_frontier_cell(ast, lang, node, env, params),
 
         "assert" => {
             // Keyword assertion (ADR-0089/0092). In the arrow/compiled
@@ -1290,7 +1298,7 @@ fn lower_dim_arrow(
                 dim: Term::default_dim(),
                 value: "grade".into(),
             },
-            dim,
+            dim.clone(),
             Term::Arr {
                 dim: Term::default_dim(),
                 value: "output".into(),
@@ -1298,7 +1306,181 @@ fn lower_dim_arrow(
             target,
         ],
     );
-    Ok(Term::op_native("tag.construct", vec![tag, record]))
+    // ADR-0120 Phase 5: `f ~[N]~> g` is a genuine dimension-N `Op` — the
+    // minting op's `dim` slot is the declared dimension term, so
+    // dimension-typed terms feed `law_inference`/`quantified_laws`
+    // directly (laws are ordinary higher-dimensional morphisms).
+    Ok(Term::Op {
+        dim: Box::new(dim),
+        name: "tag.construct".into(),
+        args: vec![tag, record],
+        source: ArrSource::Native,
+        lit: None,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Option B frontier cells — derived forms over `Seq{axis}` (ADR-0119 §7,
+// ADR-0120 Phase 5)
+// ---------------------------------------------------------------------------
+
+/// `id₂` — the identity 2-cell as a native `id` op at dimension 2.
+fn id2() -> Term {
+    Term::Op {
+        dim: Box::new(Term::Const {
+            value: Value::from(2),
+        }),
+        name: "id".into(),
+        args: vec![],
+        source: ArrSource::Native,
+        lit: None,
+    }
+}
+
+/// Lift a 1-cell term to a dimension-2 operand without changing its
+/// value: `t >>> id₂`. The composite's `dim` is 2 (the maximum of its
+/// parts), so `Seq{axis: k}` sees it as a 2-cell for globular pasting.
+fn lift2(t: Term) -> Term {
+    Term::Seq {
+        axis: Term::default_axis(),
+        fst: Box::new(t),
+        snd: Box::new(id2()),
+    }
+}
+
+/// The identity 2-cell over `t`'s value as a `Cell2` record — used for
+/// the whisker derivations `id_f ∘₀ α` / `α ∘₀ id_f` so the identity
+/// side supplies no witness of its own.
+fn id_cell(t: Term) -> Term {
+    let key = |s: &str| Term::Arr {
+        dim: Term::default_dim(),
+        value: s.into(),
+    };
+    Term::Op {
+        dim: Box::new(Term::Const {
+            value: Value::from(2),
+        }),
+        name: "record".into(),
+        args: vec![
+            key("__tag__"),
+            key("Cell2"),
+            key("__src__"),
+            t.clone(),
+            key("__tgt__"),
+            t.clone(),
+            key("value"),
+            t,
+        ],
+        source: ArrSource::Native,
+        lit: None,
+    }
+}
+
+/// Axis-`k` composition of two lowered 2-cell operands: `∘ₖ` via
+/// `Seq{axis: k}` over dimension-lifted operands.
+fn seq_axis(axis: u64, fst: Term, snd: Term) -> Term {
+    Term::Seq {
+        axis: Box::new(Term::Const {
+            value: Value::from(axis),
+        }),
+        fst: Box::new(fst),
+        snd: Box::new(snd),
+    }
+}
+
+/// Lower the Option B frontier surface forms to generic axis-parameterized
+/// `Seq`/`id` terms (ADR-0119 §7): `=>|` is `∘₀`, `=>>` is `∘₁` projected
+/// to its witness, `<@`/`@>` are `id_f ∘₀ α` / `α ∘₀ id_f`, `id2` is the
+/// identity 2-cell, `v as G` is a proof op at dimension `G`, and
+/// `v where p` is `v >>> guard(p)` (`Seq{Seq{app p, tag}, Choice{v, err}}`).
+fn lower_frontier_cell(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let kind = node.kind.as_str();
+    let lower_child = |pos: usize| -> Result<Term, String> {
+        let idx = children(node)
+            .get(pos)
+            .copied()
+            .ok_or_else(|| format!("{kind} at {} missing child {pos}", node_index(node)))?;
+        lower_node(ast, lang, idx, env, params)
+    };
+    match kind {
+        "cell_comp_h" => Ok(seq_axis(0, lift2(lower_child(0)?), lift2(lower_child(1)?))),
+        "cell_comp_v" => Ok(Term::RecordProj {
+            record: Box::new(seq_axis(1, lift2(lower_child(0)?), lift2(lower_child(1)?))),
+            field: "value".into(),
+        }),
+        // `arrow <@ cell` derives to `id_arrow ∘₀ cell`.
+        "whisker_left" => Ok(seq_axis(
+            0,
+            id_cell(lower_child(0)?),
+            lift2(lower_child(1)?),
+        )),
+        // `cell @> arrow` derives to `cell ∘₀ id_arrow`.
+        "whisker_right" => Ok(seq_axis(
+            0,
+            lift2(lower_child(0)?),
+            id_cell(lower_child(1)?),
+        )),
+        "cell_id" => Ok(Term::Seq {
+            axis: Term::default_axis(),
+            fst: Box::new(lower_child(0)?),
+            snd: Box::new(id2()),
+        }),
+        // `proof as G` — a witness is a proof op at the grade's
+        // dimension; the grade term rides the `dim` slot.
+        "witness" => {
+            let grade_idx = children(node)
+                .first()
+                .copied()
+                .ok_or_else(|| format!("witness at {} missing grade child", node_index(node)))?;
+            let dim = lower_dim_term(ast, lang, grade_idx, env, params)?;
+            let proof = lower_child(1)?;
+            Ok(Term::Seq {
+                axis: Term::default_axis(),
+                fst: Box::new(proof),
+                snd: Box::new(Term::Op {
+                    dim: Box::new(dim),
+                    name: "id".into(),
+                    args: vec![],
+                    source: ArrSource::Native,
+                    lit: None,
+                }),
+            })
+        }
+        "refine" => {
+            let sort = lower_child(0)?;
+            let predicate = lower_child(1)?;
+            Ok(Term::Seq {
+                axis: Term::default_axis(),
+                fst: Box::new(sort.clone()),
+                snd: Box::new(Term::Seq {
+                    axis: Term::default_axis(),
+                    fst: Box::new(Term::Seq {
+                        axis: Term::default_axis(),
+                        fst: Box::new(Term::op_native("app", vec![predicate])),
+                        snd: Box::new(Term::op_native("tag", vec![])),
+                    }),
+                    snd: Box::new(Term::Choice {
+                        l: Box::new(sort),
+                        r: Box::new(Term::op_native_lit(
+                            "desugar_error",
+                            vec![],
+                            json!({
+                                "kind": "refine-predicate-error",
+                                "reason": "where: refinement predicate not satisfied"
+                            }),
+                        )),
+                    }),
+                }),
+            })
+        }
+        other => Err(format!("lower: unsupported frontier cell `{other}`")),
+    }
 }
 
 fn children(node: &AstNode) -> Vec<usize> {

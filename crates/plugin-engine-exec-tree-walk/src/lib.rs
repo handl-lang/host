@@ -113,10 +113,47 @@ use handl_plugin_engine_exec::native_ops::{
 use handl_plugin_engine_exec::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use handl_value::{
-    TaggedValue, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker, record_proj,
-    tagged_to_value,
+    TaggedValue, cell2_comp_axis, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker,
+    record_proj, tagged_to_value,
 };
 use plugin_engine::{Model, ModelCtx, RewriteResult, TermData, is_hott_tag};
+
+/// The globular dimension of a term (ADR-0120 Phase 5): the `dim` slot
+/// when it is a numeric literal, otherwise a structural estimate through
+/// the combinators (a composite has the greatest dimension of its
+/// parts). Defaults to `1` — an ordinary 1-cell. `Seq{axis: k}` pastes
+/// along axis `k` only when `k < term_dim(fst)`.
+fn term_dim(td: &TermData) -> u64 {
+    // `TermData::dim` supplies a `Const 1` default when the slot is
+    // absent — check the raw field so structural terms (Seq, Tag, …)
+    // fall through to the composite estimate below.
+    if let Some(dim_td) = td.get_term("dim") {
+        if let Some(d) = dim_td.nat_literal() {
+            return d.max(1);
+        }
+    }
+    match td.tag() {
+        "Seq" => td
+            .get_term("fst")
+            .map(|t| term_dim(&t))
+            .unwrap_or(1)
+            .max(td.get_term("snd").map(|t| term_dim(&t)).unwrap_or(1)),
+        "First" => td.get_term("inner").map(|t| term_dim(&t)).unwrap_or(1),
+        "Choice" => td
+            .get_term("l")
+            .map(|t| term_dim(&t))
+            .unwrap_or(1)
+            .max(td.get_term("r").map(|t| term_dim(&t)).unwrap_or(1)),
+        "Loop" | "Handle" | "Cobind" => td.get_term("body").map(|t| term_dim(&t)).unwrap_or(1),
+        "App" => td.get_term("callee").map(|t| term_dim(&t)).unwrap_or(1),
+        "Iter" => td.get_term("step").map(|t| term_dim(&t)).unwrap_or(1),
+        "RecordProj" | "RecordWith" => td.get_term("record").map(|t| term_dim(&t)).unwrap_or(1),
+        "Tag" => td.get_term("value").map(|t| term_dim(&t)).unwrap_or(1),
+        "Src" | "Tgt" => td.get_term("cell").map(|t| term_dim(&t)).unwrap_or(1),
+        "Rewrite" => td.get_term("target").map(|t| term_dim(&t)).unwrap_or(1),
+        _ => 1,
+    }
+}
 
 // Thread-local storage for the current AST and Language, so the
 // ValueCallable impl can access them when host functions (e.g. fn.map)
@@ -884,40 +921,69 @@ impl TreeWalkEngine {
                             })?
                     }
                 };
-                if axis_index != 0 {
+                // ADR-0120 Phase 5: `Seq{axis: k}` is `∘ₖ` — composition
+                // along the k-th globular axis. When both operands are
+                // 1-cells (`dim ≤ 1`) axis 0 is ordinary sequential
+                // composition (piping); when the operands are n-cells
+                // with n > k (`dim` slot carries the cell dimension) they
+                // compose by pasting along the k-boundary: ∘₀ horizontal,
+                // ∘₁ vertical, … — both sides see the same incoming
+                // value, and their results compose at the value level.
+                let fst_dim = term_dim(&fst);
+                if axis_index == 0 && fst_dim <= 1 {
+                    let (fst_val, fst_pushed) = self.eval_inner_td(
+                        &fst,
+                        ast,
+                        node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        incoming.clone(),
+                    )?;
+                    let (snd_val, snd_pushed) = self.eval_inner_td(
+                        &snd,
+                        ast,
+                        node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        Some(fst_val),
+                    )?;
+                    // Pop the scope `fst` reported (e.g. extend_env as fst).
+                    if fst_pushed {
+                        env.pop_scope();
+                    }
+                    // Propagate `snd_pushed`: an extend_env in snd position
+                    // (the Bind lowering shape) is popped by the *enclosing*
+                    // Seq after its own snd completes.
+                    Ok((snd_val, snd_pushed))
+                } else if axis_index < fst_dim {
+                    let (fst_val, fst_pushed) = self.eval_inner_td(
+                        &fst,
+                        ast,
+                        node_ref,
+                        lang,
+                        env,
+                        current_node,
+                        incoming.clone(),
+                    )?;
+                    if fst_pushed {
+                        env.pop_scope();
+                    }
+                    let (snd_val, snd_pushed) =
+                        self.eval_inner_td(&snd, ast, node_ref, lang, env, current_node, incoming)?;
+                    if snd_pushed {
+                        env.pop_scope();
+                    }
+                    Ok((cell2_comp_axis(axis_index, &fst_val, &snd_val), false))
+                } else {
                     return Err(LangError::engine_node(
                         format!(
-                            "Seq: axis-{axis_index} composition is not yet implemented (ADR-0120 Phase 2)"
+                            "Seq: axis-{axis_index} composition requires cells of dimension > {axis_index} (fst has dim {fst_dim})"
                         ),
                         current_node,
                     ));
                 }
-                let (fst_val, fst_pushed) = self.eval_inner_td(
-                    &fst,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    incoming.clone(),
-                )?;
-                let (snd_val, snd_pushed) = self.eval_inner_td(
-                    &snd,
-                    ast,
-                    node_ref,
-                    lang,
-                    env,
-                    current_node,
-                    Some(fst_val),
-                )?;
-                // Pop the scope `fst` reported (e.g. extend_env as fst).
-                if fst_pushed {
-                    env.pop_scope();
-                }
-                // Propagate `snd_pushed`: an extend_env in snd position
-                // (the Bind lowering shape) is popped by the *enclosing*
-                // Seq after its own snd completes.
-                Ok((snd_val, snd_pushed))
             }
             "First" => {
                 let inner = td
@@ -4918,9 +4984,7 @@ impl Model for ValueModel {
                 let snd = td.get_term("snd").expect("Seq term missing 'snd' field");
                 // ADR-0120 Phase 2: `>>>` is `>>>[0]`. Resolve the axis —
                 // literals read directly; expression axes evaluate against
-                // the incoming value. Axis 0 keeps sequential semantics;
-                // higher axes are structurally valid but their execution is
-                // a later increment.
+                // the incoming value.
                 let axis_td = td.axis();
                 let axis_index = match axis_td.nat_literal() {
                     Some(k) => Some(k),
@@ -4933,17 +4997,29 @@ impl Model for ValueModel {
                     }
                 }
                 .ok_or(plugin_engine::LangError::NotImplemented)?;
-                if axis_index != 0 {
-                    return Err(plugin_engine::LangError::NotImplemented);
-                }
                 let fst_term = fst
                     .to_term()
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let snd_term = snd
                     .to_term()
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
-                let fst_val = self.run(&fst_term, incoming, ctx)?;
-                self.run(&snd_term, fst_val, ctx)
+                // ADR-0120 Phase 5: `∘ₖ` on n-cells (n > k) pastes at the
+                // value level; axis 0 on 1-cells stays sequential.
+                let fst_dim = term_dim(&fst);
+                if axis_index == 0 && fst_dim <= 1 {
+                    let fst_val = self.run(&fst_term, incoming, ctx)?;
+                    self.run(&snd_term, fst_val, ctx)
+                } else if axis_index < fst_dim {
+                    let fst_val = self.run(&fst_term, incoming.clone(), ctx)?;
+                    let snd_val = self.run(&snd_term, incoming, ctx)?;
+                    Ok(tagged_to_value(&cell2_comp_axis(
+                        axis_index,
+                        &TaggedValue::from(fst_val),
+                        &TaggedValue::from(snd_val),
+                    )))
+                } else {
+                    Err(plugin_engine::LangError::NotImplemented)
+                }
             }
             "Rewrite" => {
                 let target = td

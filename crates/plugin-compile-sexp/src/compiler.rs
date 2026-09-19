@@ -199,6 +199,15 @@ fn emit(term: &Term, out: &mut String) {
             emit(body, out);
             out.push(')');
         }
+        Term::Opaque { data } => {
+            let tag = data
+                .get("__tag__")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Opaque");
+            out.push_str("(opaque ");
+            out.push_str(tag);
+            out.push(')');
+        }
     }
 }
 

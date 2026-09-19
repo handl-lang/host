@@ -1068,14 +1068,17 @@
           - !Child
             role: "name"
     source: Native
-# `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
-# Placeholder: mints an `Arrow` record using the legacy `inputs`/`grade`/
-# `output` field names so `arrow_field` in `op`/`handler` keeps working
-# until Phase 1 updates the engine `Term` to N-dimensional arrows.
+# `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119, ADR-0120
+# Phase 5). The minting op's `dim` slot is the declared dimension term
+# itself — `f ~[2]~> g` is a genuine dimension-2 `Op`, so dimension-typed
+# terms feed `law_inference`/`quantified_laws` directly rather than a
+# separate law representation. The record still uses the legacy
+# `inputs`/`grade`/`output` field names for `arrow_field` compat.
 - id: eval.dim_arrow
   node_kind: dim_arrow
   scheme: !Op
-    dim: !Const { value: 1 }
+    dim: !Child
+      role: "dim"
     name: "tag.construct"
     args:
       - !Arr
@@ -1258,3 +1261,168 @@
         source: Native
         lit: 1
     source: Native
+# ---------------------------------------------------------------------------
+# Option B frontier cells — derived forms over `Seq{axis}` (ADR-0119 §7,
+# ADR-0120 Phase 5). There are no `cell_*`/`whisker_*` primitives: each
+# surface operator lowers to axis-parameterized composition `>>>[k]` over
+# operands lifted to dimension 2 (`Op{dim: 2, name: "proj_child"}`), which
+# the engine executes as globular pasting `∘ₖ` at the value level.
+# ---------------------------------------------------------------------------
+# `cell_comp_h` (`=>|`) — horizontal composition `α ∘₀ β`. Both operands
+# are 2-cells; `Seq{axis: 0}` on dimension-2 operands is `∘₀`.
+- id: eval.cell_comp_h
+  node_kind: cell_comp_h
+  scheme: !Seq
+    axis: !Const { value: 0 }
+    fst: !Op
+      dim: !Const { value: 2 }
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Op
+      dim: !Const { value: 2 }
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `cell_comp_v` (`=>>`) — vertical composition `α ∘₁ β`, projected to its
+# witness value. `Seq{axis: 1}` on dimension-2 operands is `∘₁`.
+- id: eval.cell_comp_v
+  node_kind: cell_comp_v
+  scheme: !RecordProj
+    record: !Seq
+      axis: !Const { value: 1 }
+      fst: !Op
+        dim: !Const { value: 2 }
+        name: proj_child
+        args: []
+        source: Native
+        lit: 0
+      snd: !Op
+        dim: !Const { value: 2 }
+        name: proj_child
+        args: []
+        source: Native
+        lit: 1
+    field: "value"
+# `whisker_left` (`<@`) — `f <@ α` derives to `id_f ∘₀ α`: the identity
+# 2-cell over the left arrow pastes onto the cell's left boundary.
+- id: eval.whisker_left
+  node_kind: whisker_left
+  scheme: !Seq
+    axis: !Const { value: 0 }
+    fst: !Op
+      dim: !Const { value: 2 }
+      name: record
+      args:
+        - !Arr { value: "__tag__" }
+        - !Arr { value: "Cell2" }
+        - !Arr { value: "__src__" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 0 }
+        - !Arr { value: "__tgt__" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 0 }
+        - !Arr { value: "value" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 0 }
+      source: Native
+    snd: !Op
+      dim: !Const { value: 2 }
+      name: proj_child
+      args: []
+      source: Native
+      lit: 1
+# `whisker_right` (`@>`) — `α @> f` derives to `α ∘₀ id_f`: the cell pastes
+# onto the identity 2-cell over the right arrow. Surface operand order is
+# `cell @> arrow`, so the identity cell wraps child 1.
+- id: eval.whisker_right
+  node_kind: whisker_right
+  scheme: !Seq
+    axis: !Const { value: 0 }
+    fst: !Op
+      dim: !Const { value: 2 }
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Op
+      dim: !Const { value: 2 }
+      name: record
+      args:
+        - !Arr { value: "__tag__" }
+        - !Arr { value: "Cell2" }
+        - !Arr { value: "__src__" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 1 }
+        - !Arr { value: "__tgt__" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 1 }
+        - !Arr { value: "value" }
+        - !Op { name: proj_child, args: [], source: Native, lit: 1 }
+      source: Native
+# `cell_id` (`id2`) — the identity 2-cell: `α >>> id₂`. Weak semantics —
+# the result is the arrow's own value.
+- id: eval.cell_id
+  node_kind: cell_id
+  scheme: !Seq
+    axis: !Const { value: 0 }
+    fst: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Op
+      dim: !Const { value: 2 }
+      name: id
+      args: []
+      source: Native
+# `witness` (`v as G`) — an `Op` at the grade's dimension returning the
+# proof child. The `dim` slot is the grade term itself.
+- id: eval.witness
+  node_kind: witness
+  scheme: !Op
+    dim: !Child
+      role: "grade"
+    name: proj_child
+    args: []
+    source: Native
+    lit: 1
+# `refine` (`v where p`) — `sort` followed by a guard: apply `predicate`
+# to the sort's value; a truthy result passes the value through, falsy
+# fails. Same `Seq{Seq{cond, tag}, Choice{ok, error}}` shape as `if`.
+- id: eval.refine
+  node_kind: refine
+  scheme: !Seq
+    axis: !Const { value: 0 }
+    fst: !Op
+      name: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Seq
+      axis: !Const { value: 0 }
+      fst: !Seq
+        axis: !Const { value: 0 }
+        fst: !Op
+          name: app
+          args:
+            - !Op
+              name: proj_child
+              args: []
+              source: Native
+              lit: 1
+          source: Native
+        snd: !Op
+          name: tag
+          args: []
+          source: Native
+      snd: !Choice
+        l: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 0
+        r: !Op
+          name: desugar_error
+          args: []
+          source: Native
+          lit:
+            kind: refine-predicate-error
+            reason: "where: refinement predicate not satisfied"

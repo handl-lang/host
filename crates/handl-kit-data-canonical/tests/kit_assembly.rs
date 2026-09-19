@@ -59,7 +59,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +2 `eval.{loop,json}` (ADR-0120 Phase 1): the ArrowLoop fold node
     // and the `json` template op used by generated fold machines.
     // +1 `eval.axis_flow` for `>>>[k]` (ADR-0120 Phase 2).
-    assert_eq!(lang.eval.len(), 80);
+    // +7 `eval.{cell_comp_h,cell_comp_v,whisker_left,whisker_right,
+    // cell_id,witness,refine}` — Option B frontier cells as derived
+    // `Seq{axis}` schemes (ADR-0120 Phase 5).
+    assert_eq!(lang.eval.len(), 87);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator

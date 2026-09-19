@@ -247,6 +247,13 @@ fn emit_term(term: &Term, e: &mut Emitter) -> usize {
             e.edge(id, c2, "body");
             id
         }
+        Term::Opaque { data } => {
+            let tag = data
+                .get("__tag__")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Opaque");
+            e.node(&format!("Opaque {tag}"))
+        }
     }
 }
 
