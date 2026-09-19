@@ -2055,6 +2055,23 @@
     source: Judgment
     lit: x
 
+# `family` — an indexed family `A ↝ Type` (ADR-0120 Phase 4). The single
+# child is the index/base type expression; `construct_family` synths it
+# and mints `type.family{base}`. The surface form is `Family(A)` (a call
+# handled by `synth_dep_former_`); this rule covers the internal `family`
+# node kind so the vocabulary stays complete in data.
+- id: type.family
+  node_kind: family
+  synth: !Op
+    name: construct_family
+    args:
+      - !Op
+        name: synth_child
+        args: []
+        source: Judgment
+        lit: 0
+    source: Judgment
+
 # `call` — synth the callee (child 0) → type.function{param, body}, check
 # the arg (child 1) against the function's `param` type, then return the
 # function's `body` type. Uses `type_field` to extract `param`/`body` from
@@ -2191,18 +2208,23 @@
     source: Judgment
     lit: 1
 
-# `flow` — categorical arrow composition `>>>` (ADR-0119).
-# Placeholder: the full rule (unify f.body with g.param and return
-# `type.function{param: f.param, body: g.body}`) requires NBE record
-# construction from bound fields.  Returning `type.unknown` keeps real
-# arrow pipelines typecheckable while the precise rule is developed.
+# `flow` — categorical arrow composition `>>>` (ADR-0119, ADR-0120
+# Phase 4). The `synth_flow` judgment implements the axis-0 boundary
+# rule `tgt(f) = src(g)` in `type.function` coordinates
+# (`unify(f.body, g.param)`) and synthesizes the composite
+# `type.function{param: f.param, body: g.body}` — the same rule
+# `type.axis_flow` below expresses in the scheme vocabulary.
+# `type.pi`/`type.forall` operands are applied at their own domain to
+# read their boundary; the composite then flattens to `type.function`
+# (no AST body exists for the composite `body_closure` — documented
+# structural approximation). Reindexing along an arrow needs no
+# dedicated rule: `P >>> f` is this composition.
 - id: type.flow
   node_kind: flow
   synth: !Op
-    name: construct
+    name: synth_flow
     args: []
     source: Judgment
-    lit: type.unknown
 
 # `axis_flow` — axis-parameterized composition `a >>>[k] b` (ADR-0120
 # Phase 2). Structural portion implemented here:
@@ -2402,6 +2424,18 @@
     args: []
     source: Judgment
 
+# `loop` — arrow fold node (ADR-0120 Phase 1). Internal/desugared shape
+# (no surface grammar row): the fold's result type is the `Either` success
+# branch of `step`, which the current vocabulary cannot project — synth a
+# quiet `type.unknown` rather than a "no type rule" warning.
+- id: type.loop
+  node_kind: loop
+  synth: !Op
+    name: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
 # `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
 - id: type.while
   node_kind: while
@@ -2484,6 +2518,22 @@
     args: []
     source: Judgment
     lit: type.unit
+
+# `data` — inductive family declaration `data Name(params) :: ctors`
+# (ADR-0082, ADR-0120 Phase 4). The `synth_data` judgment binds `Name`
+# to `type.family{name, base}` — one fresh metavariable per index
+# parameter, since the payload carries parameter names only — and binds
+# each constructor (collected from the `alt` tree in child 1) to
+# `type.family_app{name, args}` at fresh metavariable indices. This is
+# the structural shadow of `desugar.data`: strict positivity,
+# constructor field types, and index-definitional equality are *not*
+# checked here (documented Phase-4 limitations).
+- id: type.data
+  node_kind: data
+  synth: !Op
+    name: synth_data
+    args: []
+    source: Judgment
 
 # ---------------------------------------------------------------------------
 # Graded-theory declarations (ADR-0098/0100)

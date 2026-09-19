@@ -78,7 +78,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // target, distinguishable from the `<` comparison operator).
     // +1 `ast.loop` (ADR-0120 Phase 1) — the ArrowLoop fold node shape.
     // +1 `ast.axis_flow` for `>>>[k]` (ADR-0120 Phase 2).
-    assert_eq!(lang.ast.len(), 90);
+    // +3 `ast.{pi,sigma,family}` internal type-level shapes (ADR-0120
+    // Phase 4 dependent structure).
+    assert_eq!(lang.ast.len(), 93);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);

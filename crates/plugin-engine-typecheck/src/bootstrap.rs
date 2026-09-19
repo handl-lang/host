@@ -374,7 +374,15 @@ fn collect_decls(
 
         // `data` declaration — the constructors are bound into module scope
         // so later references to them (e.g. `True`, `Sorted`) do not fire.
+        // The declared family name (`payload.name`) is bound too so later
+        // references to `Vec`/`Sorted` in type-expression position are
+        // in scope (ADR-0120 Phase 4).
         if root.kind == KIND_DATA {
+            if let Some(name) = root.payload.get("name").and_then(|v| v.as_str()) {
+                if !name.is_empty() {
+                    data_ctors.insert(name.to_string());
+                }
+            }
             if let Ok(Some(ctors_idx)) = lang.child_role_index(&root.kind, "constructors") {
                 let children = children_of(root);
                 if let Some(&ctors_raw) = children.get(ctors_idx) {

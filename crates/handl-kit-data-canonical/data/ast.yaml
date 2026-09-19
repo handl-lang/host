@@ -457,6 +457,62 @@
     required:
       - children
     type: object
+# `pi` — dependent function type `Π (x: A) → B(x)` (ADR-0120 Phase 4).
+# Internal type-level shape: children are [param-type, body-type]; the
+# surface former is `Pi(A, x ~> B)` (a call).
+- id: ast.pi
+  node_kind: pi
+  children:
+    - role: param
+    - role: body
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `sigma` — dependent pair type `Σ (x: A) × B(x)` (ADR-0120 Phase 4).
+# Internal type-level shape: children are [param-type, body-type]; the
+# surface former is `Sigma(A, x ~> B)` (a call).
+- id: ast.sigma
+  node_kind: sigma
+  children:
+    - role: param
+    - role: body
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `family` — indexed family `A ↝ Type` (ADR-0120 Phase 4). Internal
+# type-level shape: single child is the index/base type expression; the
+# surface former is `Family(A)` (a call).
+- id: ast.family
+  node_kind: family
+  children:
+    - role: base
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.function
   node_kind: function
   children:

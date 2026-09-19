@@ -1,0 +1,57 @@
+--- dependent -- indexed families and dependent structure (ADR-0120 Phase 4;
+--- research/PAPER.md section 5).
+---
+--- ## Vocabulary
+---
+--- Types are objects and arrows are morphisms; dependent structure is
+--- family structure over an object -- no separate type-theoretic
+--- subsystem. The typecheck model recognizes the surface formers as
+--- ordinary calls in type-expression position:
+---
+---   Family(A)           -- the type of A-indexed families (A ~~ Type)
+---   Pi(A, x ~> B)       -- dependent function type Pi (x:A), B(x)
+---   Sigma(A, x ~> B)    -- dependent pair type Sigma (x:A), B(x)
+---   Forall(K, x ~> B)   -- type-level quantification Forall (x:K), B(x)
+---   Type / Universe / Type0 -- the universe (level 0)
+---
+--- `data Name(i...) :: Ctor | ...` declares an inductive family: `Name`
+--- binds a `type.family` and each constructor a `type.family_app` at
+--- fresh index metavariables.
+---
+--- ## Reindexing is composition
+---
+--- For `f : A ~> B` and `P : Family(B)` the pullback family `f* P` on `A`
+--- is ordinary composition `f >>> P` -- there is no reindexing primitive.
+--- `reindex` is the derived arrow.
+
+export reindex := (f, P) ~> f >>> P
+
+--- ## The adjunction Sigma_f -| f* -| Pi_f
+---
+--- Dependent sum and product along `f` are the left and right adjoints of
+--- pullback `f* = f >>> -`. The unit/counit laws are ordinary 2-cell
+--- terms `~[2]~>` (PAPER.md section 4 -- laws are higher morphisms), each
+--- bound as an arrow over its participants: the family `P`/`Q`, the
+--- reindexing morphism `f`, and the adjoint former `Sigma_f`/`Pi_f`
+--- applied along `f`.
+---
+---   sigma_unit   : Q ~[2]~> f* (Sigma_f Q)     -- unit of Sigma_f -| f*
+---   sigma_counit : Sigma_f (f* P) ~[2]~> P     -- counit of Sigma_f -| f*
+---   pi_unit      : P ~[2]~> Pi_f (f* P)        -- unit of f* -| Pi_f
+---   pi_counit    : f* (Pi_f Q) ~[2]~> Q        -- counit of f* -| Pi_f
+
+export sigma_unit := (Q, f, Sigma_f) ~> Q ~[2]~> (f >>> Sigma_f(Q))
+export sigma_counit := (P, f, Sigma_f) ~> Sigma_f((f >>> P)) ~[2]~> P
+export pi_unit := (P, f, Pi_f) ~> P ~[2]~> Pi_f((f >>> P))
+export pi_counit := (Q, f, Pi_f) ~> (f >>> Pi_f(Q)) ~[2]~> Q
+
+--- ## Scope of the structural fragment
+---
+--- This is a structural shadow, not full dependent type checking:
+--- index terms unify by metavariable/syntactic equality only (no
+--- definitional equality), strict positivity is checked by the
+--- `desugar.data` native rather than the typechecker, constructor
+--- argument checking and dependent elimination are incomplete, and a
+--- composite `f >>> P` of dependent operands flattens to `type.function`
+--- because no AST body exists to carry a `body_closure` across
+--- composition.
