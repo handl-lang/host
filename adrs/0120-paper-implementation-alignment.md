@@ -128,3 +128,81 @@ Execute the alignment in five phases; ordering is load-bearing:
 - **Known debt:** `lower_ast`'s `match node.kind` table (ADR-0105) remains
   hardcoded pending a `lower` scheme fragment per `AstShapeDef`; the
   typecheck model's fuel circuit breaker is tactical, not a fix.
+
+## Implementation Status
+
+All five phases have landed on `main`. The residual items below are
+documented approximations and deferrals, not phase regressions.
+
+- **Phase 1 — arrows as values: done** (`2751b84e`). `function`-as-value
+  lowers to a quoted `Arr{value: Term}`; `call(f, x)` lowers to
+  `pair(quote f, x) >>> app`; capturing nested functions lower to
+  bound-arrow records `{__term__, __bound__}` — products, no closures.
+  `desugar.data` recursors are `loop` fold machines over defunctionalized
+  work stacks (`ast.loop`/`eval.loop` shapes); the lambda-style `inner(inner)`
+  self-application is gone.
+- **Phase 2 — composition axes: done** (`907fee4f`, `9aa7d2c7`,
+  `95ffaa7b`). `Term::Seq{axis, fst, snd}` (serde-defaulted axis); `>>>[k]`
+  is pure YAML (`ast.axis_flow` `left`/`axis`/`right` roles,
+  `eval.axis_flow`, `type.axis_flow`); `>>>` is `>>>[0]`. For `k > 0` the
+  term executes as globular paste `∘ₖ` via `cell2_comp_axis` with
+  `tgt_k = src_k` enforcement; `Term::globular_dim` gates `k < dim`; all
+  compile backends are dimension-aware. At the type level `A ~[N]~> B`
+  synthesizes `Arrow{inputs, grade, output, dim}` and
+  `synth_axis_flow`/`synth_dim_arrow` implement the boundary law via
+  `cell_boundary_`/`cell_paste_`/`axis_flow_compose_`.
+- **Phase 3 — `dim` unification: done** (`f6927434`). A grade is a named
+  dimension (`Const "S"`) in the shared `dim` slot; `ArrSource::Foreign`
+  is the host-function boundary only; handler routing is dimension-typed
+  (`substitute_capability` matches dims).
+- **Phase 4 — dependent structure: done** (`f9f6da22`, `f7761384`).
+  `handl-packages/type/dependent.hnl`: `reindex := (f, P) ~> f >>> P`;
+  the `Σ_f ⊣ f* ⊣ Π_f` unit/counit laws are `~[2]~>` terms. The model
+  recognizes `Family`/`Pi`/`Sigma`/`Forall`; `data` binds `type.family`/
+  `type.family_app`; `type.ctor_sig` instantiates per use (`Succ(3)`
+  rejects); index terms normalize computationally (`1+1`≡`2`, commutative
+  canonicalization, ring identities, linear `Bin`-solving); `match`
+  patterns bind constructor fields.
+- **Phase 5 — laws as `M[2]` terms: done** (`f4016e65`). `~[2]~>` mints a
+  genuine dimension-2 `Op` feeding `law_inference`/`quantified_laws`
+  directly — no separate laws fragment. `cell_comp_h`/`cell_comp_v` are
+  `>>>[0]`/`>>>[1]` at dim 2, `whisker_*` is `id₂ ∘₀ α`, `cell_id` is `id`
+  — all derived schemes in `eval.yaml`; `Term::Opaque` folds unrecognized
+  derived operators to tagged records. `option_b`, `path_transport`, and
+  `model_infrastructure` are green.
+
+Supporting work on the same arc: `bad3d1c4` (typecheck model `RecordProj`
+resolution; graduated predicate guarantees — Proven / Blocked→
+`runtime_assert` / Refuted), `167a18ab` (scheme-driven lowering —
+`lower_via_scheme`/`instantiate_scheme`; YAML-declared constructs lower
+with zero Rust arms; `input_faithful` tracking, `seq_pastes` globular
+pasting), `6913ef61` (`pattern_role`/`pattern_role_is` accessors; kind
+dispatch in pattern-match/tree-walk/bytecode/cranelift migrated to
+`AstShapeDef` roles).
+
+### Deferred / residual
+
+- **Dependent elimination / index refinement** — `match` binds fields but
+  does not refine the scrutinee's family index per arm; true dependent
+  elimination needs an equality type/proof term (`v ≡ Ctor …`).
+- **`unify` shallow for `type.function`** — dependent-aware unification
+  lives in `unify_dependent_`; a composite `f >>> P` of dependent operands
+  flattens to `type.function` (no AST body to carry a `body_closure`
+  across composition).
+- **`cell_boundary_` assumes globularity** — the globe condition
+  `src_j(inputs) = src_j(output)` is assumed, not verified.
+- **Optional-role support in `AstShapeDef`** — needed for `match`/`assign`
+  optional children, which still carry bespoke handling.
+- **`k ≥ 2` rejected** — `Cell2` is the only cell shape the value model
+  carries; axes beyond 1 fail `k < dim` and the typechecker diagnoses them
+  unconditionally.
+- **Cubical Kan** (`transport`/`Equiv` computing) — deferred per the
+  decision above; reopen only for univalence-computing equality, as a
+  cube-diagram fragment.
+- **Lowerer `match node.kind` table** — reduced, not eliminated: the
+  env/substitution constructs (`function`, `call`, `assign`, `flow`, …)
+  keep Rust arms; YAML-declared schemes lower generically via
+  `lower_via_scheme`.
+- **`desugar.data`/`desugar.match_recursor`** — remain semantic natives
+  (constructor iteration, strict positivity, arena search); the `rec`
+  region form is retained for self-referential fixpoints.
