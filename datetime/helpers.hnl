@@ -1,0 +1,278 @@
+--- Internal helpers for the `datetime` pure-handl module.
+---
+--- Calendar arithmetic uses the standard days-from-civil / civil-from-days
+--- integer algorithms, so instant math is exact over the proleptic Gregorian
+--- calendar. No `cap`/`op`/`handle` lines here — helpers stay in the module
+--- namespace and are not exported outside `handl-packages/datetime/`.
+
+from \"math\" import * as math
+from \"str\" import * as str
+from \"char\" import * as char
+from \"type\" import * as type
+from \"error\" import * as error
+
+do {
+  -- civil / calendar helpers
+
+  is_leap :: [y] ~> do {
+    if math.mod(y, 4) != 0 { false } else {
+      if math.mod(y, 100) != 0 { true } else { math.mod(y, 400) == 0 }
+    }
+  }
+
+  days_in_month :: [y, m] ~> do {
+    if m == 2 {
+      if is_leap(y) { 29 } else { 28 }
+    } else {
+      if m == 4 { 30 } else {
+        if m == 6 { 30 } else {
+          if m == 9 { 30 } else {
+            if m == 11 { 30 } else { 31 }
+          }
+        }
+      }
+    }
+  }
+
+  days_from_civil :: [y, m, d] ~> do {
+    yy :: if m <= 2 { y - 1 } else { y }
+    era :: math.floor_div(yy, 400)
+    yoe :: yy - era * 400
+    mp :: if m > 2 { m - 3 } else { m + 9 }
+    doy :: math.floor_div(153 * mp + 2, 5) + d - 1
+    doe :: yoe * 365 + math.floor_div(yoe, 4) - math.floor_div(yoe, 100) + doy
+    era * 146097 + doe - 719468
+  }
+
+  civil_from_days :: [z] ~> do {
+    zz :: z + 719468
+    era :: math.floor_div(zz, 146097)
+    doe :: zz - era * 146097
+    yoe :: math.floor_div(doe - math.floor_div(doe, 1460) + math.floor_div(doe, 36524) - math.floor_div(doe, 146096), 365)
+    y0 :: yoe + era * 400
+    doy :: doe - (365 * yoe + math.floor_div(yoe, 4) - math.floor_div(yoe, 100))
+    mp :: math.floor_div(5 * doy + 2, 153)
+    dd :: doy - math.floor_div(153 * mp + 2, 5) + 1
+    mm :: if mp < 10 { mp + 3 } else { mp - 9 }
+    yc :: if mm <= 2 { y0 + 1 } else { y0 }
+    { y: yc, m: mm, d: dd }
+  }
+
+  -- string / numeric helpers
+
+  pad2 :: [n] ~> do {
+    s :: typeof.to_string(n)
+    if str.length(s) >= 2 { s } else { "0" + s }
+  }
+
+  pad4 :: [n] ~> do {
+    s :: typeof.to_string(n)
+    if str.length(s) >= 4 { s } else { str.pad_left(s, 4, "0") }
+  }
+
+  all_digits :: [s] ~> do {
+    while { xs: char.chars(s), ok: true } {
+      [xs, ok] ~> match xs {
+        []: { out: ok },
+        [h, ...t]: {
+          nok :: if char.is_numeric(h) { ok } else { false }
+          { state: { xs: t, ok: nok } }
+        }
+      }
+    }
+  }
+
+  digits_only :: [s] ~> do {
+    while { xs: char.chars(s), acc: [] } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: {
+          if char.is_numeric(h) {
+            { state: { xs: t, acc: acc + h } }
+          } else {
+            { state: { xs: t, acc: acc } }
+          }
+        }
+      }
+    }
+  }
+
+  num_at :: [s, i, j] ~> do {
+    part :: str.slice(s, i, j)
+    digits :: digits_only(part)
+    if str.length(digits) == str.length(part) { typeof.to_number(part) } else { null }
+  }
+
+  days_in_sec :: [n] ~> math.floor_div(n, 86400)
+
+  sec_of_day :: [sec] ~> sec - days_in_sec(sec) * 86400
+
+  stamp_of :: [y, mo, d, hh, mi, ss, ns, off] ~> do {
+    days :: days_from_civil(y, mo, d)
+    { sec: days * 86400 + hh * 3600 + mi * 60 + ss - off, ns: ns }
+  }
+
+  off_seconds :: [sign, p] ~> do {
+    h :: str.slice(p, 0, 2)
+    mn :: str.slice(p, 3, 5)
+    hv :: if all_digits(h) { typeof.to_number(h) } else { 0 }
+    mv :: if all_digits(mn) { typeof.to_number(mn) } else { 0 }
+    sign * (hv * 3600 + mv * 60)
+  }
+
+  frac_nanos :: [p] ~> do {
+    if str.length(p) < 2 { 0 } else {
+      ds :: str.slice(p, 1, str.length(p))
+      nd :: str.length(ds)
+      if nd == 0 { 0 } else {
+        d2 :: if nd > 9 { str.slice(ds, 0, 9) } else { ds }
+        if all_digits(d2) { typeof.to_number(str.pad_right(d2, 9, "0")) } else { 0 }
+      }
+    }
+  }
+
+  trim_tail_zeros :: [s] ~> do {
+    while { t: s } {
+      [t] ~> if str.length(t) > 1 && str.ends_with(t, "0") {
+        { state: { t: str.slice(t, 0, str.length(t) - 1) } }
+      } else {
+        { out: t }
+      }
+    }
+  }
+
+  frac_str :: [ns] ~> do {
+    s0 :: str.pad_left(typeof.to_string(ns), 9, "0")
+    "." + trim_tail_zeros(s0)
+  }
+
+  fmt_base :: [sec, ns] ~> do {
+    d :: days_in_sec(sec)
+    sod :: sec_of_day(sec)
+    c :: civil_from_days(d)
+    hh :: math.floor_div(sod, 3600)
+    mi :: math.floor_div(sod - hh * 3600, 60)
+    ss :: sod - hh * 3600 - mi * 60
+    pad4(c.y) + "-" + pad2(c.m) + "-" + pad2(c.d) + "T" + pad2(hh) + ":" + pad2(mi) + ":" + pad2(ss)
+  }
+
+  fmt_stamp :: [sec, ns] ~> do {
+    base :: fmt_base(sec, ns)
+    if ns > 0 { base + frac_str(ns) + "Z" } else { base + "Z" }
+  }
+
+  stamp_seconds :: [st] ~> st.sec + st.ns / 1000000000
+
+  -- ISO 8601 parsing helpers
+
+  parse_stamp :: [s] ~> do {
+    n :: str.length(s)
+    if n < 10 { null } else {
+      if str.char_at(s, 4) == "-" {
+        if str.char_at(s, 7) == "-" {
+          y :: num_at(s, 0, 4)
+          mo :: num_at(s, 5, 7)
+          dd :: num_at(s, 8, 10)
+          if mo < 1 { null } else {
+            if mo > 12 { null } else {
+              if dd < 1 { null } else {
+                if dd > days_in_month(y, mo) { null } else {
+                  tb :: str.slice(s, 10, n)
+                  if n == 10 { stamp_of(y, mo, dd, 0, 0, 0, 0, 0) } else { parse_time(tb, y, mo, dd) }
+                }
+              }
+            }
+          }
+        } else { null }
+      } else { null }
+    }
+  }
+
+  parse_time :: [rest, y, mo, dd] ~> do {
+    n := str.length(rest)
+    hh0 :: if n >= 2 { num_at(rest, 0, 2) } else { null }
+    if hh0 == null { null } else {
+      if str.char_at(rest, 2) == ":" {
+        mi0 :: if n >= 5 { num_at(rest, 3, 5) } else { null }
+        if mi0 == null { null } else {
+          if str.char_at(rest, 5) == ":" {
+            ss0 :: if n >= 8 { num_at(rest, 6, 8) } else { null }
+            if ss0 == null { null } else {
+              body :: if str.ends_with(rest, "Z") {
+                if n > 8 { str.slice(rest, 0, n - 1) } else { rest }
+              } else { rest }
+              frac :: if n > 8 { str.slice(rest, 8, n) } else { "" }
+              pp :: str.find(body, "+")
+              mm :: str.find(body, "-")
+              has_off :: pp >= 0 || mm >= 0
+              signpos :: if pp >= 0 { pp } else { mm }
+              body2 :: if has_off { str.slice(body, 0, signpos) } else { body }
+              offpart :: if has_off { str.slice(body, signpos + 1, str.length(body)) } else { "" }
+              sgn :: if pp >= 0 { 1 } else { 0 - 1 }
+              off :: if has_off { off_seconds(sgn, offpart) } else { 0 }
+              if str.length(body2) < 2 { null } else {
+                hh :: num_at(body2, 0, 2)
+                mi :: if str.length(body2) >= 5 { num_at(body2, 3, 5) } else { 0 }
+                ss :: if str.length(body2) >= 8 { num_at(body2, 6, 8) } else { 0 }
+                if hh > 23 { null } else {
+                  if mi > 59 { null } else {
+                    if ss > 60 { null } else {
+                      stamp_of(y, mo, dd, hh, mi, ss, frac_nanos(frac), off)
+                    }
+                  }
+                }
+              }
+            }
+          } else { null }
+        }
+      } else { null }
+    }
+  }
+
+  strftime :: [fmt, sec, ns] ~> do {
+    d :: days_in_sec(sec)
+    sod :: sec_of_day(sec)
+    c :: civil_from_days(d)
+    hh :: math.floor_div(sod, 3600)
+    mi :: math.floor_div(sod - hh * 3600, 60)
+    ss :: sod - hh * 3600 - mi * 60
+    while { xs: char.chars(fmt), acc: "" } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h0, ...t0]: {
+          if h0 == "%" {
+            match t0 {
+              []: { state: { xs: [], acc: acc + "%" } },
+              [k, ...t1]: {
+                spec :: if k == "Y" { pad4(c.y) } else {
+                  if k == "m" { pad2(c.m) } else {
+                    if k == "d" { pad2(c.d) } else {
+                      if k == "H" { pad2(hh) } else {
+                        if k == "M" { pad2(mi) } else {
+                          if k == "S" { pad2(ss) } else {
+                            if k == "j" { pad4(day_of_year(c.y, c.m, c.d)) } else {
+                              if k == "F" { pad4(c.y) + "-" + pad2(c.m) + "-" + pad2(c.d) } else {
+                                error.raise("unsupported format: %" + k)
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                state: { xs: t1, acc: acc + spec }
+              }
+            }
+          } else {
+            state: { xs: t0, acc: acc + h0 }
+          }
+        }
+      }
+    }
+  }
+
+  day_of_year :: [y, m, d] ~> days_from_civil(y, m, d) - days_from_civil(y, 1, 1) + 1
+
+  weekday_mon1 :: [z] ~> math.mod(z + 3, 7) + 1
+}
