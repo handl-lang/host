@@ -246,13 +246,15 @@ impl SdkgenBackend for CBackend {
 
         prune::prune_unreferenced(&mut module);
 
-        // Collect ctypes aliases referenced by the surviving port types so
-        // the emitter can render `from "ctypes" import {...}` — declared
-        // on the module as data, keeping the emitter backend-agnostic.
-        let mut aliases = std::collections::BTreeSet::new();
+        // Collect types/c aliases referenced by the surviving port types,
+        // grouped by submodule, so the emitter can render
+        // `from "types/c/<header>" import {...}` — declared on the module
+        // as data, keeping the emitter backend-agnostic.
+        let mut by_module: std::collections::BTreeMap<&str, std::collections::BTreeSet<String>> =
+            Default::default();
         let mut note = |port: &str| {
-            if crate::map::is_ctypes_port(port) {
-                aliases.insert(port.to_string());
+            if let Some(m) = crate::map::ctypes_module(port) {
+                by_module.entry(m).or_default().insert(port.to_string());
             }
         };
         for f in &module.functions {
@@ -269,10 +271,10 @@ impl SdkgenBackend for CBackend {
         for t in &module.typedefs {
             note(&t.port);
         }
-        if !aliases.is_empty() {
+        for (package, names) in by_module {
             module.imports.push(handl_plugin_sdkgen::ModuleImport {
-                package: "ctypes".into(),
-                names: aliases.into_iter().collect(),
+                package: package.into(),
+                names: names.into_iter().collect(),
             });
         }
 

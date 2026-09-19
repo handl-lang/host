@@ -92,7 +92,7 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
         client.client_pkg, client.error_type
     ));
     out.push_str("from \"result\" import { Result }\n");
-    // Backend-declared imports (e.g. the C backend's `ctypes` aliases) —
+    // Backend-declared imports (e.g. the C backend's `types/c` aliases) —
     // rendered as data so the emitter stays backend-agnostic.
     for imp in &module.imports {
         out.push_str(&format!(

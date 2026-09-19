@@ -1,0 +1,20 @@
+--- types/c/stdint — transparent aliases for the fixed-width C integer
+--- vocabulary (`stdint.h`).
+--- @details
+--- These aliases keep a generated port's signature faithful to the C
+--- header: `Write: (Fd, Bytes, Size)` reads like `write(2)`. They are
+--- transparent — the typechecker sees through to `Nat`/`Int`, so they
+--- document intent rather than enforce ranges. Real ABI width is
+--- enforced by the adapter's marshal descriptors (`u32`, `i64`, `usize`,
+--- ...) at the call boundary.
+
+from "../../type" import { Int, Nat }
+
+export Uint8 := Nat
+export Uint16 := Nat
+export Uint32 := Nat
+export Uint64 := Nat
+export Int8 := Int
+export Int16 := Int
+export Int32 := Int
+export Int64 := Int

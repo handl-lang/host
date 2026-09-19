@@ -5,64 +5,58 @@ use clang_sys::*;
 use crate::cx::type_spelling;
 use crate::map::pred::{is_char, is_void};
 
-/// C typedef spelling → `ctypes` port alias (fixed-width stdint and the
-/// POSIX typedefs that are stable across our targets). Port types carry
-/// the header's vocabulary; the descriptor keeps the real ABI width.
-/// Platform-variable types (`long`, `off_t` on 32-bit) stay lowered.
+/// C typedef spelling → (`types/c/<header>` port alias, module file).
+///
+/// The port type carries the header's vocabulary while the descriptor
+/// keeps the real ABI width. Each alias lives in the `types/c` submodule
+/// mirroring the C header that declares the typedef (`sys/socket.h` →
+/// `types/c/socket`). Platform-variable types (`long`, `off_t` on
+/// 32-bit) stay lowered.
+const CTYPES: &[(&str, &str, &str)] = &[
+    // stdint.h — fixed width on every target.
+    ("uint8_t", "Uint8", "types/c/stdint"),
+    ("uint16_t", "Uint16", "types/c/stdint"),
+    ("uint32_t", "Uint32", "types/c/stdint"),
+    ("uint64_t", "Uint64", "types/c/stdint"),
+    ("int8_t", "Int8", "types/c/stdint"),
+    ("int16_t", "Int16", "types/c/stdint"),
+    ("int32_t", "Int32", "types/c/stdint"),
+    ("int64_t", "Int64", "types/c/stdint"),
+    // stddef.h
+    ("size_t", "Size", "types/c/stddef"),
+    // sys/types.h
+    ("ssize_t", "SSize", "types/c/sys"),
+    ("pid_t", "Pid", "types/c/sys"),
+    ("uid_t", "Uid", "types/c/sys"),
+    ("gid_t", "Gid", "types/c/sys"),
+    ("mode_t", "Mode", "types/c/sys"),
+    ("off_t", "Off", "types/c/sys"),
+    // time.h
+    ("time_t", "Time", "types/c/time"),
+    ("clockid_t", "ClockId", "types/c/time"),
+    // sys/socket.h
+    ("socklen_t", "Socklen", "types/c/socket"),
+    ("sa_family_t", "SaFamily", "types/c/socket"),
+    // netinet/in.h
+    ("in_addr_t", "InAddr", "types/c/netinet"),
+    ("in_port_t", "InPort", "types/c/netinet"),
+];
+
+/// C typedef spelling → `types/c` port alias.
 pub(crate) fn ctypes_port(spelling: &str) -> Option<&'static str> {
-    Some(match spelling {
-        "uint8_t" => "Uint8",
-        "uint16_t" => "Uint16",
-        "uint32_t" => "Uint32",
-        "uint64_t" => "Uint64",
-        "int8_t" => "Int8",
-        "int16_t" => "Int16",
-        "int32_t" => "Int32",
-        "int64_t" => "Int64",
-        "size_t" => "Size",
-        "ssize_t" => "SSize",
-        "socklen_t" => "Socklen",
-        "sa_family_t" => "SaFamily",
-        "in_addr_t" => "InAddr",
-        "in_port_t" => "InPort",
-        "pid_t" => "Pid",
-        "uid_t" => "Uid",
-        "gid_t" => "Gid",
-        "mode_t" => "Mode",
-        "off_t" => "Off",
-        "time_t" => "Time",
-        "clockid_t" => "ClockId",
-        _ => return None,
-    })
+    CTYPES
+        .iter()
+        .find(|(s, ..)| *s == spelling)
+        .map(|(.., a, _)| *a)
 }
 
-/// Whether a port type name is a `ctypes` alias (the codomain of
-/// [`ctypes_port`]) — used to collect `from "ctypes" import {...}`.
-pub(crate) fn is_ctypes_port(port: &str) -> bool {
-    matches!(
-        port,
-        "Uint8"
-            | "Uint16"
-            | "Uint32"
-            | "Uint64"
-            | "Int8"
-            | "Int16"
-            | "Int32"
-            | "Int64"
-            | "Size"
-            | "SSize"
-            | "Socklen"
-            | "SaFamily"
-            | "InAddr"
-            | "InPort"
-            | "Pid"
-            | "Uid"
-            | "Gid"
-            | "Mode"
-            | "Off"
-            | "Time"
-            | "ClockId"
-    )
+/// Port type name → the `types/c` submodule that exports it (the codomain
+/// of [`ctypes_port`]) — used to collect `from "types/c/<h>" import {...}`.
+pub(crate) fn ctypes_module(port: &str) -> Option<&'static str> {
+    CTYPES
+        .iter()
+        .find(|(.., a, _)| *a == port)
+        .map(|(.., m)| *m)
 }
 
 /// Map a scalar/typedef C type to a `(port, descriptor)` pair.

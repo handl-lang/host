@@ -3,7 +3,7 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
-from "ctypes" import { SSize }
+from "types/c/sys" import { SSize }
 
 --- ffi: int (int)
 export Close: (Int) ~[1]~> Result<Int, Errno>

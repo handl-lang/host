@@ -14,7 +14,7 @@ pub(crate) mod pred;
 pub(crate) mod scalar;
 
 pub(crate) use arg::map_arg_with_peek;
-pub(crate) use scalar::{is_ctypes_port, map_arg_type, map_field_type, map_return_type};
+pub(crate) use scalar::{ctypes_module, map_arg_type, map_field_type, map_return_type};
 
 #[cfg(test)]
 mod arg_test;

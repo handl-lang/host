@@ -17,7 +17,7 @@ pub struct SdkgenModule {
     pub enum_constants: Vec<EnumConst>,
     /// Additional packages the emitted port must import — declared by the
     /// backend as data so emitters stay free of backend vocabularies
-    /// (e.g. the C backend's `ctypes` aliases).
+    /// (e.g. the C backend's `types/c` aliases).
     #[serde(default)]
     pub imports: Vec<ModuleImport>,
     pub diagnostics: Vec<String>,

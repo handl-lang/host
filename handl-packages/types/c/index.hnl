@@ -1,0 +1,54 @@
+--- types/c — transparent aliases for the C type vocabulary used by
+--- generated SDK ports, grouped by header of origin.
+--- @details
+--- These aliases keep a generated port's signature faithful to the C
+--- header: `Setsockopt: (Fd, Int, Int, Bytes, Socklen)` reads like
+--- `setsockopt(2)`. They are transparent — the typechecker sees through
+--- to `Nat`/`Int`, so they document intent rather than enforce ranges.
+--- Real ABI width is enforced by the adapter's marshal descriptors
+--- (`u32`, `i64`, `usize`, ...) at the call boundary.
+---
+--- Each submodule mirrors the C header that declares the typedefs —
+--- import selectively (`from "types/c/socket" import { Socklen }`) or
+--- take the whole vocabulary here.
+
+from "./stdint" import * as stdint
+from "./stddef" import * as stddef
+from "./sys" import * as sys
+from "./time" import * as time
+from "./socket" import * as socket
+from "./netinet" import * as netinet
+
+-- stdint.h
+export Uint8 := stdint.Uint8
+export Uint16 := stdint.Uint16
+export Uint32 := stdint.Uint32
+export Uint64 := stdint.Uint64
+export Int8 := stdint.Int8
+export Int16 := stdint.Int16
+export Int32 := stdint.Int32
+export Int64 := stdint.Int64
+
+-- stddef.h
+export Size := stddef.Size
+
+-- sys/types.h
+export SSize := sys.SSize
+export Pid := sys.Pid
+export Uid := sys.Uid
+export Gid := sys.Gid
+export Mode := sys.Mode
+export Off := sys.Off
+export Fd := sys.Fd
+
+-- time.h
+export Time := time.Time
+export ClockId := time.ClockId
+
+-- sys/socket.h
+export Socklen := socket.Socklen
+export SaFamily := socket.SaFamily
+
+-- netinet/in.h
+export InAddr := netinet.InAddr
+export InPort := netinet.InPort
