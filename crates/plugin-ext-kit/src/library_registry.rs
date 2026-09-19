@@ -35,7 +35,8 @@ pub fn populate(reg: &mut LibraryRegistry) {
         Box::new(handl_plugin_lib_crypto::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("datetime", || {
-        Box::new(handl_plugin_lib_stdlib::ops::datetime::LibraryPlugin::new()) as LibraryPlugin
+        handl_plugin_lib_stdlib::library("datetime")
+            .unwrap_or_else(|| panic!("unknown stdlib package 'datetime'"))
     });
     reg.register("intl", || {
         Box::new(handl_plugin_lib_intl::LibraryPlugin::new()) as LibraryPlugin

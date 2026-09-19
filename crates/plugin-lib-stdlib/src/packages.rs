@@ -165,6 +165,20 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: Some(ops::encoding::encoding_op_registry),
     },
+
+    // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
+    // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
+    // No `ops` table needed — the handl module is a self-contained record.
+    // Registration: stdlib::module("datetime") builds HandlModule from the
+    // include_str! below + any dep modules the handl source imports.
+    ModuleSpec {
+        name: "datetime",
+        hnl: include_str!("../../../handl-packages/datetime/datetime.hnl"),
+        funcs: &[],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
     ModuleSpec {
         name: "parse",
         hnl: include_str!("../../../handl-packages/utils/parse.hnl"),
@@ -643,6 +657,16 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_name: "lib-archive-tar",
         hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
         modules: &[], // resolved via ARCHIVE_TAR_MODULES (see package_module_names)
+    },
+    // ── datetime (former plugin-lib-datetime) — pure handl ─────────────
+    // The `datetime` module is a self-contained pure-handl record (see its
+    // `ModuleSpec` row above); the package contributes just that module.
+    PackageSpec {
+        lib_name: "datetime",
+        plugin_id: "lib.datetime",
+        plugin_name: "lib-datetime",
+        hnl: include_str!("../../../handl-packages/datetime/datetime.hnl"),
+        modules: &[],
     },
 ];
 
