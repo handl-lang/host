@@ -3,7 +3,9 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
-from "ctypes" import { InPort, SaFamily, Socklen, Uint16, Uint32 }
+from "types/c/netinet" import { InPort }
+from "types/c/socket" import { SaFamily, Socklen }
+from "types/c/stdint" import { Uint16, Uint32 }
 
 export sockaddr_storage := {
   ss_family: SaFamily,

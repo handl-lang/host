@@ -3,7 +3,8 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
-from "ctypes" import { InAddr, Size }
+from "types/c/netinet" import { InAddr }
+from "types/c/stddef" import { Size }
 
 export in_addr := {
   s_addr: InAddr

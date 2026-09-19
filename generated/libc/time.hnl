@@ -3,7 +3,7 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
-from "ctypes" import { ClockId, Time }
+from "types/c/time" import { ClockId, Time }
 
 export timespec := {
   tv_sec: Int,

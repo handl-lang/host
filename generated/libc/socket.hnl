@@ -3,7 +3,7 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
-from "ctypes" import { SSize }
+from "types/c/sys" import { SSize }
 
 export SOCK_STREAM: Int
 export SOCK_DGRAM: Int
