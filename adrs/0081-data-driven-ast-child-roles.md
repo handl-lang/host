@@ -106,6 +106,8 @@ All legacy `kind ==` checks are retained only as fallbacks for role-less shapes 
 
 **Test results:** `cargo test -p handl-plugin-engine-exec-tree-walk -p handl-plugin-engine-exec-bytecode -p handl-plugin-engine-exec-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
 
+**Optional roles** (this change): `ChildRoleSpec` gains `optional: true` for children that may be absent from a node — `match`'s `motive` (`[scrutinee, (motive,) block]`) and `assign`'s trailing `body` (`[target, value, (body)]`). Because optional slots make positions arity-dependent, resolution gains an arity-aware layer: `AstShapeDef::role_index_at(role, arity)`, `Language::child_role_index_for(node, role)` (arity from `payload["children"]`), and `LanguageView::child_role_index_at(kind, role, arity)`. Occupied optional slots are the first `arity - required` optional roles in declaration order. `role_index`/`child_role_index` keep their full-form meaning (every declared role occupies a slot). `ChildRoleSpec` deserialization accepts a bare-string shorthand (`- scrutinee`) alongside the map form. `ast.yaml` declares the roles for `match`/`assign`; migrated consumers: tree-walk `prim_match` + `assign` arm, bytecode `prim_v2_match`, cranelift `prim_match`, arrow-lower's assign let-form, `desugar.match_recursor`, and the `role_child_arena` helpers / eval `Child` term (now arity-aware). Role-less positional fallbacks are retained for shapes declaring no roles.
+
 ## References
 
 - [ADR-0044](./0044-language-as-data-and-runtime-split.md) — Language as Data.

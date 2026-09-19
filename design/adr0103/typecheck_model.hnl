@@ -2615,18 +2615,234 @@ do {
     _: defer_to_type_model(s, term, incoming)
   }
 
+  --- Result type of an instantiated constructor signature: peel the
+  --- `type.function` chain down to the `type.family_app` it ends in
+  --- (`VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)` → `Vec(n + 1, a)`
+  --- at the fresh parameter metas). Used by `collect_pattern_bindings`
+  --- to hand the scrutinee-refinement equation to `synth_match_arms`.
+  peel_ctor_result_ :: [self, t]~> if type_tag(t) == "type.function" {
+    self(self, get_or(t, "body", null))
+  } else {
+    t
+  }
+
+  --- Meta ids occurring anywhere inside a type/term value — used to
+  --- roll back branch-local index refinement so a scrutinee
+  --- metavariable solved under one arm stays flexible for its
+  --- siblings (dependent elimination is per-branch).
+  meta_ids_in_ :: [self, v, acc]~> if is_meta(v) {
+    [meta_id(v), ...acc]
+  } else {
+    if type_of(v) == "arr" {
+      while { result: acc, remaining: v } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          { state: { result: self(self, first_value(st.remaining), st.result), remaining: drop(st.remaining, 1) } }
+        }
+      }
+    } else {
+      if type_of(v) == "obj" {
+        while { result: acc, remaining: keys(v) } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              k :: first_value(st.remaining)
+              { state: { result: self(self, get_or(v, k, null), st.result), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      } else {
+        acc
+      }
+    }
+  }
+
+  --- Does `var{name}` occur anywhere inside a term/type value?
+  --- Guards the rigid-index rewrite in `refine_scrutinee_` against a
+  --- cyclic `results` binding (`n ↦ n + 1` would recurse forever in
+  --- `eval_term_`, burning fuel on every lookup).
+  var_occurs_ :: [self, name, v]~> if type_tag(v) == "var" {
+    get_or(v, "name", "") == name
+  } else {
+    if type_of(v) == "arr" {
+      while { found: false, remaining: v } {
+        [st]~> if is_empty(st.remaining) || st.found {
+          { out: st.found }
+        } else {
+          { state: { found: st.found || self(self, name, first_value(st.remaining)), remaining: drop(st.remaining, 1) } }
+        }
+      }
+    } else {
+      if type_of(v) == "obj" {
+        while { found: false, remaining: keys(v) } {
+          [st]~> if is_empty(st.remaining) || st.found {
+            { out: st.found }
+          } else {
+            { state: { found: st.found || self(self, name, get_or(v, first_value(st.remaining), null)), remaining: drop(st.remaining, 1) } }
+          }
+        }
+      } else {
+        false
+      }
+    }
+  }
+
+  --- Restore each meta id's pre-branch solution (`null` re-opens an id
+  --- the branch solved): `metas` is append-only so slot values, not
+  --- the array itself, are rolled back — ids minted inside the branch
+  --- keep their slots and are never reused by siblings.
+  metas_restore_ids_ :: [metas, old_metas, ids]~> while { result: metas, remaining: ids } {
+    [st]~> if is_empty(st.remaining) {
+      { out: st.result }
+    } else {
+      do {
+        id :: first_value(st.remaining)
+        restored :: if type_of(id) == "num" && id < len(st.result) {
+          metas_solve(st.result, id, at(old_metas, id))
+        } else {
+          st.result
+        }
+        { state: { result: restored, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- Dependent elimination (ADR-0120 Phase 4 deepening): refine the
+  --- scrutinee's family index with a constructor's result type for
+  --- the duration of one match branch. `ctor_result` is the
+  --- instantiated `type.family_app` the pattern's constructor ends in
+  --- (`peel_ctor_result_`); `null`/non-family results refine nothing.
+  ---
+  --- Per index argument pair `s_i`/`c_i` (zonked, then evaluated):
+  ---   * a rigid `var{name}` scrutinee index binds `name ↦ c_i` in
+  ---     `results` — the equation `n ≡ c_i` is a rewrite the branch's
+  ---     unification reads through `eval_term_`'s result bindings —
+  ---     witnessed by a proof-relevant `Path{frm, to}` term bound
+  ---     under `eq_<name>`;
+  ---   * otherwise `unify` handles it — metavariables solve and
+  ---     `Bin` index terms solve linearly (`?n + 1 ≡ 2` → `?n := 1`);
+  ---   * a decided mismatch — two different numeric indices — marks
+  ---     the arm `impossible` (the constructor cannot produce the
+  ---     scrutinee's index); a different family name is impossible
+  ---     outright. Anything else is *stuck* — no arithmetic solver —
+  ---     and the arm proceeds unrefined without a diagnostic.
+  ---
+  --- Returns `{state, impossible, idx_args}` — `idx_args` are the
+  --- evaluated constructor result indices, for `apply_motive_`.
+  refine_scrutinee_ :: [funcs, s, scrutinee_type, ctor_result]~> do {
+    c_tag :: type_tag(ctor_result)
+    if c_tag != "type.family_app" {
+      { state: s, impossible: false, idx_args: [] }
+    } else {
+      if type_tag(scrutinee_type) == "type.family_app" {
+        if get_or(scrutinee_type, "name", "") != get_or(ctor_result, "name", "") {
+          { state: tc_add_diagnostic(s, "error", "match arm: constructor builds " + get_or(ctor_result, "name", "?") + ", not the scrutinee's " + get_or(scrutinee_type, "name", "?")), impossible: true, idx_args: [] }
+        } else {
+          do {
+            s_args :: get_or(scrutinee_type, "args", [])
+            c_args :: get_or(ctor_result, "args", [])
+            walk :: while { state: s, impossible: false, vals: [], i: 0 } {
+              [st]~> if st.i >= len(s_args) || st.i >= len(c_args) || st.impossible {
+                { out: { state: st["state"], impossible: st.impossible, vals: st.vals } }
+              } else {
+                do {
+                  ea :: funcs.eval_term_(funcs, st["state"], zonk(zonk, at(s_args, st.i), st["state"].metas))
+                  eb :: funcs.eval_term_(funcs, ea["state"], zonk(zonk, at(c_args, st.i), ea["state"].metas))
+                  if type_tag(ea.val) == "var" {
+                    do {
+                      pname :: get_or(ea.val, "name", "")
+                      cyclic :: pname == "" || var_occurs_(var_occurs_, pname, eb.val)
+                      bound :: if cyclic { eb["state"] } else { tc_bind_result(eb["state"], pname, eb.val) }
+                      proofed :: if cyclic { bound } else { tc_bind_result(bound, "eq_" + pname, funcs.make_type("Path", set(set({}, "frm", ea.val), "to", eb.val))) }
+                      { state: { state: proofed, impossible: st.impossible, vals: [...st.vals, eb.val], i: st.i + 1 } }
+                    }
+                  } else {
+                    do {
+                      u :: unify(funcs, ea.val, eb.val, eb["state"].metas)
+                      s1 :: set(eb["state"], "metas", u.metas)
+                      decided :: if u.ok { false } else { type_of(ea.val) == "num" && type_of(eb.val) == "num" }
+                      { state: { state: if decided { tc_add_diagnostic(s1, "error", "match arm: constructor cannot produce the scrutinee's index — unreachable branch") } else { s1 }, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
+                    }
+                  }
+                }
+              }
+            }
+            { state: walk["state"], impossible: walk.impossible, idx_args: walk.vals }
+          }
+        }
+      } else {
+        --- Non-family scrutinee (metavariable, builtin, unknown):
+        --- ordinary dependent unification refines metas in place; a
+        --- failure is soft — the arm cannot be proven impossible.
+        do {
+          u :: funcs.unify_dependent_(funcs, scrutinee_type, ctor_result, s)
+          { state: u["state"], impossible: false, idx_args: get_or(ctor_result, "args", []) }
+        }
+      }
+    }
+  }
+
+  --- Motive application for `match s return (i, w) ~> T with`: bind
+  --- the motive's parameters to the index terms (then the scrutinee's
+  --- term) in `results`, then synthesize the body in type position —
+  --- `Vec(k, Bool)` with `k ↦ 0` gives `type.family_app{Vec, [0, …]}`.
+  --- Extra parameters self-bind (`var{name}` stays rigid); a
+  --- non-function motive is a constant expected type.
+  apply_motive_ :: [funcs, s, motive_idx, arg_vals]~> do {
+    mnode :: ast_node(s.ast, motive_idx)
+    inner_idx :: if node_kind(mnode) == "paren" {
+      do {
+        mc :: node_children(mnode)
+        if is_empty(mc) { motive_idx } else { first_value(mc) }
+      }
+    } else {
+      motive_idx
+    }
+    inner_node :: ast_node(s.ast, inner_idx)
+    if node_kind(inner_node) == "function" {
+      do {
+        pinfo :: funcs.function_params_(funcs, s, inner_idx)
+        bound :: while { state: s, remaining: pinfo.names, i: 0 } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st["state"] }
+          } else {
+            do {
+              pname :: first_value(st.remaining)
+              aval :: if st.i < len(arg_vals) { at(arg_vals, st.i) } else { funcs.make_type("var", set({}, "name", pname)) }
+              bound_st :: if pname == "" { st["state"] } else { tc_bind_result(st["state"], pname, aval) }
+              { state: { state: bound_st, remaining: drop(st.remaining, 1), i: st.i + 1 } }
+            }
+          }
+        }
+        if pinfo.body_idx == null {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(bound, "warning", "match: motive has no body") }
+        } else {
+          funcs.synth_type_(funcs, bound, pinfo.body_idx)
+        }
+      }
+    } else {
+      funcs.synth_type_(funcs, s, inner_idx)
+    }
+  }
+
   --- Pattern binding collection for match arms ---
   collect_pattern_bindings :: [funcs, s, pattern_idx, expected_type]~> do {
-    initial_task :: [pattern_idx, expected_type]
-    while { stack: [initial_task], bindings: [], state: s } {
+    initial_task :: [pattern_idx, expected_type, true]
+    while { stack: [initial_task], bindings: [], ctor_result: null, state: s } {
       [st]~> if is_empty(st.stack) {
-        { out: { bindings: st.bindings, state: st["state"] } }
+        { out: { bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
       } else {
         do {
           task :: first_value(st.stack)
           rest_stack :: drop(st.stack, 1)
           pat_idx :: first_value(task)
           expected :: at(task, 1)
+          --- The first task is the scrutinee's own pattern — only it
+          --- contributes a `ctor_result` for index refinement; nested
+          --- patterns (pushed below) carry `false`.
+          is_top :: at(task, 2) == true
           pat_node :: ast_node(s.ast, pat_idx)
           pat_kind :: node_kind(pat_node)
           pat_payload :: node_payload(pat_node)
@@ -2639,14 +2855,26 @@ do {
               --- binds at the expected type.
               is_ctor :: type_tag(tc_lookup(st["state"], pattern_name)) == "type.ctor_sig"
               new_bindings :: if pattern_name != "" && !is_ctor { [...st.bindings, set(set({}, "name", pattern_name), "type", expected)] } else { st.bindings }
-              { state: { stack: rest_stack, bindings: new_bindings, state: st["state"] } }
+              --- Dependent elimination: instantiate the nullary
+              --- constructor at the top level so `synth_match_arms`
+              --- can unify its result (`Vec(0, a)`) with the
+              --- scrutinee's index.
+              inst :: if is_ctor && is_top {
+                funcs.instantiate_ctor_(funcs, st["state"], tc_lookup(st["state"], pattern_name))
+              } else {
+                { val: null, state: st["state"] }
+              }
+              new_ctor_result :: if inst.val == null { st.ctor_result } else { peel_ctor_result_(peel_ctor_result_, inst.val) }
+              { state: { stack: rest_stack, bindings: new_bindings, ctor_result: new_ctor_result, state: inst["state"] } }
             }
           } else {
           if pat_kind == "paren" {
             do {
               p_children :: node_children(pat_node)
-              new_stack :: if is_empty(p_children) { rest_stack } else { [[first_value(p_children), expected], ...rest_stack] }
-              { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
+              --- `paren` is transparent — the scrutinee's own pattern
+              --- stays the top-level one through the wrapper.
+              new_stack :: if is_empty(p_children) { rest_stack } else { [[first_value(p_children), expected, is_top], ...rest_stack] }
+              { state: { stack: new_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
             }
           } else {
           if pat_kind == "call" {
@@ -2655,15 +2883,17 @@ do {
             --- each argument pattern at the corresponding domain.
             --- This gives `Succ(p)` → `p : Nat` and `VCons(x, xs)` →
             --- `x : ?a, xs : Vec(?n, ?a)` — the domains the
-            --- constructor declares. What it does *not* give is index
-            --- refinement of the scrutinee in the branch (no equality
-            --- type — see `dependent.hnl`); the instantiated metas
-            --- stay flexible and solve on use.
+            --- constructor declares. The top-level pattern also hands
+            --- the instantiated *result* (`Vec(?n + 1, ?a)`) to
+            --- `synth_match_arms`, which unifies it with the
+            --- scrutinee's index for the branch (dependent
+            --- elimination); the instantiated metas stay flexible and
+            --- solve on use.
             do {
               callee_role :: child_role_index(st["state"], "call", "callee")
               args_role :: child_role_index(st["state"], "call", "args")
               if callee_role == null || args_role == null {
-                { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
+                { state: { stack: rest_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
               } else {
                 do {
                   pat_children :: node_children(pat_node)
@@ -2676,13 +2906,13 @@ do {
                   }
                   sig :: if cname == "" { null } else { tc_lookup(st["state"], cname) }
                   if type_tag(sig) != "type.ctor_sig" {
-                    { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
+                    { state: { stack: rest_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
                   } else {
                     do {
                       inst :: funcs.instantiate_ctor_(funcs, st["state"], sig)
                       peeled :: while { cur: inst.val, result: [], idx: args_role } {
                         [inner]~> if inner.idx >= len(pat_children) {
-                          { out: inner.result }
+                          { out: { pairs: inner.result, cur: inner.cur } }
                         } else {
                           do {
                             arg_idx :: at(pat_children, inner.idx)
@@ -2692,7 +2922,8 @@ do {
                           }
                         }
                       }
-                      { state: { stack: concat(peeled, rest_stack), bindings: st.bindings, state: inst["state"] } }
+                      new_ctor_result :: if is_top { peel_ctor_result_(peel_ctor_result_, peeled.cur) } else { st.ctor_result }
+                      { state: { stack: concat(peeled.pairs, rest_stack), bindings: st.bindings, ctor_result: new_ctor_result, state: inst["state"] } }
                     }
                   }
                 }
@@ -2706,7 +2937,7 @@ do {
                 subj_payload :: node_payload(subj_node)
                 name :: if type_of(subj_payload) == "str" { subj_payload } else { get_or(subj_payload, "name", "") }
                 new_bindings :: if name != "" { [...st.bindings, set(set({}, "name", name), "type", expected)] } else { st.bindings }
-                { state: { stack: rest_stack, bindings: new_bindings, state: st["state"] } }
+                { state: { stack: rest_stack, bindings: new_bindings, ctor_result: st.ctor_result, state: st["state"] } }
               }
             } else {
               if pat_kind == "array" {
@@ -2725,7 +2956,7 @@ do {
                       }
                     }
                   }
-                  { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
+                  { state: { stack: new_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
                 }
               } else {
                 if pat_kind == "object" {
@@ -2759,10 +2990,10 @@ do {
                         }
                       }
                     }
-                    { state: { stack: new_stack, bindings: st.bindings, state: st["state"] } }
+                    { state: { stack: new_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
                   }
                 } else {
-                  { state: { stack: rest_stack, bindings: st.bindings, state: st["state"] } }
+                  { state: { stack: rest_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
                 }
               }
             }
@@ -3149,9 +3380,41 @@ do {
           scrutinee_result :: funcs.synth_node_(funcs, s, scrutinee_idx)
           scrutinee_type :: scrutinee_result.typ
           s0 :: scrutinee_result["state"]
+          --- Optional `return <motive> with` clause: the `motive` role
+          --- is declared optional in `ast.match`, so it is present
+          --- exactly when the node has 3 children (the grammar splices
+          --- it in as the middle child). When present, each arm body is
+          --- *checked* against the motive applied at the constructor's
+          --- refined result indices, and the match's type is the motive
+          --- at the scrutinee's own indices (the dependent motive,
+          --- ADR-0120).
+          motive_role :: child_role_index(s0, "match", "motive")
+          motive_idx :: if motive_role == null || len(children) != 3 { null } else { at(children, motive_role) }
           arms_idx :: last(children)
           arms_node :: ast_node(s0.ast, arms_idx)
           arms :: node_children(arms_node)
+          scrut_term :: funcs.node_term_(funcs, s0, scrutinee_idx)
+          --- The scrutinee's own index terms — for the
+          --- motive-applied result type. `ok: false` when the
+          --- scrutinee is not a family application.
+          scrut_idx :: if type_tag(scrutinee_type) == "type.family_app" {
+            do {
+              ev :: while { state: s0, vals: [], remaining: get_or(scrutinee_type, "args", []) } {
+                [w]~> if is_empty(w.remaining) {
+                  { out: { vals: w.vals, state: w["state"] } }
+                } else {
+                  do {
+                    e :: funcs.eval_term_(funcs, w["state"], zonk(zonk, first_value(w.remaining), w["state"].metas))
+                    { state: { vals: [...w.vals, e.val], state: e["state"], remaining: drop(w.remaining, 1) } }
+                  }
+                }
+              }
+              { vals: ev.vals, state: ev["state"], ok: true }
+            }
+          } else {
+            { vals: [], state: s0, ok: false }
+          }
+          s0 :: scrut_idx["state"]
           if is_empty(arms) {
             { val: funcs.make_type("type.unknown", {}), state: s0 }
           } else {
@@ -3167,9 +3430,24 @@ do {
                     pattern_idx :: first_value(arm_children)
                     body_idx :: at(arm_children, 1)
                     mark :: tc_mark(st["state"])
+                    metas_mark :: get_or(st["state"], "metas", [null])
+                    old_results :: get_or(st["state"], "results", {})
+                    --- Dependent elimination (ADR-0120): the
+                    --- constructor's instantiated result type is
+                    --- unified with the scrutinee's *inside this
+                    --- branch* — `?n + 1 ≡ 2` solves `?n := 1`, and a
+                    --- rigid `var{n}` index binds `n` to the
+                    --- constructor's index in `results` (witnessed by
+                    --- a `Path` under `eq_n`). A decided index
+                    --- mismatch marks the arm unreachable: its body
+                    --- is skipped and it contributes nothing to the
+                    --- join.
+                    scrut_ids :: concat(meta_ids_in_(meta_ids_in_, scrutinee_type, []), meta_ids_in_(meta_ids_in_, zonk(zonk, scrutinee_type, metas_mark), []))
                     pat_res :: collect_pattern_bindings(funcs, st["state"], pattern_idx, scrutinee_type)
                     bindings :: pat_res.bindings
-                    extended :: while { state: pat_res["state"], remaining: bindings } {
+                    ctor_result :: get_or(pat_res, "ctor_result", null)
+                    refined :: refine_scrutinee_(funcs, pat_res["state"], scrutinee_type, ctor_result)
+                    extended :: while { state: refined["state"], remaining: bindings } {
                       [est]~> if is_empty(est.remaining) {
                         { out: est["state"] }
                       } else {
@@ -3180,8 +3458,35 @@ do {
                         }
                       }
                     }
-                    body_result :: funcs.synth_node_(funcs, extended, body_idx)
-                    restored :: tc_restore(body_result["state"], mark)
+                    body_out :: if refined.impossible {
+                      { typ: null, state: extended }
+                    } else {
+                      if motive_idx == null {
+                        do {
+                          r :: funcs.synth_node_(funcs, extended, body_idx)
+                          { typ: r.typ, state: r["state"] }
+                        }
+                      } else {
+                        do {
+                          m_res :: apply_motive_(funcs, extended, motive_idx, concat(refined.idx_args, [scrut_term]))
+                          chk :: funcs.check_node_(funcs, m_res["state"], body_idx, m_res.val)
+                          { typ: m_res.val, state: chk["state"] }
+                        }
+                      }
+                    }
+                    --- Branch-local environment: gamma and `results`
+                    --- restore wholesale (pattern binders and the
+                    --- rigid-index rewrite are branch-local); the
+                    --- scrutinee's metavariables unsolve back to
+                    --- their pre-arm solutions so sibling arms
+                    --- re-derive the refinement — metas minted
+                    --- inside the arm keep their slots, so the arm's
+                    --- own pattern types stay precise.
+                    restored :: if type_tag(ctor_result) == "type.family_app" {
+                      set(set(tc_restore(body_out["state"], mark), "results", old_results), "metas", metas_restore_ids_(get_or(body_out["state"], "metas", [null]), metas_mark, scrut_ids))
+                    } else {
+                      tc_restore(body_out["state"], mark)
+                    }
                     pat_node :: ast_node(st["state"].ast, pattern_idx)
                     pat_kind :: node_kind(pat_node)
                     pat_name :: if pat_kind == "var" {
@@ -3197,21 +3502,25 @@ do {
                     --- `match n { Zero: …, Succ(p): … }` must not
                     --- terminate arm unification.
                     is_catchall :: pat_kind == "var" && type_tag(tc_lookup(st["state"], pat_name)) != "type.ctor_sig"
-                    next :: if is_catchall {
-                      { result: body_result.typ, failed: true, state: restored }
+                    next :: if refined.impossible || body_out.typ == null {
+                      { result: st.result, failed: st.failed, state: restored }
                     } else {
-                      if st.result == null {
-                        { result: body_result.typ, failed: st.failed, state: restored }
+                      if is_catchall {
+                        { result: body_out.typ, failed: true, state: restored }
                       } else {
-                        if st.failed {
-                          { result: st.result, failed: st.failed, state: restored }
+                        if st.result == null {
+                          { result: body_out.typ, failed: st.failed, state: restored }
                         } else {
-                          do {
-                            u :: funcs.unify_dependent_(funcs, st.result, body_result.typ, restored)
-                            if u.ok {
-                              { result: st.result, failed: st.failed, state: u["state"] }
-                            } else {
-                              { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(u["state"], "warning", "match arm type mismatch") }
+                          if st.failed {
+                            { result: st.result, failed: st.failed, state: restored }
+                          } else {
+                            do {
+                              u :: funcs.unify_dependent_(funcs, st.result, body_out.typ, restored)
+                              if u.ok {
+                                { result: st.result, failed: st.failed, state: u["state"] }
+                              } else {
+                                { result: funcs.make_type("type.unknown", {}), failed: true, state: tc_add_diagnostic(u["state"], "warning", "match arm type mismatch") }
+                              }
                             }
                           }
                         }
@@ -3224,7 +3533,17 @@ do {
               if arms_result.typ == null {
                 { val: funcs.make_type("type.unknown", {}), state: arms_result["state"] }
               } else {
-                { val: arms_result.typ, state: arms_result["state"] }
+                if motive_idx == null || !scrut_idx.ok {
+                  { val: arms_result.typ, state: arms_result["state"] }
+                } else {
+                  do {
+                    --- The match's type is the motive at the
+                    --- scrutinee's own indices (`Vec(n, Bool)`), not
+                    --- at any one branch's refinement.
+                    applied :: apply_motive_(funcs, arms_result["state"], motive_idx, concat(scrut_idx.vals, [scrut_term]))
+                    { val: applied.val, state: applied["state"] }
+                  }
+                }
               }
             }
           }
@@ -4133,8 +4452,9 @@ do {
     --- declared domains and produces the family at the result indices,
     --- with parameter metas shared between the two. Strict positivity
     --- remains the native `desugar.data` pass's concern; dependent
-    --- elimination (`match` index refinement) is documented in
-    --- `handl-packages/type/dependent.hnl`.
+    --- elimination — `match` refining the scrutinee's family index per
+    --- branch — lives in `refine_scrutinee_`/`synth_match_arms` and is
+    --- documented in `handl-packages/type/dependent.hnl`.
     "synth_data": do {
       node :: ast_node(s.ast, node_idx)
       payload :: node_payload(node)

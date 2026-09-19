@@ -191,8 +191,12 @@ dispatch in pattern-match/tree-walk/bytecode/cranelift migrated to
   across composition).
 - **`cell_boundary_` assumes globularity** — the globe condition
   `src_j(inputs) = src_j(output)` is assumed, not verified.
-- **Optional-role support in `AstShapeDef`** — needed for `match`/`assign`
-  optional children, which still carry bespoke handling.
+- ~~**Optional-role support in `AstShapeDef`**~~ — landed: `ChildRoleSpec`
+  gains `optional: true`, `AstShapeDef::role_index_at` /
+  `Language::child_role_index_for` resolve arity-aware, and `match`
+  (`motive`) / `assign` (`body`) declare optional roles in `ast.yaml`. The
+  tree-walk/bytecode/cranelift `match` arms, tree-walk `assign` body,
+  arrow-lower let-form, and `desugar.match_recursor` all consume the roles.
 - **`k ≥ 2` rejected** — `Cell2` is the only cell shape the value model
   carries; axes beyond 1 fail `k < dim` and the typechecker diagnoses them
   unconditionally.
