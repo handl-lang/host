@@ -31,8 +31,12 @@
 --- merge (`(n - 1) + 1` ≡ `n`), and reflexive comparisons fold
 --- (`n == n` ≡ `true`). Symbolic indices that stay unequal do not unify
 --- -- `Vec(n)` and `Vec(n + 1)` differ -- and `Bin`-vs-literal
---- unification solves only the linear fragment (`X + c = t`, `X - c = t`,
---- `X * c = t`, and mirrors).
+--- unification solves the linear fragment (`X + c = t`, `X - c = t`,
+--- and mirrors) plus bounded nonlinear shapes: `X * c = t` /
+--- `c * X = t` by exact division (a non-divisible target is a decided
+--- failure, not stuck), `X * 0 = t` collapses to `0 = t`, `X * X = t`
+--- and `X ** k = t` by integer root, and closed subterms compute first
+--- (`X * (2 + 1) = t` behaves like `X * 3 = t`).
 ---
 --- ## Reindexing is composition
 ---
@@ -120,15 +124,20 @@ export transport := (p, v) ~> (p # v)
 ---     `v`'s type through the equation and `j p, P, base` is the J
 ---     eliminator (the base is checked at the motive applied to the
 ---     path's source endpoint, the result is the motive at the target).
+---     A decided-impossible arm -- distinct numeral indices, or a
+---     decided solver failure such as `2 * ?k ≡ 5` -- can be dismissed
+---     explicitly with the `absurd` keyword: `match v { VNil: absurd,
+---     VCons(x, xs): ... }` checks iff the arm's index equations are
+---     decided-unsatisfiable; a reachable (or merely stuck) `absurd`
+---     arm is rejected ("absurd arm is reachable"), while without the
+---     marker a decided mismatch still reports "unreachable branch".
 ---     The remaining gaps vs. full dependent elimination: `j` is the
 ---     binary surface form -- the full `J` quantifying `A`/`a` and
 ---     returning `P b p` as a curried arrow is not separately checked
----     (the motive's `(i, w)` binder pair stands in for `(b, p)`); only
----     the linear arithmetic fragment solves (`n * m ≡ 6` is stuck, not
----     an error); there is no absurd-pattern syntax for explicitly
----     dismissing impossible arms, and a decided literal mismatch marks
----     the arm unreachable (an error diagnostic) rather than being
----     discharged by an explicit `absurd`;
+---     (the motive's `(i, w)` binder pair stands in for `(b, p)`);
+---     index solving stays bounded -- two symbolic factors (`n * m ≡
+---     6` with both unknown) and non-decidable shapes remain *stuck*,
+---     not errors;
 ---   * a composite `f >>> P` of dependent operands flattens to
 ---     `type.function` because no AST body exists to carry a
 ---     `body_closure` across composition.
