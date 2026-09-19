@@ -546,3 +546,12 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   `plugin-lib-stdlib` package table (`MODULES`/`PACKAGES` rows) and
   deleted; `handl-packages/{hello,result,arrow_iter}/` remain the source
   of truth.
+
+## .hnl model source trap
+
+`HandlModule::new` runs `bootstrap::strip_declaration_lines` — it silently
+deletes any line whose text starts with `op `/`cap `/`handl ` (and indented
+`guarantee`/`requires`/`termination` contract lines). Never begin a line in a
+`.hnl` source (e.g. `typecheck_model.hnl`, `handl-packages/`) with a local
+binding spelled `op :: ...` — rename it (`bop`, `op_name`, ...). Symptoms are
+misleading parse errors several tokens later ("unexpected token: token.equal").
