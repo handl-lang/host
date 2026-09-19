@@ -1918,45 +1918,18 @@
 
 # `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
 # Synthesizes the existing `Arrow` record (with `inputs`, `grade`, `output`)
-# so the `Term` produced by `eval.dim_arrow` typechecks. This uses the
-# existing arrow object representation (ADR-0119 Phase 4a).
+# so the `Term` produced by `eval.dim_arrow` typechecks, plus a `dim` field
+# carrying the literal bracket dimension so `cell_boundary_` in the typecheck
+# model can project k-indexed globular boundaries for `a >>>[k] b`
+# (ADR-0120 Phase 2 follow-up). The `synth_dim_arrow` judgment op reads the
+# dimension child's literal — inexpressible in the scheme vocabulary, which
+# can only synth the dimension's *type* (`type.number`), not its value.
 - id: type.dim_arrow
   node_kind: dim_arrow
   synth: !Op
-    name: construct
-    args:
-      - !Op
-        name: field
-        args:
-          - !Op
-            name: synth_child
-            args: []
-            source: Judgment
-            lit: 0
-        source: Judgment
-        lit: inputs
-      - !Op
-        name: field
-        args:
-          - !Op
-            name: synth_child
-            args: []
-            source: Judgment
-            lit: 1
-        source: Judgment
-        lit: grade
-      - !Op
-        name: field
-        args:
-          - !Op
-            name: synth_child
-            args: []
-            source: Judgment
-            lit: 2
-        source: Judgment
-        lit: output
+    name: synth_dim_arrow
+    args: []
     source: Judgment
-    lit: Arrow
 
 # ---------------------------------------------------------------------------
 # Dependent types — Pi / Sigma (ADR-0054 closure machinery)
@@ -2227,115 +2200,32 @@
     source: Judgment
 
 # `axis_flow` — axis-parameterized composition `a >>>[k] b` (ADR-0120
-# Phase 2). Structural portion implemented here:
+# Phase 2). The `synth_axis_flow` judgment op in the typecheck model
+# implements the globular boundary law `tgt_k(a) = src_k(b)`:
 #   * the axis child (index 1) is checked against `type.number` — the
 #     composition axis is a natural-number expression position;
-#   * the axis-0 boundary condition `tgt_0(a) = src_0(b)` is expressed in
-#     `type.function` coordinates as `unify(a.body, b.param)`, and the
-#     composite synthesizes `type.function{param: a.param, body: b.body}`.
-# Remaining gap (documented in ADR-0120): for k > 0 the globular check is
-# `tgt_k(a) = src_k(b)` on the k-th boundaries, but the current type
-# vocabulary exposes only the 0-boundaries of a `type.function` — there is
-# no `src_k`/`tgt_k` type projection. The axis-0 rule below is exact; for
-# k > 0 the same 0-boundary unification is the closest expressible
-# approximation until the type model grows k-indexed boundary fields.
+#   * a literal axis 0 (and, with a warning, a non-literal axis) runs the
+#     exact axis-0 rule the old scheme expressed —
+#     `unify(a.body, b.param)` synthesizing
+#     `type.function{param: a.param, body: b.body}`;
+#   * a literal axis k ≥ 1 projects the k-th globular boundaries via
+#     `cell_boundary_` (`Arrow{inputs, output, dim}` cell types, with
+#     `type.function` and dependents as 1-cells and every other type a
+#     degenerate cell) and unifies `tgt_k(a) = src_k(b)`, synthesizing
+#     the `∘ₖ` composite `Arrow` via `cell_paste_`;
+#   * a literal axis k ≥ 2 fails with the dimension diagnostic — the
+#     runtime lifts every `>>>[k]` operand to dimension 2 (`Cell2` is
+#     the only cell shape), so `k ≥ 2` always violates `k < dim`.
+# The boundary projection/paste algebra needs the operands' synthesized
+# types *and* the axis literal — inexpressible in the scheme vocabulary,
+# which cannot read a child literal — so the rule lives in the model,
+# exactly like `synth_flow` for `type.flow` above.
 - id: type.axis_flow
   node_kind: axis_flow
-  synth: !Seq
-    fst: !Op
-      name: check_child
-      args:
-        - !Op
-          name: construct
-          args: []
-          source: Judgment
-          lit: type.number
-      source: Judgment
-      lit: 1
-    snd: !Seq
-      fst: !Op
-        name: synth_child
-        args: []
-        source: Judgment
-        lit: 0
-      snd: !Seq
-        fst: !Op
-          name: bind
-          args: []
-          source: Judgment
-          lit: ftype
-        snd: !Seq
-          fst: !Op
-            name: synth_child
-            args: []
-            source: Judgment
-            lit: 2
-          snd: !Seq
-            fst: !Op
-              name: bind
-              args: []
-              source: Judgment
-              lit: gtype
-            snd: !Seq
-              fst: !Op
-                name: unify
-                args:
-                  - !Op
-                    name: type_field
-                    args:
-                      - !Op
-                        name: result
-                        args: []
-                        source: Judgment
-                        lit: ftype
-                    source: Judgment
-                    lit: body
-                  - !Op
-                    name: type_field
-                    args:
-                      - !Op
-                        name: result
-                        args: []
-                        source: Judgment
-                        lit: gtype
-                    source: Judgment
-                    lit: param
-                source: Judgment
-              snd: !Op
-                name: construct
-                args:
-                  - !Op
-                    name: field
-                    args:
-                      - !Op
-                        name: type_field
-                        args:
-                          - !Op
-                            name: result
-                            args: []
-                            source: Judgment
-                            lit: ftype
-                        source: Judgment
-                        lit: param
-                    source: Judgment
-                    lit: param
-                  - !Op
-                    name: field
-                    args:
-                      - !Op
-                        name: type_field
-                        args:
-                          - !Op
-                            name: result
-                            args: []
-                            source: Judgment
-                            lit: gtype
-                        source: Judgment
-                        lit: body
-                    source: Judgment
-                    lit: body
-                source: Judgment
-                lit: type.function
+  synth: !Op
+    name: synth_axis_flow
+    args: []
+    source: Judgment
 
 # `fanout` — categorical fanout `&&&` (ADR-0074 follow-up #3).
 # Disabled until the handl typecheck model supports it; without a rule the

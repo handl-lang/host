@@ -1897,6 +1897,204 @@ do {
     }
   }
 
+  --- ------------------------------------------------------------------
+  --- Globular boundaries for `a >>>[k] b` (ADR-0120 Phase 2 follow-up).
+  ---
+  --- A morphism type `A ~[N]~> B` synthesizes `Arrow{inputs, grade,
+  --- output, dim}` (`synth_dim_arrow`): an n-cell whose top (n-1)-
+  --- boundaries are the *types* of the endpoint expressions —
+  --- `inputs` is `src_{n-1}`, `output` is `tgt_{n-1}`, and `dim` is the
+  --- literal bracket dimension (`null` when the dimension expression is
+  --- not a literal — the record's declared boundaries are then the only
+  --- ones the projection can see, at every level). A `type.function`
+  --- (and its dependent kin `type.pi`/`type.forall`/`type.family`) is a
+  --- 1-cell: only 0-boundaries exist — `param`/`kind`/`base` for src,
+  --- `body`/the applied closure/`Type` for tgt. Every other type is a
+  --- degenerate cell — the whole type stands for every boundary,
+  --- mirroring the runtime rule that a non-`Cell2` value is its own src
+  --- and tgt — and any cell viewed above its own dimension is the
+  --- iterated identity on itself, the degenerate lift.
+  --- ------------------------------------------------------------------
+
+  --- Domain/codomain readers shared by `cell_boundary_` — the same
+  --- coordinate choice `flow_compose_` makes (`param`/`kind` for the
+  --- domain, `base` for a family; the dependent formers' codomain needs
+  --- the closure applied at their own domain, so `flow_cod_` is reused).
+  cell_dom_ :: [funcs, t]~> if type_tag(t) == "type.family" {
+    get_or(t, "base", null)
+  } else {
+    get_or(t, "param", get_or(t, "kind", null))
+  }
+
+  cell_cod_ :: [funcs, t, s]~> if type_tag(t) == "type.family" {
+    { val: funcs.make_type("type.universe", set({}, "level", 0)), state: s }
+  } else {
+    funcs.flow_cod_(funcs, t, s)
+  }
+
+  --- `cell_boundary_(t, k, side)` — the type-level `src_k`/`tgt_k`
+  --- projection. For an `Arrow` with a literal `dim`: `k = dim-1`
+  --- projects `inputs`/`output` (the top boundaries); `k < dim-1`
+  --- recurses into `inputs` — globularity shares every lower boundary
+  --- between the two top cells, so the `output` side needs no separate
+  --- walk (the globe condition `src_j(inputs) = src_j(output)` is
+  --- assumed, not verified — documented approximation); `k >= dim` is
+  --- the degenerate lift — the whole cell stands for the boundary.
+  --- For a literal-free `dim` the record carries no level information,
+  --- so `inputs`/`output` project at every `k` — the only boundaries
+  --- the representation holds (the value model's only cell shape is
+  --- `Cell2`, whose boundaries sit at level 1).
+  cell_boundary_ :: [funcs, t, k, side, s]~> do {
+    tag :: type_tag(t)
+    if tag == "Arrow" {
+      do {
+        field :: if side == "src" { "inputs" } else { "output" }
+        dim :: get_or(t, "dim", null)
+        if type_of(dim) == "num" {
+          if k == dim - 1 {
+            { val: get_or(t, field, null), state: s }
+          } else {
+          if k < dim - 1 {
+            funcs.cell_boundary_(funcs, get_or(t, "inputs", null), k, side, s)
+          } else {
+            { val: t, state: s }
+          }
+          }
+        } else {
+          { val: get_or(t, field, null), state: s }
+        }
+      }
+    } else {
+    if tag == "type.function" || tag == "type.pi" || tag == "type.forall" || tag == "type.family" {
+      if k == 0 {
+        if side == "src" {
+          { val: funcs.cell_dom_(funcs, t), state: s }
+        } else {
+          funcs.cell_cod_(funcs, t, s)
+        }
+      } else {
+        { val: t, state: s }
+      }
+    } else {
+      { val: t, state: s }
+    }
+    }
+  }
+
+  --- `cell_paste_(a, b, k)` — the type-level `∘ₖ` composite once
+  --- `tgt_k(a) = src_k(b)` has unified. An `Arrow` operand with
+  --- `dim = k+1` pastes at its top level: the composite keeps the left
+  --- `inputs` and takes the right `output` (`cell2(src_a, tgt_b)`).
+  --- An `Arrow` with `dim > k+1` pastes pairwise through its
+  --- boundaries — `inputs: src∘src`, `output: tgt∘tgt`, the runtime
+  --- `∘₀`-on-`Cell2` shape. Every other operand is a degenerate cell
+  --- at level `k` and contributes its whole type. The composite is
+  --- always a `dim-(k+1)` `Arrow`, matching the runtime's unconditional
+  --- `Cell2` lift: `a >>>[k] b` evaluates to a
+  --- `{__tag__: "Cell2", __src__, __tgt__}` record — a (k+1)-cell whose
+  --- boundaries are the operands.
+  cell_paste_ :: [funcs, a, b, k]~> do {
+    tag_a :: type_tag(a)
+    tag_b :: type_tag(b)
+    dim_a :: get_or(a, "dim", null)
+    dim_b :: get_or(b, "dim", null)
+    a_arr :: tag_a == "Arrow" && type_of(dim_a) == "num"
+    b_arr :: tag_b == "Arrow" && type_of(dim_b) == "num"
+    --- `&&`/`||` evaluate both sides — guard the `>` comparisons so a
+    --- literal-free `dim` (or a non-`Arrow` type) never reaches `binary.gt`.
+    a_deep :: if a_arr { dim_a > k + 1 } else { false }
+    b_deep :: if b_arr { dim_b > k + 1 } else { false }
+    if a_deep || b_deep {
+      do {
+        out_dim :: if a_deep { dim_a } else { dim_b }
+        a_src :: if a_deep { get_or(a, "inputs", null) } else { a }
+        a_tgt :: if a_deep { get_or(a, "output", null) } else { a }
+        b_src :: if b_deep { get_or(b, "inputs", null) } else { b }
+        b_tgt :: if b_deep { get_or(b, "output", null) } else { b }
+        new_inputs :: funcs.cell_paste_(funcs, a_src, b_src, k)
+        new_output :: funcs.cell_paste_(funcs, a_tgt, b_tgt, k)
+        funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", funcs.make_type("type.number", {})), "output", new_output), "dim", out_dim))
+      }
+    } else {
+      do {
+        new_inputs :: if a_arr && dim_a == k + 1 { get_or(a, "inputs", null) } else { a }
+        new_output :: if b_arr && dim_b == k + 1 { get_or(b, "output", null) } else { b }
+        grade_t :: if a_arr {
+          get_or(a, "grade", funcs.make_type("type.number", {}))
+        } else {
+          if b_arr { get_or(b, "grade", funcs.make_type("type.number", {})) } else { funcs.make_type("type.number", {}) }
+        }
+        funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", grade_t), "output", new_output), "dim", k + 1))
+      }
+    }
+  }
+
+  --- Short diagnostic name for a projected boundary type: `?n` for an
+  --- unsolved metavariable, the `__tag__` otherwise.
+  cell_type_name_ :: t ~> if is_meta(t) {
+    "meta?" + typeof.to_string(meta_id(t))
+  } else {
+    do {
+      tag :: type_tag(t)
+      if tag == "" { type_of(t) } else { tag }
+    }
+  }
+
+  --- `axis_flow_compose_` — the `synth_axis_flow` worker. `axis_lit` is
+  --- the literal axis (`null` for a non-literal axis child):
+  ---   * `null` or `0` — the exact axis-0 rule the old scheme expressed
+  ---     (`unify(f.body, g.param)` → `type.function{param, body}`);
+  ---     a non-literal axis keeps that approximation and warns, since
+  ---     the runtime picks `k` dynamically and the 0-boundary is the
+  ---     only statically-known bound;
+  ---   * `1` — the globular 1-boundary law `tgt_1(f) = src_1(g)`;
+  ---   * `>= 2` — the dimension diagnostic. The runtime lifts every
+  ---     `>>>[k]` operand to declared dimension 2 (`Cell2` is the only
+  ---     cell shape the value model carries), so `k >= 2` always
+  ---     violates `k < dim` regardless of the operands.
+  axis_flow_compose_ :: [funcs, f, g, axis_lit, s]~> do {
+    if axis_lit == null || axis_lit == 0 {
+      do {
+        s1 :: if axis_lit == null {
+          tc_add_diagnostic(s, "warning", "axis_flow: non-literal axis — checked the 0-boundary only (k-indexed boundaries need a literal axis)")
+        } else {
+          s
+        }
+        u :: unify(funcs, get_or(f, "body", null), get_or(g, "param", null), s1.metas)
+        if u.ok {
+          { val: funcs.make_type("type.function", set(set({}, "param", get_or(f, "param", null)), "body", get_or(g, "body", null))), state: set(s1, "metas", u.metas) }
+        } else {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s1, "error", "unification failed") }
+        }
+      }
+    } else {
+    if axis_lit >= 2 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "axis_flow: axis-" + typeof.to_string(axis_lit) + " composition requires cells of dimension > " + typeof.to_string(axis_lit) + " (fst has dim 2)") }
+    } else {
+      do {
+        f_open :: is_meta(f) || type_tag(f) == "type.unknown"
+        g_open :: is_meta(g) || type_tag(g) == "type.unknown"
+        if f_open || g_open {
+          --- Underdetermined operand — no boundary evidence either way
+          --- (the `synth_flow` convention).
+          { val: funcs.make_type("type.unknown", {}), state: s }
+        } else {
+        do {
+          tb :: funcs.cell_boundary_(funcs, f, 1, "tgt", s)
+          sb :: funcs.cell_boundary_(funcs, g, 1, "src", tb["state"])
+          boundary :: funcs.unify_dependent_(funcs, tb.val, sb.val, sb["state"])
+          if boundary.ok {
+            { val: funcs.cell_paste_(funcs, f, g, 1), state: boundary["state"] }
+          } else {
+            { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(boundary["state"], "error", "axis_flow: cell composition along axis 1: boundary mismatch — tgt of the first cell does not equal src of the second (got " + funcs.cell_type_name_(tb.val) + " vs " + funcs.cell_type_name_(sb.val) + ")") }
+          }
+        }
+        }
+      }
+    }
+    }
+  }
+
   eval_scheme_impl_ :: [funcs, s, node_idx, term, incoming]~> match tget(term, "__tag__") {
     "Arr": { val: tget(term, "value"), state: s },
     "Const": { val: tget(term, "value"), state: s },
@@ -3345,6 +3543,73 @@ do {
         }
       }
     },
+    --- `synth_axis_flow` — axis-parameterized composition `a >>>[k] b`
+    --- (ADR-0120 Phase 2 follow-up). The axis child is checked against
+    --- `type.number`, then a literal axis selects the boundary law in
+    --- `axis_flow_compose_`: `>>>[0]` (and the non-literal fallback)
+    --- runs the axis-0 rule the old scheme expressed; `>>>[1]` enforces
+    --- the globular `tgt_1(f) = src_1(g)` via `cell_boundary_` and
+    --- synthesizes the `∘₁` composite `Arrow` via `cell_paste_`;
+    --- `>>>[k≥2]` fails the dimension check the runtime's dim-2 lift
+    --- makes unconditional. A single parenthesized axis literal
+    --- (`a >>>[(1)] b`) still counts as a literal.
+    "synth_axis_flow": do {
+      node :: ast_node(s.ast, node_idx)
+      children :: node_children(node)
+      if len(children) < 3 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "axis_flow: missing operands") }
+      } else {
+        do {
+          axis_idx :: at(children, 1)
+          axis_node0 :: ast_node(s.ast, axis_idx)
+          axis_node :: if node_kind(axis_node0) == "paren" {
+            ast_node(s.ast, first_value(node_children(axis_node0)))
+          } else {
+            axis_node0
+          }
+          axis_payload :: node_payload(axis_node)
+          axis_val :: if type_of(axis_payload) == "obj" { get_or(axis_payload, "value", null) } else { axis_payload }
+          axis_lit :: if node_kind(axis_node) == "value" && type_of(axis_val) == "num" { axis_val } else { null }
+          axis_check :: funcs.check_node_(funcs, s, axis_idx, funcs.make_type("type.number", {}))
+          f_result :: funcs.synth_node_(funcs, axis_check["state"], first_value(children))
+          g_result :: funcs.synth_node_(funcs, f_result["state"], at(children, 2))
+          funcs.axis_flow_compose_(funcs, f_result.typ, g_result.typ, axis_lit, g_result["state"])
+        }
+      }
+    },
+    --- `synth_dim_arrow` — N-dimensional arrow `A ~[N]~> B`
+    --- (ADR-0119/0120). The same `Arrow{inputs, grade, output}` record
+    --- the old `construct` scheme produced, plus `dim` carrying the
+    --- literal bracket dimension so `cell_boundary_` can project
+    --- k-indexed globular boundaries for `a >>>[k] b` (`null` when the
+    --- dimension child is not a literal — the projection then assumes
+    --- the only boundaries the record carries). The dimension literal
+    --- is read from the child payload: the scheme vocabulary can only
+    --- synth the dimension's *type*, not its value.
+    "synth_dim_arrow": do {
+      node :: ast_node(s.ast, node_idx)
+      children :: node_children(node)
+      if len(children) < 3 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "dim_arrow: missing operands") }
+      } else {
+        do {
+          src_result :: funcs.synth_node_(funcs, s, first_value(children))
+          dim_idx :: at(children, 1)
+          dim_node0 :: ast_node(s.ast, dim_idx)
+          dim_node :: if node_kind(dim_node0) == "paren" {
+            ast_node(s.ast, first_value(node_children(dim_node0)))
+          } else {
+            dim_node0
+          }
+          dim_payload :: node_payload(dim_node)
+          dim_val :: if type_of(dim_payload) == "obj" { get_or(dim_payload, "value", null) } else { dim_payload }
+          dim_lit :: if node_kind(dim_node) == "value" && type_of(dim_val) == "num" { dim_val } else { null }
+          grade_result :: funcs.synth_node_(funcs, src_result["state"], dim_idx)
+          tgt_result :: funcs.synth_node_(funcs, grade_result["state"], at(children, 2))
+          { val: funcs.make_type("Arrow", set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", dim_lit)), state: tgt_result["state"] }
+        }
+      }
+    },
     --- `synth_data` — inductive family declaration `data Name(params)
     --- :: ctors` (ADR-0082 / ADR-0120 Phase 4). Binds `Name` to
     --- `type.family{name, base}` where `base` is a `type.array` of one
@@ -4169,6 +4434,12 @@ do {
     collect_ctor_names_: collect_ctor_names_,
     flow_cod_: flow_cod_,
     flow_compose_: flow_compose_,
+    cell_dom_: cell_dom_,
+    cell_cod_: cell_cod_,
+    cell_boundary_: cell_boundary_,
+    cell_paste_: cell_paste_,
+    cell_type_name_: cell_type_name_,
+    axis_flow_compose_: axis_flow_compose_,
     make_type: make_type,
     sanitize: tc_sanitize,
     add_diagnostic: tc_add_diagnostic,
