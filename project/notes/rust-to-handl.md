@@ -37,10 +37,9 @@ atoms — is handl.
 
 ```hnl
 export f: T ~> U := (x) ~> expr   -- top-level, typed
-x := expr  /  x :: expr           -- definition (both = assign; := canonical)
-x = expr                          -- in do{} statement position: binding;
+x := expr                         -- definition; binding (inside do)
                                   -- in expression position: equality (==)
-do { a = f(); b = g(a); a + b }   -- sequential block; last expr is value
+do { a := f(); b := g(a); a + b } -- sequential block; last expr is value
 while { n: 5, acc: 1 } {          -- loop: init state record, step arrow
   [n, acc] ~> if n == 0
     return acc
@@ -86,8 +85,7 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
    ones don't.
 5. **Prefer `while` state records over self-application recursion** — the
    corpus pattern; reads as the loop's invariant.
-6. **Docs are `---` + `@details`/`@param`/`@returns`/`@example`**; every
-   package gets a `docs.yaml` (`slug`/`title`/`description`).
+6. **Docs are `---` + `@details`/`@param`/`@returns`/`@example`**
 7. **Marshal at the edge.** Convert `Bytes`/handles/`{ret,buf,outs}` into
    semantic handl types inside the backend — never leak C shapes upward.
 
