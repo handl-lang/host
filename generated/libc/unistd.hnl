@@ -1,0 +1,656 @@
+--- Generated port for libc.unistd
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export _PC_LINK_MAX: Int
+export _PC_MAX_CANON: Int
+export _PC_MAX_INPUT: Int
+export _PC_NAME_MAX: Int
+export _PC_PATH_MAX: Int
+export _PC_PIPE_BUF: Int
+export _PC_CHOWN_RESTRICTED: Int
+export _PC_NO_TRUNC: Int
+export _PC_VDISABLE: Int
+export _PC_SYNC_IO: Int
+export _PC_ASYNC_IO: Int
+export _PC_PRIO_IO: Int
+export _PC_SOCK_MAXBUF: Int
+export _PC_FILESIZEBITS: Int
+export _PC_REC_INCR_XFER_SIZE: Int
+export _PC_REC_MAX_XFER_SIZE: Int
+export _PC_REC_MIN_XFER_SIZE: Int
+export _PC_REC_XFER_ALIGN: Int
+export _PC_ALLOC_SIZE_MIN: Int
+export _PC_SYMLINK_MAX: Int
+export _PC_2_SYMLINKS: Int
+export _SC_ARG_MAX: Int
+export _SC_CHILD_MAX: Int
+export _SC_CLK_TCK: Int
+export _SC_NGROUPS_MAX: Int
+export _SC_OPEN_MAX: Int
+export _SC_STREAM_MAX: Int
+export _SC_TZNAME_MAX: Int
+export _SC_JOB_CONTROL: Int
+export _SC_SAVED_IDS: Int
+export _SC_REALTIME_SIGNALS: Int
+export _SC_PRIORITY_SCHEDULING: Int
+export _SC_TIMERS: Int
+export _SC_ASYNCHRONOUS_IO: Int
+export _SC_PRIORITIZED_IO: Int
+export _SC_SYNCHRONIZED_IO: Int
+export _SC_FSYNC: Int
+export _SC_MAPPED_FILES: Int
+export _SC_MEMLOCK: Int
+export _SC_MEMLOCK_RANGE: Int
+export _SC_MEMORY_PROTECTION: Int
+export _SC_MESSAGE_PASSING: Int
+export _SC_SEMAPHORES: Int
+export _SC_SHARED_MEMORY_OBJECTS: Int
+export _SC_AIO_LISTIO_MAX: Int
+export _SC_AIO_MAX: Int
+export _SC_AIO_PRIO_DELTA_MAX: Int
+export _SC_DELAYTIMER_MAX: Int
+export _SC_MQ_OPEN_MAX: Int
+export _SC_MQ_PRIO_MAX: Int
+export _SC_VERSION: Int
+export _SC_PAGESIZE: Int
+export _SC_RTSIG_MAX: Int
+export _SC_SEM_NSEMS_MAX: Int
+export _SC_SEM_VALUE_MAX: Int
+export _SC_SIGQUEUE_MAX: Int
+export _SC_TIMER_MAX: Int
+export _SC_BC_BASE_MAX: Int
+export _SC_BC_DIM_MAX: Int
+export _SC_BC_SCALE_MAX: Int
+export _SC_BC_STRING_MAX: Int
+export _SC_COLL_WEIGHTS_MAX: Int
+export _SC_EQUIV_CLASS_MAX: Int
+export _SC_EXPR_NEST_MAX: Int
+export _SC_LINE_MAX: Int
+export _SC_RE_DUP_MAX: Int
+export _SC_CHARCLASS_NAME_MAX: Int
+export _SC_2_VERSION: Int
+export _SC_2_C_BIND: Int
+export _SC_2_C_DEV: Int
+export _SC_2_FORT_DEV: Int
+export _SC_2_FORT_RUN: Int
+export _SC_2_SW_DEV: Int
+export _SC_2_LOCALEDEF: Int
+export _SC_PII: Int
+export _SC_PII_XTI: Int
+export _SC_PII_SOCKET: Int
+export _SC_PII_INTERNET: Int
+export _SC_PII_OSI: Int
+export _SC_POLL: Int
+export _SC_SELECT: Int
+export _SC_UIO_MAXIOV: Int
+export _SC_IOV_MAX: Int
+export _SC_PII_INTERNET_STREAM: Int
+export _SC_PII_INTERNET_DGRAM: Int
+export _SC_PII_OSI_COTS: Int
+export _SC_PII_OSI_CLTS: Int
+export _SC_PII_OSI_M: Int
+export _SC_T_IOV_MAX: Int
+export _SC_THREADS: Int
+export _SC_THREAD_SAFE_FUNCTIONS: Int
+export _SC_GETGR_R_SIZE_MAX: Int
+export _SC_GETPW_R_SIZE_MAX: Int
+export _SC_LOGIN_NAME_MAX: Int
+export _SC_TTY_NAME_MAX: Int
+export _SC_THREAD_DESTRUCTOR_ITERATIONS: Int
+export _SC_THREAD_KEYS_MAX: Int
+export _SC_THREAD_STACK_MIN: Int
+export _SC_THREAD_THREADS_MAX: Int
+export _SC_THREAD_ATTR_STACKADDR: Int
+export _SC_THREAD_ATTR_STACKSIZE: Int
+export _SC_THREAD_PRIORITY_SCHEDULING: Int
+export _SC_THREAD_PRIO_INHERIT: Int
+export _SC_THREAD_PRIO_PROTECT: Int
+export _SC_THREAD_PROCESS_SHARED: Int
+export _SC_NPROCESSORS_CONF: Int
+export _SC_NPROCESSORS_ONLN: Int
+export _SC_PHYS_PAGES: Int
+export _SC_AVPHYS_PAGES: Int
+export _SC_ATEXIT_MAX: Int
+export _SC_PASS_MAX: Int
+export _SC_XOPEN_VERSION: Int
+export _SC_XOPEN_XCU_VERSION: Int
+export _SC_XOPEN_UNIX: Int
+export _SC_XOPEN_CRYPT: Int
+export _SC_XOPEN_ENH_I18N: Int
+export _SC_XOPEN_SHM: Int
+export _SC_2_CHAR_TERM: Int
+export _SC_2_C_VERSION: Int
+export _SC_2_UPE: Int
+export _SC_XOPEN_XPG2: Int
+export _SC_XOPEN_XPG3: Int
+export _SC_XOPEN_XPG4: Int
+export _SC_CHAR_BIT: Int
+export _SC_CHAR_MAX: Int
+export _SC_CHAR_MIN: Int
+export _SC_INT_MAX: Int
+export _SC_INT_MIN: Int
+export _SC_LONG_BIT: Int
+export _SC_WORD_BIT: Int
+export _SC_MB_LEN_MAX: Int
+export _SC_NZERO: Int
+export _SC_SSIZE_MAX: Int
+export _SC_SCHAR_MAX: Int
+export _SC_SCHAR_MIN: Int
+export _SC_SHRT_MAX: Int
+export _SC_SHRT_MIN: Int
+export _SC_UCHAR_MAX: Int
+export _SC_UINT_MAX: Int
+export _SC_ULONG_MAX: Int
+export _SC_USHRT_MAX: Int
+export _SC_NL_ARGMAX: Int
+export _SC_NL_LANGMAX: Int
+export _SC_NL_MSGMAX: Int
+export _SC_NL_NMAX: Int
+export _SC_NL_SETMAX: Int
+export _SC_NL_TEXTMAX: Int
+export _SC_XBS5_ILP32_OFF32: Int
+export _SC_XBS5_ILP32_OFFBIG: Int
+export _SC_XBS5_LP64_OFF64: Int
+export _SC_XBS5_LPBIG_OFFBIG: Int
+export _SC_XOPEN_LEGACY: Int
+export _SC_XOPEN_REALTIME: Int
+export _SC_XOPEN_REALTIME_THREADS: Int
+export _SC_ADVISORY_INFO: Int
+export _SC_BARRIERS: Int
+export _SC_BASE: Int
+export _SC_C_LANG_SUPPORT: Int
+export _SC_C_LANG_SUPPORT_R: Int
+export _SC_CLOCK_SELECTION: Int
+export _SC_CPUTIME: Int
+export _SC_THREAD_CPUTIME: Int
+export _SC_DEVICE_IO: Int
+export _SC_DEVICE_SPECIFIC: Int
+export _SC_DEVICE_SPECIFIC_R: Int
+export _SC_FD_MGMT: Int
+export _SC_FIFO: Int
+export _SC_PIPE: Int
+export _SC_FILE_ATTRIBUTES: Int
+export _SC_FILE_LOCKING: Int
+export _SC_FILE_SYSTEM: Int
+export _SC_MONOTONIC_CLOCK: Int
+export _SC_MULTI_PROCESS: Int
+export _SC_SINGLE_PROCESS: Int
+export _SC_NETWORKING: Int
+export _SC_READER_WRITER_LOCKS: Int
+export _SC_SPIN_LOCKS: Int
+export _SC_REGEXP: Int
+export _SC_REGEX_VERSION: Int
+export _SC_SHELL: Int
+export _SC_SIGNALS: Int
+export _SC_SPAWN: Int
+export _SC_SPORADIC_SERVER: Int
+export _SC_THREAD_SPORADIC_SERVER: Int
+export _SC_SYSTEM_DATABASE: Int
+export _SC_SYSTEM_DATABASE_R: Int
+export _SC_TIMEOUTS: Int
+export _SC_TYPED_MEMORY_OBJECTS: Int
+export _SC_USER_GROUPS: Int
+export _SC_USER_GROUPS_R: Int
+export _SC_2_PBS: Int
+export _SC_2_PBS_ACCOUNTING: Int
+export _SC_2_PBS_LOCATE: Int
+export _SC_2_PBS_MESSAGE: Int
+export _SC_2_PBS_TRACK: Int
+export _SC_SYMLOOP_MAX: Int
+export _SC_STREAMS: Int
+export _SC_2_PBS_CHECKPOINT: Int
+export _SC_V6_ILP32_OFF32: Int
+export _SC_V6_ILP32_OFFBIG: Int
+export _SC_V6_LP64_OFF64: Int
+export _SC_V6_LPBIG_OFFBIG: Int
+export _SC_HOST_NAME_MAX: Int
+export _SC_TRACE: Int
+export _SC_TRACE_EVENT_FILTER: Int
+export _SC_TRACE_INHERIT: Int
+export _SC_TRACE_LOG: Int
+export _SC_LEVEL1_ICACHE_SIZE: Int
+export _SC_LEVEL1_ICACHE_ASSOC: Int
+export _SC_LEVEL1_ICACHE_LINESIZE: Int
+export _SC_LEVEL1_DCACHE_SIZE: Int
+export _SC_LEVEL1_DCACHE_ASSOC: Int
+export _SC_LEVEL1_DCACHE_LINESIZE: Int
+export _SC_LEVEL2_CACHE_SIZE: Int
+export _SC_LEVEL2_CACHE_ASSOC: Int
+export _SC_LEVEL2_CACHE_LINESIZE: Int
+export _SC_LEVEL3_CACHE_SIZE: Int
+export _SC_LEVEL3_CACHE_ASSOC: Int
+export _SC_LEVEL3_CACHE_LINESIZE: Int
+export _SC_LEVEL4_CACHE_SIZE: Int
+export _SC_LEVEL4_CACHE_ASSOC: Int
+export _SC_LEVEL4_CACHE_LINESIZE: Int
+export _SC_IPV6: Int
+export _SC_RAW_SOCKETS: Int
+export _SC_V7_ILP32_OFF32: Int
+export _SC_V7_ILP32_OFFBIG: Int
+export _SC_V7_LP64_OFF64: Int
+export _SC_V7_LPBIG_OFFBIG: Int
+export _SC_SS_REPL_MAX: Int
+export _SC_TRACE_EVENT_NAME_MAX: Int
+export _SC_TRACE_NAME_MAX: Int
+export _SC_TRACE_SYS_MAX: Int
+export _SC_TRACE_USER_EVENT_MAX: Int
+export _SC_XOPEN_STREAMS: Int
+export _SC_THREAD_ROBUST_PRIO_INHERIT: Int
+export _SC_THREAD_ROBUST_PRIO_PROTECT: Int
+export _SC_MINSIGSTKSZ: Int
+export _SC_SIGSTKSZ: Int
+export _CS_PATH: Int
+export _CS_V6_WIDTH_RESTRICTED_ENVS: Int
+export _CS_GNU_LIBC_VERSION: Int
+export _CS_GNU_LIBPTHREAD_VERSION: Int
+export _CS_V5_WIDTH_RESTRICTED_ENVS: Int
+export _CS_V7_WIDTH_RESTRICTED_ENVS: Int
+export _CS_LFS_CFLAGS: Int
+export _CS_LFS_LDFLAGS: Int
+export _CS_LFS_LIBS: Int
+export _CS_LFS_LINTFLAGS: Int
+export _CS_LFS64_CFLAGS: Int
+export _CS_LFS64_LDFLAGS: Int
+export _CS_LFS64_LIBS: Int
+export _CS_LFS64_LINTFLAGS: Int
+export _CS_XBS5_ILP32_OFF32_CFLAGS: Int
+export _CS_XBS5_ILP32_OFF32_LDFLAGS: Int
+export _CS_XBS5_ILP32_OFF32_LIBS: Int
+export _CS_XBS5_ILP32_OFF32_LINTFLAGS: Int
+export _CS_XBS5_ILP32_OFFBIG_CFLAGS: Int
+export _CS_XBS5_ILP32_OFFBIG_LDFLAGS: Int
+export _CS_XBS5_ILP32_OFFBIG_LIBS: Int
+export _CS_XBS5_ILP32_OFFBIG_LINTFLAGS: Int
+export _CS_XBS5_LP64_OFF64_CFLAGS: Int
+export _CS_XBS5_LP64_OFF64_LDFLAGS: Int
+export _CS_XBS5_LP64_OFF64_LIBS: Int
+export _CS_XBS5_LP64_OFF64_LINTFLAGS: Int
+export _CS_XBS5_LPBIG_OFFBIG_CFLAGS: Int
+export _CS_XBS5_LPBIG_OFFBIG_LDFLAGS: Int
+export _CS_XBS5_LPBIG_OFFBIG_LIBS: Int
+export _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFF32_CFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFF32_LDFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFF32_LIBS: Int
+export _CS_POSIX_V6_ILP32_OFF32_LINTFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS: Int
+export _CS_POSIX_V6_ILP32_OFFBIG_LIBS: Int
+export _CS_POSIX_V6_ILP32_OFFBIG_LINTFLAGS: Int
+export _CS_POSIX_V6_LP64_OFF64_CFLAGS: Int
+export _CS_POSIX_V6_LP64_OFF64_LDFLAGS: Int
+export _CS_POSIX_V6_LP64_OFF64_LIBS: Int
+export _CS_POSIX_V6_LP64_OFF64_LINTFLAGS: Int
+export _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS: Int
+export _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS: Int
+export _CS_POSIX_V6_LPBIG_OFFBIG_LIBS: Int
+export _CS_POSIX_V6_LPBIG_OFFBIG_LINTFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFF32_CFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFF32_LDFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFF32_LIBS: Int
+export _CS_POSIX_V7_ILP32_OFF32_LINTFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFFBIG_CFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFFBIG_LDFLAGS: Int
+export _CS_POSIX_V7_ILP32_OFFBIG_LIBS: Int
+export _CS_POSIX_V7_ILP32_OFFBIG_LINTFLAGS: Int
+export _CS_POSIX_V7_LP64_OFF64_CFLAGS: Int
+export _CS_POSIX_V7_LP64_OFF64_LDFLAGS: Int
+export _CS_POSIX_V7_LP64_OFF64_LIBS: Int
+export _CS_POSIX_V7_LP64_OFF64_LINTFLAGS: Int
+export _CS_POSIX_V7_LPBIG_OFFBIG_CFLAGS: Int
+export _CS_POSIX_V7_LPBIG_OFFBIG_LDFLAGS: Int
+export _CS_POSIX_V7_LPBIG_OFFBIG_LIBS: Int
+export _CS_POSIX_V7_LPBIG_OFFBIG_LINTFLAGS: Int
+export _CS_V6_ENV: Int
+export _CS_V7_ENV: Int
+export unix: Int
+export linux: Int
+export STDIN_FILENO: Int
+export STDOUT_FILENO: Int
+export STDERR_FILENO: Int
+export R_OK: Int
+export W_OK: Int
+export X_OK: Int
+export F_OK: Int
+export SEEK_SET: Int
+export SEEK_CUR: Int
+export SEEK_END: Int
+export SEEK_DATA: Int
+export SEEK_HOLE: Int
+export L_SET: Int
+export L_INCR: Int
+export L_XTND: Int
+export F_ULOCK: Int
+export F_LOCK: Int
+export F_TLOCK: Int
+export F_TEST: Int
+export CLOSE_RANGE_UNSHARE: Int
+export CLOSE_RANGE_CLOEXEC: Int
+
+--- ffi: int (const char *, int)
+export Access: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, int)
+export Euidaccess: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, int)
+export Eaccess: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, const char *, int, int)
+export Faccessat: (Int, Bytes, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: __off_t (int, __off_t, int)
+export Lseek: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: __off64_t (int, __off64_t, int)
+export Lseek64: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Close: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: void (int)
+export Closefrom: (Int) ~[1]~> Result<(), Errno>
+
+--- ffi: ssize_t (int, void *, size_t)
+export Read: (Int) ~[1]~> Result<Bytes, Errno>
+
+--- ffi: ssize_t (int, const void *, size_t)
+export Write: (Int, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: ssize_t (int, void *, size_t, __off_t)
+export Pread: (Int, Handle, Nat, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: ssize_t (int, const void *, size_t, __off_t)
+export Pwrite: (Int, Bytes, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: ssize_t (int, void *, size_t, __off64_t)
+export Pread64: (Int, Handle, Nat, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: ssize_t (int, const void *, size_t, __off64_t)
+export Pwrite64: (Int, Bytes, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: unsigned int (unsigned int)
+export Alarm: (Nat) ~[1]~> Result<Nat, Errno>
+
+--- ffi: unsigned int (unsigned int)
+export Sleep: (Nat) ~[1]~> Result<Nat, Errno>
+
+--- ffi: __useconds_t (__useconds_t, __useconds_t)
+export Ualarm: (Nat, Nat) ~[1]~> Result<Nat, Errno>
+
+--- ffi: int (__useconds_t)
+export Usleep: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Pause: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, __uid_t, __gid_t)
+export Chown: (Bytes, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, __uid_t, __gid_t)
+export Fchown: (Int, Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, __uid_t, __gid_t)
+export Lchown: (Bytes, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, const char *, __uid_t, __gid_t, int)
+export Fchownat: (Int, Bytes, Nat, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Chdir: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Fchdir: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(void)
+export GetCurrentDirName: () ~[1]~> Result<String, Errno>
+
+--- ffi: char *(char *)
+export Getwd: (String) ~[1]~> Result<String, Errno>
+
+--- ffi: int (int)
+export Dup: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int)
+export Dup2: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int, int)
+export Dup3: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, const char *, ...)
+export Execle: (String, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, const char *, ...)
+export Execl: (String, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, const char *, ...)
+export Execlp: (String, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Nice: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: void (int) __attribute__((noreturn))
+export Exit: (Int) ~[1]~> Result<(), Errno>
+
+--- ffi: long (const char *, int)
+export Pathconf: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: long (int, int)
+export Fpathconf: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: long (int)
+export Sysconf: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Getpid: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Getppid: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Getpgrp: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (__pid_t)
+export Getpgid: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (__pid_t)
+export Getpgid: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__pid_t, __pid_t)
+export Setpgid: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Setpgrp: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Setsid: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (__pid_t)
+export Getsid: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: __uid_t (void)
+export Getuid: () ~[1]~> Result<Nat, Errno>
+
+--- ffi: __uid_t (void)
+export Geteuid: () ~[1]~> Result<Nat, Errno>
+
+--- ffi: __gid_t (void)
+export Getgid: () ~[1]~> Result<Nat, Errno>
+
+--- ffi: __gid_t (void)
+export Getegid: () ~[1]~> Result<Nat, Errno>
+
+--- ffi: int (__gid_t)
+export GroupMember: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__uid_t)
+export Setuid: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__uid_t, __uid_t)
+export Setreuid: (Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__uid_t)
+export Seteuid: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__gid_t)
+export Setgid: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__gid_t, __gid_t)
+export Setregid: (Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__gid_t)
+export Setegid: (Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__uid_t, __uid_t, __uid_t)
+export Setresuid: (Nat, Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (__gid_t, __gid_t, __gid_t)
+export Setresgid: (Nat, Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Fork: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Vfork: () ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (void)
+export Fork: () ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(int)
+export Ttyname: (Int) ~[1]~> Result<String, Errno>
+
+--- ffi: int (int)
+export Isatty: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Ttyslot: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, const char *)
+export Link: (String, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, const char *, int, const char *, int)
+export Linkat: (Int, Bytes, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, const char *)
+export Symlink: (String, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, int, const char *)
+export Symlinkat: (Bytes, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Unlink: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, const char *, int)
+export Unlinkat: (Int, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Rmdir: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: __pid_t (int)
+export Tcgetpgrp: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, __pid_t)
+export Tcsetpgrp: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(void)
+export Getlogin: () ~[1]~> Result<String, Errno>
+
+--- ffi: int (const char *)
+export Setlogin: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, size_t)
+export Sethostname: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (long)
+export Sethostid: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, size_t)
+export Setdomainname: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Vhangup: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Revoke: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Acct: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(void)
+export Getusershell: () ~[1]~> Result<String, Errno>
+
+--- ffi: void (void)
+export Endusershell: () ~[1]~> Result<(), Errno>
+
+--- ffi: void (void)
+export Setusershell: () ~[1]~> Result<(), Errno>
+
+--- ffi: int (int, int)
+export Daemon: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *)
+export Chroot: (String) ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(const char *)
+export Getpass: (String) ~[1]~> Result<String, Errno>
+
+--- ffi: int (int)
+export Fsync: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Syncfs: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: long (void)
+export Gethostid: () ~[1]~> Result<Int, Errno>
+
+--- ffi: void (void)
+export Sync: () ~[1]~> Result<(), Errno>
+
+--- ffi: int (void)
+export Getpagesize: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void)
+export Getdtablesize: () ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, __off_t)
+export Truncate: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, __off64_t)
+export Truncate64: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, __off_t)
+export Ftruncate: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, __off64_t)
+export Ftruncate64: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (void *)
+export Brk: (Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: void *(intptr_t)
+export Sbrk: (Int) ~[1]~> Result<Handle, Errno>
+
+--- ffi: long (long, ...)
+export Syscall: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int, __off_t)
+export Lockf: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int, __off64_t)
+export Lockf64: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Fdatasync: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: char *(const char *, const char *)
+export Crypt: (String, String) ~[1]~> Result<String, Errno>
+
+--- ffi: int (void *, size_t)
+export Getentropy: (Handle, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (unsigned int, unsigned int, int)
+export CloseRange: (Nat, Nat, Int) ~[1]~> Result<Int, Errno>
+

@@ -1,31 +1,123 @@
 --- Generated port for libc.time
---- C target: x86_64-unknown-linux
+--- ffi target: x86_64-unknown-linux-gnu
 
-from "ffi" import { FFI, Errno }
+from "ffi" import { Errno }
 from "result" import { Result }
 
-export pid_t := Int
+export timespec := {
+  tv_sec: Int,
+  tv_nsec: Int
+}
 
---- C: clock_t (void)
--- TODO(n-dim): effect row
+export unix: Int
+export linux: Int
+export CLOCKS_PER_SEC: Int
+export CLOCK_REALTIME: Int
+export CLOCK_MONOTONIC: Int
+export CLOCK_PROCESS_CPUTIME_ID: Int
+export CLOCK_THREAD_CPUTIME_ID: Int
+export CLOCK_MONOTONIC_RAW: Int
+export CLOCK_REALTIME_COARSE: Int
+export CLOCK_MONOTONIC_COARSE: Int
+export CLOCK_BOOTTIME: Int
+export CLOCK_REALTIME_ALARM: Int
+export CLOCK_BOOTTIME_ALARM: Int
+export CLOCK_TAI: Int
+export TIMER_ABSTIME: Int
+export ADJ_OFFSET: Int
+export ADJ_FREQUENCY: Int
+export ADJ_MAXERROR: Int
+export ADJ_ESTERROR: Int
+export ADJ_STATUS: Int
+export ADJ_TIMECONST: Int
+export ADJ_TAI: Int
+export ADJ_SETOFFSET: Int
+export ADJ_MICRO: Int
+export ADJ_NANO: Int
+export ADJ_TICK: Int
+export ADJ_OFFSET_SINGLESHOT: Int
+export ADJ_OFFSET_SS_READ: Int
+export MOD_OFFSET: Int
+export MOD_FREQUENCY: Int
+export MOD_MAXERROR: Int
+export MOD_ESTERROR: Int
+export MOD_STATUS: Int
+export MOD_TIMECONST: Int
+export MOD_CLKB: Int
+export MOD_CLKA: Int
+export MOD_TAI: Int
+export MOD_MICRO: Int
+export MOD_NANO: Int
+export STA_PLL: Int
+export STA_PPSFREQ: Int
+export STA_PPSTIME: Int
+export STA_FLL: Int
+export STA_INS: Int
+export STA_DEL: Int
+export STA_UNSYNC: Int
+export STA_FREQHOLD: Int
+export STA_PPSSIGNAL: Int
+export STA_PPSJITTER: Int
+export STA_PPSWANDER: Int
+export STA_PPSERROR: Int
+export STA_CLOCKERR: Int
+export STA_NANO: Int
+export STA_MODE: Int
+export STA_CLK: Int
+export STA_RONLY: Int
+export TIME_UTC: Int
+export TIME_MONOTONIC: Int
+export TIME_ACTIVE: Int
+export TIME_THREAD_ACTIVE: Int
+
+--- ffi: clock_t (void)
 export Clock: () ~[1]~> Result<Int, Errno>
 
---- C: double (time_t, time_t)
--- TODO(n-dim): effect row
+--- ffi: double (time_t, time_t)
 export Difftime: (Int, Int) ~[1]~> Result<Float, Errno>
 
---- C: void (void)
--- TODO(n-dim): effect row
-export Tzset: () ~[1]~> Result < (), Errno >
+--- ffi: time_t (struct tm *)
+export Mktime: (Handle) ~[1]~> Result<Int, Errno>
 
---- C: int (int)
--- TODO(n-dim): effect row
+--- ffi: char *(const char *restrict, const char *restrict, struct tm *)
+export Strptime: (String, String, Handle) ~[1]~> Result<String, Errno>
+
+--- ffi: char *(const char *restrict, const char *restrict, struct tm *, locale_t)
+export StrptimeL: (String, String, Handle, Handle) ~[1]~> Result<String, Errno>
+
+--- ffi: void (void)
+export Tzset: () ~[1]~> Result<(), Errno>
+
+--- ffi: time_t (struct tm *)
+export Timegm: (Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: time_t (struct tm *)
+export Timelocal: (Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
 export Dysize: (Int) ~[1]~> Result<Int, Errno>
 
---- C: int (timer_t)
--- TODO(n-dim): effect row
+--- ffi: int (clockid_t, struct timespec *)
+export ClockGetres: (Int) ~[1]~> Result<timespec, Errno>
+
+--- ffi: int (clockid_t, struct timespec *)
+export ClockGettime: (Int) ~[1]~> Result<timespec, Errno>
+
+--- ffi: int (timer_t)
 export TimerDelete: (Handle) ~[1]~> Result<Int, Errno>
 
---- C: int (timer_t)
--- TODO(n-dim): effect row
+--- ffi: int (timer_t, struct itimerspec *)
+export TimerGettime: (Handle, Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (timer_t)
 export TimerGetoverrun: (Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (struct timespec *, int)
+export TimespecGet: (Int) ~[1]~> Result<timespec, Errno>
+
+--- ffi: int (struct timespec *, int)
+export TimespecGetres: (Int) ~[1]~> Result<timespec, Errno>
+
+--- ffi: int (const char *restrict, struct tm *restrict)
+export GetdateR: (String, Handle) ~[1]~> Result<Int, Errno>
+

@@ -1,0 +1,1252 @@
+--- Generated adapter for libc-c-linux-x86_64/unistd
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+from "../libc/unistd" import { Access, Euidaccess, Eaccess, Faccessat, Lseek, Lseek64, Close, Closefrom, Read, Write, Pread, Pwrite, Pread64, Pwrite64, Alarm, Sleep, Ualarm, Usleep, Pause, Chown, Fchown, Lchown, Fchownat, Chdir, Fchdir, GetCurrentDirName, Getwd, Dup, Dup2, Dup3, Execle, Execl, Execlp, Nice, Exit, Pathconf, Fpathconf, Sysconf, Getpid, Getppid, Getpgrp, Getpgid, Getpgid, Setpgid, Setpgrp, Setsid, Getsid, Getuid, Geteuid, Getgid, Getegid, GroupMember, Setuid, Setreuid, Seteuid, Setgid, Setregid, Setegid, Setresuid, Setresgid, Fork, Vfork, Fork, Ttyname, Isatty, Ttyslot, Link, Linkat, Symlink, Symlinkat, Unlink, Unlinkat, Rmdir, Tcgetpgrp, Tcsetpgrp, Getlogin, Setlogin, Sethostname, Sethostid, Setdomainname, Vhangup, Revoke, Acct, Getusershell, Endusershell, Setusershell, Daemon, Chroot, Getpass, Fsync, Syncfs, Gethostid, Sync, Getpagesize, Getdtablesize, Truncate, Truncate64, Ftruncate, Ftruncate64, Brk, Sbrk, Syscall, Lockf, Lockf64, Fdatasync, Crypt, Getentropy, CloseRange }
+
+export _PC_LINK_MAX: Int := 0
+export _PC_MAX_CANON: Int := 1
+export _PC_MAX_INPUT: Int := 2
+export _PC_NAME_MAX: Int := 3
+export _PC_PATH_MAX: Int := 4
+export _PC_PIPE_BUF: Int := 5
+export _PC_CHOWN_RESTRICTED: Int := 6
+export _PC_NO_TRUNC: Int := 7
+export _PC_VDISABLE: Int := 8
+export _PC_SYNC_IO: Int := 9
+export _PC_ASYNC_IO: Int := 10
+export _PC_PRIO_IO: Int := 11
+export _PC_SOCK_MAXBUF: Int := 12
+export _PC_FILESIZEBITS: Int := 13
+export _PC_REC_INCR_XFER_SIZE: Int := 14
+export _PC_REC_MAX_XFER_SIZE: Int := 15
+export _PC_REC_MIN_XFER_SIZE: Int := 16
+export _PC_REC_XFER_ALIGN: Int := 17
+export _PC_ALLOC_SIZE_MIN: Int := 18
+export _PC_SYMLINK_MAX: Int := 19
+export _PC_2_SYMLINKS: Int := 20
+export _SC_ARG_MAX: Int := 0
+export _SC_CHILD_MAX: Int := 1
+export _SC_CLK_TCK: Int := 2
+export _SC_NGROUPS_MAX: Int := 3
+export _SC_OPEN_MAX: Int := 4
+export _SC_STREAM_MAX: Int := 5
+export _SC_TZNAME_MAX: Int := 6
+export _SC_JOB_CONTROL: Int := 7
+export _SC_SAVED_IDS: Int := 8
+export _SC_REALTIME_SIGNALS: Int := 9
+export _SC_PRIORITY_SCHEDULING: Int := 10
+export _SC_TIMERS: Int := 11
+export _SC_ASYNCHRONOUS_IO: Int := 12
+export _SC_PRIORITIZED_IO: Int := 13
+export _SC_SYNCHRONIZED_IO: Int := 14
+export _SC_FSYNC: Int := 15
+export _SC_MAPPED_FILES: Int := 16
+export _SC_MEMLOCK: Int := 17
+export _SC_MEMLOCK_RANGE: Int := 18
+export _SC_MEMORY_PROTECTION: Int := 19
+export _SC_MESSAGE_PASSING: Int := 20
+export _SC_SEMAPHORES: Int := 21
+export _SC_SHARED_MEMORY_OBJECTS: Int := 22
+export _SC_AIO_LISTIO_MAX: Int := 23
+export _SC_AIO_MAX: Int := 24
+export _SC_AIO_PRIO_DELTA_MAX: Int := 25
+export _SC_DELAYTIMER_MAX: Int := 26
+export _SC_MQ_OPEN_MAX: Int := 27
+export _SC_MQ_PRIO_MAX: Int := 28
+export _SC_VERSION: Int := 29
+export _SC_PAGESIZE: Int := 30
+export _SC_RTSIG_MAX: Int := 31
+export _SC_SEM_NSEMS_MAX: Int := 32
+export _SC_SEM_VALUE_MAX: Int := 33
+export _SC_SIGQUEUE_MAX: Int := 34
+export _SC_TIMER_MAX: Int := 35
+export _SC_BC_BASE_MAX: Int := 36
+export _SC_BC_DIM_MAX: Int := 37
+export _SC_BC_SCALE_MAX: Int := 38
+export _SC_BC_STRING_MAX: Int := 39
+export _SC_COLL_WEIGHTS_MAX: Int := 40
+export _SC_EQUIV_CLASS_MAX: Int := 41
+export _SC_EXPR_NEST_MAX: Int := 42
+export _SC_LINE_MAX: Int := 43
+export _SC_RE_DUP_MAX: Int := 44
+export _SC_CHARCLASS_NAME_MAX: Int := 45
+export _SC_2_VERSION: Int := 46
+export _SC_2_C_BIND: Int := 47
+export _SC_2_C_DEV: Int := 48
+export _SC_2_FORT_DEV: Int := 49
+export _SC_2_FORT_RUN: Int := 50
+export _SC_2_SW_DEV: Int := 51
+export _SC_2_LOCALEDEF: Int := 52
+export _SC_PII: Int := 53
+export _SC_PII_XTI: Int := 54
+export _SC_PII_SOCKET: Int := 55
+export _SC_PII_INTERNET: Int := 56
+export _SC_PII_OSI: Int := 57
+export _SC_POLL: Int := 58
+export _SC_SELECT: Int := 59
+export _SC_UIO_MAXIOV: Int := 60
+export _SC_IOV_MAX: Int := 60
+export _SC_PII_INTERNET_STREAM: Int := 61
+export _SC_PII_INTERNET_DGRAM: Int := 62
+export _SC_PII_OSI_COTS: Int := 63
+export _SC_PII_OSI_CLTS: Int := 64
+export _SC_PII_OSI_M: Int := 65
+export _SC_T_IOV_MAX: Int := 66
+export _SC_THREADS: Int := 67
+export _SC_THREAD_SAFE_FUNCTIONS: Int := 68
+export _SC_GETGR_R_SIZE_MAX: Int := 69
+export _SC_GETPW_R_SIZE_MAX: Int := 70
+export _SC_LOGIN_NAME_MAX: Int := 71
+export _SC_TTY_NAME_MAX: Int := 72
+export _SC_THREAD_DESTRUCTOR_ITERATIONS: Int := 73
+export _SC_THREAD_KEYS_MAX: Int := 74
+export _SC_THREAD_STACK_MIN: Int := 75
+export _SC_THREAD_THREADS_MAX: Int := 76
+export _SC_THREAD_ATTR_STACKADDR: Int := 77
+export _SC_THREAD_ATTR_STACKSIZE: Int := 78
+export _SC_THREAD_PRIORITY_SCHEDULING: Int := 79
+export _SC_THREAD_PRIO_INHERIT: Int := 80
+export _SC_THREAD_PRIO_PROTECT: Int := 81
+export _SC_THREAD_PROCESS_SHARED: Int := 82
+export _SC_NPROCESSORS_CONF: Int := 83
+export _SC_NPROCESSORS_ONLN: Int := 84
+export _SC_PHYS_PAGES: Int := 85
+export _SC_AVPHYS_PAGES: Int := 86
+export _SC_ATEXIT_MAX: Int := 87
+export _SC_PASS_MAX: Int := 88
+export _SC_XOPEN_VERSION: Int := 89
+export _SC_XOPEN_XCU_VERSION: Int := 90
+export _SC_XOPEN_UNIX: Int := 91
+export _SC_XOPEN_CRYPT: Int := 92
+export _SC_XOPEN_ENH_I18N: Int := 93
+export _SC_XOPEN_SHM: Int := 94
+export _SC_2_CHAR_TERM: Int := 95
+export _SC_2_C_VERSION: Int := 96
+export _SC_2_UPE: Int := 97
+export _SC_XOPEN_XPG2: Int := 98
+export _SC_XOPEN_XPG3: Int := 99
+export _SC_XOPEN_XPG4: Int := 100
+export _SC_CHAR_BIT: Int := 101
+export _SC_CHAR_MAX: Int := 102
+export _SC_CHAR_MIN: Int := 103
+export _SC_INT_MAX: Int := 104
+export _SC_INT_MIN: Int := 105
+export _SC_LONG_BIT: Int := 106
+export _SC_WORD_BIT: Int := 107
+export _SC_MB_LEN_MAX: Int := 108
+export _SC_NZERO: Int := 109
+export _SC_SSIZE_MAX: Int := 110
+export _SC_SCHAR_MAX: Int := 111
+export _SC_SCHAR_MIN: Int := 112
+export _SC_SHRT_MAX: Int := 113
+export _SC_SHRT_MIN: Int := 114
+export _SC_UCHAR_MAX: Int := 115
+export _SC_UINT_MAX: Int := 116
+export _SC_ULONG_MAX: Int := 117
+export _SC_USHRT_MAX: Int := 118
+export _SC_NL_ARGMAX: Int := 119
+export _SC_NL_LANGMAX: Int := 120
+export _SC_NL_MSGMAX: Int := 121
+export _SC_NL_NMAX: Int := 122
+export _SC_NL_SETMAX: Int := 123
+export _SC_NL_TEXTMAX: Int := 124
+export _SC_XBS5_ILP32_OFF32: Int := 125
+export _SC_XBS5_ILP32_OFFBIG: Int := 126
+export _SC_XBS5_LP64_OFF64: Int := 127
+export _SC_XBS5_LPBIG_OFFBIG: Int := 128
+export _SC_XOPEN_LEGACY: Int := 129
+export _SC_XOPEN_REALTIME: Int := 130
+export _SC_XOPEN_REALTIME_THREADS: Int := 131
+export _SC_ADVISORY_INFO: Int := 132
+export _SC_BARRIERS: Int := 133
+export _SC_BASE: Int := 134
+export _SC_C_LANG_SUPPORT: Int := 135
+export _SC_C_LANG_SUPPORT_R: Int := 136
+export _SC_CLOCK_SELECTION: Int := 137
+export _SC_CPUTIME: Int := 138
+export _SC_THREAD_CPUTIME: Int := 139
+export _SC_DEVICE_IO: Int := 140
+export _SC_DEVICE_SPECIFIC: Int := 141
+export _SC_DEVICE_SPECIFIC_R: Int := 142
+export _SC_FD_MGMT: Int := 143
+export _SC_FIFO: Int := 144
+export _SC_PIPE: Int := 145
+export _SC_FILE_ATTRIBUTES: Int := 146
+export _SC_FILE_LOCKING: Int := 147
+export _SC_FILE_SYSTEM: Int := 148
+export _SC_MONOTONIC_CLOCK: Int := 149
+export _SC_MULTI_PROCESS: Int := 150
+export _SC_SINGLE_PROCESS: Int := 151
+export _SC_NETWORKING: Int := 152
+export _SC_READER_WRITER_LOCKS: Int := 153
+export _SC_SPIN_LOCKS: Int := 154
+export _SC_REGEXP: Int := 155
+export _SC_REGEX_VERSION: Int := 156
+export _SC_SHELL: Int := 157
+export _SC_SIGNALS: Int := 158
+export _SC_SPAWN: Int := 159
+export _SC_SPORADIC_SERVER: Int := 160
+export _SC_THREAD_SPORADIC_SERVER: Int := 161
+export _SC_SYSTEM_DATABASE: Int := 162
+export _SC_SYSTEM_DATABASE_R: Int := 163
+export _SC_TIMEOUTS: Int := 164
+export _SC_TYPED_MEMORY_OBJECTS: Int := 165
+export _SC_USER_GROUPS: Int := 166
+export _SC_USER_GROUPS_R: Int := 167
+export _SC_2_PBS: Int := 168
+export _SC_2_PBS_ACCOUNTING: Int := 169
+export _SC_2_PBS_LOCATE: Int := 170
+export _SC_2_PBS_MESSAGE: Int := 171
+export _SC_2_PBS_TRACK: Int := 172
+export _SC_SYMLOOP_MAX: Int := 173
+export _SC_STREAMS: Int := 174
+export _SC_2_PBS_CHECKPOINT: Int := 175
+export _SC_V6_ILP32_OFF32: Int := 176
+export _SC_V6_ILP32_OFFBIG: Int := 177
+export _SC_V6_LP64_OFF64: Int := 178
+export _SC_V6_LPBIG_OFFBIG: Int := 179
+export _SC_HOST_NAME_MAX: Int := 180
+export _SC_TRACE: Int := 181
+export _SC_TRACE_EVENT_FILTER: Int := 182
+export _SC_TRACE_INHERIT: Int := 183
+export _SC_TRACE_LOG: Int := 184
+export _SC_LEVEL1_ICACHE_SIZE: Int := 185
+export _SC_LEVEL1_ICACHE_ASSOC: Int := 186
+export _SC_LEVEL1_ICACHE_LINESIZE: Int := 187
+export _SC_LEVEL1_DCACHE_SIZE: Int := 188
+export _SC_LEVEL1_DCACHE_ASSOC: Int := 189
+export _SC_LEVEL1_DCACHE_LINESIZE: Int := 190
+export _SC_LEVEL2_CACHE_SIZE: Int := 191
+export _SC_LEVEL2_CACHE_ASSOC: Int := 192
+export _SC_LEVEL2_CACHE_LINESIZE: Int := 193
+export _SC_LEVEL3_CACHE_SIZE: Int := 194
+export _SC_LEVEL3_CACHE_ASSOC: Int := 195
+export _SC_LEVEL3_CACHE_LINESIZE: Int := 196
+export _SC_LEVEL4_CACHE_SIZE: Int := 197
+export _SC_LEVEL4_CACHE_ASSOC: Int := 198
+export _SC_LEVEL4_CACHE_LINESIZE: Int := 199
+export _SC_IPV6: Int := 235
+export _SC_RAW_SOCKETS: Int := 236
+export _SC_V7_ILP32_OFF32: Int := 237
+export _SC_V7_ILP32_OFFBIG: Int := 238
+export _SC_V7_LP64_OFF64: Int := 239
+export _SC_V7_LPBIG_OFFBIG: Int := 240
+export _SC_SS_REPL_MAX: Int := 241
+export _SC_TRACE_EVENT_NAME_MAX: Int := 242
+export _SC_TRACE_NAME_MAX: Int := 243
+export _SC_TRACE_SYS_MAX: Int := 244
+export _SC_TRACE_USER_EVENT_MAX: Int := 245
+export _SC_XOPEN_STREAMS: Int := 246
+export _SC_THREAD_ROBUST_PRIO_INHERIT: Int := 247
+export _SC_THREAD_ROBUST_PRIO_PROTECT: Int := 248
+export _SC_MINSIGSTKSZ: Int := 249
+export _SC_SIGSTKSZ: Int := 250
+export _CS_PATH: Int := 0
+export _CS_V6_WIDTH_RESTRICTED_ENVS: Int := 1
+export _CS_GNU_LIBC_VERSION: Int := 2
+export _CS_GNU_LIBPTHREAD_VERSION: Int := 3
+export _CS_V5_WIDTH_RESTRICTED_ENVS: Int := 4
+export _CS_V7_WIDTH_RESTRICTED_ENVS: Int := 5
+export _CS_LFS_CFLAGS: Int := 1000
+export _CS_LFS_LDFLAGS: Int := 1001
+export _CS_LFS_LIBS: Int := 1002
+export _CS_LFS_LINTFLAGS: Int := 1003
+export _CS_LFS64_CFLAGS: Int := 1004
+export _CS_LFS64_LDFLAGS: Int := 1005
+export _CS_LFS64_LIBS: Int := 1006
+export _CS_LFS64_LINTFLAGS: Int := 1007
+export _CS_XBS5_ILP32_OFF32_CFLAGS: Int := 1100
+export _CS_XBS5_ILP32_OFF32_LDFLAGS: Int := 1101
+export _CS_XBS5_ILP32_OFF32_LIBS: Int := 1102
+export _CS_XBS5_ILP32_OFF32_LINTFLAGS: Int := 1103
+export _CS_XBS5_ILP32_OFFBIG_CFLAGS: Int := 1104
+export _CS_XBS5_ILP32_OFFBIG_LDFLAGS: Int := 1105
+export _CS_XBS5_ILP32_OFFBIG_LIBS: Int := 1106
+export _CS_XBS5_ILP32_OFFBIG_LINTFLAGS: Int := 1107
+export _CS_XBS5_LP64_OFF64_CFLAGS: Int := 1108
+export _CS_XBS5_LP64_OFF64_LDFLAGS: Int := 1109
+export _CS_XBS5_LP64_OFF64_LIBS: Int := 1110
+export _CS_XBS5_LP64_OFF64_LINTFLAGS: Int := 1111
+export _CS_XBS5_LPBIG_OFFBIG_CFLAGS: Int := 1112
+export _CS_XBS5_LPBIG_OFFBIG_LDFLAGS: Int := 1113
+export _CS_XBS5_LPBIG_OFFBIG_LIBS: Int := 1114
+export _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS: Int := 1115
+export _CS_POSIX_V6_ILP32_OFF32_CFLAGS: Int := 1116
+export _CS_POSIX_V6_ILP32_OFF32_LDFLAGS: Int := 1117
+export _CS_POSIX_V6_ILP32_OFF32_LIBS: Int := 1118
+export _CS_POSIX_V6_ILP32_OFF32_LINTFLAGS: Int := 1119
+export _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS: Int := 1120
+export _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS: Int := 1121
+export _CS_POSIX_V6_ILP32_OFFBIG_LIBS: Int := 1122
+export _CS_POSIX_V6_ILP32_OFFBIG_LINTFLAGS: Int := 1123
+export _CS_POSIX_V6_LP64_OFF64_CFLAGS: Int := 1124
+export _CS_POSIX_V6_LP64_OFF64_LDFLAGS: Int := 1125
+export _CS_POSIX_V6_LP64_OFF64_LIBS: Int := 1126
+export _CS_POSIX_V6_LP64_OFF64_LINTFLAGS: Int := 1127
+export _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS: Int := 1128
+export _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS: Int := 1129
+export _CS_POSIX_V6_LPBIG_OFFBIG_LIBS: Int := 1130
+export _CS_POSIX_V6_LPBIG_OFFBIG_LINTFLAGS: Int := 1131
+export _CS_POSIX_V7_ILP32_OFF32_CFLAGS: Int := 1132
+export _CS_POSIX_V7_ILP32_OFF32_LDFLAGS: Int := 1133
+export _CS_POSIX_V7_ILP32_OFF32_LIBS: Int := 1134
+export _CS_POSIX_V7_ILP32_OFF32_LINTFLAGS: Int := 1135
+export _CS_POSIX_V7_ILP32_OFFBIG_CFLAGS: Int := 1136
+export _CS_POSIX_V7_ILP32_OFFBIG_LDFLAGS: Int := 1137
+export _CS_POSIX_V7_ILP32_OFFBIG_LIBS: Int := 1138
+export _CS_POSIX_V7_ILP32_OFFBIG_LINTFLAGS: Int := 1139
+export _CS_POSIX_V7_LP64_OFF64_CFLAGS: Int := 1140
+export _CS_POSIX_V7_LP64_OFF64_LDFLAGS: Int := 1141
+export _CS_POSIX_V7_LP64_OFF64_LIBS: Int := 1142
+export _CS_POSIX_V7_LP64_OFF64_LINTFLAGS: Int := 1143
+export _CS_POSIX_V7_LPBIG_OFFBIG_CFLAGS: Int := 1144
+export _CS_POSIX_V7_LPBIG_OFFBIG_LDFLAGS: Int := 1145
+export _CS_POSIX_V7_LPBIG_OFFBIG_LIBS: Int := 1146
+export _CS_POSIX_V7_LPBIG_OFFBIG_LINTFLAGS: Int := 1147
+export _CS_V6_ENV: Int := 1148
+export _CS_V7_ENV: Int := 1149
+export unix: Int := 1
+export linux: Int := 1
+export STDIN_FILENO: Int := 0
+export STDOUT_FILENO: Int := 1
+export STDERR_FILENO: Int := 2
+export R_OK: Int := 4
+export W_OK: Int := 2
+export X_OK: Int := 1
+export F_OK: Int := 0
+export SEEK_SET: Int := 0
+export SEEK_CUR: Int := 1
+export SEEK_END: Int := 2
+export SEEK_DATA: Int := 3
+export SEEK_HOLE: Int := 4
+export L_SET: Int := 0
+export L_INCR: Int := 1
+export L_XTND: Int := 2
+export F_ULOCK: Int := 0
+export F_LOCK: Int := 1
+export F_TLOCK: Int := 2
+export F_TEST: Int := 3
+export CLOSE_RANGE_UNSHARE: Int := 2
+export CLOSE_RANGE_CLOEXEC: Int := 4
+
+export access: Access := (__name) ~[1]~> do {
+  r = call("libc.so.6", "access", [__name], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export euidaccess: Euidaccess := (__name) ~[1]~> do {
+  r = call("libc.so.6", "euidaccess", [__name], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export eaccess: Eaccess := (__name) ~[1]~> do {
+  r = call("libc.so.6", "eaccess", [__name], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export faccessat: Faccessat := (__fd, __file, __flag) ~[1]~> do {
+  r = call("libc.so.6", "faccessat", [__fd, __file, __flag], ["i32", "cbytes", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lseek: Lseek := (__fd, __offset, __whence) ~[1]~> do {
+  r = call("libc.so.6", "lseek", [__fd, __offset, __whence], ["i32", "i64", "i32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lseek64: Lseek64 := (__fd, __offset, __whence) ~[1]~> do {
+  r = call("libc.so.6", "lseek64", [__fd, __offset, __whence], ["i32", "i64", "i32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export close: Close := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "close", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export closefrom: Closefrom := (__lowfd) ~[1]~> do {
+  r = call("libc.so.6", "closefrom", [__lowfd], ["i32"], "void", false)
+  ok(null)
+}
+
+export read: Read := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "read", [__fd], ["i32", "out_buf:65536"], "i64", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r.buf)
+  }
+}
+
+export write: Write := (__fd, __buf) ~[1]~> do {
+  r = call("libc.so.6", "write", [__fd, __buf], ["i32", "in_buf"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export pread: Pread := (__fd, __buf, __nbytes, __offset) ~[1]~> do {
+  r = call("libc.so.6", "pread", [__fd, __buf, __nbytes, __offset], ["i32", "ptr", "i64", "i64"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export pwrite: Pwrite := (__fd, __buf, __offset) ~[1]~> do {
+  r = call("libc.so.6", "pwrite", [__fd, __buf, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export pread64: Pread64 := (__fd, __buf, __nbytes, __offset) ~[1]~> do {
+  r = call("libc.so.6", "pread64", [__fd, __buf, __nbytes, __offset], ["i32", "ptr", "i64", "i64"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export pwrite64: Pwrite64 := (__fd, __buf, __offset) ~[1]~> do {
+  r = call("libc.so.6", "pwrite64", [__fd, __buf, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export alarm: Alarm := (__seconds) ~[1]~> do {
+  r = call("libc.so.6", "alarm", [__seconds], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sleep: Sleep := (__seconds) ~[1]~> do {
+  r = call("libc.so.6", "sleep", [__seconds], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ualarm: Ualarm := (__value, __interval) ~[1]~> do {
+  r = call("libc.so.6", "ualarm", [__value, __interval], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export usleep: Usleep := (__useconds) ~[1]~> do {
+  r = call("libc.so.6", "usleep", [__useconds], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export pause: Pause := () ~[1]~> do {
+  r = call("libc.so.6", "pause", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export chown: Chown := (__file, __group) ~[1]~> do {
+  r = call("libc.so.6", "chown", [__file, __group], ["cbytes", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fchown: Fchown := (__fd, __owner, __group) ~[1]~> do {
+  r = call("libc.so.6", "fchown", [__fd, __owner, __group], ["i32", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lchown: Lchown := (__file, __group) ~[1]~> do {
+  r = call("libc.so.6", "lchown", [__file, __group], ["cbytes", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fchownat: Fchownat := (__fd, __file, __group, __flag) ~[1]~> do {
+  r = call("libc.so.6", "fchownat", [__fd, __file, __group, __flag], ["i32", "cbytes", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export chdir: Chdir := (__path) ~[1]~> do {
+  r = call("libc.so.6", "chdir", [__path], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fchdir: Fchdir := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "fchdir", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export get_current_dir_name: GetCurrentDirName := () ~[1]~> do {
+  r = call("libc.so.6", "get_current_dir_name", [], [], "cstr", false)
+  ok(r)
+}
+
+export getwd: Getwd := (__buf) ~[1]~> do {
+  r = call("libc.so.6", "getwd", [__buf], ["cstr"], "cstr", false)
+  ok(r)
+}
+
+export dup: Dup := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "dup", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export dup2: Dup2 := (__fd, __fd2) ~[1]~> do {
+  r = call("libc.so.6", "dup2", [__fd, __fd2], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export dup3: Dup3 := (__fd, __fd2, __flags) ~[1]~> do {
+  r = call("libc.so.6", "dup3", [__fd, __fd2, __flags], ["i32", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export execle: Execle := (__path, __arg) ~[1]~> do {
+  r = call("libc.so.6", "execle", [__path, __arg], ["cstr", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export execl: Execl := (__path, __arg) ~[1]~> do {
+  r = call("libc.so.6", "execl", [__path, __arg], ["cstr", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export execlp: Execlp := (__file, __arg) ~[1]~> do {
+  r = call("libc.so.6", "execlp", [__file, __arg], ["cstr", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export nice: Nice := (__inc) ~[1]~> do {
+  r = call("libc.so.6", "nice", [__inc], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export _exit: Exit := (__status) ~[1]~> do {
+  r = call("libc.so.6", "_exit", [__status], ["i32"], "void", false)
+  ok(null)
+}
+
+export pathconf: Pathconf := (__path) ~[1]~> do {
+  r = call("libc.so.6", "pathconf", [__path], ["cbytes"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fpathconf: Fpathconf := (__fd, __name) ~[1]~> do {
+  r = call("libc.so.6", "fpathconf", [__fd, __name], ["i32", "i32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sysconf: Sysconf := (__name) ~[1]~> do {
+  r = call("libc.so.6", "sysconf", [__name], ["i32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getpid: Getpid := () ~[1]~> do {
+  r = call("libc.so.6", "getpid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getppid: Getppid := () ~[1]~> do {
+  r = call("libc.so.6", "getppid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getpgrp: Getpgrp := () ~[1]~> do {
+  r = call("libc.so.6", "getpgrp", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export __getpgid: Getpgid := (__pid) ~[1]~> do {
+  r = call("libc.so.6", "__getpgid", [__pid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getpgid: Getpgid := (__pid) ~[1]~> do {
+  r = call("libc.so.6", "getpgid", [__pid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setpgid: Setpgid := (__pid, __pgid) ~[1]~> do {
+  r = call("libc.so.6", "setpgid", [__pid, __pgid], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setpgrp: Setpgrp := () ~[1]~> do {
+  r = call("libc.so.6", "setpgrp", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setsid: Setsid := () ~[1]~> do {
+  r = call("libc.so.6", "setsid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getsid: Getsid := (__pid) ~[1]~> do {
+  r = call("libc.so.6", "getsid", [__pid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getuid: Getuid := () ~[1]~> do {
+  r = call("libc.so.6", "getuid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export geteuid: Geteuid := () ~[1]~> do {
+  r = call("libc.so.6", "geteuid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getgid: Getgid := () ~[1]~> do {
+  r = call("libc.so.6", "getgid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getegid: Getegid := () ~[1]~> do {
+  r = call("libc.so.6", "getegid", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export group_member: GroupMember := (__gid) ~[1]~> do {
+  r = call("libc.so.6", "group_member", [__gid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setuid: Setuid := (__uid) ~[1]~> do {
+  r = call("libc.so.6", "setuid", [__uid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setreuid: Setreuid := (__ruid, __euid) ~[1]~> do {
+  r = call("libc.so.6", "setreuid", [__ruid, __euid], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export seteuid: Seteuid := (__uid) ~[1]~> do {
+  r = call("libc.so.6", "seteuid", [__uid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setgid: Setgid := (__gid) ~[1]~> do {
+  r = call("libc.so.6", "setgid", [__gid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setregid: Setregid := (__rgid, __egid) ~[1]~> do {
+  r = call("libc.so.6", "setregid", [__rgid, __egid], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setegid: Setegid := (__gid) ~[1]~> do {
+  r = call("libc.so.6", "setegid", [__gid], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setresuid: Setresuid := (__ruid, __euid, __suid) ~[1]~> do {
+  r = call("libc.so.6", "setresuid", [__ruid, __euid, __suid], ["i32", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setresgid: Setresgid := (__rgid, __egid, __sgid) ~[1]~> do {
+  r = call("libc.so.6", "setresgid", [__rgid, __egid, __sgid], ["i32", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fork: Fork := () ~[1]~> do {
+  r = call("libc.so.6", "fork", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export vfork: Vfork := () ~[1]~> do {
+  r = call("libc.so.6", "vfork", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export _Fork: Fork := () ~[1]~> do {
+  r = call("libc.so.6", "_Fork", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ttyname: Ttyname := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "ttyname", [__fd], ["i32"], "cstr", false)
+  ok(r)
+}
+
+export isatty: Isatty := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "isatty", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ttyslot: Ttyslot := () ~[1]~> do {
+  r = call("libc.so.6", "ttyslot", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export link: Link := (__from, __to) ~[1]~> do {
+  r = call("libc.so.6", "link", [__from, __to], ["cstr", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export linkat: Linkat := (__fromfd, __from, __to) ~[1]~> do {
+  r = call("libc.so.6", "linkat", [__fromfd, __from, __to], ["i32", "cbytes", "cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export symlink: Symlink := (__from, __to) ~[1]~> do {
+  r = call("libc.so.6", "symlink", [__from, __to], ["cstr", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export symlinkat: Symlinkat := (__from, __to) ~[1]~> do {
+  r = call("libc.so.6", "symlinkat", [__from, __to], ["cbytes", "cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export unlink: Unlink := (__name) ~[1]~> do {
+  r = call("libc.so.6", "unlink", [__name], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export unlinkat: Unlinkat := (__fd, __name) ~[1]~> do {
+  r = call("libc.so.6", "unlinkat", [__fd, __name], ["i32", "cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export rmdir: Rmdir := (__path) ~[1]~> do {
+  r = call("libc.so.6", "rmdir", [__path], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export tcgetpgrp: Tcgetpgrp := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "tcgetpgrp", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export tcsetpgrp: Tcsetpgrp := (__fd, __pgrp_id) ~[1]~> do {
+  r = call("libc.so.6", "tcsetpgrp", [__fd, __pgrp_id], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getlogin: Getlogin := () ~[1]~> do {
+  r = call("libc.so.6", "getlogin", [], [], "cstr", false)
+  ok(r)
+}
+
+export setlogin: Setlogin := (__name) ~[1]~> do {
+  r = call("libc.so.6", "setlogin", [__name], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sethostname: Sethostname := (__name) ~[1]~> do {
+  r = call("libc.so.6", "sethostname", [__name], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sethostid: Sethostid := (__id) ~[1]~> do {
+  r = call("libc.so.6", "sethostid", [__id], ["i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export setdomainname: Setdomainname := (__name) ~[1]~> do {
+  r = call("libc.so.6", "setdomainname", [__name], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export vhangup: Vhangup := () ~[1]~> do {
+  r = call("libc.so.6", "vhangup", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export revoke: Revoke := (__file) ~[1]~> do {
+  r = call("libc.so.6", "revoke", [__file], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export acct: Acct := (__name) ~[1]~> do {
+  r = call("libc.so.6", "acct", [__name], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getusershell: Getusershell := () ~[1]~> do {
+  r = call("libc.so.6", "getusershell", [], [], "cstr", false)
+  ok(r)
+}
+
+export endusershell: Endusershell := () ~[1]~> do {
+  r = call("libc.so.6", "endusershell", [], [], "void", false)
+  ok(null)
+}
+
+export setusershell: Setusershell := () ~[1]~> do {
+  r = call("libc.so.6", "setusershell", [], [], "void", false)
+  ok(null)
+}
+
+export daemon: Daemon := (__nochdir, __noclose) ~[1]~> do {
+  r = call("libc.so.6", "daemon", [__nochdir, __noclose], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export chroot: Chroot := (__path) ~[1]~> do {
+  r = call("libc.so.6", "chroot", [__path], ["cstr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getpass: Getpass := (__prompt) ~[1]~> do {
+  r = call("libc.so.6", "getpass", [__prompt], ["cstr"], "cstr", false)
+  ok(r)
+}
+
+export fsync: Fsync := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "fsync", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export syncfs: Syncfs := (__fd) ~[1]~> do {
+  r = call("libc.so.6", "syncfs", [__fd], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export gethostid: Gethostid := () ~[1]~> do {
+  r = call("libc.so.6", "gethostid", [], [], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sync: Sync := () ~[1]~> do {
+  r = call("libc.so.6", "sync", [], [], "void", false)
+  ok(null)
+}
+
+export getpagesize: Getpagesize := () ~[1]~> do {
+  r = call("libc.so.6", "getpagesize", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getdtablesize: Getdtablesize := () ~[1]~> do {
+  r = call("libc.so.6", "getdtablesize", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export truncate: Truncate := (__file) ~[1]~> do {
+  r = call("libc.so.6", "truncate", [__file], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export truncate64: Truncate64 := (__file) ~[1]~> do {
+  r = call("libc.so.6", "truncate64", [__file], ["cbytes"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ftruncate: Ftruncate := (__fd, __length) ~[1]~> do {
+  r = call("libc.so.6", "ftruncate", [__fd, __length], ["i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ftruncate64: Ftruncate64 := (__fd, __length) ~[1]~> do {
+  r = call("libc.so.6", "ftruncate64", [__fd, __length], ["i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export brk: Brk := (__addr) ~[1]~> do {
+  r = call("libc.so.6", "brk", [__addr], ["ptr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export sbrk: Sbrk := (__delta) ~[1]~> do {
+  r = call("libc.so.6", "sbrk", [__delta], ["i64"], "handle", false)
+  ok(r)
+}
+
+export syscall: Syscall := (__sysno) ~[1]~> do {
+  r = call("libc.so.6", "syscall", [__sysno], ["i64"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lockf: Lockf := (__fd, __cmd, __len) ~[1]~> do {
+  r = call("libc.so.6", "lockf", [__fd, __cmd, __len], ["i32", "i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lockf64: Lockf64 := (__fd, __cmd, __len) ~[1]~> do {
+  r = call("libc.so.6", "lockf64", [__fd, __cmd, __len], ["i32", "i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fdatasync: Fdatasync := (__fildes) ~[1]~> do {
+  r = call("libc.so.6", "fdatasync", [__fildes], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export crypt: Crypt := (__key, __salt) ~[1]~> do {
+  r = call("libc.so.6", "crypt", [__key, __salt], ["cstr", "cstr"], "cstr", false)
+  ok(r)
+}
+
+export getentropy: Getentropy := (__buffer, __length) ~[1]~> do {
+  r = call("libc.so.6", "getentropy", [__buffer, __length], ["ptr", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export close_range: CloseRange := (__fd, __max_fd, __flags) ~[1]~> do {
+  r = call("libc.so.6", "close_range", [__fd, __max_fd, __flags], ["i32", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
