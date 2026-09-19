@@ -79,15 +79,19 @@ export pi_counit := (Q, f, Pi_f) ~> (f >>> Pi_f(Q)) ~[2]~> Q
 ---     `n ≡ ?k + 1` under the second, witnessed by a proof-relevant
 ---     `Path` bound as `eq_n`; a rigid index is rewritten through the
 ---     branch-local `results` environment and metavariable indices
----     solve linearly (`Vec(2)` vs `VCons` gives `?k := 1`). The
----     remaining gaps vs. full dependent elimination: there is no
----     transport/`J` eliminator consuming the `Path` witness (the
----     rewrite is environment-level, not a term the program can apply),
----     only the linear arithmetic fragment solves (`n * m ≡ 6` is
----     stuck, not an error), there is no absurd-pattern syntax for
----     explicitly dismissing impossible arms, and a decided literal
----     mismatch marks the arm unreachable (an error diagnostic) rather
----     than being discharged by an explicit `absurd`;
+---     solve linearly (`Vec(2)` vs `VCons` gives `?k := 1`). Note that
+---     a *bare* index name in a type expression resolves through gamma
+---     to its sort (`Vec(n, a)` reads `n : Nat` as `Nat`); the rewrite
+---     is visible to term-level index evaluation, so rigid indices are
+---     written as compound terms (`Vec(n + 0, a)` keeps `n` symbolic as
+---     `var n`). The remaining gaps vs. full dependent elimination:
+---     there is no transport/`J` eliminator consuming the `Path`
+---     witness (the rewrite is environment-level, not a term the
+---     program can apply), only the linear arithmetic fragment solves
+---     (`n * m ≡ 6` is stuck, not an error), there is no absurd-pattern
+---     syntax for explicitly dismissing impossible arms, and a decided
+---     literal mismatch marks the arm unreachable (an error diagnostic)
+---     rather than being discharged by an explicit `absurd`;
 ---   * a composite `f >>> P` of dependent operands flattens to
 ---     `type.function` because no AST body exists to carry a
 ---     `body_closure` across composition.
