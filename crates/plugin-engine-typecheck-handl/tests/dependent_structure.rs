@@ -9,9 +9,13 @@
 //! computable terms (`Vec(1 + 1)` ≡ `Vec(2)`), constructor argument
 //! checking through freshly instantiated `type.ctor_sig` signatures, and
 //! constructor-pattern binding in `match`. Strict positivity is enforced
-//! by the desugar native; *dependent elimination* (branch-local index
-//! refinement via equality proofs) is a documented limitation, not
-//! asserted here.
+//! by the desugar native. *Dependent elimination* is covered by
+//! `match_refines_scrutinee_index_per_branch` and friends below: each arm
+//! unifies the constructor's instantiated result with the scrutinee's
+//! family index — metavariable indices solve (linearly), rigid `var`
+//! indices are rewritten through the branch-local `results` environment
+//! with a `Path` witness bound as `eq_<name>`, and a decided literal
+//! mismatch rejects the arm as unreachable.
 
 use handl_kit_data_canonical::language_from_yaml;
 use handl_language::{Ast, AstNode, AstRef, Language};
@@ -280,9 +284,9 @@ fn dependent_family_unifies_inside_function() {
 }
 
 /// Constructor patterns in `match` bind their fields against the
-/// instantiated constructor domains. The scrutinee's index is NOT
-/// refined per branch — that requires equality-type machinery the
-/// structural shadow does not carry (documented in dependent.hnl).
+/// instantiated constructor domains. On a non-indexed family there is
+/// no index to refine; the dependent-elimination tests below cover the
+/// indexed case.
 #[test]
 fn match_constructor_patterns_bind_arguments() {
     let lang = canonical_lang();
@@ -298,6 +302,103 @@ fn match_constructor_patterns_bind_arguments() {
         !has_error(&result),
         "constructor patterns should check cleanly, got {:?}",
         diags_of(&result)
+    );
+}
+
+/// Dependent elimination: `match` unifies each constructor's
+/// instantiated result type with the scrutinee's family application
+/// *inside that arm*. The scrutinee `v : Vec(n + 0, Bool)` carries a
+/// rigid `var{n}` index (a compound index term evaluates `n` as a term
+/// variable, bound symbolically by the outer `Pi`), so the `VNil` arm
+/// carries the equation `n ≡ 0` — realized as a branch-local `results`
+/// rewrite witnessed by a `Path` under `eq_n` — and the `VCons` arm
+/// carries `n ≡ ?k + 1`. The `return (i, w) ~> Vec(i, Bool) with`
+/// motive makes the refinement observable: `v`'s fixed type
+/// `Vec(n + 0, Bool)` only checks at `Vec(0, Bool)`/`Vec(?k + 1, Bool)`
+/// because `n` is rewritten under each arm. Without refinement both
+/// bodies would fail (`var{n}` does not unify with `0` or `?k + 1`).
+#[test]
+fn match_refines_scrutinee_index_per_branch() {
+    let lang = canonical_lang();
+    let ast = parse_block(
+        &lang,
+        &[
+            "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)",
+            "id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) = n ~> v ~> match v return (i, w) ~> Vec(i, Bool) with { VNil: v, VCons(x, xs): v }",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "motive-indexed match should refine the rigid scrutinee index per branch, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// Index equations solve through the linear arithmetic fragment:
+/// matching `v : Vec(2, Bool)` with `VCons(x, xs) : Vec(?k + 1, ?a)`
+/// solves `?k := 1`, so `xs` is a `Vec(1, Bool)` inside the arm — the
+/// nested match on `xs` then solves `?j + 1 ≡ 1` for its own `VCons`
+/// arm, leaving `ys : Vec(0, Bool)` and `y : Bool`.
+#[test]
+fn match_refinement_solves_linear_index() {
+    let lang = canonical_lang();
+    let decl = "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)";
+    let ast = parse_block(
+        &lang,
+        &[
+            decl,
+            "v : Vec(2, Bool) = VCons(true, VCons(false, VNil))",
+            "g : Bool = match v { VCons(x, xs): match xs { VCons(y, ys): y } }",
+        ],
+    );
+    let result = typecheck(&lang, ast);
+    assert!(
+        !has_error(&result),
+        "?k + 1 ≡ 2 should solve ?k := 1 so the nested Vec(1) match refines, got {:?}",
+        diags_of(&result)
+    );
+}
+
+/// A constructor whose result index *cannot* equal the scrutinee's is
+/// an unreachable arm: `VNil : Vec(0, ?a)` can never produce a
+/// `Vec(2, Bool)` scrutinee, so the arm is rejected (and its body is
+/// not typechecked). Likewise, under `xs : Vec(1, Bool)` (refined from
+/// `?k + 1 ≡ 2`), an inner `VNil` arm is impossible — that rejection is
+/// only reachable because the outer arm solved `?k := 1`; without
+/// refinement `xs`'s index is an unsolved metavariable and the inner
+/// `VNil` arm passes.
+#[test]
+fn match_rejects_unreachable_constructor_arm() {
+    let lang = canonical_lang();
+    let decl = "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)";
+
+    let direct = parse_block(
+        &lang,
+        &[
+            decl,
+            "v : Vec(2, Bool) = VCons(true, VCons(false, VNil))",
+            "bad : Bool = match v { VNil: false, VCons(x, xs): x }",
+        ],
+    );
+    let result = typecheck(&lang, direct);
+    assert!(
+        has_error(&result),
+        "a VNil arm on a Vec(2, Bool) scrutinee is unreachable and should be rejected"
+    );
+
+    let nested = parse_block(
+        &lang,
+        &[
+            decl,
+            "v : Vec(2, Bool) = VCons(true, VCons(false, VNil))",
+            "bad : Bool = match v { VCons(x, xs): match xs { VNil: false, VCons(y, ys): y } }",
+        ],
+    );
+    let result = typecheck(&lang, nested);
+    assert!(
+        has_error(&result),
+        "under xs : Vec(1, Bool) the inner VNil arm is unreachable and should be rejected"
     );
 }
 

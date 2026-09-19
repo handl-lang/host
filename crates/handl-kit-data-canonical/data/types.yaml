@@ -2160,10 +2160,13 @@
       source: Judgment
 
 # `match` — multi-arm unification. The match node's children are
-# [scrutinee, arm1, arm2, ...]; each arm has children [pattern, body].
+# [scrutinee, (motive,) arm_block]; each arm has children [pattern, body].
 # `synth_match_arms` synths each arm body and unifies them all, returning
 # the unified type (ADR-0054 — Scheme lacks iteration, so this is a
-# judgment op).
+# judgment op). Dependent elimination (ADR-0120): each arm unifies the
+# constructor's instantiated result with the scrutinee's family index for
+# the duration of the branch, and an optional `return motive with` clause
+# checks bodies against the motive applied at the refined indices.
 - id: type.match
   node_kind: match
   synth: !Op
