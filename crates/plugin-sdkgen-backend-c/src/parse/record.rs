@@ -3,7 +3,7 @@
 use clang_sys::*;
 use handl_plugin_sdkgen::{Field, Record};
 
-use crate::cx::{children_of_kind, cursor_name, doc_comment, is_anonymous_decl};
+use crate::cx::{children_of_kind, cursor_name, doc_comment, is_anonymous_decl, record_name};
 use crate::map::map_field_type;
 use crate::parse::ParseCtx;
 
@@ -50,14 +50,43 @@ fn parse_field(cursor: CXCursor) -> Result<Field, String> {
     if size < 0 {
         return Err(format!("field {name} has unknown size"));
     }
-    let (port, descriptor) = map_field_type(ty, size as usize)?;
+    let canonical = unsafe { clang_getCanonicalType(ty) };
+    let (port, descriptor, ptr_depth) = match canonical.kind {
+        // Fixed-size inline array `T[N]` → `arr:N:elem` — byte-wide
+        // elements surface as Bytes, wider ones as List<Int>.
+        CXType_ConstantArray => {
+            let elem = unsafe { clang_getArrayElementType(canonical) };
+            let n = unsafe { clang_getArraySize(canonical) };
+            let esz = unsafe { clang_Type_getSizeOf(elem) };
+            if esz <= 0 {
+                return Err(format!("field {name} has unknown element size"));
+            }
+            let (_, edesc) = map_field_type(elem, esz as usize)
+                .map_err(|e| format!("field {name}: array element: {e}"))?;
+            let port = if esz == 1 { "Bytes" } else { "List<Int>" };
+            (port.to_string(), format!("arr:{n}:{edesc}"), 0)
+        }
+        // Any pointer field → raw pointer slot. The marshaller passes the
+        // address through; buffers/nesting need a per-function override.
+        CXType_Pointer => ("Handle".to_string(), "ptr".to_string(), 1),
+        // Inline nested struct → `rec:name`, expanded to `rec:{...}` when
+        // the nested record is also known.
+        CXType_Record => {
+            let rn = record_name(canonical).map_err(|e| format!("field {name}: {e}"))?;
+            (rn.clone(), format!("rec:{rn}"), 0)
+        }
+        _ => {
+            let (p, d) = map_field_type(ty, size as usize)?;
+            (p, d, 0)
+        }
+    };
     Ok(Field {
         name,
         port,
         descriptor,
         offset: (offset_bits / 8) as usize,
         size: size as usize,
-        ptr_depth: 0,
+        ptr_depth,
         is_const: unsafe { clang_isConstQualifiedType(ty) != 0 },
     })
 }

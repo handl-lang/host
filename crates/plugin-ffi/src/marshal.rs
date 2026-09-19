@@ -20,6 +20,17 @@
 //! | `"out_buf:N"`  | `void * + size_t`       | — (allocates N)      |
 //! | `"out_ptr:N"`  | `void *`                | — (allocates N)      |
 //! | `"io_buf:N"`   | `void * + size_t *`     | — (allocates N)      |
+//! | `"io_scalar:T"`| `T *` (value-result)    | number (seed value)  |
+//! | `"in_struct:{…}"`  | `const T *` (built) | record             |
+//! | `"io_struct:{…}"`  | `T *` (filled)    | — (allocates struct) |
+//! | `"out_struct:{…}"` | `T *` (filled)    | — (= io_struct)      |
+//!
+//! Struct field specs are `name:kind[@offset[:slotwidth]]` — explicit
+//! offsets/sizes carry the backend's real target layout (libclang); without
+//! them fields lay out sequentially. Kinds: scalars (`i8`..`u64`,
+//! `isize`, `usize`), `bytes` (Bytes → ptr), `buf:N` (alloc → ptr),
+//! `iov`/`iovbuf:K:M` (iovec arrays), `ptr` (raw pointer slot),
+//! `arr:N:T` (inline array), `rec:{...}` (inline nested struct).
 //!
 //! `in_buf` / `cbytes` / `out_buf:N` / `out_ptr:N` / `io_buf:N` are the
 //! buffer descriptors introduced with the `Bytes` type (ADR-0078 Phase 2 /
@@ -210,15 +221,20 @@ pub(crate) struct OutSlot {
     pub len_cell: Vec<u8>,
 }
 
-/// An allocated C struct for an `out_struct:{...}` descriptor.
-///
-/// Owns the backing `Vec<u8>` so it stays valid across the C call and is
-/// available for the post-call `{ ret, buf }` record extraction.
-pub(crate) struct OutStruct {
-    /// The allocated struct memory (zero-initialized). Valid until this is dropped.
-    pub buf: Vec<u8>,
-    /// Field metadata: (name, kind, offset, size).
-    pub fields: Vec<(String, String, usize, usize)>,
+/// An allocated scalar out-cell for `io_scalar:TYPE` — the caller seeds the
+/// initial value, C writes through the pointer, the cell reads back as an
+/// integer in the `vals` out-list.
+pub(crate) struct ScalarSlot {
+    /// The cell bytes (width = the scalar type's size).
+    pub cell: Vec<u8>,
+    /// Whether the scalar is signed (sub-64-bit negatives sign-extend).
+    pub signed: bool,
+}
+
+impl ScalarSlot {
+    fn read(&self) -> i64 {
+        read_scalar(&self.cell, 0, self.cell.len(), self.signed)
+    }
 }
 
 /// The result of marshalling a whole argument list.
@@ -235,8 +251,8 @@ pub(crate) struct MarshalResult {
     pub byte_keep_alive: Vec<Vec<u8>>,
     /// Allocated output buffers for `out_buf:N` / `out_ptr:N` / `io_buf:N`.
     pub out_slots: Vec<OutSlot>,
-    /// Allocated C structs for `out_struct:{...}` descriptors.
-    pub out_structs: Vec<OutStruct>,
+    /// Allocated scalar cells for `io_scalar:TYPE` descriptors.
+    pub scalar_outs: Vec<ScalarSlot>,
     /// Built structs for `in_struct:{...}` / `io_struct:{...}` descriptors.
     /// `io_struct` entries are read back into records after the call.
     pub struct_args: Vec<StructArg>,
@@ -303,7 +319,7 @@ pub(crate) fn marshal_call_args(
         keep_alive: Vec::with_capacity(descriptors.len()),
         byte_keep_alive: Vec::with_capacity(descriptors.len()),
         out_slots: Vec::new(),
-        out_structs: Vec::new(),
+        scalar_outs: Vec::new(),
         struct_args: Vec::new(),
         io_struct_idx: Vec::new(),
     };
@@ -360,11 +376,29 @@ pub(crate) fn marshal_call_args(
                 trim: OutTrim::ByLenCell,
                 len_cell,
             });
+        } else if let Some(ty) = desc.strip_prefix("io_scalar:") {
+            // Value-result scalar: caller seeds the cell, C writes back.
+            let size = scalar_size(ty)?;
+            let value = args.get(arg_idx).and_then(|v| v.as_i64()).ok_or_else(|| {
+                EvalError::TypeMismatch(format!("missing int argument for {desc}"))
+            })?;
+            arg_idx += 1;
+            let mut cell = vec![0u8; size];
+            write_int(&mut cell, 0, size, value);
+            let ptr = cell.as_mut_ptr() as i64;
+            res.c_args.push(CArg::Int(ptr));
+            res.scalar_outs.push(ScalarSlot {
+                cell,
+                signed: is_signed_scalar(ty),
+            });
         } else if let Some(inner) = desc
             .strip_prefix("in_struct:")
             .or_else(|| desc.strip_prefix("io_struct:"))
+            .or_else(|| desc.strip_prefix("out_struct:"))
         {
-            let is_io = desc.starts_with("io_struct:");
+            // `out_struct` is `io_struct` minus the buffer-ref field kinds:
+            // allocate the struct, let the callee fill it, read it back.
+            let is_io = !desc.starts_with("in_struct:");
             let inner = inner
                 .strip_prefix('{')
                 .and_then(|s| s.strip_suffix('}'))
@@ -387,11 +421,6 @@ pub(crate) fn marshal_call_args(
                 res.io_struct_idx.push(res.struct_args.len());
             }
             res.struct_args.push(st);
-        } else if desc.starts_with("out_struct:") {
-            let out = parse_out_struct_descriptor(desc)?;
-            let ptr = out.buf.as_ptr() as i64;
-            res.c_args.push(CArg::Int(ptr));
-            res.out_structs.push(out);
         } else {
             let value = args
                 .get(arg_idx)
@@ -448,194 +477,28 @@ fn slot_json(s: &OutSlot, ret_i64: i64) -> JsonValue {
 /// (`ByRet` clamps to the return byte count, `Full` keeps all `N` bytes,
 /// `ByLenCell` reads the callee's value-result length). `buf` aliases the
 /// first slot for the common single-out case.
-pub(crate) fn wrap_outs_return(raw_ret: &JsonValue, out_slots: &[OutSlot]) -> JsonValue {
-    if out_slots.is_empty() {
+pub(crate) fn wrap_outs_return(
+    raw_ret: &JsonValue,
+    out_slots: &[OutSlot],
+    scalar_outs: &[ScalarSlot],
+) -> JsonValue {
+    if out_slots.is_empty() && scalar_outs.is_empty() {
         return raw_ret.clone();
     }
     let ret_i64 = raw_ret.as_i64().unwrap_or(0);
-    let outs: Vec<JsonValue> = out_slots.iter().map(|s| slot_json(s, ret_i64)).collect();
     let mut map = Map::new();
     map.insert("ret".to_string(), raw_ret.clone());
-    map.insert("buf".to_string(), outs[0].clone());
-    map.insert("outs".to_string(), JsonValue::Array(outs));
-    JsonValue::Object(map)
-}
-
-/// Parse an `out_struct:{field:desc,...}` descriptor and allocate its memory.
-///
-/// Computes a simple aligned layout for integer-typed fields (`i8`, `i16`, `i32`,
-/// `i64`, `u8`, `u16`, `u32`, `u64`, `isize`, `usize`).
-/// Fields are placed in declaration order with alignment equal to their size.
-pub(crate) fn parse_out_struct_descriptor(desc: &str) -> Result<OutStruct, EvalError> {
-    let inner = desc
-        .strip_prefix("out_struct:")
-        .ok_or_else(|| EvalError::TypeMismatch(format!("not an out_struct descriptor: {desc}")))?;
-    if !inner.starts_with('{') || !inner.ends_with('}') {
-        return Err(EvalError::TypeMismatch(format!(
-            "out_struct descriptor must be {{...}}, got {inner}"
-        )));
-    }
-    let content = &inner[1..inner.len() - 1];
-    if content.is_empty() {
-        return Ok(OutStruct {
-            buf: Vec::new(),
-            fields: Vec::new(),
-        });
-    }
-    let mut fields = Vec::new();
-    let mut offset = 0usize;
-    for pair in content.split(',') {
-        let pair = pair.trim();
-        if pair.is_empty() {
-            continue;
-        }
-        let mut parts = pair.splitn(2, ':');
-        let name = parts
-            .next()
-            .ok_or_else(|| EvalError::TypeMismatch(format!("invalid out_struct field: {pair}")))?
-            .trim()
-            .to_string();
-        let kind = parts
-            .next()
-            .ok_or_else(|| {
-                EvalError::TypeMismatch(format!("out_struct field missing type: {pair}"))
-            })?
-            .trim()
-            .to_string();
-        let size = match kind.as_str() {
-            "i8" | "u8" => 1usize,
-            "i16" | "u16" => 2usize,
-            "i32" | "u32" => 4usize,
-            "i64" | "u64" | "isize" | "usize" => 8usize,
-            other => {
-                return Err(EvalError::TypeMismatch(format!(
-                    "out_struct: unsupported field type {other}"
-                )));
-            }
-        };
-        let align = size;
-        let misalign = offset % align;
-        if misalign != 0 {
-            offset += align - misalign;
-        }
-        fields.push((name, kind, offset, size));
-        offset += size;
-    }
-    // Add trailing alignment to the struct's total size.
-    let max_align = fields
-        .iter()
-        .map(|(_, _, _, size)| *size)
-        .max()
-        .unwrap_or(1);
-    let total = if offset == 0 {
-        0
-    } else {
-        let trailing = offset % max_align;
-        if trailing == 0 {
-            offset
-        } else {
-            offset + max_align - trailing
-        }
-    };
-    Ok(OutStruct {
-        buf: vec![0u8; total],
-        fields,
-    })
-}
-
-/// Read an already-called `OutStruct` back into a Handl record.
-pub(crate) fn unmarshal_out_struct(out: &OutStruct) -> Result<JsonValue, EvalError> {
-    let mut map = Map::new();
-    for (name, kind, offset, size) in &out.fields {
-        let bytes = out
-            .buf
-            .get(*offset..offset + size)
-            .ok_or_else(|| EvalError::Other("out_struct field out of bounds".to_string()))?;
-        let value = match kind.as_str() {
-            "i8" => JsonValue::from(i8::from_ne_bytes([bytes[0]]) as i64),
-            "u8" => JsonValue::from(u8::from_ne_bytes([bytes[0]]) as i64),
-            "i16" => {
-                let raw = <[u8; 2]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct i16 field read failed".to_string())
-                })?;
-                JsonValue::from(i16::from_ne_bytes(raw) as i64)
-            }
-            "u16" => {
-                let raw = <[u8; 2]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct u16 field read failed".to_string())
-                })?;
-                JsonValue::from(u16::from_ne_bytes(raw) as i64)
-            }
-            "i32" => {
-                let raw = <[u8; 4]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct i32 field read failed".to_string())
-                })?;
-                JsonValue::from(i32::from_ne_bytes(raw) as i64)
-            }
-            "u32" => {
-                let raw = <[u8; 4]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct u32 field read failed".to_string())
-                })?;
-                JsonValue::from(u32::from_ne_bytes(raw) as i64)
-            }
-            "i64" => {
-                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct i64 field read failed".to_string())
-                })?;
-                JsonValue::from(i64::from_ne_bytes(raw))
-            }
-            "u64" => {
-                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct u64 field read failed".to_string())
-                })?;
-                JsonValue::from(u64::from_ne_bytes(raw) as i64)
-            }
-            "isize" => {
-                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct isize field read failed".to_string())
-                })?;
-                JsonValue::from(isize::from_ne_bytes(raw) as i64)
-            }
-            "usize" => {
-                let raw = <[u8; 8]>::try_from(bytes).map_err(|_| {
-                    EvalError::Other("out_struct usize field read failed".to_string())
-                })?;
-                JsonValue::from(usize::from_ne_bytes(raw) as i64)
-            }
-            other => {
-                return Err(EvalError::TypeMismatch(format!(
-                    "out_struct: unsupported field type {other}"
-                )));
-            }
-        };
-        map.insert(name.clone(), value);
-    }
-    Ok(JsonValue::Object(map))
-}
-
-/// Wrap a raw C return as a `{ ret, buf }` record when `out_struct` was
-/// used. `buf` is the unmarshalled struct record. Any byte out-slots
-/// (`out_buf`/`out_ptr`/`io_buf` in the same call) are additionally
-/// listed under `outs` so they are not dropped.
-pub(crate) fn wrap_out_struct_return(
-    raw_ret: &JsonValue,
-    out_structs: &[OutStruct],
-    out_slots: &[OutSlot],
-) -> JsonValue {
-    let out = match out_structs.first() {
-        Some(out) => out,
-        None => return raw_ret.clone(),
-    };
-    let mut map = Map::new();
-    map.insert("ret".to_string(), raw_ret.clone());
-    map.insert(
-        "buf".to_string(),
-        unmarshal_out_struct(out).unwrap_or(JsonValue::Null),
-    );
     if !out_slots.is_empty() {
-        let ret_i64 = raw_ret.as_i64().unwrap_or(0);
         let outs: Vec<JsonValue> = out_slots.iter().map(|s| slot_json(s, ret_i64)).collect();
+        map.insert("buf".to_string(), outs[0].clone());
         map.insert("outs".to_string(), JsonValue::Array(outs));
+    }
+    if !scalar_outs.is_empty() {
+        let vals: Vec<JsonValue> = scalar_outs
+            .iter()
+            .map(|s| JsonValue::from(s.read()))
+            .collect();
+        map.insert("vals".to_string(), JsonValue::Array(vals));
     }
     JsonValue::Object(map)
 }
@@ -672,13 +535,30 @@ pub(crate) enum StructFieldKind {
     IovRef,
     /// `iovbuf:K:M` — K callee-filled buffers of M bytes + iovec array.
     IovBuf(usize, usize),
+    /// `ptr` — raw pointer slot; Handl value is a numeric address (or
+    /// `{"__resource__": {"ptr": N}}` handle). Reads back as the address.
+    Ptr,
+    /// `arr:N:TYPE` — inline fixed array of N scalars. Handl value is
+    /// `Bytes` for byte-wide elements, `List<Int>` otherwise.
+    Arr(usize, String),
+    /// `rec:{...}` — inline nested struct; Handl value is a nested record.
+    Rec(Vec<ParsedField>),
 }
+
+/// A parsed struct field: `(name, kind, byte offset, slot width)`.
+///
+/// The offset and width come from the descriptor (`@off[:size]`) when the
+/// backend emits libclang's real layout, or from sequential default layout
+/// when hand-written descriptors omit them.
+pub(crate) type ParsedField = (String, StructFieldKind, usize, usize);
 
 /// One field of a struct descriptor.
 pub(crate) struct StructField {
     pub name: String,
     pub kind: StructFieldKind,
     pub offset: usize,
+    /// Slot width in bytes (scalar width or pointer width).
+    pub size: usize,
     /// Index into [`StructArg::aux`] for reference kinds.
     pub aux: Option<usize>,
 }
@@ -688,7 +568,10 @@ pub(crate) struct FieldAux {
     /// `bytes`/`buf`: the single pointed-to buffer. `iov`/`iovbuf`: the
     /// per-element buffers.
     pub elems: Vec<Vec<u8>>,
-    /// The iovec array for `iov`/`iovbuf` fields (empty otherwise).
+    /// The iovec array for `iov`/`iovbuf` fields (empty otherwise). Never
+    /// read after the call — it exists purely to keep the memory the
+    /// struct points at alive for the call duration.
+    #[allow(dead_code)]
     pub array: Vec<u8>,
 }
 
@@ -714,33 +597,87 @@ fn scalar_size(kind: &str) -> Result<usize, EvalError> {
     }
 }
 
-fn parse_field_kind(spec: &str) -> Result<StructFieldKind, EvalError> {
-    if spec == "bytes" {
-        return Ok(StructFieldKind::BytesRef);
-    }
-    if spec == "iov" {
-        return Ok(StructFieldKind::IovRef);
+/// Parse a field kind spec (the part before `@offset`) and return it with
+/// its default slot width. `ptrw` is the pointer-slot width used when the
+/// descriptor doesn't state one explicitly.
+fn parse_field_kind(spec: &str, ptrw: usize) -> Result<(StructFieldKind, usize), EvalError> {
+    let ptr_sized = |k| Ok((k, ptrw));
+    match spec {
+        "bytes" => return ptr_sized(StructFieldKind::BytesRef),
+        "iov" => return ptr_sized(StructFieldKind::IovRef),
+        "ptr" => return ptr_sized(StructFieldKind::Ptr),
+        _ => {}
     }
     if let Some(rest) = spec.strip_prefix("buf:") {
-        return Ok(StructFieldKind::Buf(parse_size("buf", rest)?));
+        return ptr_sized(StructFieldKind::Buf(parse_size("buf", rest)?));
     }
     if let Some(rest) = spec.strip_prefix("iovbuf:") {
         let (k, m) = rest
             .split_once(':')
             .ok_or_else(|| EvalError::TypeMismatch(format!("iovbuf needs K:M, got {spec:?}")))?;
-        return Ok(StructFieldKind::IovBuf(
+        return ptr_sized(StructFieldKind::IovBuf(
             parse_size("iovbuf count", k)?,
             parse_size("iovbuf size", m)?,
         ));
     }
-    scalar_size(spec).map(|_| StructFieldKind::Scalar(spec.to_string()))
+    if let Some(rest) = spec.strip_prefix("arr:") {
+        let (n, ty) = rest
+            .split_once(':')
+            .ok_or_else(|| EvalError::TypeMismatch(format!("arr needs N:TYPE, got {spec:?}")))?;
+        let n = parse_size("arr count", n)?;
+        let w = scalar_size(ty)?;
+        return Ok((StructFieldKind::Arr(n, ty.to_string()), n * w));
+    }
+    if let Some(rest) = spec.strip_prefix("rec:") {
+        let inner = rest
+            .strip_prefix('{')
+            .and_then(|s| s.strip_suffix('}'))
+            .ok_or_else(|| EvalError::TypeMismatch(format!("rec needs {{...}}, got {spec:?}")))?;
+        let nested = parse_struct_fields(inner, ptrw)?;
+        let total = nested
+            .iter()
+            .map(|(_, _, off, sz)| off + sz)
+            .max()
+            .unwrap_or(0);
+        return Ok((StructFieldKind::Rec(nested), total));
+    }
+    scalar_size(spec).map(|w| (StructFieldKind::Scalar(spec.to_string()), w))
 }
 
-fn field_width(kind: &StructFieldKind) -> usize {
-    match kind {
-        StructFieldKind::Scalar(s) => scalar_size(s).unwrap_or(8),
-        _ => std::mem::size_of::<usize>(),
+/// Split a field spec on the `@` layout marker at brace depth zero —
+/// `@`s inside nested `rec:{...}` specs belong to the nested fields.
+fn split_layout(spec: &str) -> (&str, Option<&str>) {
+    let mut depth = 0i32;
+    for (i, c) in spec.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            '@' if depth == 0 => return (&spec[..i], Some(&spec[i + 1..])),
+            _ => {}
+        }
     }
+    (spec, None)
+}
+
+/// Split a `{...}` field list on commas at brace depth zero — nested
+/// `rec:{...}` specs contain commas of their own.
+fn split_fields(inner: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                out.push(&inner[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(&inner[start..]);
+    out
 }
 
 fn write_int(buf: &mut [u8], offset: usize, size: usize, value: i64) {
@@ -748,18 +685,38 @@ fn write_int(buf: &mut [u8], offset: usize, size: usize, value: i64) {
     buf[offset..offset + size].copy_from_slice(&bytes[..size]);
 }
 
+/// Zero-extending integer read.
 fn read_int(buf: &[u8], offset: usize, size: usize) -> i64 {
     let mut tmp = [0u8; 8];
     tmp[..size].copy_from_slice(&buf[offset..offset + size]);
     i64::from_ne_bytes(tmp)
 }
 
-/// Parse an `in_struct:{...}`/`io_struct:{...}` descriptor into fields with
-/// C-layout offsets (alignment == size, declaration order).
-fn parse_struct_fields(inner: &str) -> Result<Vec<(String, StructFieldKind, usize)>, EvalError> {
+/// Sign-aware integer read: sub-64-bit signed fields get sign-extended so
+/// a kernel-written `i32` `-1` reads back as `-1`, not `4294967295`.
+fn read_scalar(buf: &[u8], offset: usize, size: usize, signed: bool) -> i64 {
+    let v = read_int(buf, offset, size);
+    if signed && size < 8 && size > 0 && (v >> (size * 8 - 1)) & 1 == 1 {
+        v | (-1i64 << (size * 8))
+    } else {
+        v
+    }
+}
+
+fn is_signed_scalar(kind: &str) -> bool {
+    kind.starts_with('i')
+}
+
+/// Parse an `in_struct:{...}`/`io_struct:{...}` descriptor's field list.
+///
+/// Each field is `name:kind` or `name:kind@off[:size]` — an explicit
+/// offset/slot-width carries the backend's real target layout; without it
+/// fields are laid out sequentially with alignment == width (the legacy
+/// LP64-compatible fallback for hand-written descriptors).
+fn parse_struct_fields(inner: &str, ptrw: usize) -> Result<Vec<ParsedField>, EvalError> {
     let mut fields = Vec::new();
     let mut offset = 0usize;
-    for pair in inner.split(',') {
+    for pair in split_fields(inner) {
         let pair = pair.trim();
         if pair.is_empty() {
             continue;
@@ -767,24 +724,51 @@ fn parse_struct_fields(inner: &str) -> Result<Vec<(String, StructFieldKind, usiz
         let (name, spec) = pair
             .split_once(':')
             .ok_or_else(|| EvalError::TypeMismatch(format!("invalid struct field: {pair}")))?;
-        let kind = parse_field_kind(spec.trim())?;
-        let width = field_width(&kind);
-        let misalign = offset % width;
-        if misalign != 0 {
-            offset += width - misalign;
-        }
-        fields.push((name.trim().to_string(), kind, offset));
-        offset += width;
+        let spec = spec.trim();
+        let (kind_spec, layout) = split_layout(spec);
+        let kind_spec = kind_spec.trim();
+        let layout = layout.map(str::trim);
+        let (kind, default_w) = parse_field_kind(kind_spec, ptrw)?;
+        let (off, size) = match layout {
+            Some(l) => {
+                let (off_s, size_s) = l.split_once(':').map_or((l, None), |(a, b)| (a, Some(b)));
+                let off: usize = off_s.trim().parse().map_err(|_| {
+                    EvalError::TypeMismatch(format!("invalid field offset: {pair}"))
+                })?;
+                let size = size_s
+                    .map(|s| s.trim().parse::<usize>())
+                    .transpose()
+                    .map_err(|_| EvalError::TypeMismatch(format!("invalid field size: {pair}")))?
+                    .unwrap_or(default_w);
+                (off, size)
+            }
+            None => {
+                let misalign = offset % default_w;
+                if misalign != 0 {
+                    offset += default_w - misalign;
+                }
+                (offset, default_w)
+            }
+        };
+        fields.push((name.trim().to_string(), kind, off, size));
+        offset = off + size;
     }
     Ok(fields)
 }
 
+/// Default pointer-slot width for hand-written descriptors without an
+/// explicit `:size` — the backend always emits one; 8 covers LP64 hosts.
+const DEFAULT_PTR_WIDTH: usize = 8;
+
 /// Build a C struct from a descriptor and (for `in_struct`) a Handl record.
-fn marshal_struct_arg(inner: &str, record: Option<&JsonValue>) -> Result<StructArg, EvalError> {
-    let parsed = parse_struct_fields(inner)?;
+pub(crate) fn marshal_struct_arg(
+    inner: &str,
+    record: Option<&JsonValue>,
+) -> Result<StructArg, EvalError> {
+    let parsed = parse_struct_fields(inner, DEFAULT_PTR_WIDTH)?;
     let total = parsed
         .iter()
-        .map(|(_, k, off)| off + field_width(k))
+        .map(|(_, _, off, sz)| off + sz)
         .max()
         .unwrap_or(0);
     let mut arg = StructArg {
@@ -793,14 +777,37 @@ fn marshal_struct_arg(inner: &str, record: Option<&JsonValue>) -> Result<StructA
         aux: Vec::new(),
     };
     let obj = record.and_then(|v| v.as_object());
+    let aux_idx = fill_fields(&mut arg.buf, &parsed, obj, &mut arg.aux)?;
+    for ((name, kind, offset, size), aux) in parsed.into_iter().zip(aux_idx) {
+        arg.fields.push(StructField {
+            name,
+            kind,
+            offset,
+            size,
+            aux,
+        });
+    }
+    Ok(arg)
+}
+
+/// Write every parsed field into `buf`, appending referenced buffers to
+/// `aux` so they stay alive for the call. Returns one `aux` index per
+/// field (`Some` for reference kinds — `bytes`/`buf`/`iov`/`iovbuf`).
+fn fill_fields(
+    buf: &mut [u8],
+    parsed: &[ParsedField],
+    obj: Option<&Map<String, JsonValue>>,
+    aux: &mut Vec<FieldAux>,
+) -> Result<Vec<Option<usize>>, EvalError> {
+    let mut aux_idx = Vec::with_capacity(parsed.len());
     let mut last_ref_len = 0usize;
-    for (name, kind, offset) in parsed {
-        let mut aux_idx = None;
-        match &kind {
-            StructFieldKind::Scalar(s) => {
-                let size = scalar_size(s)?;
+    for (name, kind, offset, size) in parsed {
+        let name = name.as_str();
+        match kind {
+            StructFieldKind::Scalar(_) => {
+                aux_idx.push(None);
                 let value = obj
-                    .and_then(|o| o.get(&name))
+                    .and_then(|o| o.get(name))
                     .and_then(|v| v.as_i64())
                     .unwrap_or_else(|| {
                         // Auto-*len* fill: an absent scalar named `*len`
@@ -811,50 +818,91 @@ fn marshal_struct_arg(inner: &str, record: Option<&JsonValue>) -> Result<StructA
                             0
                         }
                     });
-                write_int(&mut arg.buf, offset, size, value);
+                write_int(buf, *offset, *size, value);
+            }
+            StructFieldKind::Ptr => {
+                aux_idx.push(None);
+                let value = obj
+                    .and_then(|o| o.get(name))
+                    .and_then(|v| {
+                        v.as_i64().or_else(|| {
+                            v.as_object()
+                                .and_then(|r| r.get("__resource__"))
+                                .and_then(|r| r.get("ptr"))
+                                .and_then(|p| p.as_i64())
+                        })
+                    })
+                    .unwrap_or(0);
+                write_int(buf, *offset, *size, value);
+            }
+            StructFieldKind::Arr(n, ty) => {
+                aux_idx.push(None);
+                let esz = scalar_size(ty)?;
+                if esz == 1 {
+                    if let Some(bytes) = obj
+                        .and_then(|o| o.get(name))
+                        .map(json_to_bytes)
+                        .transpose()?
+                    {
+                        let take = bytes.len().min(n * esz);
+                        buf[*offset..*offset + take].copy_from_slice(&bytes[..take]);
+                    }
+                } else if let Some(list) = obj.and_then(|o| o.get(name)).and_then(|v| v.as_array())
+                {
+                    for (i, el) in list.iter().take(*n).enumerate() {
+                        if let Some(v) = el.as_i64() {
+                            write_int(buf, *offset + i * esz, esz, v);
+                        }
+                    }
+                }
+            }
+            StructFieldKind::Rec(nested) => {
+                aux_idx.push(None);
+                let nested_obj = obj.and_then(|o| o.get(name)).and_then(|v| v.as_object());
+                fill_fields(&mut buf[*offset..*offset + size], nested, nested_obj, aux)?;
             }
             StructFieldKind::BytesRef => {
                 let bytes = obj
-                    .and_then(|o| o.get(&name))
+                    .and_then(|o| o.get(name))
                     .map(json_to_bytes)
                     .transpose()?;
                 match bytes {
                     Some(bytes) if !bytes.is_empty() => {
                         last_ref_len = bytes.len();
                         let ptr = bytes.as_ptr() as i64;
-                        arg.aux.push(FieldAux {
+                        aux.push(FieldAux {
                             elems: vec![bytes],
                             array: Vec::new(),
                         });
-                        aux_idx = Some(arg.aux.len() - 1);
-                        write_int(&mut arg.buf, offset, 8, ptr);
+                        aux_idx.push(Some(aux.len() - 1));
+                        write_int(buf, *offset, *size, ptr);
                     }
                     // Absent/empty → NULL pointer, zero length.
                     _ => {
                         last_ref_len = 0;
-                        arg.aux.push(FieldAux {
+                        aux.push(FieldAux {
                             elems: Vec::new(),
                             array: Vec::new(),
                         });
-                        aux_idx = Some(arg.aux.len() - 1);
+                        aux_idx.push(Some(aux.len() - 1));
                     }
                 }
             }
             StructFieldKind::Buf(n) => {
-                let buf = vec![0u8; *n];
+                let b = vec![0u8; *n];
                 last_ref_len = *n;
-                let ptr = buf.as_ptr() as i64;
-                arg.aux.push(FieldAux {
-                    elems: vec![buf],
+                let ptr = b.as_ptr() as i64;
+                aux.push(FieldAux {
+                    elems: vec![b],
                     array: Vec::new(),
                 });
-                aux_idx = Some(arg.aux.len() - 1);
-                write_int(&mut arg.buf, offset, 8, ptr);
+                aux_idx.push(Some(aux.len() - 1));
+                write_int(buf, *offset, *size, ptr);
             }
             StructFieldKind::IovRef | StructFieldKind::IovBuf(_, _) => {
-                let elems: Vec<Vec<u8>> = match &kind {
+                let elems: Vec<Vec<u8>> = match kind {
                     StructFieldKind::IovRef => obj
-                        .and_then(|o| o.get(&name))
+                        .and_then(|o| o.get(name))
                         .and_then(|v| v.as_array())
                         .map(|arr| arr.iter().map(json_to_bytes).collect())
                         .transpose()?
@@ -863,10 +911,11 @@ fn marshal_struct_arg(inner: &str, record: Option<&JsonValue>) -> Result<StructA
                     _ => unreachable!(),
                 };
                 last_ref_len = elems.len();
-                let mut array = vec![0u8; elems.len() * 2 * 8];
+                // iovec entry = {ptr, len} — each pointer-width.
+                let mut array = vec![0u8; elems.len() * 2 * size];
                 for (i, el) in elems.iter().enumerate() {
-                    write_int(&mut array, i * 16, 8, el.as_ptr() as i64);
-                    write_int(&mut array, i * 16 + 8, 8, el.len() as i64);
+                    write_int(&mut array, i * 2 * size, *size, el.as_ptr() as i64);
+                    write_int(&mut array, i * 2 * size + size, *size, el.len() as i64);
                 }
                 // Empty iov → NULL array pointer (Vec::as_ptr on an empty
                 // Vec is dangling, not null).
@@ -875,19 +924,13 @@ fn marshal_struct_arg(inner: &str, record: Option<&JsonValue>) -> Result<StructA
                 } else {
                     array.as_ptr() as i64
                 };
-                arg.aux.push(FieldAux { elems, array });
-                aux_idx = Some(arg.aux.len() - 1);
-                write_int(&mut arg.buf, offset, 8, ptr);
+                aux.push(FieldAux { elems, array });
+                aux_idx.push(Some(aux.len() - 1));
+                write_int(buf, *offset, *size, ptr);
             }
         }
-        arg.fields.push(StructField {
-            name,
-            kind,
-            offset,
-            aux: aux_idx,
-        });
     }
-    Ok(arg)
+    Ok(aux_idx)
 }
 
 /// Read an `io_struct` back into a Handl record after the call.
@@ -902,17 +945,40 @@ pub(crate) fn unmarshal_io_struct(arg: &StructArg, ret_i64: i64) -> JsonValue {
     let mut scalar_vals: Vec<(String, i64)> = Vec::new();
     for f in &arg.fields {
         if let StructFieldKind::Scalar(s) = &f.kind {
-            let size = scalar_size(s).unwrap_or(8);
-            scalar_vals.push((f.name.clone(), read_int(&arg.buf, f.offset, size)));
+            scalar_vals.push((
+                f.name.clone(),
+                read_scalar(&arg.buf, f.offset, f.size, is_signed_scalar(s)),
+            ));
         }
     }
     let mut iov_credit = ret_i64.max(0) as usize;
     for (i, f) in arg.fields.iter().enumerate() {
         match &f.kind {
             StructFieldKind::Scalar(s) => {
-                let size = scalar_size(s).unwrap_or(8);
-                let v = read_int(&arg.buf, f.offset, size);
+                let v = read_scalar(&arg.buf, f.offset, f.size, is_signed_scalar(s));
                 map.insert(f.name.clone(), JsonValue::from(v));
+            }
+            StructFieldKind::Ptr => {
+                let v = read_int(&arg.buf, f.offset, f.size);
+                map.insert(f.name.clone(), JsonValue::from(v));
+            }
+            StructFieldKind::Arr(n, ty) => {
+                let esz = scalar_size(ty).unwrap_or(1);
+                let end = (f.offset + n * esz).min(arg.buf.len());
+                if esz == 1 {
+                    map.insert(f.name.clone(), bytes_to_json(&arg.buf[f.offset..end]));
+                } else {
+                    let signed = is_signed_scalar(ty);
+                    let list: Vec<JsonValue> = (0..*n)
+                        .map(|i| read_scalar(&arg.buf, f.offset + i * esz, esz, signed))
+                        .map(JsonValue::from)
+                        .collect();
+                    map.insert(f.name.clone(), JsonValue::Array(list));
+                }
+            }
+            StructFieldKind::Rec(nested) => {
+                let m = decode_fields(&arg.buf[f.offset..], nested);
+                map.insert(f.name.clone(), JsonValue::Object(m));
             }
             StructFieldKind::Buf(_) => {
                 let aux = &arg.aux[f.aux.unwrap_or(0)];
@@ -943,18 +1009,60 @@ pub(crate) fn unmarshal_io_struct(arg: &StructArg, ret_i64: i64) -> JsonValue {
                     .collect();
                 map.insert(f.name.clone(), JsonValue::Array(list));
             }
+            // `bytes`/`iov` input refs are omitted on read-back.
             _ => {}
         }
     }
     JsonValue::Object(map)
 }
 
-/// Wrap a raw C return as `{ ret, buf, outs }` when `io_struct` was used:
-/// `buf` is the read-back struct record, `outs` any byte out-slots.
+/// Decode nested `rec:{...}` fields (scalars, arrays, pointers, further
+/// nesting — embedded structs hold no buffer refs) into a record map.
+fn decode_fields(buf: &[u8], fields: &[ParsedField]) -> Map<String, JsonValue> {
+    let mut map = Map::new();
+    for (name, kind, offset, size) in fields {
+        match kind {
+            StructFieldKind::Scalar(s) => {
+                let v = read_scalar(buf, *offset, *size, is_signed_scalar(s));
+                map.insert(name.clone(), JsonValue::from(v));
+            }
+            StructFieldKind::Ptr => {
+                map.insert(name.clone(), JsonValue::from(read_int(buf, *offset, *size)));
+            }
+            StructFieldKind::Arr(n, ty) => {
+                let esz = scalar_size(ty).unwrap_or(1);
+                if esz == 1 {
+                    let end = (*offset + n * esz).min(buf.len());
+                    map.insert(name.clone(), bytes_to_json(&buf[*offset..end]));
+                } else {
+                    let signed = is_signed_scalar(ty);
+                    let list: Vec<JsonValue> = (0..*n)
+                        .map(|i| read_scalar(buf, *offset + i * esz, esz, signed))
+                        .map(JsonValue::from)
+                        .collect();
+                    map.insert(name.clone(), JsonValue::Array(list));
+                }
+            }
+            StructFieldKind::Rec(nested) => {
+                map.insert(
+                    name.clone(),
+                    JsonValue::Object(decode_fields(&buf[*offset..], nested)),
+                );
+            }
+            _ => {}
+        }
+    }
+    map
+}
+
+/// Wrap a raw C return as `{ ret, buf, outs, vals }` when `io_struct` (or
+/// `out_struct`) was used: `buf` is the read-back struct record, `outs` any
+/// byte out-slots, `vals` any `io_scalar` read-backs.
 pub(crate) fn wrap_io_struct_return(
     raw_ret: &JsonValue,
     io_structs: &[&StructArg],
     out_slots: &[OutSlot],
+    scalar_outs: &[ScalarSlot],
 ) -> JsonValue {
     let st = match io_structs.first() {
         Some(st) => st,
@@ -967,6 +1075,13 @@ pub(crate) fn wrap_io_struct_return(
     if !out_slots.is_empty() {
         let outs: Vec<JsonValue> = out_slots.iter().map(|s| slot_json(s, ret_i64)).collect();
         map.insert("outs".to_string(), JsonValue::Array(outs));
+    }
+    if !scalar_outs.is_empty() {
+        let vals: Vec<JsonValue> = scalar_outs
+            .iter()
+            .map(|s| JsonValue::from(s.read()))
+            .collect();
+        map.insert("vals".to_string(), JsonValue::Array(vals));
     }
     JsonValue::Object(map)
 }

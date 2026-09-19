@@ -29,7 +29,8 @@ fn arg_type_table() {
         ("int f(signed char x);", "Int", "i32"),
         ("int f(unsigned char x);", "Nat", "i32"),
         ("int f(_Bool x);", "Int", "i32"),
-        ("int f(size_t x);", "Nat", "i64"),
+        // ctypes aliases: the typedef spelling names the port type.
+        ("int f(size_t x);", "Size", "i64"),
         // typedefs resolve through their canonical type
         ("int f(size_t_ x);", "Nat", "i64"),
     ];
@@ -99,7 +100,7 @@ fn field_type_table() {
         ("i", "Int", "i64"),
         ("j", "Nat", "u64"),
         ("k", "Float", "f64"),
-        ("l", "Nat", "usize"),
+        ("l", "Size", "usize"),
     ];
     let fields = crate::cx::children_of_kind(rec, clang_sys::CXCursor_FieldDecl);
     for (field, (name, port, desc)) in fields.iter().zip(expected.iter()) {

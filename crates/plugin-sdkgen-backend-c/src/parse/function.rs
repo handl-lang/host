@@ -62,7 +62,7 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
         }
 
         if info.is_out_struct {
-            match out_struct_descriptor(&info.record_name, ctx) {
+            match struct_descriptor("out_struct", &info.record_name, ctx) {
                 Ok(record) => {
                     if out_struct.is_some() {
                         return Err(format!("function {name} has multiple out-struct params"));
@@ -85,6 +85,30 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
             continue;
         }
 
+        if info.is_in_struct {
+            match struct_descriptor("in_struct", &info.record_name, ctx) {
+                Ok(record) => {
+                    // The port arg is typed as the record itself (timespec,
+                    // sockaddr_in, ...) — not a per-function `*Msg` shape.
+                    port_args.push(Arg {
+                        name: arg_name,
+                        port: info.port,
+                    });
+                    arg_descriptors.push(record);
+                }
+                Err(_) => {
+                    // Opaque or unbuildable record — pass through.
+                    port_args.push(Arg {
+                        name: arg_name,
+                        port: "Handle".into(),
+                    });
+                    arg_descriptors.push("ptr".into());
+                }
+            }
+            i += 1;
+            continue;
+        }
+
         if info.consumes {
             port_args.push(Arg {
                 name: arg_name,
@@ -96,7 +120,14 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
     }
 
     let (ret_port, ret_descriptor) = map_return_type(ret_type, ctx.pointer_width)?;
-    let return_port = out_struct.clone().unwrap_or(ret_port);
+    // An out-struct param turns the port return into `{ret, buf}` — `ret`
+    // stays meaningful (status vs. payload), the emitter declares a
+    // `{Port}Result` record rather than unwrapping and dropping it.
+    let return_port = if out_struct.is_some() {
+        format!("{port_name}Result")
+    } else {
+        ret_port
+    };
 
     Ok(Function {
         name,
@@ -112,25 +143,66 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
     })
 }
 
-/// Render `out_struct:{field:desc,...}` from a previously parsed record.
-fn out_struct_descriptor(name: &Option<String>, ctx: &ParseCtx) -> Result<String, String> {
-    let name = name.as_ref().ok_or("missing out-struct name")?;
+/// Render `{prefix}:{field:desc@off[:size],...}` from a previously parsed
+/// record. Offsets and slot widths come from libclang's real target layout
+/// (`clang_Cursor_getOffsetOfField`/`Type_getSizeOf`), so the marshaller
+/// needs no layout assumptions of its own.
+fn struct_descriptor(
+    prefix: &str,
+    name: &Option<String>,
+    ctx: &ParseCtx,
+) -> Result<String, String> {
+    let name = name.as_ref().ok_or("missing struct name")?;
     let rec = ctx
         .records
         .borrow()
         .get(name)
         .cloned()
-        .ok_or_else(|| format!("unknown out-struct record: {name}"))?;
+        .ok_or_else(|| format!("unknown {prefix} record: {name}"))?;
     let mut desc = String::new();
-    desc.push_str("out_struct:{");
-    for (i, f) in rec.fields.iter().enumerate() {
-        if i > 0 {
-            desc.push(',');
-        }
-        desc.push_str(&f.name);
-        desc.push(':');
-        desc.push_str(&f.descriptor);
-    }
+    desc.push_str(prefix);
+    desc.push_str(":{");
+    desc.push_str(&record_fields_descriptor(&rec, ctx)?);
     desc.push('}');
     Ok(desc)
+}
+
+/// Render one record's fields as `name:spec@off[:size]` — `rec:` fields
+/// expand inline recursively; an unknown nested record degrades to an
+/// opaque byte array (`arr:size:u8`) so the ABI stays correct.
+fn record_fields_descriptor(
+    rec: &handl_plugin_sdkgen::Record,
+    ctx: &ParseCtx,
+) -> Result<String, String> {
+    let mut out = String::new();
+    for (i, f) in rec.fields.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&f.name);
+        out.push(':');
+        let spec = if let Some(rn) = f.descriptor.strip_prefix("rec:") {
+            let nested = ctx.records.borrow().get(rn).cloned();
+            match nested {
+                Some(n) => format!("rec:{{{}}}", record_fields_descriptor(&n, ctx)?),
+                // Unknown nested record — opaque bytes keep the ABI right.
+                None => format!("arr:{}:u8", f.size),
+            }
+        } else {
+            f.descriptor.clone()
+        };
+        out.push_str(&spec);
+        out.push('@');
+        out.push_str(&f.offset.to_string());
+        // Scalars carry width in their kind; pointer/array/nested slots
+        // need the explicit byte width (pointer width is target-specific).
+        if f.descriptor == "ptr"
+            || f.descriptor.starts_with("arr:")
+            || f.descriptor.starts_with("rec:")
+        {
+            out.push(':');
+            out.push_str(&f.size.to_string());
+        }
+    }
+    Ok(out)
 }

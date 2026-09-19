@@ -10,25 +10,23 @@ use std::path::Path;
 
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
 pub fn sdkgen_command(args: &[String]) -> i32 {
+    let usage = "usage: hnl sdkgen <c|webidl|python> <header|spec> --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>]";
     if args.is_empty() {
-        eprintln!(
-            "usage: hnl sdkgen <c|webidl|python> <header|spec> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]"
-        );
+        eprintln!("{usage}");
         return 2;
     }
 
     let kind = &args[0];
     if kind != "c" && kind != "webidl" && kind != "python" {
-        eprintln!(
-            "usage: hnl sdkgen <c|webidl|python> <header|spec> --output <dir> [--target <triple>] [--only <glob>] [--config <yaml>]"
-        );
+        eprintln!("{usage}");
         return 2;
     }
 
     let mut header: Option<String> = None;
     let mut output: Option<String> = None;
     let mut target: Option<String> = None;
-    let mut only: Option<String> = None;
+    let mut include: Option<String> = None;
+    let mut exclude: Option<String> = None;
     let mut config_path: Option<String> = None;
 
     let mut i = 1;
@@ -42,9 +40,13 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 i += 1;
                 target = args.get(i).map(String::to_string);
             }
-            "--only" => {
+            "--include" => {
                 i += 1;
-                only = args.get(i).map(String::to_string);
+                include = args.get(i).map(String::to_string);
+            }
+            "--exclude" => {
+                i += 1;
+                exclude = args.get(i).map(String::to_string);
             }
             "--config" => {
                 i += 1;
@@ -89,7 +91,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 },
                 None => SdkgenConfig::default(),
             };
-            let backend = match CBackend::new(target, config, only) {
+            let backend = match CBackend::new(target, config, include, exclude) {
                 Ok(b) => b,
                 Err(e) => {
                     eprintln!("sdkgen: {e}");
@@ -113,8 +115,10 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             }
         }
         "webidl" => {
-            let _ = only;
-            let _ = config_path;
+            if include.is_some() || exclude.is_some() || config_path.is_some() {
+                eprintln!("sdkgen: --include/--exclude/--config are only supported for `sdkgen c`");
+                return 2;
+            }
             let backend = WebIdlBackend::new(target);
             let module = match backend.parse_header(Path::new(&header)) {
                 Ok(m) => m,
@@ -130,9 +134,10 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             }
         }
         "python" => {
-            let _ = target;
-            let _ = only;
-            let _ = config_path;
+            if target.is_some() || include.is_some() || exclude.is_some() || config_path.is_some() {
+                eprintln!("sdkgen: --target/--include/--exclude/--config are only supported for `sdkgen c`");
+                return 2;
+            }
             if let Err(e) = generate_python(Path::new(&header), output_path) {
                 eprintln!("sdkgen: {e}");
                 return 1;

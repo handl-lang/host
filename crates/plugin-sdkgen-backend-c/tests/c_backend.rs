@@ -6,7 +6,7 @@ use std::path::Path;
 fn parses_simple_header() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     let rec = module
@@ -49,7 +49,7 @@ fn parses_simple_header() {
 fn size_pair_collapses_to_bytes_arg() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     // sock_send(fd, const void *buf, size_t len, int flags): the (ptr, len)
@@ -72,7 +72,7 @@ fn size_pair_collapses_to_bytes_arg() {
 fn const_record_ptr_with_len_collapses_to_bytes_arg() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     // sock_connect(fd, const struct sockaddr *addr, socklen_t addrlen):
@@ -102,7 +102,7 @@ fn const_record_ptr_with_len_collapses_to_bytes_arg() {
 fn macro_constants_and_anonymous_enums() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     // Object-like macros are evaluated into constants...
@@ -124,12 +124,12 @@ fn macro_constants_and_anonymous_enums() {
 }
 
 #[test]
-fn only_filter_matches_anonymous_enum_constants() {
+fn include_filter_matches_anonymous_enum_constants() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    // The anonymous enum has no name for --only to match; its constants
+    // The anonymous enum has no name for `include` to match; its constants
     // must still be reachable by their own names.
-    let backend = CBackend::new(None, Default::default(), Some("ANON_*".into())).unwrap();
+    let backend = CBackend::new(None, Default::default(), Some("ANON_*".into()), None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
     assert!(
         module
@@ -143,7 +143,7 @@ fn only_filter_matches_anonymous_enum_constants() {
 fn opaque_struct_ptr_falls_back_to_handle() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     // `struct opaque_ctx` is forward-declared only: not a caller-allocated
@@ -163,7 +163,7 @@ fn opaque_struct_ptr_falls_back_to_handle() {
 fn cstr_return_and_small_int_args() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     let f = module
@@ -188,7 +188,7 @@ fn cstr_return_and_small_int_args() {
 fn bitfield_record_reports_diagnostic() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), None).unwrap();
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
 
     assert!(!module.records.iter().any(|r| r.name == "flags"));
@@ -213,7 +213,7 @@ fn bitfield_record_reports_diagnostic() {
 fn only_filter_matches_functions() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), Some("add".into())).unwrap();
+    let backend = CBackend::new(None, Default::default(), Some("add".into()), None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
     assert_eq!(module.functions.len(), 1);
     assert_eq!(module.functions[0].name, "add");
@@ -224,7 +224,7 @@ fn only_filter_matches_functions() {
 fn only_filter_matches_records() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = manifest.join("tests/fixtures/simple.h");
-    let backend = CBackend::new(None, Default::default(), Some("point".into())).unwrap();
+    let backend = CBackend::new(None, Default::default(), Some("point".into()), None).unwrap();
     let module = backend.parse_header(&path).expect("parse header");
     assert_eq!(module.records.len(), 1);
     assert_eq!(module.records[0].name, "point");

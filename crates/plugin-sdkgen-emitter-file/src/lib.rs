@@ -92,6 +92,15 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
         client.client_pkg, client.error_type
     ));
     out.push_str("from \"result\" import { Result }\n");
+    // Backend-declared imports (e.g. the C backend's `ctypes` aliases) —
+    // rendered as data so the emitter stays backend-agnostic.
+    for imp in &module.imports {
+        out.push_str(&format!(
+            "from \"{}\" import {{ {} }}\n",
+            imp.package,
+            imp.names.join(", ")
+        ));
+    }
     out.push_str("\n");
 
     for rec in &module.records {
@@ -136,23 +145,37 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
                 out.push_str(&format!("--- {}\n", line.trim()));
             }
         }
-        if returns_outs_record(f) {
-            // Multi-out / value-result functions return the full
-            // `{ ret, buf, outs }` marshal record.
-            out.push_str(&format!(
-                "export {}Result := {{ ret: Int, buf: Bytes, outs: List<Bytes> }}\n\n",
-                f.port_name
-            ));
-        }
-        if let Some(fields) = msg_record_fields(f) {
-            // in_struct/io_struct functions pass or return a C struct —
-            // declare its Handl record shape as `<Port>Msg`.
-            out.push_str(&format!("export {}Msg := {{\n", f.port_name));
+        let result_fields = result_record_fields(f);
+        if let Some(fields) = &result_fields {
+            // Struct/scalar/multi-out functions return the full marshal
+            // record — declared here as `{Port}Result`.
+            out.push_str(&format!("export {}Result := {{\n", f.port_name));
             for (i, (fname, port)) in fields.iter().enumerate() {
                 let comma = if i == fields.len() - 1 { "" } else { "," };
                 out.push_str(&format!("  {fname}: {port}{comma}\n"));
             }
             out.push_str("}\n\n");
+        }
+        // in_struct/io_struct functions whose port signature references
+        // `<Port>Msg` (overrides, or the `buf` of a `{Port}Result`)
+        // declare that record shape here. Auto-mapped `const struct T*`
+        // args are typed as the record itself (e.g. timespec), so no
+        // per-function shape is emitted.
+        let msg_name = format!("{}Msg", f.port_name);
+        let uses_msg = f.port_args.iter().any(|a| a.port == msg_name)
+            || f.return_port == msg_name
+            || result_fields
+                .as_ref()
+                .is_some_and(|fs| fs.iter().any(|(n, t)| n == "buf" && *t == msg_name));
+        if uses_msg {
+            if let Some(fields) = msg_record_fields(f) {
+                out.push_str(&format!("export {msg_name} := {{\n"));
+                for (i, (fname, port)) in fields.iter().enumerate() {
+                    let comma = if i == fields.len() - 1 { "" } else { "," };
+                    out.push_str(&format!("  {fname}: {port}{comma}\n"));
+                }
+                out.push_str("}\n\n");
+            }
         }
         out.push_str(&format!("--- {}: {}\n", client.client_pkg, f.c_decl));
         out.push_str(&format!(
@@ -164,29 +187,60 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     out
 }
 
-/// Whether the function's return is the full `{ ret, buf, outs }` record
-/// rather than `r.buf` or `r` alone: any `out_ptr`/`io_buf` slot (where
-/// `ret` carries its own meaning, e.g. `accept`'s fd) or more than one
-/// byte out-slot. `out_struct` functions keep the `r.buf` unwrap.
-fn returns_outs_record(f: &handl_plugin_sdkgen::Function) -> bool {
-    if f.out_struct.is_some() {
-        return false;
-    }
-    let buf_slots = f
+fn is_byte_slot(d: &str) -> bool {
+    d.starts_with("out_buf:") || d.starts_with("out_ptr:") || d.starts_with("io_buf:")
+}
+
+fn is_struct_slot(d: &str) -> bool {
+    d.starts_with("out_struct:") || d.starts_with("io_struct:")
+}
+
+/// Field list for a function's `{Port}Result` record — `None` when the
+/// adapter unwraps the return to a plain value (a lone `out_buf`, where
+/// `ret` doubles as the byte count). Every other out-shape — struct outs,
+/// scalar value-results, `out_ptr`/`io_buf`, multiple byte slots — keeps
+/// `ret` visible since it carries independent meaning.
+fn result_record_fields(f: &handl_plugin_sdkgen::Function) -> Option<Vec<(String, String)>> {
+    let byte_slots = f.arg_descriptors.iter().filter(|d| is_byte_slot(d)).count();
+    let struct_out = f.out_struct.is_some() || f.arg_descriptors.iter().any(|d| is_struct_slot(d));
+    let scalar_outs = f
         .arg_descriptors
         .iter()
-        .filter(|d| {
-            d.starts_with("out_buf:") || d.starts_with("out_ptr:") || d.starts_with("io_buf:")
-        })
-        .count();
-    buf_slots > 1
+        .any(|d| d.starts_with("io_scalar:"));
+    let needs = struct_out
+        || scalar_outs
+        || byte_slots > 1
         || f.arg_descriptors
             .iter()
-            .any(|d| d.starts_with("out_ptr:") || d.starts_with("io_buf:"))
+            .any(|d| d.starts_with("out_ptr:") || d.starts_with("io_buf:"));
+    if !needs {
+        return None;
+    }
+    let mut fields = vec![("ret".to_string(), "Int".to_string())];
+    if struct_out {
+        // Auto-mapped out_structs name the record (`timespec`); override
+        // io_structs get a per-function `{Port}Msg` shape.
+        let ty = f
+            .out_struct
+            .clone()
+            .unwrap_or_else(|| format!("{}Msg", f.port_name));
+        fields.push(("buf".to_string(), ty));
+    } else if byte_slots > 0 {
+        fields.push(("buf".to_string(), "Bytes".to_string()));
+    }
+    if byte_slots > 0 {
+        fields.push(("outs".to_string(), "List<Bytes>".to_string()));
+    }
+    if scalar_outs {
+        fields.push(("vals".to_string(), "List<Int>".to_string()));
+    }
+    Some(fields)
 }
 
 /// Parse the field list of an `in_struct:{...}`/`io_struct:{...}`
 /// descriptor into `(name, port-type)` pairs for the port's record decl.
+/// Field specs carry layout suffixes (`name:kind@off[:size]`) and may
+/// nest (`rec:{...}`), so splitting must respect brace depth.
 fn msg_record_fields(f: &handl_plugin_sdkgen::Function) -> Option<Vec<(String, String)>> {
     let desc = f
         .arg_descriptors
@@ -197,26 +251,79 @@ fn msg_record_fields(f: &handl_plugin_sdkgen::Function) -> Option<Vec<(String, S
         .map(|(_, r)| r)?
         .strip_prefix('{')?
         .strip_suffix('}')?;
-    let fields = inner
-        .split(',')
-        .map(|p| p.trim())
-        .filter(|p| !p.is_empty())
+    let fields = split_top_fields(inner)
+        .into_iter()
         .filter_map(|p| {
             let (name, spec) = p.split_once(':')?;
-            let spec = spec.trim();
-            let port = if spec == "bytes" || spec.starts_with("buf:") {
-                "Bytes"
-            } else if spec == "iov" || spec.starts_with("iovbuf:") {
-                "List<Bytes>"
-            } else if spec.starts_with('u') || spec.starts_with("isize") || spec == "usize" {
-                "Nat"
-            } else {
-                "Int"
-            };
-            Some((name.trim().to_string(), port.to_string()))
+            Some((name.trim().to_string(), field_port(spec_head(spec))))
         })
         .collect();
     Some(fields)
+}
+
+/// Split a descriptor field list on commas at brace depth zero —
+/// `rec:{a:i32@0,b:i32@8}` contains commas that must not split.
+fn split_top_fields(inner: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut cur = String::new();
+    for ch in inner.chars() {
+        match ch {
+            '{' => {
+                depth += 1;
+                cur.push(ch);
+            }
+            '}' => {
+                depth -= 1;
+                cur.push(ch);
+            }
+            ',' if depth == 0 => parts.push(std::mem::take(&mut cur)),
+            _ => cur.push(ch),
+        }
+    }
+    if !cur.trim().is_empty() {
+        parts.push(cur);
+    }
+    parts
+}
+
+/// The field kind before its `@offset[:size]` layout suffix — the `@`
+/// may hide inside `rec:{...}`, so scan at depth zero only.
+fn spec_head(spec: &str) -> &str {
+    let mut depth = 0i32;
+    for (i, ch) in spec.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            '@' if depth == 0 => return &spec[..i],
+            _ => {}
+        }
+    }
+    spec.trim()
+}
+
+/// Port type for a struct field kind.
+fn field_port(spec: &str) -> String {
+    let spec = spec.trim();
+    if spec == "bytes" || spec.starts_with("buf:") {
+        "Bytes".into()
+    } else if spec.starts_with("arr:") {
+        if spec.ends_with(":u8") {
+            "Bytes".into()
+        } else {
+            "List<Int>".into()
+        }
+    } else if spec == "iov" || spec.starts_with("iovbuf:") {
+        "List<Bytes>".into()
+    } else if spec == "ptr" {
+        "Handle".into()
+    } else if spec.starts_with("rec:") {
+        "Obj".into()
+    } else if spec.starts_with('u') || spec == "isize" || spec == "usize" {
+        "Nat".into()
+    } else {
+        "Int".into()
+    }
 }
 
 fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str) -> String {
@@ -306,19 +413,15 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             out.push_str("  } else {\n");
             out.push_str("    err(e)\n");
             out.push_str("  }\n");
-        } else if returns_outs_record(f) {
+        } else if result_record_fields(f).is_some() {
             out.push_str("  if r.ret < 0 {\n");
             out.push_str("    err(errno())\n");
             out.push_str("  } else {\n");
             out.push_str("    ok(r)\n");
             out.push_str("  }\n");
-        } else if f.out_struct.is_some()
-            || f.arg_descriptors.iter().any(|d| {
-                d.starts_with("out_buf:")
-                    || d.starts_with("out_struct:")
-                    || d.starts_with("io_struct:")
-            })
-        {
+        } else if f.arg_descriptors.iter().any(|d| d.starts_with("out_buf:")) {
+            // A lone out_buf: `ret` doubles as the byte count — unwrap
+            // to the buffer.
             out.push_str("  if r.ret < 0 {\n");
             out.push_str("    err(errno())\n");
             out.push_str("  } else {\n");

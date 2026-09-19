@@ -6,7 +6,7 @@
 //!   `diagnostics` → collect → parse → `macro_probe` → `prune`).
 //! - [`cx`] — thin safe wrappers over libclang (strings, locations,
 //!   visitor helpers).
-//! - [`collect`] — top-level declaration collection honoring `--only`.
+//! - [`collect`] — top-level declaration collection honoring `include`/`exclude`.
 //! - [`parse`] — lowers cursors into `SdkgenModule` IR (`Record`,
 //!   `Typedef`, `Function`), including `(ptr, len)` pair collapse and
 //!   `out_struct` resolution.

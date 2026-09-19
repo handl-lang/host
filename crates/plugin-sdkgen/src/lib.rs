@@ -15,7 +15,19 @@ pub struct SdkgenModule {
     pub functions: Vec<Function>,
     pub typedefs: Vec<Typedef>,
     pub enum_constants: Vec<EnumConst>,
+    /// Additional packages the emitted port must import — declared by the
+    /// backend as data so emitters stay free of backend vocabularies
+    /// (e.g. the C backend's `ctypes` aliases).
+    #[serde(default)]
+    pub imports: Vec<ModuleImport>,
     pub diagnostics: Vec<String>,
+}
+
+/// A named import the emitted port needs: `from "<package>" import { names }`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleImport {
+    pub package: String,
+    pub names: Vec<String>,
 }
 
 /// Record (struct/union) layout.

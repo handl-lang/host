@@ -60,8 +60,11 @@ fn out_struct_resolves_to_descriptor() {
     c.records.borrow_mut().insert(rec.name.clone(), rec);
     let f = parse_function(sn.fn_cursor("mv"), &c).unwrap();
     assert_eq!(f.out_struct.as_deref(), Some("p"));
-    assert_eq!(f.return_port, "p");
-    assert_eq!(f.arg_descriptors, &["out_struct:{x:i32,y:i32}", "i32"]);
+    // out_struct returns keep `ret` — the port declares `{Port}Result`
+    // `{ret, buf: p}` rather than unwrapping and dropping the status.
+    assert_eq!(f.return_port, "MvResult");
+    // Field specs carry real libclang layout (`name:kind@off`).
+    assert_eq!(f.arg_descriptors, &["out_struct:{x:i32@0,y:i32@4}", "i32"]);
     assert_eq!(f.port_args.len(), 1); // out-struct consumes no handl arg
 }
 

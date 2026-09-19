@@ -544,11 +544,11 @@ export inet_ntop: InetNtop := (__arg_0, __arg_1, __arg_5) ~[1]~> do {
 }
 
 export inet_aton: InetAton := (__cp) ~[1]~> do {
-  r = call("libc.so.6", "inet_aton", [__cp], ["cstr", "out_struct:{s_addr:u32}"], "i32", false)
+  r = call("libc.so.6", "inet_aton", [__cp], ["cstr", "out_struct:{s_addr:u32@0}"], "i32", false)
   if r.ret < 0 {
     err(errno())
   } else {
-    ok(r.buf)
+    ok(r)
   }
 }
 

@@ -2,9 +2,9 @@
 
 use clang_sys::*;
 
-use crate::cx::{record_name, type_spelling};
-use crate::map::pred::{is_char, is_integer_kind, is_size_t, is_void};
-use crate::map::scalar::map_arg_type;
+use crate::cx::{cursor_name, record_name, type_spelling};
+use crate::map::pred::{is_char, is_len_like, is_size_t, is_void};
+use crate::map::scalar::{ctypes_port, map_arg_type};
 
 /// The mapping decision for one C function argument.
 pub(crate) struct ArgInfo {
@@ -17,6 +17,9 @@ pub(crate) struct ArgInfo {
     pub consumes: bool,
     /// Whether this is a `struct T*` out-param resolved via `out_struct`.
     pub is_out_struct: bool,
+    /// Whether this is a `const struct T*` in-param resolved via
+    /// `in_struct` (caller passes a record; the marshaller builds it).
+    pub is_in_struct: bool,
     /// The record name for `out_struct` arguments.
     pub record_name: Option<String>,
     /// Whether this argument is the pointer half of a `(ptr, len)` pair —
@@ -31,6 +34,7 @@ impl ArgInfo {
             descriptor: descriptor.into(),
             consumes: true,
             is_out_struct: false,
+            is_in_struct: false,
             record_name: None,
             is_size_pair: false,
         }
@@ -42,6 +46,7 @@ impl ArgInfo {
             descriptor: descriptor.into(),
             consumes: true,
             is_out_struct: false,
+            is_in_struct: false,
             record_name: None,
             is_size_pair: true,
         }
@@ -59,21 +64,22 @@ pub(crate) fn map_arg_with_peek(
     let original = type_spelling(ty);
     let canonical = unsafe { clang_getCanonicalType(ty) };
 
-    // size_t / ssize_t
+    // size_t / ssize_t — pointer-width scalars carrying ctypes aliases.
     if original == "size_t" || original == "ssize_t" {
-        let port = if original == "size_t" { "Nat" } else { "Int" };
+        let port =
+            ctypes_port(&original).unwrap_or(if original == "size_t" { "Nat" } else { "Int" });
         let desc = if pointer_width == 32 { "i32" } else { "i64" };
         return Ok(ArgInfo::scalar(port, desc));
     }
 
-    // A trailing integer argument is treated as the length of the preceding
-    // pointer (the C `(ptr, len)` convention). For variadic functions only
-    // `size_t` counts — otherwise e.g. `open(const char*, int, ...)` would
-    // misread `flags` as a length.
+    // A trailing size-typed or length-named argument is treated as the
+    // length of the preceding pointer (the C `(ptr, len)` convention). For
+    // variadic functions only `size_t` counts — otherwise e.g.
+    // `open(const char*, int, ...)` would misread `flags` as a length.
     let next_is_len = next
         .map(|nc| {
             let next_ty = unsafe { clang_getCursorType(nc) };
-            is_size_t(next_ty) || (!variadic && is_integer_kind(next_ty))
+            is_size_t(next_ty) || (!variadic && is_len_like(next_ty, &cursor_name(nc)))
         })
         .unwrap_or(false);
 
@@ -124,6 +130,24 @@ pub(crate) fn map_arg_with_peek(
                 descriptor: "out_struct".into(),
                 consumes: false,
                 is_out_struct: true,
+                is_in_struct: false,
+                record_name: Some(record),
+                is_size_pair: false,
+            });
+        }
+
+        // const struct T* with no trailing length -> in_struct: the caller
+        // supplies a Handl record and the marshaller builds the C struct
+        // (e.g. clock_settime's `const struct timespec *`). The const+len
+        // case (sockaddr* + socklen_t) was already taken by in_buf above.
+        if const_pointee && pointee_canonical.kind == CXType_Record {
+            let record = record_name(pointee_canonical)?;
+            return Ok(ArgInfo {
+                port: record.clone(),
+                descriptor: "in_struct".into(),
+                consumes: true,
+                is_out_struct: false,
+                is_in_struct: true,
                 record_name: Some(record),
                 is_size_pair: false,
             });
@@ -132,12 +156,15 @@ pub(crate) fn map_arg_with_peek(
         return Err(format!("unsupported pointer type: {}", type_spelling(ty)));
     }
 
-    let (port, descriptor) = map_arg_type(canonical, pointer_width)?;
+    // `ty`, not `canonical` — the typedef spelling carries ctypes aliases
+    // (`socklen_t` → `Socklen`) that canonicalization would erase.
+    let (port, descriptor) = map_arg_type(ty, pointer_width)?;
     Ok(ArgInfo {
         port,
         descriptor,
         consumes: true,
         is_out_struct: false,
+        is_in_struct: false,
         record_name: None,
         is_size_pair: false,
     })

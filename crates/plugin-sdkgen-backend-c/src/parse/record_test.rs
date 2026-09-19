@@ -35,10 +35,31 @@ fn bitfield_record_errors() {
 }
 
 #[test]
-fn array_field_record_errors() {
+fn array_field_maps_to_arr_descriptor() {
+    // Fixed arrays carry `arr:N:T` — inline storage, so `sockaddr`'s
+    // `char sa_data[14]` and `fd_set` bitmaps parse instead of erroring.
     let sn = parse_snippet("struct a { int x; char buf[8]; };\n");
-    let err = parse_record(sn.record_cursor("a"), &ctx(&sn)).unwrap_err();
-    assert!(err.contains("unsupported field type"), "{err}");
+    let rec = parse_record(sn.record_cursor("a"), &ctx(&sn)).unwrap();
+    assert_eq!(rec.fields[1].name, "buf");
+    assert_eq!(rec.fields[1].descriptor, "arr:8:i8");
+    assert_eq!(rec.fields[1].offset, 4);
+    assert_eq!(rec.fields[1].size, 8);
+    assert_eq!(rec.fields[1].port, "Bytes");
+}
+
+#[test]
+fn pointer_and_nested_record_fields() {
+    // Pointer fields are `ptr`/Handle; nested records are `rec:name`
+    // (expanded inline by struct_descriptor when the record is known).
+    let src = "struct in { int x; };\n\
+               struct outer { void *p; struct in inner; };\n";
+    let sn = parse_snippet(src);
+    let rec = parse_record(sn.record_cursor("outer"), &ctx(&sn)).unwrap();
+    assert_eq!(rec.fields[0].descriptor, "ptr");
+    assert_eq!(rec.fields[0].port, "Handle");
+    assert_eq!(rec.fields[1].descriptor, "rec:in");
+    assert_eq!(rec.fields[1].offset, 8);
+    assert_eq!(rec.fields[1].size, 4);
 }
 
 #[test]

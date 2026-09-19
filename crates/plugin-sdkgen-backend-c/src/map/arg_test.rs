@@ -32,7 +32,7 @@ fn plain_scalars() {
     );
     assert_eq!(
         map("int f(size_t n);", 0).unwrap(),
-        ("Nat".into(), "i64".into(), false)
+        ("Size".into(), "i64".into(), false)
     );
     // float has no f32 descriptor — widening f64 bits would be wrong.
     assert!(
@@ -74,9 +74,12 @@ fn ptr_len_pairs_collapse() {
         (port.as_str(), desc.as_str(), pair),
         ("Bytes", "in_buf", true)
     );
-    // Any integer kind counts as the length, not just size_t.
-    let (_, desc, pair) = map("int f(const void *b, int fd);", 0).unwrap();
+    // A length-named int counts too — but a non-length int (`fd`,
+    // `flags`) must NOT collapse: binding it as a buffer length would
+    // silently misgenerate the call.
+    let (_, desc, pair) = map("int f(const void *b, int len);", 0).unwrap();
     assert_eq!((desc.as_str(), pair), ("in_buf", true));
+    assert!(map("int f(const void *b, int fd);", 0).is_err());
 }
 
 #[test]

@@ -54,7 +54,7 @@ use crate::cranelift_shim::resolve_shim;
 use crate::error::last_errno;
 use crate::marshal::{
     CArg, CRet, CRetKind, descriptor_consumes_handl_arg, marshal_call_args, return_kind,
-    unmarshal_return, wrap_io_struct_return, wrap_out_struct_return, wrap_outs_return,
+    unmarshal_return, wrap_io_struct_return, wrap_outs_return,
 };
 
 mod cranelift_shim;
@@ -315,15 +315,18 @@ impl Function for FfiOpFunction {
                 .iter()
                 .map(|&i| &marshaled.struct_args[i])
                 .collect();
-            Ok(wrap_io_struct_return(&raw_ret, &ios, &marshaled.out_slots))
-        } else if !marshaled.out_structs.is_empty() {
-            Ok(wrap_out_struct_return(
+            Ok(wrap_io_struct_return(
                 &raw_ret,
-                &marshaled.out_structs,
+                &ios,
                 &marshaled.out_slots,
+                &marshaled.scalar_outs,
             ))
         } else {
-            Ok(wrap_outs_return(&raw_ret, &marshaled.out_slots))
+            Ok(wrap_outs_return(
+                &raw_ret,
+                &marshaled.out_slots,
+                &marshaled.scalar_outs,
+            ))
         }
     }
 }

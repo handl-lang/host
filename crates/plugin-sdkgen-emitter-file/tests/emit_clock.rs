@@ -55,11 +55,11 @@ fn build_clock_module() -> SdkgenModule {
         ],
         arg_descriptors: vec![
             "i32".to_string(),
-            "out_struct:{tv_sec:i64,tv_nsec:i64}".to_string(),
+            "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}".to_string(),
         ],
-        return_port: "Result<Timespec, Errno>".to_string(),
+        return_port: "ClockGettimeResult".to_string(),
         ret_descriptor: "i32".to_string(),
-        out_struct: Some("out_struct:{tv_sec:i64,tv_nsec:i64}".to_string()),
+        out_struct: Some("Timespec".to_string()),
         variadic: false,
         c_decl: "int clock_gettime(clockid_t clock_id, struct timespec *tp);".to_string(),
     });
@@ -87,6 +87,16 @@ fn emits_port_and_adapter() {
         port.contains("export ClockGettime:"),
         "port arrow missing: {port}"
     );
+    // out_struct keeps `ret` — the port declares a Result record whose
+    // `buf` is the struct, and the adapter returns it whole.
+    assert!(
+        port.contains("export ClockGettimeResult := {"),
+        "result record missing: {port}"
+    );
+    assert!(
+        port.contains("buf: Timespec"),
+        "result buf field missing: {port}"
+    );
     assert!(
         adapter.contains("export clock_gettime: ClockGettime :="),
         "adapter missing: {adapter}"
@@ -99,10 +109,7 @@ fn emits_port_and_adapter() {
         adapter.contains("err(errno())"),
         "err(errno()) missing: {adapter}"
     );
-    assert!(
-        adapter.contains("ok(r.buf)"),
-        "ok(r.buf) missing: {adapter}"
-    );
+    assert!(adapter.contains("ok(r)"), "ok(r) missing: {adapter}");
 
     let _ = fs::remove_dir_all(&tmp);
 }

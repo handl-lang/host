@@ -2,9 +2,9 @@
 //!
 //! `collect_cursors` is the `clang_visitChildren` callback that sorts
 //! top-level declarations into functions, records, typedefs, enums, and
-//! macros — filtered by the `--only` glob. `collect_enum` expands one enum
-//! cursor into constants (macro constants come from the probe pass in
-//! [`crate::backend::macro_probe`]).
+//! macros — filtered by `--include`/`--exclude` globs. `collect_enum`
+//! expands one enum cursor into constants (macro constants come from the
+//! probe pass in [`crate::backend::macro_probe`]).
 
 use clang_sys::*;
 use glob::Pattern;
@@ -13,7 +13,8 @@ use std::ffi::c_void;
 
 use crate::cx::{children_of_kind, cursor_name, from_main_file, is_system_header};
 
-/// Buckets of collected cursors plus the `--only`/`constants` filters.
+/// Buckets of collected cursors plus the `include`/`exclude`/`constants`
+/// filters.
 #[derive(Default)]
 pub(crate) struct CursorData {
     pub functions: Vec<CXCursor>,
@@ -21,9 +22,12 @@ pub(crate) struct CursorData {
     pub typedefs: Vec<CXCursor>,
     pub enums: Vec<CXCursor>,
     pub macros: Vec<CXCursor>,
-    /// `--only` glob(s): functions/types must match at least one.
+    /// `--include` glob(s): functions/types must match at least one.
     /// Empty = collect everything in the main file.
-    pub only: Vec<Pattern>,
+    pub include: Vec<Pattern>,
+    /// `--exclude` glob(s): a match vetoes collection, even when an
+    /// include glob also matches.
+    pub exclude: Vec<Pattern>,
     /// `constants` glob(s) from `.sdkgen.yaml`: enum constants and
     /// object-like macros must match at least one. Empty = every constant
     /// reachable through the header's include closure (the full API
@@ -35,6 +39,14 @@ fn matches_any(patterns: &[Pattern], name: &str) -> bool {
     patterns.iter().any(|p| p.matches(name))
 }
 
+impl CursorData {
+    /// Included and not excluded — the shared name gate.
+    fn allowed(&self, name: &str) -> bool {
+        (self.include.is_empty() || matches_any(&self.include, name))
+            && !matches_any(&self.exclude, name)
+    }
+}
+
 pub(crate) extern "C" fn collect_cursors(
     cursor: CXCursor,
     _parent: CXCursor,
@@ -42,7 +54,8 @@ pub(crate) extern "C" fn collect_cursors(
 ) -> CXChildVisitResult {
     let state = unsafe { &mut *(data as *mut CursorData) };
     let name = cursor_name(cursor);
-    let allowed = state.only.is_empty() || matches_any(&state.only, &name);
+    let allowed = state.allowed(&name);
+    let excluded = matches_any(&state.exclude, &name);
     let is_main = from_main_file(cursor);
     match cursor.kind {
         CXCursor_FunctionDecl => {
@@ -53,10 +66,14 @@ pub(crate) extern "C" fn collect_cursors(
         }
         CXCursor_StructDecl | CXCursor_TypedefDecl => {
             let is_sys = is_system_header(cursor);
-            // Collect type declarations from the main file (filtered by --only)
-            // and from system headers, which supply the ABI for the selected
-            // functions even when their names do not match --only.
-            if !((is_main && allowed) || (is_sys && (allowed || !state.only.is_empty()))) {
+            // Collect type declarations from the main file (filtered by
+            // include/exclude) and from system headers, which supply the
+            // ABI for the selected functions even when their names do not
+            // match `include`. `exclude` vetoes everywhere — a type the
+            // user excluded should not exist as far as generation is
+            // concerned.
+            let filtering = !state.include.is_empty() || !state.exclude.is_empty();
+            if !((is_main && allowed) || (is_sys && !excluded && (allowed || filtering))) {
                 return CXChildVisit_Continue;
             }
             match cursor.kind {
@@ -71,12 +88,13 @@ pub(crate) extern "C" fn collect_cursors(
         }
         CXCursor_EnumDecl => {
             let is_sys = is_system_header(cursor);
-            // Enums are exempt from --only at declaration level: anonymous
-            // enums have no name to match, and a named enum may hold
-            // constants that do. Constants are filtered in collect_enum.
-            if is_main
-                || (is_sys && (allowed || !state.only.is_empty() || !state.consts.is_empty()))
-            {
+            // Enums are exempt from `include` at declaration level:
+            // anonymous enums have no name to match, and a named enum may
+            // hold constants that do. Constants are filtered in
+            // collect_enum. `exclude` still vetoes by enum name.
+            let filtering =
+                !state.include.is_empty() || !state.exclude.is_empty() || !state.consts.is_empty();
+            if !excluded && (is_main || (is_sys && (allowed || filtering))) {
                 state.enums.push(cursor);
             }
         }
@@ -85,13 +103,13 @@ pub(crate) extern "C" fn collect_cursors(
             // constants. Origin gate first: compiler builtins have no
             // source location and `_`-prefixed names are the reserved
             // internal namespace — neither is API. Then `constants` wins
-            // outright, else `--only`, else everything reachable through
-            // the header's include closure.
+            // outright, else include/exclude, else everything reachable
+            // through the header's include closure.
             let is_sys = is_system_header(cursor);
             let object_like = unsafe { clang_Cursor_isMacroFunctionLike(cursor) } == 0;
             let in_file = is_main || is_sys;
             let take = if !state.consts.is_empty() {
-                matches_any(&state.consts, &name)
+                matches_any(&state.consts, &name) && !excluded
             } else {
                 !name.starts_with('_') && allowed
             };
@@ -105,13 +123,15 @@ pub(crate) extern "C" fn collect_cursors(
 }
 
 /// Expand one enum cursor into `EnumConst` entries on the module.
-/// `consts` (config `constants:`) takes precedence; otherwise `only`
-/// filters; with neither, all constants are emitted (the enum's own name
-/// never gates them — anonymous enums carry public constants).
+/// `consts` (config `constants:`) takes precedence; otherwise `include`
+/// filters; `exclude` vetoes either way. With neither, all constants are
+/// emitted (the enum's own name never gates them — anonymous enums carry
+/// public constants).
 pub(crate) fn collect_enum(
     cursor: CXCursor,
     module: &mut SdkgenModule,
-    only: &[Pattern],
+    include: &[Pattern],
+    exclude: &[Pattern],
     consts: &[Pattern],
 ) {
     for c in children_of_kind(cursor, CXCursor_EnumConstantDecl) {
@@ -122,9 +142,9 @@ pub(crate) fn collect_enum(
         let keep = if !consts.is_empty() {
             matches_any(consts, &name)
         } else {
-            only.is_empty() || matches_any(only, &name)
+            include.is_empty() || matches_any(include, &name)
         };
-        if !keep {
+        if !keep || matches_any(exclude, &name) {
             continue;
         }
         let value = unsafe { clang_getEnumConstantDeclValue(c) };

@@ -3,9 +3,10 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
+from "ctypes" import { InAddr, Size }
 
 export in_addr := {
-  s_addr: Nat
+  s_addr: InAddr
 }
 
 export SOCK_STREAM: Int
@@ -512,10 +513,10 @@ export INET_ADDRSTRLEN: Int
 export INET6_ADDRSTRLEN: Int
 
 --- ffi: in_addr_t (const char *)
-export InetAddr: (String) ~[1]~> Result<Nat, Errno>
+export InetAddr: (String) ~[1]~> Result<InAddr, Errno>
 
 --- ffi: in_addr_t (const char *)
-export InetNetwork: (String) ~[1]~> Result<Nat, Errno>
+export InetNetwork: (String) ~[1]~> Result<InAddr, Errno>
 
 --- ffi: int (int, const char *restrict, void *restrict)
 export InetPton: (Int, String) ~[1]~> Result<Bytes, Errno>
@@ -523,11 +524,16 @@ export InetPton: (Int, String) ~[1]~> Result<Bytes, Errno>
 --- ffi: 
 export InetNtop: (Int, Bytes, Int) ~[1]~> Result<Bytes, Errno>
 
+export InetAtonResult := {
+  ret: Int,
+  buf: in_addr
+}
+
 --- ffi: int (const char *, struct in_addr *)
-export InetAton: (String) ~[1]~> Result<in_addr, Errno>
+export InetAton: (String) ~[1]~> Result<InetAtonResult, Errno>
 
 --- ffi: int (int, const char *, void *, size_t)
-export InetNetPton: (Int, String, Handle, Nat) ~[1]~> Result<Int, Errno>
+export InetNetPton: (Int, String, Handle, Size) ~[1]~> Result<Int, Errno>
 
 --- ffi: char *(int, const unsigned char *, char *)
 export InetNsapNtoa: (Int, String, String) ~[1]~> Result<String, Errno>

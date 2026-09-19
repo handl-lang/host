@@ -17,14 +17,31 @@ pub struct SdkgenConfig {
     #[serde(default)]
     pub defines: Vec<String>,
     /// Glob patterns narrowing which constants (enum constants and
-    /// object-like `#define`s) to emit — independent of `--only`, which
+    /// object-like `#define`s) to emit — independent of `include`, which
     /// gates functions/types. Empty emits every integer constant reachable
     /// through the header's include closure.
     #[serde(default)]
     pub constants: Vec<String>,
+    /// Per-header narrowing, keyed by header basename (`unistd.h`). Makes
+    /// the regeneration recipe reproducible from config alone —
+    /// `--include`/`--exclude` on the CLI union with these.
+    #[serde(default)]
+    pub headers: HashMap<String, HeaderConfig>,
     /// Per-symbol overrides.
     #[serde(default)]
     pub symbols: HashMap<String, SymbolOverride>,
+}
+
+/// Per-header options.
+#[derive(Debug, Default, Deserialize)]
+pub struct HeaderConfig {
+    /// Glob patterns narrowing which functions/types to emit — same
+    /// semantics as the `--include` CLI flag.
+    #[serde(default)]
+    pub include: Vec<String>,
+    /// Glob patterns vetoing emission — same semantics as `--exclude`.
+    #[serde(default)]
+    pub exclude: Vec<String>,
 }
 
 /// Overrides for a single C symbol.
@@ -63,6 +80,11 @@ impl SdkgenConfig {
         };
         if let Some(args) = &ov.args {
             f.arg_descriptors = args.clone();
+            // The override replaces the descriptor list wholesale — an
+            // auto-mapped `out_struct` (e.g. recvmsg's `msghdr*`) no
+            // longer applies; an inline `out_struct:`/`io_struct:`
+            // descriptor's buf is the `{Port}Msg` read-back shape.
+            f.out_struct = None;
             // Only descriptors that consume a handl argument produce a port
             // arg — `out_buf`/`out_struct`/`void` expand to out-params and
             // consume nothing. Names are recovered by C-argument index:
@@ -105,14 +127,20 @@ impl SdkgenConfig {
         if let Some(desc) = &ov.descriptor {
             f.ret_descriptor = desc.clone();
         }
-        if f.arg_descriptors
-            .iter()
-            .any(|d| d.starts_with("io_struct:"))
+        let has_struct_out = f.out_struct.is_some()
+            || f.arg_descriptors
+                .iter()
+                .any(|d| d.starts_with("io_struct:") || d.starts_with("out_struct:"));
+        if has_struct_out
+            || f.arg_descriptors
+                .iter()
+                .any(|d| d.starts_with("io_scalar:"))
         {
-            // io_struct: callee fills the struct — the emitter unwraps
-            // `{ret, buf}` to the read-back record, typed `{Port}Msg`.
-            f.return_port = format!("{}Msg", f.port_name);
-        } else if f.out_struct.is_none() {
+            // Struct outs and scalar value-results: `ret` is independent
+            // of the payload — the emitter returns the full `{ret, buf,
+            // outs, vals}` record, declared in the port as `<Port>Result`.
+            f.return_port = format!("{}Result", f.port_name);
+        } else {
             let slots = f.arg_descriptors.iter().filter(|d| is_out_slot(d)).count();
             if slots > 1
                 || f.arg_descriptors
@@ -183,8 +211,11 @@ fn descriptor_c_arg_count(d: &str) -> usize {
 }
 
 fn descriptor_to_port(d: &str) -> String {
-    if d.starts_with("out_struct:") {
+    if d.starts_with("out_struct:") || d.starts_with("io_struct:") {
         return "Obj".to_string();
+    }
+    if d.starts_with("io_scalar:") {
+        return "Int".to_string();
     }
     if d.starts_with("out_buf:")
         || d.starts_with("out_ptr:")

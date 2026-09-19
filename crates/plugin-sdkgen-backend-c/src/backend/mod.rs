@@ -38,7 +38,8 @@ use crate::parse::{ParseCtx, parse_function, parse_record, parse_typedef};
 pub struct CBackend {
     target: Option<String>,
     config: SdkgenConfig,
-    only: Vec<Pattern>,
+    include: Vec<Pattern>,
+    exclude: Vec<Pattern>,
     consts: Vec<Pattern>,
 }
 
@@ -55,9 +56,11 @@ impl CBackend {
     pub fn new(
         target: Option<String>,
         config: SdkgenConfig,
-        only: Option<String>,
+        include: Option<String>,
+        exclude: Option<String>,
     ) -> Result<Self, SdkgenError> {
-        let only = only.map(|p| globs(&p)).transpose()?.unwrap_or_default();
+        let include = include.map(|p| globs(&p)).transpose()?.unwrap_or_default();
+        let exclude = exclude.map(|p| globs(&p)).transpose()?.unwrap_or_default();
         let consts = config
             .constants
             .iter()
@@ -69,7 +72,8 @@ impl CBackend {
         Ok(Self {
             target,
             config,
-            only,
+            include,
+            exclude,
             consts,
         })
     }
@@ -130,8 +134,27 @@ impl SdkgenBackend for CBackend {
             records: RefCell::new(HashMap::new()),
         };
 
+        // Config `headers:` per-file include/exclude patterns union with
+        // `--include`/`--exclude`, so a narrowed header's recipe is
+        // reproducible from the yaml.
+        let mut include = self.include.clone();
+        let mut exclude = self.exclude.clone();
+        let basename = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        if let Some(hc) = self.config.headers.get(basename) {
+            for pat in &hc.include {
+                include.extend(globs(pat)?);
+            }
+            for pat in &hc.exclude {
+                exclude.extend(globs(pat)?);
+            }
+        }
+
         let mut cursor_data = CursorData {
-            only: self.only.clone(),
+            include: include.clone(),
+            exclude: exclude.clone(),
             consts: self.consts.clone(),
             ..Default::default()
         };
@@ -183,7 +206,7 @@ impl SdkgenBackend for CBackend {
         }
 
         for &cursor in &cursor_data.enums {
-            collect_enum(cursor, &mut module, &self.only, &self.consts);
+            collect_enum(cursor, &mut module, &include, &exclude, &self.consts);
         }
 
         let macro_names: Vec<String> = cursor_data
@@ -222,6 +245,36 @@ impl SdkgenBackend for CBackend {
         }
 
         prune::prune_unreferenced(&mut module);
+
+        // Collect ctypes aliases referenced by the surviving port types so
+        // the emitter can render `from "ctypes" import {...}` — declared
+        // on the module as data, keeping the emitter backend-agnostic.
+        let mut aliases = std::collections::BTreeSet::new();
+        let mut note = |port: &str| {
+            if crate::map::is_ctypes_port(port) {
+                aliases.insert(port.to_string());
+            }
+        };
+        for f in &module.functions {
+            for a in &f.port_args {
+                note(&a.port);
+            }
+            note(&f.return_port);
+        }
+        for r in &module.records {
+            for fl in &r.fields {
+                note(&fl.port);
+            }
+        }
+        for t in &module.typedefs {
+            note(&t.port);
+        }
+        if !aliases.is_empty() {
+            module.imports.push(handl_plugin_sdkgen::ModuleImport {
+                package: "ctypes".into(),
+                names: aliases.into_iter().collect(),
+            });
+        }
 
         unsafe {
             clang_disposeTranslationUnit(tu);

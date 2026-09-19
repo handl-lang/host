@@ -12,8 +12,8 @@ use serde_json::{Value, json};
 
 use crate::FfiOpFunction;
 use crate::marshal::{
-    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, parse_out_struct_descriptor,
-    unmarshal_out_struct, unmarshal_return,
+    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, marshal_struct_arg, unmarshal_io_struct,
+    unmarshal_return,
 };
 
 /// Call an [`FfiOpFunction`] with a fresh [`EvalContext`].
@@ -592,6 +592,53 @@ fn sendmsg_in_struct_recvmsg_io_struct_roundtrip() {
 }
 
 #[test]
+fn io_scalar_ioctl_fionread_returns_pending_bytes() {
+    // ioctl(fd, FIONREAD, &n) — `io_scalar:i32` seeds an int cell from a
+    // handl arg, passes its pointer, and reads it back into `vals`.
+    let (fd0, fd1) = sockpair();
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "in_buf".to_string()],
+        "i64",
+        true,
+    );
+    call(
+        &write_fn,
+        &[json!(fd0), json!({"__bytes__": [1, 2, 3, 4, 5]})],
+    )
+    .expect("write should succeed");
+
+    const FIONREAD: i64 = 0x541B;
+    let ioctl = FfiOpFunction::new(
+        "libc.so.6",
+        "ioctl",
+        vec![
+            "i32".to_string(),
+            "i64".to_string(),
+            "io_scalar:i32".to_string(),
+        ],
+        "i32",
+        true,
+    );
+    let result =
+        call(&ioctl, &[json!(fd1), json!(FIONREAD), json!(0)]).expect("ioctl should succeed");
+    assert_eq!(result.get("ret").and_then(|v| v.as_i64()), Some(0));
+    let vals = result
+        .get("vals")
+        .and_then(|v| v.as_array())
+        .expect("vals field should be present");
+    assert_eq!(
+        vals[0].as_i64(),
+        Some(5),
+        "FIONREAD should report 5 pending bytes"
+    );
+
+    close_fd(fd0);
+    close_fd(fd1);
+}
+
+#[test]
 fn cbytes_passes_ptr_len_pair_to_write() {
     // `cbytes` is semantically identical to `in_buf` for write(2): it passes
     // (ptr, len) with no NUL termination or UTF-8 validation. Verify a buffer
@@ -1080,35 +1127,60 @@ fn out_struct_clock_gettime_returns_record() {
 }
 
 #[test]
-fn out_struct_descriptor_accepts_all_integer_field_types() {
-    let out = parse_out_struct_descriptor(
-        "out_struct:{a:i8,b:i16,c:i32,d:i64,e:u8,f:u16,g:u32,h:u64,i:isize,j:usize}",
+fn struct_descriptor_accepts_all_integer_field_types() {
+    let st = marshal_struct_arg(
+        "a:i8,b:i16,c:i32,d:i64,e:u8,f:u16,g:u32,h:u64,i:isize,j:usize",
+        None,
     )
-    .expect("parse out_struct");
-    assert_eq!(out.fields.len(), 10);
-    let kinds: Vec<&str> = out.fields.iter().map(|(_, k, _, _)| k.as_str()).collect();
-    assert_eq!(
-        kinds,
-        vec![
-            "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"
-        ]
-    );
-    let sizes: Vec<usize> = out.fields.iter().map(|(_, _, _, s)| *s).collect();
+    .expect("parse struct fields");
+    assert_eq!(st.fields.len(), 10);
+    let sizes: Vec<usize> = st.fields.iter().map(|f| f.size).collect();
     assert_eq!(sizes, vec![1, 2, 4, 8, 1, 2, 4, 8, 8, 8]);
+    let offsets: Vec<usize> = st.fields.iter().map(|f| f.offset).collect();
+    assert_eq!(offsets, vec![0, 2, 4, 8, 16, 18, 20, 24, 32, 40]);
 }
 
 #[test]
-fn out_struct_unmarshal_u32_i16_fields() {
-    let mut out =
-        parse_out_struct_descriptor("out_struct:{x:u32,y:i16}").expect("parse out_struct");
-    out.buf = vec![0u8; out.buf.len()];
-    out.buf[0..4].copy_from_slice(&0xDEADBEEFu32.to_ne_bytes());
-    out.buf[4..6].copy_from_slice(&(-12345i16).to_ne_bytes());
-    let rec = unmarshal_out_struct(&out).expect("unmarshal");
+fn struct_descriptor_explicit_offsets() {
+    // `name:kind@off[:size]` — the backend emits libclang's real layout.
+    let st = marshal_struct_arg("x:i32@4,y:i64@16:8", None).expect("explicit offsets");
+    assert_eq!(st.fields[0].offset, 4);
+    assert_eq!(st.fields[1].offset, 16);
+    assert_eq!(st.buf.len(), 24);
+}
+
+#[test]
+fn io_struct_unmarshal_u32_i16_fields() {
+    let mut st = marshal_struct_arg("x:u32,y:i16", None).expect("parse struct fields");
+    st.buf[0..4].copy_from_slice(&0xDEADBEEFu32.to_ne_bytes());
+    st.buf[4..6].copy_from_slice(&(-12345i16).to_ne_bytes());
+    let rec = unmarshal_io_struct(&st, 0);
     let obj = rec.as_object().expect("record");
     assert_eq!(
         obj.get("x").and_then(|v| v.as_i64()),
         Some(0xDEADBEEFu32 as i64)
     );
     assert_eq!(obj.get("y").and_then(|v| v.as_i64()), Some(-12345));
+}
+
+#[test]
+fn io_struct_unmarshal_arr_and_rec_fields() {
+    let mut st = marshal_struct_arg(
+        "fam:u16@0,data:arr:14:u8@2,inner:rec:{tv_sec:i64@0,tv_nsec:i64@8}@16",
+        None,
+    )
+    .expect("parse struct fields");
+    st.buf[0..2].copy_from_slice(&2u16.to_ne_bytes());
+    st.buf[2..6].copy_from_slice(&[127, 0, 0, 1]);
+    st.buf[16..24].copy_from_slice(&1700000000i64.to_ne_bytes());
+    let rec = unmarshal_io_struct(&st, 0);
+    let obj = rec.as_object().expect("record");
+    assert_eq!(obj.get("fam").and_then(|v| v.as_i64()), Some(2));
+    let data: Vec<u8> = json_to_bytes(obj.get("data").unwrap()).unwrap();
+    assert_eq!(&data[..4], &[127, 0, 0, 1]);
+    let inner = obj.get("inner").and_then(|v| v.as_object()).unwrap();
+    assert_eq!(
+        inner.get("tv_sec").and_then(|v| v.as_i64()),
+        Some(1700000000)
+    );
 }

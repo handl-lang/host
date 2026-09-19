@@ -19,14 +19,22 @@ int pub_fn(int a);
 static int internal_fn(int a);
 ";
 
-fn collect(src: &str, only: Option<&str>) -> (Snippet, CursorData) {
-    collect_with(src, only, &[])
+fn collect(src: &str, include: Option<&str>) -> (Snippet, CursorData) {
+    collect_with(src, include, None, &[])
 }
 
-fn collect_with(src: &str, only: Option<&str>, consts: &[&str]) -> (Snippet, CursorData) {
+fn collect_with(
+    src: &str,
+    include: Option<&str>,
+    exclude: Option<&str>,
+    consts: &[&str],
+) -> (Snippet, CursorData) {
     let sn = parse_snippet(src);
     let mut data = CursorData {
-        only: only
+        include: include
+            .map(|p| vec![Pattern::new(p).unwrap()])
+            .unwrap_or_default(),
+        exclude: exclude
             .map(|p| vec![Pattern::new(p).unwrap()])
             .unwrap_or_default(),
         consts: consts.iter().map(|p| Pattern::new(p).unwrap()).collect(),
@@ -61,7 +69,7 @@ fn skips_internal_linkage_and_forward_decls() {
 }
 
 #[test]
-fn only_filter_gates_functions_records_typedefs_macros() {
+fn include_filter_gates_functions_records_typedefs_macros() {
     let (_sn, d) = collect(SRC, Some("pub_*"));
     assert_eq!(names(&d.functions), ["pub_fn"]);
     assert!(d.records.is_empty());
@@ -72,11 +80,27 @@ fn only_filter_gates_functions_records_typedefs_macros() {
 }
 
 #[test]
-fn collect_enum_filters_constants_by_only() {
+fn exclude_vetoes_included_and_unfiltered_names() {
+    // exclude wins over an include glob that also matches.
+    let (_sn, d) = collect_with(SRC, Some("*_fn"), Some("pub_*"), &[]);
+    assert!(d.functions.is_empty());
+    // and vetoes with no include filter at all.
+    let (_sn, d) = collect_with(SRC, None, Some("pub_fn"), &[]);
+    assert!(d.functions.is_empty());
+    assert_eq!(names(&d.typedefs), ["size_t", "myint"]);
+    // records and macros too
+    let (_sn, d) = collect_with(SRC, None, Some("defined"), &[]);
+    assert!(d.records.is_empty());
+    let (_sn, d) = collect_with(SRC, None, Some("OBJ_*"), &[]);
+    assert!(d.macros.is_empty());
+}
+
+#[test]
+fn collect_enum_filters_constants_by_include() {
     let (_sn, d) = collect(SRC, Some("ANON_*"));
     let mut module = SdkgenModule::default();
     for &e in &d.enums {
-        collect_enum(e, &mut module, &d.only, &d.consts);
+        collect_enum(e, &mut module, &d.include, &d.exclude, &d.consts);
     }
     assert_eq!(module.enum_constants.len(), 1);
     assert_eq!(module.enum_constants[0].name, "ANON_A");
@@ -84,11 +108,26 @@ fn collect_enum_filters_constants_by_only() {
 }
 
 #[test]
+fn collect_enum_exclude_vetoes_constants() {
+    let (_sn, d) = collect_with(SRC, None, Some("GREEN"), &[]);
+    let mut module = SdkgenModule::default();
+    for &e in &d.enums {
+        collect_enum(e, &mut module, &d.include, &d.exclude, &d.consts);
+    }
+    let got: Vec<&str> = module
+        .enum_constants
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(got, ["RED", "ANON_A"]);
+}
+
+#[test]
 fn collect_enum_no_filter_takes_all() {
     let (_sn, d) = collect(SRC, None);
     let mut module = SdkgenModule::default();
     for &e in &d.enums {
-        collect_enum(e, &mut module, &d.only, &d.consts);
+        collect_enum(e, &mut module, &d.include, &d.exclude, &d.consts);
     }
     let got: Vec<&str> = module
         .enum_constants
@@ -102,14 +141,14 @@ fn collect_enum_no_filter_takes_all() {
 fn consts_glob_gates_enums_and_macros_independently() {
     // `constants` selects enum constants + macros without touching the
     // function/record/typedef surface.
-    let (_sn, d) = collect_with(SRC, None, &["ANON_*", "OBJ_*"]);
+    let (_sn, d) = collect_with(SRC, None, None, &["ANON_*", "OBJ_*"]);
     assert_eq!(names(&d.functions), ["pub_fn"]);
     assert_eq!(names(&d.records), ["defined"]);
     assert_eq!(names(&d.macros), ["OBJ_CONST"]); // FN_LIKE is function-like
 
     let mut module = SdkgenModule::default();
     for &e in &d.enums {
-        collect_enum(e, &mut module, &d.only, &d.consts);
+        collect_enum(e, &mut module, &d.include, &d.exclude, &d.consts);
     }
     let got: Vec<&str> = module
         .enum_constants
@@ -120,12 +159,12 @@ fn consts_glob_gates_enums_and_macros_independently() {
 }
 
 #[test]
-fn consts_glob_still_applies_under_only() {
-    let (_sn, d) = collect_with(SRC, Some("pub_*"), &["RED"]);
+fn consts_glob_still_applies_under_include() {
+    let (_sn, d) = collect_with(SRC, Some("pub_*"), None, &["RED"]);
     assert_eq!(names(&d.functions), ["pub_fn"]);
     let mut module = SdkgenModule::default();
     for &e in &d.enums {
-        collect_enum(e, &mut module, &d.only, &d.consts);
+        collect_enum(e, &mut module, &d.include, &d.exclude, &d.consts);
     }
     assert_eq!(module.enum_constants.len(), 1);
     assert_eq!(module.enum_constants[0].name, "RED");
