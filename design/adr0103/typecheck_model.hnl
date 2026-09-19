@@ -29,6 +29,7 @@
 ---   construct_pi, pi_apply, unify_pi, check_pi_body, construct_sigma,
 ---   construct_forall, forall_apply, unify_forall, construct_vau, vau_apply,
 ---   unify_vau, construct_eq, construct_empty, check_refl, eq_reduce,
+---   transport, synth_transport, synth_j,
 ---   construct_universe, universe_level, universe_max, construct_membership,
 ---   check_membership, eval_membership, construct_collection, marshalable,
 ---   foreign_type, quote, normalize.
@@ -554,9 +555,10 @@ do {
       rest_keys :: drop(keys, 1)
       --- `param_name` is alpha-level bookkeeping (the bound name is not
       --- part of the function type's identity); `ctor` is constructor-
-      --- signature provenance from `synth_data`. Neither participates
-      --- in type equality.
-      is_structural :: key == "__tag__" || key == "__registry__" || key == "body_closure" || key == "param_name" || key == "ctor"
+      --- signature provenance from `synth_data`; `via` is the `Path`
+      --- witness recorded by transport (proof-relevant provenance —
+      --- ADR-0120). None participates in type equality.
+      is_structural :: key == "__tag__" || key == "__registry__" || key == "body_closure" || key == "param_name" || key == "ctor" || key == "via"
       if is_structural {
         unify_fields(self, funcs, a, b, metas, rest_keys)
       } else {
@@ -1356,7 +1358,7 @@ do {
       }
     } else {
     dep_tag :: if expected == null { "" } else { type_tag(expected) }
-    is_dep_intro :: dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall"
+    is_dep_intro :: dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall" || dep_tag == "Path"
     if is_dep_intro {
       funcs.check_dependent_(funcs, s, node_idx, expected)
     } else {
@@ -1755,9 +1757,16 @@ do {
         }
       }
     } else {
+    if tag == "Path" {
+      --- `Path(a, b)` is the identity type (ADR-0120): its
+      --- introductions are `refl` and in-scope `Path` witnesses
+      --- (`eq_<name>` bindings, `p : Path` hypotheses).
+      funcs.check_path_intro_(funcs, s, node_idx, expected)
+    } else {
       --- `type.forall` has no term-level introduction form yet —
       --- synthesis + dependent unification only.
       funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+    }
     }
     }
     }
@@ -1822,7 +1831,12 @@ do {
               do {
                 na :: funcs.eval_term_(funcs, st["state"], zonk(zonk, at(args_a, st.i), st["state"].metas))
                 nb :: funcs.eval_term_(funcs, na["state"], zonk(zonk, at(args_b, st.i), na["state"].metas))
-                u :: unify(funcs, na.val, nb.val, nb["state"].metas)
+                --- Index unification consumes in-scope `Path` witnesses:
+                --- `unify_via_paths_` retries a failed equation by
+                --- transporting either side along a `Path{frm,to}`
+                --- bound in `results` (`eq_<name>` and aliases) — the
+                --- J eliminator's content, applied at unification.
+                u :: funcs.unify_via_paths_(funcs, na.val, nb.val, nb["state"])
                 { state: { state: set(nb["state"], "metas", u.metas), ok: u.ok, i: st.i + 1 } }
               }
             }
@@ -2824,6 +2838,430 @@ do {
       }
     } else {
       funcs.synth_type_(funcs, s, inner_idx)
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- Transport / the J eliminator (ADR-0120): consuming `Path` witnesses
+  --- ------------------------------------------------------------------
+  ---
+  --- A `Path{frm, to}` is a 2-cell — the proof-relevant witness that
+  --- the index terms `frm` and `to` are equal. `refine_scrutinee_`
+  --- binds one under `eq_<name>` per rigid scrutinee index for the
+  --- duration of a match arm, and `unify` constructs one per successful
+  --- equation. These helpers make the witness *usable* — J is the
+  --- eliminator for 2-cells:
+  ---
+  ---   * `transport_term_`/`subst_index_` realize transport as
+  ---     substitution: `p : Path{frm, to}` rewrites `frm ↦ to` inside
+  ---     index terms and inside a type's index positions (`family_app`
+  ---     args, `List` lengths, nested codomains) — `T[frm]` becomes
+  ---     `T[to]`.
+  ---   * `paths_in_scope_`/`unify_via_paths_` let unification consume
+  ---     an in-scope `Path` when direct equality fails — `P[frm]`
+  ---     against `P[to]` succeeds by rewriting either side along the
+  ---     path.
+  ---   * `resolve_path_` classifies a path *operand* (the `p` in
+  ---     `p # v` / `j p, P, base`): a `Path`/`type.eq` value, the
+  ---     identity `refl`, a `var` naming a gamma-bound Path, a stuck
+  ---     metavariable, or a decided non-path.
+  ---   * `check_path_intro_`/`synth_transport_`/`synth_j_` are the
+  ---     introduction and elimination judgments — `check_path_intro_`
+  ---     is dispatched from `check_dependent_`, the eliminators from
+  ---     `eval_judgment_impl_` (`transport`/`synth_transport`/`synth_j`).
+
+  --- `t[to/frm]` over the index-term vocabulary (`var`, `Bin`, `App`,
+  --- `Un`, `Comp`, `If`, `ArrLit`, arrays thereof). `frm` compares by
+  --- structural equality, so both a rigid `var{n}` and a compound term
+  --- like `Bin{add, ?k, 1}` rewrite. Fields that are spelling,
+  --- identity, provenance, or arena positions — `name`, `op`,
+  --- `__meta__`, `body` (a `Lam`'s arena index), `body_closure`,
+  --- `env`, `via` — are not term positions and are never rewritten.
+  transport_term_ :: [self, frm, to, t]~> if frm == null {
+    t
+  } else {
+    if t == frm {
+      to
+    } else {
+      if type_of(t) == "arr" {
+        while { result: [], remaining: t } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            { state: { result: [...st.result, self(self, frm, to, first_value(st.remaining))], remaining: drop(st.remaining, 1) } }
+          }
+        }
+      } else {
+        if type_of(t) == "obj" {
+          while { result: t, remaining: keys(t) } {
+            [st]~> if is_empty(st.remaining) {
+              { out: st.result }
+            } else {
+              do {
+                k :: first_value(st.remaining)
+                skip :: k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via"
+                { state: { result: if skip { st.result } else { set(st.result, k, self(self, frm, to, get_or(st.result, k, null))) }, remaining: drop(st.remaining, 1) } }
+              }
+            }
+          }
+        } else {
+          t
+        }
+      }
+    }
+  }
+
+  --- `T[to/frm]` over a *type* value — transport as substitution. Index
+  --- terms live in `family_app` args (rewritten via `transport_term_`)
+  --- and `List.length`; other structure is descended field-wise so
+  --- `Nat ~> Vec(n, Bool)` transports to `Nat ~> Vec(0, Bool)`.
+  --- `type.ctor_sig`/`Path`/`type.eq` objects and closures
+  --- (`Lam`/`LamVal`/`CompVal`) are left untouched — they hold arena
+  --- positions and environments, not transport subjects — and a
+  --- recorded `via` witness is provenance, never rewritten.
+  subst_index_ :: [self, frm, to, v]~> if frm == null {
+    v
+  } else {
+    if v == frm {
+      to
+    } else {
+      if type_tag(v) == "type.family_app" {
+        do {
+          args :: get_or(v, "args", [])
+          new_args :: while { result: [], remaining: args } {
+            [st]~> if is_empty(st.remaining) {
+              { out: st.result }
+            } else {
+              { state: { result: [...st.result, transport_term_(transport_term_, frm, to, first_value(st.remaining))], remaining: drop(st.remaining, 1) } }
+            }
+          }
+          set(v, "args", new_args)
+        }
+      } else {
+        if type_of(v) == "arr" {
+          while { result: [], remaining: v } {
+            [st]~> if is_empty(st.remaining) {
+              { out: st.result }
+            } else {
+              { state: { result: [...st.result, self(self, frm, to, first_value(st.remaining))], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        } else {
+          if type_of(v) == "obj" {
+            do {
+              vtag :: type_tag(v)
+              if vtag == "type.ctor_sig" || vtag == "Path" || vtag == "type.eq" || vtag == "Lam" || vtag == "LamVal" || vtag == "CompVal" {
+                v
+              } else {
+                while { result: v, remaining: keys(v) } {
+                  [st]~> if is_empty(st.remaining) {
+                    { out: st.result }
+                  } else {
+                    do {
+                      k :: first_value(st.remaining)
+                      skip :: k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via" || k == "param_name" || k == "ctor"
+                      { state: { result: if skip { st.result } else { set(st.result, k, self(self, frm, to, get_or(st.result, k, null))) }, remaining: drop(st.remaining, 1) } }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            v
+          }
+        }
+      }
+    }
+  }
+
+  --- `Path` witnesses bound in `results` — the `eq_<name>` bindings of
+  --- `refine_scrutinee_`, plus aliases: a `q := eq_n` assignment stores
+  --- the *term* `var{eq_n}`, so each binding is evaluated before the
+  --- `Path` tag is checked.
+  paths_in_scope_ :: [funcs, s]~> do {
+    rs :: get_or(s, "results", {})
+    ks :: if type_of(rs) == "obj" { keys(rs) } else { [] }
+    while { result: [], remaining: ks } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          raw :: get_or(rs, first_value(st.remaining), null)
+          v :: funcs.eval_term_(funcs, s, raw).val
+          { state: { result: if type_tag(v) == "Path" { [...st.result, v] } else { st.result }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+  }
+
+  --- Unification consumes in-scope paths: `unify` plus a transport
+  --- retry — for each `Path{frm,to}` bound in `results`, rewrite
+  --- `frm ↦ to` (or `to ↦ frm`) on either side and retry. `P[frm]`
+  --- against `P[to]` thereby succeeds exactly when a path justifies
+  --- it; the successful witness is reported in `path`, so the equation
+  --- is derived, not silently decided.
+  unify_via_paths_ :: [funcs, a, b, s]~> do {
+    metas :: get_or(s, "metas", [])
+    u :: unify(funcs, a, b, metas)
+    if u.ok {
+      u
+    } else {
+      while { result: u, remaining: paths_in_scope_(funcs, s) } {
+        [st]~> if is_empty(st.remaining) || st.result.ok {
+          { out: st.result }
+        } else {
+          do {
+            p :: first_value(st.remaining)
+            frm :: get_or(p, "frm", null)
+            to :: get_or(p, "to", null)
+            a_fwd :: transport_term_(transport_term_, frm, to, a)
+            b_fwd :: transport_term_(transport_term_, frm, to, b)
+            a_rev :: transport_term_(transport_term_, to, frm, a)
+            b_rev :: transport_term_(transport_term_, to, frm, b)
+            r1 :: if a_fwd != a { unify(funcs, a_fwd, b, metas) } else { { ok: false, metas: metas, path: null } }
+            r2 :: if r1.ok { r1 } else { if b_fwd != b { unify(funcs, a, b_fwd, metas) } else { r1 } }
+            r3 :: if r2.ok { r2 } else { if a_rev != a { unify(funcs, a_rev, b, metas) } else { r2 } }
+            r4 :: if r3.ok { r3 } else { if b_rev != b { unify(funcs, a, b_rev, metas) } else { r3 } }
+            { state: { result: if r4.ok { { ok: true, metas: r4.metas, path: p } } else { st.result }, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    }
+  }
+
+  --- Classify a path operand (the `p` in `p # v` / `j p, P, base`):
+  ---   * "path"  — a `Path{frm,to}` (or `type.eq{left,right}`) value,
+  ---     or a `var` whose *gamma type* is one (`p : Path(a, b) = …`);
+  ---   * "refl"  — the identity path: the `refl` term or a `type.refl`
+  ---     value;
+  ---   * "stuck" — a metavariable or unknown operand: not provably a
+  ---     path, not provably not — proceed without an error (the same
+  ---     no-diagnostic-on-stuck discipline as index refinement);
+  ---   * "bad"   — a decided non-path (a number, an application, an
+  ---     indexed family, an unbound name) — the eliminators reject it.
+  resolve_path_ :: [funcs, s, path_idx]~> do {
+    ev :: funcs.eval_node_(funcs, s, path_idx)
+    pv :: zonk(zonk, ev.val, ev["state"].metas)
+    ptag :: type_tag(pv)
+    pname :: if ptag == "var" { get_or(pv, "name", "") } else { "" }
+    is_refl_tm :: ptag == "type.refl" || pname == "refl"
+    if ptag == "Path" {
+      { verdict: "path", frm: get_or(pv, "frm", null), to: get_or(pv, "to", null), witness: pv, state: ev["state"] }
+    } else {
+    if ptag == "type.eq" {
+      { verdict: "path", frm: get_or(pv, "left", null), to: get_or(pv, "right", null), witness: pv, state: ev["state"] }
+    } else {
+    if is_refl_tm {
+      { verdict: "refl", frm: null, to: null, witness: pv, state: ev["state"] }
+    } else {
+      --- A `var` operand that stayed symbolic may still *name* a
+      --- gamma-bound Path (`p : Path(a, b) = …`); fall back to its
+      --- declared type. An unbound operand names an absent path — a
+      --- decided failure, not a stuck one.
+      gt :: if pname != "" { tc_lookup(ev["state"], pname) } else { null }
+      gtag :: type_tag(gt)
+      if gtag == "Path" {
+        { verdict: "path", frm: get_or(gt, "frm", null), to: get_or(gt, "to", null), witness: gt, state: ev["state"] }
+      } else {
+      if gtag == "type.eq" {
+        { verdict: "path", frm: get_or(gt, "left", null), to: get_or(gt, "right", null), witness: gt, state: ev["state"] }
+      } else {
+        verdict :: if ptag == "var" && gt == null {
+          "bad"
+        } else {
+          if is_meta(pv) || is_meta(gt) || gtag == "type.unknown" { "stuck" } else { "bad" }
+        }
+        { verdict: verdict, frm: null, to: null, witness: pv, state: ev["state"] }
+      }
+      }
+    }
+    }
+    }
+  }
+
+  --- Path introduction (ADR-0120): checking a term against
+  --- `Path{frm,to}`. `refl` inhabits `Path(a, a)` — the expected
+  --- endpoints must unify — and a `Path`-tagged value (the `eq_<name>`
+  --- witness bound by `refine_scrutinee_`, an alias stored by
+  --- assignment, or a `var` whose gamma type is a `Path`) inhabits
+  --- `Path(frm, to)` when its endpoints unify with the expected ones.
+  --- Anything else is not a path.
+  check_path_intro_ :: [funcs, s, node_idx, expected]~> do {
+    ev :: funcs.eval_node_(funcs, s, node_idx)
+    pv :: zonk(zonk, ev.val, ev["state"].metas)
+    ptag :: type_tag(pv)
+    pname :: if ptag == "var" { get_or(pv, "name", "") } else { "" }
+    is_refl_tm :: ptag == "type.refl" || pname == "refl"
+    efrm :: zonk(zonk, get_or(expected, "frm", null), ev["state"].metas)
+    eto :: zonk(zonk, get_or(expected, "to", null), ev["state"].metas)
+    gt :: if pname != "" { tc_lookup(ev["state"], pname) } else { null }
+    gtag :: type_tag(gt)
+    path_of :: if ptag == "Path" { pv } else { if gtag == "Path" { gt } else { null } }
+    if path_of != null {
+      do {
+        uf :: unify(funcs, get_or(path_of, "frm", null), efrm, ev["state"].metas)
+        ut :: if uf.ok { unify(funcs, get_or(path_of, "to", null), eto, uf.metas) } else { uf }
+        if ut.ok {
+          { ok: true, state: tc_record_node_type(set(ev["state"], "metas", ut.metas), node_idx, expected) }
+        } else {
+          { ok: false, state: tc_add_diagnostic(set(ev["state"], "metas", ut.metas), "error", "check: path endpoints do not match the expected Path") }
+        }
+      }
+    } else {
+      if is_refl_tm {
+        do {
+          u :: unify(funcs, efrm, eto, ev["state"].metas)
+          if u.ok {
+            { ok: true, state: tc_record_node_type(set(ev["state"], "metas", u.metas), node_idx, expected) }
+          } else {
+            { ok: false, state: tc_add_diagnostic(ev["state"], "error", "check: refl proves only a reflexive Path") }
+          }
+        }
+      } else {
+        { ok: false, state: tc_add_diagnostic(ev["state"], "error", "check: term is not a Path witness") }
+      }
+    }
+  }
+
+  --- `synth_transport_` — `p # v` is the transport eliminator for the
+  --- 2-cell `p : Path{frm,to}` (ADR-0120): `v : T[frm]` yields `T[to]`,
+  --- computed by `subst_index_` (transport IS the substitution). The
+  --- path operand is *resolved*, not synthesized — the `eq_<name>`
+  --- witnesses of `refine_scrutinee_` live in `results`, not gamma, so
+  --- the child is evaluated through the term evaluator; a `var` that
+  --- stays symbolic falls back to its gamma type
+  --- (`p : Path(a, b) = …`). `refl` is the identity transport; a
+  --- metavariable operand is *stuck* (warning, value passes through
+  --- unrefined); a decided non-path is an error. The result type
+  --- records the consumed witness under `via` — proof-relevant, never
+  --- erased.
+  synth_transport_ :: [funcs, s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    children :: node_children(node)
+    path_role :: child_role_index(s, "transport", "path")
+    value_role :: child_role_index(s, "transport", "value")
+    if len(children) < 2 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "transport: needs a path and a value operand") }
+    } else {
+      do {
+        p_role :: if path_role == null { 0 } else { path_role }
+        v_role :: if value_role == null { 1 } else { value_role }
+        path_idx :: at(children, p_role)
+        value_idx :: at(children, v_role)
+        rp :: resolve_path_(funcs, s, path_idx)
+        if rp.verdict == "bad" {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(rp["state"], "error", "transport: path operand is not a Path") }
+        } else {
+          do {
+            vres :: funcs.synth_node_(funcs, rp["state"], value_idx)
+            transported :: if rp.verdict == "path" {
+              subst_index_(subst_index_, rp.frm, rp.to, vres.typ)
+            } else {
+              vres.typ
+            }
+            out_state :: if rp.verdict == "stuck" {
+              tc_add_diagnostic(vres["state"], "warning", "transport: path operand is not yet known to be a Path — stuck")
+            } else {
+              vres["state"]
+            }
+            tagged :: if rp.verdict == "stuck" {
+              transported
+            } else {
+              if type_of(transported) == "obj" { set(transported, "via", rp.witness) } else { transported }
+            }
+            { val: tagged, state: out_state }
+          }
+        }
+      }
+    }
+  }
+
+  --- `synth_j_` — the J eliminator `j p, P, base` (ADR-0120):
+  --- `J : P a refl ~> (b : A) ~> (p : a ~Path~ b) ~> P b p`, with the
+  --- surface order `j <path>, <motive>, <base>` (children
+  --- `path`/`motive`/`base`). For `p : Path{frm,to}` the base is
+  --- *checked* against the motive applied at `[frm, p]` and the result
+  --- is the motive applied at `[to, p]` — `apply_motive_` composes it,
+  --- and the motive's `results` bindings are rolled back afterwards
+  --- (they are local to the elimination). At `refl` the endpoints are
+  --- unidentified, so J computes on the base's own fibre: the motive is
+  --- applied at the base's family indices plus the base term — the
+  --- same convention `synth_match_arms` uses for the scrutinee — and
+  --- the base is checked against it.
+  synth_j_ :: [funcs, s, node_idx]~> do {
+    node :: ast_node(s.ast, node_idx)
+    children :: node_children(node)
+    path_role :: child_role_index(s, "j", "path")
+    motive_role :: child_role_index(s, "j", "motive")
+    base_role :: child_role_index(s, "j", "base")
+    if len(children) < 3 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "j: needs path, motive, and base operands") }
+    } else {
+      do {
+        p_role :: if path_role == null { 0 } else { path_role }
+        m_role :: if motive_role == null { 1 } else { motive_role }
+        b_role :: if base_role == null { 2 } else { base_role }
+        path_idx :: at(children, p_role)
+        motive_idx :: at(children, m_role)
+        base_idx :: at(children, b_role)
+        rp :: resolve_path_(funcs, s, path_idx)
+        old_results :: get_or(rp["state"], "results", {})
+        if rp.verdict == "bad" {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(rp["state"], "error", "j: path operand is not a Path") }
+        } else {
+        if rp.verdict == "stuck" {
+          do {
+            bres :: funcs.synth_node_(funcs, rp["state"], base_idx)
+            { val: bres.typ, state: tc_add_diagnostic(bres["state"], "warning", "j: path operand is not yet known to be a Path — stuck") }
+          }
+        } else {
+        if rp.verdict == "refl" {
+          do {
+            bres :: funcs.synth_node_(funcs, rp["state"], base_idx)
+            idx_acc :: if type_tag(bres.typ) == "type.family_app" {
+              while { state: bres["state"], vals: [], remaining: get_or(bres.typ, "args", []) } {
+                [w]~> if is_empty(w.remaining) {
+                  { out: { vals: w.vals, state: w["state"] } }
+                } else {
+                  do {
+                    e :: funcs.eval_term_(funcs, w["state"], zonk(zonk, first_value(w.remaining), w["state"].metas))
+                    { state: { vals: [...w.vals, e.val], state: e["state"], remaining: drop(w.remaining, 1) } }
+                  }
+                }
+              }
+            } else {
+              { vals: [], state: bres["state"] }
+            }
+            bterm :: funcs.node_term_(funcs, idx_acc["state"], base_idx)
+            m_res :: apply_motive_(funcs, idx_acc["state"], motive_idx, concat(idx_acc.vals, [bterm]))
+            s_m :: set(m_res["state"], "results", old_results)
+            chk :: funcs.check_node_(funcs, s_m, base_idx, m_res.val)
+            if chk.ok {
+              { val: if type_of(m_res.val) == "obj" { set(m_res.val, "via", rp.witness) } else { m_res.val }, state: chk["state"] }
+            } else {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(chk["state"], "error", "j: base does not inhabit the motive at refl") }
+            }
+          }
+        } else {
+          --- "path": check `base : P frm p`, yield `P to p`.
+          do {
+            m_frm :: apply_motive_(funcs, rp["state"], motive_idx, [rp.frm, rp.witness])
+            s1 :: set(m_frm["state"], "results", old_results)
+            chk :: funcs.check_node_(funcs, s1, base_idx, m_frm.val)
+            if chk.ok {
+              do {
+                m_to :: apply_motive_(funcs, chk["state"], motive_idx, [rp.to, rp.witness])
+                s2 :: set(m_to["state"], "results", old_results)
+                { val: if type_of(m_to.val) == "obj" { set(m_to.val, "via", rp.witness) } else { m_to.val }, state: s2 }
+              }
+            } else {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(chk["state"], "error", "j: base does not inhabit the motive at the path's source") }
+            }
+          }
+        }
+        }
+        }
+      }
     }
   }
 
@@ -3918,6 +4356,18 @@ do {
         { val: funcs.make_type("type.empty", {}), state: s }
       }
     },
+    --- `p # v` — transport along a `Path` 2-cell (ADR-0120). A real
+    --- `transport` node dispatches here by kind: its `value` child role
+    --- makes `synth_node_impl_` route it through the canonical path
+    --- with `op_name == "transport"`. The `type.transport` type rule's
+    --- `synth_transport` op name hits the same arm for completeness.
+    "transport": synth_transport_(funcs, s, node_idx),
+    "synth_transport": synth_transport_(funcs, s, node_idx),
+    --- `j p, P, base` — the J eliminator for `Path` 2-cells
+    --- (ADR-0120). `j` nodes are not canonical, so they reach here via
+    --- the `type.j` rule's `synth_j` op.
+    "synth_j": synth_j_(funcs, s, node_idx),
+    "j": synth_j_(funcs, s, node_idx),
     "construct_universe": do {
       level :: if lit != null { lit } else { if is_empty(args) { 0 } else { eval_first_arg(funcs, s, node_idx, args, incoming).val } }
       { val: funcs.make_type("type.universe", set({}, "level", level)), state: s }
@@ -4730,6 +5180,30 @@ do {
                   if former_name != "" {
                     funcs.synth_dep_former_(funcs, st, node_idx, former_name)
                   } else {
+                  if callee_name == "Path" {
+                    --- `Path(a, b)` — the proof-relevant identity type
+                    --- `a ~Path~ b` (ADR-0120). The endpoints are index
+                    --- *terms*, evaluated through `results` like
+                    --- `family_app` args, so `Path(n, 0)` under a
+                    --- `VNil` arm is `Path(var n, 0)`. Its
+                    --- introductions are `refl` and in-scope `Path`
+                    --- witnesses (`check_path_intro_`); its eliminators
+                    --- are `#` (transport) and `j` (J) — see
+                    --- `synth_transport_`/`synth_j_`.
+                    do {
+                      frm_arg :: if args_role < len(children) {
+                        funcs.eval_node_(funcs, st, at(children, args_role))
+                      } else {
+                        { val: null, state: st }
+                      }
+                      to_arg :: if args_role + 1 < len(children) {
+                        funcs.eval_node_(funcs, frm_arg["state"], at(children, args_role + 1))
+                      } else {
+                        { val: null, state: frm_arg["state"] }
+                      }
+                      { val: funcs.make_type("Path", set(set({}, "frm", frm_arg.val), "to", to_arg.val)), state: to_arg["state"] }
+                    }
+                  } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
                   } else {
@@ -4786,6 +5260,7 @@ do {
                     }
                   } else {
                     { val: funcs.make_type("App", set(set({}, "callee", callee_type.val), "args", arg_acc.vals)), state: arg_acc["state"] }
+                  }
                   }
                   }
                   }
@@ -5427,6 +5902,12 @@ do {
     unify_dependent_: unify_dependent_,
     unify_fn_pi_: unify_fn_pi_,
     unify_dep_bodies_: unify_dep_bodies_,
+    paths_in_scope_: paths_in_scope_,
+    unify_via_paths_: unify_via_paths_,
+    resolve_path_: resolve_path_,
+    check_path_intro_: check_path_intro_,
+    synth_transport_: synth_transport_,
+    synth_j_: synth_j_,
     collect_ctor_names_: collect_ctor_names_,
     collect_ctor_specs_: collect_ctor_specs_,
     instantiate_ctor_: instantiate_ctor_,
