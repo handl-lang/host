@@ -3,6 +3,28 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
+from "ctypes" import { InPort, SaFamily, Socklen, Uint16, Uint32 }
+
+export sockaddr_storage := {
+  ss_family: SaFamily,
+  __ss_padding: Bytes,
+  __ss_align: Nat
+}
+
+export sockaddr_in := {
+  sin_family: SaFamily,
+  sin_port: InPort,
+  sin_addr: in_addr,
+  sin_zero: Bytes
+}
+
+export sockaddr_in6 := {
+  sin6_family: SaFamily,
+  sin6_port: InPort,
+  sin6_flowinfo: Uint32,
+  sin6_addr: in6_addr,
+  sin6_scope_id: Uint32
+}
 
 export SOCK_STREAM: Int
 export SOCK_DGRAM: Int
@@ -508,47 +530,63 @@ export INET_ADDRSTRLEN: Int
 export INET6_ADDRSTRLEN: Int
 
 --- ffi: uint32_t (uint32_t)
-export Ntohl: (Nat) ~[1]~> Result<Nat, Errno>
+export Ntohl: (Uint32) ~[1]~> Result<Uint32, Errno>
 
 --- ffi: uint16_t (uint16_t)
-export Ntohs: (Nat) ~[1]~> Result<Nat, Errno>
+export Ntohs: (Uint16) ~[1]~> Result<Uint16, Errno>
 
 --- ffi: uint32_t (uint32_t)
-export Htonl: (Nat) ~[1]~> Result<Nat, Errno>
+export Htonl: (Uint32) ~[1]~> Result<Uint32, Errno>
 
 --- ffi: uint16_t (uint16_t)
-export Htons: (Nat) ~[1]~> Result<Nat, Errno>
+export Htons: (Uint16) ~[1]~> Result<Uint16, Errno>
+
+export BindresvportResult := {
+  ret: Int,
+  buf: sockaddr_in
+}
 
 --- ffi: int (int, struct sockaddr_in *)
-export Bindresvport: (Int, Handle) ~[1]~> Result<Int, Errno>
+export Bindresvport: (Int) ~[1]~> Result<BindresvportResult, Errno>
+
+export Bindresvport6Result := {
+  ret: Int,
+  buf: sockaddr_in6
+}
 
 --- ffi: int (int, struct sockaddr_in6 *)
-export Bindresvport6: (Int, Handle) ~[1]~> Result<Int, Errno>
+export Bindresvport6: (Int) ~[1]~> Result<Bindresvport6Result, Errno>
 
 --- ffi: int (int)
 export Inet6OptionSpace: (Int) ~[1]~> Result<Int, Errno>
 
 --- ffi: int (struct cmsghdr *, const uint8_t *, int, int)
-export Inet6OptionAppend: (Handle, Bytes, Int) ~[1]~> Result<Int, Errno>
+export Inet6OptionAppend: (Handle, String, Int, Int) ~[1]~> Result<Int, Errno>
 
 --- ffi: uint8_t *(struct cmsghdr *, int, int, int)
 export Inet6OptionAlloc: (Handle, Int, Int, Int) ~[1]~> Result<String, Errno>
 
 --- ffi: int (void *, socklen_t)
-export Inet6OptInit: (Handle, Nat) ~[1]~> Result<Int, Errno>
+export Inet6OptInit: (Handle, Socklen) ~[1]~> Result<Int, Errno>
 
 --- ffi: int (void *, socklen_t, int)
-export Inet6OptFinish: (Handle, Nat, Int) ~[1]~> Result<Int, Errno>
+export Inet6OptFinish: (Handle, Socklen, Int) ~[1]~> Result<Int, Errno>
 
 --- ffi: int (void *, int, void *, socklen_t)
-export Inet6OptSetVal: (Handle, Int, Handle, Nat) ~[1]~> Result<Int, Errno>
+export Inet6OptSetVal: (Handle, Int, Handle, Socklen) ~[1]~> Result<Int, Errno>
 
 --- ffi: int (void *, int, void *, socklen_t)
-export Inet6OptGetVal: (Handle, Int, Handle, Nat) ~[1]~> Result<Int, Errno>
+export Inet6OptGetVal: (Handle, Int, Handle, Socklen) ~[1]~> Result<Int, Errno>
 
 --- ffi: socklen_t (int, int)
-export Inet6RthSpace: (Int, Int) ~[1]~> Result<Nat, Errno>
+export Inet6RthSpace: (Int, Int) ~[1]~> Result<Socklen, Errno>
 
 --- ffi: void *(void *, socklen_t, int, int)
-export Inet6RthInit: (Handle, Nat, Int, Int) ~[1]~> Result<Handle, Errno>
+export Inet6RthInit: (Handle, Socklen, Int, Int) ~[1]~> Result<Handle, Errno>
+
+--- ffi: int (void *, const struct in6_addr *)
+export Inet6RthAdd: (Handle, Handle) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, uint32_t, const struct sockaddr *, socklen_t, uint32_t, uint32_t, const struct sockaddr_storage *)
+export Setsourcefilter: (Int, Uint32, Bytes, Uint32, Uint32, sockaddr_storage) ~[1]~> Result<Int, Errno>
 

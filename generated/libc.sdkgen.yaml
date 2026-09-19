@@ -8,6 +8,24 @@ library: libc.so.6
 defines:
   - _GNU_SOURCE
 
+# Per-header narrowing — the equivalent of `--include`/`--exclude`, kept
+# in config so regeneration is reproducible without remembering CLI flags.
+headers:
+  unistd.h:
+    include: ["close", "read", "write", "pipe", "pipe2", "dup", "dup2"]
+  time.h:
+    include:
+      [
+        "time",
+        "clock",
+        "difftime",
+        "nanosleep",
+        "clock_getres",
+        "clock_gettime",
+        "clock_settime",
+        "timespec",
+      ]
+
 symbols:
   # ssize_t recv(int fd, void *buf, size_t len, int flags)
   # out_buf expands to (ptr,len) — consumes the `len` C slot — and wraps
@@ -50,13 +68,30 @@ symbols:
     args: ["i32", "i32", "i32", "out_ptr:8"]
     names: ["domain", "type", "protocol"]
 
+  # int pipe(int fildes[2]) — same fixed out-array as socketpair.
+  pipe:
+    args: ["out_ptr:8"]
+  pipe2:
+    args: ["out_ptr:8", "i32"]
+    names: ["flags"]
+
+  # time_t time(time_t *tloc) — scalar out-param → out_ptr:8; the value
+  # is also the return, so TimeResult carries both.
+  time:
+    args: ["out_ptr:8"]
+
   # ssize_t sendmsg(int fd, const struct msghdr *msg, int flags)
   # in_struct builds msghdr from a Handl record: `bytes` fields embed a
   # pointer to the arg's bytes, `iov` builds an iovec array from a
   # List<Bytes>, and absent `*len` scalars auto-fill (namelen = addr
   # length, iovlen = element count, controllen = control length).
   sendmsg:
-    args: ["i32", "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}", "i32"]
+    args:
+      [
+        "i32",
+        "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}",
+        "i32",
+      ]
     names: ["fd", "msg", "flags"]
 
   # ssize_t recvmsg(int fd, struct msghdr *msg, int flags)
@@ -64,7 +99,12 @@ symbols:
   # Bytes trimmed by the following *len scalar, iovbuf:K:M becomes K
   # buffers of M bytes read back as List<Bytes> trimmed by ret.
   recvmsg:
-    args: ["i32", "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}", "i32"]
+    args:
+      [
+        "i32",
+        "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}",
+        "i32",
+      ]
     names: ["fd", "flags"]
 
   # mmsghdr arrays aren't expressible (array of structs with embedded

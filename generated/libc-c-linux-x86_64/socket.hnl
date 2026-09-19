@@ -365,7 +365,7 @@ export recvmsg: Recvmsg := (fd, flags) ~[1]~> do {
   if r.ret < 0 {
     err(errno())
   } else {
-    ok(r.buf)
+    ok(r)
   }
 }
 

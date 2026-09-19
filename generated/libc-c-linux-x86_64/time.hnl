@@ -2,72 +2,20 @@
 
 from "ffi" import { call, errno }
 from "result" import { ok, err }
-from "../libc/time" import { timespec, Clock, Difftime, Mktime, Strptime, StrptimeL, Tzset, Timegm, Timelocal, Dysize, ClockGetres, ClockGettime, TimerDelete, TimerGettime, TimerGetoverrun, TimespecGet, TimespecGetres, GetdateR }
-
-export unix: Int := 1
-export linux: Int := 1
-export CLOCKS_PER_SEC: Int := 1000000
-export CLOCK_REALTIME: Int := 0
-export CLOCK_MONOTONIC: Int := 1
-export CLOCK_PROCESS_CPUTIME_ID: Int := 2
-export CLOCK_THREAD_CPUTIME_ID: Int := 3
-export CLOCK_MONOTONIC_RAW: Int := 4
-export CLOCK_REALTIME_COARSE: Int := 5
-export CLOCK_MONOTONIC_COARSE: Int := 6
-export CLOCK_BOOTTIME: Int := 7
-export CLOCK_REALTIME_ALARM: Int := 8
-export CLOCK_BOOTTIME_ALARM: Int := 9
-export CLOCK_TAI: Int := 11
-export TIMER_ABSTIME: Int := 1
-export ADJ_OFFSET: Int := 1
-export ADJ_FREQUENCY: Int := 2
-export ADJ_MAXERROR: Int := 4
-export ADJ_ESTERROR: Int := 8
-export ADJ_STATUS: Int := 16
-export ADJ_TIMECONST: Int := 32
-export ADJ_TAI: Int := 128
-export ADJ_SETOFFSET: Int := 256
-export ADJ_MICRO: Int := 4096
-export ADJ_NANO: Int := 8192
-export ADJ_TICK: Int := 16384
-export ADJ_OFFSET_SINGLESHOT: Int := 32769
-export ADJ_OFFSET_SS_READ: Int := 40961
-export MOD_OFFSET: Int := 1
-export MOD_FREQUENCY: Int := 2
-export MOD_MAXERROR: Int := 4
-export MOD_ESTERROR: Int := 8
-export MOD_STATUS: Int := 16
-export MOD_TIMECONST: Int := 32
-export MOD_CLKB: Int := 16384
-export MOD_CLKA: Int := 32769
-export MOD_TAI: Int := 128
-export MOD_MICRO: Int := 4096
-export MOD_NANO: Int := 8192
-export STA_PLL: Int := 1
-export STA_PPSFREQ: Int := 2
-export STA_PPSTIME: Int := 4
-export STA_FLL: Int := 8
-export STA_INS: Int := 16
-export STA_DEL: Int := 32
-export STA_UNSYNC: Int := 64
-export STA_FREQHOLD: Int := 128
-export STA_PPSSIGNAL: Int := 256
-export STA_PPSJITTER: Int := 512
-export STA_PPSWANDER: Int := 1024
-export STA_PPSERROR: Int := 2048
-export STA_CLOCKERR: Int := 4096
-export STA_NANO: Int := 8192
-export STA_MODE: Int := 16384
-export STA_CLK: Int := 32768
-export STA_RONLY: Int := 65280
-export TIME_UTC: Int := 1
-export TIME_MONOTONIC: Int := 2
-export TIME_ACTIVE: Int := 3
-export TIME_THREAD_ACTIVE: Int := 4
+from "../libc/time" import { timespec, Clock, Time, Difftime, Nanosleep, ClockGetres, ClockGettime, ClockSettime }
 
 export clock: Clock := () ~[1]~> do {
   r = call("libc.so.6", "clock", [], [], "i64", false)
   if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export time: Time := () ~[1]~> do {
+  r = call("libc.so.6", "time", [], ["out_ptr:8"], "i32", false)
+  if r.ret < 0 {
     err(errno())
   } else {
     ok(r)
@@ -83,51 +31,9 @@ export difftime: Difftime := (__time1, __time0) ~[1]~> do {
   }
 }
 
-export mktime: Mktime := (__tp) ~[1]~> do {
-  r = call("libc.so.6", "mktime", [__tp], ["ptr"], "i64", false)
-  if r < 0 {
-    err(errno())
-  } else {
-    ok(r)
-  }
-}
-
-export strptime: Strptime := (__s, __fmt, __tp) ~[1]~> do {
-  r = call("libc.so.6", "strptime", [__s, __fmt, __tp], ["cstr", "cstr", "ptr"], "cstr", false)
-  ok(r)
-}
-
-export strptime_l: StrptimeL := (__s, __fmt, __tp, __loc) ~[1]~> do {
-  r = call("libc.so.6", "strptime_l", [__s, __fmt, __tp, __loc], ["cstr", "cstr", "ptr", "ptr"], "cstr", false)
-  ok(r)
-}
-
-export tzset: Tzset := () ~[1]~> do {
-  r = call("libc.so.6", "tzset", [], [], "void", false)
-  ok(null)
-}
-
-export timegm: Timegm := (__tp) ~[1]~> do {
-  r = call("libc.so.6", "timegm", [__tp], ["ptr"], "i64", false)
-  if r < 0 {
-    err(errno())
-  } else {
-    ok(r)
-  }
-}
-
-export timelocal: Timelocal := (__tp) ~[1]~> do {
-  r = call("libc.so.6", "timelocal", [__tp], ["ptr"], "i64", false)
-  if r < 0 {
-    err(errno())
-  } else {
-    ok(r)
-  }
-}
-
-export dysize: Dysize := (__year) ~[1]~> do {
-  r = call("libc.so.6", "dysize", [__year], ["i32"], "i32", false)
-  if r < 0 {
+export nanosleep: Nanosleep := (__requested_time) ~[1]~> do {
+  r = call("libc.so.6", "nanosleep", [__requested_time], ["in_struct:{tv_sec:i64@0,tv_nsec:i64@8}", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
+  if r.ret < 0 {
     err(errno())
   } else {
     ok(r)
@@ -135,70 +41,25 @@ export dysize: Dysize := (__year) ~[1]~> do {
 }
 
 export clock_getres: ClockGetres := (__clock_id) ~[1]~> do {
-  r = call("libc.so.6", "clock_getres", [__clock_id], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false)
+  r = call("libc.so.6", "clock_getres", [__clock_id], ["i32", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r.ret < 0 {
     err(errno())
   } else {
-    ok(r.buf)
+    ok(r)
   }
 }
 
 export clock_gettime: ClockGettime := (__clock_id) ~[1]~> do {
-  r = call("libc.so.6", "clock_gettime", [__clock_id], ["i32", "out_struct:{tv_sec:i64,tv_nsec:i64}"], "i32", false)
+  r = call("libc.so.6", "clock_gettime", [__clock_id], ["i32", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
-  } else {
-    ok(r.buf)
-  }
-}
-
-export timer_delete: TimerDelete := (__timerid) ~[1]~> do {
-  r = call("libc.so.6", "timer_delete", [__timerid], ["ptr"], "i32", false)
-  if r < 0 {
     err(errno())
   } else {
     ok(r)
   }
 }
 
-export timer_gettime: TimerGettime := (__timerid, __value) ~[1]~> do {
-  r = call("libc.so.6", "timer_gettime", [__timerid, __value], ["ptr", "ptr"], "i32", false)
-  if r < 0 {
-    err(errno())
-  } else {
-    ok(r)
-  }
-}
-
-export timer_getoverrun: TimerGetoverrun := (__timerid) ~[1]~> do {
-  r = call("libc.so.6", "timer_getoverrun", [__timerid], ["ptr"], "i32", false)
-  if r < 0 {
-    err(errno())
-  } else {
-    ok(r)
-  }
-}
-
-export timespec_get: TimespecGet := (__base) ~[1]~> do {
-  r = call("libc.so.6", "timespec_get", [__base], ["out_struct:{tv_sec:i64,tv_nsec:i64}", "i32"], "i32", false)
-  if r.ret < 0 {
-    err(errno())
-  } else {
-    ok(r.buf)
-  }
-}
-
-export timespec_getres: TimespecGetres := (__base) ~[1]~> do {
-  r = call("libc.so.6", "timespec_getres", [__base], ["out_struct:{tv_sec:i64,tv_nsec:i64}", "i32"], "i32", false)
-  if r.ret < 0 {
-    err(errno())
-  } else {
-    ok(r.buf)
-  }
-}
-
-export getdate_r: GetdateR := (__string, __resbufp) ~[1]~> do {
-  r = call("libc.so.6", "getdate_r", [__string, __resbufp], ["cstr", "ptr"], "i32", false)
+export clock_settime: ClockSettime := (__clock_id, __tp) ~[1]~> do {
+  r = call("libc.so.6", "clock_settime", [__clock_id, __tp], ["i32", "in_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r < 0 {
     err(errno())
   } else {

@@ -3,6 +3,7 @@
 
 from "ffi" import { Errno }
 from "result" import { Result }
+from "ctypes" import { SSize }
 
 export SOCK_STREAM: Int
 export SOCK_DGRAM: Int
@@ -291,28 +292,44 @@ export SCM_TIMESTAMPING: Int
 --- ffi: int (int, int, int)
 export Socket: (Int, Int, Int) ~[1]~> Result<Int, Errno>
 
-export SocketpairResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export SocketpairResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Socketpair: (Int, Int, Int) ~[1]~> Result<SocketpairResult, Errno>
 
-export GetsocknameResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export GetsocknameResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Getsockname: (Int) ~[1]~> Result<GetsocknameResult, Errno>
 
-export GetpeernameResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export GetpeernameResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Getpeername: (Int) ~[1]~> Result<GetpeernameResult, Errno>
 
 --- ffi: ssize_t (int, const void *, size_t, int)
-export Send: (Int, Bytes, Int) ~[1]~> Result<Int, Errno>
+export Send: (Int, Bytes, Int) ~[1]~> Result<SSize, Errno>
 
 --- ffi: ssize_t (int, void *, size_t, int)
 export Recv: (Int, Int) ~[1]~> Result<Bytes, Errno>
 
-export RecvfromResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export RecvfromResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Recvfrom: (Int, Int) ~[1]~> Result<RecvfromResult, Errno>
@@ -328,7 +345,12 @@ export SendmsgMsg := {
 }
 
 --- ffi: ssize_t (int, const struct msghdr *, int)
-export Sendmsg: (Int, SendmsgMsg, Int) ~[1]~> Result<Int, Errno>
+export Sendmsg: (Int, SendmsgMsg, Int) ~[1]~> Result<SSize, Errno>
+
+export RecvmsgResult := {
+  ret: Int,
+  buf: RecvmsgMsg
+}
 
 export RecvmsgMsg := {
   msg_name: Bytes,
@@ -341,7 +363,7 @@ export RecvmsgMsg := {
 }
 
 --- ffi: ssize_t (int, struct msghdr *, int)
-export Recvmsg: (Int, Int) ~[1]~> Result<RecvmsgMsg, Errno>
+export Recvmsg: (Int, Int) ~[1]~> Result<RecvmsgResult, Errno>
 
 --- ffi: int (int, int, int, const void *, socklen_t)
 export Setsockopt: (Int, Int, Int, Bytes) ~[1]~> Result<Int, Errno>
@@ -349,12 +371,20 @@ export Setsockopt: (Int, Int, Int, Bytes) ~[1]~> Result<Int, Errno>
 --- ffi: int (int, int)
 export Listen: (Int, Int) ~[1]~> Result<Int, Errno>
 
-export AcceptResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export AcceptResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Accept: (Int) ~[1]~> Result<AcceptResult, Errno>
 
-export Accept4Result := { ret: Int, buf: Bytes, outs: List<Bytes> }
+export Accept4Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
 
 --- ffi: 
 export Accept4: (Int, Int) ~[1]~> Result<Accept4Result, Errno>
