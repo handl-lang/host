@@ -3055,18 +3055,28 @@
     source: Judgment
     lit: type.unknown
 # `univalence` — univalence from an equivalence.
+# `j` — the J eliminator for `Path` 2-cells (ADR-0120): `j p, P, base`
+# (children `path`/`motive`/`base`). The model's `synth_j` op resolves
+# the path operand (an in-scope `eq_<name>` witness, a gamma-bound
+# `p : Path(a, b)`, or `refl`), *checks* `base` against the motive
+# applied at the path's source endpoint and the witness, and synthesizes
+# the motive applied at the target — `J : P a refl ~> (b:A) ~> p ~> P b p`.
 - id: type.j
   node_kind: j
   synth: !Op
-    name: construct
+    name: synth_j
     args: []
     source: Judgment
-    lit: type.unknown
-# `transport` — transport a value along a path.
+# `transport` — `p # v` transports `v` along the path `p` (children
+# `path`/`value`). The model's `synth_transport` op resolves the path
+# (in-scope `eq_<name>` witness, gamma-bound `Path`, or `refl` for the
+# identity), rewrites the value's type `T[frm]` to `T[to]` — transport
+# IS the substitution — and records the consumed witness under `via`
+# (weak, proof-relevant equality). A decided non-path operand is an
+# error; a metavariable operand is stuck (warning, unrefined).
 - id: type.transport
   node_kind: transport
   synth: !Op
-    name: construct
+    name: synth_transport
     args: []
     source: Judgment
-    lit: type.unknown
