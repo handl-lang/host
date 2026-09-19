@@ -2635,11 +2635,43 @@ do {
           annot_idx :: at(children, 1)
           expr_result :: funcs.synth_node_(funcs, s, expr_idx)
           ann :: funcs.synth_type_(funcs, expr_result["state"], annot_idx)
-          unify_result :: unify(funcs, expr_result.typ, ann.val, ann["state"].metas)
-          if unify_result.ok {
-            { val: ann.val, state: set(ann["state"], "metas", unify_result.metas) }
+          --- Field projections stay symbolic post-Phase-1: `type.F`
+          --- evaluates to `RecordProj{record: "type", field: F}` rather
+          --- than the `type.F` record. Resolve the projection here.
+          ann_tag :: type_tag(ann.val)
+          rec_term :: get_or(ann.val, "record", null)
+          rec_name :: if type_of(rec_term) == "str" { rec_term } else { if type_tag(rec_term) == "Const" { get_or(rec_term, "value", "") } else { if type_tag(rec_term) == "var" { get_or(rec_term, "name", "") } else { "" } } }
+          is_type_proj :: ann_tag == "RecordProj" && rec_name == "type"
+          ann_resolved :: if is_type_proj { funcs.make_type("type." + get_or(ann.val, "field", ""), {}) } else { ann.val }
+          if funcs.is_applicable_(funcs, ann_resolved) {
+            --- Predicate annotation (ADR-0068 graduated guarantees):
+            --- `v : P` where `P` is an arrow applies `P(v)`. Proven
+            --- accepts silently; symbolic (Blocked) accepts with a
+            --- `runtime_assert` warning so the eval pipeline rewrites
+            --- the node to a runtime check; refuted is a hard error.
+            do {
+              eval_result :: funcs.eval_node_(funcs, ann["state"], expr_idx)
+              applied :: funcs.apply_val_(funcs, eval_result["state"], ann_resolved, [eval_result.val])
+              if applied.val == false {
+                { val: expr_result.typ, state: tc_add_diagnostic(applied["state"], "error", "type annotation mismatch: value does not satisfy the predicate") }
+              } else {
+                undecidable :: applied.val == null || type_tag(applied.val) != ""
+                if undecidable {
+                  { val: expr_result.typ, state: tc_add_diagnostic(applied["state"], "warning", "runtime_assert: predicate is symbolic — deferred to runtime") }
+                } else {
+                  { val: expr_result.typ, state: applied["state"] }
+                }
+              }
+            }
           } else {
-            { val: ann.val, state: tc_add_diagnostic(ann["state"], "error", "type annotation mismatch: expected " + type_tag(ann.val) + ", got " + type_tag(expr_result.typ)) }
+            do {
+              unify_result :: unify(funcs, expr_result.typ, ann_resolved, ann["state"].metas)
+              if unify_result.ok {
+                { val: ann_resolved, state: set(ann["state"], "metas", unify_result.metas) }
+              } else {
+                { val: ann_resolved, state: tc_add_diagnostic(ann["state"], "error", "type annotation mismatch: expected " + type_tag(ann_resolved) + ", got " + type_tag(expr_result.typ)) }
+              }
+            }
           }
         }
       }
