@@ -28,8 +28,9 @@ use std::rc::Rc;
 
 use handl_language::{AstRef, LangError, Value};
 use handl_value::{
-    TaggedValue, either_left, either_right, is_either_left, is_either_right, pair, pair_fst,
-    pair_snd, record_proj,
+    TaggedValue, cell2_comp_axis, cell2_comp_v, cell2_id, cell2_src, cell2_tgt, cell2_whisker,
+    either_left, either_right, is_either_left, is_either_right, pair, pair_fst, pair_snd,
+    record_proj,
 };
 use rustc_hash::FxHashMap;
 use serde_json::json;
@@ -971,6 +972,71 @@ pub fn apply_native_op(
             let record = args.first().cloned().unwrap_or(TaggedValue::Null);
             let field = args.get(1).and_then(|v| v.as_str()).unwrap_or("");
             Ok((record_proj(&record, field), false))
+        }
+        // --- `Cell2` record ops (ADR-0104b frontier value model) -------
+        // The derived term tags (`CellId`/`Src`/`Tgt`/`CellCompV`/
+        // `Whisker`) lower to these op names on the compiled backends.
+        "cell2_id" => Ok((cell2_id(args.first().unwrap_or(&TaggedValue::Null)), false)),
+        "cell2_src" => Ok((cell2_src(args.first().unwrap_or(&TaggedValue::Null)), false)),
+        "cell2_tgt" => Ok((cell2_tgt(args.first().unwrap_or(&TaggedValue::Null)), false)),
+        "cell2_comp_v" => {
+            let first = args.first().unwrap_or(&TaggedValue::Null);
+            let second = args.get(1).unwrap_or(&TaggedValue::Null);
+            cell2_comp_v(first, second)
+                .map(|v| (v, false))
+                .map_err(LangError::engine)
+        }
+        "cell2_whisker_left" | "cell2_whisker_right" => {
+            let side = if op == "cell2_whisker_left" {
+                "Left"
+            } else {
+                "Right"
+            };
+            let arrow = args.first().unwrap_or(&TaggedValue::Null);
+            let cell = args.get(1).unwrap_or(&TaggedValue::Null);
+            Ok((cell2_whisker(side, arrow, cell), false))
+        }
+        op if op == "cell2_comp_axis" || op.starts_with("cell2_comp_axis:") => {
+            // `Seq{axis: k}` in the pasting regime (`k < dim(fst)`) lowers
+            // to this op on the compiled backends: args are
+            // `[axis, fst, snd]`, all evaluated on the same incoming —
+            // the `∘ₖ` globular paste at the value level. The declared
+            // cell dimension arrives as the op literal, or baked into the
+            // op name (`cell2_comp_axis:<dim>`) on backends that cannot
+            // pass `lit` — the `route_on_type` convention. It defaults to
+            // `2`, the only cell shape (`Cell2`) the value model carries.
+            let dim = lit
+                .and_then(|v| v.as_u64())
+                .or_else(|| {
+                    op.strip_prefix("cell2_comp_axis:")
+                        .and_then(|d| d.parse::<u64>().ok())
+                })
+                .unwrap_or(2)
+                .max(1);
+            if args.len() != 3 {
+                return Err(LangError::engine(format!(
+                    "cell2_comp_axis: expected 3 arguments (axis, fst, snd), got {}",
+                    args.len()
+                )));
+            }
+            let k = args[0]
+                .as_f64()
+                .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+                .map(|n| n as u64)
+                .ok_or_else(|| {
+                    LangError::engine(format!(
+                        "Seq: axis evaluated to a non-natural value: {:?}",
+                        args[0]
+                    ))
+                })?;
+            if k >= dim {
+                return Err(LangError::engine(format!(
+                    "Seq: axis-{k} composition requires cells of dimension > {k} (fst has dim {dim})"
+                )));
+            }
+            cell2_comp_axis(k, &args[1], &args[2])
+                .map(|v| (v, false))
+                .map_err(LangError::engine)
         }
         // --- ops still owned by the backends --------------------------------
         _ => return Ok(None),

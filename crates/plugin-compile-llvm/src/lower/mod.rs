@@ -86,17 +86,19 @@ pub fn lower_term<'ctx>(
         Term::Arr { .. } => primitive::lower_arr(ctx, input),
         Term::Const { .. } => primitive::lower_const(ctx, term),
         Term::Op { .. } => primitive::lower_op(ctx, input, term),
-        // ADR-0120 Phase 2: `>>>` is `>>>[0]`. Only axis-0 composition lowers;
-        // non-zero or non-literal axes are rejected pending the multi-axis
-        // execution increment.
+        // ADR-0120 Phase 5: `Seq{axis: k}` is `∘ₖ`. Only the sequential
+        // regime — `∘₀` on 1-cells (`dim(fst) ≤ 1`) — lowers; the globular
+        // pasting regime needs the `Cell2` value model, which generated
+        // native code does not carry, so those terms are rejected here
+        // rather than silently compiled to sequencing.
         Term::Seq { axis, fst, snd } => match axis.nat_literal() {
-            Some(0) => primitive::lower_seq(ctx, input, fst, snd),
-            Some(k) => Err(CompileError::Lower(format!(
-                "Seq: axis-{k} composition is not yet implemented (ADR-0120 Phase 2)"
+            Some(0) if fst.globular_dim() <= 1 => primitive::lower_seq(ctx, input, fst, snd),
+            Some(k) if k >= fst.globular_dim() => Err(CompileError::Lower(format!(
+                "Seq: axis-{k} composition requires cells of dimension > {k} (fst has dim {})",
+                fst.globular_dim()
             ))),
-            None => Err(CompileError::Lower(
-                "Seq: non-literal composition axis is not yet supported (ADR-0120 Phase 2)"
-                    .to_string(),
+            _ => Err(CompileError::Lower(
+                "Seq: globular cell composition is not supported by the LLVM backend".to_string(),
             )),
         },
         Term::First { inner } => control::lower_first(ctx, inner, input),

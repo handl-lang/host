@@ -39,6 +39,58 @@ fn cell_vcomp_composes_end_to_end() {
 }
 
 #[test]
+fn axis_flow_axis1_matches_cell_comp_v() {
+    let rt = frontier_runtime();
+    // `a >>>[1] b` lowers to `Seq{axis: 1}` — the same `∘₁` paste the
+    // derived `cell_comp_v` (`=>>`) performs. `=>>` additionally projects
+    // the composite's witness `value`, so the indexed composite is the
+    // `Cell2` record whose witness is the `=>>` result.
+    let indexed = rt
+        .run(&Source::new("1 + 2 >>>[1] 3"))
+        .expect("axis_flow >>>[1] runs");
+    let derived = rt.run(&Source::new("1 + 2 =>> 3")).expect("=>> runs");
+    assert_eq!(
+        indexed,
+        json!({
+            "__tag__": "Cell2",
+            "__src__": 3,
+            "__tgt__": 3,
+            "value": derived
+        })
+    );
+}
+
+#[test]
+fn axis_flow_axis1_checks_boundary() {
+    let rt = frontier_runtime();
+    // `1 >>>[1] 2`: the first cell's target (`1`) does not meet the
+    // second cell's source (`2`) — the globular boundary law rejects
+    // the paste.
+    let err = rt
+        .run(&Source::new("1 >>>[1] 2"))
+        .expect_err("boundary mismatch must fail");
+    assert!(
+        err.to_string().contains("boundary"),
+        "error should name the boundary violation: {err}"
+    );
+}
+
+#[test]
+fn axis_flow_axis_above_dimension_errors() {
+    let rt = frontier_runtime();
+    // `1 >>>[2] 1`: the runtime cell shape is `Cell2` (dimension 2), so
+    // axis 2 violates the `k < dim` law — the shared executor reports
+    // the dimension error rather than silently degrading to `>>>`.
+    let err = rt
+        .run(&Source::new("1 >>>[2] 1"))
+        .expect_err("axis 2 exceeds the 2-cell dimension");
+    assert!(
+        err.to_string().contains("dimension"),
+        "error should name the dimension violation: {err}"
+    );
+}
+
+#[test]
 fn cell_hcomp_composes_end_to_end() {
     let rt = frontier_runtime();
     // Horizontal composition derives from two whiskers + vertical

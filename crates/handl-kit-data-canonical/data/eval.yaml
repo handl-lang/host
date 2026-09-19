@@ -423,14 +423,18 @@
         source: Native
         lit: 1
     source: Native
-# `axis_flow` — `a >>>[k] b` (ADR-0120 Phase 2). Canonical evaluation
-# implements only axis 0: the axis child (index 1) is evaluated and
-# compared to `0`; on equality the composition runs exactly like `flow`
-# on the left (0) and right (2) operands, and any other axis value raises
-# a hard error rather than silently degrading to `>>>`. Multi-axis
-# execution semantics arrive with the n-cell execution increment;
-# arrow-dialect materialization overrides this scheme to emit `Term::Seq`
-# with the axis slot populated (validated by the exec backends).
+# `axis_flow` — `a >>>[k] b` (ADR-0120 Phases 2/5). The axis child
+# (index 1) is evaluated and compared to `0`; on equality the
+# composition runs exactly like `flow` on the left (0) and right (2)
+# operands, so `>>>[0]` and `>>>` share one path. A nonzero axis lowers
+# to `Seq{axis: k}` directly — the operands are lifted to dimension 2
+# (`Cell2` is the only n > 1 cell shape the value model carries — the
+# same lift the derived cell ops use) and the shared executor performs
+# the `∘ₖ` globular paste: both operands see the same incoming, the
+# `k < dim` dimension law and the `tgt/src` boundary law are enforced,
+# and violations surface as structural errors. Arrow-dialect
+# materialization overrides this scheme to emit `Term::Seq` with the
+# materialized axis/operand terms.
 - id: eval.axis_flow
   node_kind: axis_flow
   scheme: !Seq
@@ -465,13 +469,26 @@
             source: Native
             lit: 2
         source: Native
-      r: !Op
-        name: desugar_error
-        args: []
-        source: Native
-        lit:
-          kind: axis-flow-error
-          reason: "axis composition >>>[k] with k != 0 is not yet implemented (ADR-0120 Phase 2)"
+      r: !Seq
+        axis: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+        fst: !Op
+          dim: !Const
+            value: 2
+          name: proj_child
+          args: []
+          source: Native
+          lit: 0
+        snd: !Op
+          dim: !Const
+            value: 2
+          name: proj_child
+          args: []
+          source: Native
+          lit: 2
 - id: eval.pipe
   node_kind: pipe
   scheme: !App

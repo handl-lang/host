@@ -22,7 +22,7 @@ pub fn lower(term: &Term) -> Result<JsAst, CompileError> {
         }
         Term::Const { value } => lower_value(value),
         Term::Seq { axis, fst, snd } => {
-            check_axis_zero(axis)?;
+            check_sequential(axis, fst)?;
             let param = JsAst::Ident(INPUT_NAME.to_string());
             let body = lower_sub(snd, &lower_sub(fst, &param)?)?;
             Ok(JsAst::ArrowFn {
@@ -52,7 +52,7 @@ pub fn lower_applied(term: &Term, _input: &JsAst) -> Result<JsAst, CompileError>
             args: vec![_input.clone()],
         }),
         Term::Seq { axis, fst, snd } => {
-            check_axis_zero(axis)?;
+            check_sequential(axis, fst)?;
             lower_sub(snd, &lower_sub(fst, _input)?)
         }
         _ => Err(CompileError::Lower(format!(
@@ -61,17 +61,21 @@ pub fn lower_applied(term: &Term, _input: &JsAst) -> Result<JsAst, CompileError>
     }
 }
 
-/// ADR-0120 Phase 2: `>>>` is `>>>[0]`. The JS backend only implements
-/// axis-0 composition; non-zero or non-literal axes are structurally valid
-/// but rejected here pending the multi-axis execution increment.
-fn check_axis_zero(axis: &Term) -> Result<(), CompileError> {
+/// ADR-0120 Phase 5: `Seq{axis: k}` is `∘ₖ`. The JS backend lowers only
+/// the sequential regime — `∘₀` on 1-cells (`dim(fst) ≤ 1`). The
+/// globular pasting regime (`k < dim(fst)` — including axis 0 on cell
+/// operands) needs the `Cell2` value model, which generated JS does not
+/// carry; those terms are rejected here rather than silently compiled
+/// to sequencing.
+fn check_sequential(axis: &Term, fst: &Term) -> Result<(), CompileError> {
     match axis.nat_literal() {
-        Some(0) => Ok(()),
-        Some(k) => Err(CompileError::Lower(format!(
-            "Seq: axis-{k} composition is not yet implemented (ADR-0120 Phase 2)"
+        Some(0) if fst.globular_dim() <= 1 => Ok(()),
+        Some(k) if k >= fst.globular_dim() => Err(CompileError::Lower(format!(
+            "Seq: axis-{k} composition requires cells of dimension > {k} (fst has dim {})",
+            fst.globular_dim()
         ))),
-        None => Err(CompileError::Lower(
-            "Seq: non-literal composition axis is not yet supported (ADR-0120 Phase 2)".to_string(),
+        _ => Err(CompileError::Lower(
+            "Seq: globular cell composition is not supported by the JS backend".to_string(),
         )),
     }
 }

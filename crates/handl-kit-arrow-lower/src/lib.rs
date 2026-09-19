@@ -155,12 +155,13 @@ fn lower_node(
             Ok(Term::seq(unquote_term(l), unquote_term(r)))
         }
 
-        // `eval.axis_flow` implements only axis 0 for the canonical
-        // engines (a checked `eq` + `flow` + `desugar_error` scheme); its
-        // own comment notes the arrow dialect materializes `Term::Seq`
-        // with the axis slot populated — which is this arm.
+        // `eval.axis_flow` routes axis 0 through `flow` for the canonical
+        // engines and `k > 0` through `Seq{axis}` over dimension-2
+        // operands; the arrow dialect instead materializes `Term::Seq`
+        // with the axis slot populated — which is this arm — letting the
+        // operands keep their own declared dimensions.
         "axis_flow" => {
-            // `x >>>[k] f` — composition along axis `k` (ADR-0120 Phase 2).
+            // `x >>>[k] f` — composition along axis `k` (ADR-0120 Phases 2/5).
             // The axis is an ordinary expression position lowered like any
             // other expression; the operands sit in arrow position and
             // unquote like `flow`.

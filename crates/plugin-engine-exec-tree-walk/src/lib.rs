@@ -118,41 +118,11 @@ use handl_value::{
 };
 use plugin_engine::{Model, ModelCtx, RewriteResult, TermData, is_hott_tag};
 
-/// The globular dimension of a term (ADR-0120 Phase 5): the `dim` slot
-/// when it is a numeric literal, otherwise a structural estimate through
-/// the combinators (a composite has the greatest dimension of its
-/// parts). Defaults to `1` — an ordinary 1-cell. `Seq{axis: k}` pastes
-/// along axis `k` only when `k < term_dim(fst)`.
+/// The globular dimension of a term (ADR-0120 Phase 5) — delegates to
+/// [`TermData::globular_dim`], the shared implementation. `Seq{axis: k}`
+/// pastes along axis `k` only when `k < term_dim(fst)`.
 fn term_dim(td: &TermData) -> u64 {
-    // `TermData::dim` supplies a `Const 1` default when the slot is
-    // absent — check the raw field so structural terms (Seq, Tag, …)
-    // fall through to the composite estimate below.
-    if let Some(dim_td) = td.get_term("dim") {
-        if let Some(d) = dim_td.nat_literal() {
-            return d.max(1);
-        }
-    }
-    match td.tag() {
-        "Seq" => td
-            .get_term("fst")
-            .map(|t| term_dim(&t))
-            .unwrap_or(1)
-            .max(td.get_term("snd").map(|t| term_dim(&t)).unwrap_or(1)),
-        "First" => td.get_term("inner").map(|t| term_dim(&t)).unwrap_or(1),
-        "Choice" => td
-            .get_term("l")
-            .map(|t| term_dim(&t))
-            .unwrap_or(1)
-            .max(td.get_term("r").map(|t| term_dim(&t)).unwrap_or(1)),
-        "Loop" | "Handle" | "Cobind" => td.get_term("body").map(|t| term_dim(&t)).unwrap_or(1),
-        "App" => td.get_term("callee").map(|t| term_dim(&t)).unwrap_or(1),
-        "Iter" => td.get_term("step").map(|t| term_dim(&t)).unwrap_or(1),
-        "RecordProj" | "RecordWith" => td.get_term("record").map(|t| term_dim(&t)).unwrap_or(1),
-        "Tag" => td.get_term("value").map(|t| term_dim(&t)).unwrap_or(1),
-        "Src" | "Tgt" => td.get_term("cell").map(|t| term_dim(&t)).unwrap_or(1),
-        "Rewrite" => td.get_term("target").map(|t| term_dim(&t)).unwrap_or(1),
-        _ => 1,
-    }
+    td.globular_dim()
 }
 
 // Thread-local storage for the current AST and Language, so the
@@ -975,7 +945,9 @@ impl TreeWalkEngine {
                     if snd_pushed {
                         env.pop_scope();
                     }
-                    Ok((cell2_comp_axis(axis_index, &fst_val, &snd_val), false))
+                    let composed = cell2_comp_axis(axis_index, &fst_val, &snd_val)
+                        .map_err(|e| LangError::engine_node(e, current_node))?;
+                    Ok((composed, false))
                 } else {
                     return Err(LangError::engine_node(
                         format!(
@@ -1689,7 +1661,9 @@ impl TreeWalkEngine {
                     current_node,
                     incoming,
                 )?;
-                Ok((cell2_comp_v(&fst, &snd), false))
+                let composed = cell2_comp_v(&fst, &snd)
+                    .map_err(|e| LangError::engine_node(e, current_node))?;
+                Ok((composed, false))
             }
             "Whisker" => {
                 let arrow = td
@@ -5012,11 +4986,13 @@ impl Model for ValueModel {
                 } else if axis_index < fst_dim {
                     let fst_val = self.run(&fst_term, incoming.clone(), ctx)?;
                     let snd_val = self.run(&snd_term, incoming, ctx)?;
-                    Ok(tagged_to_value(&cell2_comp_axis(
+                    let composed = cell2_comp_axis(
                         axis_index,
                         &TaggedValue::from(fst_val),
                         &TaggedValue::from(snd_val),
-                    )))
+                    )
+                    .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                    Ok(tagged_to_value(&composed))
                 } else {
                     Err(plugin_engine::LangError::NotImplemented)
                 }

@@ -439,10 +439,13 @@ fn axis_flow_zero_evaluates_like_flow() {
     assert_eq!(indexed, plain, "`>>>[0]` must evaluate exactly like `>>>`");
 }
 
-/// A nonzero literal axis is a hard eval error — canonical execution must
-/// not silently degrade `>>>[k]` to `>>>` (ADR-0120 Phase 2).
+/// A nonzero literal axis now lowers to `Seq{axis: k}` — the shared `∘ₖ`
+/// paste — rather than hard-erroring (ADR-0120 Phase 5). On operands
+/// that do not meet (`tgt(41) ≠ src(inc)` — an `Int` boundary against an
+/// arrow boundary), the globular boundary law rejects the composition
+/// with the shared boundary-mismatch error.
 #[test]
-fn axis_flow_nonzero_axis_eval_errors() {
+fn axis_flow_nonzero_axis_enforces_boundary() {
     let rt = full_runtime();
     let toks = rt
         .lex(&Source::new("do { inc :: x ~> x + 1; 41 >>>[1] inc }"))
@@ -450,10 +453,14 @@ fn axis_flow_nonzero_axis_eval_errors() {
     let ast = rt.parse(&toks).expect("parse");
     let err = rt
         .eval(&ast)
-        .expect_err("axis 1 must not evaluate like >>>");
+        .expect_err("axis-1 composition of non-composable cells must fail");
     let msg = err.to_string();
     assert!(
-        msg.contains("axis") || msg.contains("not yet implemented"),
-        "error should name the unimplemented axis: {msg}"
+        msg.contains("boundary"),
+        "error should name the boundary violation: {msg}"
+    );
+    assert!(
+        !msg.contains("not yet implemented"),
+        "the phase-gate error is gone: {msg}"
     );
 }
