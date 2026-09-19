@@ -569,7 +569,7 @@ do {
           if result.ok {
             unify_fields(self, funcs, a, b, result.metas, rest_keys)
           } else {
-            { ok: false, metas: metas, path: null }
+            { ok: false, metas: metas, path: null, decided: get_or(result, "decided", false) }
           }
         }
       }
@@ -583,69 +583,216 @@ do {
   --- array could never solve. `self` is `unify_` — element recursion
   --- goes through full unification.
   unify_list_ :: [self, funcs, xs, ys, metas]~> if len(xs) != len(ys) {
-    { ok: false, metas: metas, path: null }
+    { ok: false, metas: metas, path: null, decided: false }
   } else {
     do {
-      walk :: while { ok: true, metas: metas, remaining: xs, rest: ys } {
+      walk :: while { ok: true, metas: metas, decided: false, remaining: xs, rest: ys } {
         [st]~> if is_empty(st.remaining) || !st.ok {
-          { out: { ok: st.ok, metas: st.metas } }
+          { out: { ok: st.ok, metas: st.metas, decided: st.decided } }
         } else {
           do {
             r :: self(self, funcs, first_value(st.remaining), first_value(st.rest), st.metas)
-            { state: { ok: r.ok, metas: r.metas, remaining: drop(st.remaining, 1), rest: drop(st.rest, 1) } }
+            { state: { ok: r.ok, metas: r.metas, decided: if r.ok { st.decided } else { get_or(r, "decided", false) }, remaining: drop(st.remaining, 1), rest: drop(st.rest, 1) } }
           }
         }
       }
-      { ok: walk.ok, metas: walk.metas, path: funcs.make_type("Path", set(set({}, "frm", xs), "to", ys)) }
+      { ok: walk.ok, metas: walk.metas, decided: walk.decided, path: funcs.make_type("Path", set(set({}, "frm", xs), "to", ys)) }
     }
   }
 
-  --- One-step linear solving for opaque `Bin` index terms against a
-  --- numeric target: `X + c = t`, `X - c = t`, `c - X = t`, `X * c = t`
-  --- (and their mirror images) solve `X` directly; nested `Bin`s
-  --- recurse, so `(X - 1) + 1 = t` resolves through the canonical form.
-  --- This is definitional equality for the linear fragment of index
-  --- arithmetic — `Vec(n + 1)` accepts a `Vec(4)` scrutinee index by
-  --- solving `n := 3`. Non-linear shapes still fail (structural
-  --- shadow, not an arithmetic solver).
-  solve_linear_ :: [self, term, target, metas]~> do {
+  --- Exact integer power by repeated multiplication — used by the
+  --- nonlinear solver and by `closed_num_` for `binary.pow` terms
+  --- (`**` computes on `num` in this evaluator, so `i^e` with a Nat
+  --- exponent is exact).
+  ipow_ :: [base, exp]~> while { result: 1, i: 0 } {
+    [st]~> if st.i >= exp {
+      { out: st.result }
+    } else {
+      { state: { result: st.result * base, i: st.i + 1 } }
+    }
+  }
+
+  --- The `i ≥ 0` with `i^e == n`, or `null` when no integer root
+  --- exists. `i^e ≥ i` for `e ≥ 1`, so the search is bounded by `n`
+  --- (plus a monotone overshoot stop) and its failure is *decided* —
+  --- not stuck.
+  iroot_ :: [n, e]~> while { i: 0, over: false } {
+    [st]~> if st.over || st.i > n {
+      { out: null }
+    } else {
+      do {
+        p :: ipow_(st.i, e)
+        if p == n {
+          { out: st.i }
+        } else {
+          { state: { i: st.i + 1, over: p > n } }
+        }
+      }
+    }
+  }
+
+  --- Evaluate a *closed* index term to a number: a nested `Bin`/`Un`
+  --- over literals — e.g. a product `Bin{mul, 2, 3}` that survived as
+  --- opaque, or a chain that zonks closed — counts as a *known*
+  --- operand for the solver. Returns `null` while any leaf is symbolic
+  --- (`var`, unsolved meta, `App`, …) — unknown, not zero.
+  closed_num_ :: [self, t]~> if type_of(t) == "num" {
+    t
+  } else {
+    if type_tag(t) == "Bin" {
+      do {
+        l :: self(self, get_or(t, "l", null))
+        r :: self(self, get_or(t, "r", null))
+        if l == null || r == null {
+          null
+        } else {
+          bop :: get_or(t, "op", "")
+          if bop == "binary.add" {
+            l + r
+          } else {
+            if bop == "binary.sub" {
+              l - r
+            } else {
+              if bop == "binary.mul" {
+                l * r
+              } else {
+                if bop == "binary.div" {
+                  if r != 0 { if l % r == 0 { l / r } else { null } } else { null }
+                } else {
+                  if bop == "binary.mod" {
+                    if r != 0 { l % r } else { null }
+                  } else {
+                    if bop == "binary.pow" {
+                      if r >= 0 { if r % 1 == 0 { ipow_(l, r) } else { null } } else { null }
+                    } else {
+                      null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      if type_tag(t) == "Un" {
+        do {
+          v :: self(self, get_or(t, "operand", null))
+          if v == null {
+            null
+          } else {
+            if get_or(t, "op", "") == "unary.neg" { 0 - v } else { null }
+          }
+        }
+      } else {
+        null
+      }
+    }
+  }
+
+  --- Index-equation solving: an opaque `Bin` index term against a
+  --- numeric target. This is definitional equality for the decidable
+  --- fragment of index arithmetic — `Vec(n + 1)` accepts a `Vec(4)`
+  --- scrutinee index by solving `n := 3`.
+  ---
+  ---   * linear shapes solve directly — `X + c = t`, `X - c = t`,
+  ---     `c - X = t`, `X * c = t` (and mirrors, via commutative
+  ---     canonicalization); nested `Bin`s recurse, so `(X - 1) + 1 = t`
+  ---     resolves through the canonical form;
+  ---   * bounded nonlinear shapes — `X * c = t` solves by EXACT
+  ---     division: a non-divisible target has no Nat solution and is a
+  ---     *decided* failure, not stuck; `X * 0 = t` collapses to the
+  ---     `0 = t` numeral comparison; `X * X = t` (structurally equal
+  ---     operands — `?k * ?k`) solves by integer square root, and
+  ---     `X ** k = t` for a literal `k ≥ 1` solves by `iroot_` — no
+  ---     integer root is again decided, not stuck;
+  ---   * operands that are themselves closed `Bin`/`Un` terms compute
+  ---     via `closed_num_` first, so `X * (2 + 1) = t` and zonked-meta
+  ---     products behave like literal coefficients.
+  ---
+  --- Everything else is *stuck* — `{ok: false, decided: false}` — a
+  --- structural shadow does not pretend to a full arithmetic solver.
+  --- `decided: true` marks proven unsatisfiability (distinct numerals,
+  --- non-divisible products, absent roots, occurs violations), which
+  --- `refine_scrutinee_` reads to mark a match arm impossible — or to
+  --- accept an `absurd` one.
+  solve_index_ :: [self, term, target, metas]~> do {
     t :: zonk(zonk, term, metas)
     if type_of(t) == "num" {
-      { ok: t == target, metas: metas }
+      { ok: t == target, metas: metas, decided: t != target }
     } else {
       if is_meta(t) {
         do {
           tid :: meta_id(t)
           if occurs_in(occurs_in, tid, target) {
-            { ok: false, metas: metas }
+            { ok: false, metas: metas, decided: true }
           } else {
-            { ok: true, metas: metas_solve(metas, tid, target) }
+            { ok: true, metas: metas_solve(metas, tid, target), decided: false }
           }
         }
       } else {
-        if type_tag(t) == "Bin" {
-          do {
-            bop :: get_or(t, "op", "")
-            l :: zonk(zonk, get_or(t, "l", null), metas)
-            r :: zonk(zonk, get_or(t, "r", null), metas)
-            l_num :: type_of(l) == "num"
-            r_num :: type_of(r) == "num"
-            if bop == "binary.add" {
-              if r_num { self(self, l, target - r, metas) } else { if l_num { self(self, r, target - l, metas) } else { { ok: false, metas: metas } } }
-            } else {
-              if bop == "binary.sub" {
-                if r_num { self(self, l, target + r, metas) } else { if l_num { self(self, r, l - target, metas) } else { { ok: false, metas: metas } } }
+        closed :: closed_num_(closed_num_, t)
+        if closed != null {
+          { ok: closed == target, metas: metas, decided: closed != target }
+        } else {
+          if type_tag(t) == "Bin" {
+            do {
+              bop :: get_or(t, "op", "")
+              l :: zonk(zonk, get_or(t, "l", null), metas)
+              r :: zonk(zonk, get_or(t, "r", null), metas)
+              l_known :: closed_num_(closed_num_, l)
+              r_known :: closed_num_(closed_num_, r)
+              if bop == "binary.add" {
+                if r_known != null { self(self, l, target - r_known, metas) } else { if l_known != null { self(self, r, target - l_known, metas) } else { { ok: false, metas: metas, decided: false } } }
               } else {
-                if bop == "binary.mul" {
-                  if r_num && r != 0 { self(self, l, target / r, metas) } else { if l_num && l != 0 { self(self, r, target / l, metas) } else { { ok: false, metas: metas } } }
+                if bop == "binary.sub" {
+                  if r_known != null { self(self, l, target + r_known, metas) } else { if l_known != null { self(self, r, l_known - target, metas) } else { { ok: false, metas: metas, decided: false } } }
                 } else {
-                  { ok: false, metas: metas }
+                  if bop == "binary.mul" {
+                    if r_known != null {
+                      if r_known == 0 {
+                        { ok: target == 0, metas: metas, decided: target != 0 }
+                      } else {
+                        if target % r_known == 0 { self(self, l, target / r_known, metas) } else { { ok: false, metas: metas, decided: true } }
+                      }
+                    } else {
+                      if l_known != null {
+                        if l_known == 0 {
+                          { ok: target == 0, metas: metas, decided: target != 0 }
+                        } else {
+                          if target % l_known == 0 { self(self, r, target / l_known, metas) } else { { ok: false, metas: metas, decided: true } }
+                        }
+                      } else {
+                        if l == r {
+                          do {
+                            sq :: iroot_(target, 2)
+                            if sq == null { { ok: false, metas: metas, decided: true } } else { self(self, l, sq, metas) }
+                          }
+                        } else {
+                          { ok: false, metas: metas, decided: false }
+                        }
+                      }
+                    }
+                  } else {
+                    if bop == "binary.pow" && r_known != null {
+                      if r_known == 0 {
+                        { ok: target == 1, metas: metas, decided: target != 1 }
+                      } else {
+                        do {
+                          root :: iroot_(target, r_known)
+                          if root == null { { ok: false, metas: metas, decided: true } } else { self(self, l, root, metas) }
+                        }
+                      }
+                    } else {
+                      { ok: false, metas: metas, decided: false }
+                    }
+                  }
                 }
               }
             }
+          } else {
+            { ok: false, metas: metas, decided: false }
           }
-        } else {
-          { ok: false, metas: metas }
         }
       }
     }
@@ -692,7 +839,7 @@ do {
                   len_a_concrete :: len_a_num || len_a_meta
                   len_b_concrete :: len_b_num || len_b_meta
                   if(len_a_num && !len_b_concrete) || (!len_a_concrete && len_b_num) || (len_a_num && len_b_num && len_a != len_b) {
-                    { ok: false, metas: metas, path: null }
+                    { ok: false, metas: metas, path: null, decided: len_a_num && len_b_num && len_a != len_b }
                   } else {
                     unify_fields(self, funcs, a_norm, b_norm, metas, ["element"])
                   }
@@ -706,24 +853,28 @@ do {
             } else {
               --- Different tags (or untagged values): arrays unify
               --- element-wise, and an opaque `Bin` index term solves
-              --- linearly against a numeric literal — the definitional-
-              --- equality fragment documented on `eval_bin_`.
+              --- against a numeric literal via `solve_index_` — the
+              --- definitional-equality fragment documented on
+              --- `eval_bin_`, now covering the bounded nonlinear cases
+              --- (exact division, integer roots).
               if type_of(a_norm) == "arr" && type_of(b_norm) == "arr" {
                 unify_list_(self, funcs, a_norm, b_norm, metas)
               } else {
                 if tag_a == "Bin" && type_of(b_norm) == "num" {
                   do {
-                    r :: solve_linear_(solve_linear_, a_norm, b_norm, metas)
-                    { ok: r.ok, metas: r.metas, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
+                    r :: solve_index_(solve_index_, a_norm, b_norm, metas)
+                    { ok: r.ok, metas: r.metas, decided: r.decided, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
                   }
                 } else {
                   if tag_b == "Bin" && type_of(a_norm) == "num" {
                     do {
-                      r :: solve_linear_(solve_linear_, b_norm, a_norm, metas)
-                      { ok: r.ok, metas: r.metas, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
+                      r :: solve_index_(solve_index_, b_norm, a_norm, metas)
+                      { ok: r.ok, metas: r.metas, decided: r.decided, path: if r.ok { funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) } else { null } }
                     }
                   } else {
-                    { ok: false, metas: metas, path: null }
+                    --- Distinct numerals are a *decided* failure (no
+                    --- solution exists); anything else is stuck.
+                    { ok: false, metas: metas, path: null, decided: type_of(a_norm) == "num" && type_of(b_norm) == "num" }
                   }
                 }
               }
@@ -2737,22 +2888,30 @@ do {
   ---     under `eq_<name>`;
   ---   * otherwise `unify` handles it — metavariables solve and
   ---     `Bin` index terms solve linearly (`?n + 1 ≡ 2` → `?n := 1`);
-  ---   * a decided mismatch — two different numeric indices — marks
-  ---     the arm `impossible` (the constructor cannot produce the
-  ---     scrutinee's index); a different family name is impossible
-  ---     outright. Anything else is *stuck* — no arithmetic solver —
-  ---     and the arm proceeds unrefined without a diagnostic.
+  ---   * a decided mismatch — two different numeric indices, or a
+  ---     `decided` failure out of `solve_index_` (a non-divisible
+  ---     product, an absent integer root) — marks the arm `impossible`
+  ---     (the constructor cannot produce the scrutinee's index); a
+  ---     different family name is impossible outright. Anything else is
+  ---     *stuck* — no full arithmetic solver — and the arm proceeds
+  ---     unrefined without a diagnostic.
+  ---
+  --- `arm_absurd` marks the arm's body as the `absurd` keyword: a
+  --- decided-impossible arm is then *discharged* — the unreachable-
+  --- branch diagnostics are suppressed, since the absurd marker is the
+  --- explicit dismissal. A reachable arm marked `absurd` is rejected
+  --- by the caller (`synth_match_arms`).
   ---
   --- Returns `{state, impossible, idx_args}` — `idx_args` are the
   --- evaluated constructor result indices, for `apply_motive_`.
-  refine_scrutinee_ :: [funcs, s, scrutinee_type, ctor_result]~> do {
+  refine_scrutinee_ :: [funcs, s, scrutinee_type, ctor_result, arm_absurd]~> do {
     c_tag :: type_tag(ctor_result)
     if c_tag != "type.family_app" {
       { state: s, impossible: false, idx_args: [] }
     } else {
       if type_tag(scrutinee_type) == "type.family_app" {
         if get_or(scrutinee_type, "name", "") != get_or(ctor_result, "name", "") {
-          { state: tc_add_diagnostic(s, "error", "match arm: constructor builds " + get_or(ctor_result, "name", "?") + ", not the scrutinee's " + get_or(scrutinee_type, "name", "?")), impossible: true, idx_args: [] }
+          { state: if arm_absurd { s } else { tc_add_diagnostic(s, "error", "match arm: constructor builds " + get_or(ctor_result, "name", "?") + ", not the scrutinee's " + get_or(scrutinee_type, "name", "?")) }, impossible: true, idx_args: [] }
         } else {
           do {
             s_args :: get_or(scrutinee_type, "args", [])
@@ -2776,8 +2935,8 @@ do {
                     do {
                       u :: unify(funcs, ea.val, eb.val, eb["state"].metas)
                       s1 :: set(eb["state"], "metas", u.metas)
-                      decided :: if u.ok { false } else { type_of(ea.val) == "num" && type_of(eb.val) == "num" }
-                      { state: { state: if decided { tc_add_diagnostic(s1, "error", "match arm: constructor cannot produce the scrutinee's index — unreachable branch") } else { s1 }, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
+                      decided :: if u.ok { false } else { (type_of(ea.val) == "num" && type_of(eb.val) == "num") || get_or(u, "decided", false) == true }
+                      { state: { state: if decided { if arm_absurd { s1 } else { tc_add_diagnostic(s1, "error", "match arm: constructor cannot produce the scrutinee's index — unreachable branch") } } else { s1 }, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
                     }
                   }
                 }
@@ -3867,6 +4026,14 @@ do {
                     arm_children :: node_children(arm_node)
                     pattern_idx :: first_value(arm_children)
                     body_idx :: at(arm_children, 1)
+                    --- `Ctor: absurd` — the explicit dismissal of an
+                    --- impossible arm (ADR-0120). The arm checks iff
+                    --- `refine_scrutinee_` *decides* its index equations
+                    --- unsatisfiable: `impossible` discharges it
+                    --- silently, anything else — reachable OR stuck —
+                    --- is rejected below ("absurd arm is reachable").
+                    body_node :: ast_node(st["state"].ast, body_idx)
+                    is_absurd :: node_kind(body_node) == "absurd"
                     mark :: tc_mark(st["state"])
                     metas_mark :: get_or(st["state"], "metas", [null])
                     old_results :: get_or(st["state"], "results", {})
@@ -3884,7 +4051,7 @@ do {
                     pat_res :: collect_pattern_bindings(funcs, st["state"], pattern_idx, scrutinee_type)
                     bindings :: pat_res.bindings
                     ctor_result :: get_or(pat_res, "ctor_result", null)
-                    refined :: refine_scrutinee_(funcs, pat_res["state"], scrutinee_type, ctor_result)
+                    refined :: refine_scrutinee_(funcs, pat_res["state"], scrutinee_type, ctor_result, is_absurd)
                     extended :: while { state: refined["state"], remaining: bindings } {
                       [est]~> if is_empty(est.remaining) {
                         { out: est["state"] }
@@ -3899,16 +4066,24 @@ do {
                     body_out :: if refined.impossible {
                       { typ: null, state: extended }
                     } else {
-                      if motive_idx == null {
-                        do {
-                          r :: funcs.synth_node_(funcs, extended, body_idx)
-                          { typ: r.typ, state: r["state"] }
-                        }
+                      if is_absurd {
+                        --- `absurd` claims decided unsatisfiability; a
+                        --- reachable (or merely stuck) branch does not
+                        --- justify it — the body is skipped and the
+                        --- claim rejected.
+                        { typ: null, state: tc_add_diagnostic(extended, "error", "match arm marked absurd is reachable — its index equations are not decided-unsatisfiable") }
                       } else {
-                        do {
-                          m_res :: apply_motive_(funcs, extended, motive_idx, concat(refined.idx_args, [scrut_term]))
-                          chk :: funcs.check_node_(funcs, m_res["state"], body_idx, m_res.val)
-                          { typ: m_res.val, state: chk["state"] }
+                        if motive_idx == null {
+                          do {
+                            r :: funcs.synth_node_(funcs, extended, body_idx)
+                            { typ: r.typ, state: r["state"] }
+                          }
+                        } else {
+                          do {
+                            m_res :: apply_motive_(funcs, extended, motive_idx, concat(refined.idx_args, [scrut_term]))
+                            chk :: funcs.check_node_(funcs, m_res["state"], body_idx, m_res.val)
+                            { typ: m_res.val, state: chk["state"] }
+                          }
                         }
                       }
                     }
