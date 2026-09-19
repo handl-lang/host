@@ -1,5 +1,7 @@
 //! `.sdkgen.yaml` configuration for the C backend.
 
+use handl_plugin_sdkgen::{Arg, Function};
+use heck::ToUpperCamelCase;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,6 +11,17 @@ use std::path::Path;
 pub struct SdkgenConfig {
     /// Shared-object / library name used in adapter calls.
     pub library: Option<String>,
+    /// Extra preprocessor defines passed to libclang (`-D`). Use for
+    /// feature-test-gated declarations — e.g. `_GNU_SOURCE` exposes
+    /// `accept4`, `pipe2`, `ppoll` on glibc.
+    #[serde(default)]
+    pub defines: Vec<String>,
+    /// Glob patterns narrowing which constants (enum constants and
+    /// object-like `#define`s) to emit — independent of `--only`, which
+    /// gates functions/types. Empty emits every integer constant reachable
+    /// through the header's include closure.
+    #[serde(default)]
+    pub constants: Vec<String>,
     /// Per-symbol overrides.
     #[serde(default)]
     pub symbols: HashMap<String, SymbolOverride>,
@@ -19,12 +32,13 @@ pub struct SdkgenConfig {
 pub struct SymbolOverride {
     /// Argument descriptors (e.g. `["cstr", "i32"]`).
     pub args: Option<Vec<String>>,
+    /// Names for the *consuming* port args (in order). Useful for rescued
+    /// functions whose C parameter names were lost with the failed parse.
+    pub names: Option<Vec<String>>,
     /// Return port type (e.g. `Int`, `Handle`).
     pub ret: Option<String>,
     /// Return descriptor (e.g. `i32`, `handle`).
     pub descriptor: Option<String>,
-    /// Whether the return pointer can be null.
-    pub nullable: Option<bool>,
     /// Skip this symbol entirely.
     pub skip: Option<bool>,
 }
@@ -43,24 +57,46 @@ impl SdkgenConfig {
     }
 
     /// Apply overrides to a parsed C function.
-    pub fn apply_to_function(&self, name: &str, f: &mut crate::CFunction) {
+    pub fn apply_to_function(&self, name: &str, f: &mut Function) {
         let Some(ov) = self.symbols.get(name) else {
             return;
         };
         if let Some(args) = &ov.args {
             f.arg_descriptors = args.clone();
+            // Only descriptors that consume a handl argument produce a port
+            // arg — `out_buf`/`out_struct`/`void` expand to out-params and
+            // consume nothing. Names are recovered by C-argument index:
+            // buffer descriptors expand to two C args, so the descriptor
+            // position is not the C position.
+            let mut carg_idx = 0usize;
             f.port_args = args
                 .iter()
-                .enumerate()
-                .map(|(i, d)| crate::CHandlArg {
-                    name: f
-                        .port_args
-                        .get(i)
-                        .map(|a| a.name.clone())
-                        .unwrap_or_else(|| format!("__arg_{}", i)),
-                    port: descriptor_to_port(d),
+                .filter_map(|d| {
+                    let idx = carg_idx;
+                    carg_idx += descriptor_c_arg_count(d);
+                    if descriptor_consumes_handl_arg(d) {
+                        Some(Arg {
+                            name: f
+                                .port_args
+                                .get(idx)
+                                .map(|a| a.name.clone())
+                                .unwrap_or_else(|| format!("__arg_{}", idx)),
+                            port: if d.starts_with("in_struct:") {
+                                format!("{}Msg", f.port_name)
+                            } else {
+                                descriptor_to_port(d)
+                            },
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect();
+        }
+        if let Some(names) = &ov.names {
+            for (arg, name) in f.port_args.iter_mut().zip(names.iter()) {
+                arg.name = name.clone();
+            }
         }
         if let Some(ret) = &ov.ret {
             f.return_port = ret.clone();
@@ -69,6 +105,80 @@ impl SdkgenConfig {
         if let Some(desc) = &ov.descriptor {
             f.ret_descriptor = desc.clone();
         }
+        if f.arg_descriptors
+            .iter()
+            .any(|d| d.starts_with("io_struct:"))
+        {
+            // io_struct: callee fills the struct — the emitter unwraps
+            // `{ret, buf}` to the read-back record, typed `{Port}Msg`.
+            f.return_port = format!("{}Msg", f.port_name);
+        } else if f.out_struct.is_none() {
+            let slots = f.arg_descriptors.iter().filter(|d| is_out_slot(d)).count();
+            if slots > 1
+                || f.arg_descriptors
+                    .iter()
+                    .any(|d| d.starts_with("out_ptr:") || d.starts_with("io_buf:"))
+            {
+                // `out_ptr`/`io_buf`/multi-out: `ret` is independent of
+                // the written bytes (e.g. `accept`'s new fd) — the emitter
+                // returns the whole `{ ret, buf, outs }` record, declared
+                // in the port as `<Port>Result`.
+                f.return_port = format!("{}Result", f.port_name);
+            } else if f.arg_descriptors.iter().any(|d| d.starts_with("out_buf:")) {
+                // `out_buf` alone: `ret` doubles as the byte count, so the
+                // emitter unwraps to `r.buf` — the port says Bytes.
+                f.return_port = "Bytes".into();
+            }
+        }
+    }
+
+    /// Build a [`Function`] from a full override for a symbol that failed
+    /// to parse (e.g. `char**` params the backend cannot map). Returns
+    /// `None` unless `args` is given — without it the C arity is unknown.
+    /// `ret`/`descriptor` default to `Int`/`i32` when absent.
+    pub fn rescue_function(&self, name: &str) -> Option<Function> {
+        self.symbols.get(name)?.args.as_ref()?;
+        let mut f = Function {
+            name: name.to_string(),
+            port_name: name.to_upper_camel_case(),
+            port_args: Vec::new(),
+            arg_descriptors: Vec::new(),
+            return_port: "Int".into(),
+            ret_descriptor: "i32".into(),
+            out_struct: None,
+            variadic: false,
+            c_decl: String::new(),
+            doc: None,
+        };
+        self.apply_to_function(name, &mut f);
+        Some(f)
+    }
+}
+
+/// Whether a descriptor allocates a callee-filled out slot
+/// (`out_buf`/`out_ptr`/`io_buf`/`out_struct`).
+pub(crate) fn is_out_slot(d: &str) -> bool {
+    d.starts_with("out_buf:")
+        || d.starts_with("out_ptr:")
+        || d.starts_with("io_buf:")
+        || d.starts_with("out_struct:")
+        || d.starts_with("io_struct:")
+}
+
+/// Whether a marshalling descriptor consumes a Handl argument.
+/// `out_buf`/`out_ptr`/`io_buf`/`out_struct`/`io_struct`/`void` expand to
+/// callee-allocated out-params and consume none. Mirrors the descriptor
+/// vocabulary defined by `plugin-ffi`'s marshaller.
+fn descriptor_consumes_handl_arg(desc: &str) -> bool {
+    desc != "void" && !is_out_slot(desc)
+}
+
+/// How many C arguments a descriptor occupies at the call site.
+fn descriptor_c_arg_count(d: &str) -> usize {
+    if d == "in_buf" || d == "cbytes" || d.starts_with("out_buf:") || d.starts_with("io_buf:") {
+        2
+    } else {
+        1
     }
 }
 
@@ -76,7 +186,11 @@ fn descriptor_to_port(d: &str) -> String {
     if d.starts_with("out_struct:") {
         return "Obj".to_string();
     }
-    if d.starts_with("out_buf:") || d == "in_buf" {
+    if d.starts_with("out_buf:")
+        || d.starts_with("out_ptr:")
+        || d.starts_with("io_buf:")
+        || d == "in_buf"
+    {
         return "Bytes".to_string();
     }
     match d {
@@ -104,61 +218,5 @@ fn port_to_descriptor(p: &str) -> String {
         "Handle" => "handle".to_string(),
         "void" | "()" => "void".to_string(),
         _ => "ptr".to_string(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use handl_plugin_sdkgen::{CFunction, CHandlArg};
-
-    #[test]
-    fn skip_and_override_symbols() {
-        let mut cfg = SdkgenConfig::default();
-        cfg.symbols.insert(
-            "skip_me".to_string(),
-            SymbolOverride {
-                skip: Some(true),
-                ..Default::default()
-            },
-        );
-        cfg.symbols.insert(
-            "open".to_string(),
-            SymbolOverride {
-                args: Some(vec!["cstr".to_string(), "i32".to_string()]),
-                ret: Some("Handle".to_string()),
-                ..Default::default()
-            },
-        );
-
-        assert!(cfg.should_skip("skip_me"));
-        assert!(!cfg.should_skip("open"));
-
-        let mut f = CFunction {
-            name: "open".to_string(),
-            port_name: "Open".to_string(),
-            port_args: vec![
-                CHandlArg {
-                    name: "path".to_string(),
-                    port: "String".to_string(),
-                },
-                CHandlArg {
-                    name: "flags".to_string(),
-                    port: "Int".to_string(),
-                },
-            ],
-            arg_descriptors: vec!["cstr".to_string(), "i32".to_string()],
-            return_port: "Int".to_string(),
-            ret_descriptor: "i32".to_string(),
-            out_struct: None,
-            variadic: false,
-            c_decl: "int open(const char *p, int f);".to_string(),
-            doc: None,
-        };
-        cfg.apply_to_function("open", &mut f);
-        assert_eq!(f.return_port, "Handle");
-        assert_eq!(f.ret_descriptor, "handle");
-        assert_eq!(f.port_args.len(), 2);
-        assert_eq!(f.port_args[1].port, "Int");
     }
 }

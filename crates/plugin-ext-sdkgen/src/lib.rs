@@ -103,6 +103,9 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                     return 1;
                 }
             };
+            for d in &module.diagnostics {
+                eprintln!("sdkgen: diagnostic: {d}");
+            }
             let emitter = FileEmitter::new();
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");

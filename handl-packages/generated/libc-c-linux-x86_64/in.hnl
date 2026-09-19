@@ -1,0 +1,636 @@
+--- Generated adapter for libc-c-linux-x86_64/in
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+from "../libc/in" import { Ntohl, Ntohs, Htonl, Htons, Bindresvport, Bindresvport6, Inet6OptionSpace, Inet6OptionAppend, Inet6OptionAlloc, Inet6OptInit, Inet6OptFinish, Inet6OptSetVal, Inet6OptGetVal, Inet6RthSpace, Inet6RthInit }
+
+export SOCK_STREAM: Int := 1
+export SOCK_DGRAM: Int := 2
+export SOCK_RAW: Int := 3
+export SOCK_RDM: Int := 4
+export SOCK_SEQPACKET: Int := 5
+export SOCK_DCCP: Int := 6
+export SOCK_PACKET: Int := 10
+export SOCK_CLOEXEC: Int := 524288
+export SOCK_NONBLOCK: Int := 2048
+export MSG_OOB: Int := 1
+export MSG_PEEK: Int := 2
+export MSG_DONTROUTE: Int := 4
+export MSG_TRYHARD: Int := 4
+export MSG_CTRUNC: Int := 8
+export MSG_PROXY: Int := 16
+export MSG_TRUNC: Int := 32
+export MSG_DONTWAIT: Int := 64
+export MSG_EOR: Int := 128
+export MSG_WAITALL: Int := 256
+export MSG_FIN: Int := 512
+export MSG_SYN: Int := 1024
+export MSG_CONFIRM: Int := 2048
+export MSG_RST: Int := 4096
+export MSG_ERRQUEUE: Int := 8192
+export MSG_NOSIGNAL: Int := 16384
+export MSG_MORE: Int := 32768
+export MSG_WAITFORONE: Int := 65536
+export MSG_BATCH: Int := 262144
+export MSG_SOCK_DEVMEM: Int := 33554432
+export MSG_ZEROCOPY: Int := 67108864
+export MSG_FASTOPEN: Int := 536870912
+export MSG_CMSG_CLOEXEC: Int := 1073741824
+export SCM_RIGHTS: Int := 1
+export SCM_CREDENTIALS: Int := 2
+export SCM_SECURITY: Int := 3
+export SCM_PIDFD: Int := 4
+export SHUT_RD: Int := 0
+export SHUT_WR: Int := 1
+export SHUT_RDWR: Int := 2
+export IPPROTO_IP: Int := 0
+export IPPROTO_ICMP: Int := 1
+export IPPROTO_IGMP: Int := 2
+export IPPROTO_IPIP: Int := 4
+export IPPROTO_TCP: Int := 6
+export IPPROTO_EGP: Int := 8
+export IPPROTO_PUP: Int := 12
+export IPPROTO_UDP: Int := 17
+export IPPROTO_IDP: Int := 22
+export IPPROTO_TP: Int := 29
+export IPPROTO_DCCP: Int := 33
+export IPPROTO_IPV6: Int := 41
+export IPPROTO_RSVP: Int := 46
+export IPPROTO_GRE: Int := 47
+export IPPROTO_ESP: Int := 50
+export IPPROTO_AH: Int := 51
+export IPPROTO_MTP: Int := 92
+export IPPROTO_BEETPH: Int := 94
+export IPPROTO_ENCAP: Int := 98
+export IPPROTO_PIM: Int := 103
+export IPPROTO_COMP: Int := 108
+export IPPROTO_L2TP: Int := 115
+export IPPROTO_SCTP: Int := 132
+export IPPROTO_UDPLITE: Int := 136
+export IPPROTO_MPLS: Int := 137
+export IPPROTO_ETHERNET: Int := 143
+export IPPROTO_AGGFRAG: Int := 144
+export IPPROTO_RAW: Int := 255
+export IPPROTO_SMC: Int := 256
+export IPPROTO_MPTCP: Int := 262
+export IPPROTO_MAX: Int := 263
+export IPPROTO_HOPOPTS: Int := 0
+export IPPROTO_ROUTING: Int := 43
+export IPPROTO_FRAGMENT: Int := 44
+export IPPROTO_ICMPV6: Int := 58
+export IPPROTO_NONE: Int := 59
+export IPPROTO_DSTOPTS: Int := 60
+export IPPROTO_MH: Int := 135
+export IPPORT_ECHO: Int := 7
+export IPPORT_DISCARD: Int := 9
+export IPPORT_SYSTAT: Int := 11
+export IPPORT_DAYTIME: Int := 13
+export IPPORT_NETSTAT: Int := 15
+export IPPORT_FTP: Int := 21
+export IPPORT_TELNET: Int := 23
+export IPPORT_SMTP: Int := 25
+export IPPORT_TIMESERVER: Int := 37
+export IPPORT_NAMESERVER: Int := 42
+export IPPORT_WHOIS: Int := 43
+export IPPORT_MTP: Int := 57
+export IPPORT_TFTP: Int := 69
+export IPPORT_RJE: Int := 77
+export IPPORT_FINGER: Int := 79
+export IPPORT_TTYLINK: Int := 87
+export IPPORT_SUPDUP: Int := 95
+export IPPORT_EXECSERVER: Int := 512
+export IPPORT_LOGINSERVER: Int := 513
+export IPPORT_CMDSERVER: Int := 514
+export IPPORT_EFSSERVER: Int := 520
+export IPPORT_BIFFUDP: Int := 512
+export IPPORT_WHOSERVER: Int := 513
+export IPPORT_ROUTESERVER: Int := 520
+export IPPORT_RESERVED: Int := 1024
+export IPPORT_USERRESERVED: Int := 5000
+export unix: Int := 1
+export linux: Int := 1
+export LITTLE_ENDIAN: Int := 1234
+export BIG_ENDIAN: Int := 4321
+export PDP_ENDIAN: Int := 3412
+export BYTE_ORDER: Int := 1234
+export FD_SETSIZE: Int := 1024
+export NFDBITS: Int := 64
+export PF_UNSPEC: Int := 0
+export PF_LOCAL: Int := 1
+export PF_UNIX: Int := 1
+export PF_FILE: Int := 1
+export PF_INET: Int := 2
+export PF_AX25: Int := 3
+export PF_IPX: Int := 4
+export PF_APPLETALK: Int := 5
+export PF_NETROM: Int := 6
+export PF_BRIDGE: Int := 7
+export PF_ATMPVC: Int := 8
+export PF_X25: Int := 9
+export PF_INET6: Int := 10
+export PF_ROSE: Int := 11
+export PF_DECnet: Int := 12
+export PF_NETBEUI: Int := 13
+export PF_SECURITY: Int := 14
+export PF_KEY: Int := 15
+export PF_NETLINK: Int := 16
+export PF_ROUTE: Int := 16
+export PF_PACKET: Int := 17
+export PF_ASH: Int := 18
+export PF_ECONET: Int := 19
+export PF_ATMSVC: Int := 20
+export PF_RDS: Int := 21
+export PF_SNA: Int := 22
+export PF_IRDA: Int := 23
+export PF_PPPOX: Int := 24
+export PF_WANPIPE: Int := 25
+export PF_LLC: Int := 26
+export PF_IB: Int := 27
+export PF_MPLS: Int := 28
+export PF_CAN: Int := 29
+export PF_TIPC: Int := 30
+export PF_BLUETOOTH: Int := 31
+export PF_IUCV: Int := 32
+export PF_RXRPC: Int := 33
+export PF_ISDN: Int := 34
+export PF_PHONET: Int := 35
+export PF_IEEE802154: Int := 36
+export PF_CAIF: Int := 37
+export PF_ALG: Int := 38
+export PF_NFC: Int := 39
+export PF_VSOCK: Int := 40
+export PF_KCM: Int := 41
+export PF_QIPCRTR: Int := 42
+export PF_SMC: Int := 43
+export PF_XDP: Int := 44
+export PF_MCTP: Int := 45
+export PF_MAX: Int := 46
+export AF_UNSPEC: Int := 0
+export AF_LOCAL: Int := 1
+export AF_UNIX: Int := 1
+export AF_FILE: Int := 1
+export AF_INET: Int := 2
+export AF_AX25: Int := 3
+export AF_IPX: Int := 4
+export AF_APPLETALK: Int := 5
+export AF_NETROM: Int := 6
+export AF_BRIDGE: Int := 7
+export AF_ATMPVC: Int := 8
+export AF_X25: Int := 9
+export AF_INET6: Int := 10
+export AF_ROSE: Int := 11
+export AF_DECnet: Int := 12
+export AF_NETBEUI: Int := 13
+export AF_SECURITY: Int := 14
+export AF_KEY: Int := 15
+export AF_NETLINK: Int := 16
+export AF_ROUTE: Int := 16
+export AF_PACKET: Int := 17
+export AF_ASH: Int := 18
+export AF_ECONET: Int := 19
+export AF_ATMSVC: Int := 20
+export AF_RDS: Int := 21
+export AF_SNA: Int := 22
+export AF_IRDA: Int := 23
+export AF_PPPOX: Int := 24
+export AF_WANPIPE: Int := 25
+export AF_LLC: Int := 26
+export AF_IB: Int := 27
+export AF_MPLS: Int := 28
+export AF_CAN: Int := 29
+export AF_TIPC: Int := 30
+export AF_BLUETOOTH: Int := 31
+export AF_IUCV: Int := 32
+export AF_RXRPC: Int := 33
+export AF_ISDN: Int := 34
+export AF_PHONET: Int := 35
+export AF_IEEE802154: Int := 36
+export AF_CAIF: Int := 37
+export AF_ALG: Int := 38
+export AF_NFC: Int := 39
+export AF_VSOCK: Int := 40
+export AF_KCM: Int := 41
+export AF_QIPCRTR: Int := 42
+export AF_SMC: Int := 43
+export AF_XDP: Int := 44
+export AF_MCTP: Int := 45
+export AF_MAX: Int := 46
+export SOL_RAW: Int := 255
+export SOL_DECNET: Int := 261
+export SOL_X25: Int := 262
+export SOL_PACKET: Int := 263
+export SOL_ATM: Int := 264
+export SOL_AAL: Int := 265
+export SOL_IRDA: Int := 266
+export SOL_NETBEUI: Int := 267
+export SOL_LLC: Int := 268
+export SOL_DCCP: Int := 269
+export SOL_NETLINK: Int := 270
+export SOL_TIPC: Int := 271
+export SOL_RXRPC: Int := 272
+export SOL_PPPOL2TP: Int := 273
+export SOL_BLUETOOTH: Int := 274
+export SOL_PNPIPE: Int := 275
+export SOL_RDS: Int := 276
+export SOL_IUCV: Int := 277
+export SOL_CAIF: Int := 278
+export SOL_ALG: Int := 279
+export SOL_NFC: Int := 280
+export SOL_KCM: Int := 281
+export SOL_TLS: Int := 282
+export SOL_XDP: Int := 283
+export SOL_MPTCP: Int := 284
+export SOL_MCTP: Int := 285
+export SOL_SMC: Int := 286
+export SOL_VSOCK: Int := 287
+export SOMAXCONN: Int := 4096
+export FIOSETOWN: Int := 35073
+export SIOCSPGRP: Int := 35074
+export FIOGETOWN: Int := 35075
+export SIOCGPGRP: Int := 35076
+export SIOCATMARK: Int := 35077
+export SIOCGSTAMP_OLD: Int := 35078
+export SIOCGSTAMPNS_OLD: Int := 35079
+export SOL_SOCKET: Int := 1
+export SO_DEBUG: Int := 1
+export SO_REUSEADDR: Int := 2
+export SO_TYPE: Int := 3
+export SO_ERROR: Int := 4
+export SO_DONTROUTE: Int := 5
+export SO_BROADCAST: Int := 6
+export SO_SNDBUF: Int := 7
+export SO_RCVBUF: Int := 8
+export SO_SNDBUFFORCE: Int := 32
+export SO_RCVBUFFORCE: Int := 33
+export SO_KEEPALIVE: Int := 9
+export SO_OOBINLINE: Int := 10
+export SO_NO_CHECK: Int := 11
+export SO_PRIORITY: Int := 12
+export SO_LINGER: Int := 13
+export SO_BSDCOMPAT: Int := 14
+export SO_REUSEPORT: Int := 15
+export SO_PASSCRED: Int := 16
+export SO_PEERCRED: Int := 17
+export SO_RCVLOWAT: Int := 18
+export SO_SNDLOWAT: Int := 19
+export SO_RCVTIMEO_OLD: Int := 20
+export SO_SNDTIMEO_OLD: Int := 21
+export SO_SECURITY_AUTHENTICATION: Int := 22
+export SO_SECURITY_ENCRYPTION_TRANSPORT: Int := 23
+export SO_SECURITY_ENCRYPTION_NETWORK: Int := 24
+export SO_BINDTODEVICE: Int := 25
+export SO_ATTACH_FILTER: Int := 26
+export SO_DETACH_FILTER: Int := 27
+export SO_GET_FILTER: Int := 26
+export SO_PEERNAME: Int := 28
+export SO_ACCEPTCONN: Int := 30
+export SO_PEERSEC: Int := 31
+export SO_PASSSEC: Int := 34
+export SO_MARK: Int := 36
+export SO_PROTOCOL: Int := 38
+export SO_DOMAIN: Int := 39
+export SO_RXQ_OVFL: Int := 40
+export SO_WIFI_STATUS: Int := 41
+export SCM_WIFI_STATUS: Int := 41
+export SO_PEEK_OFF: Int := 42
+export SO_NOFCS: Int := 43
+export SO_LOCK_FILTER: Int := 44
+export SO_SELECT_ERR_QUEUE: Int := 45
+export SO_BUSY_POLL: Int := 46
+export SO_MAX_PACING_RATE: Int := 47
+export SO_BPF_EXTENSIONS: Int := 48
+export SO_INCOMING_CPU: Int := 49
+export SO_ATTACH_BPF: Int := 50
+export SO_DETACH_BPF: Int := 27
+export SO_ATTACH_REUSEPORT_CBPF: Int := 51
+export SO_ATTACH_REUSEPORT_EBPF: Int := 52
+export SO_CNX_ADVICE: Int := 53
+export SCM_TIMESTAMPING_OPT_STATS: Int := 54
+export SO_MEMINFO: Int := 55
+export SO_INCOMING_NAPI_ID: Int := 56
+export SO_COOKIE: Int := 57
+export SCM_TIMESTAMPING_PKTINFO: Int := 58
+export SO_PEERGROUPS: Int := 59
+export SO_ZEROCOPY: Int := 60
+export SO_TXTIME: Int := 61
+export SCM_TXTIME: Int := 61
+export SO_BINDTOIFINDEX: Int := 62
+export SO_TIMESTAMP_OLD: Int := 29
+export SO_TIMESTAMPNS_OLD: Int := 35
+export SO_TIMESTAMPING_OLD: Int := 37
+export SO_TIMESTAMP_NEW: Int := 63
+export SO_TIMESTAMPNS_NEW: Int := 64
+export SO_TIMESTAMPING_NEW: Int := 65
+export SO_RCVTIMEO_NEW: Int := 66
+export SO_SNDTIMEO_NEW: Int := 67
+export SO_DETACH_REUSEPORT_BPF: Int := 68
+export SO_PREFER_BUSY_POLL: Int := 69
+export SO_BUSY_POLL_BUDGET: Int := 70
+export SO_NETNS_COOKIE: Int := 71
+export SO_BUF_LOCK: Int := 72
+export SO_RESERVE_MEM: Int := 73
+export SO_TXREHASH: Int := 74
+export SO_RCVMARK: Int := 75
+export SO_PASSPIDFD: Int := 76
+export SO_PEERPIDFD: Int := 77
+export SO_DEVMEM_LINEAR: Int := 78
+export SCM_DEVMEM_LINEAR: Int := 78
+export SO_DEVMEM_DMABUF: Int := 79
+export SCM_DEVMEM_DMABUF: Int := 79
+export SO_DEVMEM_DONTNEED: Int := 80
+export SCM_TS_OPT_ID: Int := 81
+export SO_RCVPRIORITY: Int := 82
+export SO_PASSRIGHTS: Int := 83
+export SO_INQ: Int := 84
+export SCM_INQ: Int := 84
+export SO_TIMESTAMP: Int := 29
+export SO_TIMESTAMPNS: Int := 35
+export SO_TIMESTAMPING: Int := 37
+export SO_RCVTIMEO: Int := 20
+export SO_SNDTIMEO: Int := 21
+export SCM_TIMESTAMP: Int := 29
+export SCM_TIMESTAMPNS: Int := 35
+export SCM_TIMESTAMPING: Int := 37
+export IP_OPTIONS: Int := 4
+export IP_HDRINCL: Int := 3
+export IP_TOS: Int := 1
+export IP_TTL: Int := 2
+export IP_RECVOPTS: Int := 6
+export IP_RECVRETOPTS: Int := 7
+export IP_RETOPTS: Int := 7
+export IP_MULTICAST_IF: Int := 32
+export IP_MULTICAST_TTL: Int := 33
+export IP_MULTICAST_LOOP: Int := 34
+export IP_ADD_MEMBERSHIP: Int := 35
+export IP_DROP_MEMBERSHIP: Int := 36
+export IP_UNBLOCK_SOURCE: Int := 37
+export IP_BLOCK_SOURCE: Int := 38
+export IP_ADD_SOURCE_MEMBERSHIP: Int := 39
+export IP_DROP_SOURCE_MEMBERSHIP: Int := 40
+export IP_MSFILTER: Int := 41
+export MCAST_JOIN_GROUP: Int := 42
+export MCAST_BLOCK_SOURCE: Int := 43
+export MCAST_UNBLOCK_SOURCE: Int := 44
+export MCAST_LEAVE_GROUP: Int := 45
+export MCAST_JOIN_SOURCE_GROUP: Int := 46
+export MCAST_LEAVE_SOURCE_GROUP: Int := 47
+export MCAST_MSFILTER: Int := 48
+export IP_MULTICAST_ALL: Int := 49
+export IP_UNICAST_IF: Int := 50
+export MCAST_EXCLUDE: Int := 0
+export MCAST_INCLUDE: Int := 1
+export IP_ROUTER_ALERT: Int := 5
+export IP_PKTINFO: Int := 8
+export IP_PKTOPTIONS: Int := 9
+export IP_PMTUDISC: Int := 10
+export IP_MTU_DISCOVER: Int := 10
+export IP_RECVERR: Int := 11
+export IP_RECVTTL: Int := 12
+export IP_RECVTOS: Int := 13
+export IP_MTU: Int := 14
+export IP_FREEBIND: Int := 15
+export IP_IPSEC_POLICY: Int := 16
+export IP_XFRM_POLICY: Int := 17
+export IP_PASSSEC: Int := 18
+export IP_TRANSPARENT: Int := 19
+export IP_ORIGDSTADDR: Int := 20
+export IP_RECVORIGDSTADDR: Int := 20
+export IP_MINTTL: Int := 21
+export IP_NODEFRAG: Int := 22
+export IP_CHECKSUM: Int := 23
+export IP_BIND_ADDRESS_NO_PORT: Int := 24
+export IP_RECVFRAGSIZE: Int := 25
+export IP_RECVERR_RFC4884: Int := 26
+export IP_PMTUDISC_DONT: Int := 0
+export IP_PMTUDISC_WANT: Int := 1
+export IP_PMTUDISC_DO: Int := 2
+export IP_PMTUDISC_PROBE: Int := 3
+export IP_PMTUDISC_INTERFACE: Int := 4
+export IP_PMTUDISC_OMIT: Int := 5
+export IP_LOCAL_PORT_RANGE: Int := 51
+export IP_PROTOCOL: Int := 52
+export SOL_IP: Int := 0
+export IP_DEFAULT_MULTICAST_TTL: Int := 1
+export IP_DEFAULT_MULTICAST_LOOP: Int := 1
+export IP_MAX_MEMBERSHIPS: Int := 20
+export IPV6_ADDRFORM: Int := 1
+export IPV6_2292PKTINFO: Int := 2
+export IPV6_2292HOPOPTS: Int := 3
+export IPV6_2292DSTOPTS: Int := 4
+export IPV6_2292RTHDR: Int := 5
+export IPV6_2292PKTOPTIONS: Int := 6
+export IPV6_CHECKSUM: Int := 7
+export IPV6_2292HOPLIMIT: Int := 8
+export IPV6_NEXTHOP: Int := 9
+export IPV6_AUTHHDR: Int := 10
+export IPV6_UNICAST_HOPS: Int := 16
+export IPV6_MULTICAST_IF: Int := 17
+export IPV6_MULTICAST_HOPS: Int := 18
+export IPV6_MULTICAST_LOOP: Int := 19
+export IPV6_JOIN_GROUP: Int := 20
+export IPV6_LEAVE_GROUP: Int := 21
+export IPV6_ROUTER_ALERT: Int := 22
+export IPV6_MTU_DISCOVER: Int := 23
+export IPV6_MTU: Int := 24
+export IPV6_RECVERR: Int := 25
+export IPV6_V6ONLY: Int := 26
+export IPV6_JOIN_ANYCAST: Int := 27
+export IPV6_LEAVE_ANYCAST: Int := 28
+export IPV6_MULTICAST_ALL: Int := 29
+export IPV6_ROUTER_ALERT_ISOLATE: Int := 30
+export IPV6_RECVERR_RFC4884: Int := 31
+export IPV6_IPSEC_POLICY: Int := 34
+export IPV6_XFRM_POLICY: Int := 35
+export IPV6_HDRINCL: Int := 36
+export IPV6_RECVPKTINFO: Int := 49
+export IPV6_PKTINFO: Int := 50
+export IPV6_RECVHOPLIMIT: Int := 51
+export IPV6_HOPLIMIT: Int := 52
+export IPV6_RECVHOPOPTS: Int := 53
+export IPV6_HOPOPTS: Int := 54
+export IPV6_RTHDRDSTOPTS: Int := 55
+export IPV6_RECVRTHDR: Int := 56
+export IPV6_RTHDR: Int := 57
+export IPV6_RECVDSTOPTS: Int := 58
+export IPV6_DSTOPTS: Int := 59
+export IPV6_RECVPATHMTU: Int := 60
+export IPV6_PATHMTU: Int := 61
+export IPV6_DONTFRAG: Int := 62
+export IPV6_RECVTCLASS: Int := 66
+export IPV6_TCLASS: Int := 67
+export IPV6_AUTOFLOWLABEL: Int := 70
+export IPV6_ADDR_PREFERENCES: Int := 72
+export IPV6_MINHOPCOUNT: Int := 73
+export IPV6_ORIGDSTADDR: Int := 74
+export IPV6_RECVORIGDSTADDR: Int := 74
+export IPV6_TRANSPARENT: Int := 75
+export IPV6_UNICAST_IF: Int := 76
+export IPV6_RECVFRAGSIZE: Int := 77
+export IPV6_FREEBIND: Int := 78
+export IPV6_ADD_MEMBERSHIP: Int := 20
+export IPV6_DROP_MEMBERSHIP: Int := 21
+export IPV6_RXHOPOPTS: Int := 54
+export IPV6_RXDSTOPTS: Int := 59
+export IPV6_PMTUDISC_DONT: Int := 0
+export IPV6_PMTUDISC_WANT: Int := 1
+export IPV6_PMTUDISC_DO: Int := 2
+export IPV6_PMTUDISC_PROBE: Int := 3
+export IPV6_PMTUDISC_INTERFACE: Int := 4
+export IPV6_PMTUDISC_OMIT: Int := 5
+export SOL_IPV6: Int := 41
+export SOL_ICMPV6: Int := 58
+export IPV6_RTHDR_LOOSE: Int := 0
+export IPV6_RTHDR_STRICT: Int := 1
+export IPV6_RTHDR_TYPE_0: Int := 0
+export IN_CLASSA_NET: Int := 4278190080
+export IN_CLASSA_NSHIFT: Int := 24
+export IN_CLASSA_HOST: Int := 16777215
+export IN_CLASSA_MAX: Int := 128
+export IN_CLASSB_NET: Int := 4294901760
+export IN_CLASSB_NSHIFT: Int := 16
+export IN_CLASSB_HOST: Int := 65535
+export IN_CLASSB_MAX: Int := 65536
+export IN_CLASSC_NET: Int := 4294967040
+export IN_CLASSC_NSHIFT: Int := 8
+export IN_CLASSC_HOST: Int := 255
+export INADDR_ANY: Int := 0
+export INADDR_BROADCAST: Int := 4294967295
+export INADDR_NONE: Int := 4294967295
+export INADDR_DUMMY: Int := 3221225480
+export IN_LOOPBACKNET: Int := 127
+export INADDR_LOOPBACK: Int := 2130706433
+export INADDR_UNSPEC_GROUP: Int := 3758096384
+export INADDR_ALLHOSTS_GROUP: Int := 3758096385
+export INADDR_ALLRTRS_GROUP: Int := 3758096386
+export INADDR_ALLSNOOPERS_GROUP: Int := 3758096490
+export INADDR_MAX_LOCAL_GROUP: Int := 3758096639
+export INET_ADDRSTRLEN: Int := 16
+export INET6_ADDRSTRLEN: Int := 46
+
+export ntohl: Ntohl := (__netlong) ~[1]~> do {
+  r = call("libc.so.6", "ntohl", [__netlong], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export ntohs: Ntohs := (__netshort) ~[1]~> do {
+  r = call("libc.so.6", "ntohs", [__netshort], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export htonl: Htonl := (__hostlong) ~[1]~> do {
+  r = call("libc.so.6", "htonl", [__hostlong], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export htons: Htons := (__hostshort) ~[1]~> do {
+  r = call("libc.so.6", "htons", [__hostshort], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export bindresvport: Bindresvport := (__sockfd, __sock_in) ~[1]~> do {
+  r = call("libc.so.6", "bindresvport", [__sockfd, __sock_in], ["i32", "ptr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export bindresvport6: Bindresvport6 := (__sockfd, __sock_in) ~[1]~> do {
+  r = call("libc.so.6", "bindresvport6", [__sockfd, __sock_in], ["i32", "ptr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_option_space: Inet6OptionSpace := (__nbytes) ~[1]~> do {
+  r = call("libc.so.6", "inet6_option_space", [__nbytes], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_option_append: Inet6OptionAppend := (__cmsg, __typep, __plusy) ~[1]~> do {
+  r = call("libc.so.6", "inet6_option_append", [__cmsg, __typep, __plusy], ["ptr", "cbytes", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_option_alloc: Inet6OptionAlloc := (__cmsg, __datalen, __multx, __plusy) ~[1]~> do {
+  r = call("libc.so.6", "inet6_option_alloc", [__cmsg, __datalen, __multx, __plusy], ["ptr", "i32", "i32", "i32"], "cstr", false)
+  ok(r)
+}
+
+export inet6_opt_init: Inet6OptInit := (__extbuf, __extlen) ~[1]~> do {
+  r = call("libc.so.6", "inet6_opt_init", [__extbuf, __extlen], ["ptr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_opt_finish: Inet6OptFinish := (__extbuf, __extlen, __offset) ~[1]~> do {
+  r = call("libc.so.6", "inet6_opt_finish", [__extbuf, __extlen, __offset], ["ptr", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_opt_set_val: Inet6OptSetVal := (__databuf, __offset, __val, __vallen) ~[1]~> do {
+  r = call("libc.so.6", "inet6_opt_set_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_opt_get_val: Inet6OptGetVal := (__databuf, __offset, __val, __vallen) ~[1]~> do {
+  r = call("libc.so.6", "inet6_opt_get_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_rth_space: Inet6RthSpace := (__type, __segments) ~[1]~> do {
+  r = call("libc.so.6", "inet6_rth_space", [__type, __segments], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export inet6_rth_init: Inet6RthInit := (__bp, __bp_len, __type, __segments) ~[1]~> do {
+  r = call("libc.so.6", "inet6_rth_init", [__bp, __bp_len, __type, __segments], ["ptr", "i32", "i32", "i32"], "handle", false)
+  ok(r)
+}
+

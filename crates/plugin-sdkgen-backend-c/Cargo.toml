@@ -9,4 +9,5 @@ clang-sys = { version = "1.9", features = ["runtime", "clang_20_0"] }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
 glob = { workspace = true }
-libc = "0.2"
+heck = { workspace = true }
+target-lexicon = { workspace = true }

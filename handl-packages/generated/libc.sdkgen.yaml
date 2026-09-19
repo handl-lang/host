@@ -1,0 +1,88 @@
+# SDK generation config for libc.
+# Overrides exist for signatures whose C intent isn't recoverable from the
+# type system: out-buffers, out-params, and unparseable decls that are
+# still worth a binding.
+library: libc.so.6
+
+# glibc gates some declarations behind feature-test macros.
+defines:
+  - _GNU_SOURCE
+
+symbols:
+  # ssize_t recv(int fd, void *buf, size_t len, int flags)
+  # out_buf expands to (ptr,len) — consumes the `len` C slot — and wraps
+  # the return as { ret, buf }. Port args: (fd, flags).
+  recv:
+    args: ["i32", "out_buf:65536", "i32"]
+
+  # ssize_t read(int fd, void *buf, size_t n) — same trick.
+  read:
+    args: ["i32", "out_buf:65536"]
+
+  # int accept(int fd, struct sockaddr *addr, socklen_t *addrlen)
+  # (addr, addrlen) is the POSIX value-result pair: `io_buf:128` allocates
+  # a sockaddr_storage-sized buffer plus a len cell seeded with 128 and
+  # passes (ptr, &len). `ret` is the new fd — the emitter returns the
+  # whole `{ ret, buf, outs }` record as AcceptResult.
+  accept:
+    args: ["i32", "io_buf:128"]
+    names: ["fd"]
+  accept4:
+    args: ["i32", "io_buf:128", "i32"]
+    names: ["fd", "flags"]
+  getsockname:
+    args: ["i32", "io_buf:128"]
+    names: ["fd"]
+  getpeername:
+    args: ["i32", "io_buf:128"]
+    names: ["fd"]
+
+  # ssize_t recvfrom(fd, buf, len, flags, src_addr, addrlen) — a plain
+  # out_buf for the payload plus an io_buf value-result pair for the
+  # peer address. Two out-slots → RecvfromResult record.
+  recvfrom:
+    args: ["i32", "out_buf:65536", "i32", "io_buf:128"]
+    names: ["fd", "flags"]
+
+  # int socketpair(d, t, p, int sv[2]) — sv is an 8-byte fixed-size
+  # out-param passed as a bare pointer → out_ptr:8.
+  socketpair:
+    args: ["i32", "i32", "i32", "out_ptr:8"]
+    names: ["domain", "type", "protocol"]
+
+  # ssize_t sendmsg(int fd, const struct msghdr *msg, int flags)
+  # in_struct builds msghdr from a Handl record: `bytes` fields embed a
+  # pointer to the arg's bytes, `iov` builds an iovec array from a
+  # List<Bytes>, and absent `*len` scalars auto-fill (namelen = addr
+  # length, iovlen = element count, controllen = control length).
+  sendmsg:
+    args: ["i32", "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}", "i32"]
+    names: ["fd", "msg", "flags"]
+
+  # ssize_t recvmsg(int fd, struct msghdr *msg, int flags)
+  # io_struct allocates everything callee-side: buf:N fields read back as
+  # Bytes trimmed by the following *len scalar, iovbuf:K:M becomes K
+  # buffers of M bytes read back as List<Bytes> trimmed by ret.
+  recvmsg:
+    args: ["i32", "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}", "i32"]
+    names: ["fd", "flags"]
+
+  # mmsghdr arrays aren't expressible (array of structs with embedded
+  # msghdr), and recvmmsg's timespec* out-param would wrongly drop the
+  # message-count return — skip rather than misgenerate.
+  sendmmsg:
+    skip: true
+  recvmmsg:
+    skip: true
+
+  # int inet_pton(int af, const char *src, void *dst)
+  # dst is a 4- or 16-byte out-buffer → { ret, buf }.
+  inet_pton:
+    args: ["i32", "cstr", "out_buf:16"]
+
+  # const char *inet_ntop(int af, const void *src, char *dst, socklen_t n)
+  # src is the packed address as a 16-byte in_buf; dst is out_buf:64.
+  # The visible return is the buffer (NUL-terminated text inside) — the
+  # emitter unwraps { ret, buf } → buf, so the port reports Bytes.
+  inet_ntop:
+    args: ["i32", "in_buf", "out_buf:64", "i32"]

@@ -54,7 +54,7 @@ use crate::cranelift_shim::resolve_shim;
 use crate::error::last_errno;
 use crate::marshal::{
     CArg, CRet, CRetKind, descriptor_consumes_handl_arg, marshal_call_args, return_kind,
-    unmarshal_return, wrap_out_buf_return, wrap_out_struct_return,
+    unmarshal_return, wrap_io_struct_return, wrap_out_struct_return, wrap_outs_return,
 };
 
 mod cranelift_shim;
@@ -305,15 +305,25 @@ impl Function for FfiOpFunction {
             }
         }
 
-        // Unmarshal return, then wrap as `{ ret, buf }` when an `out_buf`
-        // or `out_struct` descriptor was used (ADR-0083 §2.1).
+        // Unmarshal return, then wrap as `{ ret, buf }` / `{ ret, buf,
+        // outs }` when out-slots or `out_struct` descriptors were used
+        // (ADR-0083 §2.1).
         let raw_ret = unmarshal_return(&self.return_descriptor, &ret)?;
-        if !marshaled.out_structs.is_empty() {
-            Ok(wrap_out_struct_return(&raw_ret, &marshaled.out_structs))
-        } else if marshaled.out_bufs.is_empty() {
-            Ok(raw_ret)
+        if !marshaled.io_struct_idx.is_empty() {
+            let ios: Vec<_> = marshaled
+                .io_struct_idx
+                .iter()
+                .map(|&i| &marshaled.struct_args[i])
+                .collect();
+            Ok(wrap_io_struct_return(&raw_ret, &ios, &marshaled.out_slots))
+        } else if !marshaled.out_structs.is_empty() {
+            Ok(wrap_out_struct_return(
+                &raw_ret,
+                &marshaled.out_structs,
+                &marshaled.out_slots,
+            ))
         } else {
-            Ok(wrap_out_buf_return(&raw_ret, &marshaled.out_bufs))
+            Ok(wrap_outs_return(&raw_ret, &marshaled.out_slots))
         }
     }
 }

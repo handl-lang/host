@@ -9,11 +9,11 @@ fn serde_round_trip() {
     module.client_package = "libc".to_string();
     module.library = "libc.so.6".to_string();
 
-    module.records.push(CRecord {
+    module.records.push(Record {
         name: "Timespec".to_string(),
         doc: None,
         fields: vec![
-            CField {
+            Field {
                 name: "tv_sec".to_string(),
                 port: "Int".to_string(),
                 descriptor: "i64".to_string(),
@@ -22,7 +22,7 @@ fn serde_round_trip() {
                 ptr_depth: 0,
                 is_const: false,
             },
-            CField {
+            Field {
                 name: "tv_nsec".to_string(),
                 port: "Int".to_string(),
                 descriptor: "i64".to_string(),
@@ -36,16 +36,16 @@ fn serde_round_trip() {
         align: 8,
     });
 
-    module.functions.push(CFunction {
+    module.functions.push(Function {
         name: "clock_gettime".to_string(),
         doc: None,
         port_name: "ClockGettime".to_string(),
         port_args: vec![
-            CHandlArg {
+            Arg {
                 name: "clock_id".to_string(),
                 port: "Int".to_string(),
             },
-            CHandlArg {
+            Arg {
                 name: "tp".to_string(),
                 port: "Timespec".to_string(),
             },

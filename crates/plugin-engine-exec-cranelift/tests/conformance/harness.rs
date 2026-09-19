@@ -72,6 +72,11 @@ pub struct ProbeNode {
     pub payload: Value,
     /// Optional eval scheme for the node's kind.
     pub scheme: Option<TermData>,
+    /// Named child roles declared on this node's kind (ADR-0081) as
+    /// `(role, optional)` pairs — needed when an op inspects the *child's*
+    /// shape (`eval_block`/`eval_rec` binding detection, `assign`'s
+    /// optional `body`).
+    pub roles: Vec<(&'static str, bool)>,
 }
 
 /// A single conformance case: one [`TermData`] body run on all four
@@ -92,6 +97,10 @@ pub struct Case {
     /// Named child roles declared on the probe root kind (ADR-0081) —
     /// needed by `Term::Child { role }` cases.
     pub roles: Vec<&'static str>,
+    /// Extra fields merged into the probe root's payload object (alongside
+    /// the `children` array the harness fills in) — needed by ops that
+    /// read a named payload field off the current node (`bind`'s `name`).
+    pub root_payload: Option<Value>,
     /// Per-interpreter expectation, in [`INTERPRETERS`] order.
     pub expect: [Expect; 4],
     /// Free-form note printed beside the row — document *why* a
@@ -216,8 +225,33 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
                 ))
                 .expect("merge probe node scheme");
         }
+        if !n.roles.is_empty() {
+            lang.ast
+                .merge(
+                    AstShapeDef::new(format!("ast.probe.{i}"), n.kind).with_children(
+                        n.roles
+                            .iter()
+                            .map(|(r, optional)| ChildRoleSpec {
+                                role: (*r).to_string(),
+                                variadic: false,
+                                optional: *optional,
+                            })
+                            .collect(),
+                    ),
+                )
+                .expect("merge probe node roles");
+        }
     }
-    ast.push(AstNode::new("probe").with_payload(json!({ "children": child_ids })));
+    let mut root_payload = json!({ "children": child_ids });
+    if let Some(extra) = &case.root_payload {
+        if let (Some(root_obj), Some(extra_obj)) = (root_payload.as_object_mut(), extra.as_object())
+        {
+            for (k, v) in extra_obj {
+                root_obj.insert(k.clone(), v.clone());
+            }
+        }
+    }
+    ast.push(AstNode::new("probe").with_payload(root_payload));
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.probe",
@@ -254,7 +288,9 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
 /// not a test abort.
 fn run_engine(engine: &dyn EvalEngine, lang: &Language, ast: &Ast) -> Outcome {
     let ast = ast.clone();
-    match catch_unwind(AssertUnwindSafe(|| engine.eval(lang, &EvalRequest::new(ast)))) {
+    match catch_unwind(AssertUnwindSafe(|| {
+        engine.eval(lang, &EvalRequest::new(ast))
+    })) {
         Ok(Ok(v)) => Outcome::Val(v),
         Ok(Err(e)) => Outcome::Err(e.to_string()),
         Err(p) => Outcome::Panic(panic_message(p)),
@@ -384,7 +420,10 @@ pub fn format_report(rows: &[Row]) -> String {
     for row in rows {
         if row.category != cat {
             cat = row.category;
-            out.push_str(&format!("-- {cat} {}\n", "-".repeat(90 - cat.len().min(80))));
+            out.push_str(&format!(
+                "-- {cat} {}\n",
+                "-".repeat(90 - cat.len().min(80))
+            ));
         }
         let cells: Vec<String> = row
             .cells

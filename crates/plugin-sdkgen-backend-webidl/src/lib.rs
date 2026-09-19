@@ -1,8 +1,7 @@
 //! WebIDL backend for the Handl SDK generator (ADR-0113).
 
 use handl_plugin_sdkgen::{
-    CEnumConst, CField, CFunction, CHandlArg, CRecord, CTypedef, SdkgenBackend, SdkgenError,
-    SdkgenModule,
+    Arg, EnumConst, Field, Function, Record, SdkgenBackend, SdkgenError, SdkgenModule, Typedef,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -59,9 +58,9 @@ impl SdkgenBackend for WebIdlBackend {
             }
         }
 
-        let mut records: BTreeMap<String, CRecord> = BTreeMap::new();
-        let mut functions: BTreeMap<(String, String), CFunction> = BTreeMap::new();
-        let mut typedefs: BTreeMap<String, CTypedef> = BTreeMap::new();
+        let mut records: BTreeMap<String, Record> = BTreeMap::new();
+        let mut functions: BTreeMap<(String, String), Function> = BTreeMap::new();
+        let mut typedefs: BTreeMap<String, Typedef> = BTreeMap::new();
         let mut enum_constants = Vec::new();
 
         for def in by_key.into_values() {
@@ -77,7 +76,7 @@ impl SdkgenBackend for WebIdlBackend {
                     }
                     records.insert(
                         name.clone(),
-                        CRecord {
+                        Record {
                             name: name.clone(),
                             fields,
                             size: 0,
@@ -100,7 +99,7 @@ impl SdkgenBackend for WebIdlBackend {
                 }
                 AstDef::Enum { name, values } => {
                     for (i, v) in values.iter().enumerate() {
-                        enum_constants.push(CEnumConst {
+                        enum_constants.push(EnumConst {
                             name: format!("{name}_{}", to_pascal(v)),
                             value: i as i64,
                         });
@@ -110,7 +109,7 @@ impl SdkgenBackend for WebIdlBackend {
                     let (port, descriptor) = map_type(&ty);
                     typedefs.insert(
                         name.clone(),
-                        CTypedef {
+                        Typedef {
                             name,
                             port,
                             descriptor,
@@ -141,11 +140,11 @@ impl SdkgenBackend for WebIdlBackend {
     }
 }
 
-fn member_to_field(m: &Member) -> Option<CField> {
+fn member_to_field(m: &Member) -> Option<Field> {
     match m {
         Member::Attribute { name, ty, readonly } => {
             let (port, descriptor) = map_type(ty);
-            Some(CField {
+            Some(Field {
                 name: name.clone(),
                 port,
                 descriptor,
@@ -157,7 +156,7 @@ fn member_to_field(m: &Member) -> Option<CField> {
         }
         Member::DictionaryField { name, ty, .. } => {
             let (port, descriptor) = map_type(ty);
-            Some(CField {
+            Some(Field {
                 name: name.clone(),
                 port,
                 descriptor,
@@ -171,7 +170,7 @@ fn member_to_field(m: &Member) -> Option<CField> {
     }
 }
 
-fn member_to_function(intf: &str, m: &Member) -> Option<CFunction> {
+fn member_to_function(intf: &str, m: &Member) -> Option<Function> {
     let (op_name, return_ty, args) = match m {
         Member::Operation {
             name,
@@ -194,7 +193,7 @@ fn callback_to_function(
     name: &str,
     return_ty: &Type,
     args: &[parser::Argument],
-) -> Option<CFunction> {
+) -> Option<Function> {
     let port_name = to_pascal(&to_snake(name));
     let c_decl = format!(
         "callback {}({})",
@@ -219,7 +218,7 @@ fn build_function(
     return_ty: &Type,
     args: &[parser::Argument],
     c_decl: String,
-) -> CFunction {
+) -> Function {
     let mut port_args = Vec::new();
     let mut arg_descriptors = Vec::new();
     let mut variadic = false;
@@ -228,14 +227,14 @@ fn build_function(
         if a.variadic {
             variadic = true;
         }
-        port_args.push(CHandlArg {
+        port_args.push(Arg {
             name: a.name.clone(),
             port,
         });
         arg_descriptors.push(descriptor);
     }
     let (return_port, ret_descriptor) = map_type(return_ty);
-    CFunction {
+    Function {
         name: name.to_string(),
         port_name,
         port_args,

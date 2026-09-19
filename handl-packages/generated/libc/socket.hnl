@@ -1,0 +1,370 @@
+--- Generated port for libc.socket
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export SOCK_STREAM: Int
+export SOCK_DGRAM: Int
+export SOCK_RAW: Int
+export SOCK_RDM: Int
+export SOCK_SEQPACKET: Int
+export SOCK_DCCP: Int
+export SOCK_PACKET: Int
+export SOCK_CLOEXEC: Int
+export SOCK_NONBLOCK: Int
+export MSG_OOB: Int
+export MSG_PEEK: Int
+export MSG_DONTROUTE: Int
+export MSG_TRYHARD: Int
+export MSG_CTRUNC: Int
+export MSG_PROXY: Int
+export MSG_TRUNC: Int
+export MSG_DONTWAIT: Int
+export MSG_EOR: Int
+export MSG_WAITALL: Int
+export MSG_FIN: Int
+export MSG_SYN: Int
+export MSG_CONFIRM: Int
+export MSG_RST: Int
+export MSG_ERRQUEUE: Int
+export MSG_NOSIGNAL: Int
+export MSG_MORE: Int
+export MSG_WAITFORONE: Int
+export MSG_BATCH: Int
+export MSG_SOCK_DEVMEM: Int
+export MSG_ZEROCOPY: Int
+export MSG_FASTOPEN: Int
+export MSG_CMSG_CLOEXEC: Int
+export SCM_RIGHTS: Int
+export SCM_CREDENTIALS: Int
+export SCM_SECURITY: Int
+export SCM_PIDFD: Int
+export SHUT_RD: Int
+export SHUT_WR: Int
+export SHUT_RDWR: Int
+export unix: Int
+export linux: Int
+export LITTLE_ENDIAN: Int
+export BIG_ENDIAN: Int
+export PDP_ENDIAN: Int
+export BYTE_ORDER: Int
+export FD_SETSIZE: Int
+export NFDBITS: Int
+export PF_UNSPEC: Int
+export PF_LOCAL: Int
+export PF_UNIX: Int
+export PF_FILE: Int
+export PF_INET: Int
+export PF_AX25: Int
+export PF_IPX: Int
+export PF_APPLETALK: Int
+export PF_NETROM: Int
+export PF_BRIDGE: Int
+export PF_ATMPVC: Int
+export PF_X25: Int
+export PF_INET6: Int
+export PF_ROSE: Int
+export PF_DECnet: Int
+export PF_NETBEUI: Int
+export PF_SECURITY: Int
+export PF_KEY: Int
+export PF_NETLINK: Int
+export PF_ROUTE: Int
+export PF_PACKET: Int
+export PF_ASH: Int
+export PF_ECONET: Int
+export PF_ATMSVC: Int
+export PF_RDS: Int
+export PF_SNA: Int
+export PF_IRDA: Int
+export PF_PPPOX: Int
+export PF_WANPIPE: Int
+export PF_LLC: Int
+export PF_IB: Int
+export PF_MPLS: Int
+export PF_CAN: Int
+export PF_TIPC: Int
+export PF_BLUETOOTH: Int
+export PF_IUCV: Int
+export PF_RXRPC: Int
+export PF_ISDN: Int
+export PF_PHONET: Int
+export PF_IEEE802154: Int
+export PF_CAIF: Int
+export PF_ALG: Int
+export PF_NFC: Int
+export PF_VSOCK: Int
+export PF_KCM: Int
+export PF_QIPCRTR: Int
+export PF_SMC: Int
+export PF_XDP: Int
+export PF_MCTP: Int
+export PF_MAX: Int
+export AF_UNSPEC: Int
+export AF_LOCAL: Int
+export AF_UNIX: Int
+export AF_FILE: Int
+export AF_INET: Int
+export AF_AX25: Int
+export AF_IPX: Int
+export AF_APPLETALK: Int
+export AF_NETROM: Int
+export AF_BRIDGE: Int
+export AF_ATMPVC: Int
+export AF_X25: Int
+export AF_INET6: Int
+export AF_ROSE: Int
+export AF_DECnet: Int
+export AF_NETBEUI: Int
+export AF_SECURITY: Int
+export AF_KEY: Int
+export AF_NETLINK: Int
+export AF_ROUTE: Int
+export AF_PACKET: Int
+export AF_ASH: Int
+export AF_ECONET: Int
+export AF_ATMSVC: Int
+export AF_RDS: Int
+export AF_SNA: Int
+export AF_IRDA: Int
+export AF_PPPOX: Int
+export AF_WANPIPE: Int
+export AF_LLC: Int
+export AF_IB: Int
+export AF_MPLS: Int
+export AF_CAN: Int
+export AF_TIPC: Int
+export AF_BLUETOOTH: Int
+export AF_IUCV: Int
+export AF_RXRPC: Int
+export AF_ISDN: Int
+export AF_PHONET: Int
+export AF_IEEE802154: Int
+export AF_CAIF: Int
+export AF_ALG: Int
+export AF_NFC: Int
+export AF_VSOCK: Int
+export AF_KCM: Int
+export AF_QIPCRTR: Int
+export AF_SMC: Int
+export AF_XDP: Int
+export AF_MCTP: Int
+export AF_MAX: Int
+export SOL_RAW: Int
+export SOL_DECNET: Int
+export SOL_X25: Int
+export SOL_PACKET: Int
+export SOL_ATM: Int
+export SOL_AAL: Int
+export SOL_IRDA: Int
+export SOL_NETBEUI: Int
+export SOL_LLC: Int
+export SOL_DCCP: Int
+export SOL_NETLINK: Int
+export SOL_TIPC: Int
+export SOL_RXRPC: Int
+export SOL_PPPOL2TP: Int
+export SOL_BLUETOOTH: Int
+export SOL_PNPIPE: Int
+export SOL_RDS: Int
+export SOL_IUCV: Int
+export SOL_CAIF: Int
+export SOL_ALG: Int
+export SOL_NFC: Int
+export SOL_KCM: Int
+export SOL_TLS: Int
+export SOL_XDP: Int
+export SOL_MPTCP: Int
+export SOL_MCTP: Int
+export SOL_SMC: Int
+export SOL_VSOCK: Int
+export SOMAXCONN: Int
+export FIOSETOWN: Int
+export SIOCSPGRP: Int
+export FIOGETOWN: Int
+export SIOCGPGRP: Int
+export SIOCATMARK: Int
+export SIOCGSTAMP_OLD: Int
+export SIOCGSTAMPNS_OLD: Int
+export SOL_SOCKET: Int
+export SO_DEBUG: Int
+export SO_REUSEADDR: Int
+export SO_TYPE: Int
+export SO_ERROR: Int
+export SO_DONTROUTE: Int
+export SO_BROADCAST: Int
+export SO_SNDBUF: Int
+export SO_RCVBUF: Int
+export SO_SNDBUFFORCE: Int
+export SO_RCVBUFFORCE: Int
+export SO_KEEPALIVE: Int
+export SO_OOBINLINE: Int
+export SO_NO_CHECK: Int
+export SO_PRIORITY: Int
+export SO_LINGER: Int
+export SO_BSDCOMPAT: Int
+export SO_REUSEPORT: Int
+export SO_PASSCRED: Int
+export SO_PEERCRED: Int
+export SO_RCVLOWAT: Int
+export SO_SNDLOWAT: Int
+export SO_RCVTIMEO_OLD: Int
+export SO_SNDTIMEO_OLD: Int
+export SO_SECURITY_AUTHENTICATION: Int
+export SO_SECURITY_ENCRYPTION_TRANSPORT: Int
+export SO_SECURITY_ENCRYPTION_NETWORK: Int
+export SO_BINDTODEVICE: Int
+export SO_ATTACH_FILTER: Int
+export SO_DETACH_FILTER: Int
+export SO_GET_FILTER: Int
+export SO_PEERNAME: Int
+export SO_ACCEPTCONN: Int
+export SO_PEERSEC: Int
+export SO_PASSSEC: Int
+export SO_MARK: Int
+export SO_PROTOCOL: Int
+export SO_DOMAIN: Int
+export SO_RXQ_OVFL: Int
+export SO_WIFI_STATUS: Int
+export SCM_WIFI_STATUS: Int
+export SO_PEEK_OFF: Int
+export SO_NOFCS: Int
+export SO_LOCK_FILTER: Int
+export SO_SELECT_ERR_QUEUE: Int
+export SO_BUSY_POLL: Int
+export SO_MAX_PACING_RATE: Int
+export SO_BPF_EXTENSIONS: Int
+export SO_INCOMING_CPU: Int
+export SO_ATTACH_BPF: Int
+export SO_DETACH_BPF: Int
+export SO_ATTACH_REUSEPORT_CBPF: Int
+export SO_ATTACH_REUSEPORT_EBPF: Int
+export SO_CNX_ADVICE: Int
+export SCM_TIMESTAMPING_OPT_STATS: Int
+export SO_MEMINFO: Int
+export SO_INCOMING_NAPI_ID: Int
+export SO_COOKIE: Int
+export SCM_TIMESTAMPING_PKTINFO: Int
+export SO_PEERGROUPS: Int
+export SO_ZEROCOPY: Int
+export SO_TXTIME: Int
+export SCM_TXTIME: Int
+export SO_BINDTOIFINDEX: Int
+export SO_TIMESTAMP_OLD: Int
+export SO_TIMESTAMPNS_OLD: Int
+export SO_TIMESTAMPING_OLD: Int
+export SO_TIMESTAMP_NEW: Int
+export SO_TIMESTAMPNS_NEW: Int
+export SO_TIMESTAMPING_NEW: Int
+export SO_RCVTIMEO_NEW: Int
+export SO_SNDTIMEO_NEW: Int
+export SO_DETACH_REUSEPORT_BPF: Int
+export SO_PREFER_BUSY_POLL: Int
+export SO_BUSY_POLL_BUDGET: Int
+export SO_NETNS_COOKIE: Int
+export SO_BUF_LOCK: Int
+export SO_RESERVE_MEM: Int
+export SO_TXREHASH: Int
+export SO_RCVMARK: Int
+export SO_PASSPIDFD: Int
+export SO_PEERPIDFD: Int
+export SO_DEVMEM_LINEAR: Int
+export SCM_DEVMEM_LINEAR: Int
+export SO_DEVMEM_DMABUF: Int
+export SCM_DEVMEM_DMABUF: Int
+export SO_DEVMEM_DONTNEED: Int
+export SCM_TS_OPT_ID: Int
+export SO_RCVPRIORITY: Int
+export SO_PASSRIGHTS: Int
+export SO_INQ: Int
+export SCM_INQ: Int
+export SO_TIMESTAMP: Int
+export SO_TIMESTAMPNS: Int
+export SO_TIMESTAMPING: Int
+export SO_RCVTIMEO: Int
+export SO_SNDTIMEO: Int
+export SCM_TIMESTAMP: Int
+export SCM_TIMESTAMPNS: Int
+export SCM_TIMESTAMPING: Int
+
+--- ffi: int (int, int, int)
+export Socket: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
+export SocketpairResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Socketpair: (Int, Int, Int) ~[1]~> Result<SocketpairResult, Errno>
+
+export GetsocknameResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Getsockname: (Int) ~[1]~> Result<GetsocknameResult, Errno>
+
+export GetpeernameResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Getpeername: (Int) ~[1]~> Result<GetpeernameResult, Errno>
+
+--- ffi: ssize_t (int, const void *, size_t, int)
+export Send: (Int, Bytes, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: ssize_t (int, void *, size_t, int)
+export Recv: (Int, Int) ~[1]~> Result<Bytes, Errno>
+
+export RecvfromResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Recvfrom: (Int, Int) ~[1]~> Result<RecvfromResult, Errno>
+
+export SendmsgMsg := {
+  msg_name: Bytes,
+  msg_namelen: Nat,
+  msg_iov: List<Bytes>,
+  msg_iovlen: Nat,
+  msg_control: Bytes,
+  msg_controllen: Nat,
+  msg_flags: Int
+}
+
+--- ffi: ssize_t (int, const struct msghdr *, int)
+export Sendmsg: (Int, SendmsgMsg, Int) ~[1]~> Result<Int, Errno>
+
+export RecvmsgMsg := {
+  msg_name: Bytes,
+  msg_namelen: Nat,
+  msg_iov: List<Bytes>,
+  msg_iovlen: Nat,
+  msg_control: Bytes,
+  msg_controllen: Nat,
+  msg_flags: Int
+}
+
+--- ffi: ssize_t (int, struct msghdr *, int)
+export Recvmsg: (Int, Int) ~[1]~> Result<RecvmsgMsg, Errno>
+
+--- ffi: int (int, int, int, const void *, socklen_t)
+export Setsockopt: (Int, Int, Int, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int)
+export Listen: (Int, Int) ~[1]~> Result<Int, Errno>
+
+export AcceptResult := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Accept: (Int) ~[1]~> Result<AcceptResult, Errno>
+
+export Accept4Result := { ret: Int, buf: Bytes, outs: List<Bytes> }
+
+--- ffi: 
+export Accept4: (Int, Int) ~[1]~> Result<Accept4Result, Errno>
+
+--- ffi: int (int, int)
+export Shutdown: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int)
+export Sockatmark: (Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, int)
+export Isfdtype: (Int, Int) ~[1]~> Result<Int, Errno>
+

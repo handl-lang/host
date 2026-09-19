@@ -375,6 +375,222 @@ fn out_buf_clamps_buf_to_ret_count() {
     close_fd(fd);
 }
 
+/// Decode the `outs` list of a `{ret, buf, outs}` record into byte vecs.
+fn outs_bytes(result: &Value) -> Vec<Vec<u8>> {
+    result
+        .get("outs")
+        .and_then(|v| v.as_array())
+        .expect("outs field should be present")
+        .iter()
+        .map(|v| {
+            v.get("__bytes__")
+                .and_then(|b| b.as_array())
+                .expect("out slot should be {__bytes__: [...]}")
+                .iter()
+                .map(|n| n.as_i64().unwrap() as u8)
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn out_ptr_socketpair_returns_two_fds() {
+    // socketpair(AF_UNIX=1, SOCK_STREAM=1, 0, int sv[2]) — sv is a fixed
+    // 8-byte out-param passed as a bare pointer → `out_ptr:8` (one C arg,
+    // no handl arg). The slot keeps all 8 bytes (two i32 fds).
+    let sp = FfiOpFunction::new(
+        "libc.so.6",
+        "socketpair",
+        vec![
+            "i32".to_string(),
+            "i32".to_string(),
+            "i32".to_string(),
+            "out_ptr:8".to_string(),
+        ],
+        "i32",
+        true,
+    );
+    let result = call(&sp, &[json!(1), json!(1), json!(0)]).expect("socketpair should succeed");
+    let obj = result.as_object().expect("{ret, buf, outs} record");
+    assert_eq!(obj.get("ret").and_then(|v| v.as_i64()), Some(0));
+
+    let outs = outs_bytes(&result);
+    assert_eq!(outs.len(), 1);
+    assert_eq!(outs[0].len(), 8);
+    let fd0 = i32::from_ne_bytes(outs[0][0..4].try_into().unwrap());
+    let fd1 = i32::from_ne_bytes(outs[0][4..8].try_into().unwrap());
+    assert!(fd0 >= 0 && fd1 >= 0 && fd0 != fd1);
+
+    // Prove the pair is connected: write to fd0, read from fd1.
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "in_buf".to_string()],
+        "i64",
+        true,
+    );
+    call(&write_fn, &[json!(fd0), json!({"__bytes__": [0xCA, 0xFE]})])
+        .expect("write to socketpair");
+    let read_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "read",
+        vec!["i32".to_string(), "out_buf:16".to_string()],
+        "i64",
+        true,
+    );
+    let read_res = call(&read_fn, &[json!(fd1)]).expect("read from socketpair");
+    let buf = read_res
+        .get("buf")
+        .and_then(|v| v.get("__bytes__"))
+        .and_then(|v| v.as_array())
+        .expect("buf bytes");
+    let got: Vec<u8> = buf.iter().map(|v| v.as_i64().unwrap() as u8).collect();
+    assert_eq!(got, vec![0xCA, 0xFE]);
+
+    close_fd(fd0);
+    close_fd(fd1);
+}
+
+#[test]
+fn io_buf_getsockname_trims_to_written_len() {
+    // getsockname(fd, sockaddr*, socklen_t*) — the value-result pattern:
+    // `io_buf:128` passes (ptr, &len) where the len cell is seeded with
+    // the 128-byte capacity and the kernel writes the actual length back.
+    let sp = FfiOpFunction::new(
+        "libc.so.6",
+        "socketpair",
+        vec![
+            "i32".to_string(),
+            "i32".to_string(),
+            "i32".to_string(),
+            "out_ptr:8".to_string(),
+        ],
+        "i32",
+        true,
+    );
+    let result = call(&sp, &[json!(1), json!(1), json!(0)]).expect("socketpair");
+    let sv = &outs_bytes(&result)[0];
+    let fd = i32::from_ne_bytes(sv[0..4].try_into().unwrap());
+
+    let gsn = FfiOpFunction::new(
+        "libc.so.6",
+        "getsockname",
+        vec!["i32".to_string(), "io_buf:128".to_string()],
+        "i32",
+        true,
+    );
+    let result = call(&gsn, &[json!(fd)]).expect("getsockname should succeed");
+    assert_eq!(result.get("ret").and_then(|v| v.as_i64()), Some(0));
+
+    let outs = outs_bytes(&result);
+    assert_eq!(outs.len(), 1);
+    // sockaddr_un for an unnamed AF_UNIX socket is just the 2-byte
+    // family — the slot is trimmed to what the kernel wrote, not 128.
+    assert!(outs[0].len() < 128, "should be trimmed to written length");
+    assert_eq!(
+        u16::from_ne_bytes(outs[0][0..2].try_into().unwrap()),
+        1, // AF_UNIX
+        "sockaddr family should be AF_UNIX"
+    );
+
+    close_fd(fd);
+}
+
+/// Make a connected AF_UNIX SOCK_STREAM socketpair; returns (fd0, fd1).
+fn sockpair() -> (i32, i32) {
+    let sp = FfiOpFunction::new(
+        "libc.so.6",
+        "socketpair",
+        vec![
+            "i32".to_string(),
+            "i32".to_string(),
+            "i32".to_string(),
+            "out_ptr:8".to_string(),
+        ],
+        "i32",
+        true,
+    );
+    let result = call(&sp, &[json!(1), json!(1), json!(0)]).expect("socketpair");
+    let sv = &outs_bytes(&result)[0];
+    (
+        i32::from_ne_bytes(sv[0..4].try_into().unwrap()),
+        i32::from_ne_bytes(sv[4..8].try_into().unwrap()),
+    )
+}
+
+#[test]
+fn sendmsg_in_struct_recvmsg_io_struct_roundtrip() {
+    // sendmsg(fd, const msghdr*, flags): `in_struct` builds the struct
+    // from a Handl record — `iov` turns a List<Bytes> into an iovec array
+    // and absent `*len` scalars auto-fill (namelen=0, iovlen=2).
+    let (fd0, fd1) = sockpair();
+    let sendmsg = FfiOpFunction::new(
+        "libc.so.6",
+        "sendmsg",
+        vec![
+            "i32".to_string(),
+            "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}".to_string(),
+            "i32".to_string(),
+        ],
+        "i64",
+        true,
+    );
+    let msg = json!({
+        "msg_iov": [
+            {"__bytes__": [0xDE, 0xAD]},
+            {"__bytes__": [0xBE, 0xEF, 0x42]}
+        ],
+        "msg_flags": 0
+    });
+    let sent = call(&sendmsg, &[json!(fd0), msg, json!(0)]).expect("sendmsg should succeed");
+    assert_eq!(sent.as_i64(), Some(5), "sendmsg should send all 5 bytes");
+
+    // recvmsg(fd, msghdr*, flags): `io_struct` allocates name/control
+    // buffers and an iov array callee-side; read-back trims bufs by the
+    // written *len fields and iovecs by the cumulative ret count.
+    let recvmsg = FfiOpFunction::new(
+        "libc.so.6",
+        "recvmsg",
+        vec![
+            "i32".to_string(),
+            "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:2:8,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}".to_string(),
+            "i32".to_string(),
+        ],
+        "i64",
+        true,
+    );
+    let result = call(&recvmsg, &[json!(fd1), json!(0)]).expect("recvmsg should succeed");
+    let obj = result.as_object().expect("{ret, buf} record");
+    assert_eq!(obj.get("ret").and_then(|v| v.as_i64()), Some(5));
+    let msg = obj
+        .get("buf")
+        .and_then(|v| v.as_object())
+        .expect("msghdr record");
+
+    let iov = msg
+        .get("msg_iov")
+        .and_then(|v| v.as_array())
+        .expect("msg_iov list");
+    let iov_bytes: Vec<Vec<u8>> = iov
+        .iter()
+        .map(|v| {
+            v.get("__bytes__")
+                .and_then(|b| b.as_array())
+                .unwrap()
+                .iter()
+                .map(|n| n.as_i64().unwrap() as u8)
+                .collect()
+        })
+        .collect();
+    // Scatter-gather fill: each iovec has 8-byte capacity, so all 5
+    // bytes land in iov[0] and iov[1] stays empty.
+    assert_eq!(iov_bytes[0], vec![0xDE, 0xAD, 0xBE, 0xEF, 0x42]);
+    assert_eq!(iov_bytes[1], Vec::<u8>::new());
+
+    close_fd(fd0);
+    close_fd(fd1);
+}
+
 #[test]
 fn cbytes_passes_ptr_len_pair_to_write() {
     // `cbytes` is semantically identical to `in_buf` for write(2): it passes

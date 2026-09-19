@@ -112,6 +112,7 @@ fn leaf(payload: Value) -> ProbeNode {
         kind: "lit",
         payload,
         scheme: None,
+        roles: Vec::new(),
     }
 }
 
@@ -121,6 +122,7 @@ fn schemed(kind: &'static str, scheme: TermData) -> ProbeNode {
         kind,
         payload: Value::Null,
         scheme: Some(scheme),
+        roles: Vec::new(),
     }
 }
 
@@ -140,7 +142,12 @@ fn all_ok(v: Value) -> [Expect; 4] {
 
 /// All four reject the case; each `Err` contains `sub`.
 fn all_err(sub: &'static str) -> [Expect; 4] {
-    [Expect::Err(sub), Expect::Err(sub), Expect::Err(sub), Expect::Err(sub)]
+    [
+        Expect::Err(sub),
+        Expect::Err(sub),
+        Expect::Err(sub),
+        Expect::Err(sub),
+    ]
 }
 
 /// The three `EvalEngine`s produce `v`; the term interpreter lacks the op.
@@ -198,6 +205,7 @@ fn case(
         input,
         nodes: Vec::new(),
         roles: Vec::new(),
+        root_payload: None,
         expect,
         note,
     }
@@ -209,18 +217,12 @@ fn case(
 
 /// `x ~> x + 10` body scheme for `arrow(&["x"], 0)` fixtures.
 fn inc10_scheme() -> TermData {
-    op(
-        "add",
-        vec![op_lit("proj_env", json!("x")), lit(10)],
-    )
+    op("add", vec![op_lit("proj_env", json!("x")), lit(10)])
 }
 
 /// `x ~> x + 100`.
 fn add100_scheme() -> TermData {
-    op(
-        "add",
-        vec![op_lit("proj_env", json!("x")), lit(100)],
-    )
+    op("add", vec![op_lit("proj_env", json!("x")), lit(100)])
 }
 
 /// The shared corpus. Column order: `[tree-walk, bytecode, cranelift,
@@ -353,10 +355,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "number_add",
         cat,
-        op(
-            "number_add",
-            vec![lit(num_tag(2)), lit(num_tag(3))],
-        ),
+        op("number_add", vec![lit(num_tag(2)), lit(num_tag(3))]),
         None,
         engines_ok(json!({"__tag__": "Number", "value": 5})),
         "typed `Number`-record add — engines only; term-interp lacks the op.",
@@ -723,11 +722,7 @@ pub fn cases() -> Vec<Case> {
         cat,
         op(
             "sum",
-            vec![
-                lit(arrow(&["x"], 0)),
-                lit(arrow(&["x"], 1)),
-                lit(eleft(5)),
-            ],
+            vec![lit(arrow(&["x"], 0)), lit(arrow(&["x"], 1)), lit(eleft(5))],
         ),
         None,
         engines_ok(eleft(15)),
@@ -964,10 +959,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "nullish_none",
         cat,
-        op(
-            "nullish",
-            vec![lit(json!({"_tag": "None"})), lit(7)],
-        ),
+        op("nullish", vec![lit(json!({"_tag": "None"})), lit(7)]),
         None,
         engines_ok(json!(7)),
         "`None ?? 7` → 7 — the `None` arm was restored with the \
@@ -1086,10 +1078,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "fold_step",
         cat,
-        TermData::loop_feedback(op(
-            "fold_step",
-            vec![lit(arrow(&["i", "s"], 4))],
-        )),
+        TermData::loop_feedback(op("fold_step", vec![lit(arrow(&["i", "s"], 4))])),
         Some(json!(7)),
         engines_ok(json!(0)),
         "step arrow `(i, s) ~> Left(0)` terminates on the first \
@@ -1120,11 +1109,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "seq_axis1_dim2",
         cat,
-        TermData::seq_axis(
-            TermData::const_value(1),
-            id_at(2),
-            id_at(2),
-        ),
+        TermData::seq_axis(TermData::const_value(1), id_at(2), id_at(2)),
         Some(json!(7)),
         [
             Expect::Val(cell2v(7, 7, 7)),
@@ -1142,11 +1127,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "seq_axis2_dim3",
         cat,
-        TermData::seq_axis(
-            TermData::const_value(2),
-            id_at(3),
-            id_at(3),
-        ),
+        TermData::seq_axis(TermData::const_value(2), id_at(3), id_at(3)),
         Some(json!(7)),
         [
             Expect::Val(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
@@ -1169,10 +1150,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "cell_comp_axis_dim3",
         cat,
-        op(
-            "cell_comp_axis:3",
-            vec![lit(2), lit(7), lit(7)],
-        ),
+        op("cell_comp_axis:3", vec![lit(2), lit(7), lit(7)]),
         None,
         all_ok(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
         "the `:<dim>` op-name suffix convention — parsed identically on \
@@ -1189,12 +1167,9 @@ pub fn cases() -> Vec<Case> {
     ));
     // `5 ∘₀ 6` at dimension 2: axis-0 pasting composes the cell
     // boundaries as 1-cell `Arrow{first,second}` records.
-    let arrow_5_6 = || {
-        json!({"__tag__": "Arrow", "first": 5, "second": 6})
-    };
-    let comp_5_6 = || {
-        json!({"__tag__": "Cell2", "__src__": arrow_5_6(), "__tgt__": arrow_5_6(), "value": 6})
-    };
+    let arrow_5_6 = || json!({"__tag__": "Arrow", "first": 5, "second": 6});
+    let comp_5_6 =
+        || json!({"__tag__": "Cell2", "__src__": arrow_5_6(), "__tgt__": arrow_5_6(), "value": 6});
     out.push(case(
         "compose_pipe",
         cat,
@@ -1215,10 +1190,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "compose_args",
         cat,
-        op(
-            "compose",
-            vec![lit(5), lit(json!({"axis": 0, "cell": 6}))],
-        ),
+        op("compose", vec![lit(5), lit(json!({"axis": 0, "cell": 6}))]),
         None,
         all_ok(comp_5_6()),
         "explicit step args — identical `cell_compose` on all four.",
@@ -1298,12 +1270,7 @@ pub fn cases() -> Vec<Case> {
     out.push(case(
         "iter",
         cat,
-        TermData::iter(
-            lit(10),
-            op("is_pos", vec![]),
-            op("dec", vec![]),
-            lit(3),
-        ),
+        TermData::iter(lit(10), op("is_pos", vec![]), op("dec", vec![]), lit(3)),
         None,
         tw_only(json!(0)),
         "`Term::Iter` bounded iteration: tree-walk only — \
@@ -1499,6 +1466,69 @@ pub fn cases() -> Vec<Case> {
          unchecked.",
     ));
 
+    // ================= Phase B batch (b) — scope/binding ops =============
+    let cat = "batch-b";
+    out.push(case(
+        "assign_value",
+        cat,
+        op("assign", vec![]),
+        None,
+        engines_ok(json!(42)),
+        "two-child `x = v` node form: `target`/`value` resolve by named \
+         role (ADR-0081); the op evaluates `value` and returns it. \
+         term-interp has no `assign` arm.",
+    ));
+    out.push(case(
+        "assign_let",
+        cat,
+        op("assign", vec![]),
+        None,
+        engines_ok(json!(12)),
+        "three-child `x = v in body`: the optional `body` role resolves \
+         arity-aware (`child_role_index_for`), `x` binds in a pushed \
+         scope, `body` evaluates under it (x + 7 = 12), scope pops.",
+    ));
+    out.push(case(
+        "bind_scope",
+        cat,
+        op("bind", vec![]),
+        None,
+        engines_ok(json!(15)),
+        "`bind` node form: payload `name` + children [value, body] — \
+         value 5 binds `x` in a pushed scope, body `x + 10` → 15, scope \
+         pops. term-interp has no `bind` arm.",
+    ));
+    out.push(case(
+        "eval_block_bind",
+        cat,
+        op("eval_block", vec![]),
+        None,
+        engines_ok(json!(15)),
+        "`do { y = 5; y + 10 }` shape: the two-child `assign` child binds \
+         `y` into the block scope (`env_assign`), the trailing expr reads \
+         it → 15. Leading leaf children are inert statements.",
+    ));
+    out.push(case(
+        "eval_rec_converge",
+        cat,
+        op("eval_rec", vec![]),
+        None,
+        engines_ok(json!(11)),
+        "`rec` region: `n = 1` seeds from the enclosing scope (Null), \
+         defines `n` on pass 1, converges on pass 2 (`rec_value_eq`), \
+         last child `n + 10` → 11.",
+    ));
+    out.push(case(
+        "eval_rec_return",
+        cat,
+        op("eval_rec", vec![]),
+        None,
+        engines_ok(json!(99)),
+        "a `return` child (shape declares `value` but no `target`) exits \
+         the region early with its value — the fixpoint loop never \
+         reaches the trailing leaf.",
+    ));
+
     // Wire up the probe nodes every case needs (indices referenced by
     // `arrow`/`arrow_pat` body fields):
     //
@@ -1585,6 +1615,92 @@ pub fn cases() -> Vec<Case> {
             // children[0] evaluates to a non-arrow value — the shared op
             // skips application and passes the expr value through.
             case.nodes = vec![leaf(json!(true)), leaf(json!(8))];
+        }
+        if case.name == "assign_value" {
+            // children [target, value] — `target`/`value` roles on the
+            // probe root.
+            case.nodes = vec![leaf(json!("x")), leaf(json!(42))];
+            case.roles = vec!["target", "value"];
+        }
+        if case.name == "assign_let" {
+            // children [target, value, body] — `body` declared on the
+            // probe root so its presence resolves arity-aware.
+            case.nodes = vec![
+                leaf(json!("x")),
+                leaf(json!(5)),
+                schemed(
+                    "fn.body_x7",
+                    op("add", vec![op_lit("proj_env", json!("x")), lit(7)]),
+                ),
+            ];
+            case.roles = vec!["target", "value", "body"];
+        }
+        if case.name == "bind_scope" {
+            // payload `name` + children [value, body].
+            case.nodes = vec![
+                leaf(json!(5)),
+                schemed(
+                    "fn.body_x10",
+                    op("add", vec![op_lit("proj_env", json!("x")), lit(10)]),
+                ),
+            ];
+            case.root_payload = Some(json!({"name": "x"}));
+        }
+        if case.name == "eval_block_bind" {
+            // children [y-leaf, 5-leaf, assign{y:0,v:1}, last-expr] — the
+            // assign child (kind `pb.assign`) declares `target`/`value`.
+            case.nodes = vec![
+                leaf(json!("y")),
+                leaf(json!(5)),
+                ProbeNode {
+                    kind: "pb.assign",
+                    payload: json!({"children": [0, 1]}),
+                    scheme: None,
+                    roles: vec![("target", false), ("value", false)],
+                },
+                schemed(
+                    "fn.block_last",
+                    op("add", vec![op_lit("proj_env", json!("y")), lit(10)]),
+                ),
+            ];
+        }
+        if case.name == "eval_rec_converge" {
+            // children [n-leaf, 1-leaf, assign{n:0,v:1}, last-expr].
+            case.nodes = vec![
+                leaf(json!("n")),
+                leaf(json!(1)),
+                ProbeNode {
+                    kind: "pr.assign",
+                    payload: json!({"children": [0, 1]}),
+                    scheme: None,
+                    roles: vec![("target", false), ("value", false)],
+                },
+                schemed(
+                    "fn.rec_last",
+                    op("add", vec![op_lit("proj_env", json!("n")), lit(10)]),
+                ),
+            ];
+        }
+        if case.name == "eval_rec_return" {
+            // children [n-leaf, 1-leaf, assign{n:0,v:1}, return{4}, 99]
+            // — the `pr.ret` kind declares `value` only (a return shape).
+            case.nodes = vec![
+                leaf(json!("n")),
+                leaf(json!(1)),
+                ProbeNode {
+                    kind: "pr.assign",
+                    payload: json!({"children": [0, 1]}),
+                    scheme: None,
+                    roles: vec![("target", false), ("value", false)],
+                },
+                ProbeNode {
+                    kind: "pr.ret",
+                    payload: json!({"children": [4]}),
+                    scheme: None,
+                    roles: vec![("value", false)],
+                },
+                leaf(json!(99)),
+            ];
         }
     }
 

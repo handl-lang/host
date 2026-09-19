@@ -58,7 +58,6 @@ fn target_slug(target: &str) -> String {
 
 struct ClientInfo {
     client_pkg: &'static str,
-    grade: &'static str,
     error_type: &'static str,
     error_arrow: &'static str,
 }
@@ -67,14 +66,12 @@ fn client_info(client_package: &str) -> ClientInfo {
     if client_package == "js" {
         ClientInfo {
             client_pkg: "js",
-            grade: "JS",
             error_type: "JsError",
             error_arrow: "error",
         }
     } else {
         ClientInfo {
             client_pkg: "ffi",
-            grade: "FFI",
             error_type: "Errno",
             error_arrow: "errno",
         }
@@ -91,8 +88,8 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     ));
     out.push_str("\n");
     out.push_str(&format!(
-        "from \"{}\" import {{ {}, {} }}\n",
-        client.client_pkg, client.grade, client.error_type
+        "from \"{}\" import {{ {} }}\n",
+        client.client_pkg, client.error_type
     ));
     out.push_str("from \"result\" import { Result }\n");
     out.push_str("\n");
@@ -139,14 +136,87 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
                 out.push_str(&format!("--- {}\n", line.trim()));
             }
         }
+        if returns_outs_record(f) {
+            // Multi-out / value-result functions return the full
+            // `{ ret, buf, outs }` marshal record.
+            out.push_str(&format!(
+                "export {}Result := {{ ret: Int, buf: Bytes, outs: List<Bytes> }}\n\n",
+                f.port_name
+            ));
+        }
+        if let Some(fields) = msg_record_fields(f) {
+            // in_struct/io_struct functions pass or return a C struct —
+            // declare its Handl record shape as `<Port>Msg`.
+            out.push_str(&format!("export {}Msg := {{\n", f.port_name));
+            for (i, (fname, port)) in fields.iter().enumerate() {
+                let comma = if i == fields.len() - 1 { "" } else { "," };
+                out.push_str(&format!("  {fname}: {port}{comma}\n"));
+            }
+            out.push_str("}\n\n");
+        }
         out.push_str(&format!("--- {}: {}\n", client.client_pkg, f.c_decl));
         out.push_str(&format!(
-            "export {}: ({}) ~[({})]~> Result<{}, {}>\n\n",
-            f.port_name, arg_list, client.grade, f.return_port, client.error_type
+            "export {}: ({}) ~[1]~> Result<{}, {}>\n\n",
+            f.port_name, arg_list, f.return_port, client.error_type
         ));
     }
 
     out
+}
+
+/// Whether the function's return is the full `{ ret, buf, outs }` record
+/// rather than `r.buf` or `r` alone: any `out_ptr`/`io_buf` slot (where
+/// `ret` carries its own meaning, e.g. `accept`'s fd) or more than one
+/// byte out-slot. `out_struct` functions keep the `r.buf` unwrap.
+fn returns_outs_record(f: &handl_plugin_sdkgen::Function) -> bool {
+    if f.out_struct.is_some() {
+        return false;
+    }
+    let buf_slots = f
+        .arg_descriptors
+        .iter()
+        .filter(|d| {
+            d.starts_with("out_buf:") || d.starts_with("out_ptr:") || d.starts_with("io_buf:")
+        })
+        .count();
+    buf_slots > 1
+        || f.arg_descriptors
+            .iter()
+            .any(|d| d.starts_with("out_ptr:") || d.starts_with("io_buf:"))
+}
+
+/// Parse the field list of an `in_struct:{...}`/`io_struct:{...}`
+/// descriptor into `(name, port-type)` pairs for the port's record decl.
+fn msg_record_fields(f: &handl_plugin_sdkgen::Function) -> Option<Vec<(String, String)>> {
+    let desc = f
+        .arg_descriptors
+        .iter()
+        .find(|d| d.starts_with("in_struct:") || d.starts_with("io_struct:"))?;
+    let inner = desc
+        .split_once(':')
+        .map(|(_, r)| r)?
+        .strip_prefix('{')?
+        .strip_suffix('}')?;
+    let fields = inner
+        .split(',')
+        .map(|p| p.trim())
+        .filter(|p| !p.is_empty())
+        .filter_map(|p| {
+            let (name, spec) = p.split_once(':')?;
+            let spec = spec.trim();
+            let port = if spec == "bytes" || spec.starts_with("buf:") {
+                "Bytes"
+            } else if spec == "iov" || spec.starts_with("iovbuf:") {
+                "List<Bytes>"
+            } else if spec.starts_with('u') || spec.starts_with("isize") || spec == "usize" {
+                "Nat"
+            } else {
+                "Int"
+            };
+            Some((name.trim().to_string(), port.to_string()))
+        })
+        .collect();
+    Some(fields)
 }
 
 fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str) -> String {
@@ -174,6 +244,15 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
         ));
     }
     out.push_str("\n");
+
+    // Constants are pure values — no ffi.call involved. The port file
+    // declares the type; the adapter binds the (target-specific) value.
+    for c in &module.enum_constants {
+        out.push_str(&format!("export {}: Int := {}\n", c.name, c.value));
+    }
+    if !module.enum_constants.is_empty() {
+        out.push('\n');
+    }
 
     for f in &module.functions {
         let arg_names = f
@@ -206,13 +285,15 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
         let (call_lib, call_sym) = if client.client_pkg == "js" {
             let method = f.c_decl.rsplit_once('.').map(|(_, m)| m).unwrap_or(&f.name);
             (module.library.clone(), method.to_string())
-        } else {
+        } else if module.library.is_empty() {
             (format!("{lib}.so.6"), f.name.clone())
+        } else {
+            (module.library.clone(), f.name.clone())
         };
 
         out.push_str(&format!(
-            "export {}: {} := ({}) ~[{}]~> do {{\n",
-            f.name, f.port_name, arg_names, client.grade
+            "export {}: {} := ({}) ~[1]~> do {{\n",
+            f.name, f.port_name, arg_names
         ));
         out.push_str(&format!(
             "  r = call(\"{call_lib}\", \"{call_sym}\", [{arg_names}], [{descs}], \"{ret_descriptor}\", false)\n"
@@ -225,7 +306,19 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             out.push_str("  } else {\n");
             out.push_str("    err(e)\n");
             out.push_str("  }\n");
-        } else if f.out_struct.is_some() {
+        } else if returns_outs_record(f) {
+            out.push_str("  if r.ret < 0 {\n");
+            out.push_str("    err(errno())\n");
+            out.push_str("  } else {\n");
+            out.push_str("    ok(r)\n");
+            out.push_str("  }\n");
+        } else if f.out_struct.is_some()
+            || f.arg_descriptors.iter().any(|d| {
+                d.starts_with("out_buf:")
+                    || d.starts_with("out_struct:")
+                    || d.starts_with("io_struct:")
+            })
+        {
             out.push_str("  if r.ret < 0 {\n");
             out.push_str("    err(errno())\n");
             out.push_str("  } else {\n");

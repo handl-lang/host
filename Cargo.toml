@@ -149,6 +149,8 @@ cranelift-jit = "0.115"
 cranelift-object = "0.115"
 serde_yaml = "0.9"
 glob = "0.3"
+heck = "0.5"
+target-lexicon = "0.12"
 
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }

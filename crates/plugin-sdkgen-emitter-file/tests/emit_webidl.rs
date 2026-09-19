@@ -12,11 +12,11 @@ fn build_console_module() -> SdkgenModule {
     module.client_package = "js".to_string();
     module.library = "console".to_string();
 
-    module.functions.push(CFunction {
+    module.functions.push(Function {
         name: "console_log".to_string(),
         doc: None,
         port_name: "ConsoleLog".to_string(),
-        port_args: vec![CHandlArg {
+        port_args: vec![Arg {
             name: "message".to_string(),
             port: "String".to_string(),
         }],
@@ -48,7 +48,7 @@ fn emits_js_port_and_adapter() {
         fs::read_to_string(tmp.join("console-webidl-unknown-browser/console.hnl")).unwrap();
 
     assert!(
-        port.contains("from \"js\" import { JS, JsError }"),
+        port.contains("from \"js\" import { JsError }"),
         "port import missing: {port}"
     );
     assert!(
@@ -56,8 +56,8 @@ fn emits_js_port_and_adapter() {
         "port arrow missing: {port}"
     );
     assert!(
-        port.contains("~[(JS)]~>"),
-        "JS grade missing in port: {port}"
+        port.contains("~[1]~>"),
+        "1-morphism missing in port: {port}"
     );
     assert!(
         port.contains("Result<(), JsError>"),

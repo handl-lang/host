@@ -11,26 +11,26 @@ pub struct SdkgenModule {
     pub target: String,
     pub library: String,
     pub module: String,
-    pub records: Vec<CRecord>,
-    pub functions: Vec<CFunction>,
-    pub typedefs: Vec<CTypedef>,
-    pub enum_constants: Vec<CEnumConst>,
+    pub records: Vec<Record>,
+    pub functions: Vec<Function>,
+    pub typedefs: Vec<Typedef>,
+    pub enum_constants: Vec<EnumConst>,
     pub diagnostics: Vec<String>,
 }
 
-/// C record layout.
+/// Record (struct/union) layout.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CRecord {
+pub struct Record {
     pub name: String,
-    pub fields: Vec<CField>,
+    pub fields: Vec<Field>,
     pub size: usize,
     pub align: usize,
     pub doc: Option<String>,
 }
 
-/// C record field.
+/// Record field.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CField {
+pub struct Field {
     pub name: String,
     pub port: String,
     pub descriptor: String,
@@ -40,12 +40,12 @@ pub struct CField {
     pub is_const: bool,
 }
 
-/// C function.
+/// Foreign function.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CFunction {
+pub struct Function {
     pub name: String,
     pub port_name: String,
-    pub port_args: Vec<CHandlArg>,
+    pub port_args: Vec<Arg>,
     pub arg_descriptors: Vec<String>,
     pub return_port: String,
     pub ret_descriptor: String,
@@ -55,25 +55,25 @@ pub struct CFunction {
     pub doc: Option<String>,
 }
 
-/// Visible Handl argument for a C function.
+/// Visible Handl argument for a foreign function.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CHandlArg {
+pub struct Arg {
     pub name: String,
     pub port: String,
 }
 
-/// C typedef.
+/// Typedef alias.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CTypedef {
+pub struct Typedef {
     pub name: String,
     pub port: String,
     pub descriptor: String,
     pub doc: Option<String>,
 }
 
-/// C enum constant.
+/// Enum / macro integer constant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CEnumConst {
+pub struct EnumConst {
     pub name: String,
     pub value: i64,
 }

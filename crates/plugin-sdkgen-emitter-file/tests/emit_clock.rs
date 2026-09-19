@@ -12,11 +12,11 @@ fn build_clock_module() -> SdkgenModule {
     module.client_package = "libc".to_string();
     module.library = "libc.so.6".to_string();
 
-    module.records.push(CRecord {
+    module.records.push(Record {
         name: "Timespec".to_string(),
         doc: None,
         fields: vec![
-            CField {
+            Field {
                 name: "tv_sec".to_string(),
                 port: "Int".to_string(),
                 descriptor: "i64".to_string(),
@@ -25,7 +25,7 @@ fn build_clock_module() -> SdkgenModule {
                 ptr_depth: 0,
                 is_const: false,
             },
-            CField {
+            Field {
                 name: "tv_nsec".to_string(),
                 port: "Int".to_string(),
                 descriptor: "i64".to_string(),
@@ -39,16 +39,16 @@ fn build_clock_module() -> SdkgenModule {
         align: 8,
     });
 
-    module.functions.push(CFunction {
+    module.functions.push(Function {
         name: "clock_gettime".to_string(),
         doc: None,
         port_name: "ClockGettime".to_string(),
         port_args: vec![
-            CHandlArg {
+            Arg {
                 name: "clock_id".to_string(),
                 port: "Int".to_string(),
             },
-            CHandlArg {
+            Arg {
                 name: "tp".to_string(),
                 port: "Timespec".to_string(),
             },
@@ -98,6 +98,64 @@ fn emits_port_and_adapter() {
     assert!(
         adapter.contains("err(errno())"),
         "err(errno()) missing: {adapter}"
+    );
+    assert!(
+        adapter.contains("ok(r.buf)"),
+        "ok(r.buf) missing: {adapter}"
+    );
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn out_buf_descriptor_gets_buf_unwrap_body() {
+    let mut module = SdkgenModule::default();
+    module.module = "socket".to_string();
+    module.backend_id = "c".to_string();
+    module.target = "x86_64-unknown-linux".to_string();
+    module.client_package = "libc".to_string();
+    module.library = "libc.so.6".to_string();
+
+    module.functions.push(Function {
+        name: "recv".to_string(),
+        doc: None,
+        port_name: "Recv".to_string(),
+        port_args: vec![
+            Arg {
+                name: "fd".to_string(),
+                port: "Int".to_string(),
+            },
+            Arg {
+                name: "flags".to_string(),
+                port: "Int".to_string(),
+            },
+        ],
+        arg_descriptors: vec![
+            "i32".to_string(),
+            "out_buf:65536".to_string(),
+            "i32".to_string(),
+        ],
+        return_port: "Obj".to_string(),
+        ret_descriptor: "i64".to_string(),
+        out_struct: None,
+        variadic: false,
+        c_decl: "ssize_t recv(int, void *, size_t, int);".to_string(),
+    });
+
+    let tmp = PathBuf::from(format!("/tmp/sdkgen_emit_outbuf_{}", std::process::id()));
+    let port_dir = tmp.join("libc");
+
+    let _ = fs::remove_dir_all(&tmp);
+    FileEmitter::new().emit(&module, &port_dir).unwrap();
+
+    let adapter = fs::read_to_string(tmp.join("libc-c-linux-x86_64/socket.hnl")).unwrap();
+    assert!(
+        adapter.contains("\"out_buf:65536\""),
+        "out_buf descriptor missing: {adapter}"
+    );
+    assert!(
+        adapter.contains("if r.ret < 0"),
+        "r.ret check missing: {adapter}"
     );
     assert!(
         adapter.contains("ok(r.buf)"),
