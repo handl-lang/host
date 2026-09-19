@@ -2018,6 +2018,164 @@ pub fn cases() -> Vec<Case> {
             case.nodes = vec![leaf(json!("x")), schemed("fn.body_x10", inc10_scheme())];
             case.roles = vec!["params", "body"];
         }
+        // ---- batch-d: `match`/`handle` shells ------------------------
+        // Root roles resolve `scrutinee`/`block` (`handle`: `target`/
+        // `impl`); `pb.block` children are arm arena indices; `pb.arm`
+        // declares `pattern`/`body`. Pattern nodes use the canonical
+        // role-less kinds (`var`/`array`/`rest`/`call`/`lit`) so both
+        // the declared-role and kind-fallback paths are exercised.
+        if case.name == "match_literal_hit" || case.name == "match_miss" {
+            // children [scrutinee=5, block]; arm { lit-pattern, body }.
+            let pat = if case.name == "match_miss" {
+                json!(9)
+            } else {
+                json!(5)
+            };
+            case.nodes = vec![
+                leaf(json!(5)),
+                block_node(&[2]),
+                arm_node(3, 4),
+                leaf(pat),
+                leaf(json!(1)),
+            ];
+            case.roles = vec!["scrutinee", "block"];
+        }
+        if case.name == "match_bind" {
+            // children [scrutinee=5, block]; arm { var "x", proj_env x }.
+            case.nodes = vec![
+                leaf(json!(5)),
+                block_node(&[2]),
+                arm_node(3, 4),
+                var_node("x"),
+                schemed("fn.m_x", op_lit("proj_env", json!("x"))),
+            ];
+            case.roles = vec!["scrutinee", "block"];
+        }
+        if case.name == "match_multi_arm" {
+            // children [5, block{2,5}]; arm2 { lit 9, 1 } misses;
+            // arm5 { var x, x + 10 } hits → 15.
+            case.nodes = vec![
+                leaf(json!(5)),
+                block_node(&[2, 5]),
+                arm_node(3, 4),
+                leaf(json!(9)),
+                leaf(json!(1)),
+                arm_node(6, 7),
+                var_node("x"),
+                schemed(
+                    "fn.m_x10",
+                    op("add", vec![op_lit("proj_env", json!("x")), lit(10)]),
+                ),
+            ];
+            case.roles = vec!["scrutinee", "block"];
+        }
+        if case.name == "match_rest" {
+            // `match [1,2,3] { [a, ...rest]: rest }` — array pattern at
+            // 3 over positional var(4) + rest node(5)→var(6); body(7)
+            // reads `rest`.
+            case.nodes = vec![
+                leaf(json!([1, 2, 3])),
+                block_node(&[2]),
+                arm_node(3, 7),
+                ProbeNode {
+                    kind: "array",
+                    payload: json!({"children": [4, 5]}),
+                    ..leaf(Value::Null)
+                },
+                var_node("a"),
+                ProbeNode {
+                    kind: "rest",
+                    payload: json!({"children": [6]}),
+                    ..leaf(Value::Null)
+                },
+                var_node("rest"),
+                schemed("fn.m_rest", op_lit("proj_env", json!("rest"))),
+            ];
+            case.roles = vec!["scrutinee", "block"];
+        }
+        if case.name == "match_tag" {
+            // `match ok(7) { ok(v): v }` — `call` tag pattern at 3:
+            // callee var(4)="ok", binder var(5)="v"; body(6) reads `v`.
+            case.nodes = vec![
+                leaf(json!({"__tag__": "ok", "value": 7})),
+                block_node(&[2]),
+                arm_node(3, 6),
+                ProbeNode {
+                    kind: "call",
+                    payload: json!({"children": [4, 5]}),
+                    ..leaf(Value::Null)
+                },
+                var_node("ok"),
+                var_node("v"),
+                schemed("fn.m_v", op_lit("proj_env", json!("v"))),
+            ];
+            case.roles = vec!["scrutinee", "block"];
+        }
+        if case.name == "match_motive_arity" {
+            // Root `[scrutinee, motive?, block]` (arity 6 → motive
+            // occupied): scrutinee 0 = 5; motive 1 is never evaluated;
+            // block 2 → arm { wildcard `_`, 9 }.
+            case.nodes = vec![
+                leaf(json!(5)),
+                leaf(json!("motive-slot")),
+                block_node(&[3]),
+                arm_node(4, 5),
+                var_node("_"),
+                leaf(json!(9)),
+            ];
+            case.roles = vec!["scrutinee", "motive", "block"];
+            case.optional_roles = vec!["motive"];
+        }
+        if case.name == "match_no_arms" {
+            // Arity-2 probe on the same optional-motive shape → `block`
+            // resolves to position 1 (motive absent); the empty block
+            // yields the no-match error.
+            case.nodes = vec![leaf(json!(5)), block_node(&[])];
+            case.roles = vec!["scrutinee", "motive", "block"];
+            case.optional_roles = vec!["motive"];
+        }
+        if case.name == "handle_clause" {
+            // `handle 5 { x: x + 1 }` — `target`/`impl` roles.
+            case.nodes = vec![
+                leaf(json!(5)),
+                block_node(&[2]),
+                arm_node(3, 4),
+                var_node("x"),
+                schemed(
+                    "fn.h_x1",
+                    op("add", vec![op_lit("proj_env", json!("x")), lit(1)]),
+                ),
+            ];
+            case.roles = vec!["target", "impl"];
+        }
+        if case.name == "handle_no_clause" {
+            // `handle 5 { 9: 1 }` — literal clause misses → pass-through.
+            case.nodes = vec![
+                leaf(json!(5)),
+                block_node(&[2]),
+                arm_node(3, 4),
+                leaf(json!(9)),
+                leaf(json!(1)),
+            ];
+            case.roles = vec!["target", "impl"];
+        }
+        if case.name == "handle_tag" {
+            // `handle err("bad") { err(e): e }` — `call` clause pattern.
+            case.nodes = vec![
+                leaf(json!({"__tag__": "err", "value": "bad"})),
+                block_node(&[2]),
+                arm_node(3, 6),
+                ProbeNode {
+                    kind: "call",
+                    payload: json!({"children": [4, 5]}),
+                    ..leaf(Value::Null)
+                },
+                var_node("err"),
+                var_node("e"),
+                schemed("fn.h_e", op_lit("proj_env", json!("e"))),
+            ];
+            case.roles = vec!["target", "impl"];
+        }
     }
 
     out
