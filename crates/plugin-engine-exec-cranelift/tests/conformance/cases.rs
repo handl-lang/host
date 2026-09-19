@@ -132,6 +132,38 @@ fn schemed(kind: &'static str, scheme: TermData) -> ProbeNode {
     }
 }
 
+/// Probe `arm`/`clause` node (`match`/`handle`): `pattern`/`body` child
+/// roles (ADR-0081) with absolute arena indices.
+fn arm_node(pattern_idx: usize, body_idx: usize) -> ProbeNode {
+    ProbeNode {
+        kind: "pb.arm",
+        payload: json!({"children": [pattern_idx, body_idx]}),
+        roles: vec![("pattern", false), ("body", false)],
+        ..leaf(Value::Null)
+    }
+}
+
+/// Probe arms-block node (`match`/`handle`): children are arm arena
+/// indices; no roles — the shell reads them positionally.
+fn block_node(arm_indices: &[usize]) -> ProbeNode {
+    ProbeNode {
+        kind: "pb.block",
+        payload: json!({"children": arm_indices}),
+        ..leaf(Value::Null)
+    }
+}
+
+/// Probe `var` node — the role-less leaf-binder pattern fallback
+/// (`pattern_role: leaf` on canonical `var`; used unnamed here so the
+/// `kind == "var"` fallback path is exercised too).
+fn var_node(name: &'static str) -> ProbeNode {
+    ProbeNode {
+        kind: "var",
+        payload: json!(name),
+        ..leaf(Value::Null)
+    }
+}
+
 /// Probe node for an object `entry` child (`k: v`): `key`/`value` roles,
 /// `pattern_role: entry`, and `literal_children: {key: [lit]}` so `lit`
 /// key children are read as literal key text (ADR-0081 metadata, not a
@@ -226,6 +258,7 @@ fn case(
         input,
         nodes: Vec::new(),
         roles: Vec::new(),
+        optional_roles: Vec::new(),
         root_payload: None,
         expect,
         note,
@@ -1621,6 +1654,131 @@ pub fn cases() -> Vec<Case> {
          body` children by named role, `param_names` extracts `x`, the \
          minted `TaggedValue::Arrow` captures the (empty) env and `app` \
          applies it → 51. term-interp has neither op.",
+    ));
+
+    // ================= Phase B batch (d) — match / handle shells =======
+    //
+    // The shared `match_shell` (native_ops) resolves `scrutinee`/`block`
+    // (`handle`: `target`/`impl`) on the probe root by named role —
+    // arity-aware via `child_role_index_for` — iterates the block's arm
+    // nodes (each declaring `pattern`/`body` roles), pushes a scope per
+    // arm, runs the shared `try_pattern`, and evaluates the matched
+    // body. term-interp has neither op (`unsupported op` → UNSUPPORTED).
+    let cat = "batch-d";
+    out.push(case(
+        "match_literal_hit",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!(1)),
+        "`match 5 { 5: 1 }` — literal pattern evaluates and compares → \
+         body → 1.",
+    ));
+    out.push(case(
+        "match_miss",
+        cat,
+        op("match", vec![]),
+        None,
+        [
+            Expect::Err("no arm matched"),
+            Expect::Err("no arm matched"),
+            Expect::Err("no arm matched"),
+            Expect::Unsupported,
+        ],
+        "`match 5 { 9: 1 }` — the literal misses; the shared shell's \
+         documented no-match error fires on all three engines.",
+    ));
+    out.push(case(
+        "match_bind",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!(5)),
+        "`match 5 { x: x }` — the `var` binder binds the scrutinee in \
+         the pushed arm scope; the body reads it via `proj_env`.",
+    ));
+    out.push(case(
+        "match_multi_arm",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!(15)),
+        "`match 5 { 9: 1, x: x + 10 }` — arm 1's literal misses (its \
+         scope pops), arm 2's binder hits → 15. Covers miss fallthrough \
+         + binding.",
+    ));
+    out.push(case(
+        "match_rest",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!([2, 3])),
+        "`match [1,2,3] { [a, ...rest]: rest }` — array destructuring \
+         binds `a` = 1 and the rest tail `[2,3]` (`pattern_role: rest` \
+         fallback on the `rest` kind).",
+    ));
+    out.push(case(
+        "match_tag",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!(7)),
+        "`match ok(7) { ok(v): v }` — the `call`-kind tag pattern \
+         dispatches on `__tag__` and binds the payload field (ADR-0077).",
+    ));
+    out.push(case(
+        "match_motive_arity",
+        cat,
+        op("match", vec![]),
+        None,
+        engines_ok(json!(9)),
+        "root roles `[scrutinee, motive?, block]`: `block` resolves \
+         arity-aware to position 2 with the optional motive slot \
+         occupied (the motive node is never evaluated).",
+    ));
+    out.push(case(
+        "match_no_arms",
+        cat,
+        op("match", vec![]),
+        None,
+        [
+            Expect::Err("no arm matched"),
+            Expect::Err("no arm matched"),
+            Expect::Err("no arm matched"),
+            Expect::Unsupported,
+        ],
+        "two-node probe (`[scrutinee, block]`, arity 2) on the \
+         optional-motive shape: `block` resolves arity-aware to \
+         position 1 (motive absent); the empty block falls through to \
+         the no-match error.",
+    ));
+    out.push(case(
+        "handle_clause",
+        cat,
+        op("handle", vec![]),
+        None,
+        engines_ok(json!(6)),
+        "`handle 5 { x: x + 1 }` — `target`/`impl` resolve by named \
+         role; the binder clause matches → 6.",
+    ));
+    out.push(case(
+        "handle_no_clause",
+        cat,
+        op("handle", vec![]),
+        None,
+        engines_ok(json!(5)),
+        "`handle 5 { 9: 1 }` — no clause matches; the handled value \
+         passes through unchanged (the documented `handle` default — \
+         not an error).",
+    ));
+    out.push(case(
+        "handle_tag",
+        cat,
+        op("handle", vec![]),
+        None,
+        engines_ok(json!("bad")),
+        "`handle err(\"bad\") { err(e): e }` — clause tag-dispatch on \
+         `__tag__` binds the payload field.",
     ));
 
     // Wire up the probe nodes every case needs (indices referenced by

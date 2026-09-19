@@ -242,6 +242,11 @@ pub enum OpService {
     Env,
     /// Apply an arrow value to arguments (`first`, `app`, `loop_step`, …).
     ApplyArrow,
+    /// Structural pattern interpretation — `match`/`handle` arm matching
+    /// via [`NativeOpCtx::try_pattern`] (ADR-0061). Backends forward to
+    /// their own [`crate::pattern_match::PatternMatchCtx`] impl; engines
+    /// without pattern support decline the `match`/`handle` ops.
+    Pattern,
 }
 
 /// Engine-specific globals the shared ops need.
@@ -340,6 +345,23 @@ pub trait NativeOpCtx {
 
     /// Capture the visible environment for a closure.
     fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>>;
+
+    /// Interpret the pattern node at `pattern` against `scrutinee` — the
+    /// [`crate::pattern_match::try_pattern`] semantics (ADR-0061): leaf
+    /// binders bind into the innermost scope (the `match`/`handle` shell
+    /// pushed it via [`env_push`](Self::env_push)), literals evaluate and
+    /// compare by equality, and sequence/entries/tag patterns recurse.
+    /// Each backend forwards to its own
+    /// [`crate::pattern_match::PatternMatchCtx`] impl — the arena and
+    /// ambient globals live engine-side.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the pattern is malformed or a literal pattern
+    /// fails to evaluate. Engines that cannot pattern-match should
+    /// return `Err` and report [`OpService::Pattern`] as unsupported.
+    fn try_pattern(&mut self, pattern: AstRef, scrutinee: &TaggedValue)
+    -> Result<bool, LangError>;
 
     /// The `kind` of the node at `r` — the `kind == "rest"`/`"entry"`
     /// role-less fallbacks (ADR-0081) in `array`/`object` read this.
@@ -775,6 +797,39 @@ pub fn apply_native_op(
             let region = eval_rec_region(ctx, &children);
             ctx.env_pop();
             region.map(|v| (v, false))
+        }
+        // --- orchestration ops --------------------------------------------
+        // `match`/`handle` — the pattern-dispatch orchestration shell.
+        // The pattern *algorithm* lives in `pattern_match::try_pattern`
+        // (ADR-0061); what is shared here is the per-op plumbing all
+        // three backends had copy-pasted: scrutinee/block role
+        // resolution (arity-aware — `match`'s optional `motive` slot
+        // shifts `block` when present), arm iteration, per-arm scope
+        // push/pop, and the no-match default.
+        //
+        //   match s { arms.. }     — children [scrutinee, (motive,)
+        //                          block]; no arm matched → error.
+        //   handle e { clauses.. } — children [target, impl]; the
+        //                          `target` value is clause-matched; no
+        //                          clause matched → the value is
+        //                          returned as-is (not an error).
+        //
+        // Boundary note: this is the `Op "handle"` *clause-dispatch*
+        // surface. The `eval.handle` scheme is `Term::Handle` — dynamic-
+        // extent handler installation — whose plumbing stays
+        // engine-local by design: the tree-walk pushes the impl value
+        // onto its runtime `handler_stack` for the body's extent, while
+        // the bytecode and cranelift compilers eliminate handlers
+        // statically via `Term::eliminate_handlers` (a compile-time
+        // transformation, legitimately backend-specific).
+        "match" | "handle" => {
+            if !ctx.supports(OpService::EvalNode)
+                || !ctx.supports(OpService::Env)
+                || !ctx.supports(OpService::Pattern)
+            {
+                return Ok(None);
+            }
+            match_shell(op, ctx)
         }
         // --- constructor ops ---------------------------------------------
         // `closure` — mint a `TaggedValue::Arrow` (the bound-arrow
@@ -2228,6 +2283,139 @@ fn eval_rec_region(
         ));
     }
     Ok(result)
+}
+
+// ===========================================================================
+// Orchestration helpers (match / handle)
+// ===========================================================================
+
+/// The shared `match`/`handle` shell (ADR-0061 pattern algorithm +
+/// ADR-0081 role resolution).
+///
+/// Node layout: `match` carries `children: [scrutinee, (motive,)
+/// block]` — `motive` is an `optional` role (Phase 6.3 dependent
+/// motives, ignored at runtime), so `block`'s position resolves
+/// arity-aware via [`NativeOpCtx::child_role_index_for`]. `handle`
+/// carries `children: [target, impl]` (the `target` value is
+/// clause-matched against the `impl` block's arms). The block node's
+/// children are arm indices; each arm's `pattern`/`body` positions
+/// resolve by named role (arity-aware on the arm node) with the
+/// positional 0/1 fallback for role-less shapes.
+///
+/// Per arm: push a scope, run [`NativeOpCtx::try_pattern`] (binders
+/// land in that scope), and on a hit evaluate the arm's `body` child
+/// under the bindings — for `handle` the `body` position is the
+/// handler. The scope pops on *every* exit — hit, miss, or pattern
+/// error. (The pre-unification tree-walk leaked the pushed scope when
+/// `try_pattern` errored; bytecode/cranelift popped first. The
+/// pop-then-propagate convention won — a caught error, e.g. inside an
+/// `eval_rec` pass, must not leave a stale scope.)
+///
+/// No-match default: `match` errors `"match: no arm matched"`;
+/// `handle` returns the evaluated `target` value as-is.
+fn match_shell(op: &str, ctx: &mut dyn NativeOpCtx) -> OpResult {
+    let is_match = op == "match";
+    // Role names and diagnostics differ between the two ops; the shape
+    // of the walk is identical.
+    let scrutinee_role = if is_match { "scrutinee" } else { "target" };
+    let block_role = if is_match { "block" } else { "impl" };
+    let scrutinee_missing = if is_match {
+        "missing scrutinee child"
+    } else {
+        "missing body child"
+    };
+    let entry_noun = if is_match { "arm" } else { "clause" };
+    let handler_noun = if is_match { "body" } else { "handler" };
+
+    let children = ctx
+        .node_payload()
+        .and_then(|p| p.get("children"))
+        .and_then(|c| c.as_array())
+        .cloned()
+        .ok_or_else(|| LangError::engine(format!("{op}: missing children in payload")))?;
+
+    // `scrutinee`/`block` positions resolve by named role, arity-aware
+    // (ADR-0081): `match`'s optional `motive` slot shifts `block` to
+    // index 2 when present. Positional fallback: scrutinee at 0; block
+    // at `len >= 3 ? 2 : 1` for `match` (the legacy motive heuristic —
+    // a third positional child occupies the motive slot), 1 for
+    // `handle`.
+    let scrut_idx = ctx
+        .child_role_index_for(scrutinee_role)
+        .and_then(|pos| children.get(pos).and_then(Value::as_u64))
+        .or_else(|| children.first().and_then(Value::as_u64))
+        .map(|i| i as usize)
+        .ok_or_else(|| LangError::engine(format!("{op}: {scrutinee_missing}")))?;
+    let block_fallback = if is_match && children.len() >= 3 {
+        2
+    } else {
+        1
+    };
+    let block_idx = ctx
+        .child_role_index_for(block_role)
+        .and_then(|pos| children.get(pos).and_then(Value::as_u64))
+        .or_else(|| children.get(block_fallback).and_then(Value::as_u64))
+        .map(|i| i as usize)
+        .ok_or_else(|| LangError::engine(format!("{op}: missing block child")))?;
+
+    // Evaluate the scrutinee (`match`) / handled body (`handle`).
+    let scrut_val = ctx.eval_node(AstRef::new(scrut_idx))?;
+
+    // The block node's children are the arm/clause indices.
+    let arm_indices = node_children(ctx, AstRef::new(block_idx))
+        .ok_or_else(|| LangError::engine(format!("{op}: block node missing children")))?;
+
+    for arm_entry in &arm_indices {
+        let arm_idx = arm_entry.as_u64().ok_or_else(|| {
+            LangError::engine(format!("{op}: {entry_noun} index must be a number"))
+        })? as usize;
+        let arm_ref = AstRef::new(arm_idx);
+        let arm_children = node_children(ctx, arm_ref).ok_or_else(|| {
+            LangError::engine(format!("{op}: {entry_noun} node missing children"))
+        })?;
+        // `pattern`/`body` positions resolve by named role (arity-aware
+        // on the arm node, ADR-0081); positional 0/1 is the role-less
+        // fallback.
+        let pattern_idx = ctx
+            .child_role_index_at(arm_ref, "pattern")
+            .and_then(|pos| arm_children.get(pos).and_then(Value::as_u64))
+            .or_else(|| arm_children.first().and_then(Value::as_u64))
+            .map(|i| i as usize)
+            .ok_or_else(|| {
+                LangError::engine(format!("{op}: {entry_noun} missing pattern child"))
+            })?;
+        let body_idx = ctx
+            .child_role_index_at(arm_ref, "body")
+            .and_then(|pos| arm_children.get(pos).and_then(Value::as_u64))
+            .or_else(|| arm_children.get(1).and_then(Value::as_u64))
+            .map(|i| i as usize)
+            .ok_or_else(|| {
+                LangError::engine(format!("{op}: {entry_noun} missing {handler_noun} child"))
+            })?;
+
+        // Push the arm scope, match the pattern (binders land there),
+        // evaluate the body on a hit. Pop on every exit.
+        ctx.env_push();
+        match ctx.try_pattern(AstRef::new(pattern_idx), &scrut_val) {
+            Ok(true) => {
+                let result = ctx.eval_node(AstRef::new(body_idx));
+                ctx.env_pop();
+                return result.map(|v| (v, false));
+            }
+            Ok(false) => ctx.env_pop(),
+            Err(e) => {
+                ctx.env_pop();
+                return Err(e);
+            }
+        }
+    }
+
+    if is_match {
+        Err(LangError::engine("match: no arm matched".to_string()))
+    } else {
+        // No clause matched — the handled value passes through as-is.
+        Ok((scrut_val, false))
+    }
 }
 
 // ===========================================================================

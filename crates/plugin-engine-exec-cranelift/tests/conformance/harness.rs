@@ -112,6 +112,12 @@ pub struct Case {
     /// Named child roles declared on the probe root kind (ADR-0081) —
     /// needed by `Term::Child { role }` cases.
     pub roles: Vec<&'static str>,
+    /// Subset of `roles` declared **optional** on the probe root kind
+    /// (ADR-0081) — e.g. `match`'s `motive`. Optional slots shift the
+    /// resolved position of later roles at lower arities
+    /// (`child_role_index_for`), which the `match`/`handle` shell cases
+    /// exercise.
+    pub optional_roles: Vec<&'static str>,
     /// Extra fields merged into the probe root's payload object (alongside
     /// the `children` array the harness fills in) — needed by ops that
     /// read a named payload field off the current node (`bind`'s `name`).
@@ -294,7 +300,7 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
                         .map(|r| ChildRoleSpec {
                             role: (*r).to_string(),
                             variadic: false,
-                            optional: false,
+                            optional: case.optional_roles.contains(r),
                         })
                         .collect(),
                 ),
