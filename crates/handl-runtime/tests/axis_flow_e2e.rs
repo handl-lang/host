@@ -84,7 +84,10 @@ fn check_all(src: &str, expected: Result<Value, &'static str>) {
     for (name, engine) in all_engines() {
         // Direct engine eval — the parity check with no term-interpreter
         // shortcut.
-        match (engine.eval(&lang, &EvalRequest::new(ast.clone())), &expected) {
+        match (
+            engine.eval(&lang, &EvalRequest::new(ast.clone())),
+            &expected,
+        ) {
             (Ok(v), Ok(want)) => assert_eq!(&v, want, "{name}: direct eval value"),
             (Ok(v), Err(_)) => panic!("{name}: expected error, got value {v}"),
             (Err(e), Ok(_)) => panic!("{name}: direct eval failed: {e}"),
@@ -321,22 +324,12 @@ fn compose_step_boundary_mismatch_errors_on_all_engines() {
         let err = rt
             .run(&Source::new(src))
             .expect_err("compose boundary mismatch must fail");
-        // The term interpreter's boundary error falls back to the
-        // configured engine: tree-walk re-runs `arr compose` and reports
-        // the same boundary violation; the compiled backends cannot
-        // compile `arr <op>` (`$payload` op-name resolution is a known
-        // gap) and surface that clean compile error instead.
-        if name == "tree-walk" {
-            assert!(
-                err.to_string().contains("boundary"),
-                "{name}: error should name the boundary violation: {err}"
-            );
-        } else {
-            assert!(
-                err.to_string().contains("$payload"),
-                "{name}: expected the arr-dispatch gap error: {err}"
-            );
-        }
+        // All engines resolve `arr <op>`'s `$payload` op name at runtime
+        // and report the same boundary violation.
+        assert!(
+            err.to_string().contains("boundary"),
+            "{name}: error should name the boundary violation: {err}"
+        );
     }
     let ast = parse(src);
     let err = TreeWalkEngine::new()
