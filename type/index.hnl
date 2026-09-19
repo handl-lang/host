@@ -85,3 +85,15 @@ export NumberN := sym()
 export IntN := sym(NumberN)
 export FloatN := sym(NumberN)
 export NatN := sym(IntN)
+
+--- ## Dependent structure (dependent.hnl, ADR-0120 Phase 4)
+---
+--- `handl-packages/type/dependent.hnl` documents and declares the
+--- indexed-family vocabulary as ordinary language data: the `Family(A)`,
+--- `Pi(A, x ~> B)`, `Sigma(A, x ~> B)`, and `Forall(K, x ~> B)` surface
+--- formers (calls in type-expression position); reindexing as the derived
+--- arrow `reindex := (f, P) ~> f >>> P` (pullback `f*` needs no
+--- primitive); and the `Sigma_f -| f* -| Pi_f` adjunction laws as
+--- ordinary `~[2]~>` 2-cell terms. The fragment is structural -- index
+--- equality, strict positivity, and dependent elimination are documented
+--- limitations, not implemented.
