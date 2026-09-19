@@ -55,3 +55,7 @@ node_modules
 /bench/results/
 /bench/bin/
 /bench/tasks/**/_generated.hnl
+
+# Archived pre-migration Rust stdlib crates (moved to handl-hnl packages).
+# Untracked on disk (recoverable from git history); kept out of the workspace.
+/.old-stdlib/

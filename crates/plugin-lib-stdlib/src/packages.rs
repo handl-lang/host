@@ -165,7 +165,6 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: Some(ops::encoding::encoding_op_registry),
     },
-
     // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
     // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
     // No `ops` table needed — the handl module is a self-contained record.
