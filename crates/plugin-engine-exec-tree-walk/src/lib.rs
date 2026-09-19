@@ -820,8 +820,19 @@ impl TreeWalkEngine {
                     .expect("Op term missing or malformed 'source' field");
                 // `lit` is stored as `null` when `None`; treat Null as absent.
                 let lit = td.get("lit").filter(|v| !v.is_null());
+                // ADR-0120 Phase 3: the `dim` slot is the unified
+                // dimension/grade — evaluated to a routing label for
+                // dimension-typed handler dispatch in `eval_arr`.
+                let dim = td.dim();
+                // An op at a named dimension performs an effect at that
+                // dimension — record the label in the accumulated effect
+                // row (effects are cells, ADR-0119 §6).
+                if let Some(label) = dim.dim_label() {
+                    env.effects.push(label);
+                }
                 let (val, pushed) = self.eval_arr(
                     op,
+                    &dim,
                     &args,
                     &source,
                     lit,
@@ -1840,6 +1851,7 @@ impl TreeWalkEngine {
     fn eval_arr(
         &self,
         op: &str,
+        dim: &TermData,
         args: &[TermData],
         source: &ArrSource,
         lit: Option<&Value>,
@@ -1932,21 +1944,51 @@ impl TreeWalkEngine {
             }
             arg_vals.push(v);
         }
-        // Grade-based dynamic dispatch: for `Native` and `Foreign` ops that
-        // are not the surface `arr <op>` form, search the handler stack (and
-        // the incoming value's own `impls`) for a handler implementation.
-        // The `arr <op>` first-class form is handled below in the
-        // `from_payload` branch so it can return a dispatch object when no
-        // incoming value is present.
+        // Dimension-typed dynamic dispatch (ADR-0120 Phase 3): for
+        // `Native` and `Foreign` ops that are not the surface `arr <op>`
+        // form, search the handler stack (and the incoming value's own
+        // `impls`) for a handler implementation. The routing key is the
+        // op's own `name` — for `Foreign` sources the foreign identifier
+        // IS the name (`Term::op_foreign` enforces it); `source` is the
+        // host-boundary marker, not a dimension. The op's `dim`,
+        // resolved to a *named dimension label*, selects which pushed
+        // handlers may cover it (`dispatch_op` applies the coverage
+        // check). The `arr <op>` first-class form is handled below in
+        // the `from_payload` branch so it can return a dispatch object
+        // when no incoming value is present.
+        //
+        // `dim` resolution: a literal `Const`/`Arr` dimension is used
+        // directly (string → named dimension label; number → no label —
+        // numeric dimensions are unnamed). A compound dim term is
+        // evaluated to its normal form first, like the `Seq` axis.
+        let dim_label = if let Some(label) = dim.dim_label() {
+            Some(label)
+        } else if matches!(dim.tag(), "Const" | "Arr") {
+            None
+        } else {
+            let (v, pushed) = self.eval_inner_td(
+                dim,
+                ast,
+                node_ref,
+                lang,
+                env,
+                current_node,
+                incoming.clone(),
+            )?;
+            if pushed {
+                env.pop_scope();
+            }
+            v.as_str().map(str::to_string)
+        };
         let dispatch_name = match source {
-            ArrSource::Native => Some(op.to_string()),
-            ArrSource::Foreign(name) => Some(name.clone()),
+            ArrSource::Native | ArrSource::Foreign(_) => Some(op.to_string()),
             _ => None,
         };
         if !from_payload {
             if let Some(name) = dispatch_name {
                 if let Some(res) = self.dispatch_op(
                     &name,
+                    dim_label.as_deref(),
                     incoming.as_ref(),
                     ast,
                     node_ref,
@@ -2039,22 +2081,35 @@ impl TreeWalkEngine {
         }
     }
 
-    /// Grade-based `Op` dispatch: search the runtime handler stack
-    /// (innermost-last) for a handler value whose `impls` map provides an
-    /// implementation for `op`, then — when no stack handler applies —
-    /// the incoming value's own `impls` field (a tagged value
-    /// `{"__tag__": <sort>, "grades": [...], "impls": {...}}` may embed
-    /// per-grade op implementations).
+    /// Dimension-typed `Op` dispatch (ADR-0120 Phase 3): search the
+    /// runtime handler stack (innermost-last) for a handler value whose
+    /// `impls` map provides an implementation for `op`, then — when no
+    /// stack handler applies — the incoming value's own `impls` field (a
+    /// tagged value `{"__tag__": <sort>, "grades": [...], "impls": {...}}`
+    /// may embed per-dimension op implementations), then the
+    /// language-level handler table via [`Language::handler_for_grade`]
+    /// (already dimension-typed — the key IS the dim label).
     ///
     /// A `Handler` value is a tagged object
     /// `{"__tag__": "Handler", "impls": {"<op>": <Term>, ...}}` where each
     /// `impls` entry is a serialized [`Term`] run with the op's `incoming`
     /// value. Returns `Ok(None)` when no handler provides `op`, so the
     /// caller can fall back to native `op` dispatch.
+    ///
+    /// `dim_label` is the op's `dim` resolved to a *named dimension*
+    /// label (what the graded-effect surface called a grade). When
+    /// present, a stack handler that declares a `grades` list — the set
+    /// of named dimensions it interprets — covers the op only if the
+    /// list contains the label; a handler with no `grades` field is
+    /// dimension-agnostic (a bare `handle <target> with <record>`) and
+    /// serves any dimension. Numeric/unnamed dimensions (`dim_label`
+    /// `None`) impose no coverage constraint — every pushed handler is
+    /// eligible, preserving pre-Phase-3 behavior.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn dispatch_op(
         &self,
         op: &str,
+        dim_label: Option<&str>,
         incoming: Option<&TaggedValue>,
         ast: &Ast,
         node_ref: AstRef,
@@ -2062,11 +2117,35 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
         current_node: &AstNode,
     ) -> Result<Option<(TaggedValue, bool)>, LangError> {
+        // A stack handler covers a named dimension `d` when its `grades`
+        // list (the set of named dimensions it interprets) contains `d`.
+        let covers = |h: &TaggedValue| -> bool {
+            match dim_label {
+                None => true,
+                Some(d) => match h.get("grades") {
+                    Some(TaggedValue::Arr(gs)) => gs.iter().any(|g| g.as_str() == Some(d)),
+                    Some(_) => false,
+                    None => true,
+                },
+            }
+        };
         let impl_json = {
             let stack = self.handler_stack.borrow();
-            stack.iter().rev().find_map(|h| handler_impl(h, op))
+            stack
+                .iter()
+                .rev()
+                .find(|h| covers(h))
+                .and_then(|h| handler_impl(h, op))
         }
-        .or_else(|| incoming.and_then(|v| handler_impl(v, op)));
+        .or_else(|| incoming.and_then(|v| handler_impl(v, op)))
+        .or_else(|| {
+            // Language-level handler table: keyed by named dimension
+            // (`handler_for_grade` is already dimension-typed — the key
+            // IS the dim label).
+            dim_label
+                .and_then(|d| lang.handler_for_grade(d))
+                .and_then(|h| handler_impl(&TaggedValue::from(h), op))
+        });
         let Some(impl_json) = impl_json else {
             return Ok(None);
         };
@@ -2637,9 +2716,24 @@ impl TreeWalkEngine {
                 })?;
 
                 // Grade-based op call: `add(1, 2)` where `add` is an `op`.
+                // ADR-0120 Phase 3: the op declaration's `grade` is the
+                // named dimension the op lives at — inject it into the
+                // synthesized `Op`'s `dim` slot (a `Const` dimension
+                // term) instead of a parallel routing field.
                 if let Some(op_decl) = lang.op_decl(callee) {
                     let op_incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
-                    let op_td = TermData::op(callee.to_string(), vec![], &ArrSource::Native, None);
+                    let dim_td = op_decl
+                        .get("grade")
+                        .filter(|g| !g.is_null())
+                        .map(|g| TermData::dim_const(g.clone()))
+                        .unwrap_or_else(|| TermData::dim_const(1));
+                    let op_td = TermData::op_dim(
+                        callee.to_string(),
+                        dim_td,
+                        vec![],
+                        &ArrSource::Native,
+                        None,
+                    );
                     let (mut result, pushed) = self.eval_inner_td(
                         &op_td,
                         ast,
@@ -3544,9 +3638,18 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
         current_node: &AstNode,
     ) -> Result<(TaggedValue, bool), LangError> {
-        if let Some(res) =
-            self.dispatch_op(op, Some(incoming), ast, node_ref, lang, env, current_node)?
-        {
+        // `arr op` surface form: the op is lifted by name — no `dim`
+        // term is carried (dimension-1 ops), so no dimension label.
+        if let Some(res) = self.dispatch_op(
+            op,
+            None,
+            Some(incoming),
+            ast,
+            node_ref,
+            lang,
+            env,
+            current_node,
+        )? {
             return Ok(res);
         }
         let op_args = flatten_pair(incoming);
@@ -4670,24 +4773,32 @@ impl ValueModel {
             .map_err(|_| plugin_engine::LangError::NotImplemented)
     }
 
-    /// Grade-based `Op` dispatch: look up the op declaration for the
-    /// required grade, verify the incoming value carries that grade, then
-    /// search `ctx.handler_stack` (innermost-last) and the language-level
-    /// `handler_for_grade` for a matching `Handler` providing `op`. If no
-    /// handler matches, returns `Ok(None)` so the caller can fall back to
-    /// native dispatch.
+    /// Dimension-typed `Op` dispatch (ADR-0120 Phase 3): the op's `dim`
+    /// resolves to a *named dimension label* — what the graded-effect
+    /// surface called the required grade. Look it up on the op's `dim`
+    /// first (the unified slot); fall back to the op declaration's
+    /// legacy `grade` field for pre-Phase-3 terms that carry only a
+    /// numeric/default `dim`. Verify the incoming value carries that
+    /// dimension, then search `ctx.handler_stack` (innermost-last) and
+    /// the language-level `handler_for_grade` for a matching `Handler`
+    /// providing `op`. If no handler matches, returns `Ok(None)` so the
+    /// caller can fall back to native dispatch.
     fn dispatch_op(
         &self,
         op: &str,
+        dim_label: Option<&str>,
         args: &[Term],
         incoming: Value,
         ctx: &mut ModelCtx,
     ) -> Result<Option<Value>, plugin_engine::LangError> {
-        // a. Look up the op declaration and the required grade, if any.
-        let required_grade = ctx
-            .lang
-            .op_decl(op)
-            .and_then(|decl| decl.get("grade").and_then(Value::as_str).map(String::from));
+        // a. The required dimension: the op's own `dim` label first, then
+        //    the language-level op declaration's `grade` (itself the
+        //        named dimension the op was declared at).
+        let required_grade = dim_label.map(String::from).or_else(|| {
+            ctx.lang
+                .op_decl(op)
+                .and_then(|decl| decl.get("grade").and_then(Value::as_str).map(String::from))
+        });
 
         // b,c. Reject the dispatch when the incoming value does not carry
         // the required grade.
@@ -4937,23 +5048,38 @@ impl Model for ValueModel {
                 self.0.handler_stack.borrow_mut().pop();
                 result
             }
-            // `Term::Op`: grade-based dispatch — evaluate each arg with
-            // `incoming`, then consult the handler stack (and the incoming
-            // value's `impls`) for a handler providing the op before
-            // falling back to the engine's native dispatch.
+            // `Term::Op`: dimension-typed dispatch (ADR-0120 Phase 3) —
+            // the routing key is the op's own `name` (for `Foreign`
+            // sources the foreign identifier IS the name; `source` marks
+            // the host boundary, not a dimension). The op's `dim`
+            // resolves to the named dimension label used for handler
+            // coverage and the `handler_for_grade` lookup.
             "Op" => {
                 let name = td
                     .get_str("name")
                     .expect("Op term missing 'name' field")
                     .to_string();
                 let args_td = td.get_term_list("args");
-                let source = td
+                // `source` is still parsed to validate the record shape;
+                // it no longer feeds the dispatch key.
+                let _ = td
                     .arr_source()
                     .expect("Op term missing or malformed 'source' field");
-                let op_name = match source {
-                    ArrSource::Native => name.clone(),
-                    ArrSource::Foreign(n) => n,
-                    _ => name.clone(),
+                // The dim label: a literal `Const "S"`/`Arr "S"` is the
+                // named dimension directly; a compound dim term is
+                // evaluated to a string label; numeric dims are unnamed.
+                let dim_td = td.dim();
+                let dim_label = match dim_td.dim_label() {
+                    Some(l) => Some(l),
+                    None if matches!(dim_td.tag(), "Const" | "Arr") => None,
+                    None => {
+                        let dim_term = dim_td
+                            .to_term()
+                            .map_err(|_| plugin_engine::LangError::NotImplemented)?;
+                        self.run(&dim_term, incoming.clone(), ctx)?
+                            .as_str()
+                            .map(str::to_string)
+                    }
                 };
                 // Convert args back to `Term` for `dispatch_op` (which
                 // takes `&[Term]`). This is the thin-wrapper round-trip.
@@ -4965,7 +5091,9 @@ impl Model for ValueModel {
                             .map_err(|_| plugin_engine::LangError::NotImplemented)?,
                     );
                 }
-                if let Some(v) = self.dispatch_op(&op_name, &args, incoming.clone(), ctx)? {
+                if let Some(v) =
+                    self.dispatch_op(&name, dim_label.as_deref(), &args, incoming.clone(), ctx)?
+                {
                     return Ok(v);
                 }
                 self.eval_scheme_term(term, incoming)

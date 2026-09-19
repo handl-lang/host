@@ -23,7 +23,9 @@ fn with_children_and_name(kind: &str, children: Vec<usize>, name: &str) -> AstNo
 #[test]
 fn graded_arrow_with_op_and_grade_product_lowers_to_named_op() {
     // `x = () ~[(Op, SomeGrade)]~> ()` should bind `x` to `Term::Op` whose
-    // source is the first non-`Op` grade, `SomeGrade`.
+    // `dim` is the first non-`Op` grade as a *named* dimension
+    // (`Const "SomeGrade"`, ADR-0120 Phase 3) — not `ArrSource::Foreign`,
+    // which is the host-function boundary, not a dimension.
     //
     // Arena layout:
     //   0: var "x" (assign target)
@@ -52,10 +54,10 @@ fn graded_arrow_with_op_and_grade_product_lowers_to_named_op() {
     assert_eq!(
         term,
         Term::Op {
-            dim: Term::default_dim(),
+            dim: Box::new(Term::named_dim("SomeGrade")),
             name: "x".to_string(),
             args: vec![],
-            source: ArrSource::Foreign("SomeGrade".to_string()),
+            source: ArrSource::Native,
             lit: None,
         }
     );

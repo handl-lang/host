@@ -782,8 +782,8 @@ fn lower_op(
     ast: &Ast,
     lang: &Language,
     node: &AstNode,
-    _env: &HashMap<String, EnvEntry>,
-    _params: &[String],
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
 ) -> Result<Term, String> {
     let name = node
         .payload
@@ -792,38 +792,70 @@ fn lower_op(
         .ok_or_else(|| format!("op at {} missing payload.name", node_index(node)))?
         .to_string();
 
-    let source = if let Some(signature_idx) = child_at_role_or_pos(node, lang, "signature", 1) {
-        if let Some(signature) = ast.get(AstRef::new(signature_idx)) {
-            if let Some(grade_idx) = child_at_role_or_pos(signature, lang, "grade", 1) {
-                if let Some(grade) = ast.get(AstRef::new(grade_idx)) {
-                    match grade.kind.as_str() {
-                        "var" => grade
-                            .payload
-                            .as_str()
-                            .map(|s| ArrSource::Foreign(s.to_string()))
-                            .unwrap_or(ArrSource::Native),
-                        _ => ArrSource::Native,
-                    }
-                } else {
-                    ArrSource::Native
-                }
-            } else {
-                ArrSource::Native
+    // The signature's grade/dim child lowers into the `Op`'s `dim` slot —
+    // the unified dimension/grade representation (ADR-0120 Phase 3). A
+    // `dim_arrow`'s `dim` role sits at position 1, as does a legacy
+    // `graded_arrow`'s `grade` child; a plain `function` signature
+    // (`A ~> B`) has no dimension bracket and defaults to dimension 1.
+    // A named grade is a named dimension (`Const "S"`); a numeric
+    // bracket is a numeric dimension (`Const n`). `source` stays
+    // `Native`: `Foreign` is the host-function boundary, not a
+    // dimension.
+    let dim = if let Some(signature_idx) = child_at_role_or_pos(node, lang, "signature", 1) {
+        match ast.get(AstRef::new(signature_idx)) {
+            Some(signature) if matches!(signature.kind.as_str(), "dim_arrow" | "graded_arrow") => {
+                // `dim_arrow` declares the `dim` role at position 1; the
+                // legacy `graded_arrow` keeps its `grade` child at the
+                // same position.
+                let dim_idx = child_at_role_or_pos(signature, lang, "dim", 1)
+                    .ok_or_else(|| format!("{} signature missing dim child", signature.kind))?;
+                lower_dim_term(ast, lang, dim_idx, env, params)?
             }
-        } else {
-            ArrSource::Native
+            _ => Term::constant(Value::from(1)),
         }
     } else {
-        ArrSource::Native
+        Term::constant(Value::from(1))
     };
 
     Ok(Term::Op {
-        dim: Term::default_dim(),
+        dim: Box::new(dim),
         name,
         args: vec![],
-        source,
+        source: ArrSource::Native,
         lit: None,
     })
+}
+
+/// Lower a signature `dim`/`grade` child into a dimension `Term` for an
+/// `Op`'s `dim` slot (ADR-0120 Phase 3).
+///
+/// A bare `var` (`~[S]~>` / `~[Addable]~>`) is a *named* dimension —
+/// `Const "S"`. A literal (`~[2]~>`) is a numeric dimension —
+/// `Const 2`. Anything else is an ordinary dimension expression lowered
+/// as a term.
+fn lower_dim_term(
+    ast: &Ast,
+    lang: &Language,
+    dim_idx: usize,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let dim_node = ast
+        .get(AstRef::new(dim_idx))
+        .ok_or_else(|| format!("dim child {} out of bounds", dim_idx))?;
+    match dim_node.kind.as_str() {
+        // Named dimension label (formerly a "grade name").
+        "var" => {
+            let name = dim_node
+                .payload
+                .as_str()
+                .ok_or_else(|| format!("dim var at {} has non-string payload", dim_idx))?;
+            Ok(Term::named_dim(name))
+        }
+        // Literal dimension (number, string, …).
+        "value" | "lit" => Ok(Term::constant(dim_node.payload.clone())),
+        _ => lower_node(ast, lang, dim_idx, env, params),
+    }
 }
 
 fn lower_handle(
@@ -1154,14 +1186,17 @@ fn op_term_from_graded_arrow(
         .ok_or_else(|| format!("graded_arrow node {} out of bounds", value_idx))?;
     let grade_idx = child_at_role_or_pos(value, lang, "grade", 1)
         .ok_or_else(|| format!("graded_arrow at {} missing grade child", value_idx))?;
-    let source = first_non_op_grade(ast, lang, grade_idx)
-        .map(ArrSource::Foreign)
-        .unwrap_or(ArrSource::Native);
+    // The first non-`Op` grade var is a *named* dimension (ADR-0120
+    // Phase 3): it rides in the `dim` slot, not `ArrSource::Foreign` —
+    // `Foreign` is the host-function boundary, not a dimension.
+    let dim = first_non_op_grade(ast, lang, grade_idx)
+        .map(Term::named_dim)
+        .unwrap_or_else(|| Term::constant(Value::from(1)));
     Ok(Term::Op {
-        dim: Term::default_dim(),
+        dim: Box::new(dim),
         name: name.to_string(),
         args: vec![],
-        source,
+        source: ArrSource::Native,
         lit: None,
     })
 }
@@ -1233,7 +1268,10 @@ fn lower_dim_arrow(
         .ok_or_else(|| format!("dim_arrow at {} missing target child", node_index(node)))?;
 
     let source = lower_node(ast, lang, source_idx, env, params)?;
-    let dim = lower_node(ast, lang, dim_idx, env, params)?;
+    // The `dim` child is a dimension term (ADR-0120 Phase 3): a `var`
+    // is a *named* dimension label (`Const "S"`), matching how
+    // `eval.dim_arrow` evaluates a var child to its name string.
+    let dim = lower_dim_term(ast, lang, dim_idx, env, params)?;
     let target = lower_node(ast, lang, target_idx, env, params)?;
 
     let tag = Term::Arr {
