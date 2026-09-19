@@ -1,8 +1,16 @@
 //! Roundtrip tests for the Hughes arrow emitter.
 //!
 //! These tests lower the canonical `playground/*.hnl` files to `Term`, emit
-//! them back to a Hughes-style source string, then parse that string with
-//! the arrow parser and compare the resulting `Term` to the original.
+//! them back to a handl-hughes source string, then parse *that* string with
+//! the canonical parser and lower it again — the emitted text must produce
+//! the original `Term`.
+//!
+//! The handl-hughes dialect *is* canonical handl surface syntax (ADR-0079
+//! unified the arrow DSL onto the canonical language): `~>` lambdas,
+//! `>>>`/`***`/`&&&` combinators, `arr <op>`, `{k: v}` objects and `expr.i`
+//! field access. The parse side therefore goes through the same canonical
+//! `lex`/`PrattEngine`/`lower_ast` pipeline the `.hnl` files do, so both
+//! sides share one lowering contract.
 
 use std::path::{Path, PathBuf};
 
@@ -13,7 +21,6 @@ use handl_plugin_compile_handl::HughesEmitter;
 use handl_plugin_engine_lex_pattern::lex;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_plugin_ext_refinement::{ParsedFile, parse_arrow_file};
 
 fn canonical_lang() -> Language {
     language_from_yaml().expect("canonical language should assemble")
@@ -26,11 +33,15 @@ fn parse_canonical(src: &str, lang: &Language) -> Ast {
     engine.parse(lang, &req).expect("canonical parse")
 }
 
+fn lower_src(src: &str, lang: &Language) -> Term {
+    let ast = parse_canonical(src, lang);
+    let root = AstRef::new(ast.len() - 1);
+    lower_ast(&ast, lang, root).expect("lower to term")
+}
+
 fn lower_file(path: &Path, lang: &Language) -> (Term, String) {
     let src = std::fs::read_to_string(path).expect("read playground file");
-    let ast = parse_canonical(&src, lang);
-    let root = AstRef::new(ast.len() - 1);
-    let term = lower_ast(&ast, lang, root).expect("lower to term");
+    let term = lower_src(&src, lang);
     let emitted = HughesEmitter::default().emit(&term);
     (term, emitted)
 }
@@ -41,40 +52,22 @@ fn playground(name: &str) -> PathBuf {
         .join(name)
 }
 
-#[test]
-fn roundtrip_composition_hughes() {
+fn assert_roundtrip(name: &str) {
     let lang = canonical_lang();
-    let (original, emitted) = lower_file(&playground("composition-hughes.hnl"), &lang);
+    let (original, emitted) = lower_file(&playground(name), &lang);
     eprintln!("emitted:\n{}", emitted);
     eprintln!("original: {:?}", original);
-    match parse_arrow_file(&emitted) {
-        Ok(parsed) => {
-            eprintln!("parsed: {:?}", parsed);
-            if let ParsedFile::Single(parsed_term) = parsed {
-                assert_eq!(parsed_term, original);
-            } else {
-                panic!("expected a single expression, got named arrows");
-            }
-        }
-        Err(e) => panic!("parse_arrow_file failed: {}", e),
-    }
+    let parsed = lower_src(&emitted, &lang);
+    eprintln!("parsed: {:?}", parsed);
+    assert_eq!(parsed, original);
+}
+
+#[test]
+fn roundtrip_composition_hughes() {
+    assert_roundtrip("composition-hughes.hnl");
 }
 
 #[test]
 fn roundtrip_composition_emidio() {
-    let lang = canonical_lang();
-    let (original, emitted) = lower_file(&playground("composition-emidio.hnl"), &lang);
-    eprintln!("emitted:\n{}", emitted);
-    eprintln!("original: {:?}", original);
-    match parse_arrow_file(&emitted) {
-        Ok(parsed) => {
-            eprintln!("parsed: {:?}", parsed);
-            if let ParsedFile::Single(parsed_term) = parsed {
-                assert_eq!(parsed_term, original);
-            } else {
-                panic!("expected a single expression, got named arrows");
-            }
-        }
-        Err(e) => panic!("parse_arrow_file failed: {}", e),
-    }
+    assert_roundtrip("composition-emidio.hnl");
 }

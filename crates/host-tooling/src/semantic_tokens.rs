@@ -127,23 +127,37 @@ pub trait ContextClassifier {
 /// and [`ContextClassifier`] (context-aware, used by [`BasicSemanticTokens`]).
 pub struct CanonicalTokenClassifier {
     classes: TokenClasses,
+    /// Names of ambient globals whose value is a Bool (`lang.globals`,
+    /// data/globals.yaml) — e.g. `true`/`false`. These lex as ordinary
+    /// identifiers but classify as `constant` for highlighting, resolved
+    /// from language data rather than hardcoded spellings.
+    bool_globals: std::collections::HashSet<String>,
 }
 
 impl CanonicalTokenClassifier {
     /// Build a classifier over the given token classification tables.
     pub fn new(classes: TokenClasses) -> Self {
-        Self { classes }
+        Self {
+            classes,
+            bool_globals: std::collections::HashSet::new(),
+        }
     }
 
     /// Build a classifier from a [`handl_language::Language`]'s token data.
     pub fn for_language(lang: &handl_language::Language) -> Self {
-        Self::new(TokenClasses::new(lang))
+        let mut classifier = Self::new(TokenClasses::new(lang));
+        for (name, value) in &lang.globals {
+            if value.is_boolean() {
+                classifier.bool_globals.insert(name.clone());
+            }
+        }
+        classifier
     }
 
     /// Build a classifier for the compiled-in canonical kit's language.
     pub fn canonical() -> Self {
         let kit = Kit::new().expect("canonical kit should assemble");
-        Self::new(TokenClasses::new(kit.language()))
+        Self::for_language(kit.language())
     }
 
     /// Context-unaware classification based solely on the token kind's
@@ -232,6 +246,13 @@ impl ContextClassifier for CanonicalTokenClassifier {
             }
             // Otherwise it's a property access.
             let ty = legend.token_type_index("property")?;
+            return Some((ty, 0));
+        }
+
+        // Bool globals (`true`/`false` from `lang.globals`) — imported
+        // constants, highlighted as such rather than as plain variables.
+        if self.bool_globals.contains(ident) {
+            let ty = legend.token_type_index("constant")?;
             return Some((ty, 0));
         }
 

@@ -30,7 +30,7 @@ pub fn matches_condition(
             }
         }
         TransformCondition::PayloadEq { path, value } => payload_at(&node.payload, path)
-            .map(|v| v == value)
+            .map(|v| payload_eq(lang, node, v, value))
             .unwrap_or(false),
         TransformCondition::ChildPayloadEq {
             index,
@@ -40,8 +40,9 @@ pub fn matches_condition(
         } => match resolve_child_index(lang, node, *index, role.as_deref()) {
             Some(old_idx) => ast
                 .get(AstRef::new(old_idx))
-                .and_then(|child| payload_at(&child.payload, path))
-                .map(|v| v == value)
+                .and_then(|child| {
+                    payload_at(&child.payload, path).map(|v| payload_eq(lang, child, v, value))
+                })
                 .unwrap_or(false),
             None => false,
         },
@@ -84,6 +85,40 @@ fn resolve_child_index(
         .and_then(|arr| arr.get(pos))
         .and_then(|v| v.as_u64())
         .map(|v| v as usize)
+}
+
+/// Payload equality for the `*PayloadEq` conditions.
+///
+/// Direct JSON equality, plus one data-driven extension: when the tested
+/// node is a *name leaf* (its [`AstShapeDef`] declares `pattern_role:
+/// "leaf"` — e.g. canonical `var`) and the payload under test is a string
+/// naming an ambient global in [`Language::globals`], the name compares
+/// equal to the global's bound value. Constants spelled as references —
+/// the imported Bool globals `true`/`false`, which lex as `var` nodes
+/// rather than `value` literals — therefore satisfy `value: true` /
+/// `value: false` guards without the condition vocabulary hardcoding
+/// global spellings.
+fn payload_eq(
+    lang: &Language,
+    node: &AstNode,
+    v: &serde_json::Value,
+    value: &serde_json::Value,
+) -> bool {
+    if v == value {
+        return true;
+    }
+    let is_name_leaf = lang
+        .ast
+        .get_by_identity(&node.kind)
+        .and_then(|shape| shape.pattern_role.as_deref())
+        == Some("leaf");
+    if !is_name_leaf {
+        return false;
+    }
+    v.as_str()
+        .and_then(|name| lang.globals.get(name))
+        .map(|global| global == value)
+        .unwrap_or(false)
 }
 
 /// Navigate a dotted `path` (`.`-separated object keys; numeric segments

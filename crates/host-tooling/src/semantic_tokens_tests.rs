@@ -80,10 +80,16 @@ fn classifier_maps_keyword_to_keyword_type() {
 
 #[test]
 fn classifier_maps_bool_to_constant_type() {
+    // `true`/`false` are no longer lexer literals (`token.bool` was
+    // removed): they are ordinary identifiers bound to Bool globals in
+    // `lang.globals` (data/globals.yaml). The context-aware classifier
+    // resolves those global names to `constant`.
     let legend = SemanticTokenLegend::default();
-    let classifier = CanonicalTokenClassifier::canonical();
-    let (ty, _mods) = classifier.classify("token.bool", &legend).unwrap();
-    assert_eq!(ty, legend.token_type_index("constant").unwrap());
+    let constant = legend.token_type_index("constant").unwrap();
+    let (ty, _mods) = classify_first_identifier("true");
+    assert_eq!(ty, constant);
+    let (ty, _mods) = classify_first_identifier("false");
+    assert_eq!(ty, constant);
 }
 
 #[test]

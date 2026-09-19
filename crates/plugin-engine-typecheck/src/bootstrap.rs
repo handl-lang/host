@@ -912,7 +912,10 @@ fn check_pass(
     let (bindings, imports, exports, data_ctors) = collect_decls(lang, stmts, diags, src);
 
     // Build the module-level scope: all binding names + all import names +
-    // all `data` constructor names + the host-supplied prelude wires.
+    // all `data` constructor names + the host-supplied prelude wires + the
+    // ambient globals the language declares (`lang.globals`, e.g. the
+    // imported Bool globals `true`/`false` — seeded into every runtime
+    // scope, so the checker must treat them as bound too).
     let binding_names: HashSet<String> = bindings.iter().map(|b| b.name.clone()).collect();
     let import_names: HashSet<String> = imports.iter().map(|i| i.name.clone()).collect();
     let module_scope: HashSet<String> = binding_names
@@ -921,6 +924,7 @@ fn check_pass(
         .chain(import_names.iter().cloned())
         .chain(data_ctors.iter().cloned())
         .chain(prelude.iter().cloned())
+        .chain(lang.globals.keys().cloned())
         .collect();
 
     // Phase 2a: every exported name must be bound.

@@ -151,9 +151,20 @@ impl ParallelEngine {
         let mut child_remap = vec![None; ast.len()];
         let mut trace = RewriteTrace::new();
         let mut stats = PassStats::new();
+        // Each subtree pass minted `__fresh_<hint>_<n>` names from its own
+        // counter starting at 0, so names collide across partitions. The
+        // merge walks subtrees in source order — the same order the
+        // sequential walker visits them — and renumbers each subtree's
+        // names by the running total. Because a subtree's local suffixes
+        // are dense (`0..m`) and minted in the same relative order as the
+        // sequential pass, `base + n` reproduces sequential numbering
+        // exactly: unique across partitions and identical to
+        // `RewriteEngine`'s output.
+        let mut fresh_base = 0usize;
 
         for group in groups {
             for (old_idx, mut sub_out, new_to_old) in group {
+                fresh_base += renumber_fresh_names(&mut sub_out.ast, fresh_base);
                 let base = out.len();
                 offset_ast(&mut sub_out.ast, base, lang);
                 for node in sub_out.ast.iter() {
@@ -180,9 +191,9 @@ impl ParallelEngine {
             }
         }
 
-        let mut root_out = self
-            .inner
-            .run_pass_root(lang, ast, root, pass, out, child_remap)?;
+        let mut root_out =
+            self.inner
+                .run_pass_root(lang, ast, root, pass, out, child_remap, fresh_base)?;
 
         root_out.trace.rewrites.extend(trace.rewrites);
         root_out.stats.visited += stats.visited;
@@ -348,6 +359,44 @@ fn subtree_into(
     new_to_old.push(idx);
     old_to_new.insert(idx, new_idx);
     Ok(new_idx)
+}
+
+/// Renumber every `__fresh_<hint>_<n>` name minted inside `ast` by adding
+/// `base` to its numeric suffix, and return the number of names minted in
+/// this arena (`max suffix + 1`, or 0 when none were minted).
+///
+/// [`RewriteStep::Fresh`](handl_language::RewriteStep) minting pushes a
+/// `var` node whose payload is the bare `__fresh_<hint>_<n>` string; the
+/// suffix counter is dense within a single subtree pass, so `base + n`
+/// maps local names onto the sequential pass's global numbering.
+fn renumber_fresh_names(ast: &mut Ast, base: usize) -> usize {
+    let mut max_id: Option<usize> = None;
+    for i in 0..ast.len() {
+        let Some(node) = ast.get_mut(AstRef::new(i)) else {
+            continue;
+        };
+        let Some(name) = node.payload.as_str().map(str::to_string) else {
+            continue;
+        };
+        if !name.starts_with("__fresh_") {
+            continue;
+        }
+        // The suffix after the last `_` must be the numeric mint id —
+        // `__fresh_<hint>_<n>` where `hint` may itself contain `_`s.
+        let Some(sep) = name.rfind('_') else {
+            continue;
+        };
+        if sep < "__fresh_".len() {
+            continue;
+        }
+        let Ok(n) = name[sep + 1..].parse::<usize>() else {
+            continue;
+        };
+        let renamed = format!("{}{}", &name[..=sep], base + n);
+        node.payload = Value::from(renamed);
+        max_id = Some(max_id.map_or(n, |m| m.max(n)));
+    }
+    max_id.map_or(0, |m| m + 1)
 }
 
 /// Add `by` to every arena-index reference in `ast`.

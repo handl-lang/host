@@ -453,6 +453,9 @@ impl RewriteEngine {
     /// `child_remap` must map the old child indices referenced by `root`
     /// (in `ast`) to the new indices already present in `out`. The new root
     /// node — and any nodes created by the root rule — are appended to `out`.
+    /// `fresh_base` seeds the pass's [`RewriteStep::Fresh`] counter so a
+    /// root-level rewrite mints `__fresh_*` names after every name the
+    /// already-rewritten children minted (matching sequential numbering).
     ///
     /// This is the sequential tail used by the parallel engine: children are
     /// rewritten in parallel, then the root is processed once.
@@ -464,6 +467,7 @@ impl RewriteEngine {
         pass: &str,
         mut out: Ast,
         child_remap: Vec<Option<usize>>,
+        fresh_base: usize,
     ) -> Result<TransformOutput, LangError> {
         let started = Instant::now();
         if child_remap.len() < ast.len() {
@@ -483,6 +487,7 @@ impl RewriteEngine {
             None,
         );
         run.set_remap(child_remap);
+        run.fresh_id = fresh_base;
         let node = ast.at(root)?;
         run.process(root.index(), node, &mut out)?;
         run.stats.duration = started.elapsed();

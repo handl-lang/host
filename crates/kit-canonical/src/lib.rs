@@ -2277,8 +2277,15 @@ impl Kit {
         let mut pos: usize = 0;
         let mut result = Vec::with_capacity(tokens.as_slice().len());
         for token in tokens.as_slice() {
-            // Skip whitespace between tokens.
+            // Skip whitespace between tokens — but never past the start of
+            // the token's own text. Layout tokens (e.g. `token.newline`)
+            // are themselves whitespace: skipping whitespace blindly would
+            // consume the newline and the next line's indentation, shifting
+            // every subsequent token's span out of sync with the source.
             while pos < source.len() {
+                if source[pos..].starts_with(token.text.as_str()) {
+                    break;
+                }
                 let ch = match source[pos..].chars().next() {
                     Some(c) => c,
                     None => break,

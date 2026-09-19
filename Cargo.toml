@@ -30,7 +30,6 @@ members = [
   "crates/plugin-lib-compress-gzip",
   "crates/plugin-lib-concurrent",
   "crates/plugin-lib-crypto",
-  "crates/plugin-lib-datetime",
   "crates/plugin-lib-encoding",
   "crates/plugin-lib-handl",
 
@@ -180,7 +179,6 @@ handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
 handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
 handl-plugin-lib-concurrent = { path = "crates/plugin-lib-concurrent" }
 handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
-handl-plugin-lib-datetime = { path = "crates/plugin-lib-datetime" }
 handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }

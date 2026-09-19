@@ -80,7 +80,7 @@ Status: **done**
   - Populate `node_types` in `NbeTypecheckEngine::typecheck` (line 3939).
 - Update the existing `TypecheckResult` constructors in test stubs:
   `crates/handl-runtime/src/lib.rs` (lines 1496 and 2229) and
-  `.ref-crates/plugin-lib-lang-typecheck/src/tests.rs` (line 68).
+  `crates/plugin-lib-lang-typecheck/src/tests.rs` (line 71).
 - Add a test in `crates/plugin-engine-typecheck-nbe/src/tests.rs` that
   typechecks a small expression and asserts `result.node_types` contains
   entries for the root and at least one child.
@@ -91,7 +91,7 @@ Files expected to change:
 - `crates/plugin-engine-typecheck-nbe/src/lib.rs`
 - `crates/plugin-engine-typecheck-nbe/src/tests.rs`
 - `crates/handl-runtime/src/lib.rs` (test stubs)
-- `.ref-crates/plugin-lib-lang-typecheck/src/tests.rs`
+- `crates/plugin-lib-lang-typecheck/src/tests.rs`
 
 Verification:
 
@@ -109,7 +109,7 @@ Result (completed):
   synthesized `ty` on the synth-then-unify branch.
 - `NbeTypecheckEngine::typecheck` returns `node_types: ctx.node_types`.
 - Stub constructors updated: `crates/handl-runtime/src/lib.rs` (two sites)
-  and `.ref-crates/plugin-lib-lang-typecheck/src/tests.rs` — all use
+  and `crates/plugin-lib-lang-typecheck/src/tests.rs` — all use
   `node_types: Default::default()`.
 - New test `node_types_populated_after_typecheck` in
   `crates/plugin-engine-typecheck-nbe/src/tests.rs`: a `wrap{children:[0]}`

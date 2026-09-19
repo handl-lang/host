@@ -265,6 +265,17 @@ pub fn grammar_rules_from_language(lang: &Language) -> Vec<GrammarRule> {
 
     // --- Grouped rules (multiple literals collapsed into one pattern) ---
 
+    // Booleans are no longer lexer literals: `true`/`false` are ambient
+    // globals seeded from `lang.globals` (data/globals.yaml). Collect the
+    // names of every Bool-valued global so they still highlight as
+    // `constant.language.boolean` — resolved from language data, never
+    // hardcoded spellings.
+    for (name, value) in &lang.globals {
+        if value.is_boolean() {
+            bool_texts.push(regex_escape(name));
+        }
+    }
+
     if !bool_texts.is_empty() {
         bool_texts.sort();
         bool_texts.dedup();

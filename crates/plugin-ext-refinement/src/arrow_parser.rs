@@ -1321,9 +1321,12 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Term, Stri
         .expect("materialize_node: var App TermData -> Term failed"));
     }
 
-    // `value` — literal (number, string, etc.). Produces a constant `Arr`.
+    // `value` — literal (number, string, etc.). Produces a constant `Arr`
+    // (`Arr { dim: 1, value }` — the same shape `Term::const_value` and
+    // `lower_ast` produce; `TermData::const_value` is the distinct `Const`
+    // tag and would not round-trip).
     if kind == "value" {
-        return Ok(TermData::const_value(node.payload.clone())
+        return Ok(TermData::arr(node.payload.clone())
             .to_term()
             .expect("materialize_node: value TermData -> Term failed"));
     }
@@ -1632,12 +1635,28 @@ fn walk_scheme_td(
                     Ok(TermData::op(name, materialized_args, &source, None))
                 }
                 "$payload" => {
-                    // The op name is the current node's payload string (bare identifier).
+                    // The op name is read from the current node's payload —
+                    // a bare string payload, or the `name`/`op` field of an
+                    // object payload (e.g. `arr op` captures the identifier
+                    // via `payload_tokens` into `payload.name`). Mirrors the
+                    // exec engines' `$payload` resolution.
                     let name = node
                         .payload
                         .as_str()
-                        .ok_or("$payload: node payload is not a string")?
-                        .to_string();
+                        .map(str::to_string)
+                        .or_else(|| {
+                            node.payload
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .map(str::to_string)
+                        })
+                        .or_else(|| {
+                            node.payload
+                                .get("op")
+                                .and_then(|v| v.as_str())
+                                .map(str::to_string)
+                        })
+                        .ok_or("$payload: node payload is not a string")?;
                     let materialized_args =
                         walk_args_td(&td.get_term_list("args"), ast, node, lang)?;
                     let source = td.arr_source().unwrap_or(ArrSource::Native);
@@ -1670,10 +1689,19 @@ fn walk_scheme_td(
             let snd = td.get_term("snd").ok_or("Seq: missing snd")?;
             // The axis slot is an ordinary subterm (ADR-0120 Phase 2): a
             // `proj_child` in axis position materializes the axis
-            // expression, exactly like the operand positions.
+            // expression, exactly like the operand positions — except the
+            // slot holds a *dimension term*, not an arrow, so a literal
+            // axis (`>>>[0]`) normalizes `Arr { value }` to `Const { value }`
+            // to match the default `Const 0` axis of `>>>`.
             let axis = td.axis();
+            let mut axis_td = walk_scheme_td(&axis, ast, node, lang)?;
+            if axis_td.tag() == "Arr" {
+                if let Some(v) = axis_td.get("value").cloned() {
+                    axis_td = TermData::const_value(v);
+                }
+            }
             Ok(TermData::seq_axis(
-                walk_scheme_td(&axis, ast, node, lang)?,
+                axis_td,
                 walk_scheme_td(&fst, ast, node, lang)?,
                 walk_scheme_td(&snd, ast, node, lang)?,
             ))
