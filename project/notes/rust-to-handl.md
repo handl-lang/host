@@ -17,15 +17,16 @@ atoms — is handl.
 | `fn f(x: T) -> U`   | `export f: T ~> U := (x) ~> expr`                                                                 | `export now_ms: NowMs := () ~> do { ... }`  |
 | `struct`            | record type                                                                                       | `Timespec := { tv_sec: Int, tv_nsec: Int }` |
 | `enum` (ADTs)       | `tag.tag("Name", payload)` + `tag.tag_of`/`untag`/`match_type`; prefer `option`/`result` packages | `tag.tag("Some", { value: v })`             |
-| `Option<T>`         | `option` pkg: `option.some(v)` / `option.none()`                                                  | `option.test.hnl`                           |
-| `Result<T,E>` / `?` | `result` pkg: `result.ok`/`err`; or `error.raise(v)` for aborts                                   | `{__tag__:"ok", value: v}`                  |
+| `Option<T>`         | `from "option" import { some, none }` — a handl pkg, must be imported                             | `option.test.hnl`                           |
+| `Result<T,E>` / `?` | `from "result" import { ok, err }` — handl pkg, imported; `error.raise(v)` for aborts             | `{__tag__:"ok", value: v}`                  |
 | catch `Err`         | `error.try(f)` → `{__tag__:"ok"\|"err", value}`                                                   | `error.try(() ~> ffi.call(...))`            |
 | `match`             | `match x { pat: expr, _: default }` — literals, binders, `[]`/`[h,...t]`, `{field: b}`            | `examples/handl/match.hnl`                  |
 | `if/else` stmt      | expression `if c { a } else { b }`                                                                | —                                           |
-| `for`/iterators     | `while {state} {step}` — step returns `{state: v}` (continue) or `return v`/`{out: v}` (done)     | `examples/handl/fibonacci.hnl`              |
+| `for`/iterators     | `for x in xs { body }` — imperative iteration; `:=` in body writes back to enclosing scope        | `datetime/helpers.hnl`                      |
 | `map`/`fold`/…      | `fn.map`, `fn.fold`, `collection.*`, or combinator graph                                          | `unicode-handl.hnl`                         |
-| recursion           | `while` (preferred) or self-application `(self ~> self(self, x))`                                 | `examples/handl/destructure.hnl`            |
-| `mut` / `&mut`      | explicit state record threaded through `while`/`rec`; no aliasing                                 | `{ xs: xs, acc: acc }`                      |
+| `while` loop        | `while {state} {step}` — step returns `{state: v}` (continue) or `return v`/`{out: v}` (done)     | `examples/handl/fibonacci.hnl`              |
+| recursion           | `while`/`for` (preferred) or self-application `(self ~> self(self, x))`                           | `examples/handl/destructure.hnl`            |
+| `mut` / `&mut`      | `:=` writeback in `for` bodies; state record threaded through `while`/`rec`; no aliasing          | `{ xs: xs, acc: acc }`                      |
 | `panic!`/`unwrap`   | `error.raise(v)` — never returns                                                                  | `collections/vec.hnl` `pop`                 |
 | trait + impls       | contract pkg (`axiom`/`op`/`guarantee:`) + backend pkg per impl                                   | `unicode` → `unicode-handl`                 |
 | module/`impl` block | `do { helpers := ...; { exported: fields } }` — module-as-record                                  | `unicode-handl.hnl`                         |
@@ -37,18 +38,22 @@ atoms — is handl.
 
 ```hnl
 export f: T ~> U := (x) ~> expr   -- top-level, typed
-x := expr                         -- definition; binding (inside do)
-                                  -- in expression position: equality (==)
+x := expr                         -- definition / binding (top level, do, for-body)
+a == b                            -- equality
 do { a := f(); b := g(a); a + b } -- sequential block; last expr is value
-while { n: 5, acc: 1 } {          -- loop: init state record, step arrow
+for x in xs { acc := f(acc, x) }  -- iterate; := writes back to enclosing
+                                  -- scope; the for expression itself is []
+while { n: 5, acc: 1 } {          -- stateful loop: init record, step arrow
   [n, acc] ~> if n == 0
     return acc
   else { { state: { n: n-1, acc: acc*n } } }
 }
 arr("list.tail") >>> first(id)    -- combinator style (calculus vocabulary)
 rec { ... }                       -- fixpoint region (state machines)
-from "m" import { a, b }          -- named
+from "m" import { a, b }          -- named (handl packages need this)
 from "m" import * as m            -- namespace → m.f(...)
+mod.f(...)                        -- host-module fallback (tag, error, str, …);
+                                  -- importing `* as mod` is the explicit style
 handle arr f with Mod             -- capability injection (see time-c)
 ```
 
@@ -83,8 +88,9 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
    `nfc_icu4x`; `graphemes`, never `graphemes_utf16`.
 4. **Effects are visible** — FFI arrows carry `~[1]~>`/`FFI` grade; pure
    ones don't.
-5. **Prefer `while` state records over self-application recursion** — the
-   corpus pattern; reads as the loop's invariant.
+5. **`for` for iteration, `while` for stateful loops** — `for x in xs` when
+   you're walking a list; `while {state} {step}` when the loop is a state
+   machine or terminates on a condition. Avoid self-application recursion.
 6. **Docs are `---` + `@details`/`@param`/`@returns`/`@example`**
 7. **Marshal at the edge.** Convert `Bytes`/handles/`{ret,buf,outs}` into
    semantic handl types inside the backend — never leak C shapes upward.
@@ -93,7 +99,7 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
 
 - [ ] contract package exists or is written (types + laws)
 - [ ] backend package `name-c`/`name-handl` exports the contract record
-- [ ] `docs.yaml` + `---` headers
+- [ ] `---` headers + `@details`/`@param`/`@returns`/`@example`
 - [ ] `*.test.hnl` covering each export; gate FFI-dependent tests on
       probe results (`error.try` around `ffi.call`)
 - [ ] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` green
