@@ -7,7 +7,6 @@ use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_backend_webidl::{MdnDocSource, WebIdlBackend, WebIdlConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
@@ -274,7 +273,6 @@ struct PythonSpec {
     env_get_lib: String,
     env_var: String,
     functions: Vec<PythonFunction>,
-    docs: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -307,7 +305,6 @@ impl PythonSpec {
             env_get_lib: "libc.so.6".to_string(),
             env_var: "HANDL_PY_OUT".to_string(),
             functions: Vec::new(),
-            docs: None,
         }
     }
 }
@@ -359,13 +356,6 @@ fn generate_python(spec_path: &Path, output: &Path) -> Result<(), String> {
     let hnl = build_python_hnl(&spec);
     std::fs::write(&hnl_path, hnl)
         .map_err(|e| format!("failed to write {}: {e}", hnl_path.display()))?;
-
-    if let Some(docs) = &spec.docs {
-        let docs_path = pkg_dir.join("docs.yaml");
-        let docs_yaml = build_docs_yaml(docs);
-        std::fs::write(&docs_path, docs_yaml)
-            .map_err(|e| format!("failed to write {}: {e}", docs_path.display()))?;
-    }
 
     Ok(())
 }
@@ -472,13 +462,4 @@ fn build_code_assignment(script: &str, args: &[PythonArg]) -> String {
 
 fn escape_hnl_string(s: &str) -> String {
     s.replace('\\', "\\\\").replace('\"', "\\\"")
-}
-
-fn build_docs_yaml(docs: &HashMap<String, String>) -> String {
-    let mut out = String::new();
-    out.push_str("---\n");
-    for (k, v) in docs {
-        out.push_str(&format!("{}: {}\n", k, v));
-    }
-    out
 }
