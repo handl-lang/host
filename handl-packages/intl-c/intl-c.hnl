@@ -20,6 +20,7 @@
 
 from "result" import { ok, err }
 from "bytes" import * as bytes
+from "intl" import { CompareStrings, FormatNumber }
 
 -- ffi result probing ---------------------------------------------------------
 
@@ -212,7 +213,7 @@ export icu_version := icu_ver
 
 --- Compare two strings under `locale` collation (null = ICU default).
 --- @returns {Result<Number, String>} — `ok -1 | 0 | 1`, or `err msg`.
-export compare_strings := (a, b, locale) ~[1]~> if avail {
+export compare_strings: CompareStrings := (a, b, locale) ~[1]~> if avail {
   cmp_open(a, b, locale)
 } else {
   err("icu-unavailable")
@@ -220,7 +221,7 @@ export compare_strings := (a, b, locale) ~[1]~> if avail {
 
 --- Format `n` as a decimal string under `locale` (null = ICU default).
 --- @returns {Result<String, String>} — `ok "1,234.5"`, or `err msg`.
-export format_number := (n, locale) ~[1]~> if avail {
+export format_number: FormatNumber := (n, locale) ~[1]~> if avail {
   fmt_open(n, locale)
 } else {
   err("icu-unavailable")
