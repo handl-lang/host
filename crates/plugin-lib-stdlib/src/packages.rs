@@ -515,6 +515,18 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: Some(ops::tar::tar_op_registry),
     },
+    // ── intl_c — the `intl` contract implemented over the system ICU4C ─
+    // library via `ffi` (`ucol_*`/`unum_*`, UTF-16 marshalling, UErrorCode
+    // readbacks). Pure-handl module; `available`/`icu_version` report probe
+    // results so callers can gate on host ICU presence.
+    ModuleSpec {
+        name: "intl_c",
+        hnl: include_str!("../../../handl-packages/intl-c/intl-c.hnl"),
+        funcs: &["compare_strings", "format_number"],
+        ops: &[],
+        values: &["available", "icu_version"],
+        registry: None,
+    },
 ];
 
 /// The modules contributed by the `utils` aggregate package (matches the
@@ -684,6 +696,17 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.datetime",
         plugin_name: "lib-datetime",
         hnl: include_str!("../../../handl-packages/datetime/datetime.hnl"),
+        modules: &[],
+    },
+    // ── intl_c — `intl` contract backend over system ICU4C via `ffi` ────
+    // The package's capability surface is the `intl` contract itself; the
+    // `intl_c` module is the implementation. Mirrors the `archive`/`tar`
+    // contract/impl split.
+    PackageSpec {
+        lib_name: "intl_c",
+        plugin_id: "lib.intl-c",
+        plugin_name: "lib-intl-c",
+        hnl: include_str!("../../../handl-packages/intl/intl.hnl"),
         modules: &[],
     },
 ];

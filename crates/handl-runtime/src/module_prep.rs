@@ -56,16 +56,34 @@ fn strip_declaration_lines(src: &str) -> String {
 /// object literal.  Type-only `export Name: Type` declarations are given the
 /// value `null` so that type expressions are not evaluated at runtime.
 fn transform_export_to_object(src: &str) -> String {
+    // Each top-level binding is collected as `(name, expr_lines)`.
+    // Non-private entries become object fields (`{ name: expr }`); private
+    // entries become `do`-block assignments (`name := expr;`) emitted *before*
+    // the object so exported closures can reference private helpers.
     let mut entries: Vec<(String, Vec<String>)> = Vec::new();
+    let mut privates: Vec<(String, Vec<String>)> = Vec::new();
     let mut current: Option<(String, Vec<String>)> = None;
+    let mut current_is_private: bool = false;
+
+    // Finalize `current` into the right collection.
+    macro_rules! finalize {
+        () => {
+            if let Some(entry) = current.take() {
+                if current_is_private {
+                    privates.push(entry);
+                } else {
+                    entries.push(entry);
+                }
+                current_is_private = false;
+            }
+        };
+    }
 
     for line in src.lines() {
         let trimmed = line.trim_start();
         if is_top_import_line(line) {
+            finalize!();
             if let Some((_, names)) = from_export_to_import(line) {
-                if let Some(entry) = current.take() {
-                    entries.push(entry);
-                }
                 for (name, alias) in names {
                     entries.push((name, vec![alias]));
                 }
@@ -73,9 +91,7 @@ fn transform_export_to_object(src: &str) -> String {
             continue;
         }
         if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
-            if let Some(entry) = current.take() {
-                entries.push(entry);
-            }
+            finalize!();
             let rest = &trimmed["export ".len()..];
             if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
@@ -90,43 +106,91 @@ fn transform_export_to_object(src: &str) -> String {
                     expr_lines.push(expr_start.to_string());
                 }
                 current = Some((name, expr_lines));
-                continue;
+                current_is_private = false;
             }
-        } else if let Some((_, ref mut lines)) = current {
+            continue;
+        } else if !line.starts_with(' ') && !line.starts_with('\t') {
+            // Column-0 line that is not an import or `export` declaration.
+            // Detect a *private* (non-exported) top-level binding so that
+            // helper functions are preserved instead of dropped.
+            if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                if is_valid_ident(&name) {
+                    finalize!();
+                    let is_type_only =
+                        sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
+                    let expr_start = if is_type_only {
+                        "null"
+                    } else {
+                        trimmed[sep_pos + sep_len..].trim()
+                    };
+                    let mut expr_lines = Vec::new();
+                    if !expr_start.is_empty() {
+                        expr_lines.push(expr_start.to_string());
+                    }
+                    current = Some((name, expr_lines));
+                    current_is_private = true;
+                    continue;
+                }
+            }
+        }
+        if let Some((_, lines)) = &mut current {
             if !line.trim().is_empty() {
                 lines.push(line.to_string());
             }
         }
     }
-    if let Some(entry) = current.take() {
-        entries.push(entry);
-    }
+    finalize!();
 
     let imports = collect_import_lines(src);
 
-    let body = if entries.is_empty() {
+    // If there are no exports at all, preserve the original `drop_import_lines`
+    // behavior so that scripts/test files (which define private bindings but
+    // no exports) are unchanged.
+    if entries.is_empty() {
         if imports.is_empty() {
             return src.to_string();
         }
-        drop_import_lines(src)
-    } else {
-        let mut out = String::from("{ ");
-        for (i, (name, expr_lines)) in entries.iter().enumerate() {
-            if i > 0 {
-                out.push_str(", ");
-            }
-            out.push_str(name);
-            out.push_str(": ");
-            out.push_str(expr_lines.join("\n").trim());
+        return drop_import_lines(src);
+    }
+
+    // Build the body: private bindings as do-block assignments, then the
+    // export object literal.
+    let mut body = String::new();
+    for (name, expr_lines) in &privates {
+        let expr = expr_lines.join("\n");
+        let expr = expr.trim();
+        body.push_str(name);
+        body.push_str(" := ");
+        body.push_str(expr);
+        body.push_str(";\n");
+    }
+    body.push_str("{ ");
+    for (i, (name, expr_lines)) in entries.iter().enumerate() {
+        if i > 0 {
+            body.push_str(", ");
         }
-        out.push_str(" }");
-        out
-    };
+        body.push_str(name);
+        body.push_str(": ");
+        body.push_str(expr_lines.join("\n").trim());
+    }
+    body.push_str(" }");
 
     if imports.is_empty() {
         body
     } else {
         format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
+    }
+}
+
+/// True when `s` is a plausible Handl identifier: starts with an
+/// alphabetic character or underscore, followed by zero or more
+/// alphanumeric characters or underscores.
+fn is_valid_ident(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_alphabetic() || c == '_' => chars.all(|c| c.is_alphanumeric() || c == '_'),
+        _ => false,
     }
 }
 

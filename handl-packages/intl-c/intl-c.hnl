@@ -1,0 +1,227 @@
+--- intl-c -- `intl` contract backend over the system ICU4C library.
+---
+--- Implements the `intl.*` surface declared in `handl-packages/intl/intl.hnl`
+--- on the host's `libicui18n`/`libicuuc` via `ffi`:
+---
+--- - sonames probed bare, then `.<major>` 99..50 via `ffi.load`;
+--- - the ICU symbol-version suffix (`ucol_open_78`) is discovered by probing
+---   `u_getVersion_N` via `ffi.sym`;
+--- - strings marshal as little-endian UTF-16 (`UChar`) through `in_ptr` /
+---   `out_ptr` byte buffers;
+--- - `UErrorCode*` out-params ride `io_scalar:i32` readbacks.
+---
+--- Every public arrow returns `ok v` / `err msg`: expected backend failures
+--- (missing ICU, failing status codes, bad locales) are values, never raises.
+
+-- `ffi`, `char`, `type`, `tag` are not package-table modules: they resolve
+-- through the host module chain, so their members are reached by qualified
+-- call (`ffi.call`, `char.chars`, ...) with no import line — the same way
+-- `compress-gzip-c` reaches `tag.*`/`error.*`.
+
+from "result" import { ok, err }
+from "bytes" import * as bytes
+
+-- ffi result probing ---------------------------------------------------------
+
+-- `ffi.load`/`ffi.sym` return `{__tag__: "ok"}` / `{__tag__: "err", ...}`.
+is_ok := (r) ~> if r == null { false } else { r.__tag__ == "ok" }
+
+try_load := (name) ~[1]~> if is_ok(ffi.load(name)) { name } else { null }
+
+-- `stem` is e.g. "libicui18n.so"; probe the bare soname, then `stem.<major>`.
+find_lib := (stem) ~[1]~> do {
+  hit = try_load(stem)
+  if hit != null { hit } else {
+    while { v: 99, found: null } {
+      (v, found) ~> if found != null || v < 50 {
+        { out: found }
+      } else {
+        { state: { v: v - 1, found: try_load(stem + "." + type.to_string(v)) } }
+      }
+    }
+  }
+}
+
+-- ICU renames exported symbols with the library major (`ucol_open_78`).
+-- Probe `u_getVersion_N` to discover N.
+find_version := (lib) ~[1]~> while { v: 99, found: 0 } {
+  (v, found) ~> if found > 0 || v < 50 {
+    { out: found }
+  } else {
+    { state: { v: v - 1, found: if is_ok(ffi.sym(lib, "u_getVersion_" + type.to_string(v))) { v } else { 0 } } }
+  }
+}
+
+-- NOTE: every call into this module re-evaluates these privates; `ffi.load`
+-- / `ffi.sym` hits are cached in the runtime so re-probing is cheap.
+i18n := find_lib("libicui18n.so")
+
+uc := find_lib("libicuuc.so")
+
+icu_ver := if i18n == null { 0 } else { find_version(i18n) }
+
+sfx := "_" + type.to_string(icu_ver)
+
+avail := i18n != null && uc != null && icu_ver > 0
+
+-- UTF-16 codec ---------------------------------------------------------------
+
+-- cp >= 0x10000 -> surrogate pair. Returns LE bytes, lead surrogate first.
+enc_pair := (u) ~> do {
+  hi = 55296 + u / 1024
+  lo = 56320 + u % 1024
+  [hi % 256, hi / 256, lo % 256, lo / 256]
+}
+
+enc_cp := (cp) ~> if cp < 65536 {
+  [cp % 256, cp / 256]
+} else {
+  enc_pair(cp - 65536)
+}
+
+list_len := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [_, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+-- string -> { bytes: Bytes, len: <u16 unit count> }
+utf16_enc := (s) ~> while { cs: char.chars(s), acc: [] } {
+  (cs, acc) ~> match cs {
+    []: { out: { bytes: bytes.from_list(acc), len: list_len(acc) / 2 } },
+    [c, ...t]: { state: { cs: t, acc: [...acc, ...enc_cp(char.code_point(c))] } }
+  }
+}
+
+-- LE byte list -> u16 unit list
+to_units := (bs) ~> while { bs: bs, acc: [] } {
+  (bs, acc) ~> match bs {
+    []: { out: acc },
+    [lo]: { out: [...acc, lo] },
+    [lo, hi, ...t]: { state: { bs: t, acc: [...acc, lo + hi * 256] } }
+  }
+}
+
+-- combine a lead surrogate `hi` with the next unit of `us`; `n`/`acc` are
+-- the decode loop's remaining-unit budget and char accumulator
+dec_rest := (hi, us, n, acc) ~> match us {
+  []: { out: char.from_chars(acc) },
+  [lo, ...t]: { state: { us: t, n: n - 2, acc: [...acc, char.from_code_point(65536 + (hi - 55296) * 1024 + lo - 56320)] } }
+}
+
+-- one decode step: BMP unit, or a surrogate pair consuming two units
+dec_step := (u, t, n, acc) ~> if u >= 55296 && u < 56320 {
+  dec_rest(u, t, n, acc)
+} else {
+  { state: { us: t, n: n - 1, acc: [...acc, char.from_code_point(u)] } }
+}
+
+-- decode only the first `n` of unit list `us` (`unum_formatDouble` reports
+-- the written length in `ret`; `out_ptr` returns the whole capacity)
+utf16_dec := (us, n) ~> while { us: us, n: n, acc: [] } {
+  (us, n, acc) ~> match us {
+    []: { out: char.from_chars(acc) },
+    [u, ...t]: if n <= 0 {
+      { out: char.from_chars(acc) }
+    } else {
+      dec_step(u, t, n, acc)
+    }
+  }
+}
+
+-- collation (ucol_*) ---------------------------------------------------------
+
+-- `ucol_open(const char* loc, UErrorCode*)` — NULL loc = ICU default locale.
+ucol_open := (loc) ~[1]~> if loc == null {
+  ffi.call(i18n, "ucol_open" + sfx, [0, 0], ["ptr", "io_scalar:i32"], "handle", false)
+} else {
+  ffi.call(i18n, "ucol_open" + sfx, [loc, 0], ["cstr", "io_scalar:i32"], "handle", false)
+}
+
+-- `ucol_strcoll(coll, a, alen, b, blen)` -> UCollationResult (-1/0/1)
+ucol_strcoll := (coll, a, b) ~[1]~> do {
+  ea = utf16_enc(a)
+  eb = utf16_enc(b)
+  ffi.call(i18n, "ucol_strcoll" + sfx,
+    [coll, ea.bytes, ea.len, eb.bytes, eb.len],
+    ["handle", "in_ptr", "i32", "in_ptr", "i32"],
+    "i32", false)
+}
+
+ucol_close := (coll) ~[1]~> ffi.call(i18n, "ucol_close" + sfx, [coll], ["handle"], "void", false)
+
+-- number formatting (unum_*) -------------------------------------------------
+
+-- `unum_open(UNUM_DECIMAL=1, pattern=NULL, plen=0, locale, parseErr=NULL, &status)`
+unum_open := (loc) ~[1]~> if loc == null {
+  ffi.call(i18n, "unum_open" + sfx, [1, 0, 0, 0, 0, 0],
+    ["i32", "ptr", "i32", "ptr", "ptr", "io_scalar:i32"], "handle", false)
+} else {
+  ffi.call(i18n, "unum_open" + sfx, [1, 0, 0, loc, 0, 0],
+    ["i32", "ptr", "i32", "cstr", "ptr", "io_scalar:i32"], "handle", false)
+}
+
+-- `unum_formatDouble(fmt, n, buf, cap, pos=NULL, &status)` -> i32 unit count.
+unum_format := (fmt, n, cap) ~[1]~> ffi.call(i18n, "unum_formatDouble" + sfx,
+  [fmt, n, cap, 0, 0],
+  ["handle", "f64", "out_ptr:512", "i32", "ptr", "io_scalar:i32"], "i32", false)
+
+unum_close := (fmt) ~[1]~> ffi.call(i18n, "unum_close" + sfx, [fmt], ["handle"], "void", false)
+
+-- contract implementation ----------------------------------------------------
+
+cmp_finish := (coll, a, b) ~[1]~> do {
+  c = ucol_strcoll(coll, a, b)
+  _ = ucol_close(coll)
+  ok(c)
+}
+
+cmp_open := (a, b, locale) ~[1]~> do {
+  r = ucol_open(locale)
+  if r.vals[0] > 0 {
+    err("ucol_open failed with UErrorCode " + type.to_string(r.vals[0]))
+  } else {
+    cmp_finish(r.ret, a, b)
+  }
+}
+
+fmt_run := (fmt, n) ~[1]~> do {
+  r = unum_format(fmt, n, 256)
+  _ = unum_close(fmt)
+  if r.vals[0] > 0 {
+    err("unum_formatDouble failed with UErrorCode " + type.to_string(r.vals[0]))
+  } else {
+    ok(utf16_dec(to_units(bytes.to_list(r.buf)), r.ret))
+  }
+}
+
+fmt_open := (n, locale) ~[1]~> do {
+  r = unum_open(locale)
+  if r.vals[0] > 0 {
+    err("unum_open failed with UErrorCode " + type.to_string(r.vals[0]))
+  } else {
+    fmt_run(r.ret, n)
+  }
+}
+
+-- exports --------------------------------------------------------------------
+
+export available := avail
+export icu_version := icu_ver
+
+--- Compare two strings under `locale` collation (null = ICU default).
+--- @returns {Result<Number, String>} — `ok -1 | 0 | 1`, or `err msg`.
+export compare_strings := (a, b, locale) ~[1]~> if avail {
+  cmp_open(a, b, locale)
+} else {
+  err("icu-unavailable")
+}
+
+--- Format `n` as a decimal string under `locale` (null = ICU default).
+--- @returns {Result<String, String>} — `ok "1,234.5"`, or `err msg`.
+export format_number := (n, locale) ~[1]~> if avail {
+  fmt_open(n, locale)
+} else {
+  err("icu-unavailable")
+}

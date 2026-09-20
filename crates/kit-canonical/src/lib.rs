@@ -724,6 +724,17 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
                 stdlib::module_with("entropy", Arc::new(StdlibResolver)).expect("entropy")
             });
         }
+        // `intl_c` — the `intl` contract backend over system ICU4C via
+        // `ffi`. Built with the stdlib resolver so `ffi`/`char`/`type`/
+        // `tag` resolve through the kit chain.
+        if want("intl_c") {
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "intl_c",
+                || stdlib::module_with("intl_c", Arc::new(StdlibResolver)).expect("intl_c"),
+            );
+        }
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),
         // preserving the former `plugin-lib-collections` lookup shape.
@@ -1113,24 +1124,11 @@ fn build_type_module() -> HandlModule {
 }
 
 // ---------------------------------------------------------------------------
-// grade — grade values used by the `ffi` and `os` packages
-// ---------------------------------------------------------------------------
-
-const GRADE_HNL: &str = include_str!("../../../handl-packages/grade/index.hnl");
-const GRADE_FUNCS: &[&str] = &["Grade", "Effect"];
-
-fn build_grade_module() -> HandlModule {
-    HandlModule::new("grade", GRADE_HNL, GRADE_FUNCS)
-}
-
-// ---------------------------------------------------------------------------
 // ffi — foreign-function interface package (`ffi.hnl` + native ops)
 // ---------------------------------------------------------------------------
 
 const FFI_HNL: &str = include_str!("../../../handl-packages/ffi/ffi.hnl");
-const FFI_FUNCS: &[&str] = &[
-    "FFI", "Errno", "Handle", "call", "bind", "errno", "load", "sym",
-];
+const FFI_FUNCS: &[&str] = &["Errno", "Handle", "call", "bind", "errno", "load", "sym"];
 const FFI_OPS: &[&str] = &["ffi.call", "ffi.bind", "ffi.errno", "ffi.load", "ffi.sym"];
 
 fn ffi_op_registry() -> OpRegistry {
@@ -1147,7 +1145,6 @@ fn ffi_op_registry() -> OpRegistry {
 /// surface with `call`, `bind`, and `errno` injected as native ops.
 fn build_ffi_module() -> HandlModule {
     HandlModule::new("ffi", FFI_HNL, FFI_FUNCS)
-        .with_dependency(build_grade_module())
         .with_dependency(build_type_module())
         .with_ops(FFI_OPS, std::sync::Arc::new(ffi_op_registry()))
 }

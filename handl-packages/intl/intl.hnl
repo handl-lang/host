@@ -1,11 +1,13 @@
---- intl -- internationalization library for the handl runtime, backed by ICU4X.
+--- Internationalization contract for the handl runtime.
+---
+--- This package is the *abstraction*: it declares the `intl.*` capability
+--- and operation surface. Implementations are separate packages — `intl-c`
+--- (system ICU4C via `ffi`) is the reference backend; the Rust `lib.intl`
+--- plugin remains available as a differential-test oracle during migration.
 ---
 --- Provides locale-aware functions for formatting numbers, selecting
 --- plural categories, formatting lists, relative time, dates, durations,
 --- comparing strings, display names, and text segmentation.
----
---- All locale data is provided by ICU4X's compiled_data feature,
---- which bundles CLDR data at compile time (600+ locales).
 ---
 --- ## number formatting
 --- intl.format_number -- format a number for a locale with optional options.
@@ -40,6 +42,7 @@
 --- intl.locale -- parse a BCP 47 locale tag and return its components.
 --- intl.get_canonical_locales -- canonicalize a locale or list of locales.
 --- intl.supported_locales_of -- filter requested locales to those supported by the data provider.
+
 cap "intl.format_number"
 cap "intl.format_number_to_parts"
 cap "intl.select_plural"
@@ -55,46 +58,30 @@ cap "intl.locale"
 cap "intl.get_canonical_locales"
 cap "intl.supported_locales_of"
 
-op "intl.format_number" : Value -> Value
-  guarantee: True
-op "intl.format_number_to_parts" : Value -> Value
-  guarantee: True
-op "intl.select_plural" : Value -> Value
-  guarantee: True
-op "intl.format_list" : Value -> Value
-  guarantee: True
-op "intl.format_relative_time" : Value -> Value
-  guarantee: True
-op "intl.format_date" : Value -> Value
-  guarantee: True
-op "intl.format_date_to_parts" : Value -> Value
-  guarantee: True
-op "intl.format_duration" : Value -> Value
-  guarantee: True
-op "intl.compare_strings" : Value -> Value
-  guarantee: True
-op "intl.display_name" : Value -> Value
-  guarantee: True
-op "intl.segment" : Value -> Value
-  guarantee: True
-op "intl.locale" : Value -> Value
-  guarantee: True
-op "intl.get_canonical_locales" : Value -> Value
-  guarantee: True
-op "intl.supported_locales_of" : Value -> Value
-  guarantee: True
+op "intl.format_number": Value - > Value
 
-handle "intl.format_number" with rust_intl_format_number
-handle "intl.format_number_to_parts" with rust_intl_format_number_to_parts
-handle "intl.select_plural" with rust_intl_select_plural
-handle "intl.format_list" with rust_intl_format_list
-handle "intl.format_relative_time" with rust_intl_format_relative_time
-handle "intl.format_date" with rust_intl_format_date
-handle "intl.format_date_to_parts" with rust_intl_format_date_to_parts
-handle "intl.format_duration" with rust_intl_format_duration
-handle "intl.compare_strings" with rust_intl_compare_strings
-handle "intl.display_name" with rust_intl_display_name
-handle "intl.segment" with rust_intl_segment
-handle "intl.locale" with rust_intl_locale
-handle "intl.get_canonical_locales" with rust_intl_get_canonical_locales
-handle "intl.supported_locales_of" with rust_intl_supported_locales_of
+op "intl.format_number_to_parts": Value - > Value
+
+op "intl.select_plural": Value - > Value
+
+op "intl.format_list": Value - > Value
+
+op "intl.format_relative_time": Value - > Value
+
+op "intl.format_date": Value - > Value
+
+op "intl.format_date_to_parts": Value - > Value
+
+op "intl.format_duration": Value - > Value
+
+op "intl.compare_strings": Value - > Value
+
+op "intl.display_name": Value - > Value
+
+op "intl.segment": Value - > Value
+
+op "intl.locale": Value - > Value
+
+op "intl.get_canonical_locales": Value - > Value
+
+op "intl.supported_locales_of": Value - > Value
