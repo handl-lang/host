@@ -1,0 +1,96 @@
+--- Generated adapter for dom-webidl-browser/XSLTProcessor
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/XSLTProcessor" import { XSLTProcessor, XSLTProcessorClearParameters, XSLTProcessorConstructor, XSLTProcessorGetParameter, XSLTProcessorImportStylesheet, XSLTProcessorRemoveParameter, XSLTProcessorReset, XSLTProcessorSetParameter, XSLTProcessorTransformToDocument, XSLTProcessorTransformToFragment }
+
+export x_s_l_t_processor_clear_parameters: XSLTProcessorClearParameters := () ~> do {
+  r = call("dom", "clearParameters", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_constructor: XSLTProcessorConstructor := () ~> do {
+  r = call("dom", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_get_parameter: XSLTProcessorGetParameter := (namespaceURI, localName) ~> do {
+  r = call("dom", "getParameter", [namespaceURI, localName], ["js_string", "js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_import_stylesheet: XSLTProcessorImportStylesheet := (style) ~> do {
+  r = call("dom", "importStylesheet", [style], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_remove_parameter: XSLTProcessorRemoveParameter := (namespaceURI, localName) ~> do {
+  r = call("dom", "removeParameter", [namespaceURI, localName], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_reset: XSLTProcessorReset := () ~> do {
+  r = call("dom", "reset", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_set_parameter: XSLTProcessorSetParameter := (namespaceURI, localName, value) ~> do {
+  r = call("dom", "setParameter", [namespaceURI, localName, value], ["js_string", "js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_transform_to_document: XSLTProcessorTransformToDocument := (source) ~> do {
+  r = call("dom", "transformToDocument", [source], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_s_l_t_processor_transform_to_fragment: XSLTProcessorTransformToFragment := (source, output) ~> do {
+  r = call("dom", "transformToFragment", [source, output], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

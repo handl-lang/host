@@ -1,0 +1,95 @@
+--- Generated port for xhr.XMLHttpRequest
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- XMLHttpRequest (XHR) objects are used to interact with servers. You can retrieve data from a URL without having to do a full page refresh. This enables a Web page to update just part of a page without disrupting what the user is doing.
+export XMLHttpRequest := {
+  --- event handler
+  onreadystatechange: Handle,
+  --- The XMLHttpRequest.readyState property returns the state an XMLHttpRequest client is in. An XHR client exists in one of the following states:
+  readyState: Nat,
+  --- The XMLHttpRequest.timeout property is an unsigned long representing the number of milliseconds a request can take before automatically being terminated. The default value is 0, which means there is no timeout. Timeout shouldn't be used for synchronous XMLHttpRequests requests used in a document environment or it will throw an InvalidAccessError exception. When a timeout happens, a timeout event is fired.
+  timeout: Nat,
+  --- The XMLHttpRequest.withCredentials property is a boolean value that indicates whether or not cross-site Access-Control requests should be made using credentials such as cookies, authentication headers or TLS client certificates. Setting withCredentials has no effect on same-origin requests.
+  withCredentials: Bool,
+  --- The XMLHttpRequest upload property returns an XMLHttpRequestUpload object that can be observed to monitor an upload's progress.
+  upload: Handle,
+  --- response
+  responseURL: String,
+  --- The read-only XMLHttpRequest.status property returns the numerical HTTP status code of the XMLHttpRequest's response.
+  status: Nat,
+  --- The read-only XMLHttpRequest.statusText property returns a string containing the response's status message as returned by the HTTP server. Unlike XMLHttpRequest.status which indicates a numerical status code, this property contains the text of the response status, such as "OK" or "Not Found". If the request's readyState is in UNSENT or OPENED state, the value of statusText will be an empty string.
+  statusText: String,
+  --- The XMLHttpRequest property
+  --- responseType is an enumerated string value specifying
+  --- the type of data contained in the response.
+  responseType: Handle,
+  --- The XMLHttpRequest
+  --- response property returns the response's body content as
+  --- an ArrayBuffer, a Blob, a Document,
+  --- a JavaScript Object, or a string, depending on the value
+  --- of the request's responseType
+  --- property.
+  response: Handle,
+  --- The read-only XMLHttpRequest property
+  --- responseText returns the text received from a server
+  --- following a request being sent.
+  responseText: String,
+  --- The XMLHttpRequest.responseXML read-only property returns
+  --- a Document containing the HTML or XML retrieved by the request; or
+  --- null if the request was unsuccessful, has not yet been sent, or if the data
+  --- can't be parsed as XML or HTML.
+  responseXML: Handle
+}
+
+--- The XMLHttpRequest.abort() method aborts the request if
+--- it has already been sent. When a request is aborted, its
+--- readyState is changed to
+--- XMLHttpRequest.UNSENT (0) and the request's
+--- status code is set to 0.
+--- js: XMLHttpRequest.abort
+export XMLHttpRequestAbort: () ~[1]~> Result<(), JsError>
+
+--- The XMLHttpRequest() constructor
+--- creates a new XMLHttpRequest.
+--- js: XMLHttpRequest.constructor
+export XMLHttpRequestConstructor: () ~[1]~> Result<(), JsError>
+
+--- The XMLHttpRequest method
+--- getAllResponseHeaders() returns all the response
+--- headers, separated by CRLF, as a string, or returns null
+--- if no response has been received.
+--- js: XMLHttpRequest.getAllResponseHeaders
+export XMLHttpRequestGetAllResponseHeaders: () ~[1]~> Result<String, JsError>
+
+--- The XMLHttpRequest method
+--- getResponseHeader() returns the string containing the
+--- text of a particular header's value.
+--- js: XMLHttpRequest.getResponseHeader
+export XMLHttpRequestGetResponseHeader: (String) ~[1]~> Result<Handle, JsError>
+
+--- The XMLHttpRequest method open()
+--- initializes a newly-created request, or re-initializes an existing one.
+--- js: XMLHttpRequest.open
+export XMLHttpRequestOpen: (String, String, Bool, Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The XMLHttpRequest method
+--- overrideMimeType() specifies a MIME type other than the
+--- one provided by the server to be used instead when interpreting the data being
+--- transferred in a request.
+--- js: XMLHttpRequest.overrideMimeType
+export XMLHttpRequestOverrideMimeType: (String) ~[1]~> Result<(), JsError>
+
+--- The XMLHttpRequest method
+--- send() sends the request to the server.
+--- js: XMLHttpRequest.send
+export XMLHttpRequestSend: (Handle) ~[1]~> Result<(), JsError>
+
+--- The XMLHttpRequest method setRequestHeader() sets the value of an HTTP request header.
+--- When using setRequestHeader(), you must call it after calling open(), but before calling send().
+--- If this method is called several times with the same header, the values are merged into one single request header.
+--- js: XMLHttpRequest.setRequestHeader
+export XMLHttpRequestSetRequestHeader: (String, String) ~[1]~> Result<(), JsError>

@@ -1,0 +1,52 @@
+--- Generated port for dom.ParentNode
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export ParentNode := {
+  --- The read-only children property returns a live HTMLCollection
+  --- which contains all of the child elements of the element upon which it was called.
+  children: Handle,
+  --- The Element.firstElementChild read-only property
+  --- returns an element's first child Element, or null if there
+  --- are no child elements.
+  firstElementChild: Handle,
+  --- The Element.lastElementChild read-only property
+  --- returns an element's last child Element, or null if there
+  --- are no child elements.
+  lastElementChild: Handle,
+  --- The Element.childElementCount read-only property
+  --- returns the number of child elements of this element.
+  childElementCount: Nat
+}
+
+--- The Element.append() method
+--- inserts a set of Node objects or strings after
+--- the last child of the Element. Strings
+--- are inserted as equivalent Text nodes.
+--- js: ParentNode.append
+export ParentNodeAppend: (Handle) ~[1]~> Result<(), JsError>
+
+--- js: ParentNode.moveBefore
+export ParentNodeMoveBefore: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The Element.prepend() method inserts a set of
+--- Node objects or strings before the first child
+--- of the Element. Strings are inserted as
+--- equivalent Text nodes.
+--- js: ParentNode.prepend
+export ParentNodePrepend: (Handle) ~[1]~> Result<(), JsError>
+
+--- js: ParentNode.querySelector
+export ParentNodeQuerySelector: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: ParentNode.querySelectorAll
+export ParentNodeQuerySelectorAll: (String) ~[1]~> Result<Handle, JsError>
+
+--- The Element.replaceChildren() method replaces the
+--- existing children of a Node with a specified new set of children. These
+--- can be string or Node objects.
+--- js: ParentNode.replaceChildren
+export ParentNodeReplaceChildren: (Handle) ~[1]~> Result<(), JsError>

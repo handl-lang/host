@@ -1,0 +1,15 @@
+--- Generated port for xhr.types
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export FormDataEntryValue := Handle
+
+export XMLHttpRequestResponseType_: Int
+export XMLHttpRequestResponseType_Arraybuffer: Int
+export XMLHttpRequestResponseType_Blob: Int
+export XMLHttpRequestResponseType_Document: Int
+export XMLHttpRequestResponseType_Json: Int
+export XMLHttpRequestResponseType_Text: Int

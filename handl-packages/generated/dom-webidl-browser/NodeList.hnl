@@ -1,0 +1,16 @@
+--- Generated adapter for dom-webidl-browser/NodeList
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/NodeList" import { NodeList, NodeListItem }
+
+export node_list_item: NodeListItem := (index) ~> do {
+  r = call("dom", "item", [index], ["js_number"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

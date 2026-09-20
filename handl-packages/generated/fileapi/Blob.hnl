@@ -1,0 +1,49 @@
+--- Generated port for fileapi.Blob
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/FileAPI.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The Blob interface represents a blob, which is a file-like object of immutable, raw data; they can be read as text or binary data, or converted into a ReadableStream so its methods can be used for processing the data.
+export Blob := {
+  --- The size read-only property of the Blob interface returns
+  --- the size of the Blob or File in bytes.
+  size: Nat,
+  --- The type read-only property of the Blob interface returns the MIME type of the file.
+  type: String
+}
+
+--- The arrayBuffer() method of the Blob
+--- interface returns a Promise that resolves with the contents of the blob as
+--- binary data contained in an ArrayBuffer.
+--- js: Blob.arrayBuffer
+export BlobArrayBuffer: () ~[1]~> Result<Handle, JsError>
+
+--- The bytes() method of the Blob interface returns a Promise that resolves with a Uint8Array containing the contents of the blob as an array of bytes.
+--- js: Blob.bytes
+export BlobBytes: () ~[1]~> Result<Handle, JsError>
+
+--- The Blob() constructor returns a
+--- new Blob object. The content of the blob consists of the concatenation
+--- of the values given in the parameter blobParts.
+--- js: Blob.constructor
+export BlobConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- slice Blob into byte-ranged chunks
+--- js: Blob.slice
+export BlobSlice: (Int, Int, String) ~[1]~> Result<Handle, JsError>
+
+--- read from the Blob.
+--- js: Blob.stream
+export BlobStream: () ~[1]~> Result<Handle, JsError>
+
+--- The text() method of the
+--- Blob interface returns a Promise that resolves with a
+--- string containing the contents of the blob, interpreted as UTF-8.
+--- js: Blob.text
+export BlobText: () ~[1]~> Result<Handle, JsError>
+
+--- The textStream() method of the Blob interface returns a ReadableStream that can be used to read the contents of the Blob in chunks of UTF-8.
+--- js: Blob.textStream
+export BlobTextStream: () ~[1]~> Result<Handle, JsError>

@@ -1,0 +1,129 @@
+--- Generated adapter for streams-webidl-browser/types
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/types" import { QueuingStrategySize, TransformerCancelCallback, TransformerFlushCallback, TransformerStartCallback, TransformerTransformCallback, UnderlyingSinkAbortCallback, UnderlyingSinkCloseCallback, UnderlyingSinkStartCallback, UnderlyingSinkWriteCallback, UnderlyingSourceCancelCallback, UnderlyingSourcePullCallback, UnderlyingSourceStartCallback }
+
+export ReadableStreamReaderMode_Byob: Int := 0
+export ReadableStreamType_Bytes: Int := 0
+
+export queuing_strategy_size: QueuingStrategySize := (chunk) ~> do {
+  r = call("streams", "queuing_strategy_size", [chunk], ["js_object"], "js_number", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_cancel_callback: TransformerCancelCallback := (reason) ~> do {
+  r = call("streams", "transformer_cancel_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_flush_callback: TransformerFlushCallback := (controller) ~> do {
+  r = call("streams", "transformer_flush_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_start_callback: TransformerStartCallback := (controller) ~> do {
+  r = call("streams", "transformer_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_transform_callback: TransformerTransformCallback := (chunk, controller) ~> do {
+  r = call("streams", "transformer_transform_callback", [chunk, controller], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_abort_callback: UnderlyingSinkAbortCallback := (reason) ~> do {
+  r = call("streams", "underlying_sink_abort_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_close_callback: UnderlyingSinkCloseCallback := () ~> do {
+  r = call("streams", "underlying_sink_close_callback", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_start_callback: UnderlyingSinkStartCallback := (controller) ~> do {
+  r = call("streams", "underlying_sink_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_write_callback: UnderlyingSinkWriteCallback := (chunk, controller) ~> do {
+  r = call("streams", "underlying_sink_write_callback", [chunk, controller], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_cancel_callback: UnderlyingSourceCancelCallback := (reason) ~> do {
+  r = call("streams", "underlying_source_cancel_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_pull_callback: UnderlyingSourcePullCallback := (controller) ~> do {
+  r = call("streams", "underlying_source_pull_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_start_callback: UnderlyingSourceStartCallback := (controller) ~> do {
+  r = call("streams", "underlying_source_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

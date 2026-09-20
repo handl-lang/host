@@ -1,0 +1,24 @@
+--- Generated port for streams.TransformStreamDefaultController
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The TransformStreamDefaultController interface of the Streams API provides methods to manipulate the associated ReadableStream and WritableStream.
+export TransformStreamDefaultController := {
+  --- The desiredSize read-only property of the TransformStreamDefaultController interface returns the desired size to fill the queue of the associated ReadableStream.
+  desiredSize: Handle
+}
+
+--- The enqueue() method of the TransformStreamDefaultController interface enqueues the given chunk in the readable side of the stream.
+--- js: TransformStreamDefaultController.enqueue
+export TransformStreamDefaultControllerEnqueue: (Handle) ~[1]~> Result<(), JsError>
+
+--- The error() method of the TransformStreamDefaultController interface errors both sides of the stream. Any further interactions with it will fail with the given error message, and any chunks in the queue will be discarded.
+--- js: TransformStreamDefaultController.error
+export TransformStreamDefaultControllerError: (Handle) ~[1]~> Result<(), JsError>
+
+--- The terminate() method of the TransformStreamDefaultController interface closes the readable side and errors the writable side of the stream.
+--- js: TransformStreamDefaultController.terminate
+export TransformStreamDefaultControllerTerminate: () ~[1]~> Result<(), JsError>

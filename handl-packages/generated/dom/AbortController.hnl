@@ -1,0 +1,21 @@
+--- Generated port for dom.AbortController
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The AbortController interface represents a controller object that allows you to abort one or more Web requests as and when desired.
+export AbortController := {
+  --- The signal read-only property of the AbortController interface returns an AbortSignal object instance, which can be used to communicate with/abort an asynchronous operation as desired.
+  signal: Handle
+}
+
+--- The abort() method of the AbortController interface aborts an asynchronous operation before it has completed.
+--- This is able to abort fetch requests, the consumption of any response bodies, or streams.
+--- js: AbortController.abort
+export AbortControllerAbort: (Handle) ~[1]~> Result<(), JsError>
+
+--- The AbortController() constructor creates a new AbortController object instance.
+--- js: AbortController.constructor
+export AbortControllerConstructor: () ~[1]~> Result<(), JsError>

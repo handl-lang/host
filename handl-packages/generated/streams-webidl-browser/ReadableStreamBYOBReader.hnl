@@ -1,0 +1,46 @@
+--- Generated adapter for streams-webidl-browser/ReadableStreamBYOBReader
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/ReadableStreamBYOBReader" import { ReadableStreamBYOBReader, ReadableStreamBYOBReaderCancel, ReadableStreamBYOBReaderConstructor, ReadableStreamBYOBReaderRead, ReadableStreamBYOBReaderReleaseLock }
+
+export readable_stream_b_y_o_b_reader_cancel: ReadableStreamBYOBReaderCancel := (reason) ~> do {
+  r = call("streams", "cancel", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_constructor: ReadableStreamBYOBReaderConstructor := (stream) ~> do {
+  r = call("streams", "constructor", [stream], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_read: ReadableStreamBYOBReaderRead := (view, options) ~> do {
+  r = call("streams", "read", [view, options], ["js_bytes", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_release_lock: ReadableStreamBYOBReaderReleaseLock := () ~> do {
+  r = call("streams", "releaseLock", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

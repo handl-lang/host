@@ -1,0 +1,39 @@
+--- Generated port for dom.DocumentType
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The DocumentType interface represents a Node containing a doctype.
+export DocumentType := {
+  --- The read-only name property of the DocumentType returns the type of the document.
+  name: String,
+  --- The read-only publicId property of the DocumentType returns a formal identifier of the document.
+  publicId: String,
+  --- The read-only systemId property of the DocumentType returns the URL of the associated DTD.
+  systemId: String
+}
+
+--- The DocumentType.after() method inserts a set of
+--- Node objects or strings in the children list of the
+--- DocumentType's parent, just after the DocumentType.
+--- Strings are inserted as equivalent Text nodes.
+--- js: DocumentType.after
+export DocumentTypeAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The DocumentType.before() method inserts a set of
+--- Node objects or strings in the children list of the
+--- DocumentType's parent, just before the DocumentType.
+--- Strings are inserted as equivalent Text nodes.
+--- js: DocumentType.before
+export DocumentTypeBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The DocumentType.remove() method removes a document's doctype.
+--- If it is already detached from the document, calling remove() does nothing.
+--- js: DocumentType.remove
+export DocumentTypeRemove: () ~[1]~> Result<(), JsError>
+
+--- The DocumentType.replaceWith() method replaces the document type with a set of given nodes.
+--- js: DocumentType.replaceWith
+export DocumentTypeReplaceWith: (Handle) ~[1]~> Result<(), JsError>

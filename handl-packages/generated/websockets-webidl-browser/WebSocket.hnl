@@ -1,0 +1,36 @@
+--- Generated adapter for websockets-webidl-browser/WebSocket
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/websockets.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../websockets/WebSocket" import { WebSocket, WebSocketClose, WebSocketConstructor, WebSocketSend }
+
+export web_socket_close: WebSocketClose := (code, reason) ~> do {
+  r = call("websockets", "close", [code, reason], ["js_number", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export web_socket_constructor: WebSocketConstructor := (url, protocols) ~> do {
+  r = call("websockets", "constructor", [url, protocols], ["js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export web_socket_send: WebSocketSend := (data_) ~> do {
+  r = call("websockets", "send", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

@@ -1,0 +1,16 @@
+--- Generated port for dom.EventListener
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The addEventListener() method of the EventTarget interface
+--- sets up a function that will be called whenever the specified event is delivered to the target.
+export EventListener := {
+}
+
+--- The addEventListener() method of the EventTarget interface
+--- sets up a function that will be called whenever the specified event is delivered to the target.
+--- js: EventListener.handleEvent
+export EventListenerHandleEvent: (Handle) ~[1]~> Result<(), JsError>

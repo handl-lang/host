@@ -1,0 +1,10 @@
+--- Generated port for dom.XMLDocument
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The XMLDocument interface represents an XML document. It inherits from the generic Document and does not add any specific methods or properties to it: nevertheless, several algorithms behave differently with the two types of documents.
+export XMLDocument := {
+}

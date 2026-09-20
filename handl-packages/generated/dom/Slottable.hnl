@@ -1,0 +1,15 @@
+--- Generated port for dom.Slottable
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- Element is the most general base class from which all element objects (i.e., objects that represent elements) in a Document inherit. It only has methods and properties common to all kinds of elements. More specific classes inherit from Element.
+export Slottable := {
+  --- The assignedSlot read-only
+  --- property of the Element interface returns an
+  --- HTMLSlotElement representing the <slot> element the
+  --- node is inserted in.
+  assignedSlot: Handle
+}

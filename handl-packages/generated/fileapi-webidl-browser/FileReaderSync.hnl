@@ -1,0 +1,56 @@
+--- Generated adapter for fileapi-webidl-browser/FileReaderSync
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/FileAPI.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fileapi/FileReaderSync" import { FileReaderSync, FileReaderSyncConstructor, FileReaderSyncReadAsArrayBuffer, FileReaderSyncReadAsBinaryString, FileReaderSyncReadAsDataURL, FileReaderSyncReadAsText }
+
+export file_reader_sync_constructor: FileReaderSyncConstructor := () ~> do {
+  r = call("FileAPI", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_sync_read_as_array_buffer: FileReaderSyncReadAsArrayBuffer := (blob) ~> do {
+  r = call("FileAPI", "readAsArrayBuffer", [blob], ["js_object"], "js_bytes", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_sync_read_as_binary_string: FileReaderSyncReadAsBinaryString := (blob) ~> do {
+  r = call("FileAPI", "readAsBinaryString", [blob], ["js_object"], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_sync_read_as_data_u_r_l: FileReaderSyncReadAsDataURL := (blob) ~> do {
+  r = call("FileAPI", "readAsDataURL", [blob], ["js_object"], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_sync_read_as_text: FileReaderSyncReadAsText := (blob, encoding) ~> do {
+  r = call("FileAPI", "readAsText", [blob, encoding], ["js_object", "js_string"], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

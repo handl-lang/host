@@ -1,0 +1,24 @@
+--- Generated port for encoding.TextDecoder
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/encoding.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The TextDecoder interface represents a decoder for a specific text encoding, such as UTF-8, ISO-8859-2, or GBK. A decoder takes an array of bytes as input and returns a JavaScript string.
+export TextDecoder := {
+  --- The TextDecoder.encoding read-only property returns a string containing the name of the character encoding that this decoder will use.
+  encoding: String,
+  --- The fatal read-only property of the TextDecoder interface is a Boolean indicating whether the error mode is fatal.
+  fatal: Bool,
+  --- The ignoreBOM read-only property of the TextDecoder interface is a Boolean indicating whether the byte order mark will be included in the output or skipped over. The value of the property is set in the ignoreBOM argument to the decoder's constructor.
+  ignoreBOM: Bool
+}
+
+--- The TextDecoder() constructor returns a new TextDecoder object.
+--- js: TextDecoder.constructor
+export TextDecoderConstructor: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- The TextDecoder.decode() method returns a string containing text decoded from the buffer passed as a parameter.
+--- js: TextDecoder.decode
+export TextDecoderDecode: (Handle, Handle) ~[1]~> Result<String, JsError>

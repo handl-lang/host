@@ -1,0 +1,58 @@
+--- Generated port for websockets.WebSocket
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/websockets.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The WebSocket object provides the API for creating and managing a WebSocket connection to a server, as well as for sending and receiving data on the connection.
+export WebSocket := {
+  --- The WebSocket.url read-only property returns the absolute
+  --- URL of the WebSocket as resolved by the constructor.
+  url: String,
+  --- The WebSocket.readyState read-only property returns the
+  --- current state of the WebSocket connection.
+  readyState: Nat,
+  --- The WebSocket.bufferedAmount read-only property returns
+  --- the number of bytes of data that have been queued using calls to send() but
+  --- not yet transmitted to the network. This value resets to zero once all queued data has
+  --- been sent. This value does not reset to zero when the connection is closed; if you keep
+  --- calling send(), this will continue to climb.
+  bufferedAmount: Nat,
+  --- networking
+  onopen: Handle,
+  --- The error event is fired when a connection with a WebSocket has been closed due to an error (some data couldn't be sent for example).
+  onerror: Handle,
+  --- The close event is fired when a connection with a WebSocket is closed.
+  onclose: Handle,
+  --- The WebSocket.extensions read-only property returns the
+  --- extensions selected by the server. This is currently only the empty string or a list of
+  --- extensions as negotiated by the connection.
+  extensions: String,
+  --- The WebSocket.protocol read-only property returns the name of the sub-protocol the server selected; this will be one of the strings specified in the protocols parameter when creating the WebSocket object, or the empty string if no connection is established.
+  protocol: String,
+  --- messaging
+  onmessage: Handle,
+  --- The WebSocket.binaryType property controls the type of
+  --- binary data being received over the WebSocket connection.
+  binaryType: Handle
+}
+
+--- The WebSocket.close() method closes the
+--- WebSocket connection or connection attempt, if any. If the connection is
+--- already CLOSED, this method does nothing.
+--- js: WebSocket.close
+export WebSocketClose: (Nat, String) ~[1]~> Result<(), JsError>
+
+--- The WebSocket() constructor returns a new WebSocket object and immediately attempts to establish a connection to the specified WebSocket URL.
+--- js: WebSocket.constructor
+export WebSocketConstructor: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- The WebSocket.send() method enqueues the specified data
+--- to be transmitted to the server over the WebSocket connection, increasing the value of
+--- bufferedAmount by the number of bytes needed to contain the data. If the
+--- data can't be sent (for example, because it needs to be buffered but the buffer is
+--- full), the socket is closed automatically.
+--- The browser will throw an exception if you call send() when the connection is in the CONNECTING state. If you call send() when the connection is in the CLOSING or CLOSED states, the browser will silently discard the data.
+--- js: WebSocket.send
+export WebSocketSend: (Handle) ~[1]~> Result<(), JsError>

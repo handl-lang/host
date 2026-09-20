@@ -1,0 +1,69 @@
+--- Generated port for dom.TreeWalker
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The TreeWalker object represents the nodes of a document subtree and a position within them.
+export TreeWalker := {
+  --- The TreeWalker.root read-only property returns the root Node that the TreeWalker traverses.
+  root: Handle,
+  --- The TreeWalker.whatToShow read-only property returns a
+  --- bitmask that indicates the types of
+  --- nodes to show. Non-matching nodes are skipped, but their
+  --- children may be included, if relevant.
+  whatToShow: Nat,
+  --- The TreeWalker.filter read-only property returns the NodeFilter
+  --- associated with the TreeWalker.
+  filter: Handle,
+  --- The TreeWalker.currentNode property represents the
+  --- Node which the TreeWalker is currently pointing at.
+  currentNode: Handle
+}
+
+--- The TreeWalker.firstChild() method moves the current
+--- Node to the first visible child of the current node, and returns
+--- the found child. If no such child exists, it returns null and the current node is not changed.
+--- js: TreeWalker.firstChild
+export TreeWalkerFirstChild: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.lastChild() method moves the current
+--- Node to the last visible child of the current node, and returns
+--- the found child. If no such child exists, it returns null and the current node is not changed.
+--- js: TreeWalker.lastChild
+export TreeWalkerLastChild: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.nextNode() method moves the current
+--- Node to the next visible node in the document order, and returns
+--- the found node. If no such node exists, it returns null and the current node is not changed.
+--- js: TreeWalker.nextNode
+export TreeWalkerNextNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.nextSibling() method moves the current
+--- Node to its next sibling, if any, and returns the found sibling. If there
+--- is no such node, it returns null and the current node is not changed.
+--- js: TreeWalker.nextSibling
+export TreeWalkerNextSibling: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.parentNode() method moves the current
+--- Node to the first visible ancestor node in the document order,
+--- and returns the found node. If no such node exists, or if it is above the
+--- TreeWalker's root node, it returns null and the current
+--- node is not changed.
+--- js: TreeWalker.parentNode
+export TreeWalkerParentNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.previousNode() method moves the current
+--- Node to the previous visible node in the document order, and
+--- returns the found node. If no such node
+--- exists, or if it is before that the root node defined at the object
+--- construction, it returns null and the current node is not changed.
+--- js: TreeWalker.previousNode
+export TreeWalkerPreviousNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.previousSibling() method moves the current
+--- Node to its previous sibling, if any, and returns the found sibling. If
+--- there is no such node, it returns null and the current node is not changed.
+--- js: TreeWalker.previousSibling
+export TreeWalkerPreviousSibling: () ~[1]~> Result<Handle, JsError>

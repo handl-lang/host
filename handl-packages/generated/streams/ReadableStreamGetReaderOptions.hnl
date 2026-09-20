@@ -1,0 +1,10 @@
+--- Generated port for streams.ReadableStreamGetReaderOptions
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export ReadableStreamGetReaderOptions := {
+  mode: Handle
+}

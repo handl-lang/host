@@ -1,0 +1,66 @@
+--- Generated adapter for dom-webidl-browser/ParentNode
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/ParentNode" import { ParentNode, ParentNodeAppend, ParentNodeMoveBefore, ParentNodePrepend, ParentNodeQuerySelector, ParentNodeQuerySelectorAll, ParentNodeReplaceChildren }
+
+export parent_node_append: ParentNodeAppend := (nodes) ~> do {
+  r = call("dom", "append", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export parent_node_move_before: ParentNodeMoveBefore := (node, child) ~> do {
+  r = call("dom", "moveBefore", [node, child], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export parent_node_prepend: ParentNodePrepend := (nodes) ~> do {
+  r = call("dom", "prepend", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export parent_node_query_selector: ParentNodeQuerySelector := (selectors) ~> do {
+  r = call("dom", "querySelector", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export parent_node_query_selector_all: ParentNodeQuerySelectorAll := (selectors) ~> do {
+  r = call("dom", "querySelectorAll", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export parent_node_replace_children: ParentNodeReplaceChildren := (nodes) ~> do {
+  r = call("dom", "replaceChildren", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

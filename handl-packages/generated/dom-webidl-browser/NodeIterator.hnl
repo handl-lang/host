@@ -1,0 +1,36 @@
+--- Generated adapter for dom-webidl-browser/NodeIterator
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/NodeIterator" import { NodeIterator, NodeIteratorDetach, NodeIteratorNextNode, NodeIteratorPreviousNode }
+
+export node_iterator_detach: NodeIteratorDetach := () ~> do {
+  r = call("dom", "detach", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export node_iterator_next_node: NodeIteratorNextNode := () ~> do {
+  r = call("dom", "nextNode", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export node_iterator_previous_node: NodeIteratorPreviousNode := () ~> do {
+  r = call("dom", "previousNode", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

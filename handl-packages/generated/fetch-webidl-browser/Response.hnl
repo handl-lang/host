@@ -1,0 +1,116 @@
+--- Generated adapter for fetch-webidl-browser/Response
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/fetch.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fetch/Response" import { Response, ResponseArrayBuffer, ResponseBlob, ResponseBytes, ResponseClone, ResponseConstructor, ResponseError, ResponseFormData, ResponseJson, ResponseRedirect, ResponseText, ResponseTextStream }
+
+export response_array_buffer: ResponseArrayBuffer := () ~> do {
+  r = call("fetch", "arrayBuffer", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_blob: ResponseBlob := () ~> do {
+  r = call("fetch", "blob", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_bytes: ResponseBytes := () ~> do {
+  r = call("fetch", "bytes", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_clone: ResponseClone := () ~> do {
+  r = call("fetch", "clone", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_constructor: ResponseConstructor := (body, init) ~> do {
+  r = call("fetch", "constructor", [body, init], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_error: ResponseError := () ~> do {
+  r = call("fetch", "error", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_form_data: ResponseFormData := () ~> do {
+  r = call("fetch", "formData", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_json: ResponseJson := (data_, init) ~> do {
+  r = call("fetch", "json", [data_, init], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_redirect: ResponseRedirect := (url, status) ~> do {
+  r = call("fetch", "redirect", [url, status], ["js_string", "js_number"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_text: ResponseText := () ~> do {
+  r = call("fetch", "text", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_text_stream: ResponseTextStream := () ~> do {
+  r = call("fetch", "textStream", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

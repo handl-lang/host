@@ -1,0 +1,66 @@
+--- Generated adapter for dom-webidl-browser/Event
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/Event" import { Event, EventComposedPath, EventConstructor, EventInitEvent, EventPreventDefault, EventStopImmediatePropagation, EventStopPropagation }
+
+export event_composed_path: EventComposedPath := () ~> do {
+  r = call("dom", "composedPath", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_constructor: EventConstructor := (type_, eventInitDict) ~> do {
+  r = call("dom", "constructor", [type_, eventInitDict], ["js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_init_event: EventInitEvent := (type_, bubbles, cancelable) ~> do {
+  r = call("dom", "initEvent", [type_, bubbles, cancelable], ["js_string", "js_boolean", "js_boolean"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_prevent_default: EventPreventDefault := () ~> do {
+  r = call("dom", "preventDefault", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_stop_immediate_propagation: EventStopImmediatePropagation := () ~> do {
+  r = call("dom", "stopImmediatePropagation", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_stop_propagation: EventStopPropagation := () ~> do {
+  r = call("dom", "stopPropagation", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

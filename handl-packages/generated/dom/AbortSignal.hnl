@@ -1,0 +1,31 @@
+--- Generated port for dom.AbortSignal
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The AbortSignal interface represents a signal object that allows you to communicate with an asynchronous operation (such as a fetch request) and abort it if required via an AbortController object.
+export AbortSignal := {
+  --- The aborted read-only property returns a value that indicates whether the asynchronous operations the signal is communicating with are aborted (true) or not (false).
+  aborted: Bool,
+  --- The reason read-only property returns a JavaScript value that indicates the abort reason.
+  reason: Handle,
+  --- The abort event of the AbortSignal is fired when the associated request is aborted, i.e., using AbortController.abort().
+  onabort: Handle
+}
+
+--- The AbortSignal.abort() static method returns an AbortSignal that is already set as aborted (and which does not trigger an abort event).
+--- js: AbortSignal.abort
+export AbortSignalAbort: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- js: AbortSignal._any
+export AbortSignalAny: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The throwIfAborted() method throws the signal's abort reason if the signal has been aborted; otherwise it does nothing.
+--- js: AbortSignal.throwIfAborted
+export AbortSignalThrowIfAborted: () ~[1]~> Result<(), JsError>
+
+--- The AbortSignal.timeout() static method returns an AbortSignal that will automatically abort after a specified time.
+--- js: AbortSignal.timeout
+export AbortSignalTimeout: (Nat) ~[1]~> Result<Handle, JsError>

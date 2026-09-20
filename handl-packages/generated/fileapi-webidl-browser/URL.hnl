@@ -1,0 +1,26 @@
+--- Generated adapter for fileapi-webidl-browser/URL
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/FileAPI.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fileapi/URL" import { URL, URLCreateObjectURL, URLRevokeObjectURL }
+
+export u_r_l_create_object_u_r_l: URLCreateObjectURL := (obj) ~> do {
+  r = call("FileAPI", "createObjectURL", [obj], ["js_object"], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export u_r_l_revoke_object_u_r_l: URLRevokeObjectURL := (url) ~> do {
+  r = call("FileAPI", "revokeObjectURL", [url], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

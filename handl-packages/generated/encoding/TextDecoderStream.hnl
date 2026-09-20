@@ -1,0 +1,22 @@
+--- Generated port for encoding.TextDecoderStream
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/encoding.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The TextDecoderStream interface of the Encoding API converts a stream of text in a binary encoding, such as UTF-8 etc., to a stream of strings.
+--- It is the streaming equivalent of TextDecoder.
+--- It implements the same shape as a TransformStream, allowing it to be used in ReadableStream.pipeThrough() and similar methods.
+export TextDecoderStream := {
+  --- The encoding read-only property of the TextDecoderStream interface returns a string containing the name of the encoding algorithm used by the specific decoder.
+  encoding: String,
+  --- The fatal read-only property of the TextDecoderStream interface is a Boolean indicating if the error mode of the TextDecoderStream object is set to fatal.
+  fatal: Bool,
+  --- The ignoreBOM read-only property of the TextDecoderStream interface is a Boolean indicating whether the byte order mark will be included in the output or skipped over.
+  ignoreBOM: Bool
+}
+
+--- The TextDecoderStream() constructor creates a new TextDecoderStream object which is used to convert a stream of text in a binary encoding into strings.
+--- js: TextDecoderStream.constructor
+export TextDecoderStreamConstructor: (String, Handle) ~[1]~> Result<(), JsError>
