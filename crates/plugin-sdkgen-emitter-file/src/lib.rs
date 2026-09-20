@@ -30,8 +30,8 @@ impl Emitter for FileEmitter {
         std::fs::create_dir_all(&adapter_dir)
             .map_err(|e| SdkgenError(format!("failed to create adapter dir: {e}")))?;
 
-        let port = build_port(module, &lib, module_name);
-        let adapter = build_adapter(module, &lib, module_name, &adapter_pkg);
+        let port = canonicalize(build_port(module, &lib, module_name));
+        let adapter = canonicalize(build_adapter(module, &lib, module_name, &adapter_pkg));
 
         let port_path = output.join(format!("{module_name}.hnl"));
         let adapter_path = adapter_dir.join(format!("{module_name}.hnl"));
@@ -42,6 +42,20 @@ impl Emitter for FileEmitter {
             .map_err(|e| SdkgenError(format!("failed to write {adapter_path:?}: {e}")))?;
 
         Ok(())
+    }
+}
+
+/// Run emitted source through the canonical formatter so generated files
+/// satisfy `hnl fmt --check` out of the box (e.g. `Result<(), E>` renders as
+/// `Result < (), E >`). On a format error the raw text is still written — an
+/// unformatted artifact is more debuggable than none.
+fn canonicalize(src: String) -> String {
+    match handl_plugin_ext_fmt::format_source(&src) {
+        Ok(formatted) => formatted,
+        Err(e) => {
+            eprintln!("sdkgen: emitted source failed canonical fmt ({e}); writing unformatted");
+            src
+        }
     }
 }
 

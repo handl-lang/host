@@ -2243,6 +2243,7 @@ dependencies = [
 name = "handl-plugin-sdkgen-emitter-file"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-ext-fmt",
  "handl-plugin-sdkgen",
 ]
 

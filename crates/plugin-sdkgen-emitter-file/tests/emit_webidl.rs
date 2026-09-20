@@ -60,7 +60,7 @@ fn emits_js_port_and_adapter() {
         "1-morphism missing in port: {port}"
     );
     assert!(
-        port.contains("Result<(), JsError>"),
+        port.contains("Result < (), JsError >"),
         "JS result type missing in port: {port}"
     );
 
@@ -89,6 +89,16 @@ fn emits_js_port_and_adapter() {
         "error() call missing: {adapter}"
     );
     assert!(adapter.contains("err(e)"), "err(e) missing: {adapter}");
+
+    // Emitted files are canonical: `hnl fmt --check` must pass on both.
+    assert!(
+        handl_plugin_ext_fmt::check_source(&port).unwrap_or(false),
+        "port is not canonical:\n{port}"
+    );
+    assert!(
+        handl_plugin_ext_fmt::check_source(&adapter).unwrap_or(false),
+        "adapter is not canonical:\n{adapter}"
+    );
 
     let _ = fs::remove_dir_all(&tmp);
 }
