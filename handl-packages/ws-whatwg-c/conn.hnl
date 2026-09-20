@@ -1,0 +1,300 @@
+--- ws-whatwg-c/conn -- the effectful connection layer: `connect`,
+--- `send`, `recv`, `close` over the generated libc socket adapters.
+---
+--- @details
+--- This is the only module in `ws-whatwg-c` with `~[1]~>` arrows.
+--- Every libc call returns `Result<payload, Errno>` (`Errno` is a bare
+--- Int); the exports propagate those `err` values unchanged and reserve
+--- `error.raise` for programmer errors (a non-`ws://` URL, a
+--- non-string/non-bytes `send` message) and `err(ECONNABORTED)` for a
+--- refused handshake (non-101 status or a bad Sec-WebSocket-Accept).
+---
+--- Entropy enters through the generated libc `getrandom(2)` adapter
+--- (`libc-c-linux-x86_64/random.hnl`): `random_bytes` unwraps its
+--- `Result<Bytes>` and slices off the `n` bytes the caller needs.
+---
+--- v1 scope: `ws://` + IPv4-literal hosts only (see `index.hnl`).
+
+from "bytes" import * as bytes
+from "result" import { Result, ok, err }
+from "ffi" import { Errno }
+from "../generated/libc-c-linux-x86_64/socket" import * as socket
+from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+from "../generated/libc-c-linux-x86_64/random" import * as random
+from "../generated/libc-c-linux-x86_64/errno" import * as errno
+from "../ws_frame-handl/frame" import * as frame
+from "../ws_frame" import * as ws_frame
+from "./index" import { Conn }
+from "./sockaddr" import * as sockaddr
+from "./http" import * as http
+
+--- The `read_head` output: the decoded head text plus `rest`, any
+--- frame bytes that arrived in the same read.
+export HeadOut := { head: String, rest: Bytes }
+
+--- The `recv` output: the next message (or null) plus the updated
+--- connection. Message payloads surface as: String for text frames,
+--- Bytes for binary frames, `{op, payload}` for control frames
+--- (close/ping/pong), and null while no full frame is buffered.
+export RecvOut := { msg: Value, conn: Conn }
+
+--- unwrap -- project the `ok` payload of a libc `Result`; raises with
+--- the op name and errno on `err`. For pre-flight checks only -- the
+--- exports below propagate `err` to their callers instead.
+unwrap := (r, what) ~> do {
+  if tag.tag_of(r) == "err" {
+    error.raise("ws-whatwg-c: " + what + " failed (errno " +
+                type.to_string(tag.untag(r).value) + ")")
+  } else {
+    tag.untag(r).value
+  }
+}
+
+--- random_bytes -- draw `n` cryptographically secure bytes through the
+--- generated libc `getrandom(2)` adapter (flags = 0: the urandom pool).
+--- The adapter fills a 256-byte buffer; `n` must not exceed that.
+--- @param {n} - byte count (at most 256)
+--- @returns {Bytes - n random bytes}
+export random_bytes: (Int) ~[1]~> Bytes := (n) ~> do {
+  if n < 0 || n > 256 {
+    error.raise("ws-whatwg-c: random_bytes draws at most 256 bytes")
+  } else {
+    bytes.slice(unwrap(random.getrandom(0), "getrandom"), 0, n)
+  }
+}
+
+--- write_all -- send every byte of `buf` over `fd`, looping on short
+--- writes with `MSG_NOSIGNAL` (a peer reset surfaces as `err(EPIPE)`,
+--- never SIGPIPE). Returns the total bytes written.
+--- @param {fd} - the socket fd
+--- @param {buf} - the Bytes to write
+--- @returns {Result<Int, Errno> - total sent, or the send errno}
+export write_all: (Int, Bytes) ~[1]~> Result<Int, Errno> := (fd, buf) ~> do {
+  while { fd: fd, buf: buf, off: 0 } {
+    (fd, buf, off) ~> do {
+      if off >= bytes.len(buf) {
+        { out: ok(off) }
+      } else {
+        do {
+          r :: socket.send(
+            fd,
+            bytes.slice(buf, off, bytes.len(buf) - off),
+            socket.MSG_NOSIGNAL)
+          if tag.tag_of(r) == "err" {
+            { out: r }
+          } else {
+            do {
+              n :: tag.untag(r).value
+              if n <= 0 {
+                { out: err(errno.EPIPE) }
+              } else {
+                { state: { fd: fd, buf: buf, off: off + n } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- read_head -- blocking `recv` loop that accumulates bytes until the
+--- `"\r\n\r\n"` head terminator appears. Returns `{head, rest}` where
+--- `head` is the UTF-8 decoded head (terminator included) and `rest` is
+--- whatever frame bytes trailed it. A peer close before the terminator
+--- surfaces as `err(ECONNRESET)`.
+--- @param {fd} - the socket fd
+--- @returns {Result<HeadOut, Errno> - the head, or the recv errno}
+export read_head: (Int) ~[1]~> Result<HeadOut, Errno> := (fd) ~> do {
+  while { fd: fd, acc: bytes.from_list([]) } {
+    (fd, acc) ~> do {
+      r :: socket.recv(fd, 0)
+      if tag.tag_of(r) == "err" {
+        { out: r }
+      } else {
+        do {
+          chunk :: tag.untag(r).value
+          if bytes.len(chunk) == 0 {
+            { out: err(errno.ECONNRESET) }
+          } else {
+            do {
+              buf :: bytes.concat(acc, chunk)
+              e :: http.head_end(buf)
+              if e < 0 {
+                { state: { fd: fd, acc: buf } }
+              } else {
+                { out: ok({
+                    head: bytes.utf8_decode(bytes.slice(buf, 0, e)),
+                    rest: bytes.slice(buf, e, bytes.len(buf) - e) }) }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- connect -- open a WebSocket connection to a `ws://` URL.
+--- @param {url} - "ws://<ipv4>[:port][/path]" (v1: IPv4 literals only)
+--- @returns {Result<Conn, Errno> - the connection, or the failing errno}
+--- @details Runs the full RFC 6455 client handshake: socket, connect,
+--- a fresh 16-byte `getrandom` nonce as Sec-WebSocket-Key, the upgrade
+--- request, then the response head check (status 101 plus a matching
+--- Sec-WebSocket-Accept). Bytes already read past the head land in
+--- `conn.rbuf` so no early frame is lost. A refused handshake returns
+--- `err(ECONNABORTED)`; a bad URL raises (a usage error, not a socket
+--- failure). On `connect(2)` failure the fd is closed before
+--- propagating.
+export connect: String ~[1]~> Result<Conn, Errno> := (url) ~> do {
+  u :: http.parse_url(url)
+  s :: socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+  if tag.tag_of(s) == "err" {
+    s
+  } else {
+    do {
+      fd :: tag.untag(s).value
+      c :: socket.connect(fd, sockaddr.sockaddr_in(u.port, u.host))
+      if tag.tag_of(c) == "err" {
+        do {
+          dropped :: unistd.close(fd)
+          c
+        }
+      } else {
+        do {
+          key :: http.b64_encode(bytes.to_list(random_bytes(16)))
+          w :: write_all(fd, bytes.utf8_encode(http.upgrade_req(u, key)))
+          if tag.tag_of(w) == "err" {
+            w
+          } else {
+            do {
+              h :: read_head(fd)
+              if tag.tag_of(h) == "err" {
+                h
+              } else {
+                do {
+                  hr :: tag.untag(h).value
+                  p :: http.parse_head(hr.head)
+                  acc :: http.header_get(p.headers, "sec-websocket-accept")
+                  if p.status != 101 {
+                    err(errno.ECONNABORTED)
+                  } else if acc != http.accept_key(key) {
+                    err(errno.ECONNABORTED)
+                  } else {
+                    ok({ fd: fd, rbuf: hr.rest })
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- send -- send one message on the connection. A String goes out as a
+--- text frame (UTF-8, op 1), a Bytes buffer as binary (op 2); anything
+--- else raises. Client frames are always masked with a fresh 4-byte
+--- `getrandom` key (RFC 6455 section 5.3).
+--- @param {conn} - the connection
+--- @param {msg} - String (text) or Bytes (binary)
+--- @returns {Result<Conn, Errno> - the connection, or the send errno}
+export send: (Conn, Value) ~[1]~> Result<Conn, Errno> := (conn, msg) ~> do {
+  k :: random_bytes(4)
+  t :: type.of(msg)
+  if t == "string" {
+    do {
+      f :: frame.encode({
+        fin: 1, op: ws_frame.OpText,
+        payload: bytes.utf8_encode(msg), mask_key: k })
+      w :: write_all(conn.fd, f)
+      if tag.tag_of(w) == "err" { w } else { ok(conn) }
+    }
+  } else if t == "bytes" {
+    do {
+      f :: frame.encode({
+        fin: 1, op: ws_frame.OpBinary,
+        payload: msg, mask_key: k })
+      w :: write_all(conn.fd, f)
+      if tag.tag_of(w) == "err" { w } else { ok(conn) }
+    }
+  } else {
+    error.raise("ws-whatwg-c: send takes a String or Bytes message")
+  }
+}
+
+--- recv -- poll the connection once for the next message.
+--- @param {conn} - the connection
+--- @returns {Result<RecvOut, Errno> - {msg, conn}, or the recv errno}
+--- @details Non-blocking (`MSG_DONTWAIT`): `err(EAGAIN)` maps to
+--- `{msg: null, conn}` -- call again later. Bytes read are appended to
+--- `conn.rbuf` and fed to `frame.decode`: a complete frame surfaces as
+--- String (op 1), Bytes (op 2), or `{op, payload}` for control frames
+--- (8/9/10 -- close/ping/pong are surfaced, never answered
+--- automatically); an incomplete frame keeps buffering and returns
+--- null. A clean peer close (0-byte read) surfaces as a synthesized
+--- `{op: 8, payload: empty}` close message.
+export recv: (Conn) ~[1]~> Result<RecvOut, Errno> := (conn) ~> do {
+  r :: socket.recv(conn.fd, socket.MSG_DONTWAIT)
+  if tag.tag_of(r) == "err" {
+    do {
+      e :: tag.untag(r).value
+      if e == errno.EAGAIN {
+        ok({ msg: null, conn: conn })
+      } else {
+        r
+      }
+    }
+  } else {
+    do {
+      chunk :: tag.untag(r).value
+      if bytes.len(chunk) == 0 {
+        ok({ msg: { op: ws_frame.OpClose, payload: bytes.from_list([]) },
+             conn: conn })
+      } else {
+        do {
+          buf :: bytes.concat(conn.rbuf, chunk)
+          d :: frame.decode(buf)
+          if tag.tag_of(d) == "None" {
+            ok({ msg: null, conn: { fd: conn.fd, rbuf: buf } })
+          } else {
+            do {
+              f :: d.value.frame
+              msg :: if f.op == ws_frame.OpText {
+                bytes.utf8_decode(f.payload)
+              } else if f.op == ws_frame.OpBinary {
+                f.payload
+              } else {
+                { op: f.op, payload: f.payload }
+              }
+              ok({ msg: msg, conn: { fd: conn.fd, rbuf: d.value.rest } })
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- close -- send a masked close frame, `shutdown(SHUT_WR)`, and close
+--- the fd. Best-effort: all three steps run even when an earlier one
+--- fails, then the first `err` is propagated.
+--- @param {conn} - the connection
+--- @returns {Result<Int, Errno> - 0, or the first failing errno}
+export close: (Conn) ~[1]~> Result<Int, Errno> := (conn) ~> do {
+  k :: random_bytes(4)
+  f :: frame.encode({
+    fin: 1, op: ws_frame.OpClose,
+    payload: bytes.from_list([]), mask_key: k })
+  w :: write_all(conn.fd, f)
+  s :: socket.shutdown(conn.fd, socket.SHUT_WR)
+  c :: unistd.close(conn.fd)
+  if tag.tag_of(w) == "err" {
+    w
+  } else if tag.tag_of(s) == "err" {
+    s
+  } else {
+    c
+  }
+}

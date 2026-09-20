@@ -1,0 +1,56 @@
+--- Tests for ws-whatwg-c/sockaddr -- pure sockaddr_in pack/unpack.
+---
+--- Concrete wire vectors (the 16-byte image `connect(2)` reads), the
+--- pack/unpack roundtrip, rejection of malformed input, and the
+--- `sockaddr_roundtrip` law instantiated over this implementation (the
+--- `~[2]~>` law term is a cell value, not an assertion -- the property
+--- it states is checked concretely here).
+
+from "./sockaddr" import * as sockaddr
+from "./index" import * as index
+from "bytes" import * as bytes
+
+-- 127.0.0.1:8080 -- family 0x0002 little-endian, port 0x1F90
+-- big-endian, addr 7F 00 00 01, then eight zero pad bytes.
+test_pack_localhost := assert bytes.to_list(sockaddr.sockaddr_in(8080, "127.0.0.1")) = [
+  2, 0, 31, 144, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0
+]
+
+test_unpack_localhost := assert sockaddr.sockaddr_out(bytes.from_list(
+  [2, 0, 31, 144, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])) = {
+  port: 8080, ip: "127.0.0.1"
+}
+
+test_roundtrip := assert sockaddr.sockaddr_out(
+  sockaddr.sockaddr_in(443, "8.8.8.8")) = { port: 443, ip: "8.8.8.8" }
+
+test_roundtrip_zero := assert sockaddr.sockaddr_out(
+  sockaddr.sockaddr_in(0, "0.0.0.0")) = { port: 0, ip: "0.0.0.0" }
+
+test_roundtrip_max := assert sockaddr.sockaddr_out(
+  sockaddr.sockaddr_in(65535, "255.255.255.255")) = {
+  port: 65535, ip: "255.255.255.255"
+}
+
+-- The `~[2]~>` law term instantiates to an `Arrow` cell over this
+-- implementation's arrows.
+test_law_instantiate := assert tag.tag_of(
+  index.sockaddr_roundtrip(sockaddr.sockaddr_in, sockaddr.sockaddr_out)) = "Arrow"
+
+-- The law's right side rebuilds the input pair as a record.
+test_law_rhs := assert index.sockaddr_record(443, "8.8.8.8") = {
+  port: 443, ip: "8.8.8.8"
+}
+
+-- Malformed input raises (captured through `error.try`).
+test_bad_octet := assert tag.tag_of(
+  error.try((x) ~> sockaddr.sockaddr_in(80, "999.0.0.1"))) = "err"
+
+test_bad_shape := assert tag.tag_of(
+  error.try((x) ~> sockaddr.sockaddr_in(80, "1.2.3"))) = "err"
+
+test_bad_alpha := assert tag.tag_of(
+  error.try((x) ~> sockaddr.sockaddr_in(80, "a.b.c.d"))) = "err"
+
+test_bad_port := assert tag.tag_of(
+  error.try((x) ~> sockaddr.sockaddr_in(70000, "1.2.3.4"))) = "err"
