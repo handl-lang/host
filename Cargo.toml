@@ -54,10 +54,6 @@ members = [
   "crates/plugin-lib-unicode",
   "crates/plugin-lib-unicode-native",
 
-  "crates/plugin-lib-ws-rfc",
-  "crates/plugin-lib-ws-rfc-memory",
-  "crates/plugin-lib-ws-rfc-native",
-  "crates/plugin-lib-ws-whatwg-native",
   "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-diag-expression",
@@ -199,10 +195,6 @@ handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-plugin-lib-unicode-native = { path = "crates/plugin-lib-unicode-native" }
 
-handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }
-handl-plugin-lib-ws-rfc-memory = { path = "crates/plugin-lib-ws-rfc-memory" }
-handl-plugin-lib-ws-rfc-native = { path = "crates/plugin-lib-ws-rfc-native" }
-handl-plugin-lib-ws-whatwg-native = { path = "crates/plugin-lib-ws-whatwg-native" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-lsp = { path = "crates/plugin-lsp" }

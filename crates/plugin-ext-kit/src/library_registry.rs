@@ -51,12 +51,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("unicode", || {
         Box::new(handl_plugin_lib_unicode::LibraryPlugin::new()) as LibraryPlugin
     });
-    reg.register("ws-rfc-memory", || {
-        Box::new(handl_plugin_lib_ws_rfc_memory::LibraryPlugin::new()) as LibraryPlugin
-    });
-    reg.register("ws-whatwg-native", || {
-        Box::new(handl_plugin_lib_ws_whatwg_native::LibraryPlugin::new()) as LibraryPlugin
-    });
     reg.register("ip", || {
         Box::new(handl_plugin_lib_stdlib::ops::ip::LibraryPlugin::new()) as LibraryPlugin
     });

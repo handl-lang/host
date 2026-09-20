@@ -38,7 +38,5 @@ modules:
   - collections
   - unicode
   - stats
-  - ws-rfc-memory
-  - ws-whatwg-native
   - ip
   - archive-tar
