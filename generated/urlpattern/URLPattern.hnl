@@ -1,0 +1,40 @@
+--- Generated port for urlpattern.URLPattern
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/urlpattern.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The URLPattern interface of the URL Pattern API matches URLs or parts of URLs against a pattern. The pattern can contain capturing groups that extract parts of the matched URL.
+export URLPattern := {
+  --- The protocol read-only property of the URLPattern interface is a string containing the pattern used to match the protocol part of a URL.
+  protocol: String,
+  --- The username read-only property of the URLPattern interface is a string containing the pattern used to match the username part of a URL.
+  username: String,
+  --- The password read-only property of the URLPattern interface is a string containing the pattern used to match the password part of a URL.
+  password: String,
+  --- The hostname read-only property of the URLPattern interface is a string containing the pattern used to match the hostname part of a URL.
+  hostname: String,
+  --- The port read-only property of the URLPattern interface is a string containing the pattern used to match the port part of a URL.
+  port: String,
+  --- The pathname read-only property of the URLPattern interface is a string containing the pattern used to match the pathname part of a URL.
+  pathname: String,
+  --- The search read-only property of the URLPattern interface is a string containing the pattern used to match the search part of a URL.
+  search: String,
+  --- The hash read-only property of the URLPattern interface is a string containing the pattern used to match the fragment part of a URL.
+  hash: String,
+  --- The hasRegExpGroups read-only property of the URLPattern interface is a boolean indicating whether or not any of the URLPattern components contain regular expression capturing groups.
+  hasRegExpGroups: Bool
+}
+
+--- The URLPattern() constructor returns a new URLPattern object representing the URLs that will be matched by this pattern.
+--- js: URLPattern.constructor
+export URLPatternConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The exec() method of the URLPattern interface takes a URL or object of URL parts, and returns either an object containing the results of matching the URL to the pattern, or null if the URL does not match the pattern.
+--- js: URLPattern.exec
+export URLPatternExec: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The test() method of the URLPattern interface takes a URL string or object of URL parts, and returns a boolean indicating if the given input matches the current pattern.
+--- js: URLPattern.test
+export URLPatternTest: (Handle, String) ~[1]~> Result<Bool, JsError>

@@ -1,0 +1,18 @@
+--- Generated port for urlpattern.URLPatternInit
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/urlpattern.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export URLPatternInit := {
+  protocol: String,
+  username: String,
+  password: String,
+  hostname: String,
+  port: String,
+  pathname: String,
+  search: String,
+  hash: String,
+  baseURL: String
+}

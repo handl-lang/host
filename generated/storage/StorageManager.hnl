@@ -1,0 +1,22 @@
+--- Generated port for storage.StorageManager
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/storage.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The StorageManager interface of the Storage API provides an interface for managing persistence permissions and estimating available storage. You can get a reference to this interface using either navigator.storage or WorkerNavigator.storage.
+export StorageManager := {
+}
+
+--- The estimate() method of the StorageManager interface asks the Storage Manager for how much storage the current origin takes up (usage), and how much space is available (quota).
+--- js: StorageManager.estimate
+export StorageManagerEstimate: () ~[1]~> Result<Handle, JsError>
+
+--- The persist() method of the StorageManager interface requests permission to use persistent storage, and returns a Promise that resolves to true if permission is granted and bucket mode is persistent, and false otherwise. The browser may or may not honor the request, depending on browser-specific rules. (For more details, see the guide to Storage quotas and eviction criteria.)
+--- js: StorageManager.persist
+export StorageManagerPersist: () ~[1]~> Result<Handle, JsError>
+
+--- The persisted() method of the StorageManager interface returns a Promise that resolves to true if your site's storage bucket is persistent.
+--- js: StorageManager.persisted
+export StorageManagerPersisted: () ~[1]~> Result<Handle, JsError>

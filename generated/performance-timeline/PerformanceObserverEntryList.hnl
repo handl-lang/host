@@ -1,0 +1,22 @@
+--- Generated port for performance-timeline.PerformanceObserverEntryList
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/performance-timeline.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The PerformanceObserverEntryList interface is a list of performance events that were explicitly observed via the observe() method.
+export PerformanceObserverEntryList := {
+}
+
+--- The getEntries() method of the PerformanceObserverEntryList interface returns a list of explicitly observed performance entry objects. The list's members are determined by the set of entry types specified in the call to the observe() method. The list is available in the observer's callback function (as the first parameter in the callback).
+--- js: PerformanceObserverEntryList.getEntries
+export PerformanceObserverEntryListGetEntries: () ~[1]~> Result<Handle, JsError>
+
+--- The getEntriesByName() method of the PerformanceObserverEntryList interface returns a list of explicitly observed PerformanceEntry objects for a given name and entryType. The list's members are determined by the set of entry types specified in the call to the observe() method. The list is available in the observer's callback function (as the first parameter in the callback).
+--- js: PerformanceObserverEntryList.getEntriesByName
+export PerformanceObserverEntryListGetEntriesByName: (String, String) ~[1]~> Result<Handle, JsError>
+
+--- The getEntriesByType() method of the PerformanceObserverEntryList returns a list of explicitly observed performance entry objects for a given performance entry type. The list's members are determined by the set of entry types specified in the call to the observe() method. The list is available in the observer's callback function (as the first parameter in the callback).
+--- js: PerformanceObserverEntryList.getEntriesByType
+export PerformanceObserverEntryListGetEntriesByType: (String) ~[1]~> Result<Handle, JsError>

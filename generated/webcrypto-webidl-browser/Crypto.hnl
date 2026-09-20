@@ -1,0 +1,26 @@
+--- Generated adapter for webcrypto-webidl-browser/Crypto
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/webcrypto.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../webcrypto/Crypto" import { Crypto, CryptoGetRandomValues, CryptoRandomUUID }
+
+export crypto_get_random_values: CryptoGetRandomValues := (array) ~> do {
+  r = call("webcrypto", "getRandomValues", [array], ["js_bytes"], "js_bytes", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export crypto_random_u_u_i_d: CryptoRandomUUID := () ~> do {
+  r = call("webcrypto", "randomUUID", [], [], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

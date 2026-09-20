@@ -1,0 +1,126 @@
+--- Generated adapter for webcrypto-webidl-browser/SubtleCrypto
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/webcrypto.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../webcrypto/SubtleCrypto" import { SubtleCrypto, SubtleCryptoDecrypt, SubtleCryptoDeriveBits, SubtleCryptoDeriveKey, SubtleCryptoDigest, SubtleCryptoEncrypt, SubtleCryptoExportKey, SubtleCryptoGenerateKey, SubtleCryptoImportKey, SubtleCryptoSign, SubtleCryptoUnwrapKey, SubtleCryptoVerify, SubtleCryptoWrapKey }
+
+export subtle_crypto_decrypt: SubtleCryptoDecrypt := (algorithm, key, data_) ~> do {
+  r = call("webcrypto", "decrypt", [algorithm, key, data_], ["js_object", "js_object", "js_bytes"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_derive_bits: SubtleCryptoDeriveBits := (algorithm, baseKey, length) ~> do {
+  r = call("webcrypto", "deriveBits", [algorithm, baseKey, length], ["js_object", "js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_derive_key: SubtleCryptoDeriveKey := (algorithm, baseKey, derivedKeyType, extractable, keyUsages) ~> do {
+  r = call("webcrypto", "deriveKey", [algorithm, baseKey, derivedKeyType, extractable, keyUsages], ["js_object", "js_object", "js_object", "js_boolean", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_digest: SubtleCryptoDigest := (algorithm, data_) ~> do {
+  r = call("webcrypto", "digest", [algorithm, data_], ["js_object", "js_bytes"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_encrypt: SubtleCryptoEncrypt := (algorithm, key, data_) ~> do {
+  r = call("webcrypto", "encrypt", [algorithm, key, data_], ["js_object", "js_object", "js_bytes"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_export_key: SubtleCryptoExportKey := (format, key) ~> do {
+  r = call("webcrypto", "exportKey", [format, key], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_generate_key: SubtleCryptoGenerateKey := (algorithm, extractable, keyUsages) ~> do {
+  r = call("webcrypto", "generateKey", [algorithm, extractable, keyUsages], ["js_object", "js_boolean", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_import_key: SubtleCryptoImportKey := (format, keyData, algorithm, extractable, keyUsages) ~> do {
+  r = call("webcrypto", "importKey", [format, keyData, algorithm, extractable, keyUsages], ["js_object", "js_object", "js_object", "js_boolean", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_sign: SubtleCryptoSign := (algorithm, key, data_) ~> do {
+  r = call("webcrypto", "sign", [algorithm, key, data_], ["js_object", "js_object", "js_bytes"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_unwrap_key: SubtleCryptoUnwrapKey := (format, wrappedKey, unwrappingKey, unwrapAlgorithm, unwrappedKeyAlgorithm, extractable, keyUsages) ~> do {
+  r = call("webcrypto", "unwrapKey", [format, wrappedKey, unwrappingKey, unwrapAlgorithm, unwrappedKeyAlgorithm, extractable, keyUsages], ["js_object", "js_bytes", "js_object", "js_object", "js_object", "js_boolean", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_verify: SubtleCryptoVerify := (algorithm, key, signature, data_) ~> do {
+  r = call("webcrypto", "verify", [algorithm, key, signature, data_], ["js_object", "js_object", "js_bytes", "js_bytes"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export subtle_crypto_wrap_key: SubtleCryptoWrapKey := (format, key, wrappingKey, wrapAlgorithm) ~> do {
+  r = call("webcrypto", "wrapKey", [format, key, wrappingKey, wrapAlgorithm], ["js_object", "js_object", "js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
