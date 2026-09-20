@@ -1,0 +1,101 @@
+# SDK generation config for zlib (libz.so.1).
+#
+# Only the one-shot buffer API plus the `gz*` streaming file API are bound —
+# `deflate`/`inflate` need a persistent `z_stream`, which the ffi descriptor
+# vocabulary cannot round-trip across calls (no seeded `io_struct`). The `gz*`
+# API over a `memfd` covers the same ground with plain fd/ptr signatures.
+
+library: libz.so.1
+
+headers:
+  zlib.h:
+    include:
+      [
+        "compressBound",
+        "compress2",
+        "uncompress",
+        "crc32",
+        "adler32",
+        "gzdopen",
+        "gzread",
+        "gzwrite",
+        "gzflush",
+        "gzclose",
+        "gzerror",
+      ]
+
+symbols:
+  # uLong compressBound(uLong sourceLen)
+  compressBound:
+    args: ["u64"]
+    names: ["source_len"]
+    ret: Int
+    descriptor: "u64"
+
+  # int compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
+  #               uLong sourceLen, int level)
+  # io_buf expands to (dest_ptr, &dest_len) — the value-result pair — and
+  # trims the returned Bytes to the length zlib wrote back.
+  compress2:
+    args: ["io_buf:16777216", "in_buf", "i32"]
+    names: ["source", "level"]
+
+  # int uncompress(Bytef *dest, uLongf *destLen, const Bytef *source,
+  #                uLong sourceLen) — same io_buf trick. The output must fit
+  # in the fixed capacity; zlib has no size query for the zlib format.
+  uncompress:
+    args: ["io_buf:16777216", "in_buf"]
+    names: ["source"]
+
+  # uLong crc32(uLong crc, const Bytef *buf, uInt len) — in_buf expands to
+  # (buf_ptr, len) so `len` is supplied implicitly.
+  crc32:
+    args: ["u64", "in_buf"]
+    names: ["crc", "buf"]
+    ret: Int
+    descriptor: "u64"
+
+  # uLong adler32(uLong adler, const Bytef *buf, uInt len)
+  adler32:
+    args: ["u64", "in_buf"]
+    names: ["adler", "buf"]
+    ret: Int
+    descriptor: "u64"
+
+  # gzFile gzdopen(int fd, const char *mode) — gzFile is void*; the address
+  # travels as an Int and is passed back as `ptr`.
+  gzdopen:
+    args: ["i32", "cstr"]
+    names: ["fd", "mode"]
+    ret: Int
+    descriptor: "ptr"
+
+  # int gzread(gzFile file, voidp buf, unsigned len) — out_buf expands to
+  # (buf_ptr, len); `ret` is the byte count so the slot trims itself.
+  gzread:
+    args: ["ptr", "out_buf:65536"]
+    names: ["file"]
+
+  # int gzwrite(gzFile file, voidpc buf, unsigned len) — in_buf expands to
+  # (buf_ptr, len).
+  gzwrite:
+    args: ["ptr", "in_buf"]
+    names: ["file", "buf"]
+
+  # int gzflush(gzFile file, int flush)
+  gzflush:
+    args: ["ptr", "i32"]
+    names: ["file", "flush"]
+
+  # int gzclose(gzFile file) — also closes the fd gzdopen took over.
+  gzclose:
+    args: ["ptr"]
+    names: ["file"]
+
+  # const char *gzerror(gzFile file, int *errnum) — errnum out-param is a
+  # 4-byte cell; the string return is what callers want.
+  gzerror:
+    args: ["ptr", "out_ptr:4"]
+    names: ["file"]
+    ret: String
+    descriptor: "cstr"

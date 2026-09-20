@@ -5,6 +5,9 @@ from "ffi" import { Errno }
 from "result" import { Result }
 from "types/c/sys" import { SSize }
 
+--- ffi: __off_t (int, __off_t, int)
+export Lseek: (Int, Int, Int) ~[1]~> Result<Int, Errno>
+
 --- ffi: int (int)
 export Close: (Int) ~[1]~> Result<Int, Errno>
 
@@ -20,7 +23,7 @@ export PipeResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Pipe: () ~[1]~> Result<PipeResult, Errno>
 
 export Pipe2Result := {
@@ -29,7 +32,7 @@ export Pipe2Result := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Pipe2: (Int) ~[1]~> Result<Pipe2Result, Errno>
 
 --- ffi: int (int)
@@ -38,3 +41,5 @@ export Dup: (Int) ~[1]~> Result<Int, Errno>
 --- ffi: int (int, int)
 export Dup2: (Int, Int) ~[1]~> Result<Int, Errno>
 
+--- ffi: long (long, ...)
+export Syscall: (Int, String, Int) ~[1]~> Result<Int, Errno>

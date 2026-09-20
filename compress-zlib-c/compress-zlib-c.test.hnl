@@ -1,0 +1,12 @@
+--- Round-trip tests for the zlib-format `compress` backend.
+
+from "./compress-zlib-c" import * as zlib_c
+from "bytes" import * as bytes
+
+payload := bytes.utf8_encode("hello hello hello, compress me please")
+
+test_zlib_compress_nonempty := assert bytes.len(zlib_c.compress(payload)) > 0
+
+test_zlib_roundtrip := assert bytes.utf8_decode(zlib_c.decompress(zlib_c.compress(payload))) = "hello hello hello, compress me please"
+
+test_zlib_compresses := assert bytes.len(zlib_c.compress(payload)) < bytes.len(payload)

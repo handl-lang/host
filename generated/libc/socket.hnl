@@ -298,7 +298,7 @@ export SocketpairResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Socketpair: (Int, Int, Int) ~[1]~> Result<SocketpairResult, Errno>
 
 export GetsocknameResult := {
@@ -307,7 +307,7 @@ export GetsocknameResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Getsockname: (Int) ~[1]~> Result<GetsocknameResult, Errno>
 
 export GetpeernameResult := {
@@ -316,7 +316,7 @@ export GetpeernameResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Getpeername: (Int) ~[1]~> Result<GetpeernameResult, Errno>
 
 --- ffi: ssize_t (int, const void *, size_t, int)
@@ -331,7 +331,7 @@ export RecvfromResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Recvfrom: (Int, Int) ~[1]~> Result<RecvfromResult, Errno>
 
 export SendmsgMsg := {
@@ -377,7 +377,7 @@ export AcceptResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Accept: (Int) ~[1]~> Result<AcceptResult, Errno>
 
 export Accept4Result := {
@@ -386,7 +386,7 @@ export Accept4Result := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Accept4: (Int, Int) ~[1]~> Result<Accept4Result, Errno>
 
 --- ffi: int (int, int)
@@ -397,4 +397,3 @@ export Sockatmark: (Int) ~[1]~> Result<Int, Errno>
 
 --- ffi: int (int, int)
 export Isfdtype: (Int, Int) ~[1]~> Result<Int, Errno>
-

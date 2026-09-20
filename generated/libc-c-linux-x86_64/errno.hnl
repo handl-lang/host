@@ -1,0 +1,14 @@
+--- Generated adapter for libc-c-linux-x86_64/errno
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+
+export EINTR: Int := 4
+export EBADF: Int := 9
+export EAGAIN: Int := 11
+export EPIPE: Int := 32
+export EWOULDBLOCK: Int := 11
+export ECONNABORTED: Int := 103
+export ECONNRESET: Int := 104
+export ENOTCONN: Int := 107
+export EINPROGRESS: Int := 115

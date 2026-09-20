@@ -12,7 +12,18 @@ defines:
 # in config so regeneration is reproducible without remembering CLI flags.
 headers:
   unistd.h:
-    include: ["close", "read", "write", "pipe", "pipe2", "dup", "dup2"]
+    include:
+      [
+        "close",
+        "read",
+        "write",
+        "pipe",
+        "pipe2",
+        "dup",
+        "dup2",
+        "lseek",
+        "syscall",
+      ]
   time.h:
     include:
       [
@@ -25,8 +36,96 @@ headers:
         "clock_settime",
         "timespec",
       ]
+  # sys/epoll.h — the basename keys the entry, like socket.h's port.
+  # epoll_event/epoll_data stay unlisted: epoll_data is a union (unions
+  # aren't collected) and both bound functions carry hand-written struct
+  # descriptors below, so the records would emit and be pruned anyway.
+  epoll.h:
+    include:
+      [
+        "epoll_create1",
+        "epoll_ctl",
+        "epoll_wait",
+        "EPOLLIN",
+        "EPOLLPRI",
+        "EPOLLOUT",
+        "EPOLLRDHUP",
+        "EPOLLERR",
+        "EPOLLHUP",
+        "EPOLLET",
+        "EPOLLONESHOT",
+        "EPOLL_CLOEXEC",
+        "EPOLL_CTL_ADD",
+        "EPOLL_CTL_MOD",
+        "EPOLL_CTL_DEL",
+      ]
+  fcntl.h:
+    include:
+      [
+        "fcntl",
+        "F_GETFL",
+        "F_SETFL",
+        "F_GETFD",
+        "F_SETFD",
+        "FD_CLOEXEC",
+        "O_NONBLOCK",
+        "O_CLOEXEC",
+      ]
+  # netinet/tcp.h — constants-only run (TCP_NODELAY/TCP_CORK are consumed
+  # through the already-bound setsockopt). With no emitted function the
+  # unreferenced-type prune is a no-op, so `exclude` trims the
+  # sys/types.h/pthread/socket debris the include closure drags in.
+  tcp.h:
+    include: ["TCP_NODELAY", "TCP_CORK"]
+    exclude:
+      [
+        "__*",
+        "*_t",
+        "u_*",
+        "timeval",
+        "timespec",
+        "fd_set",
+        "fd_mask",
+        "iovec",
+        "sockaddr",
+        "sockaddr_storage",
+        "msghdr",
+        "mmsghdr",
+        "ucred",
+        "linger",
+        "osockaddr",
+        "ulong",
+        "ushort",
+        "uint",
+        "register_t",
+        "error_t",
+      ]
+  # errno.h — the E* names are #defines folded by the macro probe.
+  # `error_t` is the header's only type decl; excluded so the module
+  # stays constants-only.
+  errno.h:
+    include:
+      [
+        "EAGAIN",
+        "EWOULDBLOCK",
+        "EINTR",
+        "EINPROGRESS",
+        "ECONNRESET",
+        "EPIPE",
+        "ECONNABORTED",
+        "ENOTCONN",
+        "EBADF",
+      ]
+    exclude: ["error_t"]
 
 symbols:
+  # long syscall(long sysno, ...) — bound for the memfd_create shape:
+  # syscall(SYS_memfd_create, name, flags). Other syscall forms would need
+  # their own arg lists (the variadic tail is per-call-site).
+  syscall:
+    args: ["i64", "cstr", "u32"]
+    names: ["sysno", "name", "flags"]
+
   # ssize_t recv(int fd, void *buf, size_t len, int flags)
   # out_buf expands to (ptr,len) — consumes the `len` C slot — and wraps
   # the return as { ret, buf }. Port args: (fd, flags).
@@ -126,3 +225,35 @@ symbols:
   # emitter unwraps { ret, buf } → buf, so the port reports Bytes.
   inet_ntop:
     args: ["i32", "in_buf", "out_buf:64", "i32"]
+
+  # int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+  # glibc's epoll_event is packed — { u32 events; epoll_data_t data; } is
+  # 12 bytes on x86_64 with data at offset 4 (no natural-alignment pad),
+  # so the field offsets are spelled out explicitly. `data` flattens the
+  # epoll_data union to its widest member: u64 covers ptr/fd/u32/u64 —
+  # callers normally put the watched fd in it. `op` is renamed
+  # `operation` — bare `op` is a grammar keyword and won't parse.
+  epoll_ctl:
+    args: ["i32", "i32", "i32", "in_struct:{events:u32@0,data:u64@4}"]
+    names: ["epfd", "operation", "fd", "event"]
+
+  # int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
+  #                int timeout)
+  # events is an out-array of packed 12-byte records and the vocabulary
+  # has no struct-array out-param, so out_ptr:384 hands back raw bytes
+  # for 32 events; handl decodes each {events:u32,data:u64} record
+  # itself (mirroring the recvmsg read-back split). Callers must keep
+  # maxevents <= 32 — the allocated span — while `ret` is the event
+  # count, so EpollWaitResult stays the full { ret, buf, outs } record.
+  epoll_wait:
+    args: ["i32", "out_ptr:384", "i32", "i32"]
+    names: ["epfd", "maxevents", "timeout"]
+
+  # int fcntl(int fd, int cmd, ...) — variadic like syscall; bound for
+  # the int-arg shapes an epoll server uses (F_GETFL/F_SETFL with
+  # O_NONBLOCK, F_GETFD/F_SETFD with FD_CLOEXEC). Other cmd forms
+  # (F_SETLK's struct flock *, F_NOTIFY, ...) would need their own
+  # arg lists — the variadic tail is per-call-site.
+  fcntl:
+    args: ["i32", "i32", "i32"]
+    names: ["fd", "cmd", "arg"]

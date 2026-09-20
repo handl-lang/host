@@ -1,0 +1,100 @@
+--- Generated adapter for libz-c-linux-x86_64/zlib
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+from "../libz/zlib" import { Compress2, CompressBound, Uncompress, Gzdopen, Gzread, Gzwrite, Gzflush, Gzclose, Gzerror, Adler32, Crc32 }
+
+export compress2: Compress2 := (source, level) ~> do {
+  r = call("libz.so.1", "compress2", [source, level], ["io_buf:16777216", "in_buf", "i32"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export compressBound: CompressBound := (source_len) ~> do {
+  r = call("libz.so.1", "compressBound", [source_len], ["u64"], "u64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export uncompress: Uncompress := (source) ~> do {
+  r = call("libz.so.1", "uncompress", [source], ["io_buf:16777216", "in_buf"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export gzdopen: Gzdopen := (fd, mode) ~> do {
+  r = call("libz.so.1", "gzdopen", [fd, mode], ["i32", "cstr"], "ptr", false)
+  ok(r)
+}
+
+export gzread: Gzread := (file) ~> do {
+  r = call("libz.so.1", "gzread", [file], ["ptr", "out_buf:65536"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r.buf)
+  }
+}
+
+export gzwrite: Gzwrite := (file, buf) ~> do {
+  r = call("libz.so.1", "gzwrite", [file, buf], ["ptr", "in_buf"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export gzflush: Gzflush := (file, flush) ~> do {
+  r = call("libz.so.1", "gzflush", [file, flush], ["ptr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export gzclose: Gzclose := (file) ~> do {
+  r = call("libz.so.1", "gzclose", [file], ["ptr"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export gzerror: Gzerror := (file) ~> do {
+  r = call("libz.so.1", "gzerror", [file], ["ptr", "out_ptr:4"], "cstr", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export adler32: Adler32 := (adler, buf) ~> do {
+  r = call("libz.so.1", "adler32", [adler, buf], ["u64", "in_buf"], "u64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export crc32: Crc32 := (crc, buf) ~> do {
+  r = call("libz.so.1", "crc32", [crc, buf], ["u64", "in_buf"], "u64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}

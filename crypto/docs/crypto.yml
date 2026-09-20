@@ -42,3 +42,24 @@ functions:
       - crypto.md5("hello")
       - crypto.md5([104, 101, 108, 108, 111])
     see: []
+  sha1:
+    description: "`crypto.sha1(data: string | array<number>) → string`  Computes\
+      \ the SHA-1 hash of the input and returns it as a lowercase hex-encoded string"
+    details: "`crypto.sha1(data: string | array<number>) → string`  Computes the\
+      \ SHA-1 hash of the input and returns it as a lowercase hex-encoded string.\
+      \  Implemented in pure handl over the `math`/`bytes`/`typeof` atoms. SHA-1 is\
+      \ cryptographically broken and must not be used for security purposes; it\
+      \ remains required for legacy protocols such as the WebSocket handshake\
+      \ (`Sec-WebSocket-Accept`, RFC 6455). The input may be a string (UTF-8 bytes),\
+      \ an array of integers in the range 0–255, or a `Bytes` buffer.  Examples: -\
+      \ `crypto.sha1(\"abc\")` → `\"a9993e364706816aba3e25717850c26c9cd0d89d\"`"
+    signature: "crypto.sha1(arg0: String | array<number>)"
+    params:
+      - name: arg0
+        type: String | array<number>
+        description: the 0th String | array<number> argument
+    return_value: String
+    examples:
+      - crypto.sha1("abc")
+      - crypto.sha1([97, 98, 99])
+    see: []

@@ -1,0 +1,38 @@
+--- Generated port for libc.epoll
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export EPOLL_CLOEXEC: Int
+export EPOLLIN: Int
+export EPOLLPRI: Int
+export EPOLLOUT: Int
+export EPOLLERR: Int
+export EPOLLHUP: Int
+export EPOLLRDHUP: Int
+export EPOLLONESHOT: Int
+export EPOLLET: Int
+export EPOLL_CTL_ADD: Int
+export EPOLL_CTL_DEL: Int
+export EPOLL_CTL_MOD: Int
+
+--- ffi: int (int)
+export EpollCreate1: (Int) ~[1]~> Result<Int, Errno>
+
+export EpollCtlMsg := {
+  events: Nat,
+  data: Nat
+}
+
+--- ffi: int (int, int, int, struct epoll_event *)
+export EpollCtl: (Int, Int, Int, EpollCtlMsg) ~[1]~> Result<Int, Errno>
+
+export EpollWaitResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
+
+--- ffi: int (int, struct epoll_event *, int, int)
+export EpollWait: (Int, Int, Int) ~[1]~> Result<EpollWaitResult, Errno>

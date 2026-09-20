@@ -19,7 +19,7 @@ export TimeResult := {
   outs: List<Bytes>
 }
 
---- ffi: 
+--- ffi:
 export Time: () ~[1]~> Result<TimeResult, Errno>
 
 --- ffi: double (time_t, time_t)
@@ -51,4 +51,3 @@ export ClockGettime: (ClockId) ~[1]~> Result<ClockGettimeResult, Errno>
 
 --- ffi: int (clockid_t, const struct timespec *)
 export ClockSettime: (ClockId, timespec) ~[1]~> Result<Int, Errno>
-

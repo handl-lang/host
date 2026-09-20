@@ -1,0 +1,8 @@
+--- Generated port for libc.tcp
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export TCP_NODELAY: Int
+export TCP_CORK: Int

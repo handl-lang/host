@@ -1,0 +1,16 @@
+--- Generated port for libc.fcntl
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export O_NONBLOCK: Int
+export O_CLOEXEC: Int
+export F_GETFD: Int
+export F_SETFD: Int
+export F_GETFL: Int
+export F_SETFL: Int
+export FD_CLOEXEC: Int
+
+--- ffi: int (int, int, ...)
+export Fcntl: (Int, Int, Int) ~[1]~> Result<Int, Errno>

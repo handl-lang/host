@@ -1,0 +1,35 @@
+--- compress-zlib-c -- zlib-format (RFC 1950) backend for the `compress`
+--- contract.
+---
+--- A thin layer over the generated libz bindings
+--- (`generated/libz-c-linux-x86_64/zlib.hnl`, produced by
+--- `generated/libz.sdkgen.yaml`): `compress2`/`uncompress` are zlib's
+--- one-shot entry points and the `io_buf` marshalling returns `destLen`-
+--- trimmed `Bytes` inside the `{ret, buf, outs}` result record.
+---
+--- Limit: both directions allocate the fixed `io_buf` capacity from the
+--- sdkgen spec (16 MiB). Inputs whose (de)compressed form exceeds it fail
+--- with a zlib error which surfaces as `err` and is re-raised here.
+
+from "../compress" import { Compress, Decompress }
+from "../generated/libz-c-linux-x86_64/zlib" import * as zlib
+
+--- Unwrap a generated `Result` — every zlib binding returns
+--- `Result<payload, Errno>`; on `err` we raise with the op name.
+unwrap := (r, what) ~> do {
+  if tag.tag_of(r) == "err" {
+    error.raise("compress-zlib-c: " + what + " failed")
+  } else {
+    tag.untag(r).value
+  }
+}
+
+export compress: Compress := (input) ~[1]~> do {
+  res = unwrap(zlib.compress2(input, 6), "compress2")
+  res.buf
+}
+
+export decompress: Decompress := (input) ~[1]~> do {
+  res = unwrap(zlib.uncompress(input), "uncompress")
+  res.buf
+}

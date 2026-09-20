@@ -4,7 +4,7 @@ from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/time" import { timespec, Clock, Time, Difftime, Nanosleep, ClockGetres, ClockGettime, ClockSettime }
 
-export clock: Clock := () ~[1]~> do {
+export clock: Clock := () ~> do {
   r = call("libc.so.6", "clock", [], [], "i64", false)
   if r < 0 {
     err(errno())
@@ -13,7 +13,7 @@ export clock: Clock := () ~[1]~> do {
   }
 }
 
-export time: Time := () ~[1]~> do {
+export time: Time := () ~> do {
   r = call("libc.so.6", "time", [], ["out_ptr:8"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -22,7 +22,7 @@ export time: Time := () ~[1]~> do {
   }
 }
 
-export difftime: Difftime := (__time1, __time0) ~[1]~> do {
+export difftime: Difftime := (__time1, __time0) ~> do {
   r = call("libc.so.6", "difftime", [__time1, __time0], ["i64", "i64"], "f64", false)
   if r < 0 {
     err(errno())
@@ -31,7 +31,7 @@ export difftime: Difftime := (__time1, __time0) ~[1]~> do {
   }
 }
 
-export nanosleep: Nanosleep := (__requested_time) ~[1]~> do {
+export nanosleep: Nanosleep := (__requested_time) ~> do {
   r = call("libc.so.6", "nanosleep", [__requested_time], ["in_struct:{tv_sec:i64@0,tv_nsec:i64@8}", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -40,7 +40,7 @@ export nanosleep: Nanosleep := (__requested_time) ~[1]~> do {
   }
 }
 
-export clock_getres: ClockGetres := (__clock_id) ~[1]~> do {
+export clock_getres: ClockGetres := (__clock_id) ~> do {
   r = call("libc.so.6", "clock_getres", [__clock_id], ["i32", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -49,7 +49,7 @@ export clock_getres: ClockGetres := (__clock_id) ~[1]~> do {
   }
 }
 
-export clock_gettime: ClockGettime := (__clock_id) ~[1]~> do {
+export clock_gettime: ClockGettime := (__clock_id) ~> do {
   r = call("libc.so.6", "clock_gettime", [__clock_id], ["i32", "out_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -58,7 +58,7 @@ export clock_gettime: ClockGettime := (__clock_id) ~[1]~> do {
   }
 }
 
-export clock_settime: ClockSettime := (__clock_id, __tp) ~[1]~> do {
+export clock_settime: ClockSettime := (__clock_id, __tp) ~> do {
   r = call("libc.so.6", "clock_settime", [__clock_id, __tp], ["i32", "in_struct:{tv_sec:i64@0,tv_nsec:i64@8}"], "i32", false)
   if r < 0 {
     err(errno())
@@ -66,4 +66,3 @@ export clock_settime: ClockSettime := (__clock_id, __tp) ~[1]~> do {
     ok(r)
   }
 }
-

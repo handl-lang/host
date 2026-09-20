@@ -1,0 +1,7 @@
+--- Generated adapter for libc-c-linux-x86_64/tcp
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+
+export TCP_NODELAY: Int := 1
+export TCP_CORK: Int := 3

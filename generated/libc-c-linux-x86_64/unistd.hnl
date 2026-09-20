@@ -2,9 +2,18 @@
 
 from "ffi" import { call, errno }
 from "result" import { ok, err }
-from "../libc/unistd" import { Close, Read, Write, Pipe, Pipe2, Dup, Dup2 }
+from "../libc/unistd" import { Lseek, Close, Read, Write, Pipe, Pipe2, Dup, Dup2, Syscall }
 
-export close: Close := (__fd) ~[1]~> do {
+export lseek: Lseek := (__fd, __offset, __whence) ~> do {
+  r = call("libc.so.6", "lseek", [__fd, __offset, __whence], ["i32", "i64", "i32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export close: Close := (__fd) ~> do {
   r = call("libc.so.6", "close", [__fd], ["i32"], "i32", false)
   if r < 0 {
     err(errno())
@@ -13,7 +22,7 @@ export close: Close := (__fd) ~[1]~> do {
   }
 }
 
-export read: Read := (__fd) ~[1]~> do {
+export read: Read := (__fd) ~> do {
   r = call("libc.so.6", "read", [__fd], ["i32", "out_buf:65536"], "i64", false)
   if r.ret < 0 {
     err(errno())
@@ -22,7 +31,7 @@ export read: Read := (__fd) ~[1]~> do {
   }
 }
 
-export write: Write := (__fd, __buf) ~[1]~> do {
+export write: Write := (__fd, __buf) ~> do {
   r = call("libc.so.6", "write", [__fd, __buf], ["i32", "in_buf"], "i64", false)
   if r < 0 {
     err(errno())
@@ -31,7 +40,7 @@ export write: Write := (__fd, __buf) ~[1]~> do {
   }
 }
 
-export pipe: Pipe := () ~[1]~> do {
+export pipe: Pipe := () ~> do {
   r = call("libc.so.6", "pipe", [], ["out_ptr:8"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -40,7 +49,7 @@ export pipe: Pipe := () ~[1]~> do {
   }
 }
 
-export pipe2: Pipe2 := (flags) ~[1]~> do {
+export pipe2: Pipe2 := (flags) ~> do {
   r = call("libc.so.6", "pipe2", [flags], ["out_ptr:8", "i32"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -49,7 +58,7 @@ export pipe2: Pipe2 := (flags) ~[1]~> do {
   }
 }
 
-export dup: Dup := (__fd) ~[1]~> do {
+export dup: Dup := (__fd) ~> do {
   r = call("libc.so.6", "dup", [__fd], ["i32"], "i32", false)
   if r < 0 {
     err(errno())
@@ -58,7 +67,7 @@ export dup: Dup := (__fd) ~[1]~> do {
   }
 }
 
-export dup2: Dup2 := (__fd, __fd2) ~[1]~> do {
+export dup2: Dup2 := (__fd, __fd2) ~> do {
   r = call("libc.so.6", "dup2", [__fd, __fd2], ["i32", "i32"], "i32", false)
   if r < 0 {
     err(errno())
@@ -67,3 +76,11 @@ export dup2: Dup2 := (__fd, __fd2) ~[1]~> do {
   }
 }
 
+export syscall: Syscall := (sysno, name, flags) ~> do {
+  r = call("libc.so.6", "syscall", [sysno, name, flags], ["i64", "cstr", "u32"], "i64", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
