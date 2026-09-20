@@ -1,7 +1,7 @@
 //! Rust `Function` impls for the `math` module — the handls (handlers)
 //! for the `op`/`handl` declarations in `math.hnl`.
 //!
-//! All 60 functions are FFI atoms: they call `f64` methods or Rust
+//! All 62 functions are FFI atoms: they call `f64` methods or Rust
 //! arithmetic that cannot be expressed as pure handl arrows without
 //! losing the exact `TypeMismatch` error messages the tests rely on.
 //! The `op`/`handl` declaration form (ADR-0077 Phase 2) declares the
@@ -507,6 +507,43 @@ impl Function for Shr {
     }
 }
 
+/// `math.rotl32` rotates the low 32 bits of `a` left by `b mod 32`
+/// positions — `((x << n) | (x >> (32 - n))) & 0xFFFFFFFF` semantics.
+/// Unlike `shl`/`shr` the count is total on all integers: any `b` wraps
+/// via `rem_euclid(32)`. The result is always in `0..=0xFFFFFFFF`.
+#[derive(Clone, Copy)]
+pub struct Rotl32;
+impl Function for Rotl32 {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_integers(args)?;
+        let k = b.rem_euclid(32) as u32;
+        Ok(serde_json::Value::from((a as u32).rotate_left(k) as i64))
+    }
+}
+
+/// `math.u32` wraps `a` into the unsigned 32-bit range — the low 32 bits
+/// reinterpreted as a non-negative integer (`a & 0xFFFFFFFF`).
+#[derive(Clone, Copy)]
+pub struct U32;
+impl Function for U32 {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
+        let a = require_integer(arg)?;
+        Ok(serde_json::Value::from(a as u32 as i64))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -742,6 +779,7 @@ pub const MATH_OPS: &[&str] = &[
     "math.radians",
     "math.round",
     "math.round_to",
+    "math.rotl32",
     "math.shl",
     "math.shr",
     "math.sign",
@@ -753,6 +791,7 @@ pub const MATH_OPS: &[&str] = &[
     "math.tanh",
     "math.tau",
     "math.trunc",
+    "math.u32",
 ];
 
 pub fn math_op_registry() -> OpRegistry {
@@ -806,6 +845,7 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.radians", Arc::new(Radians));
     registry.register("math.round", Arc::new(Round));
     registry.register("math.round_to", Arc::new(RoundTo));
+    registry.register("math.rotl32", Arc::new(Rotl32));
     registry.register("math.shl", Arc::new(Shl));
     registry.register("math.shr", Arc::new(Shr));
     registry.register("math.sign", Arc::new(Sign));
@@ -817,5 +857,6 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.tanh", Arc::new(Tanh));
     registry.register("math.tau", Arc::new(Tau));
     registry.register("math.trunc", Arc::new(Trunc));
+    registry.register("math.u32", Arc::new(U32));
     registry
 }

@@ -32,7 +32,7 @@ use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_ext_diag::Severity;
-use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno};
+use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno, FfiLoad, FfiSym};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
     HandlModule, HandlNativeLint, HandlNativeRewrite, ModuleResolver, OpRegistry,
@@ -675,6 +675,13 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
                 stdlib::module("encoding").expect("encoding")
             });
         }
+        // `bytes` — byte-buffer primitives for the `Bytes` scalar type;
+        // ops-only table module, callable as `bytes.from_list(...)` etc.
+        if want("bytes") {
+            register_handl(&mut stdlib_registry, &mut handl_modules, "bytes", || {
+                stdlib::module("bytes").expect("bytes")
+            });
+        }
         if want("parse") {
             register_handl(&mut stdlib_registry, &mut handl_modules, "parse", || {
                 stdlib::module("parse").expect("parse")
@@ -1121,14 +1128,18 @@ fn build_grade_module() -> HandlModule {
 // ---------------------------------------------------------------------------
 
 const FFI_HNL: &str = include_str!("../../../handl-packages/ffi/ffi.hnl");
-const FFI_FUNCS: &[&str] = &["FFI", "Errno", "Handle", "call", "bind", "errno"];
-const FFI_OPS: &[&str] = &["ffi.call", "ffi.bind", "ffi.errno"];
+const FFI_FUNCS: &[&str] = &[
+    "FFI", "Errno", "Handle", "call", "bind", "errno", "load", "sym",
+];
+const FFI_OPS: &[&str] = &["ffi.call", "ffi.bind", "ffi.errno", "ffi.load", "ffi.sym"];
 
 fn ffi_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
     registry.register("ffi.call", std::sync::Arc::new(FfiCall));
     registry.register("ffi.bind", std::sync::Arc::new(FfiBind));
     registry.register("ffi.errno", std::sync::Arc::new(FfiErrno));
+    registry.register("ffi.load", std::sync::Arc::new(FfiLoad));
+    registry.register("ffi.sym", std::sync::Arc::new(FfiSym));
     registry
 }
 

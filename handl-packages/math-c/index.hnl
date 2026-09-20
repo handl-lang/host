@@ -34,6 +34,10 @@ from "./shl" import shl as __shl
 export shl := __shl
 from "./shr" import shr as __shr
 export shr := __shr
+from "./rotl32" import rotl32 as __rotl32
+export rotl32 := __rotl32
+from "./u32" import u32 as __u32
+export u32 := __u32
 from "./degrees" import degrees as __degrees
 export degrees := __degrees
 from "./e" import e as __e

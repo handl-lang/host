@@ -38,6 +38,10 @@ pub fn populate(reg: &mut LibraryRegistry) {
         handl_plugin_lib_stdlib::library("datetime")
             .unwrap_or_else(|| panic!("unknown stdlib package 'datetime'"))
     });
+    reg.register("bytes", || {
+        handl_plugin_lib_stdlib::library("bytes")
+            .unwrap_or_else(|| panic!("unknown stdlib package 'bytes'"))
+    });
     reg.register("intl", || {
         Box::new(handl_plugin_lib_intl::LibraryPlugin::new()) as LibraryPlugin
     });

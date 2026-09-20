@@ -1,13 +1,13 @@
 --- math -- numeric utility functions for the handl runtime.
 ---
---- Single source of truth for the `math` stdlib interface: 60 functions
+--- Single source of truth for the `math` stdlib interface: 62 functions
 --- covering arithmetic, bitwise integer ops, constants, exponential/logarithmic,
 --- rounding, trigonometry, and predicates. The Rust bridge in `plugin-lib-utils`
 --- loads this file via `include_str!`, parses the `cap` declarations for
 --- the plugin capability surface, and registers the Rust handls (handlers)
 --- in an `OpRegistry` that dispatches each `op` to its native `f64` impl.
 ---
---- All 60 functions are FFI atoms (they call `f64` methods or Rust
+--- All 62 functions are FFI atoms (they call `f64` methods or Rust
 --- arithmetic that cannot be expressed as pure handl arrows without
 --- losing the exact `TypeMismatch` error messages the tests rely on).
 --- The `op`/`handl` declaration form (ADR-0077 Phase 2) declares the
@@ -34,6 +34,8 @@
 --- math.bit_xor -- bitwise XOR on 64-bit integers.
 --- math.shl -- shift left (amount must be in 0..64).
 --- math.shr -- arithmetic shift right (amount must be in 0..64).
+--- math.rotl32 -- rotate-left within the low 32 bits (n taken mod 32).
+--- math.u32 -- wrap to the unsigned 32-bit range (low 32 bits, non-negative).
 --- math.degrees -- convert radians to degrees.
 --- math.div -- divide two numbers.
 --- math.e -- Euler's number (e).
@@ -94,6 +96,8 @@ cap "math.bit_or"
 cap "math.bit_xor"
 cap "math.shl"
 cap "math.shr"
+cap "math.rotl32"
+cap "math.u32"
 cap "math.degrees"
 cap "math.div"
 cap "math.e"
@@ -173,6 +177,10 @@ op "math.bit_xor" : (Int * Int) -> Int
 op "math.shl" : (Int * Int) -> Int
   guarantee: True
 op "math.shr" : (Int * Int) -> Int
+  guarantee: True
+op "math.rotl32" : (Int * Int) -> Int
+  guarantee: True
+op "math.u32" : Int -> Int
   guarantee: True
 op "math.degrees" : Float -> Float
   guarantee: True
@@ -274,6 +282,8 @@ handle "math.bit_or" with rust_math_bit_or
 handle "math.bit_xor" with rust_math_bit_xor
 handle "math.shl" with rust_math_shl
 handle "math.shr" with rust_math_shr
+handle "math.rotl32" with rust_math_rotl32
+handle "math.u32" with rust_math_u32
 handle "math.degrees" with rust_math_degrees
 handle "math.div" with rust_math_div
 handle "math.e" with rust_math_e

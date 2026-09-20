@@ -2014,6 +2014,7 @@ dependencies = [
  "handl-plugin-lib-serialize",
  "handl-plugin-lib-tag",
  "handl-plugin-module",
+ "handl-value",
  "hex",
  "iri-string",
  "plugin-engine",

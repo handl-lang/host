@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
+handl-value = { path = "../handl-value" }
 handl-language = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
