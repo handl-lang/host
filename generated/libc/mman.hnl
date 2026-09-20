@@ -1,0 +1,186 @@
+--- Generated port for libc.mman
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+from "types/c/stddef" import { Size }
+from "types/c/sys" import { Mode }
+
+export unix: Int
+export linux: Int
+export MAP_32BIT: Int
+export MAP_ABOVE4G: Int
+export SHADOW_STACK_SET_TOKEN: Int
+export MAP_GROWSDOWN: Int
+export MAP_DENYWRITE: Int
+export MAP_EXECUTABLE: Int
+export MAP_LOCKED: Int
+export MAP_NORESERVE: Int
+export MAP_POPULATE: Int
+export MAP_NONBLOCK: Int
+export MAP_STACK: Int
+export MAP_HUGETLB: Int
+export MAP_SYNC: Int
+export MAP_FIXED_NOREPLACE: Int
+export PROT_READ: Int
+export PROT_WRITE: Int
+export PROT_EXEC: Int
+export PROT_NONE: Int
+export PROT_GROWSDOWN: Int
+export PROT_GROWSUP: Int
+export MAP_SHARED: Int
+export MAP_PRIVATE: Int
+export MAP_SHARED_VALIDATE: Int
+export MAP_DROPPABLE: Int
+export MAP_TYPE: Int
+export MAP_FIXED: Int
+export MAP_FILE: Int
+export MAP_ANONYMOUS: Int
+export MAP_ANON: Int
+export MAP_HUGE_SHIFT: Int
+export MAP_HUGE_MASK: Int
+export MAP_HUGE_16KB: Int
+export MAP_HUGE_64KB: Int
+export MAP_HUGE_512KB: Int
+export MAP_HUGE_1MB: Int
+export MAP_HUGE_2MB: Int
+export MAP_HUGE_8MB: Int
+export MAP_HUGE_16MB: Int
+export MAP_HUGE_32MB: Int
+export MAP_HUGE_256MB: Int
+export MAP_HUGE_512MB: Int
+export MAP_HUGE_1GB: Int
+export MAP_HUGE_2GB: Int
+export MAP_HUGE_16GB: Int
+export MS_ASYNC: Int
+export MS_SYNC: Int
+export MS_INVALIDATE: Int
+export MADV_NORMAL: Int
+export MADV_RANDOM: Int
+export MADV_SEQUENTIAL: Int
+export MADV_WILLNEED: Int
+export MADV_DONTNEED: Int
+export MADV_FREE: Int
+export MADV_REMOVE: Int
+export MADV_DONTFORK: Int
+export MADV_DOFORK: Int
+export MADV_MERGEABLE: Int
+export MADV_UNMERGEABLE: Int
+export MADV_HUGEPAGE: Int
+export MADV_NOHUGEPAGE: Int
+export MADV_DONTDUMP: Int
+export MADV_DODUMP: Int
+export MADV_WIPEONFORK: Int
+export MADV_KEEPONFORK: Int
+export MADV_COLD: Int
+export MADV_PAGEOUT: Int
+export MADV_POPULATE_READ: Int
+export MADV_POPULATE_WRITE: Int
+export MADV_DONTNEED_LOCKED: Int
+export MADV_COLLAPSE: Int
+export MADV_HWPOISON: Int
+export MADV_GUARD_INSTALL: Int
+export MADV_GUARD_REMOVE: Int
+export POSIX_MADV_NORMAL: Int
+export POSIX_MADV_RANDOM: Int
+export POSIX_MADV_SEQUENTIAL: Int
+export POSIX_MADV_WILLNEED: Int
+export POSIX_MADV_DONTNEED: Int
+export MCL_CURRENT: Int
+export MCL_FUTURE: Int
+export MCL_ONFAULT: Int
+export MREMAP_MAYMOVE: Int
+export MREMAP_FIXED: Int
+export MREMAP_DONTUNMAP: Int
+export MFD_CLOEXEC: Int
+export MFD_ALLOW_SEALING: Int
+export MFD_HUGETLB: Int
+export MFD_NOEXEC_SEAL: Int
+export MFD_EXEC: Int
+export MLOCK_ONFAULT: Int
+export PKEY_UNRESTRICTED: Int
+export PKEY_DISABLE_ACCESS: Int
+export PKEY_DISABLE_WRITE: Int
+
+--- ffi: void *(void *, size_t, int, int, int, __off_t)
+export Mmap: (Handle, Size, Int, Int, Int, Int) ~[1]~> Result<Handle, Errno>
+
+--- ffi: void *(void *, size_t, int, int, int, __off64_t)
+export Mmap64: (Handle, Size, Int, Int, Int, Int) ~[1]~> Result<Handle, Errno>
+
+--- Deallocate any mapping for the region starting at ADDR and extending LEN
+--- bytes.  Returns 0 if successful, -1 for errors (and sets errno).
+--- ffi: int (void *, size_t)
+export Munmap: (Handle, Size) ~[1]~> Result<Int, Errno>
+
+--- Change the memory protection of the region starting at ADDR and
+--- extending LEN bytes to PROT.  Returns 0 if successful, -1 for errors
+--- (and sets errno).
+--- ffi: int (void *, size_t, int)
+export Mprotect: (Handle, Size, Int) ~[1]~> Result<Int, Errno>
+
+--- Synchronize the region starting at ADDR and extending LEN bytes with the
+--- file it maps.  Filesystem operations on a file being mapped are
+--- unpredictable before this is done.  Flags are from the MS_* set.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: int (void *, size_t, int)
+export Msync: (Handle, Size, Int) ~[1]~> Result<Int, Errno>
+
+--- Advise the system about particular usage patterns the program follows
+--- for the region starting at ADDR and extending LEN bytes.
+--- ffi: int (void *, size_t, int)
+export Madvise: (Handle, Size, Int) ~[1]~> Result<Int, Errno>
+
+--- This is the POSIX name for this function.
+--- ffi: int (void *, size_t, int)
+export PosixMadvise: (Handle, Size, Int) ~[1]~> Result<Int, Errno>
+
+--- Guarantee all whole pages mapped by the range [ADDR,ADDR+LEN) to
+--- be memory resident.
+--- ffi: int (const void *, size_t)
+export Mlock: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- Unlock whole pages previously mapped by the range [ADDR,ADDR+LEN).
+--- ffi: int (const void *, size_t)
+export Munlock: (Bytes) ~[1]~> Result<Int, Errno>
+
+--- Cause all currently mapped pages of the process to be memory resident
+--- until unlocked by a call to the `munlockall', until the process exits,
+--- or until the process calls `execve'.
+--- ffi: int (int)
+export Mlockall: (Int) ~[1]~> Result<Int, Errno>
+
+--- All currently mapped pages of the process' address space become
+--- unlocked.
+--- ffi: int (void)
+export Munlockall: () ~[1]~> Result<Int, Errno>
+
+--- mincore returns the memory residency status of the pages in the
+--- current process's address space specified by [start, start + len).
+--- The status is returned in a vector of bytes.  The least significant
+--- bit of each byte is 1 if the referenced page is in memory, otherwise
+--- it is zero.
+--- ffi: int (void *, size_t, unsigned char *)
+export Mincore: (Handle, Size, String) ~[1]~> Result<Int, Errno>
+
+--- Remap pages mapped by the range [ADDR,ADDR+OLD_LEN) to new length
+--- NEW_LEN.  If MREMAP_MAYMOVE is set in FLAGS the returned address
+--- may differ from ADDR.  If MREMAP_FIXED is set in FLAGS the function
+--- takes another parameter which is a fixed address at which the block
+--- resides after a successful call.
+--- ffi: void *(void *, size_t, size_t, int, ...)
+export Mremap: (Handle, Size, Size, Int) ~[1]~> Result<Handle, Errno>
+
+--- Remap arbitrary pages of a shared backing store within an existing
+--- VMA.
+--- ffi: int (void *, size_t, int, size_t, int)
+export RemapFilePages: (Handle, Size, Int, Size, Int) ~[1]~> Result<Int, Errno>
+
+--- Open shared memory segment.
+--- ffi: int (const char *, int, mode_t)
+export ShmOpen: (String, Int, Mode) ~[1]~> Result<Int, Errno>
+
+--- Remove shared memory segment.
+--- ffi: int (const char *)
+export ShmUnlink: (String) ~[1]~> Result<Int, Errno>

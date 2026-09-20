@@ -1,0 +1,315 @@
+--- Generated port for libc.types
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export __fsid_t := {
+  __val: List<Int>
+}
+
+export __sigset_t := {
+  __val: List<Int>
+}
+
+export timeval := {
+  tv_sec: Int,
+  tv_usec: Int
+}
+
+export timespec := {
+  tv_sec: Int,
+  tv_nsec: Int
+}
+
+export fd_set := {
+  fds_bits: List<Int>
+}
+
+export __pthread_internal_list := {
+  __prev: Handle,
+  __next: Handle
+}
+
+export __pthread_internal_slist := {
+  __next: Handle
+}
+
+export __pthread_mutex_s := {
+  __lock: Int,
+  __count: Nat,
+  __owner: Int,
+  __nusers: Nat,
+  __kind: Int,
+  __spins: Int,
+  __glibc_reserved: Int,
+  __list: __pthread_internal_list
+}
+
+export __pthread_rwlock_arch_t := {
+  __readers: Nat,
+  __writers: Nat,
+  __wrphase_futex: Nat,
+  __writers_futex: Nat,
+  __pad3: Nat,
+  __pad4: Nat,
+  __cur_writer: Int,
+  __shared: Int,
+  __pad1: Nat,
+  __pad2: Nat,
+  __flags: Nat
+}
+
+export __pthread_cond_s := {
+  __wseq: __atomic_wide_counter,
+  __g1_start: __atomic_wide_counter,
+  __g_size: List<Int>,
+  __g1_orig_size: Nat,
+  __wrefs: Nat,
+  __g_signals: List<Int>,
+  __unused_initialized_1: Nat,
+  __unused_initialized_2: Nat
+}
+
+export __once_flag := {
+  __data: Int
+}
+
+export __u_char := Nat
+
+export __u_short := Nat
+
+export __u_int := Nat
+
+export __u_long := Nat
+
+export __int8_t := Int
+
+export __uint8_t := Nat
+
+export __int16_t := Int
+
+export __uint16_t := Nat
+
+export __int32_t := Int
+
+export __uint32_t := Nat
+
+export __int64_t := Int
+
+export __uint64_t := Nat
+
+export __int_least8_t := Int
+
+export __uint_least8_t := Nat
+
+export __int_least16_t := Int
+
+export __uint_least16_t := Nat
+
+export __int_least32_t := Int
+
+export __uint_least32_t := Nat
+
+export __int_least64_t := Int
+
+export __uint_least64_t := Nat
+
+export __quad_t := Int
+
+export __u_quad_t := Nat
+
+export __intmax_t := Int
+
+export __uintmax_t := Nat
+
+export __dev_t := Nat
+
+export __uid_t := Nat
+
+export __gid_t := Nat
+
+export __ino_t := Nat
+
+export __ino64_t := Nat
+
+export __mode_t := Nat
+
+export __nlink_t := Nat
+
+export __off_t := Int
+
+export __off64_t := Int
+
+export __pid_t := Int
+
+export __clock_t := Int
+
+export __rlim_t := Nat
+
+export __rlim64_t := Nat
+
+export __id_t := Nat
+
+export __time_t := Int
+
+export __useconds_t := Nat
+
+export __suseconds_t := Int
+
+export __suseconds64_t := Int
+
+export __daddr_t := Int
+
+export __key_t := Int
+
+export __clockid_t := Int
+
+export __blksize_t := Int
+
+export __blkcnt_t := Int
+
+export __blkcnt64_t := Int
+
+export __fsblkcnt_t := Nat
+
+export __fsblkcnt64_t := Nat
+
+export __fsfilcnt_t := Nat
+
+export __fsfilcnt64_t := Nat
+
+export __fsword_t := Int
+
+export __ssize_t := Int
+
+export __syscall_slong_t := Int
+
+export __syscall_ulong_t := Nat
+
+export __loff_t := Int
+
+export __intptr_t := Int
+
+export __socklen_t := Nat
+
+export __sig_atomic_t := Int
+
+export u_char := Nat
+
+export u_short := Nat
+
+export u_int := Nat
+
+export u_long := Nat
+
+export quad_t := Int
+
+export u_quad_t := Nat
+
+export loff_t := Int
+
+export ino_t := Nat
+
+export ino64_t := Nat
+
+export dev_t := Nat
+
+export gid_t := Nat
+
+export mode_t := Nat
+
+export nlink_t := Nat
+
+export uid_t := Nat
+
+export off_t := Int
+
+export off64_t := Int
+
+export pid_t := Int
+
+export id_t := Nat
+
+export ssize_t := Int
+
+export daddr_t := Int
+
+export key_t := Int
+
+export clock_t := Int
+
+export clockid_t := Int
+
+export time_t := Int
+
+export useconds_t := Nat
+
+export suseconds_t := Int
+
+export size_t := Nat
+
+--- Old compatibility names for C types.
+export ulong := Nat
+
+export ushort := Nat
+
+export uint := Nat
+
+export int8_t := Int
+
+export int16_t := Int
+
+export int32_t := Int
+
+export int64_t := Int
+
+--- These were defined by ISO C without the first `_'.
+export u_int8_t := Nat
+
+export u_int16_t := Nat
+
+export u_int32_t := Nat
+
+export u_int64_t := Nat
+
+export register_t := Int
+
+export __fd_mask := Int
+
+export fd_mask := Int
+
+export blksize_t := Int
+
+export blkcnt_t := Int
+
+export fsblkcnt_t := Nat
+
+export fsfilcnt_t := Nat
+
+export blkcnt64_t := Int
+
+export fsblkcnt64_t := Nat
+
+export fsfilcnt64_t := Nat
+
+export __tss_t := Nat
+
+export __thrd_t := Nat
+
+export pthread_t := Nat
+
+export pthread_key_t := Nat
+
+export pthread_once_t := Int
+
+export pthread_spinlock_t := Int
+
+export unix: Int
+export linux: Int
+export LITTLE_ENDIAN: Int
+export BIG_ENDIAN: Int
+export PDP_ENDIAN: Int
+export BYTE_ORDER: Int
+export FD_SETSIZE: Int
+export NFDBITS: Int

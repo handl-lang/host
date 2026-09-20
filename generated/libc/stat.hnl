@@ -1,0 +1,234 @@
+--- Generated port for libc.stat
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export stat := {
+  st_dev: Nat,
+  st_ino: Nat,
+  st_nlink: Nat,
+  st_mode: Nat,
+  st_uid: Nat,
+  st_gid: Nat,
+  __pad0: Int,
+  st_rdev: Nat,
+  st_size: Int,
+  st_blksize: Int,
+  st_blocks: Int,
+  st_atim: timespec,
+  st_mtim: timespec,
+  st_ctim: timespec,
+  __glibc_reserved: List<Int>
+}
+
+export stat64 := {
+  st_dev: Nat,
+  st_ino: Nat,
+  st_nlink: Nat,
+  st_mode: Nat,
+  st_uid: Nat,
+  st_gid: Nat,
+  __pad0: Int,
+  st_rdev: Nat,
+  st_size: Int,
+  st_blksize: Int,
+  st_blocks: Int,
+  st_atim: timespec,
+  st_mtim: timespec,
+  st_ctim: timespec,
+  __glibc_reserved: List<Int>
+}
+
+export unix: Int
+export linux: Int
+export UTIME_NOW: Int
+export UTIME_OMIT: Int
+export S_IFMT: Int
+export S_IFDIR: Int
+export S_IFCHR: Int
+export S_IFBLK: Int
+export S_IFREG: Int
+export S_IFIFO: Int
+export S_IFLNK: Int
+export S_IFSOCK: Int
+export S_ISUID: Int
+export S_ISGID: Int
+export S_ISVTX: Int
+export S_IRUSR: Int
+export S_IWUSR: Int
+export S_IXUSR: Int
+export S_IRWXU: Int
+export S_IREAD: Int
+export S_IWRITE: Int
+export S_IEXEC: Int
+export S_IRGRP: Int
+export S_IWGRP: Int
+export S_IXGRP: Int
+export S_IRWXG: Int
+export S_IROTH: Int
+export S_IWOTH: Int
+export S_IXOTH: Int
+export S_IRWXO: Int
+export ACCESSPERMS: Int
+export ALLPERMS: Int
+export DEFFILEMODE: Int
+export S_BLKSIZE: Int
+export STATX_TYPE: Int
+export STATX_MODE: Int
+export STATX_NLINK: Int
+export STATX_UID: Int
+export STATX_GID: Int
+export STATX_ATIME: Int
+export STATX_MTIME: Int
+export STATX_CTIME: Int
+export STATX_INO: Int
+export STATX_SIZE: Int
+export STATX_BLOCKS: Int
+export STATX_BASIC_STATS: Int
+export STATX_BTIME: Int
+export STATX_MNT_ID: Int
+export STATX_DIOALIGN: Int
+export STATX_MNT_ID_UNIQUE: Int
+export STATX_SUBVOL: Int
+export STATX_WRITE_ATOMIC: Int
+export STATX_DIO_READ_ALIGN: Int
+export STATX__RESERVED: Int
+export STATX_ALL: Int
+export STATX_ATTR_COMPRESSED: Int
+export STATX_ATTR_IMMUTABLE: Int
+export STATX_ATTR_APPEND: Int
+export STATX_ATTR_NODUMP: Int
+export STATX_ATTR_ENCRYPTED: Int
+export STATX_ATTR_AUTOMOUNT: Int
+export STATX_ATTR_MOUNT_ROOT: Int
+export STATX_ATTR_VERITY: Int
+export STATX_ATTR_DAX: Int
+export STATX_ATTR_WRITE_ATOMIC: Int
+
+--- Get file attributes for FILE and put them in BUF.
+export StatResult := {
+  ret: Int,
+  buf: stat
+}
+
+--- ffi: int (const char *restrict, struct stat *restrict)
+export Stat: (String) ~[1]~> Result<StatResult, Errno>
+
+--- Get file attributes for the file, device, pipe, or socket
+--- that file descriptor FD is open on and put them in BUF.
+export FstatResult := {
+  ret: Int,
+  buf: stat
+}
+
+--- ffi: int (int, struct stat *)
+export Fstat: (Int) ~[1]~> Result<FstatResult, Errno>
+
+export Stat64Result := {
+  ret: Int,
+  buf: stat64
+}
+
+--- ffi: int (const char *restrict, struct stat64 *restrict)
+export Stat64: (String) ~[1]~> Result<Stat64Result, Errno>
+
+export Fstat64Result := {
+  ret: Int,
+  buf: stat64
+}
+
+--- ffi: int (int, struct stat64 *)
+export Fstat64: (Int) ~[1]~> Result<Fstat64Result, Errno>
+
+export FstatatResult := {
+  ret: Int,
+  buf: stat
+}
+
+--- ffi: int (int, const char *restrict, struct stat *restrict, int)
+export Fstatat: (Int, String, Int) ~[1]~> Result<FstatatResult, Errno>
+
+export Fstatat64Result := {
+  ret: Int,
+  buf: stat64
+}
+
+--- ffi: int (int, const char *restrict, struct stat64 *restrict, int)
+export Fstatat64: (Int, String, Int) ~[1]~> Result<Fstatat64Result, Errno>
+
+--- Get file attributes about FILE and put them in BUF.
+--- If FILE is a symbolic link, do not follow it.
+export LstatResult := {
+  ret: Int,
+  buf: stat
+}
+
+--- ffi: int (const char *restrict, struct stat *restrict)
+export Lstat: (String) ~[1]~> Result<LstatResult, Errno>
+
+export Lstat64Result := {
+  ret: Int,
+  buf: stat64
+}
+
+--- ffi: int (const char *restrict, struct stat64 *restrict)
+export Lstat64: (String) ~[1]~> Result<Lstat64Result, Errno>
+
+--- Set file access permissions for FILE to MODE.
+--- If FILE is a symbolic link, this affects its target instead.
+--- ffi: int (const char *, __mode_t)
+export Chmod: (String, Nat) ~[1]~> Result<Int, Errno>
+
+--- Set file access permissions for FILE to MODE.
+--- If FILE is a symbolic link, this affects the link itself
+--- rather than its target.
+--- ffi: int (const char *, __mode_t)
+export Lchmod: (String, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (int, __mode_t)
+export Fchmod: (Int, Nat) ~[1]~> Result<Int, Errno>
+
+--- Set file access permissions of FILE relative to
+--- the directory FD is open on.
+--- ffi: int (int, const char *, __mode_t, int)
+export Fchmodat: (Int, String, Nat, Int) ~[1]~> Result<Int, Errno>
+
+--- Set the file creation mask of the current process to MASK,
+--- and return the old creation mask.
+--- ffi: __mode_t (__mode_t)
+export Umask: (Nat) ~[1]~> Result<Nat, Errno>
+
+--- Get the current `umask' value without changing it.
+--- This function is only available under the GNU Hurd.
+--- ffi: __mode_t (void)
+export Getumask: () ~[1]~> Result<Nat, Errno>
+
+--- Create a new directory named PATH, with permission bits MODE.
+--- ffi: int (const char *, __mode_t)
+export Mkdir: (String, Nat) ~[1]~> Result<Int, Errno>
+
+--- Like mkdir, create a new directory with permission bits MODE.  But
+--- interpret relative PATH names relative to the directory associated
+--- with FD.
+--- ffi: int (int, const char *, __mode_t)
+export Mkdirat: (Int, String, Nat) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (const char *, __mode_t, __dev_t)
+export Mknod: (String, Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- Like mknod, create a new device file with permission bits MODE and
+--- device number DEV.  But interpret relative PATH names relative to
+--- the directory associated with FD.
+--- ffi: int (int, const char *, __mode_t, __dev_t)
+export Mknodat: (Int, String, Nat, Nat) ~[1]~> Result<Int, Errno>
+
+--- Create a new FIFO named PATH, with permission bits MODE.
+--- ffi: int (const char *, __mode_t)
+export Mkfifo: (String, Nat) ~[1]~> Result<Int, Errno>
+
+--- Like mkfifo, create a new FIFO with permission bits MODE.  But
+--- interpret relative PATH names relative to the directory associated
+--- with FD.
+--- ffi: int (int, const char *, __mode_t)
+export Mkfifoat: (Int, String, Nat) ~[1]~> Result<Int, Errno>
