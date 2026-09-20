@@ -10,6 +10,7 @@
 //! |----------------|-------------------------|----------------------|
 //! | `"i32"`        | `int32_t` (value)       | number (range-checked) |
 //! | `"i64"`        | `int64_t` (value)       | number               |
+//! | `"u8"`-`"u64"` | `uint8_t`..`uint64_t`   | number (range-checked) |
 //! | `"f64"`        | `double` (value)        | number               |
 //! | `"cstr"`       | `const char *`          | string (NUL-checked) |
 //! | `"ptr"`        | `void *`                | number (address)     |
@@ -142,6 +143,28 @@ pub(crate) fn marshal_arg(
             let n = value
                 .as_i64()
                 .ok_or_else(|| EvalError::TypeMismatch("expected number for i64".to_string()))?;
+            Ok(CArg::Int(n))
+        }
+        // Unsigned scalars (`u8`/`u16`/`u32`/`u64` — e.g. zlib's `uLong`,
+        // `uInt`): range-checked, widened to `i64` like every other integer
+        // descriptor.
+        "u8" | "u16" | "u32" | "u64" => {
+            let n = value
+                .as_i64()
+                .ok_or_else(|| EvalError::TypeMismatch(format!(
+                    "expected number for {descriptor}"
+                )))?;
+            let max = match descriptor {
+                "u8" => u8::MAX as i64,
+                "u16" => u16::MAX as i64,
+                "u32" => u32::MAX as i64,
+                _ => u64::MAX as i64,
+            };
+            if n < 0 || (descriptor != "u64" && n > max) {
+                return Err(EvalError::TypeMismatch(format!(
+                    "{descriptor} out of range: {n}"
+                )));
+            }
             Ok(CArg::Int(n))
         }
         "f64" => {
@@ -1099,6 +1122,93 @@ pub(crate) fn wrap_io_struct_return(
     JsonValue::Object(map)
 }
 
+// ---------------------------------------------------------------------------
+// ffi.read — generic pointer dereference
+// ---------------------------------------------------------------------------
+
+/// Copy `len` bytes at `addr` into a Vec. `addr` must be valid for `len`
+/// bytes of reads — `ffi.read` is an unsafe surface; a bad pointer faults.
+fn read_mem(addr: usize, len: usize) -> Vec<u8> {
+    if len == 0 {
+        return Vec::new();
+    }
+    // SAFETY: the caller declares the pointer valid for `len` bytes; the
+    // copy bounds the unsafe window to this call.
+    unsafe { std::slice::from_raw_parts(addr as *const u8, len).to_vec() }
+}
+
+/// Decode a value at a raw pointer per `desc` — the `ffi.read` backend.
+///
+/// Supported descriptors: scalars (`i8`..`u64`, `isize`, `usize`), `ptr`
+/// (the address stored at the slot), `bytes:N`, `arr:N:T`, `rec:{...}`
+/// (same field grammar as struct descriptors), and `cstr` (NUL-terminated
+/// string, bounded at 1 MiB).
+pub(crate) fn marshal_read(addr: usize, desc: &str) -> Result<JsonValue, EvalError> {
+    let ptrw = std::mem::size_of::<usize>();
+    if desc == "ptr" {
+        return Ok(JsonValue::from(read_int(&read_mem(addr, ptrw), 0, ptrw)));
+    }
+    if desc == "cstr" {
+        const MAX: usize = 1 << 20;
+        let mut n = 0usize;
+        while n < MAX {
+            // SAFETY: same contract as read_mem; the NUL scan is byte-wise.
+            let b = unsafe { (addr as *const u8).add(n).read() };
+            if b == 0 {
+                break;
+            }
+            n += 1;
+        }
+        let buf = read_mem(addr, n);
+        return String::from_utf8(buf)
+            .map(JsonValue::String)
+            .map_err(|_| EvalError::TypeMismatch("ffi.read cstr: invalid UTF-8".to_string()));
+    }
+    if let Some(rest) = desc.strip_prefix("bytes:") {
+        let n = parse_size("bytes", rest)?;
+        return Ok(bytes_to_json(&read_mem(addr, n)));
+    }
+    if let Some(rest) = desc.strip_prefix("arr:") {
+        let (n_str, ty) = rest
+            .split_once(':')
+            .ok_or_else(|| EvalError::TypeMismatch(format!("arr needs N:TYPE, got {desc:?}")))?;
+        let n = parse_size("arr count", n_str)?;
+        let esz = scalar_size(ty)?;
+        let buf = read_mem(addr, n * esz);
+        if esz == 1 {
+            return Ok(bytes_to_json(&buf));
+        }
+        let signed = is_signed_scalar(ty);
+        let list: Vec<JsonValue> = (0..n)
+            .map(|i| read_scalar(&buf, i * esz, esz, signed))
+            .map(JsonValue::from)
+            .collect();
+        return Ok(JsonValue::Array(list));
+    }
+    if let Some(inner) = desc.strip_prefix("rec:") {
+        let inner = inner
+            .strip_prefix('{')
+            .and_then(|s| s.strip_suffix('}'))
+            .ok_or_else(|| EvalError::TypeMismatch(format!("rec needs {{...}}, got {desc:?}")))?;
+        let fields = parse_struct_fields(inner, ptrw)?;
+        let total = fields
+            .iter()
+            .map(|(_, _, off, sz)| off + sz)
+            .max()
+            .unwrap_or(0);
+        let buf = read_mem(addr, total);
+        return Ok(JsonValue::Object(decode_fields(&buf, &fields)));
+    }
+    let sz = scalar_size(desc)?;
+    let buf = read_mem(addr, sz);
+    Ok(JsonValue::from(read_scalar(
+        &buf,
+        0,
+        sz,
+        is_signed_scalar(desc),
+    )))
+}
+
 /// Returns `true` for descriptors that consume one Handl argument.
 pub(crate) fn descriptor_consumes_handl_arg(desc: &str) -> bool {
     if desc == "void" {
@@ -1126,7 +1236,9 @@ pub(crate) fn descriptor_consumes_handl_arg(desc: &str) -> bool {
 pub(crate) fn return_kind(descriptor: &str) -> Result<CRetKind, EvalError> {
     match descriptor {
         "i32" => Ok(CRetKind::Int32),
-        "i64" | "ptr" | "cstr" | "handle" => Ok(CRetKind::Int64),
+        "i64" | "u8" | "u16" | "u32" | "u64" | "ptr" | "cstr" | "handle" => {
+            Ok(CRetKind::Int64)
+        }
         "f64" => Ok(CRetKind::Float),
         "void" => Ok(CRetKind::Void),
         other => Err(EvalError::TypeMismatch(format!(
@@ -1144,11 +1256,11 @@ pub(crate) fn unmarshal_return(descriptor: &str, ret: &CRet) -> Result<JsonValue
                 "expected integer return for i32".to_string(),
             )),
         },
-        "i64" => match ret {
+        "i64" | "u8" | "u16" | "u32" | "u64" => match ret {
             CRet::Int(v) => Ok(JsonValue::from(*v)),
-            _ => Err(EvalError::Other(
-                "expected integer return for i64".to_string(),
-            )),
+            _ => Err(EvalError::Other(format!(
+                "expected integer return for {descriptor}"
+            ))),
         },
         "f64" => match ret {
             CRet::Float(v) => serde_json::Number::from_f64(*v)

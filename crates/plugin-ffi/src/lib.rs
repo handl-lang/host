@@ -52,8 +52,8 @@ use serde_json::{Map, Value as JsonValue, json};
 use crate::cranelift_shim::resolve_shim;
 use crate::error::last_errno;
 use crate::marshal::{
-    CArg, CRet, CRetKind, descriptor_consumes_handl_arg, marshal_call_args, return_kind,
-    unmarshal_return, wrap_io_struct_return, wrap_outs_return,
+    CArg, CRet, CRetKind, descriptor_consumes_handl_arg, marshal_call_args, marshal_read,
+    return_kind, unmarshal_return, wrap_io_struct_return, wrap_outs_return,
 };
 
 mod cranelift_shim;
@@ -535,14 +535,53 @@ impl Function for FfiSym {
     }
 }
 
+/// `ffi.read(ptr, descriptor) -> Value`
+///
+/// Generic pointer dereference: reads memory at `ptr` (a number address
+/// or `{"__resource__": {"ptr": N}}` handle) and decodes it per
+/// `descriptor` — the same field grammar as struct descriptors
+/// (`i8`..`u64`/`isize`/`usize` scalars, `ptr`, `bytes:N`, `arr:N:T`,
+/// `rec:{...}`, `cstr`). This is the primitive that lets handl chase
+/// out-pointer results (`T **res`), linked lists (`ai_next`), and
+/// pointed-to payloads (`ai_addr`) — `ffi.call` marshals arguments, but
+/// only `ffi.read` reaches memory C did not hand back by value.
+pub struct FfiRead;
+
+impl Function for FfiRead {
+    fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::TypeMismatch(
+                "ffi.read(ptr, descriptor)".to_string(),
+            ));
+        }
+        let addr = args[0]
+            .as_object()
+            .and_then(|obj| obj.get("__resource__"))
+            .and_then(|r| r.get("ptr"))
+            .and_then(|v| v.as_i64())
+            .or_else(|| args[0].as_i64())
+            .ok_or_else(|| {
+                EvalError::TypeMismatch(
+                    "ffi.read ptr must be a number or resource handle".to_string(),
+                )
+            })?;
+        if addr == 0 {
+            return Err(EvalError::Other("ffi.read: null pointer".to_string()));
+        }
+        let desc = require_str(&args[1], "descriptor")?;
+        marshal_read(addr as usize, desc)
+    }
+}
+
 static FFI_BIND: FfiBind = FfiBind;
 static FFI_CALL: FfiCall = FfiCall;
 static FFI_ERRNO: FfiErrno = FfiErrno;
 static FFI_LOAD: FfiLoad = FfiLoad;
+static FFI_READ: FfiRead = FfiRead;
 static FFI_SYM: FfiSym = FfiSym;
 
 /// The host `ffi` module, exposing `ffi.bind`, `ffi.call`, `ffi.errno`,
-/// `ffi.load`, and `ffi.sym`.
+/// `ffi.load`, `ffi.read`, and `ffi.sym`.
 #[derive(Clone, Copy)]
 pub struct FfiModule;
 
@@ -557,6 +596,7 @@ impl Module for FfiModule {
             "call" => Some(&FFI_CALL),
             "errno" => Some(&FFI_ERRNO),
             "load" => Some(&FFI_LOAD),
+            "read" => Some(&FFI_READ),
             "sym" => Some(&FFI_SYM),
             _ => None,
         }
@@ -568,6 +608,7 @@ impl Module for FfiModule {
             ("call", &FFI_CALL as &dyn Function),
             ("errno", &FFI_ERRNO as &dyn Function),
             ("load", &FFI_LOAD as &dyn Function),
+            ("read", &FFI_READ as &dyn Function),
             ("sym", &FFI_SYM as &dyn Function),
         ]
     }

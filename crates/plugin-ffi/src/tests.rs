@@ -1257,3 +1257,102 @@ fn ffi_sym_resolves_getpid_and_reports_missing() {
         .expect("ffi.sym should not raise");
     assert_eq!(err["__tag__"], "err");
 }
+
+// -------------------------------------------------------------------------
+// ffi.read — generic pointer dereference
+// -------------------------------------------------------------------------
+
+#[test]
+fn ffi_read_scalar_sign_extends() {
+    use crate::FfiRead;
+    static CELL: i32 = -42;
+    let mut ctx = EvalContext::new();
+    let v = FfiRead
+        .call(&[json!(&CELL as *const i32 as i64), json!("i32")], &mut ctx)
+        .expect("ffi.read i32");
+    assert_eq!(v.as_i64(), Some(-42));
+}
+
+#[test]
+fn ffi_read_bytes_and_arr() {
+    use crate::FfiRead;
+    static BUF: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
+    static WORDS: [u16; 3] = [1, 2, 0x8000];
+    let mut ctx = EvalContext::new();
+    let b = FfiRead
+        .call(&[json!(BUF.as_ptr() as i64), json!("bytes:4")], &mut ctx)
+        .expect("ffi.read bytes");
+    assert_eq!(b["__bytes__"], json!([0xde, 0xad, 0xbe, 0xef]));
+    let a = FfiRead
+        .call(&[json!(WORDS.as_ptr() as i64), json!("arr:3:u16")], &mut ctx)
+        .expect("ffi.read arr");
+    assert_eq!(a, json!([1, 2, 0x8000]));
+}
+
+#[test]
+fn ffi_read_rec_decodes_fields_and_ptr() {
+    use crate::FfiRead;
+    #[repr(C)]
+    struct Node {
+        flags: i32,
+        family: i32,
+        next: *const Node,
+    }
+    // The statics below are read-only test fixtures.
+    unsafe impl Sync for Node {}
+    static TAIL: Node = Node {
+        flags: 7,
+        family: 2,
+        next: std::ptr::null(),
+    };
+    static HEAD: Node = Node {
+        flags: 1,
+        family: 2,
+        next: &TAIL,
+    };
+    let mut ctx = EvalContext::new();
+    let desc = "rec:{flags:i32@0:4,family:i32@4:4,next:ptr@8:8}";
+    let head = FfiRead
+        .call(&[json!(&HEAD as *const Node as i64), json!(desc)], &mut ctx)
+        .expect("ffi.read rec");
+    assert_eq!(head["flags"], json!(1));
+    assert_eq!(head["family"], json!(2));
+    assert_eq!(head["next"].as_i64(), Some(&TAIL as *const Node as i64));
+
+    // Chase the link: read the pointed-to node through the returned address.
+    let tail = FfiRead
+        .call(&[head["next"].clone(), json!(desc)], &mut ctx)
+        .expect("ffi.read next");
+    assert_eq!(tail["flags"], json!(7));
+    assert_eq!(tail["next"].as_i64(), Some(0));
+}
+
+#[test]
+fn ffi_read_cstr_and_resource_form() {
+    use crate::FfiRead;
+    static S: &[u8] = b"hello\0world";
+    let mut ctx = EvalContext::new();
+    let s = FfiRead
+        .call(&[json!(S.as_ptr() as i64), json!("cstr")], &mut ctx)
+        .expect("ffi.read cstr");
+    assert_eq!(s, json!("hello"));
+
+    // `{"__resource__": {"ptr": N}}` handles are accepted like numbers.
+    let r = FfiRead
+        .call(
+            &[json!({"__resource__": {"ptr": S.as_ptr() as i64}}), json!("cstr")],
+            &mut ctx,
+        )
+        .expect("ffi.read resource");
+    assert_eq!(r, json!("hello"));
+}
+
+#[test]
+fn ffi_read_null_pointer_errors() {
+    use crate::FfiRead;
+    let mut ctx = EvalContext::new();
+    let err = FfiRead
+        .call(&[json!(0), json!("i32")], &mut ctx)
+        .expect_err("ffi.read null");
+    assert!(err.to_string().contains("null"));
+}
