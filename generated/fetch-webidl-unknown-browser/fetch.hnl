@@ -1,0 +1,255 @@
+--- Generated adapter for fetch-webidl-unknown-browser/fetch
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fetch/fetch" import { Body, DeferredRequestInit, FetchLaterResult, Headers, Request, RequestInit, Response, ResponseInit, Window, WindowOrWorkerGlobalScope, BodyArrayBuffer, BodyBlob, BodyBytes, BodyFormData, BodyJson, BodyText, BodyTextStream, HeadersAppend, HeadersConstructor, HeadersDelete, HeadersGet, HeadersGetSetCookie, HeadersHas, HeadersSet, RequestClone, RequestConstructor, ResponseClone, ResponseConstructor, WindowFetchLater, WindowOrWorkerGlobalScopeFetch }
+
+export RequestCache_Default: Int := 0
+export RequestCache_ForceCache: Int := 4
+export RequestCache_NoCache: Int := 3
+export RequestCache_NoStore: Int := 1
+export RequestCache_OnlyIfCached: Int := 5
+export RequestCache_Reload: Int := 2
+export RequestCredentials_Include: Int := 2
+export RequestCredentials_Omit: Int := 0
+export RequestCredentials_SameOrigin: Int := 1
+export RequestDestination_: Int := 0
+export RequestDestination_Audio: Int := 1
+export RequestDestination_Audioworklet: Int := 2
+export RequestDestination_Document: Int := 3
+export RequestDestination_Embed: Int := 4
+export RequestDestination_Font: Int := 5
+export RequestDestination_Frame: Int := 6
+export RequestDestination_Iframe: Int := 7
+export RequestDestination_Image: Int := 8
+export RequestDestination_Json: Int := 9
+export RequestDestination_Manifest: Int := 10
+export RequestDestination_Object: Int := 11
+export RequestDestination_Paintworklet: Int := 12
+export RequestDestination_Report: Int := 13
+export RequestDestination_Script: Int := 14
+export RequestDestination_Sharedworker: Int := 15
+export RequestDestination_Style: Int := 16
+export RequestDestination_Text: Int := 17
+export RequestDestination_Track: Int := 18
+export RequestDestination_Video: Int := 19
+export RequestDestination_Worker: Int := 20
+export RequestDestination_Xslt: Int := 21
+export RequestDuplex_Half: Int := 0
+export RequestMode_Cors: Int := 3
+export RequestMode_Navigate: Int := 0
+export RequestMode_NoCors: Int := 2
+export RequestMode_SameOrigin: Int := 1
+export RequestPriority_Auto: Int := 2
+export RequestPriority_High: Int := 0
+export RequestPriority_Low: Int := 1
+export RequestRedirect_Error: Int := 1
+export RequestRedirect_Follow: Int := 0
+export RequestRedirect_Manual: Int := 2
+export ResponseType_Basic: Int := 0
+export ResponseType_Cors: Int := 1
+export ResponseType_Default: Int := 2
+export ResponseType_Error: Int := 3
+export ResponseType_Opaque: Int := 4
+export ResponseType_Opaqueredirect: Int := 5
+
+export body_array_buffer: BodyArrayBuffer := () ~[1]~> do {
+  r = call("fetch", "arrayBuffer", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_blob: BodyBlob := () ~[1]~> do {
+  r = call("fetch", "blob", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_bytes: BodyBytes := () ~[1]~> do {
+  r = call("fetch", "bytes", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_form_data: BodyFormData := () ~[1]~> do {
+  r = call("fetch", "formData", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_json: BodyJson := () ~[1]~> do {
+  r = call("fetch", "json", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_text: BodyText := () ~[1]~> do {
+  r = call("fetch", "text", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export body_text_stream: BodyTextStream := () ~[1]~> do {
+  r = call("fetch", "textStream", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_append: HeadersAppend := (name, value) ~[1]~> do {
+  r = call("fetch", "append", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_constructor: HeadersConstructor := (init) ~[1]~> do {
+  r = call("fetch", "constructor", [init], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_delete: HeadersDelete := (name) ~[1]~> do {
+  r = call("fetch", "delete", [name], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_get: HeadersGet := (name) ~[1]~> do {
+  r = call("fetch", "get", [name], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_get_set_cookie: HeadersGetSetCookie := () ~[1]~> do {
+  r = call("fetch", "getSetCookie", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_has: HeadersHas := (name) ~[1]~> do {
+  r = call("fetch", "has", [name], ["js_string"], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_set: HeadersSet := (name, value) ~[1]~> do {
+  r = call("fetch", "set", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export request_clone: RequestClone := () ~[1]~> do {
+  r = call("fetch", "clone", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export request_constructor: RequestConstructor := (input, init) ~[1]~> do {
+  r = call("fetch", "constructor", [input, init], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_clone: ResponseClone := () ~[1]~> do {
+  r = call("fetch", "clone", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_constructor: ResponseConstructor := (body, init) ~[1]~> do {
+  r = call("fetch", "constructor", [body, init], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export window_fetch_later: WindowFetchLater := (input, init) ~[1]~> do {
+  r = call("fetch", "fetchLater", [input, init], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export window_or_worker_global_scope_fetch: WindowOrWorkerGlobalScopeFetch := (input, init) ~[1]~> do {
+  r = call("fetch", "fetch", [input, init], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
