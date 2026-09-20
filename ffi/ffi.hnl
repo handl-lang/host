@@ -60,6 +60,19 @@ export errno := () ~[1]~> Errno
 --- optional dependencies.
 export load := (String) ~[1]~> Value
 
+--- Read memory through a foreign pointer.
+--- @param ptr A raw address (Int) or opaque handle (`__resource__`).
+--- @param descriptor A marshal descriptor: scalar (`i8`..`u64`,
+--- `isize`, `usize`), `ptr`, `bytes:N`, `arr:N:T`, `rec:{...}`, `cstr`.
+--- @return The decoded value at the pointer.
+--- @details
+--- `read` dereferences a raw pointer and decodes it per the descriptor —
+--- the generic way to chase `T **res` out-params, linked lists
+--- (`ai_next`), and pointed-to payloads (`ai_addr`) that `call` cannot
+--- hand back by value. Reading an invalid pointer is a fault; read only
+--- addresses C has handed you.
+export read := (Value, String) ~[1]~> Value
+
 --- Probe a symbol in a library without raising.
 --- @param lib The name of the foreign library to load.
 --- @param probe The name of the foreign symbol to probe.
