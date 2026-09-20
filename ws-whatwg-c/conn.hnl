@@ -1,27 +1,45 @@
 --- ws-whatwg-c/conn -- the effectful connection layer: `connect`,
---- `send`, `recv`, `close` over the generated libc socket adapters.
+--- `send`, `recv`, `recv_wait`, `close` over the generated libc
+--- socket and libssl adapters.
 ---
 --- @details
 --- This is the only module in `ws-whatwg-c` with `~[1]~>` arrows.
 --- Every libc call returns `Result<payload, Errno>` (`Errno` is a bare
 --- Int); the exports propagate those `err` values unchanged and reserve
---- `error.raise` for programmer errors (a non-`ws://` URL, a
+--- `error.raise` for programmer errors (a non-`ws://`/`wss://` URL, a
 --- non-string/non-bytes `send` message) and `err(ECONNABORTED)` for a
---- refused handshake (non-101 status or a bad Sec-WebSocket-Accept).
+--- refused handshake (non-101 status, a bad Sec-WebSocket-Accept, or a
+--- failed TLS negotiation).
 ---
 --- Entropy enters through the generated libc `getrandom(2)` adapter
 --- (`libc-c-linux-x86_64/random.hnl`): `random_bytes` unwraps its
 --- `Result<Bytes>` and slices off the `n` bytes the caller needs.
 ---
---- v1 scope: `ws://` + IPv4-literal hosts only (see `index.hnl`).
+--- `wss://` conns run `ssl_wrap` after the TCP `connect(2)`: a
+--- `TLS_client_method` context plus one session bound to the fd via
+--- `SSL_set_fd` and negotiated with `SSL_connect`. Both handles ride
+--- on the `Conn` (`ssl`/`ssl_ctx`) so `close` frees them in order --
+--- the ctx must outlive the session. TLS reads and writes go through
+--- `SSL_read`/`SSL_write` (see `io_read_some`/`io_write_all`); the
+--- upgrade handshake itself then runs *inside* the TLS channel.
+---
+--- Scope: `ws://` and `wss://` over IPv4 — literals take the pure
+--- `sockaddr_in` path, DNS hostnames resolve through `getaddrinfo`
+--- (`resolve`). See `index.hnl` for the `recv` blocking asymmetry
+--- (`SSL_read` always blocks) and the missing SNI/certificate
+--- verification on `wss://`.
 
 from "bytes" import * as bytes
 from "result" import { Result, ok, err }
 from "ffi" import { Errno }
+from "ffi" import * as ffi
 from "../generated/libc-c-linux-x86_64/socket" import * as socket
 from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
 from "../generated/libc-c-linux-x86_64/random" import * as random
 from "../generated/libc-c-linux-x86_64/errno" import * as errno
+from "../generated/libc-c-linux-x86_64/netdb" import * as netdb
+from "../generated/libc-c-linux-x86_64/in" import { AF_INET }
+from "../generated/libssl-c-linux-x86_64/ssl" import * as ssl
 from "../ws_frame-handl/frame" import * as frame
 from "../ws_frame" import * as ws_frame
 from "./index" import { Conn }
@@ -98,17 +116,76 @@ export write_all: (Int, Bytes) ~[1]~> Result<Int, Errno> := (fd, buf) ~> do {
   }
 }
 
---- read_head -- blocking `recv` loop that accumulates bytes until the
---- `"\r\n\r\n"` head terminator appears. Returns `{head, rest}` where
---- `head` is the UTF-8 decoded head (terminator included) and `rest` is
---- whatever frame bytes trailed it. A peer close before the terminator
---- surfaces as `err(ECONNRESET)`.
+--- ssl_write_all -- `write_all` for a TLS session: loop `SSL_write`
+--- on short writes until `buf` is out. A non-positive return is an
+--- SSL-level failure (the adapter already errs on ret < 0, so a 0 here
+--- means the session is dead) and maps to `err(EPIPE)`.
+--- @param {s} - the SSL session handle
+--- @param {buf} - the Bytes to write
+--- @returns {Result<Int, Errno> - total sent, or the write errno}
+ssl_write_all := (s, buf) ~> do {
+  while { s: s, buf: buf, off: 0 } {
+    (s, buf, off) ~> do {
+      if off >= bytes.len(buf) {
+        { out: ok(off) }
+      } else {
+        do {
+          r :: ssl.SSL_write(
+            s,
+            bytes.slice(buf, off, bytes.len(buf) - off))
+          if tag.tag_of(r) == "err" {
+            { out: r }
+          } else {
+            do {
+              n :: tag.untag(r).value
+              if n <= 0 {
+                { out: err(errno.EPIPE) }
+              } else {
+                { state: { s: s, buf: buf, off: off + n } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- io_write_all -- the single write path `send`/`close`/`connect`
+--- share: plain conns take the `write_all` socket path, `wss` conns
+--- write through `SSL_write` via `ssl_write_all`.
+--- @param {conn} - the connection (reads `.fd` and `.ssl`)
+--- @param {buf} - the Bytes to write
+--- @returns {Result<Int, Errno> - total sent, or the write errno}
+io_write_all := (conn, buf) ~> if conn.ssl == null {
+  write_all(conn.fd, buf)
+} else {
+  ssl_write_all(conn.ssl, buf)
+}
+
+--- io_read_some -- one blocking read off a conn-shaped `{fd, ssl}`
+--- pair: `recv(fd, 0)` on plain conns, `SSL_read` on `wss` conns. The
+--- non-blocking `recv` path does NOT go through here -- `MSG_DONTWAIT`
+--- is meaningless under TLS (see `index.hnl`).
 --- @param {fd} - the socket fd
---- @returns {Result<HeadOut, Errno> - the head, or the recv errno}
-export read_head: (Int) ~[1]~> Result<HeadOut, Errno> := (fd) ~> do {
-  while { fd: fd, acc: bytes.from_list([]) } {
-    (fd, acc) ~> do {
-      r :: socket.recv(fd, 0)
+--- @param {s} - the SSL session handle, or null
+--- @returns {Result<Bytes, Errno> - the bytes read, or the read errno}
+io_read_some := (fd, s) ~> if s == null {
+  socket.recv(fd, 0)
+} else {
+  ssl.SSL_read(s)
+}
+
+--- read_head_io -- `read_head`'s accumulation loop, parameterized on
+--- the TLS session (or null) so the same head scan serves plain and
+--- `wss` conns.
+--- @param {fd} - the socket fd
+--- @param {s} - the SSL session handle, or null
+--- @returns {Result<HeadOut, Errno> - the head, or the read errno}
+read_head_io := (fd, s) ~> do {
+  while { fd: fd, s: s, acc: bytes.from_list([]) } {
+    (fd, s, acc) ~> do {
+      r :: io_read_some(fd, s)
       if tag.tag_of(r) == "err" {
         { out: r }
       } else {
@@ -121,7 +198,7 @@ export read_head: (Int) ~[1]~> Result<HeadOut, Errno> := (fd) ~> do {
               buf :: bytes.concat(acc, chunk)
               e :: http.head_end(buf)
               if e < 0 {
-                { state: { fd: fd, acc: buf } }
+                { state: { fd: fd, s: s, acc: buf } }
               } else {
                 { out: ok({
                     head: bytes.utf8_decode(bytes.slice(buf, 0, e)),
@@ -135,16 +212,189 @@ export read_head: (Int) ~[1]~> Result<HeadOut, Errno> := (fd) ~> do {
   }
 }
 
---- connect -- open a WebSocket connection to a `ws://` URL.
---- @param {url} - "ws://<ipv4>[:port][/path]" (v1: IPv4 literals only)
+--- read_head -- blocking `recv` loop that accumulates bytes until the
+--- `"\r\n\r\n"` head terminator appears. Returns `{head, rest}` where
+--- `head` is the UTF-8 decoded head (terminator included) and `rest` is
+--- whatever frame bytes trailed it. A peer close before the terminator
+--- surfaces as `err(ECONNRESET)`.
+--- @param {fd} - the socket fd
+--- @returns {Result<HeadOut, Errno> - the head, or the recv errno}
+export read_head: (Int) ~[1]~> Result<HeadOut, Errno> := (fd) ~> do {
+  read_head_io(fd, null)
+}
+
+--- The `struct addrinfo` field descriptor `ffi.read` walks — glibc
+--- LP64 layout, 48 bytes (offsets verified against libclang: family@4,
+--- addrlen@16, addr@24, next@40).
+export AddrinfoDesc := "rec:{ai_flags:i32@0:4,ai_family:i32@4:4,ai_socktype:i32@8:4,ai_protocol:i32@12:4,ai_addrlen:u32@16:4,ai_addr:ptr@24:8,ai_canonname:ptr@32:8,ai_next:ptr@40:8}"
+
+--- first_inet -- walk a `getaddrinfo` result list for the first node
+--- whose `ai_addr` is set, and copy that sockaddr out through
+--- `ffi.read`. The hints already pin `ai_family = AF_INET`, so the
+--- first populated node is the one to use; a NULL `ai_next` ends the
+--- walk with `err(EADDRNOTAVAIL)`.
+--- @param {head} - the list-head address `getaddrinfo` wrote
+--- @returns {Result<Bytes, Errno> - the sockaddr image, or EADDRNOTAVAIL}
+first_inet := (head) ~> do {
+  while { p: head } {
+    (p) ~> if p == 0 {
+      { out: err(errno.EADDRNOTAVAIL) }
+    } else {
+      do {
+        ai :: ffi.read(p, AddrinfoDesc)
+        if ai.ai_addr != 0 {
+          { out: ok(ffi.read(ai.ai_addr,
+                             "bytes:" + type.to_string(ai.ai_addrlen))) }
+        } else {
+          { state: { p: ai.ai_next } }
+        }
+      }
+    }
+  }
+}
+
+--- resolve -- turn a host + port into the 16-byte sockaddr image
+--- `connect(2)` wants. IPv4 literals take the pure `sockaddr_in` fast
+--- path (no syscall); anything else goes through `getaddrinfo` with an
+--- `AF_INET`/`SOCK_STREAM` hint, then `first_inet` walks the returned
+--- list and `freeaddrinfo` releases it. A nonzero `getaddrinfo` return
+--- is an `EAI_*` code, not errno — it maps to `err(EADDRNOTAVAIL)`
+--- (`gai_strerror` has the detail if needed).
+--- @param {host} - IPv4 literal or DNS hostname
+--- @param {port} - the TCP port
+--- @returns {Result<Bytes, Errno> - the sockaddr image}
+export resolve: (String, Int) ~[1]~> Result<Bytes, Errno> := (host, port) ~> do {
+  if sockaddr.is_ipv4(host) {
+    ok(sockaddr.sockaddr_in(port, host))
+  } else {
+    do {
+      hints :: { ai_family: AF_INET, ai_socktype: socket.SOCK_STREAM }
+      r :: netdb.getaddrinfo(host, type.to_string(port), hints, 0)
+      if tag.tag_of(r) == "err" {
+        r
+      } else {
+        do {
+          v :: tag.untag(r).value
+          if v.ret != 0 {
+            err(errno.EADDRNOTAVAIL)
+          } else {
+            do {
+              head :: v.vals[0]
+              sa :: first_inet(head)
+              dropped :: netdb.freeaddrinfo(head)
+              sa
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- The `ssl_wrap` output: the negotiated TLS session handle plus the
+--- `SSL_CTX` it was created from (the context must outlive the
+--- session, so both are handed to the caller for `close` to free).
+SslPair := { ssl: Value, ctx: Value }
+
+--- ssl_cleanup -- release TLS state after a failed `ssl_wrap` step:
+--- `SSL_free` the session when one was made, `SSL_CTX_free` the
+--- context when one was made, then `close(fd)`. Returns `e` unchanged
+--- so callers can tail it after the best-effort teardown.
+--- @param {fd} - the socket fd to close
+--- @param {s} - the SSL session handle, or null
+--- @param {ctx} - the SSL_CTX handle, or null
+--- @param {e} - the Result to return after cleanup
+ssl_cleanup := (fd, s, ctx, e) ~> do {
+  f1 :: if s == null { ok(null) } else { ssl.SSL_free(s) }
+  f2 :: if ctx == null { ok(null) } else { ssl.SSL_CTX_free(ctx) }
+  dropped :: unistd.close(fd)
+  e
+}
+
+--- ssl_wrap -- upgrade a connected TCP fd to a client TLS session:
+--- `TLS_client_method` -> `SSL_CTX_new` -> `SSL_new` -> `SSL_set_fd`
+--- -> `SSL_connect`. `SSL_connect` must return exactly 1; any other
+--- non-positive step return maps to `err(ECONNABORTED)`. On failure
+--- everything allocated so far is freed and the fd is closed before
+--- the err propagates (`ssl_cleanup`).
+--- @param {fd} - the connected socket fd (blocking)
+--- @returns {Result<SslPair, Errno> - {ssl, ctx}, or the failing errno}
+--- @details The fd stays blocking -- `SSL_read`/`SSL_write` drive the
+--- TLS record layer over it, and `MSG_DONTWAIT` does not apply (see
+--- `index.hnl`). v1 sends no SNI and performs no certificate
+--- verification (`SSL_VERIFY_NONE` default). The `*_new` adapters do
+--- not null-check, so a failed `SSL_CTX_new`/`SSL_new` surfaces only
+--- at the next call -- a known adapter limitation.
+ssl_wrap := (fd) ~> do {
+  m :: ssl.TLS_client_method()
+  if tag.tag_of(m) == "err" {
+    ssl_cleanup(fd, null, null, m)
+  } else {
+    do {
+      c :: ssl.SSL_CTX_new(tag.untag(m).value)
+      if tag.tag_of(c) == "err" {
+        ssl_cleanup(fd, null, null, c)
+      } else {
+        do {
+          ctx :: tag.untag(c).value
+          s :: ssl.SSL_new(ctx)
+          if tag.tag_of(s) == "err" {
+            ssl_cleanup(fd, null, ctx, s)
+          } else {
+            do {
+              sv :: tag.untag(s).value
+              sf :: ssl.SSL_set_fd(sv, fd)
+              if tag.tag_of(sf) == "err" {
+                ssl_cleanup(fd, sv, ctx, sf)
+              } else if tag.untag(sf).value <= 0 {
+                ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+              } else {
+                do {
+                  hs :: ssl.SSL_connect(sv)
+                  if tag.tag_of(hs) == "err" {
+                    ssl_cleanup(fd, sv, ctx, hs)
+                  } else if tag.untag(hs).value != 1 {
+                    ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+                  } else {
+                    ok({ ssl: sv, ctx: ctx })
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- io_teardown -- best-effort resource release on a half-open conn
+--- after a failed handshake: `SSL_free`/`SSL_CTX_free` when wrapped,
+--- then `close(fd)`. Errors are dropped -- the caller is already
+--- propagating the real one.
+--- @param {conn} - the connection to tear down
+io_teardown := (conn) ~> do {
+  f1 :: if conn.ssl == null { ok(null) } else { ssl.SSL_free(conn.ssl) }
+  f2 :: if conn.ssl_ctx == null { ok(null) } else { ssl.SSL_CTX_free(conn.ssl_ctx) }
+  dropped :: unistd.close(conn.fd)
+  ok(null)
+}
+
+--- connect -- open a WebSocket connection to a `ws://`/`wss://` URL.
+--- @param {url} - "[w]ws[s]://<host>[:port][/path]" — IPv4 literals take the
+--- pure pack path, DNS hostnames resolve via `getaddrinfo`; `wss://`
+--- wraps the socket in TLS first (default port 443)
 --- @returns {Result<Conn, Errno> - the connection, or the failing errno}
 --- @details Runs the full RFC 6455 client handshake: socket, connect,
---- a fresh 16-byte `getrandom` nonce as Sec-WebSocket-Key, the upgrade
---- request, then the response head check (status 101 plus a matching
+--- (for `wss://`) the `ssl_wrap` TLS negotiation, a fresh 16-byte
+--- `getrandom` nonce as Sec-WebSocket-Key, the upgrade request written
+--- through `io_write_all` (plain socket or `SSL_write`), then the
+--- response head check (status 101 plus a matching
 --- Sec-WebSocket-Accept). Bytes already read past the head land in
---- `conn.rbuf` so no early frame is lost. A refused handshake returns
---- `err(ECONNABORTED)`; a bad URL raises (a usage error, not a socket
---- failure). On `connect(2)` failure the fd is closed before
+--- `conn.rbuf` so no early frame is lost. A refused handshake or a
+--- failed TLS negotiation returns `err(ECONNABORTED)`; a bad URL
+--- raises (a usage error, not a socket failure). On `connect(2)`/
+--- `resolve`/TLS failure the fd (and any TLS state) is released before
 --- propagating.
 export connect: String ~[1]~> Result<Conn, Errno> := (url) ~> do {
   u :: http.parse_url(url)
@@ -154,34 +404,71 @@ export connect: String ~[1]~> Result<Conn, Errno> := (url) ~> do {
   } else {
     do {
       fd :: tag.untag(s).value
-      c :: socket.connect(fd, sockaddr.sockaddr_in(u.port, u.host))
-      if tag.tag_of(c) == "err" {
+      sa :: resolve(u.host, u.port)
+      if tag.tag_of(sa) == "err" {
         do {
           dropped :: unistd.close(fd)
-          c
+          sa
         }
       } else {
         do {
-          key :: http.b64_encode(bytes.to_list(random_bytes(16)))
-          w :: write_all(fd, bytes.utf8_encode(http.upgrade_req(u, key)))
-          if tag.tag_of(w) == "err" {
-            w
+          c :: socket.connect(fd, tag.untag(sa).value)
+          if tag.tag_of(c) == "err" {
+            do {
+              dropped :: unistd.close(fd)
+              c
+            }
           } else {
             do {
-              h :: read_head(fd)
-              if tag.tag_of(h) == "err" {
-                h
+              tw :: if u.scheme == "wss" {
+                ssl_wrap(fd)
+              } else {
+                ok({ ssl: null, ctx: null })
+              }
+              if tag.tag_of(tw) == "err" {
+                tw
               } else {
                 do {
-                  hr :: tag.untag(h).value
-                  p :: http.parse_head(hr.head)
-                  acc :: http.header_get(p.headers, "sec-websocket-accept")
-                  if p.status != 101 {
-                    err(errno.ECONNABORTED)
-                  } else if acc != http.accept_key(key) {
-                    err(errno.ECONNABORTED)
+                  pair :: tag.untag(tw).value
+                  conn0 :: {
+                    fd: fd, rbuf: bytes.from_list([]),
+                    ssl: pair.ssl, ssl_ctx: pair.ctx, server: false }
+                  key :: http.b64_encode(bytes.to_list(random_bytes(16)))
+                  w :: io_write_all(conn0, bytes.utf8_encode(http.upgrade_req(u, key)))
+                  if tag.tag_of(w) == "err" {
+                    do {
+                      t :: io_teardown(conn0)
+                      w
+                    }
                   } else {
-                    ok({ fd: fd, rbuf: hr.rest })
+                    do {
+                      h :: read_head_io(conn0.fd, conn0.ssl)
+                      if tag.tag_of(h) == "err" {
+                        do {
+                          t :: io_teardown(conn0)
+                          h
+                        }
+                      } else {
+                        do {
+                          hr :: tag.untag(h).value
+                          p :: http.parse_head(hr.head)
+                          acc :: http.header_get(p.headers, "sec-websocket-accept")
+                          if p.status != 101 {
+                            do {
+                              t :: io_teardown(conn0)
+                              err(errno.ECONNABORTED)
+                            }
+                          } else if acc != http.accept_key(key) {
+                            do {
+                              t :: io_teardown(conn0)
+                              err(errno.ECONNABORTED)
+                            }
+                          } else {
+                            ok({ ...conn0, rbuf: hr.rest })
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -195,20 +482,22 @@ export connect: String ~[1]~> Result<Conn, Errno> := (url) ~> do {
 
 --- send -- send one message on the connection. A String goes out as a
 --- text frame (UTF-8, op 1), a Bytes buffer as binary (op 2); anything
---- else raises. Client frames are always masked with a fresh 4-byte
---- `getrandom` key (RFC 6455 section 5.3).
+--- else raises. Client conns mask with a fresh 4-byte `getrandom` key
+--- (RFC 6455 section 5.3); `conn.server` conns send unmasked (the
+--- server half must not mask). Writes go through `io_write_all`, so a
+--- `wss` conn emits inside the TLS channel.
 --- @param {conn} - the connection
 --- @param {msg} - String (text) or Bytes (binary)
 --- @returns {Result<Conn, Errno> - the connection, or the send errno}
 export send: (Conn, Value) ~[1]~> Result<Conn, Errno> := (conn, msg) ~> do {
-  k :: random_bytes(4)
+  k :: if conn.server { bytes.from_list([]) } else { random_bytes(4) }
   t :: type.of(msg)
   if t == "string" {
     do {
       f :: frame.encode({
         fin: 1, op: ws_frame.OpText,
         payload: bytes.utf8_encode(msg), mask_key: k })
-      w :: write_all(conn.fd, f)
+      w :: io_write_all(conn, f)
       if tag.tag_of(w) == "err" { w } else { ok(conn) }
     }
   } else if t == "bytes" {
@@ -216,7 +505,7 @@ export send: (Conn, Value) ~[1]~> Result<Conn, Errno> := (conn, msg) ~> do {
       f :: frame.encode({
         fin: 1, op: ws_frame.OpBinary,
         payload: msg, mask_key: k })
-      w :: write_all(conn.fd, f)
+      w :: io_write_all(conn, f)
       if tag.tag_of(w) == "err" { w } else { ok(conn) }
     }
   } else {
@@ -224,52 +513,87 @@ export send: (Conn, Value) ~[1]~> Result<Conn, Errno> := (conn, msg) ~> do {
   }
 }
 
+--- decode_next -- the shared `recv`/`recv_wait` decode half: append
+--- `chunk` to `conn.rbuf` and feed it to `frame.decode`. A complete
+--- frame surfaces as String (op 1), Bytes (op 2), or `{op, payload}`
+--- for control frames (8/9/10); an incomplete frame keeps buffering
+--- and returns `{msg: null}` with the grown `rbuf`.
+--- @param {conn} - the connection (reads `.rbuf`)
+--- @param {chunk} - the bytes just read off the wire
+--- @returns {Result<RecvOut, Errno> - always ok; errors live upstream}
+decode_next := (conn, chunk) ~> do {
+  buf :: bytes.concat(conn.rbuf, chunk)
+  d :: frame.decode(buf)
+  if tag.tag_of(d) == "None" {
+    ok({ msg: null, conn: { ...conn, rbuf: buf } })
+  } else {
+    do {
+      f :: d.value.frame
+      msg :: if f.op == ws_frame.OpText {
+        bytes.utf8_decode(f.payload)
+      } else if f.op == ws_frame.OpBinary {
+        f.payload
+      } else {
+        { op: f.op, payload: f.payload }
+      }
+      ok({ msg: msg, conn: { ...conn, rbuf: d.value.rest } })
+    }
+  }
+}
+
 --- recv -- poll the connection once for the next message.
 --- @param {conn} - the connection
 --- @returns {Result<RecvOut, Errno> - {msg, conn}, or the recv errno}
---- @details Non-blocking (`MSG_DONTWAIT`): `err(EAGAIN)` maps to
---- `{msg: null, conn}` -- call again later. Bytes read are appended to
---- `conn.rbuf` and fed to `frame.decode`: a complete frame surfaces as
+--- @details Non-blocking on plain `ws://` conns (`MSG_DONTWAIT`):
+--- `err(EAGAIN)` maps to `{msg: null, conn}` -- call again later. On
+--- `wss://` conns this calls `SSL_read`, which BLOCKS -- a known
+--- asymmetry documented in `index.hnl`; use `recv_wait` when blocking
+--- is the intent. An empty `SSL_read` also maps to `{msg: null}`: the
+--- adapter trims the buffer by return value, so a clean close and
+--- WANT_READ are indistinguishable without the raw ret -- a known
+--- limitation. Bytes read are appended to `conn.rbuf` and fed to
+--- `frame.decode` (`decode_next`): a complete frame surfaces as
 --- String (op 1), Bytes (op 2), or `{op, payload}` for control frames
 --- (8/9/10 -- close/ping/pong are surfaced, never answered
---- automatically); an incomplete frame keeps buffering and returns
---- null. A clean peer close (0-byte read) surfaces as a synthesized
---- `{op: 8, payload: empty}` close message.
+--- automatically). A clean peer close (0-byte `recv`) surfaces as a
+--- synthesized `{op: 8, payload: empty}` close message.
 export recv: (Conn) ~[1]~> Result<RecvOut, Errno> := (conn) ~> do {
-  r :: socket.recv(conn.fd, socket.MSG_DONTWAIT)
-  if tag.tag_of(r) == "err" {
+  if conn.ssl == null {
     do {
-      e :: tag.untag(r).value
-      if e == errno.EAGAIN {
-        ok({ msg: null, conn: conn })
+      r :: socket.recv(conn.fd, socket.MSG_DONTWAIT)
+      if tag.tag_of(r) == "err" {
+        do {
+          e :: tag.untag(r).value
+          if e == errno.EAGAIN {
+            ok({ msg: null, conn: conn })
+          } else {
+            r
+          }
+        }
       } else {
-        r
+        do {
+          chunk :: tag.untag(r).value
+          if bytes.len(chunk) == 0 {
+            ok({ msg: { op: ws_frame.OpClose, payload: bytes.from_list([]) },
+                 conn: conn })
+          } else {
+            decode_next(conn, chunk)
+          }
+        }
       }
     }
   } else {
     do {
-      chunk :: tag.untag(r).value
-      if bytes.len(chunk) == 0 {
-        ok({ msg: { op: ws_frame.OpClose, payload: bytes.from_list([]) },
-             conn: conn })
+      r :: ssl.SSL_read(conn.ssl)
+      if tag.tag_of(r) == "err" {
+        r
       } else {
         do {
-          buf :: bytes.concat(conn.rbuf, chunk)
-          d :: frame.decode(buf)
-          if tag.tag_of(d) == "None" {
-            ok({ msg: null, conn: { fd: conn.fd, rbuf: buf } })
+          chunk :: tag.untag(r).value
+          if bytes.len(chunk) == 0 {
+            ok({ msg: null, conn: conn })
           } else {
-            do {
-              f :: d.value.frame
-              msg :: if f.op == ws_frame.OpText {
-                bytes.utf8_decode(f.payload)
-              } else if f.op == ws_frame.OpBinary {
-                f.payload
-              } else {
-                { op: f.op, payload: f.payload }
-              }
-              ok({ msg: msg, conn: { fd: conn.fd, rbuf: d.value.rest } })
-            }
+            decode_next(conn, chunk)
           }
         }
       }
@@ -277,21 +601,67 @@ export recv: (Conn) ~[1]~> Result<RecvOut, Errno> := (conn) ~> do {
   }
 }
 
---- close -- send a masked close frame, `shutdown(SHUT_WR)`, and close
---- the fd. Best-effort: all three steps run even when an earlier one
---- fails, then the first `err` is propagated.
+--- recv_wait -- the blocking variant of `recv`: waits for the next
+--- message (or peer close) instead of polling. Plain conns block in
+--- `recv(fd, 0)`; `wss` conns block in `SSL_read`. A 0-byte read is a
+--- clean peer close and surfaces as the synthesized `{op: 8}` close
+--- message -- on a blocking read there is no WANT_READ ambiguity, so
+--- unlike `recv` on `wss` an empty read is never `{msg: null}`.
+--- @param {conn} - the connection
+--- @returns {Result<RecvOut, Errno> - {msg, conn}, or the read errno}
+export recv_wait: (Conn) ~[1]~> Result<RecvOut, Errno> := (conn) ~> do {
+  r :: io_read_some(conn.fd, conn.ssl)
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    do {
+      chunk :: tag.untag(r).value
+      if bytes.len(chunk) == 0 {
+        ok({ msg: { op: ws_frame.OpClose, payload: bytes.from_list([]) },
+             conn: conn })
+      } else {
+        decode_next(conn, chunk)
+      }
+    }
+  }
+}
+
+--- close -- send a close frame (masked on client conns, unmasked on
+--- `conn.server` conns), tear down TLS state when wrapped
+--- (`SSL_shutdown`, `SSL_free`, `SSL_CTX_free` -- session before
+--- context), `shutdown(SHUT_WR)`, and close the fd. Best-effort: every
+--- step runs even when an earlier one fails, then the first `err` is
+--- propagated.
 --- @param {conn} - the connection
 --- @returns {Result<Int, Errno> - 0, or the first failing errno}
 export close: (Conn) ~[1]~> Result<Int, Errno> := (conn) ~> do {
-  k :: random_bytes(4)
+  k :: if conn.server { bytes.from_list([]) } else { random_bytes(4) }
   f :: frame.encode({
     fin: 1, op: ws_frame.OpClose,
     payload: bytes.from_list([]), mask_key: k })
-  w :: write_all(conn.fd, f)
+  w :: io_write_all(conn, f)
+  t :: if conn.ssl == null {
+    ok(null)
+  } else {
+    do {
+      sd :: ssl.SSL_shutdown(conn.ssl)
+      f1 :: ssl.SSL_free(conn.ssl)
+      f2 :: ssl.SSL_CTX_free(conn.ssl_ctx)
+      if tag.tag_of(sd) == "err" {
+        sd
+      } else if tag.tag_of(f1) == "err" {
+        f1
+      } else {
+        f2
+      }
+    }
+  }
   s :: socket.shutdown(conn.fd, socket.SHUT_WR)
   c :: unistd.close(conn.fd)
   if tag.tag_of(w) == "err" {
     w
+  } else if tag.tag_of(t) == "err" {
+    t
   } else if tag.tag_of(s) == "err" {
     s
   } else {

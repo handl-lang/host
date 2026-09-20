@@ -84,6 +84,23 @@ export sockaddr_in: SockaddrPack := (port, ip) ~> do {
   }
 }
 
+--- is_ipv4 -- true when `s` is a dotted-quad IPv4 literal (four
+--- 0..255 octets). The gate that lets `resolve` skip `getaddrinfo`
+--- entirely for literal hosts.
+--- @param {s} - candidate host string
+--- @returns {Bool - true when `s` is a valid IPv4 literal}
+export is_ipv4 := (s) ~> do {
+  ps :: str.split(s, ".")
+  match ps {
+    [a, b, c, d]: (
+      nat_of(a) >= 0 && nat_of(a) <= 255 &&
+      nat_of(b) >= 0 && nat_of(b) <= 255 &&
+      nat_of(c) >= 0 && nat_of(c) <= 255 &&
+      nat_of(d) >= 0 && nat_of(d) <= 255),
+    _: false
+  }
+}
+
 --- sockaddr_out -- unpack a 16-byte `sockaddr_in` image back to
 --- `{port, ip}`. The inverse of `sockaddr_in`; reads `sin_port`
 --- big-endian and renders `sin_addr` as a dotted-quad. The family field

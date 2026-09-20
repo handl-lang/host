@@ -24,9 +24,10 @@ from "char" import * as char
 from "math" import * as math
 from "crypto" import * as crypto
 
---- The `{host, port, path}` triple `parse_url` produces and
---- `upgrade_req` consumes.
-export UrlIn := { host: String, port: Int, path: String }
+--- The `{host, port, path, scheme}` record `parse_url` produces and
+--- `upgrade_req` consumes. `scheme` is "ws" or "wss" -- `connect`
+--- reads it to decide whether to wrap the socket in TLS.
+export UrlIn := { host: String, port: Int, path: String, scheme: String }
 
 --- A single response header; `name` is stored lowercased.
 export Header := { name: String, value: String }
@@ -158,6 +159,20 @@ export accept_key := (key) ~> (
   b64_encode(hex_decode(crypto.sha1(key + GUID)))
 )
 
+--- build_101_resp -- the server half of the handshake: the raw
+--- `101 Switching Protocols` response head for a client nonce
+--- (RFC 6455 section 1.3 / 4.2.2), `Sec-WebSocket-Accept` computed
+--- with `accept_key`.
+--- @param {key} - the Sec-WebSocket-Key the client sent
+--- @returns {String - the raw HTTP response head}
+export build_101_resp := (key) ~> (
+  "HTTP/1.1 101 Switching Protocols\r\n" +
+  "Upgrade: websocket\r\n" +
+  "Connection: Upgrade\r\n" +
+  "Sec-WebSocket-Accept: " + accept_key(key) + "\r\n" +
+  "\r\n"
+)
+
 --- status_of -- the numeric status out of a status line
 --- `HTTP/1.1 <code> <reason>` (the second whitespace-separated token),
 --- or -1 when it is not a digit string.
@@ -204,6 +219,35 @@ export parse_head := (s) ~> do {
   }
 }
 
+--- A parsed request head: the method (uppercased) plus the header
+--- list. `server.accept` consumes this shape.
+export ReqHead := { method: String, headers: [Header] }
+
+--- method_of -- the first whitespace-separated token of a request
+--- line `<METHOD> <target> <proto>`, uppercased (so `get` and `GET`
+--- compare equal); the empty string when the line has no tokens.
+method_of := (line0) ~> do {
+  ws :: str.split_whitespace(line0)
+  match ws {
+    [m, ...tail]: str.upper(m),
+    _: ""
+  }
+}
+
+--- parse_req_head -- `parse_head` for the request side: the request
+--- line `<METHOD> <target> <proto>` plus colon-separated header lines
+--- into `{method, headers}` with header names lowercased. Lines
+--- without a colon (including the blank terminator) are skipped.
+--- @param {s} - the raw request head
+--- @returns {ReqHead - { method: String, headers: [{name, value}] }}
+export parse_req_head := (s) ~> do {
+  lines :: str.split(s, "\r\n")
+  match lines {
+    []: { method: "", headers: [] },
+    [line0, ...rest]: { method: method_of(line0), headers: headers_of(rest) }
+  }
+}
+
 --- header_get -- case-insensitive header lookup over a `parse_head`
 --- header list; returns the value or null when absent.
 --- @param {headers} - the [{name, value}] list from parse_head
@@ -239,24 +283,28 @@ export head_end := (buf) ~> while { i: 0, n: bytes.len(buf) } {
   }
 }
 
---- parse_url -- read a `ws://host[:port][/path]` URL into `{host,
---- port, path}`. v1 scope: `ws://` scheme and IPv4-literal hosts only;
---- port defaults to 80, path to `"/"`. Raises on any other scheme, an
+--- parse_url -- read a `ws://`/`wss://host[:port][/path]` URL into
+--- `{host, port, path, scheme}`. Port defaults to 80 for `ws://` and
+--- 443 for `wss://`, path to `"/"`. Raises on any other scheme, an
 --- empty host, or a non-numeric/out-of-range port.
 --- @param {s} - the URL string
---- @returns {UrlIn - { host: String, port: Int, path: String }}
+--- @returns {UrlIn - { host: String, port: Int, path: String,
+---   scheme: String }}
 export parse_url := (s) ~> do {
-  if str.starts_with(s, "ws://") == false {
-    error.raise("ws-whatwg-c: only ws:// URLs are supported (v1)")
+  wss :: str.starts_with(s, "wss://")
+  ws :: str.starts_with(s, "ws://")
+  if ws == false && wss == false {
+    error.raise("ws-whatwg-c: only ws:// and wss:// URLs are supported")
   } else {
     do {
-      rest :: str.slice(s, 5, str.length(s))
+      scheme :: if wss { "wss" } else { "ws" }
+      rest :: str.slice(s, if wss { 6 } else { 5 }, str.length(s))
       slash :: str.find(rest, "/")
       authority :: if slash < 0 { rest } else { str.slice(rest, 0, slash) }
       path :: if slash < 0 { "/" } else { str.slice(rest, slash, str.length(rest)) }
       colon :: str.find(authority, ":")
       host :: if colon < 0 { authority } else { str.slice(authority, 0, colon) }
-      port :: if colon < 0 { 80 } else {
+      port :: if colon < 0 { if wss { 443 } else { 80 } } else {
         nat_of(str.slice(authority, colon + 1, str.length(authority)))
       }
       if str.length(host) == 0 {
@@ -264,7 +312,7 @@ export parse_url := (s) ~> do {
       } else if port < 0 || port > 65535 {
         error.raise("ws-whatwg-c: bad port in URL")
       } else {
-        { host: host, port: port, path: path }
+        { host: host, port: port, path: path, scheme: scheme }
       }
     }
   }
