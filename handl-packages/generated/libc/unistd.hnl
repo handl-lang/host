@@ -5,6 +5,7 @@ from "ffi" import { Errno }
 from "result" import { Result }
 from "types/c/sys" import { SSize }
 
+--- reposition read/write file offset
 --- ffi: __off_t (int, __off_t, int)
 export Lseek: (Int, Int, Int) ~[1]~> Result<Int, Errno>
 

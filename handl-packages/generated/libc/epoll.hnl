@@ -13,8 +13,11 @@ export EPOLLHUP: Int
 export EPOLLRDHUP: Int
 export EPOLLONESHOT: Int
 export EPOLLET: Int
+--- Add a file descriptor to the interface.
 export EPOLL_CTL_ADD: Int
+--- Remove a file descriptor from the interface.
 export EPOLL_CTL_DEL: Int
+--- Change file descriptor epoll_event structure.
 export EPOLL_CTL_MOD: Int
 
 --- Same as epoll_create but with an FLAGS parameter.  The unused SIZE

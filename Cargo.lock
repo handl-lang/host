@@ -2203,7 +2203,10 @@ name = "handl-plugin-sdkgen-backend-c"
 version = "0.1.0"
 dependencies = [
  "clang-sys",
+ "flate2",
  "glob",
+ "handl-plugin-lib-http-client",
+ "handl-plugin-lib-http-client-std",
  "handl-plugin-sdkgen",
  "heck",
  "serde",

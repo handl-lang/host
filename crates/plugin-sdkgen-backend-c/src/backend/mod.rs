@@ -10,6 +10,7 @@
 mod clang_args;
 mod diagnostics;
 mod macro_probe;
+mod man;
 mod prune;
 
 #[cfg(test)]
@@ -119,86 +120,7 @@ impl CBackend {
     }
 }
 
-/// Best-effort doc lookup via the `man` command. Tries sections 2 (system
-/// calls) and 3 (library functions); the NAME-section description is
-/// extracted and cached per symbol. Returns `None` when `man` is absent
-/// or the symbol has no page.
-pub struct ManPageDocSource {
-    cache: RefCell<HashMap<String, Option<String>>>,
-}
-
-impl ManPageDocSource {
-    pub fn new() -> Self {
-        Self {
-            cache: RefCell::new(HashMap::new()),
-        }
-    }
-
-    fn lookup_uncached(&self, key: &str) -> Option<String> {
-        for section in ["2", "3"] {
-            if let Some(text) = run_man(section, key) {
-                if let Some(desc) = extract_name_section(&text) {
-                    return Some(desc);
-                }
-            }
-        }
-        None
-    }
-}
-
-impl Default for ManPageDocSource {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-fn run_man(section: &str, symbol: &str) -> Option<String> {
-    let output = std::process::Command::new("man")
-        .args(["-P", "cat", "-S", section, symbol])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    Some(String::from_utf8_lossy(&output.stdout).into_owned())
-}
-
-/// Extract the description from the NAME section of a man page.
-/// The NAME section looks like:
-/// ```text
-/// NAME
-///        symbol - description text
-/// ```
-fn extract_name_section(text: &str) -> Option<String> {
-    let mut lines = text.lines();
-    while let Some(line) = lines.next() {
-        if line.trim() == "NAME" {
-            if let Some(name_line) = lines.next() {
-                let trimmed = name_line.trim();
-                if let Some(pos) = trimmed.find(" - ") {
-                    let desc = trimmed[pos + 3..].trim();
-                    if !desc.is_empty() {
-                        return Some(desc.to_string());
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-impl DocSource for ManPageDocSource {
-    fn lookup(&self, key: &str) -> Option<String> {
-        if let Some(cached) = self.cache.borrow().get(key) {
-            return cached.clone();
-        }
-        let result = self.lookup_uncached(key);
-        self.cache
-            .borrow_mut()
-            .insert(key.to_string(), result.clone());
-        result
-    }
-}
+pub use man::ManPageDocSource;
 
 impl SdkgenBackend for CBackend {
     fn parse_header(&self, path: &Path) -> Result<SdkgenModule, SdkgenError> {
