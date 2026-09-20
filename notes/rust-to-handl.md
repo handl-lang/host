@@ -12,37 +12,39 @@ including interfaces to those atoms — is handl.
 
 ## Construct map
 
-| Rust                | Handl                                                                                             | Example                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `fn f(x: T) -> U`   | `export f: T ~> U := (x) ~> expr`                                                                 | `export now_ms: NowMs := () ~> do { ... }`  |
-| `struct`            | record type                                                                                       | `Timespec := { tv_sec: Int, tv_nsec: Int }` |
-| `enum` (ADTs)       | `tag.tag("Name", payload)` + `tag.tag_of`/`untag`/`match_type`; prefer `option`/`result` packages | `tag.tag("Some", { value: v })`             |
-| `Option<T>`         | `from "option" import { some, none }` — a handl pkg, must be imported                             | `option.test.hnl`                           |
-| `Result<T,E>` / `?` | `from "result" import { ok, err }` — handl pkg; propagate by `match`ing and returning `err`       | `result.test.hnl`                           |
-| exceptions/`catch`  | none — errors are values. Consume via `match tag.tag_of(r) { "ok": …, "err": … }`                 | `tag.untag(r).value`                        |
-| `match`             | `match x { pat: expr, _: default }` — literals, binders, `[]`/`[h,...t]`, `{field: b}`            | `examples/handl/match.hnl`                  |
-| `if/else` stmt      | expression `if c { a } else { b }`                                                                | —                                           |
-| `for`/iterators     | `for x in xs { body }` — imperative iteration; `:=` in body writes back to enclosing scope        | `datetime/helpers.hnl`                      |
-| `map`/`fold`/…      | `fn.map`, `fn.fold`, `collection.*`, or combinator graph                                          | `unicode-handl.hnl`                         |
-| `while` loop        | `while {state} {step}` — step returns `{state: v}` (continue) or `return v`/`{out: v}` (done)     | `examples/handl/fibonacci.hnl`              |
-| recursion           | `while`/`for` (preferred) or self-application `(self ~> self(self, x))`                           | `examples/handl/destructure.hnl`            |
-| `mut` / `&mut`      | `:=` writeback in `for` bodies; state record threaded through `while`/`rec`; no aliasing          | `{ xs: xs, acc: acc }`                      |
-| `panic!`/`unwrap`   | `result.err(msg)` — fallible arrows return `Result`; no raise/throw in handl                      | `generated/libc` adapters                   |
-| trait + impls       | type decl + a value of that type — `I := { f: T ~> U }`, `impl: I := { f: ... }`                  | `unicode-handl.hnl`, `time-c`               |
-| module/`impl` block | `do { helpers := ...; { exported: fields } }` — module-as-record                                  | `unicode-handl.hnl`                         |
-| `cargo test`        | `*.test.hnl` + `hnl test`; `test_name := assert expr`                                             | `option/option.test.hnl`                    |
-| dep in Cargo.toml   | `.handl.toml` `[dependencies] name = { path = ... }`                                              | —                                           |
-| `dlopen` FFI        | `ffi.call`/`ffi.bind`/`ffi.errno` + `types/c` aliases                                             | `generated/libc/*.hnl`                      |
+| Rust                | Handl                                                                                                   | Example                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `fn f(x: T) -> U`   | `export f: T ~> U := (x) ~> expr`                                                                       | `export now_ms: NowMs := () ~> do { ... }`  |
+| `struct`            | record type                                                                                             | `Timespec := { tv_sec: Int, tv_nsec: Int }` |
+| `enum` (ADTs)       | `tag.tag("Name", payload)` + `tag.tag_of`/`untag`/`match_type`; prefer `option`/`result` packages       | `tag.tag("Some", { value: v })`             |
+| `Option<T>`         | `from "option" import { some, none }` — a handl pkg, must be imported                                   | `option.test.hnl`                           |
+| `Result<T,E>` / `?` | `from "result" import { ok, err }` — type+ctors only; combinators (`map`/`and_then`) are a separate pkg | `result.test.hnl`                           |
+| exceptions/`catch`  | none — errors are values. Consume via `match tag.tag_of(r) { "ok": …, "err": … }`                       | `tag.untag(r).value`                        |
+| `match`             | `match x { pat: expr, _: default }` — literals, binders, `[]`/`[h,...t]`, `{field: b}`                  | `examples/handl/match.hnl`                  |
+| `if/else` stmt      | expression `if c { a } else { b }`                                                                      | —                                           |
+| `for`/iterators     | `for x in xs { body }` — imperative _surface_, lowers to `rec` in the arrow calculus                    | `datetime/helpers.hnl`                      |
+| `map`/`fold`/…      | `fn.map`, `fn.fold`, `collection.*`, or combinator graph                                                | `unicode-handl.hnl`                         |
+| `while` loop        | `while {state} {step}` — step returns `{state: v}` (continue) or `return v`/`{out: v}` (done)           | `examples/handl/fibonacci.hnl`              |
+| recursion           | `while`/`for` (preferred) or self-application `(self ~> self(self, x))`                                 | `examples/handl/destructure.hnl`            |
+| `mut` / `&mut`      | `:=` writeback in `for` bodies; state record threaded through `while`/`rec`; no aliasing                | `{ xs: xs, acc: acc }`                      |
+| `panic!`/`unwrap`   | `result.err(msg)` — fallible arrows return `Result`; no raise/throw in handl                            | `generated/libc` adapters                   |
+| trait + impls       | type decl + a value of that type — `I := { f: T ~> U }`, `impl: I := { f: ... }`                        | `unicode-handl.hnl`, `time-c`               |
+| module/`impl` block | `do { helpers := ...; { exported: fields } }` — module-as-record                                        | `unicode-handl.hnl`                         |
+| `cargo test`        | `*.test.hnl` + `hnl test`; `test_name := assert expr`                                                   | `option/option.test.hnl`                    |
+| dep in Cargo.toml   | `.handl.toml` `[dependencies] name = { path = ... }`                                                    | —                                           |
+| `dlopen` FFI        | `ffi.call`/`ffi.bind`/`ffi.errno` + `types/c` aliases                                                   | `generated/libc/*.hnl`                      |
 
 ## Bindings and syntax quick-ref
 
 ```hnl
 export f: T ~> U := (x) ~> expr   -- top-level, typed
 x := expr                         -- definition / binding (top level, do, for-body)
-a == b                            -- equality
+a == b                            -- equality (= / :: assigns are legacy
+                                  -- spellings, being removed from grammar)
 do { a := f(); b := g(a); a + b } -- sequential block; last expr is value
-for x in xs { acc := f(acc, x) }  -- iterate; := writes back to enclosing
-                                  -- scope; the for expression itself is []
+for x in xs { acc := f(acc, x) }  -- imperative sugar → rec lowering;
+                                  -- := writes back to enclosing scope;
+                                  -- the for expression itself is []
 while { n: 5, acc: 1 } {          -- stateful loop: init record, step arrow
   [n, acc] ~> if n == 0
     return acc
@@ -50,10 +52,10 @@ while { n: 5, acc: 1 } {          -- stateful loop: init record, step arrow
 }
 arr("list.tail") >>> first(id)    -- combinator style (calculus vocabulary)
 rec { ... }                       -- fixpoint region (state machines)
-from "m" import { a, b }          -- named (handl packages need this)
+from "m" import { a, b }          -- named
 from "m" import * as m            -- namespace → m.f(...)
-mod.f(...)                        -- host-module fallback (tag, error, str, …);
-                                  -- importing `* as mod` is the explicit style
+-- ALWAYS import. Bare `mod.f` resolution (tag, error, str, …) is a
+-- legacy fallback slated for removal — corpus uses it, new code must not.
 handle arr f with Mod             -- effect injection — host/native ops only
                                   -- (see time-c); NOT the trait/impl idiom
 ```
