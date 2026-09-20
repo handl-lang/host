@@ -838,10 +838,8 @@ impl Runtime {
     pub fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
         if !ast.is_empty() {
             let root = AstRef::new(ast.len() - 1);
-            eprintln!("[dbg] eval: lowering {} ast nodes", ast.len());
             match lower_ast(ast, &self.lang, root) {
                 Ok(term) => {
-                    eprintln!("[dbg] eval: lowered, interpreting");
                     // The default handler registry is currently empty; a future
                     // runtime-provided `FFI` handler can be injected here.
                     let default_handlers: std::collections::HashMap<String, Value> =
@@ -1697,7 +1695,6 @@ impl ModuleLoader {
                 display_path, resolved
             ))
         })?;
-        eprintln!("[dbg] module eval: {} ({} ast nodes)", display_path, ast.len());
         let value = {
             let req = EvalRequest::new(ast.clone());
             engine_rc.eval(&self.lang, &req).map_err(|e| {
