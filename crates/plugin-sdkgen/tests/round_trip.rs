@@ -60,6 +60,7 @@ fn serde_round_trip() {
         ret_descriptor: "i32".to_string(),
         out_struct: Some("out_struct:{tv_sec:i64,tv_nsec:i64}".to_string()),
         variadic: false,
+        errno_guard: true,
         c_decl: "int clock_gettime(clockid_t clock_id, struct timespec *tp);".to_string(),
     });
 

@@ -63,6 +63,7 @@ fn build_clock_module() -> SdkgenModule {
         ret_descriptor: "i32".to_string(),
         out_struct: Some("Timespec".to_string()),
         variadic: false,
+        errno_guard: true,
         c_decl: "int clock_gettime(clockid_t clock_id, struct timespec *tp);".to_string(),
     });
 
@@ -108,8 +109,8 @@ fn emits_port_and_adapter() {
         "call missing: {adapter}"
     );
     assert!(
-        adapter.contains("err(errno())"),
-        "err(errno()) missing: {adapter}"
+        adapter.contains("err(ffi.errno())"),
+        "err(ffi.errno()) missing: {adapter}"
     );
     assert!(adapter.contains("ok(r)"), "ok(r) missing: {adapter}");
 
@@ -148,6 +149,7 @@ fn out_buf_descriptor_gets_buf_unwrap_body() {
         ret_descriptor: "i64".to_string(),
         out_struct: None,
         variadic: false,
+        errno_guard: true,
         c_decl: "ssize_t recv(int, void *, size_t, int);".to_string(),
     });
 

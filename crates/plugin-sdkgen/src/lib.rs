@@ -81,8 +81,17 @@ pub struct Function {
     pub ret_descriptor: String,
     pub out_struct: Option<String>,
     pub variadic: bool,
+    /// Whether the emitter wraps the call in the POSIX `ret < 0 ->
+    /// err(errno())` guard. Libraries that signal errors out-of-band
+    /// (ICU's `UErrorCode*`, Win32 `GetLastError`) set this false.
+    #[serde(default = "default_true")]
+    pub errno_guard: bool,
     pub c_decl: String,
     pub doc: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Visible Handl argument for a foreign function.

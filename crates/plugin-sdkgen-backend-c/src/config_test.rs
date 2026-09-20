@@ -17,6 +17,7 @@ fn func(name: &str, arg_names: &[&str]) -> Function {
         ret_descriptor: "i32".into(),
         out_struct: None,
         variadic: false,
+        errno_guard: true,
         c_decl: String::new(),
         doc: None,
     }

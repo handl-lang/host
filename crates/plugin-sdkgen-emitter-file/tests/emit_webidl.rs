@@ -26,6 +26,7 @@ fn build_console_module() -> SdkgenModule {
         ret_descriptor: "void".to_string(),
         out_struct: None,
         variadic: false,
+        errno_guard: true,
         c_decl: "console.log".to_string(),
     });
 
@@ -135,6 +136,7 @@ fn emits_per_record_layout() {
         ret_descriptor: "void".to_string(),
         out_struct: None,
         variadic: false,
+        errno_guard: true,
         c_decl: "Widget.find".to_string(),
     });
     module.typedefs.push(Typedef {
@@ -176,3 +178,6 @@ fn emits_per_record_layout() {
         types_adapter.contains("from \"../console/types\" import { ConsoleLog }"),
         "{types_adapter}"
     );
+
+    let _ = fs::remove_dir_all(&tmp);
+}

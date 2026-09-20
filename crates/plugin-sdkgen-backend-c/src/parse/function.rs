@@ -138,6 +138,7 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
         ret_descriptor,
         out_struct,
         variadic,
+        errno_guard: true,
         c_decl,
         doc,
     })

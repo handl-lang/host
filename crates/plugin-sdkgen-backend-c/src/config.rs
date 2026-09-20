@@ -66,6 +66,12 @@ pub struct SymbolOverride {
     pub descriptor: Option<String>,
     /// Skip this symbol entirely.
     pub skip: Option<bool>,
+    /// Emit the POSIX `ret < 0 -> err(errno())` guard around the call
+    /// (default true). Set false for libraries whose failures arrive
+    /// out-of-band — ICU's `UErrorCode*` status writes would otherwise
+    /// be masked by a spurious errno check on a valid negative return
+    /// (`ucol_strcoll` returning -1).
+    pub guard: Option<bool>,
 }
 
 impl SdkgenConfig {
@@ -135,6 +141,9 @@ impl SdkgenConfig {
         if let Some(desc) = &ov.descriptor {
             f.ret_descriptor = desc.clone();
         }
+        if let Some(guard) = ov.guard {
+            f.errno_guard = guard;
+        }
         let has_struct_out = f.out_struct.is_some()
             || f.arg_descriptors
                 .iter()
@@ -183,6 +192,7 @@ impl SdkgenConfig {
             ret_descriptor: "i32".into(),
             out_struct: None,
             variadic: false,
+            errno_guard: true,
             c_decl: String::new(),
             doc: None,
         };
@@ -229,6 +239,7 @@ fn descriptor_to_port(d: &str) -> String {
         || d.starts_with("out_ptr:")
         || d.starts_with("io_buf:")
         || d == "in_buf"
+        || d == "in_ptr"
     {
         return "Bytes".to_string();
     }
@@ -239,7 +250,7 @@ fn descriptor_to_port(d: &str) -> String {
         "f64" | "f32" => "Float".to_string(),
         "cstr" => "String".to_string(),
         "cbytes" => "Bytes".to_string(),
-        "ptr" => "Handle".to_string(),
+        "ptr" => "Int".to_string(),
         "handle" => "Handle".to_string(),
         "void" | "()" => "()".to_string(),
         _ if d.starts_with('i') || d.starts_with('u') => "Int".to_string(),

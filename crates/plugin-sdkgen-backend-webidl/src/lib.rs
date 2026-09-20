@@ -378,6 +378,7 @@ fn build_function(
         ret_descriptor,
         out_struct: None,
         variadic,
+        errno_guard: true,
         c_decl,
         doc,
     }

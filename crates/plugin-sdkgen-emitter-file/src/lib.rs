@@ -328,10 +328,10 @@ fn result_record_fields(f: &handl_plugin_sdkgen::Function) -> Option<Vec<(String
         fields.push(("buf".to_string(), "Bytes".to_string()));
     }
     if byte_slots > 0 {
-        fields.push(("outs".to_string(), "List<Bytes>".to_string()));
+        fields.push(("outs".to_string(), "[Bytes]".to_string()));
     }
     if scalar_outs {
-        fields.push(("vals".to_string(), "List<Int>".to_string()));
+        fields.push(("vals".to_string(), "[Int]".to_string()));
     }
     Some(fields)
 }
@@ -410,12 +410,12 @@ fn field_port(spec: &str) -> String {
         if spec.ends_with(":u8") {
             "Bytes".into()
         } else {
-            "List<Int>".into()
+            "[Int]".into()
         }
     } else if spec == "iov" || spec.starts_with("iovbuf:") {
-        "List<Bytes>".into()
+        "[Bytes]".into()
     } else if spec == "ptr" {
-        "Handle".into()
+        "Int".into()
     } else if spec.starts_with("rec:") {
         "Obj".into()
     } else if spec.starts_with('u') || spec == "isize" || spec == "usize" {
@@ -433,10 +433,16 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
         out.push_str(&format!("--- source: {source}\n"));
     }
     out.push_str("\n");
-    out.push_str(&format!(
-        "from \"{}\" import {{ call, {} }}\n",
-        client.client_pkg, client.error_arrow
-    ));
+    // `ffi.call`/`ffi.errno` resolve through the host module chain, not the
+    // package table — `from "ffi" import { call }` would bind the *type
+    // signature* `ffi.hnl` exports, which is not an arrow. The js client
+    // keeps the named import (its package exports callable arrows).
+    if client.client_pkg != "ffi" {
+        out.push_str(&format!(
+            "from \"{}\" import {{ call, {} }}\n",
+            client.client_pkg, client.error_arrow
+        ));
+    }
     out.push_str("from \"result\" import { ok, err }\n");
 
     let mut imports = Vec::new();
@@ -463,6 +469,11 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
         out.push('\n');
     }
 
+    let ffi_prefix = if client.client_pkg == "ffi" {
+        "ffi."
+    } else {
+        ""
+    };
     for f in &module.functions {
         let arg_names = f
             .port_args
@@ -510,7 +521,7 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             f.name, f.port_name, arg_names
         ));
         out.push_str(&format!(
-            "  r = call(\"{call_lib}\", \"{call_sym}\", [{arg_names}], [{descs}], \"{ret_descriptor}\", false)\n"
+            "  r = {ffi_prefix}call(\"{call_lib}\", \"{call_sym}\", [{arg_names}], [{descs}], \"{ret_descriptor}\", false)\n"
         ));
 
         if client.client_pkg == "js" {
@@ -521,27 +532,39 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             out.push_str("    err(e)\n");
             out.push_str("  }\n");
         } else if result_record_fields(f).is_some() {
-            out.push_str("  if r.ret < 0 {\n");
-            out.push_str("    err(errno())\n");
-            out.push_str("  } else {\n");
-            out.push_str("    ok(r)\n");
-            out.push_str("  }\n");
+            if f.errno_guard {
+                out.push_str("  if r.ret < 0 {\n");
+                out.push_str("    err(ffi.errno())\n");
+                out.push_str("  } else {\n");
+                out.push_str("    ok(r)\n");
+                out.push_str("  }\n");
+            } else {
+                out.push_str("  ok(r)\n");
+            }
         } else if f.arg_descriptors.iter().any(|d| d.starts_with("out_buf:")) {
             // A lone out_buf: `ret` doubles as the byte count — unwrap
             // to the buffer.
-            out.push_str("  if r.ret < 0 {\n");
-            out.push_str("    err(errno())\n");
-            out.push_str("  } else {\n");
-            out.push_str("    ok(r.buf)\n");
-            out.push_str("  }\n");
+            if f.errno_guard {
+                out.push_str("  if r.ret < 0 {\n");
+                out.push_str("    err(ffi.errno())\n");
+                out.push_str("  } else {\n");
+                out.push_str("    ok(r.buf)\n");
+                out.push_str("  }\n");
+            } else {
+                out.push_str("  ok(r.buf)\n");
+            }
         } else if f.ret_descriptor == "void" {
             out.push_str("  ok(null)\n");
         } else if is_numeric_descriptor(&f.ret_descriptor) {
-            out.push_str("  if r < 0 {\n");
-            out.push_str("    err(errno())\n");
-            out.push_str("  } else {\n");
-            out.push_str("    ok(r)\n");
-            out.push_str("  }\n");
+            if f.errno_guard {
+                out.push_str("  if r < 0 {\n");
+                out.push_str("    err(ffi.errno())\n");
+                out.push_str("  } else {\n");
+                out.push_str("    ok(r)\n");
+                out.push_str("  }\n");
+            } else {
+                out.push_str("  ok(r)\n");
+            }
         } else {
             out.push_str("  ok(r)\n");
         }

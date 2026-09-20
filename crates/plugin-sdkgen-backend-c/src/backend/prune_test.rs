@@ -33,6 +33,7 @@ fn function(out_struct: Option<&str>, arg_port: &str, ret: &str) -> Function {
         ret_descriptor: "i32".into(),
         out_struct: out_struct.map(|s| s.into()),
         variadic: false,
+        errno_guard: true,
         c_decl: String::new(),
         doc: None,
     }

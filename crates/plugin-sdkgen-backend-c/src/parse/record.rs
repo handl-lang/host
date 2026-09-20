@@ -53,7 +53,7 @@ fn parse_field(cursor: CXCursor) -> Result<Field, String> {
     let canonical = unsafe { clang_getCanonicalType(ty) };
     let (port, descriptor, ptr_depth) = match canonical.kind {
         // Fixed-size inline array `T[N]` → `arr:N:elem` — byte-wide
-        // elements surface as Bytes, wider ones as List<Int>.
+        // elements surface as Bytes, wider ones as [Int].
         CXType_ConstantArray => {
             let elem = unsafe { clang_getArrayElementType(canonical) };
             let n = unsafe { clang_getArraySize(canonical) };
@@ -63,7 +63,7 @@ fn parse_field(cursor: CXCursor) -> Result<Field, String> {
             }
             let (_, edesc) = map_field_type(elem, esz as usize)
                 .map_err(|e| format!("field {name}: array element: {e}"))?;
-            let port = if esz == 1 { "Bytes" } else { "List<Int>" };
+            let port = if esz == 1 { "Bytes" } else { "[Int]" };
             (port.to_string(), format!("arr:{n}:{edesc}"), 0)
         }
         // Any pointer field → raw pointer slot. The marshaller passes the
