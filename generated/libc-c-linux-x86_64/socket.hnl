@@ -2,7 +2,7 @@
 
 from "ffi" import { call, errno }
 from "result" import { ok, err }
-from "../libc/socket" import { Socket, Socketpair, Getsockname, Getpeername, Send, Recv, Recvfrom, Sendmsg, Recvmsg, Setsockopt, Listen, Accept, Accept4, Shutdown, Sockatmark, Isfdtype }
+from "../libc/socket" import { Socket, Socketpair, Bind, Getsockname, Connect, Getpeername, Send, Recv, Recvfrom, Sendmsg, Recvmsg, Getsockopt, Setsockopt, Listen, Accept, Accept4, Shutdown, Sockatmark, Isfdtype }
 
 export SOCK_STREAM: Int := 1
 export SOCK_DGRAM: Int := 2
@@ -306,9 +306,27 @@ export socketpair: Socketpair := (domain, type, protocol) ~> do {
   }
 }
 
+export bind: Bind := (fd, __arg_1) ~> do {
+  r = call("libc.so.6", "bind", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
 export getsockname: Getsockname := (fd) ~> do {
   r = call("libc.so.6", "getsockname", [fd], ["i32", "io_buf:128"], "i32", false)
   if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export connect: Connect := (fd, __arg_1) ~> do {
+  r = call("libc.so.6", "connect", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
+  if r < 0 {
     err(errno())
   } else {
     ok(r)
@@ -362,6 +380,15 @@ export sendmsg: Sendmsg := (fd, msg, flags) ~> do {
 
 export recvmsg: Recvmsg := (fd, flags) ~> do {
   r = call("libc.so.6", "recvmsg", [fd, flags], ["i32", "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}", "i32"], "i64", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getsockopt: Getsockopt := (fd, level, optname) ~> do {
+  r = call("libc.so.6", "getsockopt", [fd, level, optname], ["i32", "i32", "i32", "io_buf:16"], "i32", false)
   if r.ret < 0 {
     err(errno())
   } else {
