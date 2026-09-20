@@ -1,0 +1,53 @@
+--- Generated adapter for libc-c-linux-x86_64/netdb
+
+from "result" import { ok, err }
+from "../libc/netdb" import { Getaddrinfo, Freeaddrinfo, GaiStrerror }
+
+export AI_PASSIVE: Int := 1
+export AI_CANONNAME: Int := 2
+export AI_NUMERICHOST: Int := 4
+export AI_V4MAPPED: Int := 8
+export AI_ALL: Int := 16
+export AI_ADDRCONFIG: Int := 32
+export AI_IDN: Int := 64
+export AI_CANONIDN: Int := 128
+export AI_IDN_ALLOW_UNASSIGNED: Int := 256
+export AI_IDN_USE_STD3_ASCII_RULES: Int := 512
+export AI_NUMERICSERV: Int := 1024
+export EAI_BADFLAGS: Int := -1
+export EAI_NONAME: Int := -2
+export EAI_AGAIN: Int := -3
+export EAI_FAIL: Int := -4
+export EAI_FAMILY: Int := -6
+export EAI_SOCKTYPE: Int := -7
+export EAI_SERVICE: Int := -8
+export EAI_MEMORY: Int := -10
+export EAI_SYSTEM: Int := -11
+export EAI_OVERFLOW: Int := -12
+export EAI_NODATA: Int := -5
+export EAI_ADDRFAMILY: Int := -9
+export EAI_INPROGRESS: Int := -100
+export EAI_CANCELED: Int := -101
+export EAI_NOTCANCELED: Int := -102
+export EAI_ALLDONE: Int := -103
+export EAI_INTR: Int := -104
+export EAI_IDN_ENCODE: Int := -105
+
+export getaddrinfo: Getaddrinfo := (node, service, hints, res) ~> do {
+  r = ffi.call("libc.so.6", "getaddrinfo", [node, service, hints, res], ["cstr", "cstr", "in_struct:{ai_flags:i32@0:4,ai_family:i32@4:4,ai_socktype:i32@8:4,ai_protocol:i32@12:4,ai_addrlen:u32@16:4,ai_addr:ptr@24:8,ai_canonname:ptr@32:8,ai_next:ptr@40:8}", "io_scalar:usize"], "i32", false)
+  if r.ret < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export freeaddrinfo: Freeaddrinfo := (__ai) ~> do {
+  r = ffi.call("libc.so.6", "freeaddrinfo", [__ai], ["ptr"], "void", false)
+  ok(null)
+}
+
+export gai_strerror: GaiStrerror := (__ecode) ~> do {
+  r = ffi.call("libc.so.6", "gai_strerror", [__ecode], ["i32"], "cstr", false)
+  ok(r)
+}

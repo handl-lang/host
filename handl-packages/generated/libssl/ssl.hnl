@@ -1,0 +1,69 @@
+--- Generated port for libssl.ssl
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export SSL_ERROR_NONE: Int
+export SSL_ERROR_SSL: Int
+export SSL_ERROR_WANT_READ: Int
+export SSL_ERROR_WANT_WRITE: Int
+export SSL_ERROR_WANT_X509_LOOKUP: Int
+--- look at error stack/return \
+export SSL_ERROR_SYSCALL: Int
+--- value/errno
+export SSL_ERROR_ZERO_RETURN: Int
+export SSL_ERROR_WANT_CONNECT: Int
+export SSL_ERROR_WANT_ACCEPT: Int
+export SSL_ERROR_WANT_ASYNC: Int
+export SSL_ERROR_WANT_ASYNC_JOB: Int
+export SSL_ERROR_WANT_CLIENT_HELLO_CB: Int
+export SSL_ERROR_WANT_RETRY_VERIFY: Int
+
+--- create a new SSL_CTX object as framework for TLS/SSL or DTLS enabled functions
+--- ffi:
+export SslCtxNew: (Handle) ~[1]~> Result<Handle, Errno>
+
+--- free an allocated SSL_CTX object
+--- ffi: void (SSL_CTX *)
+export SslCtxFree: (Handle) ~[1]~> Result<(), Errno>
+
+--- connect the SSL object with a file descriptor
+--- ffi: int (SSL *, int)
+export SslSetFd: (Handle, Int) ~[1]~> Result<Int, Errno>
+
+--- create an SSL structure for a connection
+--- ffi:
+export SslNew: (Handle) ~[1]~> Result<Handle, Errno>
+
+--- free an allocated SSL structure
+--- ffi: void (SSL *)
+export SslFree: (Handle) ~[1]~> Result<(), Errno>
+
+--- initiate the TLS/SSL handshake with an TLS/SSL server
+--- ffi: int (SSL *)
+export SslConnect: (Handle) ~[1]~> Result<Int, Errno>
+
+--- read bytes from a TLS/SSL connection
+--- ffi: int (SSL *, void *, int)
+export SslRead: (Handle) ~[1]~> Result<Bytes, Errno>
+
+--- write bytes to a TLS/SSL connection
+--- ffi: int (SSL *, const void *, int)
+export SslWrite: (Handle, Bytes) ~[1]~> Result<Int, Errno>
+
+--- obtain result code for TLS/SSL I/O operation
+--- ffi: int (const SSL *, int)
+export SslGetError: (Handle, Int) ~[1]~> Result<Int, Errno>
+
+--- create a new SSL_CTX object as framework for TLS/SSL or DTLS enabled functions
+--- ffi:
+export TlsClientMethod: () ~[1]~> Result<Handle, Errno>
+
+--- shut down a TLS/SSL or QUIC connection
+--- ffi: int (SSL *)
+export SslShutdown: (Handle) ~[1]~> Result<Int, Errno>
+
+--- OpenSSL (libssl and libcrypto) initialisation
+--- ffi: int (uint64_t, const OPENSSL_INIT_SETTINGS *)
+export OpensslInitSsl: (Int, Int) ~[1]~> Result<Int, Errno>

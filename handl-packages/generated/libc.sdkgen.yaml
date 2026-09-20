@@ -13,6 +13,8 @@ defines:
 headers:
   random.h:
     include: ["getrandom", "getentropy", "GRND_*"]
+  netdb.h:
+    include: ["getaddrinfo", "freeaddrinfo", "gai_strerror", "AI_*", "EAI_*"]
   unistd.h:
     include: ["close", "read", "write", "pipe", "pipe2", "dup", "dup2", "lseek", "syscall"]
   time.h:
@@ -26,6 +28,8 @@ headers:
         "clock_gettime",
         "clock_settime",
         "timespec",
+        "CLOCK_MONOTONIC",
+        "CLOCK_REALTIME",
       ]
   # sys/epoll.h — the basename keys the entry, like socket.h's port.
   # epoll_event/epoll_data stay unlisted: epoll_data is a union (unions
@@ -97,6 +101,8 @@ headers:
         "ECONNABORTED",
         "ENOTCONN",
         "EBADF",
+        "EADDRNOTAVAIL",
+        "ECONNREFUSED",
       ]
     exclude: ["error_t"]
 
@@ -129,6 +135,31 @@ symbols:
   # int getentropy(void *buf, size_t len) — same shape, ≤256 bytes.
   getentropy:
     args: ["out_buf:256"]
+
+  # int getaddrinfo(node, service, hints, res) — `res` is `addrinfo **`:
+  # io_scalar:usize passes &cell and reads the head pointer back as an
+  # Int in `vals[0]`; `ffi.read` then walks the `ai_next` chain and
+  # `freeaddrinfo` releases it. `hints` is an in_struct over the real
+  # LP64 layout (glibc, 48 bytes — fields a Handl record omits stay
+  # zeroed).
+  getaddrinfo:
+    args:
+      [
+        "cstr",
+        "cstr",
+        "in_struct:{ai_flags:i32@0:4,ai_family:i32@4:4,ai_socktype:i32@8:4,ai_protocol:i32@12:4,ai_addrlen:u32@16:4,ai_addr:ptr@24:8,ai_canonname:ptr@32:8,ai_next:ptr@40:8}",
+        "io_scalar:usize",
+      ]
+    names: ["node", "service", "hints", "res"]
+
+  # void freeaddrinfo(struct addrinfo *res) — `ptr` takes the head
+  # address captured by getaddrinfo's io_scalar out-cell.
+  freeaddrinfo:
+    args: ["ptr"]
+
+  # const char *gai_strerror(int errcode) — auto-maps the cstr return.
+  gai_strerror:
+    args: ["i32"]
 
   # int accept(int fd, struct sockaddr *addr, socklen_t *addrlen)
   # (addr, addrlen) is the POSIX value-result pair: `io_buf:128` allocates

@@ -1,0 +1,95 @@
+--- Generated port for libc.netdb
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+--- Socket address is intended for `bind'.
+export AI_PASSIVE: Int
+--- Request for canonical name.
+export AI_CANONNAME: Int
+--- Don't use name resolution.
+export AI_NUMERICHOST: Int
+--- IPv4 mapped addresses are acceptable.
+export AI_V4MAPPED: Int
+--- Return IPv4 mapped and IPv6 addresses.
+export AI_ALL: Int
+--- Use configuration of this host to choose
+export AI_ADDRCONFIG: Int
+--- IDN encode input (assuming it is encoded
+export AI_IDN: Int
+--- Translate canonical name from IDN format.
+export AI_CANONIDN: Int
+--- before looking it up.
+--- #  define AI_CANONIDN	0x0080	/* Translate canonical name from IDN format.
+export AI_IDN_ALLOW_UNASSIGNED: Int
+export AI_IDN_USE_STD3_ASCII_RULES: Int
+--- Don't use name resolution.
+export AI_NUMERICSERV: Int
+--- Invalid value for `ai_flags' field.
+export EAI_BADFLAGS: Int
+--- NAME or SERVICE is unknown.
+export EAI_NONAME: Int
+--- Temporary failure in name resolution.
+export EAI_AGAIN: Int
+--- Non-recoverable failure in name res.
+export EAI_FAIL: Int
+--- `ai_family' not supported.
+export EAI_FAMILY: Int
+--- `ai_socktype' not supported.
+export EAI_SOCKTYPE: Int
+--- SERVICE not supported for `ai_socktype'.
+export EAI_SERVICE: Int
+--- Memory allocation failure.
+export EAI_MEMORY: Int
+--- System error returned in `errno'.
+export EAI_SYSTEM: Int
+--- Argument buffer overflow.
+export EAI_OVERFLOW: Int
+--- No address associated with NAME.
+export EAI_NODATA: Int
+--- Address family for NAME not supported.
+export EAI_ADDRFAMILY: Int
+--- Processing request in progress.
+export EAI_INPROGRESS: Int
+--- Request canceled.
+export EAI_CANCELED: Int
+--- Request not canceled.
+export EAI_NOTCANCELED: Int
+--- All requests done.
+export EAI_ALLDONE: Int
+--- Interrupted by a signal.
+export EAI_INTR: Int
+--- IDN encoding failed.
+export EAI_IDN_ENCODE: Int
+
+--- Translate name of a service location and/or a service name to set of
+--- socket addresses.
+--- This function is a possible cancellation point and therefore not
+--- marked with __THROW.
+export GetaddrinfoResult := {
+  ret: Int,
+  vals: [Int]
+}
+
+export GetaddrinfoMsg := {
+  ai_flags: Int,
+  ai_family: Int,
+  ai_socktype: Int,
+  ai_protocol: Int,
+  ai_addrlen: Nat,
+  ai_addr: Int,
+  ai_canonname: Int,
+  ai_next: Int
+}
+
+--- ffi:
+export Getaddrinfo: (String, String, GetaddrinfoMsg, Int) ~[1]~> Result<GetaddrinfoResult, Errno>
+
+--- Free `addrinfo' structure AI including associated storage.
+--- ffi: void (struct addrinfo *)
+export Freeaddrinfo: (Int) ~[1]~> Result<(), Errno>
+
+--- Convert error return from getaddrinfo() to a string.
+--- ffi: const char *(int)
+export GaiStrerror: (Int) ~[1]~> Result<String, Errno>
