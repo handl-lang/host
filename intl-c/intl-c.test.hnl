@@ -1,0 +1,59 @@
+--- Tests for `intl-c` — the `intl` contract implemented over system ICU4C.
+--- @details
+--- Every test is gated on `intl_c.available`: on a host without ICU the
+--- gated checks are vacuously true, so the suite stays green.
+
+from "./intl-c" import * as intl_c
+
+-- probing -------------------------------------------------------------------
+
+-- `available` must be a well-defined bool either way.
+test_probe := assert(intl_c.available == true || intl_c.available == false) = true
+
+-- collation -----------------------------------------------------------------
+
+test_compare_less := assert(if intl_c.available {
+  tag.tag_of(intl_c.compare_strings("a", "b", null))
+} else {
+  "ok"
+}) = "ok"
+
+test_compare_less_val := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("a", "b", null)).value
+} else {
+  -1
+}) = -1
+
+test_compare_equal := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("abc", "abc", null)).value
+} else {
+  0
+}) = 0
+
+test_compare_greater := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("b", "a", null)).value
+} else {
+  1
+}) = 1
+
+-- non-ASCII exercises the UTF-16 marshalling path
+test_compare_utf16 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("é", "z", "en")).value
+} else {
+  -1
+}) = -1
+
+-- number formatting ----------------------------------------------------------
+
+test_format_en := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1234.5, "en")).value
+} else {
+  "1,234.5"
+}) = "1,234.5"
+
+-- CLDR drift: pt-BR uses '.' grouping / ',' decimal in every shipped CLDR.
+test_format_pt_br := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1234.5, "pt-BR")).value
+} else {
+  "1.234,5"
+}) = "1.234,5"
